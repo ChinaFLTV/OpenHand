@@ -1,0 +1,1926 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart' as intl;
+
+import 'app_localizations_de.dart';
+import 'app_localizations_en.dart';
+import 'app_localizations_fr.dart';
+import 'app_localizations_ja.dart';
+import 'app_localizations_zh.dart';
+
+// ignore_for_file: type=lint
+
+/// Callers can lookup localized strings with an instance of AppLocalizations
+/// returned by `AppLocalizations.of(context)`.
+///
+/// Applications need to include `AppLocalizations.delegate()` in their app's
+/// `localizationDelegates` list, and the locales they support in the app's
+/// `supportedLocales` list. For example:
+///
+/// ```dart
+/// import 'l10n/app_localizations.dart';
+///
+/// return MaterialApp(
+///   localizationsDelegates: AppLocalizations.localizationsDelegates,
+///   supportedLocales: AppLocalizations.supportedLocales,
+///   home: MyApplicationHome(),
+/// );
+/// ```
+///
+/// ## Update pubspec.yaml
+///
+/// Please make sure to update your pubspec.yaml to include the following
+/// packages:
+///
+/// ```yaml
+/// dependencies:
+///   # Internationalization support.
+///   flutter_localizations:
+///     sdk: flutter
+///   intl: any # Use the pinned version from flutter_localizations
+///
+///   # Rest of dependencies
+/// ```
+///
+/// ## iOS Applications
+///
+/// iOS applications define key application metadata, including supported
+/// locales, in an Info.plist file that is built into the application bundle.
+/// To configure the locales supported by your app, you’ll need to edit this
+/// file.
+///
+/// First, open your project’s ios/Runner.xcworkspace Xcode workspace file.
+/// Then, in the Project Navigator, open the Info.plist file under the Runner
+/// project’s Runner folder.
+///
+/// Next, select the Information Property List item, select Add Item from the
+/// Editor menu, then select Localizations from the pop-up menu.
+///
+/// Select and expand the newly-created Localizations item then, for each
+/// locale your application supports, add a new item and select the locale
+/// you wish to add from the pop-up menu in the Value field. This list should
+/// be consistent with the languages listed in the AppLocalizations.supportedLocales
+/// property.
+abstract class AppLocalizations {
+  AppLocalizations(String locale)
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+
+  final String localeName;
+
+  static AppLocalizations? of(BuildContext context) {
+    return Localizations.of<AppLocalizations>(context, AppLocalizations);
+  }
+
+  static const LocalizationsDelegate<AppLocalizations> delegate =
+      _AppLocalizationsDelegate();
+
+  /// A list of this localizations delegate along with the default localizations
+  /// delegates.
+  ///
+  /// Returns a list of localizations delegates containing this delegate along with
+  /// GlobalMaterialLocalizations.delegate, GlobalCupertinoLocalizations.delegate,
+  /// and GlobalWidgetsLocalizations.delegate.
+  ///
+  /// Additional delegates can be added by appending to this list in
+  /// MaterialApp. This list does not have to be used at all if a custom list
+  /// of delegates is preferred or required.
+  static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
+      <LocalizationsDelegate<dynamic>>[
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
+
+  /// A list of this localizations delegate's supported locales.
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('de'),
+    Locale('en'),
+    Locale('fr'),
+    Locale('ja'),
+    Locale('zh'),
+    Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+    Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+  ];
+
+  /// No description provided for @appTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand'**
+  String get appTitle;
+
+  /// No description provided for @appTagline.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开放、稳定、可扩展的桌面工作台'**
+  String get appTagline;
+
+  /// No description provided for @newThread.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新线程'**
+  String get newThread;
+
+  /// No description provided for @automations.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动化'**
+  String get automations;
+
+  /// No description provided for @skills.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get skills;
+
+  /// No description provided for @memory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆'**
+  String get memory;
+
+  /// No description provided for @mcp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP'**
+  String get mcp;
+
+  /// No description provided for @settings.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置'**
+  String get settings;
+
+  /// No description provided for @threads.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'线程'**
+  String get threads;
+
+  /// No description provided for @workspaceHeadline.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始构建'**
+  String get workspaceHeadline;
+
+  /// No description provided for @composerHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'询问 OpenHand 任何内容，使用 / 触发动作，使用 @ 引用上下文'**
+  String get composerHint;
+
+  /// No description provided for @composerSend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送'**
+  String get composerSend;
+
+  /// No description provided for @chatSending.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送中'**
+  String get chatSending;
+
+  /// No description provided for @chatRequestFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型请求失败，请检查模型配置、网络连通性或接口协议。'**
+  String get chatRequestFailed;
+
+  /// No description provided for @composerUnavailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前为基础骨架，暂未接入实际执行能力。'**
+  String get composerUnavailable;
+
+  /// No description provided for @workspaceReadyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'基础骨架已就绪'**
+  String get workspaceReadyTitle;
+
+  /// No description provided for @workspaceReadyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前已经完成桌面端主布局、主题切换、语言切换与设置页基础能力，后续模块可以在此逐步扩展。'**
+  String get workspaceReadyBody;
+
+  /// No description provided for @quickActionsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'建议从这里开始'**
+  String get quickActionsTitle;
+
+  /// No description provided for @quickActionCreateShell.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建桌面应用骨架'**
+  String get quickActionCreateShell;
+
+  /// No description provided for @quickActionThemeLanguage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置主题与语言'**
+  String get quickActionThemeLanguage;
+
+  /// No description provided for @quickActionPlanModules.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'规划功能模块'**
+  String get quickActionPlanModules;
+
+  /// No description provided for @automationHeadline.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动化模块骨架'**
+  String get automationHeadline;
+
+  /// No description provided for @automationBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续可在这里编排定时任务、工作流和工具链触发逻辑。'**
+  String get automationBody;
+
+  /// No description provided for @skillsHeadline.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能中心骨架'**
+  String get skillsHeadline;
+
+  /// No description provided for @skillsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续可在这里管理能力插件、提示模板和开发辅助工具。'**
+  String get skillsBody;
+
+  /// No description provided for @placeholderComingSoon.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续功能模块将在这里逐步扩展。'**
+  String get placeholderComingSoon;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置中心'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在这里管理常规设置、AI 模型、MCP 服务、技能目录、记忆与应用信息。'**
+  String get settingsSubtitle;
+
+  /// No description provided for @settingsFilePathLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置文件'**
+  String get settingsFilePathLabel;
+
+  /// No description provided for @themeSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用主题'**
+  String get themeSectionTitle;
+
+  /// No description provided for @themeSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择适合当前工作环境的界面亮度风格。'**
+  String get themeSectionBody;
+
+  /// No description provided for @themeSystem.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跟随系统'**
+  String get themeSystem;
+
+  /// No description provided for @themeLight.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浅色'**
+  String get themeLight;
+
+  /// No description provided for @themeDark.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'深色'**
+  String get themeDark;
+
+  /// No description provided for @themePaletteSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'主题配色'**
+  String get themePaletteSectionTitle;
+
+  /// No description provided for @themePaletteSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择全局主题配色，系统会基于该配色生成 Material 3 Expressive 主题层次。'**
+  String get themePaletteSectionBody;
+
+  /// No description provided for @themePresetDarkNightPurple.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暗夜紫'**
+  String get themePresetDarkNightPurple;
+
+  /// No description provided for @themePresetDeepSeaBlue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'深海蓝'**
+  String get themePresetDeepSeaBlue;
+
+  /// No description provided for @themePresetMistGray.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'雾霭灰'**
+  String get themePresetMistGray;
+
+  /// No description provided for @themePresetObsidianBlack.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'曜石黑'**
+  String get themePresetObsidianBlack;
+
+  /// No description provided for @themePresetPolarWhite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'极昼白'**
+  String get themePresetPolarWhite;
+
+  /// No description provided for @themePresetFrostMorningBlue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'霜晨蓝'**
+  String get themePresetFrostMorningBlue;
+
+  /// No description provided for @themePresetDuskMountainGreen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暮山青'**
+  String get themePresetDuskMountainGreen;
+
+  /// No description provided for @themePresetNebulaPurple.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'星云紫'**
+  String get themePresetNebulaPurple;
+
+  /// No description provided for @themePresetEmberOrange.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'余烬橙'**
+  String get themePresetEmberOrange;
+
+  /// No description provided for @themePresetTundraGreen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'苔原绿'**
+  String get themePresetTundraGreen;
+
+  /// No description provided for @themePresetMoonShadowSilver.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'月影银'**
+  String get themePresetMoonShadowSilver;
+
+  /// No description provided for @themePresetAmberGold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'琥珀金'**
+  String get themePresetAmberGold;
+
+  /// No description provided for @themePresetRainyCyan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'烟雨青'**
+  String get themePresetRainyCyan;
+
+  /// No description provided for @themePresetGraphiteGray.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'石墨灰'**
+  String get themePresetGraphiteGray;
+
+  /// No description provided for @themePresetGlacierBlue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'冰川蓝'**
+  String get themePresetGlacierBlue;
+
+  /// No description provided for @themePresetBlazeRed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'赤焰红'**
+  String get themePresetBlazeRed;
+
+  /// No description provided for @themePresetNightfallBlue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'夜幕蓝'**
+  String get themePresetNightfallBlue;
+
+  /// No description provided for @themePresetColdMoonWhite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'冷月白'**
+  String get themePresetColdMoonWhite;
+
+  /// No description provided for @themePresetPineInk.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'松烟墨'**
+  String get themePresetPineInk;
+
+  /// No description provided for @themePresetSkyCyan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'苍穹青'**
+  String get themePresetSkyCyan;
+
+  /// No description provided for @languageSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用语言'**
+  String get languageSectionTitle;
+
+  /// No description provided for @languageSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'切换界面显示语言，保存后立即生效。'**
+  String get languageSectionBody;
+
+  /// No description provided for @languageSimplifiedChinese.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'简体中文'**
+  String get languageSimplifiedChinese;
+
+  /// No description provided for @languageTraditionalChinese.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'繁體中文'**
+  String get languageTraditionalChinese;
+
+  /// No description provided for @languageEnglish.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'English'**
+  String get languageEnglish;
+
+  /// No description provided for @languageFrench.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Français'**
+  String get languageFrench;
+
+  /// No description provided for @languageGerman.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Deutsch'**
+  String get languageGerman;
+
+  /// No description provided for @languageJapanese.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'日本語'**
+  String get languageJapanese;
+
+  /// No description provided for @aboutSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关于应用'**
+  String get aboutSectionTitle;
+
+  /// No description provided for @aboutSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand 当前处于基础骨架阶段，重点提供稳定的桌面应用结构、视觉基线与可扩展能力。'**
+  String get aboutSectionBody;
+
+  /// No description provided for @aboutVersion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'版本'**
+  String get aboutVersion;
+
+  /// No description provided for @aboutPackage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'包名'**
+  String get aboutPackage;
+
+  /// No description provided for @aboutPlatforms.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'支持平台'**
+  String get aboutPlatforms;
+
+  /// No description provided for @aboutPlatformsValue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'macOS 15+ / Windows 10+'**
+  String get aboutPlatformsValue;
+
+  /// No description provided for @aboutBuild.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'构建号'**
+  String get aboutBuild;
+
+  /// No description provided for @commonCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get commonCancel;
+
+  /// No description provided for @commonSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get commonSave;
+
+  /// No description provided for @commonDelete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get commonDelete;
+
+  /// No description provided for @commonEdit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑'**
+  String get commonEdit;
+
+  /// No description provided for @previewSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设计方向'**
+  String get previewSectionTitle;
+
+  /// No description provided for @previewSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'遵循 Material 3 Expressive 设计理念，强调层次、留白、圆角、柔和光感与清晰的信息节奏。'**
+  String get previewSectionBody;
+
+  /// No description provided for @threadPrimary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand'**
+  String get threadPrimary;
+
+  /// No description provided for @threadShell.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'桌面应用骨架'**
+  String get threadShell;
+
+  /// No description provided for @threadSettings.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置与本地化'**
+  String get threadSettings;
+
+  /// No description provided for @threadRoadmap.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续模块规划'**
+  String get threadRoadmap;
+
+  /// No description provided for @switchToWorkspace.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'返回主工作台'**
+  String get switchToWorkspace;
+
+  /// No description provided for @modelLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenHand Skeleton'**
+  String get modelLabel;
+
+  /// No description provided for @platformLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'桌面端'**
+  String get platformLabel;
+
+  /// No description provided for @permissionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完全访问权限'**
+  String get permissionLabel;
+
+  /// No description provided for @settingsCategoryGeneral.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'常规'**
+  String get settingsCategoryGeneral;
+
+  /// No description provided for @settingsCategoryAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI'**
+  String get settingsCategoryAi;
+
+  /// No description provided for @settingsCategorySkills.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get settingsCategorySkills;
+
+  /// No description provided for @settingsCategoryMemory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆'**
+  String get settingsCategoryMemory;
+
+  /// No description provided for @mcpSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务'**
+  String get mcpSectionTitle;
+
+  /// No description provided for @mcpSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理全局 MCP 开关和服务配置文件位置。服务条目的新增、更新、删除与启用状态会同步写入 MCP JSON 文件。'**
+  String get mcpSectionBody;
+
+  /// No description provided for @mcpEnabledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用 MCP 服务'**
+  String get mcpEnabledLabel;
+
+  /// No description provided for @mcpEnabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭后不会启用 MCP 服务能力，但仍然保留已保存的服务配置。'**
+  String get mcpEnabledBody;
+
+  /// No description provided for @mcpFilePathLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 配置文件'**
+  String get mcpFilePathLabel;
+
+  /// No description provided for @mcpOpenDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开目录'**
+  String get mcpOpenDirectory;
+
+  /// No description provided for @settingsGeneralTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'常规'**
+  String get settingsGeneralTitle;
+
+  /// No description provided for @settingsGeneralSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理主题、语言与应用基础信息。'**
+  String get settingsGeneralSubtitle;
+
+  /// No description provided for @settingsAiSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理聊天模型、鉴权方式与协议适配。'**
+  String get settingsAiSubtitle;
+
+  /// No description provided for @settingsSkillsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get settingsSkillsTitle;
+
+  /// No description provided for @settingsSkillsSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理本地技能目录、模板创建与已安装技能展示。'**
+  String get settingsSkillsSubtitle;
+
+  /// No description provided for @settingsMemorySubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理用户记忆开关与持久化文件位置。'**
+  String get settingsMemorySubtitle;
+
+  /// No description provided for @settingsPersistenceRecoveredTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置文件已自动恢复'**
+  String get settingsPersistenceRecoveredTitle;
+
+  /// No description provided for @settingsPersistenceRecoveredBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到设置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为安全默认值。'**
+  String get settingsPersistenceRecoveredBody;
+
+  /// No description provided for @settingsPersistenceSanitizedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置内容已自动修正'**
+  String get settingsPersistenceSanitizedTitle;
+
+  /// No description provided for @settingsPersistenceSanitizedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到部分设置内容无效，OpenHand 已忽略异常字段并重新写回有效配置。'**
+  String get settingsPersistenceSanitizedBody;
+
+  /// No description provided for @settingsPersistenceSaveFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置保存失败'**
+  String get settingsPersistenceSaveFailedTitle;
+
+  /// No description provided for @settingsPersistenceSaveFailedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'设置文件写入失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。'**
+  String get settingsPersistenceSaveFailedBody;
+
+  /// No description provided for @settingsPersistenceDismiss.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭提示'**
+  String get settingsPersistenceDismiss;
+
+  /// No description provided for @aiModelAdd.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增模型'**
+  String get aiModelAdd;
+
+  /// No description provided for @aiModelsEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还没有可用模型'**
+  String get aiModelsEmptyTitle;
+
+  /// No description provided for @aiModelsEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'先添加至少一个模型配置，后续线程聊天窗口会直接复用这里的模型列表。'**
+  String get aiModelsEmptyBody;
+
+  /// No description provided for @aiModelDialogCreateTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增模型配置'**
+  String get aiModelDialogCreateTitle;
+
+  /// No description provided for @aiModelDialogEditTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑模型配置'**
+  String get aiModelDialogEditTitle;
+
+  /// No description provided for @aiModelBaseUrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Base URL'**
+  String get aiModelBaseUrl;
+
+  /// No description provided for @aiModelBaseUrlRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 Base URL'**
+  String get aiModelBaseUrlRequired;
+
+  /// No description provided for @aiModelBaseUrlInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的 Base URL'**
+  String get aiModelBaseUrlInvalid;
+
+  /// No description provided for @aiModelAuthScheme.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'鉴权方式'**
+  String get aiModelAuthScheme;
+
+  /// No description provided for @aiModelToken.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'令牌'**
+  String get aiModelToken;
+
+  /// No description provided for @aiModelIdField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型 ID'**
+  String get aiModelIdField;
+
+  /// No description provided for @aiModelIdRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入模型 ID'**
+  String get aiModelIdRequired;
+
+  /// No description provided for @aiModelProtocol.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'协议类型'**
+  String get aiModelProtocol;
+
+  /// No description provided for @aiModelSaveSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型配置已保存。'**
+  String get aiModelSaveSuccess;
+
+  /// No description provided for @aiModelDeleteConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除模型配置'**
+  String get aiModelDeleteConfirmTitle;
+
+  /// No description provided for @aiModelDeleteConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除这条模型配置吗？'**
+  String get aiModelDeleteConfirmBody;
+
+  /// No description provided for @aiModelDeleteSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型配置已删除。'**
+  String get aiModelDeleteSuccess;
+
+  /// No description provided for @aiModelMoveUp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上移'**
+  String get aiModelMoveUp;
+
+  /// No description provided for @aiModelMoveDown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下移'**
+  String get aiModelMoveDown;
+
+  /// No description provided for @aiModelSelected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话模型'**
+  String get aiModelSelected;
+
+  /// No description provided for @aiModelNoToken.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未配置令牌'**
+  String get aiModelNoToken;
+
+  /// No description provided for @aiModelTest.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试'**
+  String get aiModelTest;
+
+  /// No description provided for @aiModelTesting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试中'**
+  String get aiModelTesting;
+
+  /// No description provided for @aiModelTestSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{modelName} 测试通过。'**
+  String aiModelTestSuccess(Object modelName);
+
+  /// No description provided for @aiModelTestFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{modelName} 测试失败：{reason}'**
+  String aiModelTestFailure(Object modelName, Object reason);
+
+  /// No description provided for @aiModelSelectionRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先在设置中添加并选择一个 AI 模型。'**
+  String get aiModelSelectionRequired;
+
+  /// No description provided for @chatModelButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择模型'**
+  String get chatModelButton;
+
+  /// No description provided for @aiAuthNone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无'**
+  String get aiAuthNone;
+
+  /// No description provided for @aiAuthBearer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Bearer'**
+  String get aiAuthBearer;
+
+  /// No description provided for @aiAuthToken.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token'**
+  String get aiAuthToken;
+
+  /// No description provided for @aiAuthApiKey.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'API Key'**
+  String get aiAuthApiKey;
+
+  /// No description provided for @aiProtocolOpenAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'OpenAI'**
+  String get aiProtocolOpenAi;
+
+  /// No description provided for @aiProtocolClaude.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Claude'**
+  String get aiProtocolClaude;
+
+  /// No description provided for @aiProtocolGemini.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Gemini'**
+  String get aiProtocolGemini;
+
+  /// No description provided for @aiProtocolDeepSeek.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'DeepSeek'**
+  String get aiProtocolDeepSeek;
+
+  /// No description provided for @aiProtocolKimi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Kimi'**
+  String get aiProtocolKimi;
+
+  /// No description provided for @aiProtocolGlm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'GLM'**
+  String get aiProtocolGlm;
+
+  /// No description provided for @aiProtocolGrok.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Grok'**
+  String get aiProtocolGrok;
+
+  /// No description provided for @skillsPageTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get skillsPageTitle;
+
+  /// No description provided for @skillsPageSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'为 OpenHand 提供更强大的扩展能力，统一管理本地已安装技能与模板。'**
+  String get skillsPageSubtitle;
+
+  /// No description provided for @skillsInstalledSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已安装'**
+  String get skillsInstalledSectionTitle;
+
+  /// No description provided for @skillsSearchHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'搜索技能'**
+  String get skillsSearchHint;
+
+  /// No description provided for @skillsRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get skillsRefresh;
+
+  /// No description provided for @skillsOpenDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开目录'**
+  String get skillsOpenDirectory;
+
+  /// No description provided for @skillsImport.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导入技能'**
+  String get skillsImport;
+
+  /// No description provided for @skillsNewSkill.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新技能'**
+  String get skillsNewSkill;
+
+  /// No description provided for @skillsEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还没有安装任何技能'**
+  String get skillsEmptyTitle;
+
+  /// No description provided for @skillsEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前技能目录中未发现任何 SKILL.md。你可以先创建模板，或切换到已有技能目录。'**
+  String get skillsEmptyBody;
+
+  /// No description provided for @skillsEmptyActionCreate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建模板'**
+  String get skillsEmptyActionCreate;
+
+  /// No description provided for @skillsEmptyActionOpenDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开目录'**
+  String get skillsEmptyActionOpenDirectory;
+
+  /// No description provided for @skillsNoResultsTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未找到匹配的技能'**
+  String get skillsNoResultsTitle;
+
+  /// No description provided for @skillsNoResultsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尝试修改搜索关键词，或清空搜索后重新查看全部技能。'**
+  String get skillsNoResultsBody;
+
+  /// No description provided for @skillsFolderLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'存放位置'**
+  String get skillsFolderLabel;
+
+  /// No description provided for @skillsCardOpen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开技能目录'**
+  String get skillsCardOpen;
+
+  /// No description provided for @skillTemplateCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已创建新技能'**
+  String get skillTemplateCreated;
+
+  /// No description provided for @skillOperationFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能操作失败，请稍后重试。'**
+  String get skillOperationFailed;
+
+  /// No description provided for @skillsImportSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已导入技能'**
+  String get skillsImportSuccess;
+
+  /// No description provided for @skillsEdit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑技能'**
+  String get skillsEdit;
+
+  /// No description provided for @skillsDelete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除技能'**
+  String get skillsDelete;
+
+  /// No description provided for @skillsPreviewClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get skillsPreviewClose;
+
+  /// No description provided for @skillsEditorLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'SKILL.md 内容'**
+  String get skillsEditorLabel;
+
+  /// No description provided for @skillsCreateDialogTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增技能'**
+  String get skillsCreateDialogTitle;
+
+  /// No description provided for @skillsCreateNameLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能名称'**
+  String get skillsCreateNameLabel;
+
+  /// No description provided for @skillsCreateNameRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入技能名称'**
+  String get skillsCreateNameRequired;
+
+  /// No description provided for @skillsCreateIconLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能图标'**
+  String get skillsCreateIconLabel;
+
+  /// No description provided for @skillsCreateIconHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请选择表情或本地图片'**
+  String get skillsCreateIconHint;
+
+  /// No description provided for @skillsCreateIconRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请选择技能图标'**
+  String get skillsCreateIconRequired;
+
+  /// No description provided for @skillsCreateIconChoose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择表情'**
+  String get skillsCreateIconChoose;
+
+  /// No description provided for @skillsCreateIconChange.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新选择'**
+  String get skillsCreateIconChange;
+
+  /// No description provided for @skillsCreateImageChoose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择图片'**
+  String get skillsCreateImageChoose;
+
+  /// No description provided for @skillsCreateImageChange.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更换图片'**
+  String get skillsCreateImageChange;
+
+  /// No description provided for @skillsCreateImageSelected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已选择本地图片'**
+  String get skillsCreateImageSelected;
+
+  /// No description provided for @skillsCreateDescriptionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能简介'**
+  String get skillsCreateDescriptionLabel;
+
+  /// No description provided for @skillsCreateDescriptionRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入技能简介'**
+  String get skillsCreateDescriptionRequired;
+
+  /// No description provided for @skillsCreateContentRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 SKILL.md 内容'**
+  String get skillsCreateContentRequired;
+
+  /// No description provided for @imageEditorTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑图片'**
+  String get imageEditorTitle;
+
+  /// No description provided for @imageEditorCropHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拖动图片调整方形裁剪区域，并可继续缩放、旋转、调节亮度与对比度。'**
+  String get imageEditorCropHint;
+
+  /// No description provided for @imageEditorZoomLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缩放'**
+  String get imageEditorZoomLabel;
+
+  /// No description provided for @imageEditorBrightnessLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'亮度'**
+  String get imageEditorBrightnessLabel;
+
+  /// No description provided for @imageEditorContrastLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'对比度'**
+  String get imageEditorContrastLabel;
+
+  /// No description provided for @imageEditorRotateLeft.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'左转'**
+  String get imageEditorRotateLeft;
+
+  /// No description provided for @imageEditorRotateRight.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'右转'**
+  String get imageEditorRotateRight;
+
+  /// No description provided for @imageEditorReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置'**
+  String get imageEditorReset;
+
+  /// No description provided for @imageEditorLoadFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法加载所选图片'**
+  String get imageEditorLoadFailed;
+
+  /// No description provided for @imageEditorProcessFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无法处理所选图片'**
+  String get imageEditorProcessFailed;
+
+  /// No description provided for @skillsEditorSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get skillsEditorSave;
+
+  /// No description provided for @skillsEditorCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get skillsEditorCancel;
+
+  /// No description provided for @skillsEditSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能内容已保存'**
+  String get skillsEditSuccess;
+
+  /// No description provided for @skillsDeleteConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除技能'**
+  String get skillsDeleteConfirmTitle;
+
+  /// No description provided for @skillsDeleteConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除后将永久移除该技能目录及其 SKILL.md 内容。'**
+  String get skillsDeleteConfirmBody;
+
+  /// No description provided for @skillsDeleteConfirmAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除'**
+  String get skillsDeleteConfirmAction;
+
+  /// No description provided for @skillsDeleteSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能已删除'**
+  String get skillsDeleteSuccess;
+
+  /// No description provided for @skillsStorageSectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能存放位置'**
+  String get skillsStorageSectionTitle;
+
+  /// No description provided for @skillsStorageSectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置 OpenHand 扫描技能的本地目录。默认会使用 ~/.openhand/skills，并在需要时自动创建。'**
+  String get skillsStorageSectionBody;
+
+  /// No description provided for @skillsStorageDefaultPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认路径'**
+  String get skillsStorageDefaultPath;
+
+  /// No description provided for @skillsStorageCurrentPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前路径'**
+  String get skillsStorageCurrentPath;
+
+  /// No description provided for @skillsStorageSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存位置'**
+  String get skillsStorageSave;
+
+  /// No description provided for @skillsStorageBrowse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择目录'**
+  String get skillsStorageBrowse;
+
+  /// No description provided for @skillsStorageReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认'**
+  String get skillsStorageReset;
+
+  /// No description provided for @skillsStorageOpen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开位置'**
+  String get skillsStorageOpen;
+
+  /// No description provided for @skillsStorageSummaryTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能摘要'**
+  String get skillsStorageSummaryTitle;
+
+  /// No description provided for @skillsStorageSummaryBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前技能目录、安装数量与扫描状态会在这里实时展示。'**
+  String get skillsStorageSummaryBody;
+
+  /// No description provided for @skillsStorageStatusReady.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'状态'**
+  String get skillsStorageStatusReady;
+
+  /// No description provided for @skillsStorageStatusLoading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描中'**
+  String get skillsStorageStatusLoading;
+
+  /// No description provided for @skillsStorageStatusError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能目录读取失败'**
+  String get skillsStorageStatusError;
+
+  /// No description provided for @skillsPathSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能存放位置已更新'**
+  String get skillsPathSaved;
+
+  /// No description provided for @memoryPageTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆'**
+  String get memoryPageTitle;
+
+  /// No description provided for @memoryPageSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'统一维护用户可编辑记忆，所有条目会持久化到本地 JSON 文件。'**
+  String get memoryPageSubtitle;
+
+  /// No description provided for @memoryRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get memoryRefresh;
+
+  /// No description provided for @memoryNewEntry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增记忆'**
+  String get memoryNewEntry;
+
+  /// No description provided for @memoryEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还没有任何用户记忆'**
+  String get memoryEmptyTitle;
+
+  /// No description provided for @memoryEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增一条用户记忆后，它会持久化保存到当前配置的记忆文件中。'**
+  String get memoryEmptyBody;
+
+  /// No description provided for @memoryLoadFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆文件读取失败'**
+  String get memoryLoadFailedTitle;
+
+  /// No description provided for @memoryOperationFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆操作失败，请稍后重试。'**
+  String get memoryOperationFailed;
+
+  /// No description provided for @memoryDialogCreateTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增用户记忆'**
+  String get memoryDialogCreateTitle;
+
+  /// No description provided for @memoryDialogEditTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑用户记忆'**
+  String get memoryDialogEditTitle;
+
+  /// No description provided for @memoryContentField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆内容'**
+  String get memoryContentField;
+
+  /// No description provided for @memoryContentRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入记忆内容'**
+  String get memoryContentRequired;
+
+  /// No description provided for @memoryTagsField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标签'**
+  String get memoryTagsField;
+
+  /// No description provided for @memoryTagsHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入一个标签后按回车添加'**
+  String get memoryTagsHint;
+
+  /// No description provided for @memoryDeleteConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除用户记忆'**
+  String get memoryDeleteConfirmTitle;
+
+  /// No description provided for @memoryDeleteConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除这条用户记忆吗？删除后无法恢复。'**
+  String get memoryDeleteConfirmBody;
+
+  /// No description provided for @memoryTypeUser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户编辑'**
+  String get memoryTypeUser;
+
+  /// No description provided for @memoryEntryCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户记忆已创建'**
+  String get memoryEntryCreated;
+
+  /// No description provided for @memoryEntryUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户记忆已更新'**
+  String get memoryEntryUpdated;
+
+  /// No description provided for @memoryEntryDeleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户记忆已删除'**
+  String get memoryEntryDeleted;
+
+  /// No description provided for @memoryEnabledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用记忆能力'**
+  String get memoryEnabledLabel;
+
+  /// No description provided for @memoryEnabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭后不会在运行时使用用户记忆，但仍然保留已保存的记忆内容。'**
+  String get memoryEnabledBody;
+
+  /// No description provided for @userMemoryFileLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户记忆文件'**
+  String get userMemoryFileLabel;
+
+  /// No description provided for @memoryFileBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置用户记忆 JSON 文件位置。默认会使用当前程序目录下的 .openhand/memory/user-memory.json。'**
+  String get memoryFileBody;
+
+  /// No description provided for @memoryFileDefaultPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认文件'**
+  String get memoryFileDefaultPath;
+
+  /// No description provided for @memoryFileSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存路径'**
+  String get memoryFileSave;
+
+  /// No description provided for @memoryFileBrowse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择文件'**
+  String get memoryFileBrowse;
+
+  /// No description provided for @memoryFileReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'恢复默认'**
+  String get memoryFileReset;
+
+  /// No description provided for @memoryOpenDirectory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开目录'**
+  String get memoryOpenDirectory;
+
+  /// No description provided for @memoryPathSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户记忆文件路径已更新'**
+  String get memoryPathSaved;
+
+  /// No description provided for @memoryDisabledTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆能力当前已关闭'**
+  String get memoryDisabledTitle;
+
+  /// No description provided for @memoryDisabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'你仍然可以在这里维护用户记忆内容；如需在运行时启用，请到设置页记忆板块打开记忆开关。'**
+  String get memoryDisabledBody;
+
+  /// No description provided for @memoryCreatedAtLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建时间'**
+  String get memoryCreatedAtLabel;
+
+  /// No description provided for @memoryPersistenceRecoveredTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆文件已自动恢复'**
+  String get memoryPersistenceRecoveredTitle;
+
+  /// No description provided for @memoryPersistenceRecoveredBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到记忆文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空列表。'**
+  String get memoryPersistenceRecoveredBody;
+
+  /// No description provided for @memoryPersistenceSanitizedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆内容已自动修正'**
+  String get memoryPersistenceSanitizedTitle;
+
+  /// No description provided for @memoryPersistenceSanitizedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到部分记忆字段无效，OpenHand 已忽略异常条目并重新写回有效内容。'**
+  String get memoryPersistenceSanitizedBody;
+
+  /// No description provided for @memoryPersistenceSaveFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆文件保存失败'**
+  String get memoryPersistenceSaveFailedTitle;
+
+  /// No description provided for @memoryPersistenceSaveFailedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。'**
+  String get memoryPersistenceSaveFailedBody;
+
+  /// No description provided for @mcpPageTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP'**
+  String get mcpPageTitle;
+
+  /// No description provided for @mcpPageSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'参考 Cursor 的 MCP 服务管理结构，统一维护本地 MCP Server 配置。'**
+  String get mcpPageSubtitle;
+
+  /// No description provided for @mcpRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get mcpRefresh;
+
+  /// No description provided for @mcpNewServer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增服务'**
+  String get mcpNewServer;
+
+  /// No description provided for @mcpEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还没有配置任何 MCP 服务'**
+  String get mcpEmptyTitle;
+
+  /// No description provided for @mcpEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'先新增一个 MCP Server，OpenHand 会把它保存到 ~/.openhand/mcp/mcp_servers.json 中。'**
+  String get mcpEmptyBody;
+
+  /// No description provided for @mcpLoadFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 配置读取失败'**
+  String get mcpLoadFailedTitle;
+
+  /// No description provided for @mcpOperationFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 操作失败，请稍后重试。'**
+  String get mcpOperationFailed;
+
+  /// No description provided for @mcpDialogCreateTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增 MCP 服务'**
+  String get mcpDialogCreateTitle;
+
+  /// No description provided for @mcpDialogEditTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑 MCP 服务'**
+  String get mcpDialogEditTitle;
+
+  /// No description provided for @mcpNameField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务名称'**
+  String get mcpNameField;
+
+  /// No description provided for @mcpNameRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入服务名称'**
+  String get mcpNameRequired;
+
+  /// No description provided for @mcpNameDuplicate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务名称已存在'**
+  String get mcpNameDuplicate;
+
+  /// No description provided for @mcpTypeField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务类型'**
+  String get mcpTypeField;
+
+  /// No description provided for @mcpUrlField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务 URL'**
+  String get mcpUrlField;
+
+  /// No description provided for @mcpUrlRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入服务 URL'**
+  String get mcpUrlRequired;
+
+  /// No description provided for @mcpUrlInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的服务 URL'**
+  String get mcpUrlInvalid;
+
+  /// No description provided for @mcpCommandField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启动命令'**
+  String get mcpCommandField;
+
+  /// No description provided for @mcpCommandRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入启动命令'**
+  String get mcpCommandRequired;
+
+  /// No description provided for @mcpArgsField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令参数'**
+  String get mcpArgsField;
+
+  /// No description provided for @mcpArgsHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每行一个参数'**
+  String get mcpArgsHint;
+
+  /// No description provided for @mcpServerEnabledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用该服务'**
+  String get mcpServerEnabledLabel;
+
+  /// No description provided for @mcpServerEnabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭后会保留服务配置，但不会在运行时启用它。'**
+  String get mcpServerEnabledBody;
+
+  /// No description provided for @mcpServerStatusEnabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已启用'**
+  String get mcpServerStatusEnabled;
+
+  /// No description provided for @mcpServerStatusDisabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已禁用'**
+  String get mcpServerStatusDisabled;
+
+  /// No description provided for @mcpServerCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务已创建'**
+  String get mcpServerCreated;
+
+  /// No description provided for @mcpServerUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务已更新'**
+  String get mcpServerUpdated;
+
+  /// No description provided for @mcpServerDeleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务已删除'**
+  String get mcpServerDeleted;
+
+  /// No description provided for @mcpDeleteConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除 MCP 服务'**
+  String get mcpDeleteConfirmTitle;
+
+  /// No description provided for @mcpDeleteConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除这条 MCP 服务配置吗？'**
+  String get mcpDeleteConfirmBody;
+
+  /// No description provided for @mcpDisabledTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 服务当前已关闭'**
+  String get mcpDisabledTitle;
+
+  /// No description provided for @mcpDisabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'你仍然可以在这里维护服务配置；如需在运行时启用，请到设置页 MCP 板块打开 MCP 开关。'**
+  String get mcpDisabledBody;
+
+  /// No description provided for @mcpTransportStreamableHttp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Streamable HTTP'**
+  String get mcpTransportStreamableHttp;
+
+  /// No description provided for @mcpTransportSse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'SSE'**
+  String get mcpTransportSse;
+
+  /// No description provided for @mcpTransportStdio.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'STDIO'**
+  String get mcpTransportStdio;
+
+  /// No description provided for @mcpPersistenceRecoveredTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 配置文件已自动恢复'**
+  String get mcpPersistenceRecoveredTitle;
+
+  /// No description provided for @mcpPersistenceRecoveredBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到 MCP 配置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空配置。'**
+  String get mcpPersistenceRecoveredBody;
+
+  /// No description provided for @mcpPersistenceSanitizedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 配置内容已自动修正'**
+  String get mcpPersistenceSanitizedTitle;
+
+  /// No description provided for @mcpPersistenceSanitizedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'检测到部分 MCP 服务字段无效，OpenHand 已忽略异常条目并重新写回有效配置。'**
+  String get mcpPersistenceSanitizedBody;
+
+  /// No description provided for @mcpPersistenceSaveFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MCP 配置保存失败'**
+  String get mcpPersistenceSaveFailedTitle;
+
+  /// No description provided for @mcpPersistenceSaveFailedBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。'**
+  String get mcpPersistenceSaveFailedBody;
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) =>
+      <String>['de', 'en', 'fr', 'ja', 'zh'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
+}
+
+AppLocalizations lookupAppLocalizations(Locale locale) {
+  // Lookup logic when language+script codes are specified.
+  switch (locale.languageCode) {
+    case 'zh':
+      {
+        switch (locale.scriptCode) {
+          case 'Hans':
+            return AppLocalizationsZhHans();
+          case 'Hant':
+            return AppLocalizationsZhHant();
+        }
+        break;
+      }
+  }
+
+  // Lookup logic when only language code is specified.
+  switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'ja':
+      return AppLocalizationsJa();
+    case 'zh':
+      return AppLocalizationsZh();
+  }
+
+  throw FlutterError(
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
+}

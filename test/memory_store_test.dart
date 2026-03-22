@@ -1,0 +1,196 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+
+import 'package:openhand/features/memory/data/memory_store.dart';
+import 'package:openhand/features/memory/memory_controller.dart';
+import 'package:openhand/features/memory/model/user_memory_entry.dart';
+
+void main() {
+  test('MemoryStore persists and recovers user memory json', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'openhand_memory_store_test_',
+    );
+    addTearDown(() => tempDirectory.delete(recursive: true));
+    final userMemoryFilePath = p.join(
+      tempDirectory.path,
+      '.openhand',
+      'memory',
+      'user-memory.json',
+    );
+    final store = MemoryStore(userMemoryFilePath: userMemoryFilePath);
+
+    final initialLoad = await store.load();
+    expect(initialLoad.entries, isEmpty);
+    expect(File(userMemoryFilePath).existsSync(), isTrue);
+
+    await store.save(<UserMemoryEntry>[
+      UserMemoryEntry(
+        id: 'memory-1',
+        type: UserMemoryEntry.userType,
+        createdAt: DateTime.utc(2026, 3, 22, 9, 0, 0),
+        content: 'Remember the preferred terminal layout.',
+        tags: const <String>['ui', 'terminal'],
+      ),
+      UserMemoryEntry(
+        id: 'memory-2',
+        type: UserMemoryEntry.userType,
+        createdAt: DateTime.utc(2026, 3, 22, 10, 0, 0),
+        content: 'Always keep MCP and skills settings separate.',
+        tags: const <String>['settings'],
+      ),
+    ]);
+
+    final reloaded = await store.load();
+    expect(reloaded.entries, hasLength(2));
+    expect(reloaded.entries.first.id, 'memory-2');
+    expect(reloaded.entries.last.tags, contains('terminal'));
+    expect(
+      File(userMemoryFilePath).readAsStringSync(),
+      contains('"created_at"'),
+    );
+
+    await File(userMemoryFilePath).writeAsString('{broken', flush: true);
+    final recovered = await store.load();
+    expect(recovered.entries, isEmpty);
+    expect(
+      recovered.issue?.kind,
+      MemoryPersistenceIssueKind.recoveredInvalidFile,
+    );
+    final backupFiles = Directory(p.dirname(userMemoryFilePath))
+        .listSync()
+        .whereType<File>()
+        .where(
+          (file) => p.basename(file.path).startsWith('user-memory.invalid-'),
+        )
+        .toList();
+    expect(backupFiles, isNotEmpty);
+  });
+
+  test('MemoryController serializes create and refresh operations', () async {
+    final store = _QueuedMemoryStore(initialEntries: const <UserMemoryEntry>[]);
+    final controller = await MemoryController.create(
+      initialFilePath: store.userMemoryFilePath,
+      store: store,
+      idGenerator: () => 'memory-1',
+      clock: () => DateTime.utc(2026, 3, 22, 9, 0, 0),
+    );
+    expect(store.loadCallCount, 1);
+
+    final createFuture = controller.createMemory(
+      content: 'Remember the preferred terminal layout.',
+      tags: const <String>['ui'],
+    );
+    final refreshFuture = controller.refresh();
+
+    await Future<void>.delayed(Duration.zero);
+
+    expect(store.pendingSaveCount, 1);
+    expect(store.loadCallCount, 1);
+    expect(controller.entries, hasLength(1));
+
+    store.completeNextSave();
+
+    expect(await createFuture, isTrue);
+    await refreshFuture;
+
+    expect(store.loadCallCount, 2);
+    expect(controller.entries, hasLength(1));
+    expect(controller.entries.single.id, 'memory-1');
+    expect(controller.errorMessage, isNull);
+  });
+
+  test(
+    'MemoryController applies queued creates against latest memory list',
+    () async {
+      final store = _QueuedMemoryStore(
+        initialEntries: const <UserMemoryEntry>[],
+      );
+      final generatedIds = <String>['memory-1', 'memory-2'];
+      final generatedTimes = <DateTime>[
+        DateTime.utc(2026, 3, 22, 9, 0, 0),
+        DateTime.utc(2026, 3, 22, 10, 0, 0),
+      ];
+      final controller = await MemoryController.create(
+        initialFilePath: store.userMemoryFilePath,
+        store: store,
+        idGenerator: () => generatedIds.removeAt(0),
+        clock: () => generatedTimes.removeAt(0),
+      );
+
+      final firstCreate = controller.createMemory(
+        content: 'Remember the preferred terminal layout.',
+        tags: const <String>['ui'],
+      );
+      final secondCreate = controller.createMemory(
+        content: 'Remember the compact composer spacing.',
+        tags: const <String>['layout'],
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      expect(store.pendingSaveCount, 1);
+      expect(controller.entries, hasLength(1));
+
+      store.completeNextSave();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(store.pendingSaveCount, 1);
+      expect(controller.entries, hasLength(2));
+
+      store.completeNextSave();
+
+      expect(await firstCreate, isTrue);
+      expect(await secondCreate, isTrue);
+      expect(controller.entries, hasLength(2));
+      expect(controller.entries.first.id, 'memory-2');
+      expect(controller.entries.last.id, 'memory-1');
+    },
+  );
+}
+
+class _QueuedMemoryStore extends MemoryStore {
+  _QueuedMemoryStore({required List<UserMemoryEntry> initialEntries})
+    : _persistedEntries = List<UserMemoryEntry>.from(initialEntries),
+      super(userMemoryFilePath: '/tmp/openhand-test-memory.json');
+
+  List<UserMemoryEntry> _persistedEntries;
+  int loadCallCount = 0;
+  final List<_PendingMemorySave> _pendingSaves = <_PendingMemorySave>[];
+
+  int get pendingSaveCount => _pendingSaves.length;
+
+  @override
+  Future<MemoryLoadResult> load() async {
+    loadCallCount += 1;
+    return MemoryLoadResult(
+      entries: List<UserMemoryEntry>.from(_persistedEntries),
+    );
+  }
+
+  @override
+  Future<void> save(List<UserMemoryEntry> entries) {
+    final completer = Completer<void>();
+    _pendingSaves.add(
+      _PendingMemorySave(
+        completer: completer,
+        entries: List<UserMemoryEntry>.from(entries),
+      ),
+    );
+    return completer.future;
+  }
+
+  void completeNextSave() {
+    final pendingSave = _pendingSaves.removeAt(0);
+    _persistedEntries = pendingSave.entries;
+    pendingSave.completer.complete();
+  }
+}
+
+class _PendingMemorySave {
+  const _PendingMemorySave({required this.completer, required this.entries});
+
+  final Completer<void> completer;
+  final List<UserMemoryEntry> entries;
+}
