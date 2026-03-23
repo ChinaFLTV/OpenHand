@@ -10,20 +10,27 @@ import 'model/user_memory_entry.dart';
 class MemoryController extends ChangeNotifier {
   MemoryController._({
     required MemoryStore store,
+    required MemoryStore Function(String filePath) storeFactory,
     required String Function() idGenerator,
     required DateTime Function() clock,
   }) : _store = store,
+       _storeFactory = storeFactory,
        _idGenerator = idGenerator,
        _clock = clock;
 
   static Future<MemoryController> create({
     required String initialFilePath,
     MemoryStore? store,
+    MemoryStore Function(String filePath)? storeFactory,
     String Function()? idGenerator,
     DateTime Function()? clock,
   }) async {
+    final effectiveStoreFactory =
+        storeFactory ??
+        (String filePath) => MemoryStore(userMemoryFilePath: filePath);
     final controller = MemoryController._(
-      store: store ?? MemoryStore(userMemoryFilePath: initialFilePath),
+      store: store ?? effectiveStoreFactory(initialFilePath),
+      storeFactory: effectiveStoreFactory,
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
     );
@@ -32,6 +39,7 @@ class MemoryController extends ChangeNotifier {
   }
 
   MemoryStore _store;
+  final MemoryStore Function(String filePath) _storeFactory;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
 
@@ -39,6 +47,7 @@ class MemoryController extends ChangeNotifier {
   String? _errorMessage;
   List<UserMemoryEntry> _entries = const <UserMemoryEntry>[];
   MemoryPersistenceIssue? _persistenceIssue;
+  bool _isDisposed = false;
   Future<void> _operationQueue = Future<void>.value();
 
   bool get isLoading => _isLoading;
@@ -48,6 +57,20 @@ class MemoryController extends ChangeNotifier {
   String get userMemoryFilePath => _store.userMemoryFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   MemoryPersistenceIssue? get persistenceIssue => _persistenceIssue;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   void clearPersistenceIssue() {
     if (_persistenceIssue == null) {
@@ -68,7 +91,7 @@ class MemoryController extends ChangeNotifier {
         defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
       );
       if (_store.userMemoryFilePath != normalizedPath) {
-        _store = MemoryStore(userMemoryFilePath: normalizedPath);
+        _store = _storeFactory(normalizedPath);
       }
       await _loadLocked();
     });

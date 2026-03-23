@@ -30,6 +30,7 @@ class SkillsController extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<LocalSkill> _skills = const <LocalSkill>[];
+  bool _isDisposed = false;
   Future<void> _operationQueue = Future<void>.value();
 
   String get storagePath => _storagePath;
@@ -37,6 +38,20 @@ class SkillsController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   List<LocalSkill> get skills => List<LocalSkill>.unmodifiable(_skills);
   int get installedCount => _skills.length;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   Future<void> refresh() async {
     await _enqueueOperation(_refreshLocked);

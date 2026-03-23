@@ -1,0 +1,655 @@
+import 'ai_session_message.dart';
+import 'ai_token_usage.dart';
+
+class AiSession {
+  const AiSession({
+    required this.id,
+    required this.title,
+    required this.templateId,
+    required this.templateName,
+    required this.templateIconName,
+    required this.templateInternalVersion,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.messages,
+    required this.environment,
+    required this.statistics,
+    required this.recentErrors,
+    this.lastUsedModelId,
+    this.lastUsedModelLabel,
+    this.isTitleManuallyEdited = false,
+    this.autoTitleGeneratedAt,
+    this.autoTitleSourceMessageId,
+    this.latestCompressionCheckpointMessageId,
+    this.latestCompressionAt,
+    this.lastPromptMetadata = const <String, Object?>{},
+  });
+
+  static const int schemaVersion = 1;
+
+  final String id;
+  final String title;
+  final String templateId;
+  final String templateName;
+  final String templateIconName;
+  final String templateInternalVersion;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final List<AiSessionMessage> messages;
+  final AiSessionEnvironment environment;
+  final AiSessionStatistics statistics;
+  final List<AiSessionErrorRecord> recentErrors;
+  final String? lastUsedModelId;
+  final String? lastUsedModelLabel;
+  final bool isTitleManuallyEdited;
+  final DateTime? autoTitleGeneratedAt;
+  final String? autoTitleSourceMessageId;
+  final String? latestCompressionCheckpointMessageId;
+  final DateTime? latestCompressionAt;
+  final Map<String, Object?> lastPromptMetadata;
+
+  AiSession copyWith({
+    String? title,
+    DateTime? updatedAt,
+    List<AiSessionMessage>? messages,
+    AiSessionEnvironment? environment,
+    AiSessionStatistics? statistics,
+    List<AiSessionErrorRecord>? recentErrors,
+    String? lastUsedModelId,
+    String? lastUsedModelLabel,
+    bool? isTitleManuallyEdited,
+    DateTime? autoTitleGeneratedAt,
+    String? autoTitleSourceMessageId,
+    String? latestCompressionCheckpointMessageId,
+    DateTime? latestCompressionAt,
+    bool clearLatestCompressionAt = false,
+    Map<String, Object?>? lastPromptMetadata,
+  }) {
+    return AiSession(
+      id: id,
+      title: title ?? this.title,
+      templateId: templateId,
+      templateName: templateName,
+      templateIconName: templateIconName,
+      templateInternalVersion: templateInternalVersion,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      messages: messages ?? this.messages,
+      environment: environment ?? this.environment,
+      statistics: statistics ?? this.statistics,
+      recentErrors: recentErrors ?? this.recentErrors,
+      lastUsedModelId: lastUsedModelId ?? this.lastUsedModelId,
+      lastUsedModelLabel: lastUsedModelLabel ?? this.lastUsedModelLabel,
+      isTitleManuallyEdited:
+          isTitleManuallyEdited ?? this.isTitleManuallyEdited,
+      autoTitleGeneratedAt: autoTitleGeneratedAt ?? this.autoTitleGeneratedAt,
+      autoTitleSourceMessageId:
+          autoTitleSourceMessageId ?? this.autoTitleSourceMessageId,
+      latestCompressionCheckpointMessageId:
+          latestCompressionCheckpointMessageId ??
+          this.latestCompressionCheckpointMessageId,
+      latestCompressionAt: clearLatestCompressionAt
+          ? null
+          : latestCompressionAt ?? this.latestCompressionAt,
+      lastPromptMetadata: lastPromptMetadata ?? this.lastPromptMetadata,
+    );
+  }
+
+  AiSessionMessage? get latestCompressionPoint {
+    for (var index = messages.length - 1; index >= 0; index--) {
+      final message = messages[index];
+      if (!message.isDeleted &&
+          message.kind == AiSessionMessageKind.compressionPoint) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  int? get latestCompressionPointIndex {
+    for (var index = messages.length - 1; index >= 0; index--) {
+      if (!messages[index].isDeleted &&
+          messages[index].kind == AiSessionMessageKind.compressionPoint) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  List<AiSessionMessage> get visibleMessages {
+    return messages.where((item) => item.isVisible).toList(growable: false);
+  }
+
+  List<AiSessionMessage> get activeConversationMessages {
+    final latestCompressionPointIndex = this.latestCompressionPointIndex;
+    if (latestCompressionPointIndex == null) {
+      return messages
+          .where((item) => item.isConversationTurn)
+          .toList(growable: false);
+    }
+    return messages
+        .skip(latestCompressionPointIndex + 1)
+        .where((item) => item.isConversationTurn)
+        .toList(growable: false);
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'schema_version': schemaVersion,
+      'session': <String, Object?>{
+        'id': id,
+        'title': title,
+        'template_id': templateId,
+        'template_name': templateName,
+        'template_icon_name': templateIconName,
+        'template_internal_version': templateInternalVersion,
+        'created_at': createdAt.toUtc().toIso8601String(),
+        'updated_at': updatedAt.toUtc().toIso8601String(),
+        'last_used_model_id': lastUsedModelId,
+        'last_used_model_label': lastUsedModelLabel,
+        'is_title_manually_edited': isTitleManuallyEdited,
+        'auto_title_generated_at': autoTitleGeneratedAt
+            ?.toUtc()
+            .toIso8601String(),
+        'auto_title_source_message_id': autoTitleSourceMessageId,
+        'latest_compression_checkpoint_message_id':
+            latestCompressionCheckpointMessageId,
+        'latest_compression_at': latestCompressionAt?.toUtc().toIso8601String(),
+      },
+      'environment': environment.toJson(),
+      'statistics': statistics.toJson(),
+      'last_prompt_metadata': lastPromptMetadata,
+      'messages': messages.map((item) => item.toJson()).toList(growable: false),
+      'recent_errors': recentErrors
+          .map((item) => item.toJson())
+          .toList(growable: false),
+    };
+  }
+
+  factory AiSession.fromJson(Map<String, Object?> json) {
+    final sessionJson = _requireMap(json['session'], 'session');
+    final messagesJson = _requireList(json['messages'], 'messages');
+    final errorsJson = json['recent_errors'];
+    final environmentJson = _requireMap(json['environment'], 'environment');
+    final statisticsJson = _requireMap(json['statistics'], 'statistics');
+    final createdAt = DateTime.parse('${sessionJson['created_at']}').toUtc();
+    final updatedAt = DateTime.parse('${sessionJson['updated_at']}').toUtc();
+    return AiSession(
+      id: '${sessionJson['id'] ?? ''}',
+      title: '${sessionJson['title'] ?? ''}',
+      templateId: '${sessionJson['template_id'] ?? ''}',
+      templateName: '${sessionJson['template_name'] ?? ''}',
+      templateIconName: '${sessionJson['template_icon_name'] ?? ''}',
+      templateInternalVersion:
+          '${sessionJson['template_internal_version'] ?? ''}',
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      messages: messagesJson
+          .map(
+            (item) => AiSessionMessage.fromJson(_requireMap(item, 'message')),
+          )
+          .toList(growable: false),
+      environment: AiSessionEnvironment.fromJson(environmentJson),
+      statistics: AiSessionStatistics.fromJson(statisticsJson),
+      recentErrors: errorsJson is List
+          ? errorsJson
+                .map(
+                  (item) => AiSessionErrorRecord.fromJson(
+                    _requireMap(item, 'recent_errors'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionErrorRecord>[],
+      lastUsedModelId: _readNullableString(sessionJson['last_used_model_id']),
+      lastUsedModelLabel: _readNullableString(
+        sessionJson['last_used_model_label'],
+      ),
+      isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
+          ? sessionJson['is_title_manually_edited'] as bool
+          : false,
+      autoTitleGeneratedAt:
+          _readNullableString(sessionJson['auto_title_generated_at']) == null
+          ? null
+          : DateTime.parse('${sessionJson['auto_title_generated_at']}').toUtc(),
+      autoTitleSourceMessageId: _readNullableString(
+        sessionJson['auto_title_source_message_id'],
+      ),
+      latestCompressionCheckpointMessageId: _readNullableString(
+        sessionJson['latest_compression_checkpoint_message_id'],
+      ),
+      latestCompressionAt:
+          _readNullableString(sessionJson['latest_compression_at']) == null
+          ? null
+          : DateTime.parse('${sessionJson['latest_compression_at']}').toUtc(),
+      lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
+          ? Map<String, Object?>.from(
+              json['last_prompt_metadata'] as Map<String, Object?>,
+            )
+          : json['last_prompt_metadata'] is Map
+          ? Map<String, Object?>.from(json['last_prompt_metadata'] as Map)
+          : const <String, Object?>{},
+    );
+  }
+
+  static Map<String, Object?> _requireMap(Object? value, String label) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    throw FormatException('Invalid $label payload.');
+  }
+
+  static List<Object?> _requireList(Object? value, String label) {
+    if (value is List<Object?>) {
+      return value;
+    }
+    if (value is List) {
+      return List<Object?>.from(value);
+    }
+    throw FormatException('Invalid $label payload.');
+  }
+
+  static String? _readNullableString(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    final text = '$value'.trim();
+    if (text.isEmpty || text == 'null') {
+      return null;
+    }
+    return text;
+  }
+}
+
+class AiSessionEnvironment {
+  const AiSessionEnvironment({
+    required this.localeTag,
+    required this.platform,
+    required this.appVersion,
+    required this.appBuildNumber,
+    required this.applicationDirectory,
+    required this.homeDirectory,
+    required this.settingsFilePath,
+    required this.skillsStoragePath,
+    required this.mcpServersFilePath,
+    required this.userMemoryFilePath,
+    required this.sessionsDirectoryPath,
+    required this.compressionThresholdChars,
+  });
+
+  final String localeTag;
+  final String platform;
+  final String appVersion;
+  final String appBuildNumber;
+  final String applicationDirectory;
+  final String homeDirectory;
+  final String settingsFilePath;
+  final String skillsStoragePath;
+  final String mcpServersFilePath;
+  final String userMemoryFilePath;
+  final String sessionsDirectoryPath;
+  final int compressionThresholdChars;
+
+  AiSessionEnvironment copyWith({
+    String? localeTag,
+    String? platform,
+    String? appVersion,
+    String? appBuildNumber,
+    String? applicationDirectory,
+    String? homeDirectory,
+    String? settingsFilePath,
+    String? skillsStoragePath,
+    String? mcpServersFilePath,
+    String? userMemoryFilePath,
+    String? sessionsDirectoryPath,
+    int? compressionThresholdChars,
+  }) {
+    return AiSessionEnvironment(
+      localeTag: localeTag ?? this.localeTag,
+      platform: platform ?? this.platform,
+      appVersion: appVersion ?? this.appVersion,
+      appBuildNumber: appBuildNumber ?? this.appBuildNumber,
+      applicationDirectory: applicationDirectory ?? this.applicationDirectory,
+      homeDirectory: homeDirectory ?? this.homeDirectory,
+      settingsFilePath: settingsFilePath ?? this.settingsFilePath,
+      skillsStoragePath: skillsStoragePath ?? this.skillsStoragePath,
+      mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
+      userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
+      sessionsDirectoryPath:
+          sessionsDirectoryPath ?? this.sessionsDirectoryPath,
+      compressionThresholdChars:
+          compressionThresholdChars ?? this.compressionThresholdChars,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'locale_tag': localeTag,
+      'platform': platform,
+      'app_version': appVersion,
+      'app_build_number': appBuildNumber,
+      'application_directory': applicationDirectory,
+      'home_directory': homeDirectory,
+      'settings_file_path': settingsFilePath,
+      'skills_storage_path': skillsStoragePath,
+      'mcp_servers_file_path': mcpServersFilePath,
+      'user_memory_file_path': userMemoryFilePath,
+      'sessions_directory_path': sessionsDirectoryPath,
+      'compression_threshold_chars': compressionThresholdChars,
+    };
+  }
+
+  factory AiSessionEnvironment.fromJson(Map<String, Object?> json) {
+    return AiSessionEnvironment(
+      localeTag: '${json['locale_tag'] ?? ''}',
+      platform: '${json['platform'] ?? ''}',
+      appVersion: '${json['app_version'] ?? ''}',
+      appBuildNumber: '${json['app_build_number'] ?? ''}',
+      applicationDirectory: '${json['application_directory'] ?? ''}',
+      homeDirectory: '${json['home_directory'] ?? ''}',
+      settingsFilePath: '${json['settings_file_path'] ?? ''}',
+      skillsStoragePath: '${json['skills_storage_path'] ?? ''}',
+      mcpServersFilePath: '${json['mcp_servers_file_path'] ?? ''}',
+      userMemoryFilePath: '${json['user_memory_file_path'] ?? ''}',
+      sessionsDirectoryPath: '${json['sessions_directory_path'] ?? ''}',
+      compressionThresholdChars: json['compression_threshold_chars'] is int
+          ? json['compression_threshold_chars'] as int
+          : 0,
+    );
+  }
+}
+
+class AiSessionStatistics {
+  const AiSessionStatistics({
+    required this.totalMessageCount,
+    required this.userMessageCount,
+    required this.assistantMessageCount,
+    required this.toolMessageCount,
+    required this.mcpMessageCount,
+    required this.skillMessageCount,
+    required this.compressionPointCount,
+    required this.totalInputCharacters,
+    required this.totalOutputCharacters,
+    required this.totalPromptCharacters,
+    required this.promptBuildCount,
+    required this.compressionRunCount,
+    this.totalPromptTokens,
+    this.totalCompletionTokens,
+    this.totalTokens,
+    this.lastPromptSystemMessageCount = 0,
+    this.lastPromptHistoryMessageCount = 0,
+  });
+
+  const AiSessionStatistics.initial()
+    : totalMessageCount = 0,
+      userMessageCount = 0,
+      assistantMessageCount = 0,
+      toolMessageCount = 0,
+      mcpMessageCount = 0,
+      skillMessageCount = 0,
+      compressionPointCount = 0,
+      totalInputCharacters = 0,
+      totalOutputCharacters = 0,
+      totalPromptCharacters = 0,
+      promptBuildCount = 0,
+      compressionRunCount = 0,
+      totalPromptTokens = null,
+      totalCompletionTokens = null,
+      totalTokens = null,
+      lastPromptSystemMessageCount = 0,
+      lastPromptHistoryMessageCount = 0;
+
+  final int totalMessageCount;
+  final int userMessageCount;
+  final int assistantMessageCount;
+  final int toolMessageCount;
+  final int mcpMessageCount;
+  final int skillMessageCount;
+  final int compressionPointCount;
+  final int totalInputCharacters;
+  final int totalOutputCharacters;
+  final int totalPromptCharacters;
+  final int promptBuildCount;
+  final int compressionRunCount;
+  final int? totalPromptTokens;
+  final int? totalCompletionTokens;
+  final int? totalTokens;
+  final int lastPromptSystemMessageCount;
+  final int lastPromptHistoryMessageCount;
+
+  AiSessionStatistics copyWith({
+    int? totalMessageCount,
+    int? userMessageCount,
+    int? assistantMessageCount,
+    int? toolMessageCount,
+    int? mcpMessageCount,
+    int? skillMessageCount,
+    int? compressionPointCount,
+    int? totalInputCharacters,
+    int? totalOutputCharacters,
+    int? totalPromptCharacters,
+    int? promptBuildCount,
+    int? compressionRunCount,
+    int? totalPromptTokens,
+    int? totalCompletionTokens,
+    int? totalTokens,
+    int? lastPromptSystemMessageCount,
+    int? lastPromptHistoryMessageCount,
+  }) {
+    return AiSessionStatistics(
+      totalMessageCount: totalMessageCount ?? this.totalMessageCount,
+      userMessageCount: userMessageCount ?? this.userMessageCount,
+      assistantMessageCount:
+          assistantMessageCount ?? this.assistantMessageCount,
+      toolMessageCount: toolMessageCount ?? this.toolMessageCount,
+      mcpMessageCount: mcpMessageCount ?? this.mcpMessageCount,
+      skillMessageCount: skillMessageCount ?? this.skillMessageCount,
+      compressionPointCount:
+          compressionPointCount ?? this.compressionPointCount,
+      totalInputCharacters: totalInputCharacters ?? this.totalInputCharacters,
+      totalOutputCharacters:
+          totalOutputCharacters ?? this.totalOutputCharacters,
+      totalPromptCharacters:
+          totalPromptCharacters ?? this.totalPromptCharacters,
+      promptBuildCount: promptBuildCount ?? this.promptBuildCount,
+      compressionRunCount: compressionRunCount ?? this.compressionRunCount,
+      totalPromptTokens: totalPromptTokens ?? this.totalPromptTokens,
+      totalCompletionTokens:
+          totalCompletionTokens ?? this.totalCompletionTokens,
+      totalTokens: totalTokens ?? this.totalTokens,
+      lastPromptSystemMessageCount:
+          lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
+      lastPromptHistoryMessageCount:
+          lastPromptHistoryMessageCount ?? this.lastPromptHistoryMessageCount,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'total_message_count': totalMessageCount,
+      'user_message_count': userMessageCount,
+      'assistant_message_count': assistantMessageCount,
+      'tool_message_count': toolMessageCount,
+      'mcp_message_count': mcpMessageCount,
+      'skill_message_count': skillMessageCount,
+      'compression_point_count': compressionPointCount,
+      'total_input_characters': totalInputCharacters,
+      'total_output_characters': totalOutputCharacters,
+      'total_prompt_characters': totalPromptCharacters,
+      'prompt_build_count': promptBuildCount,
+      'compression_run_count': compressionRunCount,
+      'total_prompt_tokens': totalPromptTokens,
+      'total_completion_tokens': totalCompletionTokens,
+      'total_tokens': totalTokens,
+      'last_prompt_system_message_count': lastPromptSystemMessageCount,
+      'last_prompt_history_message_count': lastPromptHistoryMessageCount,
+    };
+  }
+
+  factory AiSessionStatistics.fromJson(Map<String, Object?> json) {
+    return AiSessionStatistics(
+      totalMessageCount: _readInt(json['total_message_count']),
+      userMessageCount: _readInt(json['user_message_count']),
+      assistantMessageCount: _readInt(json['assistant_message_count']),
+      toolMessageCount: _readInt(json['tool_message_count']),
+      mcpMessageCount: _readInt(json['mcp_message_count']),
+      skillMessageCount: _readInt(json['skill_message_count']),
+      compressionPointCount: _readInt(json['compression_point_count']),
+      totalInputCharacters: _readInt(json['total_input_characters']),
+      totalOutputCharacters: _readInt(json['total_output_characters']),
+      totalPromptCharacters: _readInt(json['total_prompt_characters']),
+      promptBuildCount: _readInt(json['prompt_build_count']),
+      compressionRunCount: _readInt(json['compression_run_count']),
+      totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
+      totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
+      totalTokens: _readNullableInt(json['total_tokens']),
+      lastPromptSystemMessageCount: _readInt(
+        json['last_prompt_system_message_count'],
+      ),
+      lastPromptHistoryMessageCount: _readInt(
+        json['last_prompt_history_message_count'],
+      ),
+    );
+  }
+
+  static AiSessionStatistics fromMessages(
+    List<AiSessionMessage> messages, {
+    required int totalPromptCharacters,
+    required int promptBuildCount,
+    required int compressionRunCount,
+    required AiTokenUsage totalUsage,
+    required int lastPromptSystemMessageCount,
+    required int lastPromptHistoryMessageCount,
+  }) {
+    final visibleMessages = messages
+        .where((message) => !message.isDeleted)
+        .toList(growable: false);
+    var userMessageCount = 0;
+    var assistantMessageCount = 0;
+    var toolMessageCount = 0;
+    var mcpMessageCount = 0;
+    var skillMessageCount = 0;
+    var compressionPointCount = 0;
+    var totalInputCharacters = 0;
+    var totalOutputCharacters = 0;
+
+    for (final message in visibleMessages) {
+      switch (message.kind) {
+        case AiSessionMessageKind.user:
+          userMessageCount += 1;
+          totalInputCharacters += message.characterCount;
+        case AiSessionMessageKind.assistant:
+          assistantMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.reasoning:
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.toolCall:
+          toolMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.tool:
+          toolMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.mcp:
+          mcpMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.skill:
+          skillMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.compressionPoint:
+          compressionPointCount += 1;
+        case AiSessionMessageKind.status:
+          totalOutputCharacters += message.characterCount;
+      }
+    }
+
+    return AiSessionStatistics(
+      totalMessageCount: visibleMessages.length,
+      userMessageCount: userMessageCount,
+      assistantMessageCount: assistantMessageCount,
+      toolMessageCount: toolMessageCount,
+      mcpMessageCount: mcpMessageCount,
+      skillMessageCount: skillMessageCount,
+      compressionPointCount: compressionPointCount,
+      totalInputCharacters: totalInputCharacters,
+      totalOutputCharacters: totalOutputCharacters,
+      totalPromptCharacters: totalPromptCharacters,
+      promptBuildCount: promptBuildCount,
+      compressionRunCount: compressionRunCount,
+      totalPromptTokens: totalUsage.promptTokens,
+      totalCompletionTokens: totalUsage.completionTokens,
+      totalTokens: totalUsage.totalTokens,
+      lastPromptSystemMessageCount: lastPromptSystemMessageCount,
+      lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
+    );
+  }
+
+  static int _readInt(Object? value) {
+    return value is int ? value : 0;
+  }
+
+  static int? _readNullableInt(Object? value) {
+    return value is int ? value : null;
+  }
+}
+
+class AiSessionErrorRecord {
+  const AiSessionErrorRecord({
+    required this.id,
+    required this.createdAt,
+    required this.stage,
+    required this.message,
+    this.detail,
+    this.presentedAt,
+  });
+
+  final String id;
+  final DateTime createdAt;
+  final String stage;
+  final String message;
+  final String? detail;
+  final DateTime? presentedAt;
+
+  bool get hasBeenPresented => presentedAt != null;
+
+  AiSessionErrorRecord copyWith({
+    String? message,
+    String? detail,
+    DateTime? presentedAt,
+    bool clearPresentedAt = false,
+  }) {
+    return AiSessionErrorRecord(
+      id: id,
+      createdAt: createdAt,
+      stage: stage,
+      message: message ?? this.message,
+      detail: detail ?? this.detail,
+      presentedAt: clearPresentedAt ? null : presentedAt ?? this.presentedAt,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'stage': stage,
+      'message': message,
+      'detail': detail,
+      'presented_at': presentedAt?.toUtc().toIso8601String(),
+    };
+  }
+
+  factory AiSessionErrorRecord.fromJson(Map<String, Object?> json) {
+    return AiSessionErrorRecord(
+      id: '${json['id'] ?? ''}',
+      createdAt: DateTime.parse('${json['created_at']}').toUtc(),
+      stage: '${json['stage'] ?? ''}',
+      message: '${json['message'] ?? ''}',
+      detail: json['detail'] == null ? null : '${json['detail']}',
+      presentedAt: json['presented_at'] == null
+          ? null
+          : DateTime.parse('${json['presented_at']}').toUtc(),
+    );
+  }
+}

@@ -25,6 +25,7 @@ class McpController extends ChangeNotifier {
   String? _errorMessage;
   List<McpServer> _servers = const <McpServer>[];
   McpPersistenceIssue? _persistenceIssue;
+  bool _isDisposed = false;
   Future<void> _operationQueue = Future<void>.value();
 
   bool get isLoading => _isLoading;
@@ -33,6 +34,20 @@ class McpController extends ChangeNotifier {
   String get serversFilePath => _store.serversFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   void clearPersistenceIssue() {
     if (_persistenceIssue == null) {

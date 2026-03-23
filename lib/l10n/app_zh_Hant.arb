@@ -103,5 +103,15 @@
   "skillsStorageStatusReady": "狀態",
   "skillsStorageStatusLoading": "掃描中",
   "skillsStorageStatusError": "技能目錄讀取失敗",
-  "skillsPathSaved": "技能存放位置已更新"
+  "skillsPathSaved": "技能存放位置已更新",
+  "threadsEmptyBody": "目前還沒有任何對話執行緒，建立一個新執行緒即可開始。",
+  "threadTemplateDialogTitle": "選擇執行緒模板",
+  "threadTemplateDialogBody": "建立新執行緒前，請先從下方內建能力模板中選擇一個。",
+  "threadCompressionNotice": "目前執行緒中較早的訊息已被壓縮為摘要檢查點，讓活躍 Prompt 保持聚焦。",
+  "threadCompressionCheckpointLabel": "摘要檢查點",
+  "aiCompressionThresholdLabel": "訊息壓縮閾值",
+  "aiCompressionThresholdBody": "當目前執行緒中未壓縮的歷史訊息字元總數超過此閾值時，OpenHand 會將更早的一段訊息壓縮為摘要檢查點，並保留最近的一段訊息繼續參與 Prompt 組裝。",
+  "aiCompressionThresholdSave": "儲存閾值",
+  "aiCompressionThresholdSaved": "AI 訊息壓縮閾值已更新。",
+  "aiCompressionThresholdInvalid": "請輸入有效的正整數閾值。"
 }

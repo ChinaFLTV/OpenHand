@@ -387,6 +387,50 @@ Summarize the selected image workflow.
   );
 
   test(
+    'SkillsRepository ignores OpenAI icon paths outside the skill directory',
+    () async {
+      final repository = SkillsRepository();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_external_icon_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+
+      final skillDirectory = Directory(
+        p.join(tempDirectory.path, 'external-icon-skill'),
+      );
+      await skillDirectory.create(recursive: true);
+      await File(p.join(skillDirectory.path, 'SKILL.md')).writeAsString('''
+---
+name: External Icon Skill
+description: Metadata should not load icons outside the skill root.
+---
+
+# External Icon Skill
+''');
+      final agentsDirectory = Directory(p.join(skillDirectory.path, 'agents'));
+      await agentsDirectory.create(recursive: true);
+      final outsideIcon = File(p.join(tempDirectory.path, 'outside-icon.svg'));
+      await outsideIcon.writeAsString(
+        '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+      );
+      await File(p.join(agentsDirectory.path, 'openai.yaml')).writeAsString('''
+interface:
+  display_name: "External Icon Skill"
+  short_description: "Metadata should not load icons outside the skill root."
+  icon_small: "${outsideIcon.path.replaceAll(r'\\', r'\\\\')}"
+  default_prompt: "Stay inside the skill sandbox."
+''');
+
+      final skills = await repository.loadInstalledSkills(tempDirectory.path);
+
+      expect(skills, hasLength(1));
+      expect(skills.single.name, 'External Icon Skill');
+      expect(skills.single.iconPath, isNull);
+      expect(skills.single.iconKind, isNull);
+    },
+  );
+
+  test(
     'SkillsRepository reads OpenAI Codex skill metadata when available',
     () async {
       final repository = SkillsRepository();

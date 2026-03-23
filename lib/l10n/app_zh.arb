@@ -103,5 +103,15 @@
   "skillsStorageStatusReady": "状态",
   "skillsStorageStatusLoading": "扫描中",
   "skillsStorageStatusError": "技能目录读取失败",
-  "skillsPathSaved": "技能存放位置已更新"
+  "skillsPathSaved": "技能存放位置已更新",
+  "threadsEmptyBody": "当前还没有任何对话线程，创建一个新线程即可开始。",
+  "threadTemplateDialogTitle": "选择线程模板",
+  "threadTemplateDialogBody": "新建线程前，请先从下方内置能力模板中选择一个。",
+  "threadCompressionNotice": "当前线程中的较早消息已被压缩为摘要检查点，以便让活跃 Prompt 保持聚焦。",
+  "threadCompressionCheckpointLabel": "摘要检查点",
+  "aiCompressionThresholdLabel": "消息压缩阈值",
+  "aiCompressionThresholdBody": "当当前线程中未压缩的历史消息字符总数超过该阈值时，OpenHand 会将更早的一段消息压缩为摘要检查点，并保留最近的一段消息继续参与 Prompt 组装。",
+  "aiCompressionThresholdSave": "保存阈值",
+  "aiCompressionThresholdSaved": "AI 消息压缩阈值已更新。",
+  "aiCompressionThresholdInvalid": "请输入有效的正整数阈值。"
 }

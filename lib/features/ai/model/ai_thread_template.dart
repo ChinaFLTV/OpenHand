@@ -1,0 +1,28 @@
+import 'package:flutter/material.dart';
+
+class AiThreadTemplate {
+  const AiThreadTemplate({
+    required this.id,
+    required this.name,
+    required this.iconName,
+    required this.description,
+    required this.internalVersion,
+    required this.promptAssetDirectory,
+  });
+
+  final String id;
+  final String name;
+  final String iconName;
+  final String description;
+  final String internalVersion;
+  final String promptAssetDirectory;
+
+  IconData get iconData {
+    return switch (iconName) {
+      'auto_awesome_rounded' => Icons.auto_awesome_rounded,
+      'build_circle_rounded' => Icons.build_circle_rounded,
+      'forum_rounded' => Icons.forum_rounded,
+      _ => Icons.auto_awesome_rounded,
+    };
+  }
+}

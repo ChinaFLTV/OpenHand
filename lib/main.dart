@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
+import 'features/ai/ai_session_controller.dart';
 import 'features/memory/memory_controller.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/skills/skills_controller.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
   final memoryController = await MemoryController.create(
     initialFilePath: settingsController.userMemoryFilePath,
   );
+  final aiSessionController = await AiSessionController.create();
 
   runApp(
     MultiProvider(
@@ -33,6 +35,9 @@ Future<void> main() async {
         ChangeNotifierProvider<SkillsController>.value(value: skillsController),
         ChangeNotifierProvider<McpController>.value(value: mcpController),
         ChangeNotifierProvider<MemoryController>.value(value: memoryController),
+        ChangeNotifierProvider<AiSessionController>.value(
+          value: aiSessionController,
+        ),
         Provider<AppInfo>.value(value: appInfo),
       ],
       child: const OpenHandApp(),

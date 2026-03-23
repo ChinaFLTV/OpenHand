@@ -148,6 +148,27 @@ void main() {
       expect(controller.entries.last.id, 'memory-1');
     },
   );
+
+  test('MemoryController ignores late refresh completion after dispose', () async {
+    final store = _QueuedMemoryStore(initialEntries: const <UserMemoryEntry>[]);
+    final controller = await MemoryController.create(
+      initialFilePath: store.userMemoryFilePath,
+      store: store,
+      idGenerator: () => 'memory-1',
+      clock: () => DateTime.utc(2026, 3, 22, 9, 0, 0),
+    );
+
+    store.blockNextLoad();
+    final refreshFuture = controller.refresh();
+
+    await Future<void>.delayed(Duration.zero);
+    expect(store.pendingLoadCount, 1);
+
+    controller.dispose();
+    store.completeNextLoad();
+
+    await refreshFuture;
+  });
 }
 
 class _QueuedMemoryStore extends MemoryStore {
@@ -158,12 +179,21 @@ class _QueuedMemoryStore extends MemoryStore {
   List<UserMemoryEntry> _persistedEntries;
   int loadCallCount = 0;
   final List<_PendingMemorySave> _pendingSaves = <_PendingMemorySave>[];
+  final List<Completer<void>> _pendingLoads = <Completer<void>>[];
+  bool _blockLoads = false;
 
   int get pendingSaveCount => _pendingSaves.length;
+  int get pendingLoadCount => _pendingLoads.length;
 
   @override
   Future<MemoryLoadResult> load() async {
     loadCallCount += 1;
+    if (_blockLoads) {
+      final completer = Completer<void>();
+      _pendingLoads.add(completer);
+      _blockLoads = false;
+      await completer.future;
+    }
     return MemoryLoadResult(
       entries: List<UserMemoryEntry>.from(_persistedEntries),
     );
@@ -185,6 +215,15 @@ class _QueuedMemoryStore extends MemoryStore {
     final pendingSave = _pendingSaves.removeAt(0);
     _persistedEntries = pendingSave.entries;
     pendingSave.completer.complete();
+  }
+
+  void blockNextLoad() {
+    _blockLoads = true;
+  }
+
+  void completeNextLoad() {
+    final completer = _pendingLoads.removeAt(0);
+    completer.complete();
   }
 }
 

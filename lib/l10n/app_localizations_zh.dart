@@ -911,6 +911,38 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get mcpPersistenceSaveFailedBody =>
       '写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+
+  @override
+  String get threadsEmptyBody => '当前还没有任何对话线程，创建一个新线程即可开始。';
+
+  @override
+  String get threadTemplateDialogTitle => '选择线程模板';
+
+  @override
+  String get threadTemplateDialogBody => '新建线程前，请先从下方内置能力模板中选择一个。';
+
+  @override
+  String get threadCompressionNotice =>
+      '当前线程中的较早消息已被压缩为摘要检查点，以便让活跃 Prompt 保持聚焦。';
+
+  @override
+  String get threadCompressionCheckpointLabel => '摘要检查点';
+
+  @override
+  String get aiCompressionThresholdLabel => '消息压缩阈值';
+
+  @override
+  String get aiCompressionThresholdBody =>
+      '当当前线程中未压缩的历史消息字符总数超过该阈值时，OpenHand 会将更早的一段消息压缩为摘要检查点，并保留最近的一段消息继续参与 Prompt 组装。';
+
+  @override
+  String get aiCompressionThresholdSave => '保存阈值';
+
+  @override
+  String get aiCompressionThresholdSaved => 'AI 消息压缩阈值已更新。';
+
+  @override
+  String get aiCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -1820,6 +1852,38 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get mcpPersistenceSaveFailedBody =>
       '写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+
+  @override
+  String get threadsEmptyBody => '当前还没有任何对话线程，创建一个新线程即可开始。';
+
+  @override
+  String get threadTemplateDialogTitle => '选择线程模板';
+
+  @override
+  String get threadTemplateDialogBody => '新建线程前，请先从下方内置能力模板中选择一个。';
+
+  @override
+  String get threadCompressionNotice =>
+      '当前线程中的较早消息已被压缩为摘要检查点，以便让活跃 Prompt 保持聚焦。';
+
+  @override
+  String get threadCompressionCheckpointLabel => '摘要检查点';
+
+  @override
+  String get aiCompressionThresholdLabel => '消息压缩阈值';
+
+  @override
+  String get aiCompressionThresholdBody =>
+      '当当前线程中未压缩的历史消息字符总数超过该阈值时，OpenHand 会将更早的一段消息压缩为摘要检查点，并保留最近的一段消息继续参与 Prompt 组装。';
+
+  @override
+  String get aiCompressionThresholdSave => '保存阈值';
+
+  @override
+  String get aiCompressionThresholdSaved => 'AI 消息压缩阈值已更新。';
+
+  @override
+  String get aiCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -2140,4 +2204,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get skillsPathSaved => '技能存放位置已更新';
+
+  @override
+  String get threadsEmptyBody => '目前還沒有任何對話執行緒，建立一個新執行緒即可開始。';
+
+  @override
+  String get threadTemplateDialogTitle => '選擇執行緒模板';
+
+  @override
+  String get threadTemplateDialogBody => '建立新執行緒前，請先從下方內建能力模板中選擇一個。';
+
+  @override
+  String get threadCompressionNotice =>
+      '目前執行緒中較早的訊息已被壓縮為摘要檢查點，讓活躍 Prompt 保持聚焦。';
+
+  @override
+  String get threadCompressionCheckpointLabel => '摘要檢查點';
+
+  @override
+  String get aiCompressionThresholdLabel => '訊息壓縮閾值';
+
+  @override
+  String get aiCompressionThresholdBody =>
+      '當目前執行緒中未壓縮的歷史訊息字元總數超過此閾值時，OpenHand 會將更早的一段訊息壓縮為摘要檢查點，並保留最近的一段訊息繼續參與 Prompt 組裝。';
+
+  @override
+  String get aiCompressionThresholdSave => '儲存閾值';
+
+  @override
+  String get aiCompressionThresholdSaved => 'AI 訊息壓縮閾值已更新。';
+
+  @override
+  String get aiCompressionThresholdInvalid => '請輸入有效的正整數閾值。';
 }

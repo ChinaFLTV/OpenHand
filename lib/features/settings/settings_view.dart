@@ -1,17 +1,22 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/model/app_language.dart';
+import '../../app/model/app_settings_snapshot.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../memory/data/memory_store.dart';
 import '../memory/memory_controller.dart';
 import '../mcp/mcp_controller.dart';
 import '../skills/skills_controller.dart';
@@ -28,6 +33,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _skillsPathFocusNode;
   late final TextEditingController _memoryFileController;
   late final FocusNode _memoryFileFocusNode;
+  late final TextEditingController _compressionThresholdController;
+  late final FocusNode _compressionThresholdFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -37,6 +44,8 @@ class _SettingsViewState extends State<SettingsView> {
     _skillsPathFocusNode = FocusNode();
     _memoryFileController = TextEditingController();
     _memoryFileFocusNode = FocusNode();
+    _compressionThresholdController = TextEditingController();
+    _compressionThresholdFocusNode = FocusNode();
   }
 
   @override
@@ -45,6 +54,8 @@ class _SettingsViewState extends State<SettingsView> {
     _skillsPathFocusNode.dispose();
     _memoryFileController.dispose();
     _memoryFileFocusNode.dispose();
+    _compressionThresholdController.dispose();
+    _compressionThresholdFocusNode.dispose();
     super.dispose();
   }
 
@@ -61,6 +72,12 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_memoryFileFocusNode.hasFocus &&
         _memoryFileController.text != settingsController.userMemoryFilePath) {
       _memoryFileController.text = settingsController.userMemoryFilePath;
+    }
+    final compressionThresholdText =
+        '${settingsController.aiMessageCompressionThresholdChars}';
+    if (!_compressionThresholdFocusNode.hasFocus &&
+        _compressionThresholdController.text != compressionThresholdText) {
+      _compressionThresholdController.text = compressionThresholdText;
     }
 
     return ScrollConfiguration(
@@ -273,58 +290,212 @@ class _SettingsViewState extends State<SettingsView> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     final aiModels = settingsController.aiModels;
+    final compressionControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _compressionThresholdController,
+          focusNode: _compressionThresholdFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiCompressionThresholdLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars}',
+          ),
+          onSubmitted: (value) => _saveCompressionThreshold(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: () => _saveCompressionThreshold(
+              context,
+              _compressionThresholdController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiCompressionThresholdSave),
+          ),
+        ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            FilledButton.icon(
-              onPressed: () => _showAiModelDialog(context),
-              icon: const Icon(Icons.add_rounded),
-              label: Text(l10n.aiModelAdd),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        if (aiModels.isEmpty)
-          _SettingsStateBox(
-            icon: Icons.hub_outlined,
-            title: l10n.aiModelsEmptyTitle,
-            body: l10n.aiModelsEmptyBody,
-          )
-        else
-          Column(
+        _SettingsSubsectionCard(
+          title: _localizedText(context, zh: '模型管理', en: 'Model Management'),
+          description: _localizedText(
+            context,
+            zh: '新增、选择、测试并维护当前可用的聊天模型。',
+            en: 'Add, select, test, and maintain the chat models available to OpenHand.',
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var index = 0; index < aiModels.length; index++) ...[
-                _AiModelTile(
-                  model: aiModels[index],
-                  isSelected:
-                      settingsController.selectedAiModelId ==
-                      aiModels[index].id,
-                  isTesting: _testingAiModelIds.contains(aiModels[index].id),
-                  isFirst: index == 0,
-                  isLast: index == aiModels.length - 1,
-                  onSelect: () => settingsController.updateSelectedAiModel(
-                    aiModels[index].id,
-                  ),
-                  onTest: () => _testAiModel(aiModels[index]),
-                  onEdit: () => _showAiModelDialog(
-                    context,
-                    initialModel: aiModels[index],
-                  ),
-                  onMoveUp: () =>
-                      settingsController.moveAiModel(index, index - 1),
-                  onMoveDown: () =>
-                      settingsController.moveAiModel(index, index + 1),
-                  onDelete: () =>
-                      _confirmDeleteAiModel(context, aiModels[index]),
+              FilledButton.icon(
+                onPressed: () => _showAiModelDialog(context),
+                icon: const Icon(Icons.add_rounded),
+                label: Text(l10n.aiModelAdd),
+              ),
+              const SizedBox(height: 16),
+              if (aiModels.isEmpty)
+                _SettingsStateBox(
+                  icon: Icons.hub_outlined,
+                  title: l10n.aiModelsEmptyTitle,
+                  body: l10n.aiModelsEmptyBody,
+                )
+              else
+                Column(
+                  children: [
+                    for (var index = 0; index < aiModels.length; index++) ...[
+                      _AiModelTile(
+                        model: aiModels[index],
+                        isSelected:
+                            settingsController.selectedAiModelId ==
+                            aiModels[index].id,
+                        isTesting: _testingAiModelIds.contains(
+                          aiModels[index].id,
+                        ),
+                        isFirst: index == 0,
+                        isLast: index == aiModels.length - 1,
+                        onSelect: () => settingsController
+                            .updateSelectedAiModel(aiModels[index].id),
+                        onTest: () => _testAiModel(aiModels[index]),
+                        onEdit: () => _showAiModelDialog(
+                          context,
+                          initialModel: aiModels[index],
+                        ),
+                        onMoveUp: () =>
+                            settingsController.moveAiModel(index, index - 1),
+                        onMoveDown: () =>
+                            settingsController.moveAiModel(index, index + 1),
+                        onDelete: () =>
+                            _confirmDeleteAiModel(context, aiModels[index]),
+                      ),
+                      if (index != aiModels.length - 1)
+                        const SizedBox(height: 14),
+                    ],
+                  ],
                 ),
-                if (index != aiModels.length - 1) const SizedBox(height: 14),
-              ],
             ],
           ),
+        ),
+        const SizedBox(height: 16),
+        _SettingsSubsectionCard(
+          title: l10n.aiCompressionThresholdLabel,
+          description: l10n.aiCompressionThresholdBody,
+          child: _ResponsiveSettingRow(
+            title: _localizedText(
+              context,
+              zh: '压缩触发阈值',
+              en: 'Compression Trigger',
+            ),
+            subtitle: _localizedText(
+              context,
+              zh: '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。',
+              en: 'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.',
+            ),
+            control: compressionControl,
+            controlMaxWidth: 360,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SettingsSubsectionCard(
+          title: _localizedText(context, zh: '命令安全', en: 'Command Safety'),
+          description: _localizedText(
+            context,
+            zh: '控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。',
+            en: 'Control write-command confirmation for bash and manage deny rules in one place.',
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '写命令确认',
+                  en: 'Write Command Confirmation',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。',
+                  en: 'Enabled by default. When the AI tries to run a write-like bash command, OpenHand will ask for your confirmation first.',
+                ),
+                control: Switch(
+                  value: settingsController.aiWriteCommandConfirmationEnabled,
+                  onChanged: (value) async {
+                    final saved = await settingsController
+                        .updateAiWriteCommandConfirmationEnabled(value);
+                    if (!context.mounted || saved) {
+                      return;
+                    }
+                    _showPersistenceFailureSnackBar(context);
+                  },
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                _localizedText(context, zh: '禁止命令列表', en: 'Deny Command List'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。',
+                  en: 'Matching bash commands are blocked before execution and the denial result is returned to the model instead. Supports regex and simple wildcard patterns such as `rm *`.',
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () => _showDenyCommandRuleDialog(context),
+                icon: const Icon(Icons.block_rounded),
+                label: Text(
+                  _localizedText(context, zh: '新增规则', en: 'Add Rule'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (settingsController.aiDenyCommandRules.isEmpty)
+                _SettingsStateBox(
+                  icon: Icons.rule_folder_outlined,
+                  title: _localizedText(
+                    context,
+                    zh: '当前没有禁止命令规则',
+                    en: 'No deny rules configured',
+                  ),
+                  body: _localizedText(
+                    context,
+                    zh: '新增规则后，匹配到的 bash 命令会被直接拦截。',
+                    en: 'Add a rule to block matching bash commands before they run.',
+                  ),
+                )
+              else
+                Column(
+                  children: settingsController.aiDenyCommandRules
+                      .map(
+                        (rule) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _DenyCommandRuleTile(
+                            rule: rule,
+                            onEdit: () => _showDenyCommandRuleDialog(
+                              context,
+                              initialRule: rule,
+                            ),
+                            onDelete: () =>
+                                _deleteDenyCommandRule(context, rule),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -338,6 +509,7 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
+          key: const ValueKey<String>('settingsSkillsPathField'),
           controller: _skillsPathController,
           focusNode: _skillsPathFocusNode,
           decoration: InputDecoration(
@@ -359,6 +531,7 @@ class _SettingsViewState extends State<SettingsView> {
           runSpacing: 12,
           children: [
             FilledButton.icon(
+              key: const ValueKey<String>('settingsSkillsSaveButton'),
               onPressed: () =>
                   _saveSkillsPath(context, _skillsPathController.text),
               icon: const Icon(Icons.save_outlined),
@@ -418,6 +591,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 14),
         TextField(
+          key: const ValueKey<String>('settingsMemoryFileField'),
           controller: _memoryFileController,
           focusNode: _memoryFileFocusNode,
           decoration: InputDecoration(
@@ -439,6 +613,7 @@ class _SettingsViewState extends State<SettingsView> {
           runSpacing: 12,
           children: [
             FilledButton.icon(
+              key: const ValueKey<String>('settingsMemorySaveButton'),
               onPressed: () =>
                   _saveMemoryFilePath(context, _memoryFileController.text),
               icon: const Icon(Icons.save_outlined),
@@ -521,6 +696,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.read<SettingsController>();
     final skillsController = context.read<SkillsController>();
+    final previousPath = settingsController.skillsStoragePath;
     try {
       final saved = await settingsController.updateSkillsStoragePath(rawPath);
       if (!saved) {
@@ -533,13 +709,40 @@ class _SettingsViewState extends State<SettingsView> {
       await skillsController.reloadFromPath(
         settingsController.skillsStoragePath,
       );
+      if (skillsController.errorMessage != null) {
+        final rolledBack = await _restoreSkillsPath(
+          settingsController,
+          skillsController,
+          previousPath,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        _skillsPathController.text = settingsController.skillsStoragePath;
+        if (!rolledBack && settingsController.persistenceIssue != null) {
+          _showPersistenceFailureSnackBar(context);
+          return;
+        }
+        _showSnackBar(context, l10n.skillOperationFailed);
+        return;
+      }
       if (!context.mounted) {
         return;
       }
       _skillsPathController.text = settingsController.skillsStoragePath;
       _showSnackBar(context, l10n.skillsPathSaved);
     } catch (_) {
+      final rolledBack = await _restoreSkillsPath(
+        settingsController,
+        skillsController,
+        previousPath,
+      );
       if (!context.mounted) {
+        return;
+      }
+      _skillsPathController.text = settingsController.skillsStoragePath;
+      if (!rolledBack && settingsController.persistenceIssue != null) {
+        _showPersistenceFailureSnackBar(context);
         return;
       }
       _showSnackBar(context, l10n.skillOperationFailed);
@@ -579,6 +782,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
+    final previousPath = settingsController.userMemoryFilePath;
     try {
       final saved = await settingsController.updateUserMemoryFilePath(rawPath);
       if (!saved) {
@@ -591,17 +795,200 @@ class _SettingsViewState extends State<SettingsView> {
       await memoryController.reloadFromFilePath(
         settingsController.userMemoryFilePath,
       );
+      if (_didMemoryReloadFail(memoryController)) {
+        final rolledBack = await _restoreMemoryFilePath(
+          settingsController,
+          memoryController,
+          previousPath,
+        );
+        if (!context.mounted) {
+          return;
+        }
+        _memoryFileController.text = settingsController.userMemoryFilePath;
+        if (!rolledBack && settingsController.persistenceIssue != null) {
+          _showPersistenceFailureSnackBar(context);
+          return;
+        }
+        _showSnackBar(context, l10n.memoryOperationFailed);
+        return;
+      }
       if (!context.mounted) {
         return;
       }
       _memoryFileController.text = settingsController.userMemoryFilePath;
       _showSnackBar(context, l10n.memoryPathSaved);
     } catch (_) {
+      final rolledBack = await _restoreMemoryFilePath(
+        settingsController,
+        memoryController,
+        previousPath,
+      );
       if (!context.mounted) {
+        return;
+      }
+      _memoryFileController.text = settingsController.userMemoryFilePath;
+      if (!rolledBack && settingsController.persistenceIssue != null) {
+        _showPersistenceFailureSnackBar(context);
         return;
       }
       _showSnackBar(context, l10n.memoryOperationFailed);
     }
+  }
+
+  Future<bool> _restoreSkillsPath(
+    SettingsController settingsController,
+    SkillsController skillsController,
+    String previousPath,
+  ) async {
+    if (settingsController.skillsStoragePath != previousPath) {
+      final restored = await settingsController.updateSkillsStoragePath(
+        previousPath,
+      );
+      if (!restored) {
+        return false;
+      }
+    }
+    await skillsController.reloadFromPath(previousPath);
+    return skillsController.errorMessage == null;
+  }
+
+  Future<bool> _restoreMemoryFilePath(
+    SettingsController settingsController,
+    MemoryController memoryController,
+    String previousPath,
+  ) async {
+    if (settingsController.userMemoryFilePath != previousPath) {
+      final restored = await settingsController.updateUserMemoryFilePath(
+        previousPath,
+      );
+      if (!restored) {
+        return false;
+      }
+    }
+    await memoryController.reloadFromFilePath(previousPath);
+    return !_didMemoryReloadFail(memoryController);
+  }
+
+  bool _didMemoryReloadFail(MemoryController memoryController) {
+    return memoryController.errorMessage != null ||
+        memoryController.persistenceIssue?.kind ==
+            MemoryPersistenceIssueKind.saveFailed;
+  }
+
+  Future<void> _saveCompressionThreshold(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue <= 0) {
+      _showSnackBar(context, l10n.aiCompressionThresholdInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiMessageCompressionThresholdChars(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _compressionThresholdController.text = '$parsedValue';
+    _showSnackBar(context, l10n.aiCompressionThresholdSaved);
+  }
+
+  Future<void> _showDenyCommandRuleDialog(
+    BuildContext context, {
+    AiDenyCommandRule? initialRule,
+  }) async {
+    final settingsController = context.read<SettingsController>();
+    final submittedRule = await showDialog<AiDenyCommandRule>(
+      context: context,
+      builder: (dialogContext) {
+        return _DenyCommandRuleDialog(
+          initialRule: initialRule,
+          draftRuleId:
+              initialRule?.id ?? settingsController.createAiDenyCommandRuleId(),
+        );
+      },
+    );
+    if (!context.mounted || submittedRule == null) {
+      return;
+    }
+    await Future<void>.delayed(Duration.zero);
+    if (!context.mounted) {
+      return;
+    }
+    final saved = initialRule == null
+        ? await settingsController.addAiDenyCommandRule(submittedRule)
+        : await settingsController.updateAiDenyCommandRule(submittedRule);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: initialRule == null ? '禁止命令规则已新增。' : '禁止命令规则已更新。',
+        en: initialRule == null
+            ? 'The deny command rule has been added.'
+            : 'The deny command rule has been updated.',
+      ),
+    );
+  }
+
+  Future<void> _deleteDenyCommandRule(
+    BuildContext context,
+    AiDenyCommandRule rule,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(context, zh: '删除禁止命令规则', en: 'Delete Deny Rule'),
+          ),
+          content: Text(rule.pattern),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: AppLocalizations.of(context)!.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: AppLocalizations.of(context)!.commonDelete,
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    final deleted = await context
+        .read<SettingsController>()
+        .deleteAiDenyCommandRule(rule.id);
+    if (!context.mounted) {
+      return;
+    }
+    if (!deleted) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '禁止命令规则已删除。',
+        en: 'The deny command rule has been deleted.',
+      ),
+    );
   }
 
   Future<void> _browseMemoryFilePath(BuildContext context) async {
@@ -733,13 +1120,13 @@ class _SettingsViewState extends State<SettingsView> {
             '${l10n.aiModelDeleteConfirmBody}\n\n${model.displayName}',
           ),
           actions: [
-            TextButton(
+            OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l10n.commonCancel),
+              label: l10n.commonCancel,
             ),
-            FilledButton(
+            OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l10n.commonDelete),
+              label: l10n.commonDelete,
             ),
           ],
         );
@@ -779,6 +1166,15 @@ class _SettingsViewState extends State<SettingsView> {
       final messenger = ScaffoldMessenger.maybeOf(context);
       messenger?.showSnackBar(SnackBar(content: Text(message)));
     });
+  }
+
+  String _localizedText(
+    BuildContext context, {
+    required String zh,
+    required String en,
+  }) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    return languageCode.startsWith('zh') ? zh : en;
   }
 }
 
@@ -1032,24 +1428,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: OutlinedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: Text(l10n.commonCancel),
-                      ),
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      label: l10n.commonCancel,
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 132,
-                      height: 52,
-                      child: FilledButton(
-                        onPressed: _isSaving ? null : _handleSave,
-                        child: Text(l10n.commonSave),
-                      ),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: _isSaving ? null : _handleSave,
+                      label: l10n.commonSave,
                     ),
                   ],
                 ),
@@ -1107,6 +1495,230 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       return;
     }
     Navigator.of(context).pop(true);
+  }
+}
+
+class _DenyCommandRuleTile extends StatelessWidget {
+  const _DenyCommandRuleTile({
+    required this.rule,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final AiDenyCommandRule rule;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isChinese = Localizations.localeOf(
+      context,
+    ).languageCode.startsWith('zh');
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.block_rounded,
+                color: colorScheme.onErrorContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(rule.pattern, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 6),
+                  Text(
+                    rule.matchMode == AiDenyCommandMatchMode.regex
+                        ? (isChinese ? '正则匹配' : 'Regex Match')
+                        : (isChinese ? '简单匹配' : 'Simple Match'),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  if (rule.note.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      rule.note.trim(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              onPressed: onEdit,
+              tooltip: AppLocalizations.of(context)!.commonEdit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              onPressed: onDelete,
+              tooltip: AppLocalizations.of(context)!.commonDelete,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DenyCommandRuleDialog extends StatefulWidget {
+  const _DenyCommandRuleDialog({required this.draftRuleId, this.initialRule});
+
+  final AiDenyCommandRule? initialRule;
+  final String draftRuleId;
+
+  @override
+  State<_DenyCommandRuleDialog> createState() => _DenyCommandRuleDialogState();
+}
+
+class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _patternController;
+  late final TextEditingController _noteController;
+  late AiDenyCommandMatchMode _matchMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _patternController = TextEditingController(
+      text: widget.initialRule?.pattern ?? '',
+    );
+    _noteController = TextEditingController(
+      text: widget.initialRule?.note ?? '',
+    );
+    _matchMode = widget.initialRule?.matchMode ?? AiDenyCommandMatchMode.simple;
+  }
+
+  @override
+  void dispose() {
+    _patternController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isChinese = Localizations.localeOf(
+      context,
+    ).languageCode.startsWith('zh');
+    return AlertDialog(
+      title: Text(
+        isChinese
+            ? (widget.initialRule == null ? '新增禁止命令规则' : '编辑禁止命令规则')
+            : (widget.initialRule == null
+                  ? 'Add Deny Command Rule'
+                  : 'Edit Deny Command Rule'),
+      ),
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _patternController,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '匹配表达式' : 'Pattern',
+                  hintText: isChinese
+                      ? '例如：rm * 或 ^rm\\s+'
+                      : 'For example: rm * or ^rm\\s+',
+                ),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return isChinese
+                        ? '请输入要拦截的命令表达式。'
+                        : 'Enter the command pattern to block.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<AiDenyCommandMatchMode>(
+                initialValue: _matchMode,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '匹配模式' : 'Match Mode',
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: AiDenyCommandMatchMode.simple,
+                    child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+                  ),
+                  DropdownMenuItem(
+                    value: AiDenyCommandMatchMode.regex,
+                    child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _matchMode = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _noteController,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '备注' : 'Note',
+                  hintText: isChinese
+                      ? '可选，用于说明这条规则的用途'
+                      : 'Optional description for this rule',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () {
+            if (!_formKey.currentState!.validate()) {
+              return;
+            }
+            Navigator.of(context).pop(
+              AiDenyCommandRule(
+                id: widget.initialRule?.id ?? widget.draftRuleId,
+                pattern: _patternController.text.trim(),
+                matchMode: _matchMode,
+                note: _noteController.text.trim(),
+              ),
+            );
+          },
+          label: l10n.commonSave,
+        ),
+      ],
+    );
   }
 }
 
@@ -1171,6 +1783,51 @@ class _SettingsGroupCard extends StatelessWidget {
               ..._intersperse(children, const SizedBox(height: 18)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsSubsectionCard extends StatelessWidget {
+  const _SettingsSubsectionCard({
+    required this.title,
+    required this.description,
+    required this.child,
+  });
+
+  final String title;
+  final String description;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: theme.textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              description,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
         ),
       ),
     );

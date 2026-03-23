@@ -103,5 +103,15 @@
   "skillsStorageStatusReady": "Status",
   "skillsStorageStatusLoading": "Scan läuft",
   "skillsStorageStatusError": "Skill-Verzeichnis konnte nicht gelesen werden",
-  "skillsPathSaved": "Der Skill-Speicherort wurde aktualisiert"
+  "skillsPathSaved": "Der Skill-Speicherort wurde aktualisiert",
+  "threadsEmptyBody": "No conversation threads yet. Create a new thread to start.",
+  "threadTemplateDialogTitle": "Choose a Thread Template",
+  "threadTemplateDialogBody": "Start a new thread by picking one of the built-in capability templates below.",
+  "threadCompressionNotice": "Older messages in this thread were compressed into a summary checkpoint to keep the active prompt focused.",
+  "threadCompressionCheckpointLabel": "Summary checkpoint",
+  "aiCompressionThresholdLabel": "Message Compression Threshold",
+  "aiCompressionThresholdBody": "When the uncompressed historical messages in the current thread exceed this character threshold, OpenHand will summarize the older slice into a compression checkpoint and keep the most recent slice active.",
+  "aiCompressionThresholdSave": "Save Threshold",
+  "aiCompressionThresholdSaved": "The AI message compression threshold has been updated.",
+  "aiCompressionThresholdInvalid": "Enter a valid positive integer threshold."
 }

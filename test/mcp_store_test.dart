@@ -142,6 +142,25 @@ void main() {
       expect(controller.servers.last.name, 'local-shell');
     },
   );
+
+  test('McpController ignores late refresh completion after dispose', () async {
+    final store = _QueuedMcpStore(initialServers: const <McpServer>[]);
+    final controller = await McpController.create(
+      initialFilePath: store.serversFilePath,
+      store: store,
+    );
+
+    store.blockNextLoad();
+    final refreshFuture = controller.refresh();
+
+    await Future<void>.delayed(Duration.zero);
+    expect(store.pendingLoadCount, 1);
+
+    controller.dispose();
+    store.completeNextLoad();
+
+    await refreshFuture;
+  });
 }
 
 class _QueuedMcpStore extends McpStore {
@@ -152,12 +171,21 @@ class _QueuedMcpStore extends McpStore {
   List<McpServer> _persistedServers;
   int loadCallCount = 0;
   final List<_PendingMcpSave> _pendingSaves = <_PendingMcpSave>[];
+  final List<Completer<void>> _pendingLoads = <Completer<void>>[];
+  bool _blockLoads = false;
 
   int get pendingSaveCount => _pendingSaves.length;
+  int get pendingLoadCount => _pendingLoads.length;
 
   @override
   Future<McpLoadResult> load() async {
     loadCallCount += 1;
+    if (_blockLoads) {
+      final completer = Completer<void>();
+      _pendingLoads.add(completer);
+      _blockLoads = false;
+      await completer.future;
+    }
     return McpLoadResult(servers: List<McpServer>.from(_persistedServers));
   }
 
@@ -177,6 +205,15 @@ class _QueuedMcpStore extends McpStore {
     final pendingSave = _pendingSaves.removeAt(0);
     _persistedServers = pendingSave.servers;
     pendingSave.completer.complete();
+  }
+
+  void blockNextLoad() {
+    _blockLoads = true;
+  }
+
+  void completeNextLoad() {
+    final completer = _pendingLoads.removeAt(0);
+    completer.complete();
   }
 }
 

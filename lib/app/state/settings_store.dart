@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
@@ -339,6 +340,56 @@ class SettingsStore {
     if (rawUserMemoryFilePath.trim().isEmpty) {
       didSanitize = true;
     }
+    final rawCompressionThreshold =
+        rootValues['ai_message_compression_threshold_chars'];
+    final aiMessageCompressionThresholdChars =
+        rawCompressionThreshold is int && rawCompressionThreshold > 0
+        ? rawCompressionThreshold
+        : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
+    if (rawCompressionThreshold is! int || rawCompressionThreshold <= 0) {
+      didSanitize = true;
+    }
+    final rawWriteCommandConfirmationEnabled =
+        rootValues['ai_write_command_confirmation_enabled'];
+    final aiWriteCommandConfirmationEnabled =
+        rawWriteCommandConfirmationEnabled is bool
+        ? rawWriteCommandConfirmationEnabled
+        : true;
+    if (rawWriteCommandConfirmationEnabled is! bool) {
+      didSanitize = true;
+    }
+    final rawDenyCommandRules = '${rootValues['ai_deny_command_rules'] ?? ''}';
+    final aiDenyCommandRules = <AiDenyCommandRule>[];
+    if (rawDenyCommandRules.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawDenyCommandRules);
+        if (decoded is List) {
+          final seenRuleIds = <String>{};
+          for (final item in decoded) {
+            if (item is! Map) {
+              didSanitize = true;
+              continue;
+            }
+            final rule = AiDenyCommandRule.fromJson(
+              Map<String, Object?>.from(item),
+            );
+            if (rule.id.isEmpty || rule.pattern.trim().isEmpty) {
+              didSanitize = true;
+              continue;
+            }
+            if (!seenRuleIds.add(rule.id)) {
+              didSanitize = true;
+              continue;
+            }
+            aiDenyCommandRules.add(rule);
+          }
+        } else {
+          didSanitize = true;
+        }
+      } catch (_) {
+        didSanitize = true;
+      }
+    }
 
     final aiModels = <AiModelConfig>[];
     final seenAiModelIds = <String>{};
@@ -392,6 +443,10 @@ class SettingsStore {
         mcpServersFilePath: mcpServersFilePath,
         memoryEnabled: memoryEnabled,
         userMemoryFilePath: userMemoryFilePath,
+        aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
+        aiWriteCommandConfirmationEnabled:
+            aiWriteCommandConfirmationEnabled,
+        aiDenyCommandRules: aiDenyCommandRules,
         aiModels: aiModels,
         selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
       ),
@@ -416,8 +471,15 @@ class SettingsStore {
         'mcp_servers_file_path = ${jsonEncode(snapshot.mcpServersFilePath)}',
       )
       ..writeln('memory_enabled = ${snapshot.memoryEnabled}')
+      ..writeln('user_memory_file = ${jsonEncode(snapshot.userMemoryFilePath)}')
       ..writeln(
-        'user_memory_file = ${jsonEncode(snapshot.userMemoryFilePath)}',
+        'ai_message_compression_threshold_chars = ${snapshot.aiMessageCompressionThresholdChars}',
+      )
+      ..writeln(
+        'ai_write_command_confirmation_enabled = ${snapshot.aiWriteCommandConfirmationEnabled}',
+      )
+      ..writeln(
+        'ai_deny_command_rules = ${jsonEncode(jsonEncode(snapshot.aiDenyCommandRules.map((item) => item.toJson()).toList(growable: false)))}',
       )
       ..writeln(
         'selected_ai_model_id = ${jsonEncode(snapshot.selectedAiModelId ?? '')}',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../support/openhand_paths.dart';
@@ -15,9 +16,14 @@ class AppSettingsSnapshot {
     required this.mcpServersFilePath,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
+    required this.aiMessageCompressionThresholdChars,
+    required this.aiWriteCommandConfirmationEnabled,
+    required this.aiDenyCommandRules,
     required this.aiModels,
     required this.selectedAiModelId,
   });
+
+  static const int defaultAiMessageCompressionThresholdChars = 12000;
 
   factory AppSettingsSnapshot.defaults() {
     return AppSettingsSnapshot(
@@ -29,6 +35,10 @@ class AppSettingsSnapshot {
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
+      aiMessageCompressionThresholdChars:
+          defaultAiMessageCompressionThresholdChars,
+      aiWriteCommandConfirmationEnabled: true,
+      aiDenyCommandRules: const <AiDenyCommandRule>[],
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
     );
@@ -42,6 +52,9 @@ class AppSettingsSnapshot {
   final String mcpServersFilePath;
   final bool memoryEnabled;
   final String userMemoryFilePath;
+  final int aiMessageCompressionThresholdChars;
+  final bool aiWriteCommandConfirmationEnabled;
+  final List<AiDenyCommandRule> aiDenyCommandRules;
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
 
@@ -54,6 +67,9 @@ class AppSettingsSnapshot {
     String? mcpServersFilePath,
     bool? memoryEnabled,
     String? userMemoryFilePath,
+    int? aiMessageCompressionThresholdChars,
+    bool? aiWriteCommandConfirmationEnabled,
+    List<AiDenyCommandRule>? aiDenyCommandRules,
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
     bool clearSelectedAiModelId = false,
@@ -67,6 +83,13 @@ class AppSettingsSnapshot {
       mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
+      aiMessageCompressionThresholdChars:
+          aiMessageCompressionThresholdChars ??
+          this.aiMessageCompressionThresholdChars,
+      aiWriteCommandConfirmationEnabled:
+          aiWriteCommandConfirmationEnabled ??
+          this.aiWriteCommandConfirmationEnabled,
+      aiDenyCommandRules: aiDenyCommandRules ?? this.aiDenyCommandRules,
       aiModels: aiModels ?? this.aiModels,
       selectedAiModelId: clearSelectedAiModelId
           ? null

@@ -505,6 +505,10 @@ class SkillsRepository {
       p.normalize(p.join(skillDirectoryPath, sanitizedPath)),
     ];
     for (final candidatePath in candidatePaths) {
+      if (!_isPathWithinDirectory(candidatePath, skillDirectoryPath) &&
+          !_isPathWithinDirectory(candidatePath, metadataDirectoryPath)) {
+        continue;
+      }
       final iconFile = File(candidatePath);
       if (await iconFile.exists()) {
         return _ResolvedSkillIcon(path: candidatePath, kind: iconKind);
@@ -788,6 +792,13 @@ class SkillsRepository {
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&apos;');
+  }
+
+  bool _isPathWithinDirectory(String candidatePath, String directoryPath) {
+    final normalizedDirectoryPath = p.normalize(directoryPath);
+    final normalizedCandidatePath = p.normalize(candidatePath);
+    return p.equals(normalizedCandidatePath, normalizedDirectoryPath) ||
+        p.isWithin(normalizedDirectoryPath, normalizedCandidatePath);
   }
 
   Future<Directory> _createUniqueSkillDirectory(

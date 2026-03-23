@@ -46,6 +46,27 @@ void main() {
     expect(controller.skills.single.name, 'Planner Skill');
     expect(controller.errorMessage, isNull);
   });
+
+  test('SkillsController ignores late refresh completion after dispose', () async {
+    final repository = _QueuedSkillsRepository(
+      initialSkills: const <LocalSkill>[],
+    );
+    final controller = await SkillsController.create(
+      initialStoragePath: repository.storagePath,
+      repository: repository,
+    );
+
+    repository.blockNextLoad();
+    final refreshFuture = controller.refresh();
+
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.pendingLoadCount, 1);
+
+    controller.dispose();
+    repository.completeNextLoad();
+
+    await refreshFuture;
+  });
 }
 
 class _QueuedSkillsRepository extends SkillsRepository {
@@ -56,12 +77,21 @@ class _QueuedSkillsRepository extends SkillsRepository {
   List<LocalSkill> _persistedSkills;
   int loadCallCount = 0;
   final List<_PendingSkillCreate> _pendingCreates = <_PendingSkillCreate>[];
+  final List<Completer<void>> _pendingLoads = <Completer<void>>[];
+  bool _blockLoads = false;
 
   int get pendingCreateCount => _pendingCreates.length;
+  int get pendingLoadCount => _pendingLoads.length;
 
   @override
   Future<List<LocalSkill>> loadInstalledSkills(String storagePath) async {
     loadCallCount += 1;
+    if (_blockLoads) {
+      final completer = Completer<void>();
+      _pendingLoads.add(completer);
+      _blockLoads = false;
+      await completer.future;
+    }
     return List<LocalSkill>.from(_persistedSkills);
   }
 
@@ -94,6 +124,15 @@ class _QueuedSkillsRepository extends SkillsRepository {
     final pendingCreate = _pendingCreates.removeAt(0);
     _persistedSkills = <LocalSkill>[..._persistedSkills, pendingCreate.skill];
     pendingCreate.completer.complete(pendingCreate.skill);
+  }
+
+  void blockNextLoad() {
+    _blockLoads = true;
+  }
+
+  void completeNextLoad() {
+    final completer = _pendingLoads.removeAt(0);
+    completer.complete();
   }
 }
 

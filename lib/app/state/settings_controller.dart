@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
@@ -25,6 +26,13 @@ class SettingsController extends ChangeNotifier {
        _mcpServersFilePath = snapshot.mcpServersFilePath,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
+       _aiMessageCompressionThresholdChars =
+           snapshot.aiMessageCompressionThresholdChars,
+       _aiWriteCommandConfirmationEnabled =
+           snapshot.aiWriteCommandConfirmationEnabled,
+       _aiDenyCommandRules = List<AiDenyCommandRule>.from(
+         snapshot.aiDenyCommandRules,
+       ),
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
        _persistenceIssue = persistenceIssue;
@@ -48,9 +56,13 @@ class SettingsController extends ChangeNotifier {
   String _mcpServersFilePath;
   bool _memoryEnabled;
   String _userMemoryFilePath;
+  int _aiMessageCompressionThresholdChars;
+  bool _aiWriteCommandConfirmationEnabled;
+  List<AiDenyCommandRule> _aiDenyCommandRules;
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
   SettingsPersistenceIssue? _persistenceIssue;
+  bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
 
   ThemeMode get themeMode => _themeMode;
@@ -74,6 +86,12 @@ class SettingsController extends ChangeNotifier {
       OpenHandPaths.defaultMcpServersFileLabel;
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
+  int get aiMessageCompressionThresholdChars =>
+      _aiMessageCompressionThresholdChars;
+  bool get aiWriteCommandConfirmationEnabled =>
+      _aiWriteCommandConfirmationEnabled;
+  List<AiDenyCommandRule> get aiDenyCommandRules =>
+      List<AiDenyCommandRule>.unmodifiable(_aiDenyCommandRules);
   String get displayUserMemoryFilePath =>
       OpenHandPaths.shortenHomePath(_userMemoryFilePath);
   String get defaultUserMemoryFilePath =>
@@ -87,6 +105,20 @@ class SettingsController extends ChangeNotifier {
       List<AiModelConfig>.unmodifiable(_aiModels);
   String? get selectedAiModelId => _selectedAiModelId;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) {
+      return;
+    }
+    super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
 
   AiModelConfig? get selectedAiModel {
     final selectedAiModelId = _selectedAiModelId;
@@ -184,6 +216,65 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiMessageCompressionThresholdChars(int value) async {
+    final normalizedValue = value <= 0
+        ? AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars
+        : value;
+    return _commitMutation(() {
+      if (_aiMessageCompressionThresholdChars == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMessageCompressionThresholdChars = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWriteCommandConfirmationEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_aiWriteCommandConfirmationEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWriteCommandConfirmationEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> addAiDenyCommandRule(AiDenyCommandRule rule) async {
+    return _commitMutation(() {
+      if (_aiDenyCommandRules.any((item) => item.id == rule.id)) {
+        return _MutationDisposition.reject;
+      }
+      _aiDenyCommandRules = <AiDenyCommandRule>[..._aiDenyCommandRules, rule];
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiDenyCommandRule(AiDenyCommandRule rule) async {
+    return _commitMutation(() {
+      final index = _aiDenyCommandRules.indexWhere((item) => item.id == rule.id);
+      if (index == -1) {
+        return _MutationDisposition.reject;
+      }
+      final updatedRules = List<AiDenyCommandRule>.from(_aiDenyCommandRules);
+      updatedRules[index] = rule;
+      _aiDenyCommandRules = updatedRules;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> deleteAiDenyCommandRule(String id) async {
+    return _commitMutation(() {
+      final updatedRules = _aiDenyCommandRules
+          .where((item) => item.id != id)
+          .toList(growable: false);
+      if (updatedRules.length == _aiDenyCommandRules.length) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiDenyCommandRules = updatedRules;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> saveAiModel(AiModelConfig value) async {
     return _commitMutation(() {
       final updatedModels = List<AiModelConfig>.from(_aiModels);
@@ -251,6 +342,10 @@ class SettingsController extends ChangeNotifier {
     return DateTime.now().microsecondsSinceEpoch.toString();
   }
 
+  String createAiDenyCommandRuleId() {
+    return DateTime.now().microsecondsSinceEpoch.toString();
+  }
+
   AppSettingsSnapshot _snapshot() {
     return AppSettingsSnapshot(
       themeMode: _themeMode,
@@ -261,6 +356,9 @@ class SettingsController extends ChangeNotifier {
       mcpServersFilePath: _mcpServersFilePath,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
+      aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
+      aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
+      aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
     );
@@ -275,6 +373,13 @@ class SettingsController extends ChangeNotifier {
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
+    _aiMessageCompressionThresholdChars =
+        snapshot.aiMessageCompressionThresholdChars;
+    _aiWriteCommandConfirmationEnabled =
+        snapshot.aiWriteCommandConfirmationEnabled;
+    _aiDenyCommandRules = List<AiDenyCommandRule>.from(
+      snapshot.aiDenyCommandRules,
+    );
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
     _selectedAiModelId = snapshot.selectedAiModelId;
   }

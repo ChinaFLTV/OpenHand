@@ -1,20 +1,72 @@
 import 'dart:convert';
 
 import '../model/ai_model_config.dart';
+import '../model/ai_token_usage.dart';
 
-enum AiChatRole { system, user, assistant }
+enum AiChatRole { system, user, assistant, tool }
+
+class AiToolCall {
+  const AiToolCall({
+    required this.id,
+    required this.name,
+    required this.arguments,
+  });
+
+  final String id;
+  final String name;
+  final String arguments;
+
+  Map<String, Object?> toOpenAiJson() {
+    return <String, Object?>{
+      'id': id,
+      'type': 'function',
+      'function': <String, Object?>{'name': name, 'arguments': arguments},
+    };
+  }
+}
+
+class AiToolDefinition {
+  const AiToolDefinition({
+    required this.name,
+    required this.description,
+    required this.parameters,
+  });
+
+  final String name;
+  final String description;
+  final Map<String, Object?> parameters;
+
+  Map<String, Object?> toOpenAiJson() {
+    return <String, Object?>{
+      'type': 'function',
+      'function': <String, Object?>{
+        'name': name,
+        'description': description,
+        'parameters': parameters,
+      },
+    };
+  }
+}
 
 class AiChatTurn {
-  const AiChatTurn({required this.role, required this.content});
+  const AiChatTurn({
+    required this.role,
+    required this.content,
+    this.toolCallId,
+    this.toolCalls = const <AiToolCall>[],
+  });
 
   final AiChatRole role;
   final String content;
+  final String? toolCallId;
+  final List<AiToolCall> toolCalls;
 
   String get roleName {
     return switch (role) {
       AiChatRole.system => 'system',
       AiChatRole.user => 'user',
       AiChatRole.assistant => 'assistant',
+      AiChatRole.tool => 'tool',
     };
   }
 }
@@ -38,6 +90,12 @@ abstract class AiProtocolAdapter {
 
   String get endpointPath;
 
+  String get streamEndpointPath => endpointPath;
+
+  bool get supportsServerStreaming => false;
+
+  bool get supportsToolCalls => false;
+
   String describe(AiModelConfig model) {
     return '${protocolType.storageValue.toUpperCase()} · ${model.modelId}';
   }
@@ -45,11 +103,17 @@ abstract class AiProtocolAdapter {
   AiRequestBlueprint buildChatRequest({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
   }) {
     return AiRequestBlueprint(
-      url: _buildUrl(model.normalizedBaseUrl, endpointPath, model.modelId),
+      url: _buildUrl(
+        model.normalizedBaseUrl,
+        stream ? streamEndpointPath : endpointPath,
+        model.modelId,
+      ),
       headers: buildHeaders(model),
-      body: buildBody(model, messages),
+      body: buildBody(model, messages, tools: tools, stream: stream),
     );
   }
 
@@ -69,8 +133,18 @@ abstract class AiProtocolAdapter {
 
   Map<String, Object?> buildBody(
     AiModelConfig model,
-    List<AiChatTurn> messages,
-  );
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
+  });
+
+  AiTokenUsage? parseUsage(String rawResponse) {
+    return null;
+  }
+
+  List<AiToolCall> parseToolCalls(String rawResponse) {
+    return const <AiToolCall>[];
+  }
 
   String parseAssistantMessage(String rawResponse) {
     throw UnimplementedError(
@@ -100,7 +174,13 @@ abstract class AiProtocolAdapter {
   }
 
   String _buildUrl(String baseUrl, String path, String modelId) {
-    final normalizedPath = path.startsWith('/') ? path.substring(1) : path;
+    final pathParts = path.split('?');
+    final normalizedPath = pathParts.first.startsWith('/')
+        ? pathParts.first.substring(1)
+        : pathParts.first;
+    final queryString = pathParts.length > 1
+        ? pathParts.sublist(1).join('?')
+        : '';
     final baseUri = Uri.parse(baseUrl);
     final baseSegments = baseUri.pathSegments
         .where((segment) => segment.isNotEmpty)
@@ -114,7 +194,14 @@ abstract class AiProtocolAdapter {
     final joinedPath = remainingPath.isEmpty
         ? baseUrl
         : '$baseUrl/$remainingPath';
-    return joinedPath.replaceAll('{model_id}', Uri.encodeComponent(modelId));
+    final resolvedPath = joinedPath.replaceAll(
+      '{model_id}',
+      Uri.encodeComponent(modelId),
+    );
+    if (queryString.isEmpty) {
+      return resolvedPath;
+    }
+    return '$resolvedPath?$queryString';
   }
 
   int _leadingPathOverlap(
@@ -154,21 +241,67 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   String get endpointPath => 'v1/chat/completions';
 
   @override
+  bool get supportsServerStreaming => true;
+
+  @override
+  bool get supportsToolCalls => true;
+
+  @override
   Map<String, Object?> buildBody(
     AiModelConfig model,
-    List<AiChatTurn> messages,
-  ) {
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
+  }) {
     return <String, Object?>{
       'model': model.modelId,
+      if (stream) 'stream': true,
+      if (stream) 'stream_options': <String, Object?>{'include_usage': true},
+      if (tools.isNotEmpty)
+        'tools': tools
+            .map((item) => item.toOpenAiJson())
+            .toList(growable: false),
+      if (tools.isNotEmpty) 'tool_choice': 'auto',
       'messages': messages
-          .map(
-            (item) => <String, Object?>{
-              'role': item.roleName,
-              'content': item.content,
-            },
-          )
+          .map((item) => _mapOpenAiMessage(item))
           .toList(growable: false),
     };
+  }
+
+  Map<String, Object?> _mapOpenAiMessage(AiChatTurn item) {
+    final payload = <String, Object?>{'role': item.roleName};
+    if (item.role == AiChatRole.tool) {
+      payload['tool_call_id'] = item.toolCallId ?? '';
+      payload['content'] = item.content;
+      return payload;
+    }
+    payload['content'] = item.content;
+    if (item.role == AiChatRole.assistant && item.toolCalls.isNotEmpty) {
+      payload['tool_calls'] = item.toolCalls
+          .map((toolCall) => toolCall.toOpenAiJson())
+          .toList(growable: false);
+    }
+    return payload;
+  }
+
+  @override
+  AiTokenUsage? parseUsage(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return null;
+    }
+    final usage = decoded['usage'];
+    if (usage is! Map && usage is! Map<String, Object?>) {
+      return null;
+    }
+    final usageMap = usage is Map<String, Object?>
+        ? usage
+        : Map<String, Object?>.from(usage as Map);
+    return AiTokenUsage(
+      promptTokens: _readInt(usageMap['prompt_tokens']),
+      completionTokens: _readInt(usageMap['completion_tokens']),
+      totalTokens: _readInt(usageMap['total_tokens']),
+    );
   }
 
   @override
@@ -191,6 +324,54 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     }
     return _extractOpenAiContent(message['content']);
   }
+
+  @override
+  List<AiToolCall> parseToolCalls(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return const <AiToolCall>[];
+    }
+    final choices = decoded['choices'];
+    if (choices is! List || choices.isEmpty) {
+      return const <AiToolCall>[];
+    }
+    final firstChoice = choices.first;
+    if (firstChoice is! Map) {
+      return const <AiToolCall>[];
+    }
+    final message = firstChoice['message'];
+    if (message is! Map) {
+      return const <AiToolCall>[];
+    }
+    final toolCalls = message['tool_calls'];
+    if (toolCalls is! List) {
+      return const <AiToolCall>[];
+    }
+    return toolCalls
+        .map((item) {
+          if (item is! Map) {
+            return null;
+          }
+          final toolCallMap = Map<String, Object?>.from(item);
+          final function = toolCallMap['function'];
+          if (function is! Map) {
+            return null;
+          }
+          final functionMap = Map<String, Object?>.from(function);
+          final id = '${toolCallMap['id'] ?? ''}'.trim();
+          final name = '${functionMap['name'] ?? ''}'.trim();
+          if (id.isEmpty || name.isEmpty) {
+            return null;
+          }
+          return AiToolCall(
+            id: id,
+            name: name,
+            arguments: '${functionMap['arguments'] ?? ''}',
+          );
+        })
+        .whereType<AiToolCall>()
+        .toList(growable: false);
+  }
 }
 
 class ClaudeProtocolAdapter extends AiProtocolAdapter {
@@ -212,13 +393,23 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   @override
   Map<String, Object?> buildBody(
     AiModelConfig model,
-    List<AiChatTurn> messages,
-  ) {
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
+  }) {
+    final systemContent = messages
+        .where((item) => item.role == AiChatRole.system)
+        .map((item) => item.content.trim())
+        .where((item) => item.isNotEmpty)
+        .join('\n\n');
     return <String, Object?>{
       'model': model.modelId,
+      if (systemContent.isNotEmpty) 'system': systemContent,
       'max_tokens': 1024,
+      if (stream) 'stream': true,
       'messages': messages
           .where((item) => item.role != AiChatRole.system)
+          .where((item) => item.role != AiChatRole.tool)
           .map(
             (item) => <String, Object?>{
               'role': item.role == AiChatRole.user ? 'user' : 'assistant',
@@ -227,6 +418,30 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           )
           .toList(growable: false),
     };
+  }
+
+  @override
+  AiTokenUsage? parseUsage(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return null;
+    }
+    final usage = decoded['usage'];
+    if (usage is! Map && usage is! Map<String, Object?>) {
+      return null;
+    }
+    final usageMap = usage is Map<String, Object?>
+        ? usage
+        : Map<String, Object?>.from(usage as Map);
+    final promptTokens = _readInt(usageMap['input_tokens']);
+    final completionTokens = _readInt(usageMap['output_tokens']);
+    return AiTokenUsage(
+      promptTokens: promptTokens,
+      completionTokens: completionTokens,
+      totalTokens:
+          _readInt(usageMap['total_tokens']) ??
+          ((promptTokens ?? 0) + (completionTokens ?? 0)),
+    );
   }
 
   @override
@@ -271,6 +486,10 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   String get endpointPath => 'v1beta/models/{model_id}:generateContent';
 
   @override
+  String get streamEndpointPath =>
+      'v1beta/models/{model_id}:streamGenerateContent?alt=sse';
+
+  @override
   Map<String, String> buildHeaders(AiModelConfig model) {
     final headers = super.buildHeaders(model);
     headers.remove('authorization');
@@ -285,10 +504,25 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   @override
   Map<String, Object?> buildBody(
     AiModelConfig model,
-    List<AiChatTurn> messages,
-  ) {
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
+  }) {
+    final systemContent = messages
+        .where((item) => item.role == AiChatRole.system)
+        .map((item) => item.content.trim())
+        .where((item) => item.isNotEmpty)
+        .join('\n\n');
     return <String, Object?>{
+      if (systemContent.isNotEmpty)
+        'systemInstruction': <String, Object?>{
+          'parts': <Map<String, Object?>>[
+            <String, Object?>{'text': systemContent},
+          ],
+        },
       'contents': messages
+          .where((item) => item.role != AiChatRole.system)
+          .where((item) => item.role != AiChatRole.tool)
           .map(
             (item) => <String, Object?>{
               'role': item.role == AiChatRole.assistant ? 'model' : 'user',
@@ -299,6 +533,26 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           )
           .toList(growable: false),
     };
+  }
+
+  @override
+  AiTokenUsage? parseUsage(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return null;
+    }
+    final usage = decoded['usageMetadata'];
+    if (usage is! Map && usage is! Map<String, Object?>) {
+      return null;
+    }
+    final usageMap = usage is Map<String, Object?>
+        ? usage
+        : Map<String, Object?>.from(usage as Map);
+    return AiTokenUsage(
+      promptTokens: _readInt(usageMap['promptTokenCount']),
+      completionTokens: _readInt(usageMap['candidatesTokenCount']),
+      totalTokens: _readInt(usageMap['totalTokenCount']),
+    );
   }
 
   @override
@@ -362,8 +616,7 @@ abstract final class AiProtocolRegistry {
       };
 
   static AiProtocolAdapter adapterFor(AiProtocolType protocolType) {
-    return _adapters[protocolType] ??
-        const OpenAiProtocolAdapter(AiProtocolType.openai);
+    return _adapters[protocolType] ?? _adapters[AiProtocolType.openai]!;
   }
 }
 
@@ -374,10 +627,17 @@ String _extractOpenAiContent(Object? rawContent) {
   if (rawContent is List<dynamic>) {
     final buffer = StringBuffer();
     for (final item in rawContent) {
+      if (item is String && item.trim().isNotEmpty) {
+        if (buffer.isNotEmpty) {
+          buffer.writeln();
+        }
+        buffer.write(item.trim());
+        continue;
+      }
       if (item is! Map<String, Object?>) {
         continue;
       }
-      final text = '${item['text'] ?? ''}'.trim();
+      final text = '${item['text'] ?? item['content'] ?? ''}'.trim();
       if (text.isEmpty) {
         continue;
       }
@@ -391,5 +651,29 @@ String _extractOpenAiContent(Object? rawContent) {
       return output;
     }
   }
-  throw const FormatException('Empty OpenAI-compatible response text.');
+  throw const FormatException('Empty assistant response text.');
+}
+
+int? _readInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    final coercedValue = value.toInt();
+    return value == coercedValue ? coercedValue : null;
+  }
+  final rawText = '${value ?? ''}'.trim();
+  if (rawText.isEmpty) {
+    return null;
+  }
+  final parsedInt = int.tryParse(rawText);
+  if (parsedInt != null) {
+    return parsedInt;
+  }
+  final parsedDouble = double.tryParse(rawText);
+  if (parsedDouble == null) {
+    return null;
+  }
+  final coercedValue = parsedDouble.toInt();
+  return parsedDouble == coercedValue ? coercedValue : null;
 }

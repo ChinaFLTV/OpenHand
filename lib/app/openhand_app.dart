@@ -3,6 +3,7 @@ import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'theme/openhand_theme.dart';
+import 'theme/openhand_theme_preset.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,15 +12,23 @@ class OpenHandApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settingsController = context.watch<SettingsController>();
+    final themeMode = context.select<SettingsController, ThemeMode>(
+      (controller) => controller.themeMode,
+    );
+    final themePreset = context.select<SettingsController, OpenHandThemePreset>(
+      (controller) => controller.themePreset,
+    );
+    final locale = context.select<SettingsController, Locale?>(
+      (controller) => controller.locale,
+    );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-      themeMode: settingsController.themeMode,
-      theme: OpenHandTheme.light(settingsController.themePreset),
-      darkTheme: OpenHandTheme.dark(settingsController.themePreset),
-      locale: settingsController.locale,
+      themeMode: themeMode,
+      theme: OpenHandTheme.light(themePreset),
+      darkTheme: OpenHandTheme.dark(themePreset),
+      locale: locale,
       supportedLocales: supportedAppLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       themeAnimationCurve: Curves.easeOutCubic,

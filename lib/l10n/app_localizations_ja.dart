@@ -916,4 +916,40 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get mcpPersistenceSaveFailedBody =>
       '写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+
+  @override
+  String get threadsEmptyBody =>
+      'No conversation threads yet. Create a new thread to start.';
+
+  @override
+  String get threadTemplateDialogTitle => 'Choose a Thread Template';
+
+  @override
+  String get threadTemplateDialogBody =>
+      'Start a new thread by picking one of the built-in capability templates below.';
+
+  @override
+  String get threadCompressionNotice =>
+      'Older messages in this thread were compressed into a summary checkpoint to keep the active prompt focused.';
+
+  @override
+  String get threadCompressionCheckpointLabel => 'Summary checkpoint';
+
+  @override
+  String get aiCompressionThresholdLabel => 'Message Compression Threshold';
+
+  @override
+  String get aiCompressionThresholdBody =>
+      'When the uncompressed historical messages in the current thread exceed this character threshold, OpenHand will summarize the older slice into a compression checkpoint and keep the most recent slice active.';
+
+  @override
+  String get aiCompressionThresholdSave => 'Save Threshold';
+
+  @override
+  String get aiCompressionThresholdSaved =>
+      'The AI message compression threshold has been updated.';
+
+  @override
+  String get aiCompressionThresholdInvalid =>
+      'Enter a valid positive integer threshold.';
 }

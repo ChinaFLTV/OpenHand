@@ -1869,6 +1869,66 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。'**
   String get mcpPersistenceSaveFailedBody;
+
+  /// No description provided for @threadsEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前还没有任何对话线程，创建一个新线程即可开始。'**
+  String get threadsEmptyBody;
+
+  /// No description provided for @threadTemplateDialogTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择线程模板'**
+  String get threadTemplateDialogTitle;
+
+  /// No description provided for @threadTemplateDialogBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建线程前，请先从下方内置能力模板中选择一个。'**
+  String get threadTemplateDialogBody;
+
+  /// No description provided for @threadCompressionNotice.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前线程中的较早消息已被压缩为摘要检查点，以便让活跃 Prompt 保持聚焦。'**
+  String get threadCompressionNotice;
+
+  /// No description provided for @threadCompressionCheckpointLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'摘要检查点'**
+  String get threadCompressionCheckpointLabel;
+
+  /// No description provided for @aiCompressionThresholdLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息压缩阈值'**
+  String get aiCompressionThresholdLabel;
+
+  /// No description provided for @aiCompressionThresholdBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当当前线程中未压缩的历史消息字符总数超过该阈值时，OpenHand 会将更早的一段消息压缩为摘要检查点，并保留最近的一段消息继续参与 Prompt 组装。'**
+  String get aiCompressionThresholdBody;
+
+  /// No description provided for @aiCompressionThresholdSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存阈值'**
+  String get aiCompressionThresholdSave;
+
+  /// No description provided for @aiCompressionThresholdSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 消息压缩阈值已更新。'**
+  String get aiCompressionThresholdSaved;
+
+  /// No description provided for @aiCompressionThresholdInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的正整数阈值。'**
+  String get aiCompressionThresholdInvalid;
 }
 
 class _AppLocalizationsDelegate

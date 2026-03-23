@@ -66,6 +66,10 @@ void main() {
       isTrue,
     );
     expect(
+      await controller.updateAiMessageCompressionThresholdChars(16000),
+      isTrue,
+    );
+    expect(
       await controller.saveAiModel(
         const AiModelConfig(
           id: 'model-1',
@@ -107,6 +111,7 @@ void main() {
       OpenHandPaths.defaultMcpServersFileLabel,
     );
     expect(reloadedController.userMemoryFilePath, customMemoryFilePath);
+    expect(reloadedController.aiMessageCompressionThresholdChars, 16000);
     expect(reloadedController.aiModels, hasLength(2));
     expect(reloadedController.aiModels.first.id, 'model-2');
     expect(reloadedController.selectedAiModel?.modelId, 'claude-sonnet');
@@ -132,6 +137,10 @@ void main() {
     expect(
       File(settingsFilePath).readAsStringSync(),
       contains('user_memory_file = "$customMemoryFilePath"'),
+    );
+    expect(
+      File(settingsFilePath).readAsStringSync(),
+      contains('ai_message_compression_threshold_chars = 16000'),
     );
   });
 
@@ -241,6 +250,26 @@ void main() {
   );
 
   test(
+    'SettingsController ignores late failed saves after dispose',
+    () async {
+      final store = _QueuedSettingsStore(
+        snapshot: AppSettingsSnapshot.defaults(),
+      );
+      final controller = await SettingsController.create(store: store);
+
+      final updateFuture = controller.updateThemeMode(ThemeMode.dark);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(store.pendingSaveCount, 1);
+
+      controller.dispose();
+      store.failNextSave(const FileSystemException('disk full'));
+
+      expect(await updateFuture, isFalse);
+    },
+  );
+
+  test(
     'SettingsStore sanitizes duplicate ai models and invalid enum values',
     () async {
       final tempDirectory = await Directory.systemTemp.createTemp(
@@ -264,6 +293,7 @@ mcp_enabled = true
 mcp_servers_file_path = "/tmp/mcp_servers.json"
 memory_enabled = true
 user_memory_file = "/tmp/user-memory.json"
+ai_message_compression_threshold_chars = 0
 selected_ai_model_id = "missing-model"
 
 [[ai_models]]
@@ -293,6 +323,10 @@ protocol_type = "openai"
       );
       expect(loadResult.snapshot.aiModels, hasLength(1));
       expect(loadResult.snapshot.selectedAiModelId, 'primary-model');
+      expect(
+        loadResult.snapshot.aiMessageCompressionThresholdChars,
+        AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars,
+      );
       final model = loadResult.snapshot.aiModels.single;
       expect(model.id, 'primary-model');
       expect(model.baseUrl, 'https://api.example.com/v1');
@@ -414,5 +448,10 @@ class _QueuedSettingsStore extends SettingsStore {
   void completeNextSave() {
     final completer = _pendingSaves.removeAt(0);
     completer.complete();
+  }
+
+  void failNextSave(Object error) {
+    final completer = _pendingSaves.removeAt(0);
+    completer.completeError(error);
   }
 }
