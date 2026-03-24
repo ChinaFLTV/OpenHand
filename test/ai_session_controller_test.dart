@@ -1165,6 +1165,152 @@ void main() {
   );
 
   test(
+    'AiSessionController sends every tool result back after a multi-tool round',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: <AiChatCompletion>[
+          const AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-1',
+                name: 'bash',
+                arguments: '{"cmd":"pwd"}',
+              ),
+              AiToolCall(
+                id: 'tool-call-2',
+                name: 'bash',
+                arguments: '{"cmd":"ls -la"}',
+              ),
+            ],
+          ),
+          const AiChatCompletion(reply: 'All checks finished'),
+        ],
+      );
+      final generatedIds = <String>[
+        'session-multi-tool',
+        'message-user',
+        'message-tool-call-1',
+        'message-tool-call-2',
+        'message-tool-result-1',
+        'message-tool-result-2',
+        'message-assistant',
+      ];
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        bashToolService: _QueuedBashToolService(
+          results: const <BashToolExecutionResult>[
+            BashToolExecutionResult(
+              status: BashToolExecutionStatus.success,
+              command: 'pwd',
+              workingDirectory: '/tmp/demo',
+              stdout: '/tmp/demo',
+              stderr: '',
+              durationMs: 40,
+              exitCode: 0,
+            ),
+            BashToolExecutionResult(
+              status: BashToolExecutionStatus.success,
+              command: 'ls -la',
+              workingDirectory: '/tmp/demo',
+              stdout: 'README.md',
+              stderr: '',
+              durationMs: 45,
+              exitCode: 0,
+            ),
+          ],
+        ),
+        idGenerator: () => generatedIds.removeAt(0),
+        clock: () => DateTime.utc(2026, 3, 24, 10, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-multi-tool',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      expect(
+        await controller.sendMessage(
+          content: 'Inspect the workspace',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      expect(controller.sendPhase, AiSendPhase.idle);
+      expect(chatClient.requests, hasLength(3));
+
+      final followUpRequest = chatClient.requests[2];
+      final assistantToolTurn = followUpRequest.singleWhere(
+        (turn) => turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty,
+      );
+      final toolTurns = followUpRequest
+          .where((turn) => turn.role == AiChatRole.tool)
+          .toList(growable: false);
+
+      expect(assistantToolTurn.toolCalls, hasLength(2));
+      expect(
+        assistantToolTurn.toolCalls.map((item) => item.id).toList(),
+        <String>['tool-call-1', 'tool-call-2'],
+      );
+      expect(
+        toolTurns.map((item) => item.toolCallId).toList(),
+        <String>['tool-call-1', 'tool-call-2'],
+      );
+      expect(toolTurns, hasLength(2));
+      expect(toolTurns.first.content, contains('status: success'));
+      expect(toolTurns.last.content, contains('status: success'));
+      expect(
+        controller.currentSession!.messages.any(
+          (message) =>
+              message.kind == AiSessionMessageKind.assistant &&
+              message.content == 'All checks finished',
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'AiSessionController stops after too many sequential tool rounds',
     () async {
       final promptRepository = AiPromptTemplateRepository(
@@ -2294,6 +2440,28 @@ class _FakeBashToolService extends AiBashToolService {
       onUpdate?.call(update);
     }
     return result;
+  }
+}
+
+class _QueuedBashToolService extends AiBashToolService {
+  _QueuedBashToolService({required List<BashToolExecutionResult> results})
+    : _results = List<BashToolExecutionResult>.from(results);
+
+  final List<BashToolExecutionResult> _results;
+
+  @override
+  Future<BashToolExecutionResult> execute({
+    required String command,
+    String? workingDirectory,
+    required List<AiDenyCommandRule> denyRules,
+    required bool requireWriteConfirmation,
+    Future<bool> Function(BashCommandApprovalRequest request)?
+    confirmWriteCommand,
+    void Function(BashToolExecutionUpdate update)? onUpdate,
+    Future<void>? cancelSignal,
+    int timeoutMs = AiBashToolService.defaultTimeoutMs,
+  }) async {
+    return _results.removeAt(0);
   }
 }
 

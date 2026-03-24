@@ -355,6 +355,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     _scheduleScrollToBottom(force: true);
   }
 
+  void _handleComposerLayoutChanged() {
+    final shouldForce = _pendingForcedScrollToBottom;
+    if (!_autoFollowEnabled && !shouldForce) {
+      return;
+    }
+    if (!_shouldAutoFollowMessages && !shouldForce) {
+      return;
+    }
+    _scheduleScrollToBottom(force: true);
+  }
+
   String? _sessionAutoScrollSignature(AiSession? session) {
     final currentSession = session;
     if (currentSession == null) {
@@ -658,6 +669,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
             _composerCollapsed = collapsed;
           });
         },
+        onComposerLayoutChanged: _handleComposerLayoutChanged,
         autoFollowEnabled: _autoFollowEnabled,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
@@ -964,6 +976,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.composerCollapsed,
     required this.onComposerHeightChanged,
     required this.onComposerCollapsedChanged,
+    required this.onComposerLayoutChanged,
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
@@ -988,6 +1001,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool composerCollapsed;
   final ValueChanged<double> onComposerHeightChanged;
   final ValueChanged<bool> onComposerCollapsedChanged;
+  final VoidCallback onComposerLayoutChanged;
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
@@ -1034,21 +1048,29 @@ class _WorkspaceView extends StatelessWidget {
                     ),
             ),
             const SizedBox(height: 16),
-            _ComposerPanel(
-              controller: draftController,
-              selectedModel: selectedModel,
-              availableModels: availableModels,
-              onModelSelected: onModelSelected,
-              composerHeight: effectiveComposerHeight,
-              isCollapsed: composerCollapsed,
-              onCollapsedChanged: onComposerCollapsedChanged,
-              autoFollowEnabled: autoFollowEnabled,
-              onToggleAutoFollow: onToggleAutoFollow,
-              sendPhase: sendPhase,
-              onSend: onSend,
-              onStop: onStop,
-              editingMessageId: editingMessageId,
-              onCancelEditing: onCancelEditing,
+            NotificationListener<SizeChangedLayoutNotification>(
+              onNotification: (notification) {
+                onComposerLayoutChanged();
+                return false;
+              },
+              child: SizeChangedLayoutNotifier(
+                child: _ComposerPanel(
+                  controller: draftController,
+                  selectedModel: selectedModel,
+                  availableModels: availableModels,
+                  onModelSelected: onModelSelected,
+                  composerHeight: effectiveComposerHeight,
+                  isCollapsed: composerCollapsed,
+                  onCollapsedChanged: onComposerCollapsedChanged,
+                  autoFollowEnabled: autoFollowEnabled,
+                  onToggleAutoFollow: onToggleAutoFollow,
+                  sendPhase: sendPhase,
+                  onSend: onSend,
+                  onStop: onStop,
+                  editingMessageId: editingMessageId,
+                  onCancelEditing: onCancelEditing,
+                ),
+              ),
             ),
           ],
         );

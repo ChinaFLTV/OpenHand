@@ -4,29 +4,53 @@ import 'package:flutter/foundation.dart';
 
 import 'data/mcp_store.dart';
 import 'model/mcp_server.dart';
+import 'model/mcp_server_health.dart';
+import 'model/mcp_tool.dart';
+import 'service/mcp_tool_discovery_service.dart';
 
 class McpController extends ChangeNotifier {
-  McpController._({required McpStore store}) : _store = store;
+  McpController._({
+    required McpStore store,
+    required McpToolDiscoveryService toolDiscoveryService,
+    required Duration healthCheckInterval,
+  }) : _store = store,
+       _toolDiscoveryService = toolDiscoveryService,
+       _healthCheckInterval = healthCheckInterval;
 
   static Future<McpController> create({
     required String initialFilePath,
     McpStore? store,
+    McpToolDiscoveryService? toolDiscoveryService,
+    Duration healthCheckInterval = const Duration(seconds: 30),
   }) async {
     final controller = McpController._(
       store: store ?? McpStore(serversFilePath: initialFilePath),
+      toolDiscoveryService:
+          toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      healthCheckInterval: healthCheckInterval,
     );
     await controller.refresh();
     return controller;
   }
 
   final McpStore _store;
+  final McpToolDiscoveryService _toolDiscoveryService;
+  final Duration _healthCheckInterval;
 
   bool _isLoading = false;
   String? _errorMessage;
   List<McpServer> _servers = const <McpServer>[];
+  final Map<String, McpToolCatalog> _toolCatalogByServerName =
+      <String, McpToolCatalog>{};
+  final Map<String, int> _toolRefreshGenerationByServerName = <String, int>{};
+  final Map<String, McpServerHealth> _healthByServerName =
+      <String, McpServerHealth>{};
+  final Map<String, int> _healthCheckGenerationByServerName = <String, int>{};
   McpPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
+  bool _isPageActive = false;
   Future<void> _operationQueue = Future<void>.value();
+  Timer? _healthCheckTimer;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -34,6 +58,13 @@ class McpController extends ChangeNotifier {
   String get serversFilePath => _store.serversFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
+  McpToolCatalog toolCatalogFor(String serverName) {
+    return _toolCatalogByServerName[serverName] ?? const McpToolCatalog();
+  }
+
+  McpServerHealth healthStatusFor(String serverName) {
+    return _healthByServerName[serverName] ?? const McpServerHealth();
+  }
 
   @override
   void notifyListeners() {
@@ -46,6 +77,8 @@ class McpController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _healthCheckTimer?.cancel();
+    _toolDiscoveryService.dispose();
     super.dispose();
   }
 
@@ -57,6 +90,21 @@ class McpController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setPageActive(bool isActive) {
+    if (_isDisposed || _isPageActive == isActive) {
+      return;
+    }
+    _isPageActive = isActive;
+    if (_isPageActive) {
+      _autoRefreshEnabledServerTools();
+      _forceCheckEnabledServerHealth();
+    } else {
+      _invalidateToolRefreshGenerations();
+      _invalidateHealthCheckGenerations();
+    }
+    _reconcileHealthCheckTimer();
+  }
+
   Future<void> refresh() async {
     await _enqueueOperation(() async {
       _isLoading = true;
@@ -66,15 +114,26 @@ class McpController extends ChangeNotifier {
       try {
         final loadResult = await _store.load();
         _servers = loadResult.servers;
+        _syncToolCatalogsWithServers(_servers);
+        _syncHealthStatusesWithServers(_servers);
         _persistenceIssue = loadResult.issue;
       } catch (error) {
         _servers = const <McpServer>[];
+        _toolCatalogByServerName.clear();
+        _toolRefreshGenerationByServerName.clear();
+        _healthByServerName.clear();
+        _healthCheckGenerationByServerName.clear();
         _errorMessage = '$error';
       } finally {
         _isLoading = false;
         notifyListeners();
       }
     });
+    if (_isPageActive) {
+      _autoRefreshEnabledServerTools(force: true);
+      _autoCheckEnabledServerHealth(force: true);
+    }
+    _reconcileHealthCheckTimer();
   }
 
   Future<bool> saveServer(McpServer server, {String? previousName}) async {
@@ -101,7 +160,15 @@ class McpController extends ChangeNotifier {
         (left, right) =>
             left.name.toLowerCase().compareTo(right.name.toLowerCase()),
       );
-      return _commitSaveLocked(updatedServers);
+      return _commitSaveLocked(
+        updatedServers,
+        previousServerName: normalizedPreviousName,
+        changedServerName: normalizedName,
+        shouldAutoRefreshTools: server.enabled,
+        shouldAutoCheckHealth: server.enabled,
+        resetChangedServerToolCatalog: true,
+        resetChangedServerHealth: true,
+      );
     });
   }
 
@@ -113,7 +180,11 @@ class McpController extends ChangeNotifier {
       if (updatedServers.length == _servers.length) {
         return true;
       }
-      return _commitSaveLocked(updatedServers);
+      return _commitSaveLocked(
+        updatedServers,
+        previousServerName: server.name,
+        changedServerName: null,
+      );
     });
   }
 
@@ -129,7 +200,13 @@ class McpController extends ChangeNotifier {
 
       final updatedServers = List<McpServer>.from(_servers);
       updatedServers[index] = updatedServers[index].copyWith(enabled: enabled);
-      return _commitSaveLocked(updatedServers);
+      return _commitSaveLocked(
+        updatedServers,
+        changedServerName: updatedServers[index].name,
+        shouldAutoRefreshTools: enabled,
+        shouldAutoCheckHealth: enabled,
+        resetChangedServerHealth: !enabled,
+      );
     });
   }
 
@@ -137,9 +214,100 @@ class McpController extends ChangeNotifier {
     return _store.openStorageDirectory();
   }
 
-  Future<bool> _commitSaveLocked(List<McpServer> nextServers) async {
+  Future<void> refreshServerTools(String serverName) async {
+    final server = _serverByName(serverName);
+    if (server == null) {
+      return;
+    }
+    final nextGeneration =
+        (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
+    _toolRefreshGenerationByServerName[serverName] = nextGeneration;
+    final previousCatalog = toolCatalogFor(serverName);
+    _toolCatalogByServerName[serverName] = previousCatalog.copyWith(
+      status: McpToolCatalogStatus.loading,
+      clearErrorMessage: true,
+    );
+    notifyListeners();
+
+    final discoveredCatalog = await _toolDiscoveryService.discoverTools(server);
+    if (_isDisposed ||
+        _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
+      return;
+    }
+    _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
+      previousCatalog: previousCatalog,
+      discoveredCatalog: discoveredCatalog,
+    );
+    notifyListeners();
+  }
+
+  Future<void> checkServerHealth(String serverName) async {
+    if (_isDisposed || !_isPageActive) {
+      return;
+    }
+    final server = _serverByName(serverName);
+    if (server == null) {
+      return;
+    }
+    final nextGeneration =
+        (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
+    _healthCheckGenerationByServerName[serverName] = nextGeneration;
+    final previousHealth = healthStatusFor(serverName);
+    _healthByServerName[serverName] = previousHealth.copyWith(
+      status: McpServerHealthStatus.checking,
+      clearErrorMessage: true,
+    );
+    notifyListeners();
+
+    final resolvedHealth = await _toolDiscoveryService.checkHealth(server);
+    if (_isDisposed ||
+        !_isPageActive ||
+        _healthCheckGenerationByServerName[serverName] != nextGeneration) {
+      return;
+    }
+    _healthByServerName[serverName] = resolvedHealth;
+    notifyListeners();
+  }
+
+  Future<bool> _commitSaveLocked(
+    List<McpServer> nextServers, {
+    String? previousServerName,
+    String? changedServerName,
+    bool shouldAutoRefreshTools = false,
+    bool shouldAutoCheckHealth = false,
+    bool resetChangedServerToolCatalog = false,
+    bool resetChangedServerHealth = false,
+  }) async {
     final previousServers = List<McpServer>.from(_servers);
+    final previousToolCatalogByServerName = Map<String, McpToolCatalog>.from(
+      _toolCatalogByServerName,
+    );
+    final previousToolRefreshGenerationByServerName = Map<String, int>.from(
+      _toolRefreshGenerationByServerName,
+    );
+    final previousHealthByServerName = Map<String, McpServerHealth>.from(
+      _healthByServerName,
+    );
+    final previousHealthCheckGenerationByServerName = Map<String, int>.from(
+      _healthCheckGenerationByServerName,
+    );
     _servers = nextServers;
+    _syncToolCatalogsWithServers(nextServers);
+    _syncHealthStatusesWithServers(nextServers);
+    if (previousServerName != null && previousServerName != changedServerName) {
+      _toolCatalogByServerName.remove(previousServerName);
+      _toolRefreshGenerationByServerName.remove(previousServerName);
+      _healthByServerName.remove(previousServerName);
+      _healthCheckGenerationByServerName.remove(previousServerName);
+    }
+    if (resetChangedServerToolCatalog && changedServerName != null) {
+      _toolCatalogByServerName[changedServerName] = const McpToolCatalog();
+      _toolRefreshGenerationByServerName.remove(changedServerName);
+    }
+    if (resetChangedServerHealth && changedServerName != null) {
+      _healthByServerName[changedServerName] = const McpServerHealth();
+      _healthCheckGenerationByServerName.remove(changedServerName);
+    }
     _errorMessage = null;
     notifyListeners();
     try {
@@ -148,9 +316,30 @@ class McpController extends ChangeNotifier {
         _persistenceIssue = null;
         notifyListeners();
       }
+      _reconcileHealthCheckTimer();
+      if (_isPageActive &&
+          shouldAutoRefreshTools &&
+          changedServerName != null) {
+        unawaited(refreshServerTools(changedServerName));
+      }
+      if (_isPageActive && shouldAutoCheckHealth && changedServerName != null) {
+        unawaited(checkServerHealth(changedServerName));
+      }
       return true;
     } catch (error) {
       _servers = previousServers;
+      _toolCatalogByServerName
+        ..clear()
+        ..addAll(previousToolCatalogByServerName);
+      _toolRefreshGenerationByServerName
+        ..clear()
+        ..addAll(previousToolRefreshGenerationByServerName);
+      _healthByServerName
+        ..clear()
+        ..addAll(previousHealthByServerName);
+      _healthCheckGenerationByServerName
+        ..clear()
+        ..addAll(previousHealthCheckGenerationByServerName);
       _persistenceIssue = McpPersistenceIssue(
         kind: McpPersistenceIssueKind.saveFailed,
         filePath: _store.serversFilePath,
@@ -171,5 +360,139 @@ class McpController extends ChangeNotifier {
       }
     });
     return completer.future;
+  }
+
+  void _syncToolCatalogsWithServers(List<McpServer> servers) {
+    final serverNames = servers.map((item) => item.name).toSet();
+    _toolCatalogByServerName.removeWhere(
+      (serverName, value) => !serverNames.contains(serverName),
+    );
+    _toolRefreshGenerationByServerName.removeWhere(
+      (serverName, value) => !serverNames.contains(serverName),
+    );
+    for (final server in servers) {
+      _toolCatalogByServerName.putIfAbsent(server.name, McpToolCatalog.new);
+    }
+  }
+
+  void _syncHealthStatusesWithServers(List<McpServer> servers) {
+    final serverNames = servers.map((item) => item.name).toSet();
+    _healthByServerName.removeWhere(
+      (serverName, value) => !serverNames.contains(serverName),
+    );
+    _healthCheckGenerationByServerName.removeWhere(
+      (serverName, value) => !serverNames.contains(serverName),
+    );
+    for (final server in servers) {
+      _healthByServerName.putIfAbsent(server.name, McpServerHealth.new);
+    }
+  }
+
+  void _autoRefreshEnabledServerTools({bool force = false}) {
+    for (final server in _servers) {
+      if (!server.enabled) {
+        continue;
+      }
+      final catalog = toolCatalogFor(server.name);
+      if (!force &&
+          (catalog.isLoading ||
+              catalog.status == McpToolCatalogStatus.ready &&
+                  catalog.lastScannedAt != null)) {
+        continue;
+      }
+      unawaited(refreshServerTools(server.name));
+    }
+  }
+
+  void _autoCheckEnabledServerHealth({bool force = false}) {
+    final now = DateTime.now().toUtc();
+    for (final server in _servers) {
+      if (!server.enabled) {
+        continue;
+      }
+      final healthStatus = healthStatusFor(server.name);
+      if (healthStatus.isChecking) {
+        continue;
+      }
+      if (!force && healthStatus.lastCheckedAt != null) {
+        final age = now.difference(healthStatus.lastCheckedAt!);
+        if (age < _healthCheckInterval) {
+          continue;
+        }
+      }
+      unawaited(checkServerHealth(server.name));
+    }
+  }
+
+  void _forceCheckEnabledServerHealth() {
+    for (final server in _servers) {
+      if (!server.enabled) {
+        continue;
+      }
+      unawaited(checkServerHealth(server.name));
+    }
+  }
+
+  void _invalidateHealthCheckGenerations() {
+    for (final serverName in _healthByServerName.keys) {
+      _healthCheckGenerationByServerName[serverName] =
+          (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
+    }
+  }
+
+  void _invalidateToolRefreshGenerations() {
+    for (final entry in _toolCatalogByServerName.entries) {
+      final serverName = entry.key;
+      _toolRefreshGenerationByServerName[serverName] =
+          (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
+      final catalog = entry.value;
+      if (!catalog.isLoading) {
+        continue;
+      }
+      _toolCatalogByServerName[serverName] = catalog.copyWith(
+        status: McpToolCatalogStatus.idle,
+        clearErrorMessage: true,
+      );
+    }
+  }
+
+  void _reconcileHealthCheckTimer() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
+    if (_isDisposed ||
+        !_isPageActive ||
+        !_servers.any((server) => server.enabled)) {
+      return;
+    }
+    _healthCheckTimer = Timer.periodic(_healthCheckInterval, (_) {
+      _autoCheckEnabledServerHealth();
+    });
+  }
+
+  McpServer? _serverByName(String serverName) {
+    for (final server in _servers) {
+      if (server.name == serverName) {
+        return server;
+      }
+    }
+    return null;
+  }
+
+  McpToolCatalog _resolvedRefreshCatalog({
+    required McpToolCatalog previousCatalog,
+    required McpToolCatalog discoveredCatalog,
+  }) {
+    if (discoveredCatalog.status != McpToolCatalogStatus.failed ||
+        previousCatalog.tools.isEmpty) {
+      return discoveredCatalog;
+    }
+    return previousCatalog.copyWith(
+      status: discoveredCatalog.status,
+      errorMessage: discoveredCatalog.errorMessage,
+      clearErrorMessage: discoveredCatalog.errorMessage == null,
+      warningMessage: discoveredCatalog.warningMessage,
+      clearWarningMessage: discoveredCatalog.warningMessage == null,
+      lastScannedAt: discoveredCatalog.lastScannedAt,
+    );
   }
 }

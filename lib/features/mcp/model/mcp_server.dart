@@ -7,13 +7,25 @@ enum McpServerType {
 
   final String storageValue;
 
+  String get transportValue {
+    return switch (this) {
+      McpServerType.streamableHttp => 'http',
+      McpServerType.sse => 'sse',
+      McpServerType.stdio => 'stdio',
+    };
+  }
+
   static McpServerType? fromStorage(String? value) {
-    for (final item in McpServerType.values) {
-      if (item.storageValue == value) {
-        return item;
-      }
-    }
-    return null;
+    final normalizedValue = value?.trim().toLowerCase() ?? '';
+    return switch (normalizedValue) {
+      'streamable_http' ||
+      'streamable-http' ||
+      'streamablehttp' ||
+      'http' => McpServerType.streamableHttp,
+      'sse' => McpServerType.sse,
+      'stdio' => McpServerType.stdio,
+      _ => null,
+    };
   }
 }
 

@@ -255,56 +255,73 @@ class AiPromptBuilder {
     List<AiSessionMessage> messages,
     int startIndex,
   ) {
-    final message = messages[startIndex];
-    final toolCalls = _readToolCalls(message.metadata);
-    if (toolCalls.isEmpty) {
+    final firstMessage = messages[startIndex];
+    final groupedToolCallMessages = <AiSessionMessage>[];
+    final groupedToolCalls = <AiToolCall>[];
+    final expectedToolCallIds = <String>{};
+    var cursor = startIndex;
+    while (cursor < messages.length &&
+        messages[cursor].kind == AiSessionMessageKind.toolCall) {
+      final toolCallMessage = messages[cursor];
+      final toolCalls = _readToolCalls(toolCallMessage.metadata);
+      if (toolCalls.isEmpty) {
+        if (groupedToolCallMessages.isEmpty) {
+          return _MappedToolExchange(
+            turns: <AiChatTurn>[_mapNonToolHistoryMessage(toolCallMessage)],
+            nextIndex: cursor + 1,
+          );
+        }
+        break;
+      }
+      groupedToolCallMessages.add(toolCallMessage);
+      for (final toolCall in toolCalls) {
+        if (!expectedToolCallIds.add(toolCall.id)) {
+          continue;
+        }
+        groupedToolCalls.add(toolCall);
+      }
+      cursor += 1;
+    }
+    if (groupedToolCalls.isEmpty) {
       return _MappedToolExchange(
-        turns: <AiChatTurn>[_mapNonToolHistoryMessage(message)],
+        turns: <AiChatTurn>[_mapNonToolHistoryMessage(firstMessage)],
         nextIndex: startIndex + 1,
       );
     }
-    final expectedToolCallIds = toolCalls
-        .map((item) => item.id.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet();
-    if (expectedToolCallIds.isEmpty) {
-      return _MappedToolExchange(
-        turns: const <AiChatTurn>[],
-        nextIndex: startIndex + 1,
-      );
-    }
-    final toolMessages = <AiSessionMessage>[];
-    final seenToolCallIds = <String>{};
-    var cursor = startIndex + 1;
+    final toolMessagesByCallId = <String, AiSessionMessage>{};
     while (cursor < messages.length &&
         messages[cursor].kind == AiSessionMessageKind.tool) {
       final toolMessage = messages[cursor];
       final toolCallId = _readToolCallId(toolMessage.metadata);
       if (toolCallId != null &&
           expectedToolCallIds.contains(toolCallId) &&
-          seenToolCallIds.add(toolCallId)) {
-        toolMessages.add(toolMessage);
+          !toolMessagesByCallId.containsKey(toolCallId)) {
+        toolMessagesByCallId[toolCallId] = toolMessage;
       }
       cursor += 1;
     }
-    if (seenToolCallIds.length != expectedToolCallIds.length) {
+    if (toolMessagesByCallId.length != expectedToolCallIds.length) {
       return _MappedToolExchange(
         turns: const <AiChatTurn>[],
         nextIndex: cursor,
       );
     }
+    final groupedToolContent = groupedToolCallMessages
+        .map((message) => message.content.trim())
+        .where((content) => content.isNotEmpty)
+        .join('\n\n');
     return _MappedToolExchange(
       turns: <AiChatTurn>[
         AiChatTurn(
           role: AiChatRole.assistant,
-          content: message.content,
-          toolCalls: toolCalls,
+          content: groupedToolContent,
+          toolCalls: groupedToolCalls,
         ),
-        ...toolMessages.map(
-          (toolMessage) => AiChatTurn(
+        ...groupedToolCalls.map(
+          (toolCall) => AiChatTurn(
             role: AiChatRole.tool,
-            toolCallId: _readToolCallId(toolMessage.metadata),
-            content: toolMessage.content,
+            toolCallId: toolCall.id,
+            content: toolMessagesByCallId[toolCall.id]!.content,
           ),
         ),
       ],

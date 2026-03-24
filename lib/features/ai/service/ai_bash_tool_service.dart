@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-
 import '../../../app/support/openhand_paths.dart';
 import '../model/ai_deny_command_rule.dart';
 
@@ -153,11 +151,7 @@ class AiBashToolService {
             workingDirectory,
             defaultPath: OpenHandPaths.applicationDirectoryPath(),
           );
-    _debugLog(
-      'execute:start command="$normalizedCommand" cwd="$normalizedWorkingDirectory" timeoutMs=$timeoutMs denyRules=${denyRules.length}',
-    );
     if (normalizedCommand.isEmpty) {
-      _debugLog('execute:invalidArguments emptyCommand');
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: normalizedCommand,
@@ -169,18 +163,10 @@ class AiBashToolService {
       );
     }
 
-    final writeAnalysisStopwatch = Stopwatch()..start();
     final writeAnalysis = analyzeWriteCommand(normalizedCommand);
-    writeAnalysisStopwatch.stop();
-    _debugLog(
-      'execute:writeAnalysisComputed command="$normalizedCommand" elapsedMs=${writeAnalysisStopwatch.elapsedMilliseconds} isWrite=${writeAnalysis.isWrite} reason="${writeAnalysis.reason}"',
-    );
 
     for (final rule in denyRules) {
       if (rule.matches(normalizedCommand)) {
-        _debugLog(
-          'execute:denied ruleId=${rule.id} pattern="${rule.pattern}" command="$normalizedCommand"',
-        );
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.denied,
           command: normalizedCommand,
@@ -197,14 +183,7 @@ class AiBashToolService {
       }
     }
     final isWriteCommand = writeAnalysis.isWrite;
-    _debugLog(
-      'execute:writeAnalysis command="$normalizedCommand" isWrite=$isWriteCommand reason="${writeAnalysis.reason}"',
-    );
     if (requireWriteConfirmation && isWriteCommand) {
-      _debugLog(
-        'execute:awaitingWriteConfirmation command="$normalizedCommand"',
-      );
-      final confirmationStopwatch = Stopwatch()..start();
       late final _WriteConfirmationOutcome outcome;
       try {
         final approvalFuture =
@@ -238,9 +217,6 @@ class AiBashToolService {
           ]);
         }
       } on TimeoutException {
-        _debugLog(
-          'execute:writeConfirmationTimedOut command="$normalizedCommand"',
-        );
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.rejected,
           command: normalizedCommand,
@@ -253,14 +229,7 @@ class AiBashToolService {
           writeAnalysisReason: writeAnalysis.reason,
         );
       }
-      confirmationStopwatch.stop();
-      _debugLog(
-        'execute:writeConfirmationResolved command="$normalizedCommand" elapsedMs=${confirmationStopwatch.elapsedMilliseconds} approved=${outcome.approved} cancelled=${outcome.cancelled}',
-      );
       if (outcome.cancelled) {
-        _debugLog(
-          'execute:cancelledBeforeExecution command="$normalizedCommand"',
-        );
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.cancelled,
           command: normalizedCommand,
@@ -274,9 +243,6 @@ class AiBashToolService {
         );
       }
       if (!outcome.approved) {
-        _debugLog(
-          'execute:writeConfirmationRejected command="$normalizedCommand"',
-        );
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.rejected,
           command: normalizedCommand,
@@ -298,13 +264,7 @@ class AiBashToolService {
         normalizedCommand,
         normalizedWorkingDirectory,
       );
-      _debugLog(
-        'execute:processStarted pid=${process.pid} command="$normalizedCommand"',
-      );
     } on ProcessException catch (error) {
-      _debugLog(
-        'execute:processStartFailed command="$normalizedCommand" error=${error.message}',
-      );
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: normalizedCommand,
@@ -360,18 +320,12 @@ class AiBashToolService {
       chunk,
     ) {
       _appendChunk(stdoutBuffer, chunk);
-      _debugLog(
-        'execute:stdoutChunk chars=${chunk.length} total=${stdoutBuffer.length}',
-      );
       emitUpdate(phase: BashToolExecutionPhase.running);
     });
     final stderrSubscription = process.stderr.transform(utf8.decoder).listen((
       chunk,
     ) {
       _appendChunk(stderrBuffer, chunk);
-      _debugLog(
-        'execute:stderrChunk chars=${chunk.length} total=${stderrBuffer.length}',
-      );
       emitUpdate(phase: BashToolExecutionPhase.running);
     });
 
@@ -383,9 +337,6 @@ class AiBashToolService {
         Duration(milliseconds: timeoutMs),
         onTimeout: () async {
           timedOut = true;
-          _debugLog(
-            'execute:timeout pid=${process.pid} command="$normalizedCommand"',
-          );
           process.kill(ProcessSignal.sigkill);
           try {
             await process.exitCode.timeout(const Duration(seconds: 2));
@@ -400,9 +351,6 @@ class AiBashToolService {
           waitForExit,
           cancelSignal.then((_) async {
             cancelled = true;
-            _debugLog(
-              'execute:cancelled pid=${process.pid} command="$normalizedCommand"',
-            );
             process.kill(ProcessSignal.sigkill);
             try {
               await process.exitCode.timeout(const Duration(seconds: 2));
@@ -423,9 +371,6 @@ class AiBashToolService {
     }
 
     if (cancelled) {
-      _debugLog(
-        'execute:completed status=cancelled exitCode=$exitCode durationMs=${stopwatch.elapsedMilliseconds}',
-      );
       emitUpdate(
         phase: BashToolExecutionPhase.completed,
         force: true,
@@ -447,9 +392,6 @@ class AiBashToolService {
     }
 
     if (timedOut) {
-      _debugLog(
-        'execute:completed status=timed_out exitCode=$exitCode durationMs=${stopwatch.elapsedMilliseconds}',
-      );
       emitUpdate(
         phase: BashToolExecutionPhase.completed,
         force: true,
@@ -470,9 +412,6 @@ class AiBashToolService {
       );
     }
 
-    _debugLog(
-      'execute:completed status=${exitCode == 0 ? 'success' : 'failed'} exitCode=$exitCode durationMs=${stopwatch.elapsedMilliseconds}',
-    );
     emitUpdate(
       phase: BashToolExecutionPhase.completed,
       force: true,
@@ -556,13 +495,6 @@ class AiBashToolService {
 
   bool isLikelyWriteCommand(String command) {
     return analyzeWriteCommand(command).isWrite;
-  }
-
-  void _debugLog(String message) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint('[AiBashToolService] $message');
   }
 
   BashWriteAnalysis? _fastPathWriteAnalysis(String command) {

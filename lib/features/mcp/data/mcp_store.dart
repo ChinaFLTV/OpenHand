@@ -160,7 +160,9 @@ class McpStore {
     if (name.isEmpty || rawValue is! Map<String, dynamic>) {
       return null;
     }
-    final type = McpServerType.fromStorage('${rawValue['type'] ?? ''}'.trim());
+    final type =
+        McpServerType.fromStorage('${rawValue['type'] ?? ''}'.trim()) ??
+        McpServerType.fromStorage('${rawValue['transport'] ?? ''}'.trim());
     if (type == null) {
       return null;
     }
@@ -201,6 +203,7 @@ class McpStore {
       final value = <String, Object?>{
         'enabled': server.enabled,
         'type': server.type.storageValue,
+        'transport': server.type.transportValue,
       };
       if (server.type == McpServerType.streamableHttp ||
           server.type == McpServerType.sse) {

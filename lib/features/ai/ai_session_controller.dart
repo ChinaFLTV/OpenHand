@@ -372,11 +372,7 @@ class AiSessionController extends ChangeNotifier {
         }
         if (cancelHandler != null) {
           unawaited(
-            cancelHandler().catchError((Object error, StackTrace stackTrace) {
-              _debugLog(
-                'deleteSession:cancelFailed session=$sessionId error=$error',
-              );
-            }),
+            cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
           );
         }
         return true;
@@ -566,7 +562,6 @@ class AiSessionController extends ChangeNotifier {
     if (!canStopResponding(sessionId)) {
       return;
     }
-    _debugLog('sendMessage:stopRequested session=$sessionId');
     final stopSignal = _sessionStopSignals.putIfAbsent(
       sessionId,
       Completer<void>.new,
@@ -578,11 +573,7 @@ class AiSessionController extends ChangeNotifier {
     if (cancelHandler == null) {
       return;
     }
-    try {
-      await cancelHandler();
-    } catch (error) {
-      _debugLog('sendMessage:stopFailed session=$sessionId error=$error');
-    }
+    await cancelHandler().catchError((Object _, StackTrace stackTrace) {});
   }
 
   Future<bool> sendMessage({
@@ -618,9 +609,6 @@ class AiSessionController extends ChangeNotifier {
       _sessionStopSignals[session.id] = Completer<void>();
       _didCompressInLastSend = false;
       _lastErrorMessage = null;
-      _debugLog(
-        'sendMessage:start session=${session.id} title="${session.title}" model=${model.id} contentChars=${normalizedContent.length}',
-      );
       notifyListeners();
 
       try {
@@ -657,21 +645,12 @@ class AiSessionController extends ChangeNotifier {
         final userCommitted = await _commitSessionLocked(session);
         if (!userCommitted) {
           _lastErrorMessage = 'Failed to persist the user message.';
-          _debugLog(
-            'sendMessage:userCommitFailed session=${session.id} messageId=${preparedUserTurn.userMessage.id}',
-          );
           return false;
         }
         _setSessionSendPhase(session.id, AiSendPhase.responding);
-        _debugLog(
-          'sendMessage:userCommitted session=${session.id} messageId=${preparedUserTurn.userMessage.id}',
-        );
         notifyListeners();
 
         if (preparedUserTurn.shouldGenerateTitle) {
-          _debugLog(
-            'sendMessage:autoTitleScheduled session=${session.id} sourceMessageId=${preparedUserTurn.userMessage.id}',
-          );
           unawaited(
             _generateAutoTitle(
               sessionId: session.id,
@@ -691,9 +670,6 @@ class AiSessionController extends ChangeNotifier {
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
           confirmWriteCommand: confirmWriteCommand,
         );
-        _debugLog(
-          'sendMessage:finished session=${session.id} success=$succeeded',
-        );
         return succeeded;
       } catch (error) {
         final current = _sessionById(resolvedSessionId);
@@ -707,7 +683,6 @@ class AiSessionController extends ChangeNotifier {
           await _commitSessionLocked(updated);
         }
         _lastErrorMessage = '$error';
-        _debugLog('sendMessage:error session=$resolvedSessionId error=$error');
         notifyListeners();
         return false;
       } finally {
@@ -733,15 +708,15 @@ class AiSessionController extends ChangeNotifier {
         stopSignal.complete();
       }
     }
-    final cancelHandlers = _sessionCancelHandlers.values.toList(growable: false);
+    final cancelHandlers = _sessionCancelHandlers.values.toList(
+      growable: false,
+    );
     _sessionCancelHandlers.clear();
     _sessionStopSignals.clear();
     _sessionSendPhases.clear();
     for (final cancelHandler in cancelHandlers) {
       unawaited(
-        cancelHandler().catchError((Object error, StackTrace stackTrace) {
-          _debugLog('dispose:cancelHandlerFailed error=$error');
-        }),
+        cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
       );
     }
     if (!identical(_backgroundChatClient, _chatClient)) {
@@ -777,12 +752,8 @@ class AiSessionController extends ChangeNotifier {
         workingSession = latestSession;
       }
       if (_isStopRequestedForSession(workingSession.id)) {
-        _debugLog('chatLoop:stopped session=${workingSession.id}');
         return true;
       }
-      _debugLog(
-        'chatLoop:buildPrompt session=${workingSession.id} latestUserMessageId=$activeLatestUserMessageId',
-      );
       final promptResult = _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
         session: workingSession,
@@ -798,9 +769,6 @@ class AiSessionController extends ChangeNotifier {
         tools: tools,
       );
       _setSessionCancelHandler(workingSession.id, streamResponse.cancel);
-      _debugLog(
-        'chatLoop:streamStarted session=${workingSession.id} promptMessages=${promptResult.messages.length}',
-      );
 
       var streamedSession = workingSession;
       String? assistantMessageId;
@@ -1021,17 +989,11 @@ class AiSessionController extends ChangeNotifier {
         );
         await _commitSessionLocked(_rebuildSession(failedSession));
         _lastErrorMessage = '$error';
-        _debugLog(
-          'chatLoop:streamFailed session=${workingSession.id} error=$error',
-        );
         notifyListeners();
         return false;
       }
       _setSessionCancelHandler(workingSession.id, null);
       streamedSession = setReasoningStreamingState(streamedSession, false);
-      _debugLog(
-        'chatLoop:streamCompleted session=${workingSession.id} replyChars=${result.reply.length} reasoningChars=${result.reasoning.length} toolCalls=${result.toolCalls.length}',
-      );
 
       streamedSession = _syncToolCallMessagesFromResult(
         streamedSession,
@@ -1062,23 +1024,16 @@ class AiSessionController extends ChangeNotifier {
       final committed = await _commitSessionLocked(streamedSession);
       if (!committed) {
         _lastErrorMessage = 'Failed to persist the assistant reply.';
-        _debugLog(
-          'chatLoop:assistantCommitFailed session=${workingSession.id}',
-        );
         return false;
       }
       workingSession = streamedSession;
 
       if (result.wasCancelled ||
           _isStopRequestedForSession(workingSession.id)) {
-        _debugLog('chatLoop:cancelled session=${workingSession.id}');
         return true;
       }
 
       if (result.toolCalls.isEmpty) {
-        _debugLog(
-          'chatLoop:completedWithoutTools session=${workingSession.id}',
-        );
         return true;
       }
       toolRoundCount += 1;
@@ -1094,14 +1049,8 @@ class AiSessionController extends ChangeNotifier {
         await _commitSessionLocked(_rebuildSession(limitedSession));
         _lastErrorMessage =
             'The assistant requested too many sequential tool rounds and was stopped for safety.';
-        _debugLog(
-          'chatLoop:toolRoundLimitExceeded session=${workingSession.id} toolRounds=$toolRoundCount limit=$_maxSequentialToolRounds',
-        );
         return false;
       }
-      _debugLog(
-        'chatLoop:executingTools session=${workingSession.id} count=${result.toolCalls.length}',
-      );
 
       final executedSession = await _executeToolCalls(
         session: workingSession,
@@ -1111,18 +1060,13 @@ class AiSessionController extends ChangeNotifier {
         confirmWriteCommand: confirmWriteCommand,
       );
       if (executedSession == null) {
-        _debugLog('chatLoop:toolExecutionFailed session=${workingSession.id}');
         return false;
       }
       workingSession = executedSession;
       activeLatestUserMessageId = null;
       if (_isStopRequestedForSession(workingSession.id)) {
-        _debugLog('chatLoop:stoppedAfterTools session=${workingSession.id}');
         return true;
       }
-      _debugLog(
-        'chatLoop:toolsCompleted session=${workingSession.id} continuing=true',
-      );
     }
   }
 
@@ -1137,9 +1081,6 @@ class AiSessionController extends ChangeNotifier {
     for (final toolCall in toolCalls) {
       final command = _toolCallCommand(toolCall);
       final workingDirectory = _toolCallWorkingDirectory(toolCall);
-      _debugLog(
-        'toolCall:start session=${workingSession.id} id=${toolCall.id} name=${toolCall.name} command="$command" cwd="$workingDirectory"',
-      );
       final toolCallMessageId = _resolveToolCallMessageId(
         workingSession,
         toolCall,
@@ -1158,9 +1099,6 @@ class AiSessionController extends ChangeNotifier {
       final runningCommitted = await _commitSessionLocked(workingSession);
       if (!runningCommitted) {
         _lastErrorMessage = 'Failed to persist the running tool-call state.';
-        _debugLog(
-          'toolCall:runningCommitFailed session=${workingSession.id} id=${toolCall.id}',
-        );
         return null;
       }
       final result = await _executeSingleToolCall(
@@ -1173,9 +1111,6 @@ class AiSessionController extends ChangeNotifier {
           if (update.phase != BashToolExecutionPhase.running) {
             return;
           }
-          _debugLog(
-            'toolCall:update session=${workingSession.id} id=${toolCall.id} elapsedMs=${update.durationMs} stdoutChars=${update.stdout.length} stderrChars=${update.stderr.length}',
-          );
           workingSession = _syncToolCallExecutionMessage(
             session: workingSession,
             messageId: toolCallMessageId,
@@ -1189,9 +1124,6 @@ class AiSessionController extends ChangeNotifier {
           );
           _previewSession(workingSession);
         },
-      );
-      _debugLog(
-        'toolCall:completed session=${workingSession.id} id=${toolCall.id} status=${result.status.storageValue} exitCode=${result.exitCode} durationMs=${result.durationMs}',
       );
       workingSession = _syncToolCallExecutionMessage(
         session: workingSession,
@@ -1242,9 +1174,6 @@ class AiSessionController extends ChangeNotifier {
       final committed = await _commitSessionLocked(workingSession);
       if (!committed) {
         _lastErrorMessage = 'Failed to persist the tool execution result.';
-        _debugLog(
-          'toolCall:resultCommitFailed session=${workingSession.id} id=${toolCall.id}',
-        );
         return null;
       }
     }
@@ -1268,9 +1197,6 @@ class AiSessionController extends ChangeNotifier {
             .trim();
 
     if (toolCall.name != 'bash') {
-      _debugLog(
-        'toolCall:invalidTool toolId=${toolCall.id} name=${toolCall.name}',
-      );
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: command,
@@ -1282,7 +1208,6 @@ class AiSessionController extends ChangeNotifier {
     }
 
     if (command.isEmpty) {
-      _debugLog('toolCall:emptyCommand toolId=${toolCall.id}');
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: '',
@@ -1294,9 +1219,6 @@ class AiSessionController extends ChangeNotifier {
     }
 
     try {
-      _debugLog(
-        'toolCall:dispatchBash toolId=${toolCall.id} command="$command" cwd="$workingDirectory"',
-      );
       return await _bashToolService.execute(
         command: command,
         workingDirectory: workingDirectory,
@@ -1307,7 +1229,6 @@ class AiSessionController extends ChangeNotifier {
         cancelSignal: _stopSignalForSession(sessionId),
       );
     } catch (error) {
-      _debugLog('toolCall:bashException toolId=${toolCall.id} error=$error');
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: command,
@@ -1558,9 +1479,6 @@ class AiSessionController extends ChangeNotifier {
         lastUsedModelLabel: model.displayName,
       ),
     );
-    _debugLog(
-      'sendMessage:titlePreparation session=${session.id} sourceMessageId=${userMessage.id} visibleUserMessages=$visibleUserMessageCount shouldGenerateTitle=${!updatedSession.isTitleManuallyEdited && isFirstVisibleUserMessage} keepDefaultTitle=$shouldKeepDefaultTitle currentTitle="${session.title}" nextTitle="$nextTitle"',
-    );
     return _PreparedUserTurn(
       session: updatedSession,
       userMessage: userMessage,
@@ -1576,22 +1494,12 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     bool allowRetryAfterIdle = true,
   }) async {
-    final stopwatch = Stopwatch()..start();
-    _debugLog(
-      'autoTitle:start session=$sessionId sourceMessageId=$sourceMessageId sourceChars=${sourceContent.length}',
-    );
     final session = _sessionById(sessionId);
     if (session == null || session.isTitleManuallyEdited) {
-      _debugLog(
-        'autoTitle:skip session=$sessionId reason=session_missing_or_manual',
-      );
       return;
     }
     if (session.autoTitleSourceMessageId != null &&
         session.autoTitleSourceMessageId != sourceMessageId) {
-      _debugLog(
-        'autoTitle:skip session=$sessionId reason=stale_source expected=${session.autoTitleSourceMessageId} actual=$sourceMessageId',
-      );
       return;
     }
     final promptMessages = <AiChatTurn>[
@@ -1615,22 +1523,13 @@ class AiSessionController extends ChangeNotifier {
       final requestModel = requestModels[attemptIndex];
       final isLastAttempt = attemptIndex == requestModels.length - 1;
       try {
-        _debugLog(
-          'autoTitle:request session=$sessionId model=${model.id} requestModelId=${requestModel.modelId} attempt=${attemptIndex + 1}/${requestModels.length} backgroundClient=${_backgroundChatClient.runtimeType}#${identityHashCode(_backgroundChatClient)} currentTitle="${session.title}" promptChars=${promptMessages.fold<int>(0, (sum, message) => sum + message.content.length)}',
-        );
         final completion = await _backgroundChatClient.sendMessage(
           model: requestModel,
           messages: promptMessages,
           timeout: _autoTitleRequestTimeout,
         );
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
-        _debugLog(
-          'autoTitle:response session=$sessionId requestModelId=${requestModel.modelId} elapsedMs=${stopwatch.elapsedMilliseconds} rawReply="${_debugPreview(completion.reply)}" sanitizedTitle="$generatedTitle"',
-        );
         if (generatedTitle.isEmpty) {
-          _debugLog(
-            'autoTitle:skip session=$sessionId reason=empty_title requestModelId=${requestModel.modelId}',
-          );
           if (isLastAttempt) {
             return;
           }
@@ -1638,9 +1537,6 @@ class AiSessionController extends ChangeNotifier {
         }
         final latestSession = _sessionById(sessionId);
         if (latestSession == null || latestSession.isTitleManuallyEdited) {
-          _debugLog(
-            'autoTitle:skip session=$sessionId reason=session_missing_after_request_or_manual',
-          );
           return;
         }
         AiSessionMessage? latestSourceMessage;
@@ -1651,14 +1547,8 @@ class AiSessionController extends ChangeNotifier {
         }
         if (latestSourceMessage == null ||
             latestSourceMessage.content != sourceContent) {
-          _debugLog(
-            'autoTitle:skip session=$sessionId reason=source_content_changed',
-          );
           return;
         }
-        _debugLog(
-          'autoTitle:commit session=$sessionId latestTitle="${latestSession.title}" sourceMessageId=${latestSourceMessage.id}',
-        );
         final generatedAt = _clock().toUtc();
         final totalUsage = _usageFromStatistics(
           latestSession.statistics,
@@ -1679,33 +1569,20 @@ class AiSessionController extends ChangeNotifier {
           promptBuildCount: latestSession.statistics.promptBuildCount + 1,
           totalUsage: totalUsage,
         );
-        final committed = await _commitSessionLocked(updatedSession);
-        stopwatch.stop();
-        _debugLog(
-          'autoTitle:completed session=$sessionId requestModelId=${requestModel.modelId} committed=$committed elapsedMs=${stopwatch.elapsedMilliseconds} title="$generatedTitle"',
-        );
+        await _commitSessionLocked(updatedSession);
         return;
       } catch (error) {
         lastError = error;
-        _debugLog(
-          'autoTitle:error session=$sessionId requestModelId=${requestModel.modelId} attempt=${attemptIndex + 1}/${requestModels.length} elapsedMs=${stopwatch.elapsedMilliseconds} error=$error',
-        );
         final shouldRetryAfterIdle =
             allowRetryAfterIdle &&
             _isRetryableAutoTitleError(error) &&
             sendPhaseForSession(sessionId) != AiSendPhase.idle;
         if (shouldRetryAfterIdle) {
-          _debugLog(
-            'autoTitle:retryPending session=$sessionId sourceMessageId=$sourceMessageId phase=${sendPhaseForSession(sessionId).name}',
-          );
           final waitedForIdle = await _waitForSessionIdleForAutoTitleRetry(
             sessionId: sessionId,
             sourceMessageId: sourceMessageId,
           );
           if (waitedForIdle) {
-            _debugLog(
-              'autoTitle:retryStarting session=$sessionId sourceMessageId=$sourceMessageId',
-            );
             return _generateAutoTitle(
               sessionId: sessionId,
               sourceMessageId: sourceMessageId,
@@ -1714,16 +1591,12 @@ class AiSessionController extends ChangeNotifier {
               allowRetryAfterIdle: false,
             );
           }
-          _debugLog(
-            'autoTitle:retryAbandoned session=$sessionId sourceMessageId=$sourceMessageId',
-          );
         }
         if (!isLastAttempt) {
           continue;
         }
       }
     }
-    stopwatch.stop();
     if (lastError == null) {
       return;
     }
@@ -1929,7 +1802,6 @@ class AiSessionController extends ChangeNotifier {
       _sessions = restoredSessions;
       _persistenceIssues = previousIssues;
       _lastErrorMessage = '$error';
-      _debugLog('commitSession:failed session=${session.id} error=$error');
       notifyListeners();
       return false;
     }
@@ -2094,15 +1966,6 @@ class AiSessionController extends ChangeNotifier {
       return '';
     }
     return collapsed.characters.take(_generatedTitleMaxCharacters).toString();
-  }
-
-  String _debugPreview(String value, {int maxLength = 120}) {
-    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final collapsed = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (collapsed.length <= maxLength) {
-      return collapsed;
-    }
-    return '${collapsed.substring(0, maxLength)}...';
   }
 
   String _sanitizeVisibleModelContent(String value) {
@@ -2374,13 +2237,6 @@ class AiSessionController extends ChangeNotifier {
     _clearSessionSendPhase(sessionId);
     _sessionCancelHandlers.remove(sessionId);
     _sessionStopSignals.remove(sessionId);
-  }
-
-  void _debugLog(String message) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint('[AiSessionController] $message');
   }
 
   static const List<AiToolDefinition>

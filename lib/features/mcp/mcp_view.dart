@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,11 +9,78 @@ import '../../l10n/app_localizations.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
+import 'model/mcp_server_health.dart';
+import 'model/mcp_tool.dart';
 
 enum _McpCardAction { edit, delete }
 
-class McpView extends StatelessWidget {
+class McpView extends StatefulWidget {
   const McpView({super.key});
+
+  @override
+  State<McpView> createState() => _McpViewState();
+}
+
+class _McpViewState extends State<McpView> with WidgetsBindingObserver {
+  McpController? _mcpController;
+  bool _pageActiveSyncScheduled = false;
+  bool? _pendingPageActiveState;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = context.read<McpController>();
+    if (!identical(_mcpController, controller)) {
+      _mcpController?.setPageActive(false);
+      _mcpController = controller;
+    }
+    _schedulePageActiveStateSync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _schedulePageActiveStateSync();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _mcpController?.setPageActive(false);
+    super.dispose();
+  }
+
+  void _schedulePageActiveStateSync() {
+    _pendingPageActiveState = _desiredPageActiveState();
+    if (_pageActiveSyncScheduled) {
+      return;
+    }
+    _pageActiveSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pageActiveSyncScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      final controller = _mcpController;
+      final nextPageActiveState = _pendingPageActiveState;
+      _pendingPageActiveState = null;
+      if (controller == null || nextPageActiveState == null) {
+        return;
+      }
+      controller.setPageActive(nextPageActiveState);
+    });
+  }
+
+  bool _desiredPageActiveState() {
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    return lifecycleState == null ||
+        lifecycleState == AppLifecycleState.resumed;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,9 +206,13 @@ class McpView extends StatelessWidget {
         final server = mcpController.servers[index];
         return _McpServerCard(
           server: server,
+          healthStatus: mcpController.healthStatusFor(server.name),
+          toolCatalog: mcpController.toolCatalogFor(server.name),
           onTap: () => _showServerDialog(context, initialServer: server),
           onToggleEnabled: (enabled) =>
               _updateServerEnabled(context, server.name, enabled),
+          onCheckHealth: () => mcpController.checkServerHealth(server.name),
+          onRefreshTools: () => mcpController.refreshServerTools(server.name),
           onActionSelected: (action) {
             switch (action) {
               case _McpCardAction.edit:
@@ -601,14 +674,22 @@ class _McpPageHeader extends StatelessWidget {
 class _McpServerCard extends StatelessWidget {
   const _McpServerCard({
     required this.server,
+    required this.healthStatus,
+    required this.toolCatalog,
     required this.onTap,
     required this.onToggleEnabled,
+    required this.onCheckHealth,
+    required this.onRefreshTools,
     required this.onActionSelected,
   });
 
   final McpServer server;
+  final McpServerHealth healthStatus;
+  final McpToolCatalog toolCatalog;
   final VoidCallback onTap;
   final ValueChanged<bool> onToggleEnabled;
+  final VoidCallback onCheckHealth;
+  final VoidCallback onRefreshTools;
   final ValueChanged<_McpCardAction> onActionSelected;
 
   @override
@@ -628,20 +709,33 @@ class _McpServerCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      server.initials,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: colorScheme.onPrimaryContainer,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          server.initials,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: _McpHealthStatusDot(
+                          server: server,
+                          healthStatus: healthStatus,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -669,7 +763,58 @@ class _McpServerCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Switch(value: server.enabled, onChanged: onToggleEnabled),
+                  Tooltip(
+                    message: _localizedText(
+                      context,
+                      zh: '健康检测',
+                      en: 'Health Check',
+                    ),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: IconButton.filledTonal(
+                        onPressed: healthStatus.isChecking
+                            ? null
+                            : onCheckHealth,
+                        icon: healthStatus.isChecking
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : Icon(_healthStatusActionIcon(healthStatus)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Tooltip(
+                    message: _localizedText(
+                      context,
+                      zh: '刷新 Tool 检测',
+                      en: 'Refresh Tool Scan',
+                    ),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: IconButton.filledTonal(
+                        onPressed: toolCatalog.isLoading
+                            ? null
+                            : onRefreshTools,
+                        icon: toolCatalog.isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : const Icon(Icons.refresh_rounded),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   PopupMenuButton<_McpCardAction>(
                     onSelected: onActionSelected,
                     itemBuilder: (context) {
@@ -690,17 +835,465 @@ class _McpServerCard extends StatelessWidget {
               const SizedBox(height: 16),
               Align(
                 alignment: Alignment.centerLeft,
-                child: Chip(
-                  avatar: Icon(
-                    server.enabled
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.pause_circle_outline_rounded,
-                    size: 18,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _McpServerToggleChip(
+                      enabled: server.enabled,
+                      onPressed: () => onToggleEnabled(!server.enabled),
+                    ),
+                    if (healthStatus.isChecking ||
+                        healthStatus.lastCheckedAt != null)
+                      _McpStatusChip(
+                        icon: _healthStatusChipIcon(healthStatus),
+                        label: _healthStatusSummary(context, healthStatus),
+                      ),
+                    if (toolCatalog.isLoading)
+                      _McpStatusChip(
+                        icon: Icons.radar_rounded,
+                        label: _localizedText(
+                          context,
+                          zh: '扫描 Tool 中',
+                          en: 'Scanning Tools',
+                        ),
+                      )
+                    else if (toolCatalog.lastScannedAt != null)
+                      _McpStatusChip(
+                        icon: Icons.build_circle_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '${toolCatalog.tools.length} 个 Tool',
+                          en: '${toolCatalog.tools.length} Tools',
+                        ),
+                      ),
+                    if (toolCatalog.lastScannedAt != null)
+                      _McpStatusChip(
+                        icon: Icons.schedule_rounded,
+                        label: _formatStatusTime(
+                          context,
+                          toolCatalog.lastScannedAt!,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (healthStatus.hasError) ...[
+                const SizedBox(height: 14),
+                _McpInlineNotice(
+                  icon: Icons.health_and_safety_outlined,
+                  color: colorScheme.errorContainer,
+                  foregroundColor: colorScheme.onErrorContainer,
+                  message: healthStatus.errorMessage!,
+                ),
+              ],
+              if (toolCatalog.hasError) ...[
+                const SizedBox(height: 14),
+                _McpInlineNotice(
+                  icon: Icons.error_outline_rounded,
+                  color: colorScheme.errorContainer,
+                  foregroundColor: colorScheme.onErrorContainer,
+                  message: toolCatalog.errorMessage!,
+                ),
+              ],
+              if (toolCatalog.hasWarning) ...[
+                const SizedBox(height: 14),
+                _McpInlineNotice(
+                  icon: Icons.warning_amber_rounded,
+                  color: colorScheme.tertiaryContainer,
+                  foregroundColor: colorScheme.onTertiaryContainer,
+                  message: toolCatalog.warningMessage!,
+                ),
+              ],
+              if (toolCatalog.tools.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _localizedText(
+                      context,
+                      zh: '可用 Tools',
+                      en: 'Available Tools',
+                    ),
+                    style: theme.textTheme.titleMedium,
                   ),
-                  label: Text(
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: toolCatalog.tools
+                        .map(
+                          (tool) => ActionChip(
+                            avatar: Icon(
+                              tool.hasMetadataWarning
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.build_circle_outlined,
+                              size: 18,
+                            ),
+                            label: Text(tool.name),
+                            onPressed: () {
+                              _showToolDetailsDialog(context, tool);
+                            },
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ] else if (!toolCatalog.isLoading && !toolCatalog.hasError) ...[
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
                     server.enabled
-                        ? l10n.mcpServerStatusEnabled
-                        : l10n.mcpServerStatusDisabled,
+                        ? _localizedText(
+                            context,
+                            zh: '暂未发现可用 Tool，可手动刷新重试。',
+                            en: 'No tools were discovered yet. Try refreshing this service.',
+                          )
+                        : _localizedText(
+                            context,
+                            zh: '服务已禁用，可手动刷新检测 Tool 信息。',
+                            en: 'This service is disabled. Refresh manually to inspect its tools.',
+                          ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _McpStatusChip extends StatelessWidget {
+  const _McpStatusChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      backgroundColor: colorScheme.surfaceContainerHighest,
+      label: Text(label),
+    );
+  }
+}
+
+class _McpServerToggleChip extends StatelessWidget {
+  const _McpServerToggleChip({required this.enabled, required this.onPressed});
+
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final backgroundColor = enabled
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHighest;
+    final foregroundColor = enabled
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final borderColor = enabled
+        ? colorScheme.primary.withValues(alpha: 0.28)
+        : colorScheme.outlineVariant;
+
+    return Tooltip(
+      message: enabled
+          ? _localizedText(context, zh: '点击停用', en: 'Click to Disable')
+          : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
+      child: ActionChip(
+        avatar: Icon(
+          enabled
+              ? Icons.check_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          size: 18,
+          color: foregroundColor,
+        ),
+        label: Text(
+          enabled
+              ? AppLocalizations.of(context)!.mcpServerStatusEnabled
+              : AppLocalizations.of(context)!.mcpServerStatusDisabled,
+        ),
+        onPressed: onPressed,
+        backgroundColor: backgroundColor,
+        side: BorderSide(color: borderColor),
+        shape: const StadiumBorder(),
+        labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: foregroundColor,
+          fontWeight: FontWeight.w600,
+        ),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
+}
+
+class _McpHealthStatusDot extends StatelessWidget {
+  const _McpHealthStatusDot({required this.server, required this.healthStatus});
+
+  final McpServer server;
+  final McpServerHealth healthStatus;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final dotColor = _healthStatusDotColor(
+      colorScheme,
+      server: server,
+      healthStatus: healthStatus,
+    );
+
+    return Tooltip(
+      message: _healthStatusDotTooltip(context, server, healthStatus),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: dotColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.surface, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: dotColor.withValues(alpha: 0.32),
+              blurRadius: 8,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _McpInlineNotice extends StatelessWidget {
+  const _McpInlineNotice({
+    required this.icon,
+    required this.color,
+    required this.foregroundColor,
+    required this.message,
+  });
+
+  final IconData icon;
+  final Color color;
+  final Color foregroundColor;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: foregroundColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: foregroundColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _showToolDetailsDialog(BuildContext context, McpTool tool) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => _McpToolDetailsDialog(tool: tool),
+  );
+}
+
+class _McpToolDetailsDialog extends StatelessWidget {
+  const _McpToolDetailsDialog({required this.tool});
+
+  final McpTool tool;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final inputSchemaMetadata = _displayedSchemaMetadata(
+      rawSchema: tool.rawInputSchema,
+      normalizedSchema: tool.inputSchema,
+      hasRawMetadata: tool.hasRawMetadata,
+    );
+    final outputSchemaMetadata = _displayedSchemaMetadata(
+      rawSchema: tool.rawOutputSchema,
+      normalizedSchema: tool.outputSchema,
+      hasRawMetadata: tool.hasRawMetadata,
+    );
+    final inputFields = _schemaFields(inputSchemaMetadata);
+    final outputFields = _schemaFields(outputSchemaMetadata);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 860, maxHeight: 760),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(tool.name, style: theme.textTheme.headlineSmall),
+                        const SizedBox(height: 8),
+                        SelectableText(
+                          '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              if (tool.description.trim().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  tool.description,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+              if (tool.hasMetadataWarning) ...[
+                const SizedBox(height: 14),
+                _McpInlineNotice(
+                  icon: Icons.warning_amber_rounded,
+                  color: colorScheme.tertiaryContainer,
+                  foregroundColor: colorScheme.onTertiaryContainer,
+                  message: tool.metadataWarning!,
+                ),
+              ],
+              const SizedBox(height: 18),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _ToolMetaTile(
+                            label: _localizedText(
+                              context,
+                              zh: '入參信息',
+                              en: 'Input Metadata',
+                            ),
+                            value: _schemaSummary(
+                              context,
+                              rawSchema: inputSchemaMetadata,
+                              fields: inputFields,
+                            ),
+                          ),
+                          _ToolMetaTile(
+                            label: _localizedText(
+                              context,
+                              zh: '返回信息',
+                              en: 'Output Metadata',
+                            ),
+                            value: _schemaSummary(
+                              context,
+                              rawSchema: outputSchemaMetadata,
+                              fields: outputFields,
+                            ),
+                          ),
+                          _ToolMetaTile(
+                            label: _localizedText(
+                              context,
+                              zh: '执行能力',
+                              en: 'Execution',
+                            ),
+                            value: _executionSummary(context, tool),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _ToolSchemaSection(
+                        title: _localizedText(
+                          context,
+                          zh: '入參',
+                          en: 'Parameters',
+                        ),
+                        fields: inputFields,
+                        schema: inputSchemaMetadata,
+                        emptyLabel: _localizedText(
+                          context,
+                          zh: '该 Tool 未声明结构化入參字段。',
+                          en: 'This tool does not declare structured input fields.',
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _ToolSchemaSection(
+                        title: _localizedText(
+                          context,
+                          zh: '返回值',
+                          en: 'Return Value',
+                        ),
+                        fields: outputFields,
+                        schema: outputSchemaMetadata,
+                        emptyLabel: outputSchemaMetadata == null
+                            ? _localizedText(
+                                context,
+                                zh: '该 Tool 未声明返回值 Schema。',
+                                en: 'This tool does not declare an output schema.',
+                              )
+                            : _localizedText(
+                                context,
+                                zh: '返回值 Schema 未提供结构化字段。',
+                                en: 'The output schema does not expose structured fields.',
+                              ),
+                      ),
+                      if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
+                        const SizedBox(height: 20),
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '服务端原始元数据',
+                            en: 'Raw Server Metadata',
+                          ),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        _ToolSchemaPanel(schema: tool.rawMetadata),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -710,6 +1303,180 @@ class _McpServerCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ToolMetaTile extends StatelessWidget {
+  const _ToolMetaTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(value, style: Theme.of(context).textTheme.titleLarge),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolSchemaSection extends StatelessWidget {
+  const _ToolSchemaSection({
+    required this.title,
+    required this.fields,
+    required this.schema,
+    required this.emptyLabel,
+  });
+
+  final String title;
+  final List<_SchemaField> fields;
+  final Object? schema;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 12),
+        if (fields.isEmpty)
+          Text(
+            emptyLabel,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          Column(
+            children: fields
+                .map((field) => _ToolSchemaFieldCard(field: field))
+                .toList(growable: false),
+          ),
+        if (schema != null) ...[
+          const SizedBox(height: 12),
+          _ToolSchemaPanel(schema: schema!),
+        ],
+      ],
+    );
+  }
+}
+
+class _ToolSchemaFieldCard extends StatelessWidget {
+  const _ToolSchemaFieldCard({required this.field});
+
+  final _SchemaField field;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SelectableText(
+                field.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              _McpStatusChip(icon: Icons.code_rounded, label: field.type),
+              if (field.required)
+                _McpStatusChip(
+                  icon: Icons.priority_high_rounded,
+                  label: _localizedText(context, zh: '必填', en: 'Required'),
+                ),
+            ],
+          ),
+          if (field.description.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              field.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ToolSchemaPanel extends StatelessWidget {
+  const _ToolSchemaPanel({required this.schema});
+
+  final Object? schema;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(_jsonFriendlyValue(schema));
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF18181B),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectableText(
+          content,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white,
+            fontFamily: 'monospace',
+            height: 1.45,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SchemaField {
+  const _SchemaField({
+    required this.name,
+    required this.type,
+    required this.description,
+    required this.required,
+  });
+
+  final String name;
+  final String type;
+  final String description;
+  final bool required;
 }
 
 class _McpStateCard extends StatelessWidget {
@@ -902,4 +1669,417 @@ class _McpPersistenceIssueCard extends StatelessWidget {
       ),
     );
   }
+}
+
+List<_SchemaField> _schemaFields(Object? schema) {
+  final fields = <_SchemaField>[];
+  final seenNames = <String>{};
+
+  void addField(_SchemaField field) {
+    if (seenNames.add(field.name)) {
+      fields.add(field);
+    }
+  }
+
+  final schemaMap = _asMap(schema);
+  if (schemaMap != null) {
+    _collectSchemaFields(schemaMap, addField);
+  }
+  if (fields.isNotEmpty) {
+    return fields;
+  }
+  if (schema is List) {
+    for (final item in schema) {
+      final field = _descriptorField(item);
+      if (field != null) {
+        addField(field);
+      }
+    }
+  }
+  return fields;
+}
+
+void _collectSchemaFields(
+  Map<String, Object?> schema,
+  void Function(_SchemaField field) addField, {
+  String prefix = '',
+}) {
+  final properties = _asMap(schema['properties']);
+  if (properties != null && properties.isNotEmpty) {
+    final requiredFields = _requiredFieldNames(schema['required']);
+    for (final entry in properties.entries) {
+      final propertySchema = entry.value;
+      final propertyName = prefix.isEmpty ? entry.key : '$prefix.${entry.key}';
+      addField(
+        _SchemaField(
+          name: propertyName,
+          type: _schemaType(propertySchema),
+          description: _schemaDescription(propertySchema),
+          required: requiredFields.contains(entry.key),
+        ),
+      );
+    }
+  }
+
+  for (final collectionKey in const <String>['fields', 'parameters']) {
+    final collection = schema[collectionKey];
+    if (collection is! List) {
+      continue;
+    }
+    for (final item in collection) {
+      final field = _descriptorField(item, prefix: prefix);
+      if (field != null) {
+        addField(field);
+      }
+    }
+  }
+
+  for (final keyword in const <String>['oneOf', 'anyOf', 'allOf']) {
+    final variants = schema[keyword];
+    if (variants is! List) {
+      continue;
+    }
+    for (final variant in variants) {
+      final variantMap = _asMap(variant);
+      if (variantMap != null) {
+        _collectSchemaFields(variantMap, addField, prefix: prefix);
+      }
+    }
+  }
+
+  final items = schema['items'];
+  final itemPrefix = prefix.isEmpty ? 'item' : '$prefix.item';
+  if (items is List) {
+    for (final item in items) {
+      final field = _descriptorField(item, prefix: itemPrefix);
+      if (field != null) {
+        addField(field);
+      }
+      final itemMap = _asMap(item);
+      if (itemMap != null) {
+        _collectSchemaFields(itemMap, addField, prefix: itemPrefix);
+      }
+    }
+    return;
+  }
+  final itemMap = _asMap(items);
+  if (itemMap != null) {
+    _collectSchemaFields(itemMap, addField, prefix: itemPrefix);
+  }
+}
+
+Set<String> _requiredFieldNames(Object? rawRequired) {
+  final requiredFields = <String>{};
+  if (rawRequired is List) {
+    for (final item in rawRequired) {
+      final name = '$item'.trim();
+      if (name.isNotEmpty) {
+        requiredFields.add(name);
+      }
+    }
+  }
+  return requiredFields;
+}
+
+_SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
+  final descriptor = _asMap(value);
+  if (descriptor == null) {
+    return null;
+  }
+  final fieldName =
+      _firstNonEmptyText(descriptor, const <String>[
+        'name',
+        'key',
+        'id',
+        'title',
+      ]) ??
+      '';
+  if (fieldName.isEmpty) {
+    return null;
+  }
+  final schema = descriptor.containsKey('schema')
+      ? descriptor['schema']
+      : descriptor;
+  return _SchemaField(
+    name: prefix.isEmpty ? fieldName : '$prefix.$fieldName',
+    type: _schemaType(schema),
+    description:
+        _firstNonEmptyText(descriptor, const <String>[
+          'description',
+          'summary',
+          'title',
+        ]) ??
+        '',
+    required: _readBoolFlag(descriptor['required']),
+  );
+}
+
+String _schemaType(Object? schema) {
+  final schemaMap = _asMap(schema);
+  if (schemaMap == null) {
+    if (schema is List) {
+      return 'array';
+    }
+    if (schema is bool) {
+      return 'boolean';
+    }
+    if (schema is num) {
+      return 'number';
+    }
+    if (schema is String) {
+      final text = schema.trim();
+      return text.isEmpty ? 'text' : text;
+    }
+    return 'object';
+  }
+  final typeValue = schemaMap['type'];
+  if (typeValue is String && typeValue.trim().isNotEmpty) {
+    return typeValue.trim();
+  }
+  if (typeValue is List) {
+    final values = typeValue
+        .map((item) => '$item'.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (values.isNotEmpty) {
+      return values.join(' | ');
+    }
+  }
+  final enumValues = schemaMap['enum'];
+  if (enumValues is List && enumValues.isNotEmpty) {
+    return 'enum';
+  }
+  for (final keyword in const <String>['oneOf', 'anyOf', 'allOf']) {
+    final variants = schemaMap[keyword];
+    if (variants is! List || variants.isEmpty) {
+      continue;
+    }
+    final variantTypes = variants
+        .map(_schemaType)
+        .where((item) => item.trim().isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (variantTypes.isNotEmpty) {
+      return variantTypes.join(' | ');
+    }
+  }
+  if (schemaMap.containsKey('items')) {
+    return 'array';
+  }
+  if (_asMap(schemaMap['properties']) != null) {
+    return 'object';
+  }
+  return 'object';
+}
+
+String _schemaDescription(Object? schema) {
+  final schemaMap = _asMap(schema);
+  if (schemaMap == null) {
+    return '';
+  }
+  return _firstNonEmptyText(schemaMap, const <String>[
+        'description',
+        'summary',
+      ]) ??
+      '';
+}
+
+String _schemaSummary(
+  BuildContext context, {
+  required Object? rawSchema,
+  required List<_SchemaField> fields,
+}) {
+  if (rawSchema == null) {
+    return _localizedText(context, zh: '未声明', en: 'Unspecified');
+  }
+  if (fields.isNotEmpty) {
+    return _localizedText(
+      context,
+      zh: '${fields.length} 个字段',
+      en: '${fields.length} fields',
+    );
+  }
+  final type = _schemaType(rawSchema).toLowerCase();
+  if (type == 'array') {
+    return _localizedText(context, zh: '数组', en: 'Array');
+  }
+  if (type == 'string' || type == 'text') {
+    return _localizedText(context, zh: '文本', en: 'Text');
+  }
+  if (type == 'number' || type == 'integer') {
+    return _localizedText(context, zh: '数字', en: 'Number');
+  }
+  if (type == 'boolean') {
+    return _localizedText(context, zh: '布尔值', en: 'Boolean');
+  }
+  if (type == 'enum') {
+    return _localizedText(context, zh: '枚举', en: 'Enum');
+  }
+  return _localizedText(context, zh: '原始元数据', en: 'Raw Metadata');
+}
+
+String _executionSummary(BuildContext context, McpTool tool) {
+  final taskSupport = _readText(tool.execution['taskSupport']);
+  if (taskSupport.isEmpty) {
+    return _localizedText(context, zh: '默认', en: 'Default');
+  }
+  return taskSupport;
+}
+
+String _formatStatusTime(BuildContext context, DateTime timestamp) {
+  final localTime = timestamp.toLocal();
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  return _localizedText(
+    context,
+    zh: '${twoDigits(localTime.month)}-${twoDigits(localTime.day)} ${twoDigits(localTime.hour)}:${twoDigits(localTime.minute)}',
+    en: '${twoDigits(localTime.month)}-${twoDigits(localTime.day)} ${twoDigits(localTime.hour)}:${twoDigits(localTime.minute)}',
+  );
+}
+
+IconData _healthStatusActionIcon(McpServerHealth healthStatus) {
+  return switch (healthStatus.status) {
+    McpServerHealthStatus.healthy => Icons.health_and_safety_rounded,
+    McpServerHealthStatus.unhealthy => Icons.health_and_safety_outlined,
+    McpServerHealthStatus.idle ||
+    McpServerHealthStatus.checking => Icons.health_and_safety_outlined,
+  };
+}
+
+IconData _healthStatusChipIcon(McpServerHealth healthStatus) {
+  return switch (healthStatus.status) {
+    McpServerHealthStatus.healthy => Icons.verified_rounded,
+    McpServerHealthStatus.unhealthy => Icons.error_outline_rounded,
+    McpServerHealthStatus.idle ||
+    McpServerHealthStatus.checking => Icons.health_and_safety_outlined,
+  };
+}
+
+String _healthStatusSummary(
+  BuildContext context,
+  McpServerHealth healthStatus,
+) {
+  if (healthStatus.isChecking) {
+    return _localizedText(context, zh: '健康检测中', en: 'Checking Health');
+  }
+  final checkedAt = healthStatus.lastCheckedAt;
+  if (checkedAt == null) {
+    return _localizedText(context, zh: '未检测', en: 'Unchecked');
+  }
+  final statusLabel = healthStatus.isHealthy
+      ? _localizedText(context, zh: '健康', en: 'Healthy')
+      : _localizedText(context, zh: '异常', en: 'Unhealthy');
+  return '$statusLabel · ${_formatStatusTime(context, checkedAt)}';
+}
+
+Color _healthStatusDotColor(
+  ColorScheme colorScheme, {
+  required McpServer server,
+  required McpServerHealth healthStatus,
+}) {
+  if (!server.enabled) {
+    return colorScheme.outlineVariant;
+  }
+  return switch (healthStatus.status) {
+    McpServerHealthStatus.healthy => const Color(0xFF56C271),
+    McpServerHealthStatus.unhealthy => colorScheme.error,
+    McpServerHealthStatus.checking => colorScheme.tertiary,
+    McpServerHealthStatus.idle => colorScheme.outline,
+  };
+}
+
+String _healthStatusDotTooltip(
+  BuildContext context,
+  McpServer server,
+  McpServerHealth healthStatus,
+) {
+  if (!server.enabled) {
+    return _localizedText(context, zh: '服务已禁用', en: 'Service Disabled');
+  }
+  if (healthStatus.isChecking) {
+    return _localizedText(context, zh: '健康检测中', en: 'Checking Health');
+  }
+  final checkedAt = healthStatus.lastCheckedAt;
+  if (checkedAt == null) {
+    return _localizedText(context, zh: '尚未检测健康状态', en: 'Health Not Checked');
+  }
+  final statusLabel = healthStatus.isHealthy
+      ? _localizedText(context, zh: '服务健康', en: 'Service Healthy')
+      : _localizedText(context, zh: '服务异常', en: 'Service Unhealthy');
+  return '$statusLabel · ${_formatStatusTime(context, checkedAt)}';
+}
+
+Map<String, Object?>? _asMap(Object? value) {
+  if (value is Map<String, Object?>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, Object?>.from(value);
+  }
+  return null;
+}
+
+Object? _jsonFriendlyValue(Object? value) {
+  if (value == null || value is String || value is num || value is bool) {
+    return value;
+  }
+  if (value is List) {
+    return value.map(_jsonFriendlyValue).toList(growable: false);
+  }
+  if (value is Map) {
+    final normalized = <String, Object?>{};
+    for (final entry in value.entries) {
+      normalized['${entry.key}'] = _jsonFriendlyValue(entry.value);
+    }
+    return normalized;
+  }
+  return '$value';
+}
+
+Object? _displayedSchemaMetadata({
+  required Object? rawSchema,
+  required Object? normalizedSchema,
+  required bool hasRawMetadata,
+}) {
+  if (rawSchema != null) {
+    return rawSchema;
+  }
+  if (hasRawMetadata) {
+    return null;
+  }
+  return normalizedSchema;
+}
+
+bool _readBoolFlag(Object? value) {
+  if (value is bool) {
+    return value;
+  }
+  final text = _readText(value).toLowerCase();
+  return text == 'true' || text == '1' || text == 'yes';
+}
+
+String? _firstNonEmptyText(Map<String, Object?> source, List<String> keys) {
+  for (final key in keys) {
+    final value = _readText(source[key]);
+    if (value.isNotEmpty) {
+      return value;
+    }
+  }
+  return null;
+}
+
+String _readText(Object? value) {
+  final text = '$value'.trim();
+  if (text == 'null') {
+    return '';
+  }
+  return text;
+}
+
+String _localizedText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+}) {
+  final languageCode = Localizations.localeOf(context).languageCode;
+  return languageCode.startsWith('zh') ? zh : en;
 }

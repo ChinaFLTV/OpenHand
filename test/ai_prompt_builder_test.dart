@@ -147,6 +147,157 @@ void main() {
     expect(prompt.historyMessageCount, 2);
   });
 
+  test('AiPromptBuilder groups consecutive tool-call messages into one tool round', () {
+    const builder = AiPromptBuilder();
+    final prompt = builder.buildSessionPrompt(
+      templateBundle: _templateBundle(),
+      session: _session(
+        messages: [
+          AiSessionMessage.toolCall(
+            id: 'tool-call-message-1',
+            content: '**bash**\n\n```json\n{"cmd":"pwd"}\n```',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 0),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-1',
+              'tool_name': 'bash',
+              'tool_arguments': '{"cmd":"pwd"}',
+              'tool_calls': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': 'tool-call-1',
+                  'name': 'bash',
+                  'arguments': '{"cmd":"pwd"}',
+                },
+              ],
+            },
+          ),
+          AiSessionMessage.toolCall(
+            id: 'tool-call-message-2',
+            content: '**bash**\n\n```json\n{"cmd":"ls -la"}\n```',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 1),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-2',
+              'tool_name': 'bash',
+              'tool_arguments': '{"cmd":"ls -la"}',
+              'tool_calls': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': 'tool-call-2',
+                  'name': 'bash',
+                  'arguments': '{"cmd":"ls -la"}',
+                },
+              ],
+            },
+          ),
+          AiSessionMessage.toolResult(
+            id: 'tool-result-1',
+            content: '/workspace',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 2),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-1',
+              'tool_name': 'bash',
+            },
+          ),
+          AiSessionMessage.toolResult(
+            id: 'tool-result-2',
+            content: 'README.md',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 3),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-2',
+              'tool_name': 'bash',
+            },
+          ),
+          AiSessionMessage.user(
+            id: 'user-1',
+            content: 'Continue',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 4),
+          ),
+        ],
+      ),
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const [],
+      sessionMessages: _session(
+        messages: [
+          AiSessionMessage.toolCall(
+            id: 'tool-call-message-1',
+            content: '**bash**\n\n```json\n{"cmd":"pwd"}\n```',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 0),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-1',
+              'tool_name': 'bash',
+              'tool_arguments': '{"cmd":"pwd"}',
+              'tool_calls': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': 'tool-call-1',
+                  'name': 'bash',
+                  'arguments': '{"cmd":"pwd"}',
+                },
+              ],
+            },
+          ),
+          AiSessionMessage.toolCall(
+            id: 'tool-call-message-2',
+            content: '**bash**\n\n```json\n{"cmd":"ls -la"}\n```',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 1),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-2',
+              'tool_name': 'bash',
+              'tool_arguments': '{"cmd":"ls -la"}',
+              'tool_calls': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': 'tool-call-2',
+                  'name': 'bash',
+                  'arguments': '{"cmd":"ls -la"}',
+                },
+              ],
+            },
+          ),
+          AiSessionMessage.toolResult(
+            id: 'tool-result-1',
+            content: '/workspace',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 2),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-1',
+              'tool_name': 'bash',
+            },
+          ),
+          AiSessionMessage.toolResult(
+            id: 'tool-result-2',
+            content: 'README.md',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 3),
+            metadata: const <String, Object?>{
+              'tool_call_id': 'tool-call-2',
+              'tool_name': 'bash',
+            },
+          ),
+          AiSessionMessage.user(
+            id: 'user-1',
+            content: 'Continue',
+            createdAt: DateTime.utc(2026, 3, 23, 6, 6, 4),
+          ),
+        ],
+      ).messages,
+      latestUserMessageId: 'user-1',
+    );
+
+    final assistantToolCallTurn = prompt.messages.singleWhere(
+      (item) => item.role == AiChatRole.assistant && item.toolCalls.isNotEmpty,
+    );
+    final toolTurns = prompt.messages
+        .where((item) => item.role == AiChatRole.tool)
+        .toList(growable: false);
+
+    expect(assistantToolCallTurn.toolCalls, hasLength(2));
+    expect(
+      assistantToolCallTurn.toolCalls.map((item) => item.id).toList(),
+      <String>['tool-call-1', 'tool-call-2'],
+    );
+    expect(
+      toolTurns.map((item) => item.toolCallId).toList(),
+      <String>['tool-call-1', 'tool-call-2'],
+    );
+    expect(prompt.historyMessageCount, 3);
+  });
+
   test(
     'AiPromptBuilder does not inject leaked session marker into history',
     () {

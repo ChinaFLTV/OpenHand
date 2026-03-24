@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../model/ai_model_config.dart';
@@ -138,9 +137,6 @@ class AiChatService implements AiChatClient {
         messages: messages,
         tools: tools,
       );
-      _debugLog(
-        'sendMessage:start model=${model.id} protocol=${model.protocolType.storageValue} messages=${messages.length} tools=${tools.length}',
-      );
       final response = await _client
           .post(
             Uri.parse(blueprint.url),
@@ -155,9 +151,6 @@ class AiChatService implements AiChatClient {
         );
       }
       try {
-        _debugLog(
-          'sendMessage:completed model=${model.id} status=${response.statusCode}',
-        );
         return AiChatCompletion(
           reply: adapter.parseAssistantMessage(response.body),
           usage: adapter.parseUsage(response.body),
@@ -196,9 +189,6 @@ class AiChatService implements AiChatClient {
       messages: messages,
       tools: tools,
       stream: true,
-    );
-    _debugLog(
-      'sendMessageStream:start model=${model.id} protocol=${model.protocolType.storageValue} messages=${messages.length} tools=${tools.length}',
     );
     final request = http.Request('POST', Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
@@ -245,9 +235,6 @@ class AiChatService implements AiChatClient {
       if (resultCompleter.isCompleted) {
         return;
       }
-      _debugLog(
-        'sendMessageStream:completed model=${model.id} reason=$reason textChars=${textBuffer.length} reasoningChars=${reasoningBuffer.length} toolCalls=${toolCalls.length}',
-      );
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
       resultCompleter.complete(
@@ -294,7 +281,6 @@ class AiChatService implements AiChatClient {
       }
       final data = dataLines.join('\n');
       if (data == '[DONE]') {
-        _debugLog('sendMessageStream:doneMarker model=${model.id}');
         completeStreamResult('done_marker');
         unawaited(responseSubscription?.cancel());
         return;
@@ -409,7 +395,6 @@ class AiChatService implements AiChatClient {
         .listen(
           processChunk,
           onError: (Object error, StackTrace stackTrace) {
-            _debugLog('sendMessageStream:error model=${model.id} error=$error');
             if (!resultCompleter.isCompleted) {
               resultCompleter.completeError(
                 error is TimeoutException
@@ -541,13 +526,6 @@ class AiChatService implements AiChatClient {
   @override
   void dispose() {
     _client.close();
-  }
-
-  void _debugLog(String message) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint('[AiChatService] $message');
   }
 }
 

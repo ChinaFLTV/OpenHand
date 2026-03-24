@@ -1,0 +1,1342 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+
+import '../model/mcp_server.dart';
+import '../model/mcp_server_health.dart';
+import '../model/mcp_tool.dart';
+
+abstract class McpToolDiscoveryService {
+  Future<McpToolCatalog> discoverTools(McpServer server);
+  Future<McpServerHealth> checkHealth(McpServer server);
+
+  void dispose();
+}
+
+class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
+  DefaultMcpToolDiscoveryService({http.Client? client})
+    : _client = client ?? http.Client();
+
+  static const Duration _scanTimeout = Duration(seconds: 8);
+  static const Duration _healthCheckTimeout = Duration(seconds: 6);
+  static const Duration _requestTimeout = Duration(seconds: 6);
+  static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
+  static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
+  static const int _maxRedirects = 4;
+  static const int _maxToolPages = 8;
+  static const String _streamableHttpProtocolVersion = '2025-11-25';
+  static const String _legacySseProtocolVersion = '2024-11-05';
+
+  final http.Client _client;
+  int _nextRequestId = 0;
+
+  @override
+  Future<McpToolCatalog> discoverTools(McpServer server) async {
+    final scannedAt = DateTime.now().toUtc();
+    try {
+      final discovered = await switch (server.type) {
+        McpServerType.streamableHttp => _discoverOverStreamableHttp(server),
+        McpServerType.sse => _discoverOverLegacySseWithFallback(server),
+        McpServerType.stdio => _discoverOverStdio(server),
+      }.timeout(_scanTimeout);
+      return McpToolCatalog(
+        status: McpToolCatalogStatus.ready,
+        tools: discovered.tools,
+        warningMessage: discovered.warningMessage,
+        lastScannedAt: scannedAt,
+      );
+    } on TimeoutException {
+      return McpToolCatalog(
+        status: McpToolCatalogStatus.failed,
+        errorMessage:
+            'Tool scan timed out. The MCP server did not respond in time.',
+        lastScannedAt: scannedAt,
+      );
+    } on McpToolDiscoveryException catch (error) {
+      return McpToolCatalog(
+        status: McpToolCatalogStatus.failed,
+        errorMessage: error.message,
+        lastScannedAt: scannedAt,
+      );
+    } catch (error) {
+      return McpToolCatalog(
+        status: McpToolCatalogStatus.failed,
+        errorMessage: '$error',
+        lastScannedAt: scannedAt,
+      );
+    }
+  }
+
+  @override
+  Future<McpServerHealth> checkHealth(McpServer server) async {
+    final checkedAt = DateTime.now().toUtc();
+    try {
+      await switch (server.type) {
+        McpServerType.streamableHttp => _checkStreamableHttpHealth(server),
+        McpServerType.sse => _checkLegacySseHealthWithFallback(server),
+        McpServerType.stdio => _checkStdioHealth(server),
+      }.timeout(_healthCheckTimeout);
+      return McpServerHealth(
+        status: McpServerHealthStatus.healthy,
+        lastCheckedAt: checkedAt,
+      );
+    } on TimeoutException {
+      return McpServerHealth(
+        status: McpServerHealthStatus.unhealthy,
+        errorMessage:
+            'Health check timed out. The MCP server did not respond in time.',
+        lastCheckedAt: checkedAt,
+      );
+    } on McpToolDiscoveryException catch (error) {
+      return McpServerHealth(
+        status: McpServerHealthStatus.unhealthy,
+        errorMessage: error.message,
+        lastCheckedAt: checkedAt,
+      );
+    } catch (error) {
+      return McpServerHealth(
+        status: McpServerHealthStatus.unhealthy,
+        errorMessage: '$error',
+        lastCheckedAt: checkedAt,
+      );
+    }
+  }
+
+  Future<_DiscoveredTools> _discoverOverStreamableHttp(McpServer server) async {
+    final session = await _initializeStreamableHttpSession(server);
+
+    return _listTools(
+      (cursor) => _postJsonRpc(
+        uri: session.uri,
+        protocolVersion: session.protocolVersion,
+        sessionId: session.sessionId,
+        payload: _jsonRpcRequest(
+          id: _nextId(),
+          method: 'tools/list',
+          params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+        ),
+        expectResponse: true,
+      ).then((response) => response.message),
+    );
+  }
+
+  Future<_DiscoveredTools> _discoverOverLegacySse(McpServer server) async {
+    final session = await _initializeLegacySseSession(server);
+    try {
+      return _listTools(
+        (cursor) => session.sendRequest(
+          _jsonRpcRequest(
+            id: _nextId(),
+            method: 'tools/list',
+            params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+          ),
+        ),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
+  Future<_DiscoveredTools> _discoverOverLegacySseWithFallback(
+    McpServer server,
+  ) {
+    return _runLegacySseWithStreamableFallback(
+      primaryOperation: () => _discoverOverLegacySse(server),
+      fallbackOperation: () => _discoverOverStreamableHttp(server),
+    );
+  }
+
+  Future<_DiscoveredTools> _discoverOverStdio(McpServer server) async {
+    final session = await _initializeStdioSession(server);
+    try {
+      return _listTools(
+        (cursor) => session.sendRequest(
+          _jsonRpcRequest(
+            id: _nextId(),
+            method: 'tools/list',
+            params: cursor == null ? null : <String, Object?>{'cursor': cursor},
+          ),
+        ),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
+  Future<void> _checkStreamableHttpHealth(McpServer server) async {
+    await _initializeStreamableHttpSession(server);
+  }
+
+  Future<void> _checkLegacySseHealth(McpServer server) async {
+    final session = await _initializeLegacySseSession(server);
+    await session.close();
+  }
+
+  Future<void> _checkLegacySseHealthWithFallback(McpServer server) {
+    return _runLegacySseWithStreamableFallback(
+      primaryOperation: () => _checkLegacySseHealth(server),
+      fallbackOperation: () => _checkStreamableHttpHealth(server),
+    );
+  }
+
+  Future<void> _checkStdioHealth(McpServer server) async {
+    final session = await _initializeStdioSession(server);
+    await session.close();
+  }
+
+  Future<_InitializedStreamableHttpSession> _initializeStreamableHttpSession(
+    McpServer server,
+  ) async {
+    final uri = _parseServerUri(server.url);
+    final initializeResponse = await _postJsonRpc(
+      uri: uri,
+      protocolVersion: _streamableHttpProtocolVersion,
+      payload: _jsonRpcInitializeRequest(
+        id: _nextId(),
+        protocolVersion: _streamableHttpProtocolVersion,
+      ),
+      expectResponse: true,
+    );
+    final initializeResult = _extractResult(initializeResponse.message);
+    final protocolVersion = _readText(initializeResult['protocolVersion']);
+    final negotiatedProtocolVersion = protocolVersion.isNotEmpty
+        ? protocolVersion
+        : _streamableHttpProtocolVersion;
+    final resolvedUri = initializeResponse.uri ?? uri;
+
+    await _postJsonRpc(
+      uri: resolvedUri,
+      protocolVersion: negotiatedProtocolVersion,
+      sessionId: initializeResponse.sessionId,
+      payload: _jsonRpcNotification('notifications/initialized'),
+      expectResponse: false,
+    );
+    return _InitializedStreamableHttpSession(
+      uri: resolvedUri,
+      protocolVersion: negotiatedProtocolVersion,
+      sessionId: initializeResponse.sessionId,
+    );
+  }
+
+  Future<_LegacySseSession> _initializeLegacySseSession(
+    McpServer server,
+  ) async {
+    final session = await _LegacySseSession.connect(
+      client: _client,
+      sseUri: _parseServerUri(server.url),
+      endpointTimeout: _legacyEndpointTimeout,
+      requestTimeout: _requestTimeout,
+    );
+    try {
+      _extractResult(
+        await session.sendRequest(
+          _jsonRpcInitializeRequest(
+            id: _nextId(),
+            protocolVersion: _legacySseProtocolVersion,
+          ),
+        ),
+      );
+      await session.sendNotification(
+        _jsonRpcNotification('notifications/initialized'),
+      );
+      return session;
+    } catch (_) {
+      await session.close();
+      rethrow;
+    }
+  }
+
+  Future<_StdioSession> _initializeStdioSession(McpServer server) async {
+    final session = _StdioSession(
+      process: await Process.start(
+        server.command,
+        server.args,
+        runInShell: Platform.isWindows,
+      ),
+      requestTimeout: _requestTimeout,
+    );
+    try {
+      _extractResult(
+        await session.sendRequest(
+          _jsonRpcInitializeRequest(
+            id: _nextId(),
+            protocolVersion: _streamableHttpProtocolVersion,
+          ),
+        ),
+      );
+      await session.sendNotification(
+        _jsonRpcNotification('notifications/initialized'),
+      );
+      return session;
+    } catch (_) {
+      await session.close();
+      rethrow;
+    }
+  }
+
+  Future<_DiscoveredTools> _listTools(
+    Future<Map<String, Object?>?> Function(String? cursor) sendRequest,
+  ) async {
+    final tools = <McpTool>[];
+    final warnings = <String>[];
+    var cursor = '';
+    var invalidTools = 0;
+    var metadataWarnings = 0;
+
+    for (var pageIndex = 0; pageIndex < _maxToolPages; pageIndex++) {
+      final envelope = await sendRequest(cursor.isEmpty ? null : cursor);
+      final result = _extractResult(envelope);
+      final rawTools = result['tools'];
+      if (rawTools is! List) {
+        throw const McpToolDiscoveryException(
+          'Tool scan failed because the server returned an invalid tools list.',
+        );
+      }
+      for (final rawTool in rawTools) {
+        final parsedTool = _parseTool(rawTool);
+        if (parsedTool == null) {
+          invalidTools += 1;
+          continue;
+        }
+        if (parsedTool.hasMetadataWarning) {
+          metadataWarnings += 1;
+        }
+        tools.add(parsedTool);
+      }
+      final nextCursor = _readText(result['nextCursor']);
+      if (nextCursor.isEmpty) {
+        cursor = '';
+        break;
+      }
+      cursor = nextCursor;
+    }
+
+    if (cursor.isNotEmpty) {
+      warnings.add(
+        'Tool scan stopped after $_maxToolPages pages. The tool list may be incomplete.',
+      );
+    }
+    if (invalidTools > 0) {
+      warnings.add(
+        'Ignored $invalidTools invalid tool entr${invalidTools == 1 ? 'y' : 'ies'}.',
+      );
+    }
+    if (metadataWarnings > 0) {
+      warnings.add(
+        '$metadataWarnings tool entr${metadataWarnings == 1 ? 'y has' : 'ies have'} incomplete metadata.',
+      );
+    }
+
+    return _DiscoveredTools(
+      tools: tools,
+      warningMessage: warnings.isEmpty ? null : warnings.join(' '),
+    );
+  }
+
+  McpTool? _parseTool(Object? rawTool) {
+    final rawMap = _asMap(rawTool);
+    if (rawMap == null) {
+      return null;
+    }
+
+    final id = _readText(rawMap['name']);
+    if (id.isEmpty) {
+      return null;
+    }
+
+    final displayName =
+        _firstNonEmptyText(rawMap, const <String>['title', 'displayName']) ??
+        id;
+    final description =
+        _firstNonEmptyText(rawMap, const <String>[
+          'description',
+          'summary',
+          'details',
+        ]) ??
+        '';
+    final rawInputSchema = _firstPresentValue(rawMap, const <String>[
+      'inputSchema',
+      'input_schema',
+      'parameters',
+      'argsSchema',
+      'argumentSchema',
+    ]);
+    final rawOutputSchema = _firstPresentValue(rawMap, const <String>[
+      'outputSchema',
+      'output_schema',
+      'returnSchema',
+      'resultSchema',
+      'returns',
+    ]);
+    final inputSchema = _asMap(rawInputSchema);
+    final outputSchema = _asMap(rawOutputSchema);
+    final annotations =
+        _asMap(rawMap['annotations']) ?? const <String, Object?>{};
+    final execution = _asMap(rawMap['execution']) ?? const <String, Object?>{};
+    final metadataWarnings = <String>[];
+
+    final resolvedInputSchema =
+        inputSchema ?? const <String, Object?>{'type': 'object'};
+    if (rawInputSchema == null) {
+      metadataWarnings.add('Missing input schema.');
+    } else if (inputSchema == null) {
+      metadataWarnings.add(
+        'Input schema is not a structured object. Showing raw metadata instead.',
+      );
+    }
+    if (rawOutputSchema != null && outputSchema == null) {
+      metadataWarnings.add(
+        'Output schema is not a structured object. Showing raw metadata instead.',
+      );
+    }
+
+    return McpTool(
+      id: id,
+      name: displayName,
+      description: description,
+      inputSchema: resolvedInputSchema,
+      outputSchema: outputSchema,
+      annotations: annotations,
+      execution: execution,
+      rawInputSchema: rawInputSchema,
+      rawOutputSchema: rawOutputSchema,
+      rawMetadata: rawMap,
+      metadataWarning: metadataWarnings.isEmpty
+          ? null
+          : metadataWarnings.join(' '),
+    );
+  }
+
+  Future<_JsonRpcHttpResponse> _postJsonRpc({
+    required Uri uri,
+    required String protocolVersion,
+    required Map<String, Object?> payload,
+    String? sessionId,
+    required bool expectResponse,
+  }) async {
+    final headers = <String, String>{
+      'content-type': 'application/json',
+      'accept': 'application/json, text/event-stream',
+    };
+    if (protocolVersion.trim().isNotEmpty) {
+      headers['mcp-protocol-version'] = protocolVersion.trim();
+    }
+    if (sessionId?.trim().isNotEmpty ?? false) {
+      headers['mcp-session-id'] = sessionId!.trim();
+    }
+
+    final response = await _sendRequestWithRedirects(
+      client: _client,
+      method: 'POST',
+      uri: uri,
+      headers: headers,
+      body: jsonEncode(payload),
+      requestTimeout: _requestTimeout,
+      maxRedirects: _maxRedirects,
+    );
+    final responseUri = response.request?.url ?? uri;
+    final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final responseBody = await response.stream.bytesToString();
+      throw McpToolDiscoveryException(
+        'Tool scan request failed with HTTP ${response.statusCode}${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+      );
+    }
+    if (!expectResponse) {
+      await response.stream.drain<void>();
+      return _JsonRpcHttpResponse(
+        sessionId: responseSessionId,
+        uri: responseUri,
+      );
+    }
+
+    final contentType = _readHeader(response.headers, 'content-type');
+    final body = await response.stream.bytesToString();
+    if (contentType.contains('text/event-stream')) {
+      final message = _firstSseJsonRpcMessage(body, payload['id']);
+      return _JsonRpcHttpResponse(
+        message: message,
+        sessionId: responseSessionId,
+        uri: responseUri,
+      );
+    }
+
+    final decoded = jsonDecode(body);
+    final message = _asMap(decoded);
+    if (message == null) {
+      throw const McpToolDiscoveryException(
+        'Tool scan failed because the MCP server returned an invalid JSON-RPC response.',
+      );
+    }
+    return _JsonRpcHttpResponse(
+      message: message,
+      sessionId: responseSessionId,
+      uri: responseUri,
+    );
+  }
+
+  Future<T> _runLegacySseWithStreamableFallback<T>({
+    required Future<T> Function() primaryOperation,
+    required Future<T> Function() fallbackOperation,
+  }) async {
+    try {
+      return await primaryOperation();
+    } on TimeoutException {
+      return fallbackOperation();
+    } on McpToolDiscoveryException catch (error) {
+      if (!_shouldFallbackFromLegacySse(error)) {
+        rethrow;
+      }
+      return fallbackOperation();
+    }
+  }
+
+  bool _shouldFallbackFromLegacySse(McpToolDiscoveryException error) {
+    final message = error.message.toLowerCase();
+    return message.contains('sse endpoint') ||
+        message.contains('message endpoint') ||
+        message.contains('http 301') ||
+        message.contains('http 302') ||
+        message.contains('http 303') ||
+        message.contains('http 307') ||
+        message.contains('http 308') ||
+        message.contains('http 404') ||
+        message.contains('http 405') ||
+        message.contains('http 406') ||
+        message.contains('http 415') ||
+        message.contains('invalid json-rpc') ||
+        message.contains('did not return a response');
+  }
+
+  Map<String, Object?> _jsonRpcRequest({
+    required int id,
+    required String method,
+    Map<String, Object?>? params,
+  }) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'id': id,
+      'method': method,
+      ...?(params == null ? null : <String, Object?>{'params': params}),
+    };
+  }
+
+  Map<String, Object?> _jsonRpcInitializeRequest({
+    required int id,
+    required String protocolVersion,
+  }) {
+    return _jsonRpcRequest(
+      id: id,
+      method: 'initialize',
+      params: <String, Object?>{
+        'protocolVersion': protocolVersion,
+        'capabilities': const <String, Object?>{},
+        'clientInfo': const <String, Object?>{
+          'name': 'OpenHand',
+          'version': '1.0.0',
+        },
+      },
+    );
+  }
+
+  Map<String, Object?> _jsonRpcNotification(
+    String method, {
+    Map<String, Object?>? params,
+  }) {
+    return <String, Object?>{
+      'jsonrpc': '2.0',
+      'method': method,
+      ...?(params == null ? null : <String, Object?>{'params': params}),
+    };
+  }
+
+  Map<String, Object?> _extractResult(Map<String, Object?>? envelope) {
+    if (envelope == null) {
+      throw const McpToolDiscoveryException(
+        'Tool scan failed because the MCP server did not return a response.',
+      );
+    }
+    final error = _asMap(envelope['error']);
+    if (error != null) {
+      final message = _readText(error['message']);
+      throw McpToolDiscoveryException(
+        message.isEmpty
+            ? 'Tool scan failed because the MCP server returned an error.'
+            : message,
+      );
+    }
+    final result = _asMap(envelope['result']);
+    if (result == null) {
+      throw const McpToolDiscoveryException(
+        'Tool scan failed because the MCP server returned an invalid result payload.',
+      );
+    }
+    return result;
+  }
+
+  Uri _parseServerUri(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri == null || !uri.hasScheme) {
+      throw const McpToolDiscoveryException(
+        'Tool scan failed because the MCP server URL is invalid.',
+      );
+    }
+    return uri;
+  }
+
+  Map<String, Object?>? _firstSseJsonRpcMessage(
+    Object body,
+    Object? requestId,
+  ) {
+    final events = _parseSseEvents('$body');
+    final requestIdText = '$requestId';
+    for (final event in events) {
+      if (event.name.isNotEmpty && event.name != 'message') {
+        continue;
+      }
+      Map<String, Object?>? message;
+      try {
+        final decoded = jsonDecode(event.data);
+        message = _asMap(decoded);
+      } catch (_) {
+        continue;
+      }
+      if (message == null) {
+        continue;
+      }
+      if ('${message['id']}' == requestIdText) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  String _readText(Object? value) {
+    final text = '$value'.trim();
+    if (text == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  String _readHeader(Map<String, String> headers, String name) {
+    final target = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == target) {
+        return entry.value.trim();
+      }
+    }
+    return '';
+  }
+
+  Object? _firstPresentValue(Map<String, Object?> source, List<String> keys) {
+    for (final key in keys) {
+      if (source.containsKey(key)) {
+        return source[key];
+      }
+    }
+    return null;
+  }
+
+  String? _firstNonEmptyText(Map<String, Object?> source, List<String> keys) {
+    for (final key in keys) {
+      final value = _readText(source[key]);
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  Map<String, Object?>? _asMap(Object? value) {
+    if (value is Map<String, Object?>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, Object?>.from(value);
+    }
+    return null;
+  }
+
+  List<_SseEvent> _parseSseEvents(String body) {
+    final normalized = body.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final blocks = normalized.split('\n\n');
+    final events = <_SseEvent>[];
+    for (final block in blocks) {
+      final trimmedBlock = block.trim();
+      if (trimmedBlock.isEmpty) {
+        continue;
+      }
+      var eventName = '';
+      final dataLines = <String>[];
+      for (final line in trimmedBlock.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.substring(6).trim();
+          continue;
+        }
+        if (line.startsWith('data:')) {
+          dataLines.add(line.substring(5).trim());
+        }
+      }
+      if (dataLines.isEmpty) {
+        continue;
+      }
+      events.add(_SseEvent(name: eventName, data: dataLines.join('\n')));
+    }
+    return events;
+  }
+
+  int _nextId() {
+    _nextRequestId += 1;
+    return _nextRequestId;
+  }
+
+  @override
+  void dispose() {
+    _client.close();
+  }
+}
+
+Future<http.StreamedResponse> _sendRequestWithRedirects({
+  required http.Client client,
+  required String method,
+  required Uri uri,
+  required Map<String, String> headers,
+  String? body,
+  required Duration requestTimeout,
+  required int maxRedirects,
+}) async {
+  var currentMethod = method;
+  var currentUri = uri;
+  var currentBody = body;
+  final currentHeaders = Map<String, String>.from(headers);
+
+  for (var redirectCount = 0; ; redirectCount++) {
+    final request = http.Request(currentMethod, currentUri)
+      ..followRedirects = false
+      ..headers.addAll(currentHeaders);
+    if (currentBody != null) {
+      request.body = currentBody;
+    }
+
+    final response = await client.send(request).timeout(requestTimeout);
+    if (!_isRedirectStatusCode(response.statusCode)) {
+      return response;
+    }
+
+    final redirectLocation = _readResponseHeader(response.headers, 'location');
+    if (redirectLocation.isEmpty) {
+      return response;
+    }
+    if (redirectCount >= maxRedirects) {
+      final responseBody = await response.stream.bytesToString();
+      throw McpToolDiscoveryException(
+        'Tool scan request followed too many redirects (${maxRedirects + 1})${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+      );
+    }
+
+    await response.stream.drain<void>();
+    final redirectedUri = currentUri.resolve(redirectLocation);
+    if (_isCrossOriginRedirect(currentUri, redirectedUri)) {
+      _stripSensitiveRedirectHeaders(currentHeaders);
+    }
+    currentUri = redirectedUri;
+    if (response.statusCode == 303 &&
+        currentMethod != 'GET' &&
+        currentMethod != 'HEAD') {
+      currentMethod = 'GET';
+      currentBody = null;
+    }
+  }
+}
+
+bool _isRedirectStatusCode(int statusCode) {
+  return statusCode == 301 ||
+      statusCode == 302 ||
+      statusCode == 303 ||
+      statusCode == 307 ||
+      statusCode == 308;
+}
+
+bool _isCrossOriginRedirect(Uri source, Uri target) {
+  return source.scheme != target.scheme ||
+      source.host != target.host ||
+      _effectivePort(source) != _effectivePort(target);
+}
+
+int _effectivePort(Uri uri) {
+  if (uri.hasPort) {
+    return uri.port;
+  }
+  return switch (uri.scheme.toLowerCase()) {
+    'http' => 80,
+    'https' => 443,
+    _ => -1,
+  };
+}
+
+void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
+  const sensitiveHeaderNames = <String>{
+    'authorization',
+    'cookie',
+    'mcp-session-id',
+    'proxy-authorization',
+  };
+  headers.removeWhere(
+    (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
+  );
+}
+
+String _readResponseHeader(Map<String, String> headers, String name) {
+  final target = name.toLowerCase();
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == target) {
+      return entry.value.trim();
+    }
+  }
+  return '';
+}
+
+class McpToolDiscoveryException implements Exception {
+  const McpToolDiscoveryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class _DiscoveredTools {
+  const _DiscoveredTools({required this.tools, this.warningMessage});
+
+  final List<McpTool> tools;
+  final String? warningMessage;
+}
+
+class _InitializedStreamableHttpSession {
+  const _InitializedStreamableHttpSession({
+    required this.uri,
+    required this.protocolVersion,
+    this.sessionId,
+  });
+
+  final Uri uri;
+  final String protocolVersion;
+  final String? sessionId;
+}
+
+class _JsonRpcHttpResponse {
+  const _JsonRpcHttpResponse({this.message, this.sessionId, this.uri});
+
+  final Map<String, Object?>? message;
+  final String? sessionId;
+  final Uri? uri;
+}
+
+class _LegacySseSession {
+  _LegacySseSession._({
+    required http.Client client,
+    required Uri endpointUri,
+    required StreamController<Map<String, Object?>> messages,
+    required StreamSubscription<String> subscription,
+    required Duration requestTimeout,
+  }) : _client = client,
+       _endpointUri = endpointUri,
+       _messages = messages,
+       _subscription = subscription,
+       _requestTimeout = requestTimeout;
+
+  final http.Client _client;
+  final Uri _endpointUri;
+  final StreamController<Map<String, Object?>> _messages;
+  final StreamSubscription<String> _subscription;
+  final Duration _requestTimeout;
+
+  static Future<_LegacySseSession> connect({
+    required http.Client client,
+    required Uri sseUri,
+    required Duration endpointTimeout,
+    required Duration requestTimeout,
+  }) async {
+    final response = await _sendRequestWithRedirects(
+      client: client,
+      method: 'GET',
+      uri: sseUri,
+      headers: const <String, String>{'accept': 'text/event-stream'},
+      requestTimeout: requestTimeout,
+      maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
+    );
+    final resolvedSseUri = response.request?.url ?? sseUri;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = await response.stream.bytesToString();
+      throw McpToolDiscoveryException(
+        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+      );
+    }
+    final contentType = _readResponseHeader(response.headers, 'content-type');
+    if (!contentType.toLowerCase().contains('text/event-stream')) {
+      final body = await response.stream.bytesToString();
+      throw McpToolDiscoveryException(
+        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+      );
+    }
+
+    final endpointCompleter = Completer<Uri>();
+    final messages = StreamController<Map<String, Object?>>.broadcast(
+      sync: true,
+    );
+    var eventName = '';
+    final dataLines = <String>[];
+
+    void emitEvent() {
+      if (dataLines.isEmpty) {
+        eventName = '';
+        return;
+      }
+      final data = dataLines.join('\n');
+      if (eventName == 'endpoint' && !endpointCompleter.isCompleted) {
+        final endpoint = Uri.tryParse(data.trim());
+        if (endpoint != null) {
+          endpointCompleter.complete(
+            endpoint.hasScheme ? endpoint : resolvedSseUri.resolveUri(endpoint),
+          );
+        }
+      } else if (eventName.isEmpty || eventName == 'message') {
+        try {
+          final decoded = jsonDecode(data);
+          final message = decoded is Map<String, Object?>
+              ? decoded
+              : decoded is Map
+              ? Map<String, Object?>.from(decoded)
+              : null;
+          if (message != null && !messages.isClosed) {
+            messages.add(message);
+          }
+        } catch (_) {}
+      }
+      eventName = '';
+      dataLines.clear();
+    }
+
+    late final StreamSubscription<String> subscription;
+    subscription = response.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen(
+          (line) {
+            if (line.isEmpty) {
+              emitEvent();
+              return;
+            }
+            if (line.startsWith('event:')) {
+              eventName = line.substring(6).trim();
+              return;
+            }
+            if (line.startsWith('data:')) {
+              dataLines.add(line.substring(5).trim());
+            }
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            if (!endpointCompleter.isCompleted) {
+              endpointCompleter.completeError(error, stackTrace);
+            }
+            if (!messages.isClosed) {
+              messages.addError(error, stackTrace);
+            }
+          },
+          onDone: () {
+            emitEvent();
+            if (!endpointCompleter.isCompleted) {
+              endpointCompleter.completeError(
+                const McpToolDiscoveryException(
+                  'Tool scan failed because the SSE endpoint closed before reporting a message endpoint.',
+                ),
+              );
+            }
+            if (!messages.isClosed) {
+              unawaited(messages.close());
+            }
+          },
+          cancelOnError: false,
+        );
+    try {
+      final endpointUri = await endpointCompleter.future.timeout(
+        endpointTimeout,
+      );
+      return _LegacySseSession._(
+        client: client,
+        endpointUri: endpointUri,
+        messages: messages,
+        subscription: subscription,
+        requestTimeout: requestTimeout,
+      );
+    } catch (_) {
+      await subscription.cancel();
+      if (!messages.isClosed) {
+        await messages.close();
+      }
+      rethrow;
+    }
+  }
+
+  Future<Map<String, Object?>?> sendRequest(
+    Map<String, Object?> payload,
+  ) async {
+    final requestIdText = '${payload['id']}';
+    final responseFuture = _messages.stream
+        .firstWhere((message) => '${message['id']}' == requestIdText)
+        .timeout(_requestTimeout);
+    await _post(payload);
+    return responseFuture;
+  }
+
+  Future<void> sendNotification(Map<String, Object?> payload) async {
+    await _post(payload);
+  }
+
+  Future<void> _post(Map<String, Object?> payload) async {
+    final response = await _sendRequestWithRedirects(
+      client: _client,
+      method: 'POST',
+      uri: _endpointUri,
+      headers: const <String, String>{'content-type': 'application/json'},
+      body: jsonEncode(payload),
+      requestTimeout: _requestTimeout,
+      maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = await response.stream.bytesToString();
+      throw McpToolDiscoveryException(
+        'Tool scan request failed with HTTP ${response.statusCode}${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
+      );
+    }
+    await response.stream.drain<void>();
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    if (!_messages.isClosed) {
+      await _messages.close();
+    }
+  }
+}
+
+class _StdioSession {
+  _StdioSession({required Process process, required Duration requestTimeout})
+    : _process = process,
+      _requestTimeout = requestTimeout {
+    _stdoutSubscription = _process.stdout.listen(
+      _handleStdoutData,
+      onError: (Object error, StackTrace stackTrace) {
+        _failPendingResponses(error, stackTrace);
+      },
+      onDone: () {
+        _appendTrace('stdout:done');
+        _failPendingResponses(
+          McpToolDiscoveryException(_closedUnexpectedlyMessage()),
+        );
+      },
+      cancelOnError: false,
+    );
+    _stderrSubscription = _process.stderr.transform(utf8.decoder).listen((
+      chunk,
+    ) {
+      if (_stderrBuffer.length >= 4096) {
+        return;
+      }
+      _stderrBuffer.write(chunk);
+    });
+    unawaited(
+      _process.exitCode.then((code) {
+        _appendTrace('process:exit:$code');
+      }),
+    );
+  }
+
+  final Process _process;
+  final Duration _requestTimeout;
+  final List<int> _stdoutBuffer = <int>[];
+  final StringBuffer _stderrBuffer = StringBuffer();
+  final StringBuffer _traceBuffer = StringBuffer();
+  final Map<String, Completer<Map<String, Object?>?>> _pendingResponses =
+      <String, Completer<Map<String, Object?>?>>{};
+  final Map<String, Map<String, Object?>> _bufferedResponses =
+      <String, Map<String, Object?>>{};
+  late final StreamSubscription<List<int>> _stdoutSubscription;
+  late final StreamSubscription<String> _stderrSubscription;
+
+  Future<Map<String, Object?>?> sendRequest(
+    Map<String, Object?> payload,
+  ) async {
+    final requestIdText = '${payload['id']}';
+    final completer = Completer<Map<String, Object?>?>();
+    _pendingResponses[requestIdText] = completer;
+    try {
+      await _write(payload);
+    } catch (_) {
+      _pendingResponses.remove(requestIdText);
+      rethrow;
+    }
+    final bufferedResponse = _bufferedResponses.remove(requestIdText);
+    if (bufferedResponse != null && !completer.isCompleted) {
+      completer.complete(bufferedResponse);
+    }
+    try {
+      return await completer.future.timeout(_requestTimeout);
+    } finally {
+      _pendingResponses.remove(requestIdText);
+    }
+  }
+
+  Future<void> sendNotification(Map<String, Object?> payload) async {
+    await _write(payload);
+  }
+
+  void _handleStdoutData(List<int> chunk) {
+    try {
+      _appendTrace('stdout:chunk:${chunk.length}');
+      _stdoutBuffer.addAll(chunk);
+      _drainStdoutBuffer();
+    } catch (error, stackTrace) {
+      _failPendingResponses(error, stackTrace);
+    }
+  }
+
+  void _drainStdoutBuffer() {
+    while (true) {
+      final payload = _takeNextMessage();
+      if (payload == null) {
+        return;
+      }
+      if (payload.isEmpty) {
+        continue;
+      }
+      final decoded = jsonDecode(payload);
+      final message = decoded is Map<String, Object?>
+          ? decoded
+          : decoded is Map
+          ? Map<String, Object?>.from(decoded)
+          : null;
+      if (message != null) {
+        final messageIdText = _messageIdText(message['id']);
+        _appendTrace(
+          'stdout:message:${messageIdText.isEmpty ? message['method'] ?? 'unknown' : messageIdText}',
+        );
+        if (messageIdText.isEmpty) {
+          continue;
+        }
+        final pendingResponse = _pendingResponses.remove(messageIdText);
+        if (pendingResponse != null && !pendingResponse.isCompleted) {
+          pendingResponse.complete(message);
+          continue;
+        }
+        _bufferedResponses[messageIdText] = message;
+      }
+    }
+  }
+
+  String? _takeNextMessage() {
+    while (true) {
+      final framedMessage = _tryTakeFramedMessage();
+      if (framedMessage != null) {
+        return framedMessage;
+      }
+      _trimLeadingWhitespace();
+      if (_stdoutBuffer.isEmpty) {
+        return null;
+      }
+      if (_looksLikeFramedMessagePrefix()) {
+        return null;
+      }
+      if (_looksLikeJsonLine(_stdoutBuffer.first)) {
+        final newlineIndex = _stdoutBuffer.indexOf(10);
+        if (newlineIndex == -1) {
+          return null;
+        }
+        final lineBytes = _stdoutBuffer.sublist(0, newlineIndex);
+        _stdoutBuffer.removeRange(0, newlineIndex + 1);
+        return utf8.decode(lineBytes).trim();
+      }
+      final newlineIndex = _stdoutBuffer.indexOf(10);
+      if (newlineIndex == -1) {
+        return null;
+      }
+      _stdoutBuffer.removeRange(0, newlineIndex + 1);
+    }
+  }
+
+  String? _tryTakeFramedMessage() {
+    final headerEnd = _findHeaderEnd(_stdoutBuffer);
+    if (headerEnd == -1) {
+      return null;
+    }
+    final separatorLength = _headerSeparatorLength(_stdoutBuffer, headerEnd);
+    final headerText = ascii.decode(
+      _stdoutBuffer.sublist(0, headerEnd),
+      allowInvalid: true,
+    );
+    final contentLength = _parseContentLength(headerText);
+    if (contentLength == null) {
+      _stdoutBuffer.removeRange(0, headerEnd + separatorLength);
+      return '';
+    }
+    final bodyStart = headerEnd + separatorLength;
+    final bodyEnd = bodyStart + contentLength;
+    if (_stdoutBuffer.length < bodyEnd) {
+      return null;
+    }
+    final bodyBytes = _stdoutBuffer.sublist(bodyStart, bodyEnd);
+    _stdoutBuffer.removeRange(0, bodyEnd);
+    return utf8.decode(bodyBytes);
+  }
+
+  void _trimLeadingWhitespace() {
+    var trimLength = 0;
+    while (trimLength < _stdoutBuffer.length) {
+      final byte = _stdoutBuffer[trimLength];
+      if (byte != 9 && byte != 10 && byte != 13 && byte != 32) {
+        break;
+      }
+      trimLength += 1;
+    }
+    if (trimLength > 0) {
+      _stdoutBuffer.removeRange(0, trimLength);
+    }
+  }
+
+  bool _looksLikeJsonLine(int firstByte) {
+    return firstByte == 0x7B || firstByte == 0x5B;
+  }
+
+  String _closedUnexpectedlyMessage() {
+    final stderr = _stderrBuffer.toString().trim();
+    final trace = _traceBuffer.toString().trim();
+    final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
+    if (stderr.isEmpty) {
+      return 'Tool scan failed because the stdio MCP server closed unexpectedly.$traceSuffix';
+    }
+    return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix';
+  }
+
+  void _appendTrace(String message) {
+    if (_traceBuffer.length >= 1024) {
+      return;
+    }
+    if (_traceBuffer.isNotEmpty) {
+      _traceBuffer.write(' | ');
+    }
+    _traceBuffer.write(message);
+  }
+
+  String _messageIdText(Object? value) {
+    final text = '$value'.trim();
+    if (text == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  void _failPendingResponses(Object error, [StackTrace? stackTrace]) {
+    if (_pendingResponses.isEmpty) {
+      return;
+    }
+    final pendingResponses = _pendingResponses.values.toList(growable: false);
+    _pendingResponses.clear();
+    for (final pendingResponse in pendingResponses) {
+      if (pendingResponse.isCompleted) {
+        continue;
+      }
+      pendingResponse.completeError(error, stackTrace);
+    }
+  }
+
+  bool _looksLikeFramedMessagePrefix() {
+    final prefixLength = _stdoutBuffer.length < 32 ? _stdoutBuffer.length : 32;
+    final prefix = ascii
+        .decode(_stdoutBuffer.sublist(0, prefixLength), allowInvalid: true)
+        .trimLeft()
+        .toLowerCase();
+    return prefix.isNotEmpty &&
+        ('content-length'.startsWith(prefix) ||
+            prefix.startsWith('content-length'));
+  }
+
+  int? _parseContentLength(String headers) {
+    final normalized = headers.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    for (final line in normalized.split('\n')) {
+      final separatorIndex = line.indexOf(':');
+      if (separatorIndex == -1) {
+        continue;
+      }
+      final name = line.substring(0, separatorIndex).trim().toLowerCase();
+      if (name != 'content-length') {
+        continue;
+      }
+      return int.tryParse(line.substring(separatorIndex + 1).trim());
+    }
+    return null;
+  }
+
+  int _findHeaderEnd(List<int> buffer) {
+    for (var index = 0; index < buffer.length - 1; index++) {
+      if (buffer[index] == 13 &&
+          buffer[index + 1] == 10 &&
+          index + 3 < buffer.length &&
+          buffer[index + 2] == 13 &&
+          buffer[index + 3] == 10) {
+        return index;
+      }
+      if (buffer[index] == 10 && buffer[index + 1] == 10) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  int _headerSeparatorLength(List<int> buffer, int headerEnd) {
+    if (headerEnd + 3 < buffer.length &&
+        buffer[headerEnd] == 13 &&
+        buffer[headerEnd + 1] == 10 &&
+        buffer[headerEnd + 2] == 13 &&
+        buffer[headerEnd + 3] == 10) {
+      return 4;
+    }
+    return 2;
+  }
+
+  Future<void> _write(Map<String, Object?> payload) async {
+    _appendTrace(
+      'stdin:write:${payload['method'] ?? 'unknown'}:${payload['id'] ?? ''}',
+    );
+    final body = utf8.encode(jsonEncode(payload));
+    final header = ascii.encode('Content-Length: ${body.length}\r\n\r\n');
+    _process.stdin.add(header);
+    _process.stdin.add(body);
+    await _process.stdin.flush();
+  }
+
+  Future<void> close() async {
+    await _stdoutSubscription.cancel();
+    await _stderrSubscription.cancel();
+    await _process.stdin.close();
+    try {
+      await _process.exitCode.timeout(
+        DefaultMcpToolDiscoveryService._stdioShutdownTimeout,
+      );
+    } on TimeoutException {
+      _process.kill();
+    }
+    _failPendingResponses(
+      McpToolDiscoveryException(_closedUnexpectedlyMessage()),
+    );
+  }
+}
+
+class _SseEvent {
+  const _SseEvent({required this.name, required this.data});
+
+  final String name;
+  final String data;
+}
