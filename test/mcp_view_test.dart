@@ -185,6 +185,89 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'McpView allows adding header rows when editing an existing server',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final mcpStore = _InMemoryMcpStore(
+        servers: <McpServer>[
+          const McpServer(
+            name: 'Ops',
+            type: McpServerType.streamableHttp,
+            enabled: true,
+            url: 'https://api.example.com/mcp',
+            headers: <String, String>{'Authorization': 'Bearer secret-token'},
+          ),
+        ],
+      );
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+        toolDiscoveryService: _FakeMcpToolDiscoveryService(),
+        healthCheckInterval: const Duration(days: 1),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(mcpController.dispose);
+      await settingsController.updateLanguage(AppLanguage.english);
+
+      await tester.pumpWidget(
+        _buildTestApp(
+          settingsController: settingsController,
+          mcpController: mcpController,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byWidgetPredicate((widget) => widget is PopupMenuButton).first,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Edit').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('mcpHeaderAddButton')),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const ValueKey<String>('mcpHeaderNameField-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('mcpHeaderValueField-1')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('mcpHeaderNameField-1')),
+        'X-Workspace',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('mcpHeaderValueField-1')),
+        'openhand',
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pump();
+
+      expect(mcpController.servers, hasLength(1));
+      expect(mcpController.servers.single.headers, <String, String>{
+        'Authorization': 'Bearer secret-token',
+        'X-Workspace': 'openhand',
+      });
+    },
+  );
 }
 
 Widget _buildTestApp({

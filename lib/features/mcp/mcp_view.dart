@@ -804,7 +804,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     }
     return entries
         .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
-        .toList(growable: false);
+        .toList();
   }
 
   void _addHeaderRow() {
