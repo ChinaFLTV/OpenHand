@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
@@ -349,6 +350,16 @@ class SettingsStore {
     if (rawCompressionThreshold is! int || rawCompressionThreshold <= 0) {
       didSanitize = true;
     }
+    final rawSingleRoundToolCallLimit =
+        rootValues['ai_single_round_tool_call_limit'];
+    final aiSingleRoundToolCallLimit =
+        rawSingleRoundToolCallLimit is int && rawSingleRoundToolCallLimit > 0
+        ? rawSingleRoundToolCallLimit
+        : AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit;
+    if (rawSingleRoundToolCallLimit is! int ||
+        rawSingleRoundToolCallLimit <= 0) {
+      didSanitize = true;
+    }
     final rawWriteCommandConfirmationEnabled =
         rootValues['ai_write_command_confirmation_enabled'];
     final aiWriteCommandConfirmationEnabled =
@@ -357,6 +368,39 @@ class SettingsStore {
         : true;
     if (rawWriteCommandConfirmationEnabled is! bool) {
       didSanitize = true;
+    }
+    final rawAllowCommandRules =
+        '${rootValues['ai_allow_command_rules'] ?? ''}';
+    final aiAllowCommandRules = <AiAllowCommandRule>[];
+    if (rawAllowCommandRules.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawAllowCommandRules);
+        if (decoded is List) {
+          final seenRuleIds = <String>{};
+          for (final item in decoded) {
+            if (item is! Map) {
+              didSanitize = true;
+              continue;
+            }
+            final rule = AiAllowCommandRule.fromJson(
+              Map<String, Object?>.from(item),
+            );
+            if (rule.id.isEmpty || rule.pattern.trim().isEmpty) {
+              didSanitize = true;
+              continue;
+            }
+            if (!seenRuleIds.add(rule.id)) {
+              didSanitize = true;
+              continue;
+            }
+            aiAllowCommandRules.add(rule);
+          }
+        } else {
+          didSanitize = true;
+        }
+      } catch (_) {
+        didSanitize = true;
+      }
     }
     final rawDenyCommandRules = '${rootValues['ai_deny_command_rules'] ?? ''}';
     final aiDenyCommandRules = <AiDenyCommandRule>[];
@@ -444,8 +488,9 @@ class SettingsStore {
         memoryEnabled: memoryEnabled,
         userMemoryFilePath: userMemoryFilePath,
         aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
-        aiWriteCommandConfirmationEnabled:
-            aiWriteCommandConfirmationEnabled,
+        aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
+        aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
+        aiAllowCommandRules: aiAllowCommandRules,
         aiDenyCommandRules: aiDenyCommandRules,
         aiModels: aiModels,
         selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
@@ -476,7 +521,13 @@ class SettingsStore {
         'ai_message_compression_threshold_chars = ${snapshot.aiMessageCompressionThresholdChars}',
       )
       ..writeln(
+        'ai_single_round_tool_call_limit = ${snapshot.aiSingleRoundToolCallLimit}',
+      )
+      ..writeln(
         'ai_write_command_confirmation_enabled = ${snapshot.aiWriteCommandConfirmationEnabled}',
+      )
+      ..writeln(
+        'ai_allow_command_rules = ${jsonEncode(jsonEncode(snapshot.aiAllowCommandRules.map((item) => item.toJson()).toList(growable: false)))}',
       )
       ..writeln(
         'ai_deny_command_rules = ${jsonEncode(jsonEncode(snapshot.aiDenyCommandRules.map((item) => item.toJson()).toList(growable: false)))}',

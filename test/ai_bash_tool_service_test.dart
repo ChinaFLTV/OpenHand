@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/service/ai_bash_tool_service.dart';
@@ -130,4 +132,74 @@ void main() {
     expect(analysis.isWrite, isTrue);
     expect(analysis.reason, contains('fast-path'));
   });
+
+  test(
+    'AiBashToolService reuses environment state inside a persistent session',
+    () async {
+      if (Platform.isWindows) {
+        return;
+      }
+      final service = AiBashToolService();
+      addTearDown(service.dispose);
+
+      final exportResult = await service.execute(
+        command: 'export OPENHAND_PERSIST_TEST=sticky_value',
+        sessionId: 'persistent-env',
+        denyRules: const <AiDenyCommandRule>[],
+        requireWriteConfirmation: false,
+      );
+      final readResult = await service.execute(
+        command: r'printf %s "$OPENHAND_PERSIST_TEST"',
+        sessionId: 'persistent-env',
+        denyRules: const <AiDenyCommandRule>[],
+        requireWriteConfirmation: false,
+      );
+
+      expect(exportResult.status, BashToolExecutionStatus.success);
+      expect(readResult.status, BashToolExecutionStatus.success);
+      expect(readResult.stdout.trim(), 'sticky_value');
+    },
+  );
+
+  test(
+    'AiBashToolService preserves cwd across persistent session commands',
+    () async {
+      if (Platform.isWindows) {
+        return;
+      }
+      final service = AiBashToolService();
+      addTearDown(service.dispose);
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-bash-cwd-',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+
+      final changeDirectoryResult = await service.execute(
+        command: 'cd ${_quoteForShell(tempDirectory.path)}',
+        sessionId: 'persistent-cwd',
+        denyRules: const <AiDenyCommandRule>[],
+        requireWriteConfirmation: false,
+      );
+      final pwdResult = await service.execute(
+        command: 'pwd',
+        sessionId: 'persistent-cwd',
+        denyRules: const <AiDenyCommandRule>[],
+        requireWriteConfirmation: false,
+      );
+
+      expect(changeDirectoryResult.status, BashToolExecutionStatus.success);
+      expect(
+        p.normalize(pwdResult.stdout.trim()),
+        p.normalize(tempDirectory.path),
+      );
+    },
+  );
+}
+
+String _quoteForShell(String value) {
+  return "'${value.replaceAll("'", r"'\''")}'";
 }

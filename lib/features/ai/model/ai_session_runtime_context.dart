@@ -1,5 +1,82 @@
 import '../../../app/support/openhand_paths.dart';
+import 'ai_allow_command_rule.dart';
+import '../../mcp/model/mcp_server.dart';
 import '../../memory/model/user_memory_entry.dart';
+import '../../skills/model/local_skill.dart';
+
+class AiRepositorySnapshot {
+  const AiRepositorySnapshot({
+    required this.workingDirectory,
+    required this.isGitRepository,
+    this.repositoryRootPath = '',
+    this.currentBranch = '',
+    this.mainBranch = '',
+    this.statusSnapshot = '',
+    this.recentCommits = const <String>[],
+    this.capturedAtIso8601 = '',
+  });
+
+  final String workingDirectory;
+  final bool isGitRepository;
+  final String repositoryRootPath;
+  final String currentBranch;
+  final String mainBranch;
+  final String statusSnapshot;
+  final List<String> recentCommits;
+  final String capturedAtIso8601;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'working_directory': workingDirectory,
+      'is_git_repository': isGitRepository,
+      'repository_root_path': repositoryRootPath,
+      'current_branch': currentBranch,
+      'main_branch': mainBranch,
+      'status_snapshot': statusSnapshot,
+      'recent_commits': recentCommits,
+      'captured_at': capturedAtIso8601,
+    };
+  }
+
+  factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
+    final recentCommitsValue = json['recent_commits'];
+    return AiRepositorySnapshot(
+      workingDirectory: '${json['working_directory'] ?? ''}',
+      isGitRepository: json['is_git_repository'] == true,
+      repositoryRootPath: '${json['repository_root_path'] ?? ''}',
+      currentBranch: '${json['current_branch'] ?? ''}',
+      mainBranch: '${json['main_branch'] ?? ''}',
+      statusSnapshot: '${json['status_snapshot'] ?? ''}',
+      recentCommits: recentCommitsValue is List
+          ? recentCommitsValue
+                .map((item) => '$item'.trim())
+                .where((item) => item.isNotEmpty)
+                .toList(growable: false)
+          : const <String>[],
+      capturedAtIso8601: '${json['captured_at'] ?? ''}',
+    );
+  }
+}
+
+class AiWorkspaceInstructionDocument {
+  const AiWorkspaceInstructionDocument({
+    required this.path,
+    required this.name,
+    required this.content,
+  });
+
+  final String path;
+  final String name;
+  final String content;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'path': path,
+      'name': name,
+      'character_count': content.length,
+    };
+  }
+}
 
 class AiSessionRuntimeContext {
   const AiSessionRuntimeContext({
@@ -13,6 +90,18 @@ class AiSessionRuntimeContext {
     required this.compressionThresholdChars,
     required this.memoryEnabled,
     required this.memoryEntries,
+    this.singleRoundToolCallLimit = 40,
+    this.writeCommandConfirmationEnabled = true,
+    this.platformName = '',
+    this.workingDirectory = '',
+    this.todayLocalDate = '',
+    this.timeZoneName = '',
+    this.repositorySnapshot,
+    this.allowCommandRules = const <AiAllowCommandRule>[],
+    this.availableSkills = const <LocalSkill>[],
+    this.availableMcpServers = const <McpServer>[],
+    this.workspaceInstructionDocuments =
+        const <AiWorkspaceInstructionDocument>[],
   });
 
   final String localeTag;
@@ -25,6 +114,17 @@ class AiSessionRuntimeContext {
   final int compressionThresholdChars;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
+  final int singleRoundToolCallLimit;
+  final bool writeCommandConfirmationEnabled;
+  final String platformName;
+  final String workingDirectory;
+  final String todayLocalDate;
+  final String timeZoneName;
+  final AiRepositorySnapshot? repositorySnapshot;
+  final List<AiAllowCommandRule> allowCommandRules;
+  final List<LocalSkill> availableSkills;
+  final List<McpServer> availableMcpServers;
+  final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -39,8 +139,35 @@ class AiSessionRuntimeContext {
       'user_memory_file_path': userMemoryFilePath,
       'sessions_directory_path': OpenHandPaths.defaultSessionsDirectoryPath(),
       'compression_threshold_chars': compressionThresholdChars,
+      'single_round_tool_call_limit': singleRoundToolCallLimit,
+      'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
+      'platform_name': platformName,
+      'working_directory': workingDirectory,
+      'today_local_date': todayLocalDate,
+      'time_zone_name': timeZoneName,
       'memory_enabled': memoryEnabled,
       'memory_entry_count': memoryEntries.length,
+      'available_skill_count': availableSkills.length,
+      'available_skill_names': availableSkills
+          .map((item) => item.name)
+          .toList(growable: false),
+      'allow_command_rule_count': allowCommandRules.length,
+      'allow_command_patterns': allowCommandRules
+          .map((item) => item.pattern)
+          .toList(growable: false),
+      'allow_command_rules': allowCommandRules
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'available_mcp_server_count': availableMcpServers.length,
+      'available_mcp_server_names': availableMcpServers
+          .map((item) => item.name)
+          .toList(growable: false),
+      'workspace_instruction_document_count':
+          workspaceInstructionDocuments.length,
+      'workspace_instruction_documents': workspaceInstructionDocuments
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'repository_snapshot': repositorySnapshot?.toJson(),
     };
   }
 }

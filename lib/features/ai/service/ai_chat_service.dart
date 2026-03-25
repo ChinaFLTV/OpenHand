@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../model/ai_model_config.dart';
@@ -120,6 +121,7 @@ class AiChatService implements AiChatClient {
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
+  static const Duration _streamIdleWarningInterval = Duration(seconds: 4);
 
   final http.Client _client;
 
@@ -176,6 +178,9 @@ class AiChatService implements AiChatClient {
   }) async {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     if (adapter is! OpenAiProtocolAdapter || !adapter.supportsServerStreaming) {
+      _debugAiStreamLog(
+        'model=${model.modelId} using synthetic stream adapter=${adapter.runtimeType}',
+      );
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
@@ -201,6 +206,9 @@ class AiChatService implements AiChatClient {
     } on http.ClientException catch (error) {
       throw AiChatException(error.message);
     }
+    _debugAiStreamLog(
+      'model=${model.modelId} stream_connected status=${streamedResponse.statusCode} url=${streamedResponse.request?.url ?? blueprint.url}',
+    );
 
     if (streamedResponse.statusCode < 200 ||
         streamedResponse.statusCode >= 300) {
@@ -219,9 +227,40 @@ class AiChatService implements AiChatClient {
     AiTokenUsage? usage;
     final lineBuffer = StringBuffer();
     StreamSubscription<String>? responseSubscription;
+    Timer? idleWarningTimer;
+    var idleWarningBucket = 0;
+    var lastActivityAt = DateTime.now().toUtc();
+    var lastActivityLabel = 'connected';
 
     bool canEmitEvents() {
       return !resultCompleter.isCompleted && !eventController.isClosed;
+    }
+
+    void markStreamActivity(String label) {
+      lastActivityAt = DateTime.now().toUtc();
+      lastActivityLabel = label;
+      idleWarningBucket = 0;
+    }
+
+    void startIdleWarningTimer() {
+      idleWarningTimer?.cancel();
+      idleWarningTimer = Timer.periodic(_streamIdleWarningInterval, (_) {
+        if (resultCompleter.isCompleted) {
+          return;
+        }
+        final idleMs = DateTime.now()
+            .toUtc()
+            .difference(lastActivityAt)
+            .inMilliseconds;
+        final nextBucket = idleMs ~/ _streamIdleWarningInterval.inMilliseconds;
+        if (nextBucket <= 0 || nextBucket == idleWarningBucket) {
+          return;
+        }
+        idleWarningBucket = nextBucket;
+        _debugAiStreamLog(
+          'model=${model.modelId} stream_idle_warning idle_ms=$idleMs last_activity=$lastActivityLabel line_buffer=${lineBuffer.length} raw_chars=${rawResponseBuffer.length} reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${toolCalls.length}',
+        );
+      });
     }
 
     void emitEvent(AiChatStreamEvent event) {
@@ -235,6 +274,8 @@ class AiChatService implements AiChatClient {
       if (resultCompleter.isCompleted) {
         return;
       }
+      idleWarningTimer?.cancel();
+      idleWarningTimer = null;
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
       resultCompleter.complete(
@@ -257,6 +298,9 @@ class AiChatService implements AiChatClient {
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
         ),
+      );
+      _debugAiStreamLog(
+        'model=${model.modelId} stream_complete reason=$reason cancelled=$wasCancelled reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${resolvedToolCalls.length}',
       );
       if (!eventController.isClosed) {
         unawaited(eventController.close());
@@ -306,6 +350,10 @@ class AiChatService implements AiChatClient {
           totalTokens: _readInt(usageMap['total_tokens']),
         );
         if (usage != null && !usage!.isEmpty) {
+          markStreamActivity('usage');
+          _debugAiStreamLog(
+            'model=${model.modelId} usage prompt=${usage!.promptTokens ?? 0} completion=${usage!.completionTokens ?? 0} total=${usage!.totalTokens ?? 0}',
+          );
           emitEvent(AiChatStreamEvent.usage(usage!));
         }
       }
@@ -324,11 +372,19 @@ class AiChatService implements AiChatClient {
         final textDelta = _extractStreamText(delta['content']);
         if (textDelta.isNotEmpty) {
           textBuffer.write(textDelta);
+          markStreamActivity('text_delta');
+          _debugAiStreamLog(
+            'model=${model.modelId} text_delta chars=${textDelta.length}',
+          );
           emitEvent(AiChatStreamEvent.textDelta(textDelta));
         }
         final reasoningDelta = _extractReasoningText(delta);
         if (reasoningDelta.isNotEmpty) {
           reasoningBuffer.write(reasoningDelta);
+          markStreamActivity('reasoning_delta');
+          _debugAiStreamLog(
+            'model=${model.modelId} reasoning_delta chars=${reasoningDelta.length}',
+          );
           emitEvent(AiChatStreamEvent.reasoningDelta(reasoningDelta));
         }
         final toolCallJson = delta['tool_calls'];
@@ -357,6 +413,10 @@ class AiChatService implements AiChatClient {
             if (argumentsFragment.isNotEmpty) {
               entry.argumentsBuffer.write(argumentsFragment);
             }
+            markStreamActivity('tool_call_delta');
+            _debugAiStreamLog(
+              'model=${model.modelId} tool_call_delta index=$index name=${entry.name} arg_chars=${argumentsFragment.length}',
+            );
             emitEvent(
               AiChatStreamEvent.toolCallDelta(
                 AiToolCallDelta(
@@ -373,6 +433,7 @@ class AiChatService implements AiChatClient {
     }
 
     void processChunk(String chunk) {
+      markStreamActivity('chunk');
       lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
       while (!resultCompleter.isCompleted) {
         final current = lineBuffer.toString();
@@ -395,6 +456,11 @@ class AiChatService implements AiChatClient {
         .listen(
           processChunk,
           onError: (Object error, StackTrace stackTrace) {
+            idleWarningTimer?.cancel();
+            idleWarningTimer = null;
+            _debugAiStreamLog(
+              'model=${model.modelId} stream_error error=$error',
+            );
             if (!resultCompleter.isCompleted) {
               resultCompleter.completeError(
                 error is TimeoutException
@@ -408,6 +474,8 @@ class AiChatService implements AiChatClient {
             }
           },
           onDone: () {
+            idleWarningTimer?.cancel();
+            idleWarningTimer = null;
             if (lineBuffer.isNotEmpty) {
               processEventBlock(lineBuffer.toString());
             }
@@ -415,11 +483,15 @@ class AiChatService implements AiChatClient {
           },
           cancelOnError: true,
         );
+    startIdleWarningTimer();
 
     return AiChatStreamingResponse(
       events: eventController.stream,
       result: resultCompleter.future,
       cancel: () async {
+        idleWarningTimer?.cancel();
+        idleWarningTimer = null;
+        _debugAiStreamLog('model=${model.modelId} cancel_requested');
         completeStreamResult('cancelled', wasCancelled: true);
         await responseSubscription?.cancel();
       },
@@ -527,6 +599,13 @@ class AiChatService implements AiChatClient {
   void dispose() {
     _client.close();
   }
+}
+
+void _debugAiStreamLog(String message) {
+  if (!kDebugMode) {
+    return;
+  }
+  debugPrint('[OpenHand][AiChatService] $message');
 }
 
 class AiChatException implements Exception {

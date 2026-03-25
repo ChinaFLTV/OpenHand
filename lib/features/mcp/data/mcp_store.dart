@@ -140,8 +140,8 @@ class McpStore {
     final servers = <McpServer>[];
     rawServers.forEach((rawName, rawValue) {
       final name = rawName.toString().trim();
-      final server = _parseServer(name, rawValue);
-      if (server == null) {
+      final parsedServer = _parseServer(name, rawValue);
+      if (parsedServer == null) {
         didSanitize = true;
         return;
       }
@@ -150,13 +150,16 @@ class McpStore {
       if (!hasExplicitEnabled) {
         didSanitize = true;
       }
-      servers.add(server);
+      if (parsedServer.didSanitize) {
+        didSanitize = true;
+      }
+      servers.add(parsedServer.server);
     });
 
     return _SanitizedMcpResult(didSanitize: didSanitize, servers: servers);
   }
 
-  McpServer? _parseServer(String name, Object? rawValue) {
+  _ParsedMcpServer? _parseServer(String name, Object? rawValue) {
     if (name.isEmpty || rawValue is! Map<String, dynamic>) {
       return null;
     }
@@ -178,6 +181,7 @@ class McpStore {
               .where((item) => item.isNotEmpty)
               .toList(growable: false)
         : const <String>[];
+    final parsedHeaders = _parseHeaders(rawValue['headers']);
 
     final isValid = switch (type) {
       McpServerType.streamableHttp || McpServerType.sse => url.isNotEmpty,
@@ -187,13 +191,17 @@ class McpStore {
       return null;
     }
 
-    return McpServer(
-      name: name,
-      type: type,
-      enabled: enabled,
-      url: url,
-      command: command,
-      args: args,
+    return _ParsedMcpServer(
+      server: McpServer(
+        name: name,
+        type: type,
+        enabled: enabled,
+        url: url,
+        command: command,
+        args: args,
+        headers: parsedHeaders.headers,
+      ),
+      didSanitize: parsedHeaders.didSanitize,
     );
   }
 
@@ -217,11 +225,41 @@ class McpStore {
               .toList(growable: false);
         }
       }
+      if (server.headers.isNotEmpty) {
+        value['headers'] = Map<String, String>.from(server.headers);
+      }
       entries[server.name] = value;
     }
     return const JsonEncoder.withIndent(
       '  ',
     ).convert(<String, Object?>{'mcpServers': entries});
+  }
+
+  _ParsedHeaders _parseHeaders(Object? rawHeaders) {
+    if (rawHeaders == null) {
+      return const _ParsedHeaders(headers: <String, String>{});
+    }
+    if (rawHeaders is! Map) {
+      return const _ParsedHeaders(
+        headers: <String, String>{},
+        didSanitize: true,
+      );
+    }
+    var didSanitize = false;
+    final headers = <String, String>{};
+    rawHeaders.forEach((rawName, rawValue) {
+      final name = '$rawName'.trim();
+      final value = '$rawValue'.trim();
+      if (name.isEmpty || value.isEmpty || value == 'null') {
+        didSanitize = true;
+        return;
+      }
+      headers[name] = value;
+    });
+    return _ParsedHeaders(
+      headers: Map<String, String>.unmodifiable(headers),
+      didSanitize: didSanitize,
+    );
   }
 
   Future<String> _backupInvalidFile(File sourceFile) async {
@@ -305,4 +343,18 @@ class _SanitizedMcpResult {
 
   final bool didSanitize;
   final List<McpServer> servers;
+}
+
+class _ParsedMcpServer {
+  const _ParsedMcpServer({required this.server, this.didSanitize = false});
+
+  final McpServer server;
+  final bool didSanitize;
+}
+
+class _ParsedHeaders {
+  const _ParsedHeaders({required this.headers, this.didSanitize = false});
+
+  final Map<String, String> headers;
+  final bool didSanitize;
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/state/settings_controller.dart';
@@ -353,10 +354,12 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
   late final TextEditingController _urlController;
   late final TextEditingController _commandController;
   late final TextEditingController _argsController;
+  late final List<_EditableHeaderRow> _headerRows;
   late McpServerType _type;
   late bool _enabled;
   bool _isSaving = false;
   String? _errorMessage;
+  String? _headerErrorMessage;
 
   @override
   void initState() {
@@ -375,6 +378,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
           ? ''
           : widget.initialServer!.args.join('\n'),
     );
+    _headerRows = _buildInitialHeaderRows(widget.initialServer?.headers);
     _type = widget.initialServer?.type ?? McpServerType.streamableHttp;
     _enabled = widget.initialServer?.enabled ?? true;
   }
@@ -385,6 +389,9 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     _urlController.dispose();
     _commandController.dispose();
     _argsController.dispose();
+    for (final row in _headerRows) {
+      row.dispose();
+    }
     super.dispose();
   }
 
@@ -461,6 +468,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                                       }
                                       setState(() {
                                         _type = value;
+                                        _headerErrorMessage = null;
                                       });
                                     },
                             ),
@@ -501,6 +509,8 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                                 return null;
                               },
                             ),
+                            const SizedBox(height: 16),
+                            _buildHeaderEditor(context),
                           ] else ...[
                             TextFormField(
                               controller: _commandController,
@@ -582,13 +592,25 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
 
   Future<void> _handleSave() async {
     final l10n = AppLocalizations.of(context)!;
+    final useUrlField =
+        _type == McpServerType.streamableHttp || _type == McpServerType.sse;
     if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final headerParseResult = useUrlField
+        ? _collectHeadersFromRows()
+        : const _HeaderParseResult(headers: <String, String>{});
+    if (headerParseResult.errorMessage != null) {
+      setState(() {
+        _headerErrorMessage = headerParseResult.errorMessage;
+      });
       return;
     }
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _isSaving = true;
       _errorMessage = null;
+      _headerErrorMessage = null;
     });
 
     final server = McpServer(
@@ -602,6 +624,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
           .map((item) => item.trim())
           .where((item) => item.isNotEmpty)
           .toList(growable: false),
+      headers: headerParseResult.headers,
     );
 
     late final bool saved;
@@ -633,6 +656,222 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
     }
     Navigator.of(context).pop(true);
   }
+
+  Widget _buildHeaderEditor(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '请求 Header',
+                      en: 'Request Headers',
+                    ),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '按键值对逐项维护，将随 HTTP / SSE 请求一起发送。',
+                      en: 'Manage headers as key-value rows for HTTP / SSE requests.',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FilledButton.tonalIcon(
+              key: const ValueKey<String>('mcpHeaderAddButton'),
+              onPressed: _isSaving ? null : _addHeaderRow,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(
+                _localizedText(context, zh: '新增 Header', en: 'Add Header'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: _headerRows
+              .asMap()
+              .entries
+              .map((entry) {
+                final index = entry.key;
+                final row = entry.value;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == _headerRows.length - 1 ? 0 : 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: ValueKey<String>('mcpHeaderNameField-$index'),
+                          controller: row.nameController,
+                          enabled: !_isSaving,
+                          onChanged: (_) => _clearHeaderError(),
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: 'Header 名称',
+                              en: 'Header Name',
+                            ),
+                            hintText: _localizedText(
+                              context,
+                              zh: '例如 Authorization',
+                              en: 'e.g. Authorization',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          key: ValueKey<String>('mcpHeaderValueField-$index'),
+                          controller: row.valueController,
+                          enabled: !_isSaving,
+                          onChanged: (_) => _clearHeaderError(),
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: 'Header 值',
+                              en: 'Header Value',
+                            ),
+                            hintText: _localizedText(
+                              context,
+                              zh: '例如 Bearer token',
+                              en: 'e.g. Bearer token',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: IconButton(
+                          key: ValueKey<String>('mcpHeaderRemoveButton-$index'),
+                          onPressed: _isSaving
+                              ? null
+                              : () => _removeHeaderRow(index),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '删除 Header',
+                            en: 'Remove Header',
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              })
+              .toList(growable: false),
+        ),
+        if (_headerErrorMessage != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _headerErrorMessage!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.error,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<_EditableHeaderRow> _buildInitialHeaderRows(
+    Map<String, String>? headers,
+  ) {
+    final entries = headers?.entries.toList(growable: false) ?? const [];
+    if (entries.isEmpty) {
+      return <_EditableHeaderRow>[_EditableHeaderRow()];
+    }
+    return entries
+        .map((entry) => _EditableHeaderRow(name: entry.key, value: entry.value))
+        .toList(growable: false);
+  }
+
+  void _addHeaderRow() {
+    setState(() {
+      _headerRows.add(_EditableHeaderRow());
+      _headerErrorMessage = null;
+    });
+  }
+
+  void _removeHeaderRow(int index) {
+    setState(() {
+      _headerErrorMessage = null;
+      if (_headerRows.length == 1) {
+        _headerRows.single.clear();
+        return;
+      }
+      final removedRow = _headerRows.removeAt(index);
+      removedRow.dispose();
+    });
+  }
+
+  void _clearHeaderError() {
+    if (_headerErrorMessage == null) {
+      return;
+    }
+    setState(() {
+      _headerErrorMessage = null;
+    });
+  }
+
+  _HeaderParseResult _collectHeadersFromRows() {
+    final headers = <String, String>{};
+    final seenNames = <String>{};
+    for (var index = 0; index < _headerRows.length; index++) {
+      final row = _headerRows[index];
+      final name = row.nameController.text.trim();
+      final value = row.valueController.text.trim();
+      if (name.isEmpty && value.isEmpty) {
+        continue;
+      }
+      if (name.isEmpty || value.isEmpty) {
+        return _HeaderParseResult(
+          headers: const <String, String>{},
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 的名称和值都不能为空',
+            en: 'Header ${index + 1} must include both name and value',
+          ),
+        );
+      }
+      final normalizedName = name.toLowerCase();
+      if (!seenNames.add(normalizedName)) {
+        return _HeaderParseResult(
+          headers: const <String, String>{},
+          errorMessage: _localizedText(
+            context,
+            zh: '第 ${index + 1} 个 Header 名称重复',
+            en: 'Header ${index + 1} uses a duplicate name',
+          ),
+        );
+      }
+      headers[name] = value;
+    }
+    return _HeaderParseResult(
+      headers: Map<String, String>.unmodifiable(headers),
+    );
+  }
 }
 
 extension on McpServerType {
@@ -642,6 +881,32 @@ extension on McpServerType {
       McpServerType.sse => l10n.mcpTransportSse,
       McpServerType.stdio => l10n.mcpTransportStdio,
     };
+  }
+}
+
+class _HeaderParseResult {
+  const _HeaderParseResult({required this.headers, this.errorMessage});
+
+  final Map<String, String> headers;
+  final String? errorMessage;
+}
+
+class _EditableHeaderRow {
+  _EditableHeaderRow({String name = '', String value = ''})
+    : nameController = TextEditingController(text: name),
+      valueController = TextEditingController(text: value);
+
+  final TextEditingController nameController;
+  final TextEditingController valueController;
+
+  void clear() {
+    nameController.clear();
+    valueController.clear();
+  }
+
+  void dispose() {
+    nameController.dispose();
+    valueController.dispose();
   }
 }
 
@@ -843,6 +1108,15 @@ class _McpServerCard extends StatelessWidget {
                       enabled: server.enabled,
                       onPressed: () => onToggleEnabled(!server.enabled),
                     ),
+                    if (server.headers.isNotEmpty)
+                      _McpStatusChip(
+                        icon: Icons.badge_outlined,
+                        label: _localizedText(
+                          context,
+                          zh: '${server.headers.length} 个 Header',
+                          en: '${server.headers.length} Headers',
+                        ),
+                      ),
                     if (healthStatus.isChecking ||
                         healthStatus.lastCheckedAt != null)
                       _McpStatusChip(
@@ -1181,31 +1455,25 @@ class _McpToolDetailsDialog extends StatelessWidget {
                   ),
                 ],
               ),
-              if (tool.description.trim().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Text(
-                  tool.description,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-              if (tool.hasMetadataWarning) ...[
-                const SizedBox(height: 14),
-                _McpInlineNotice(
-                  icon: Icons.warning_amber_rounded,
-                  color: colorScheme.tertiaryContainer,
-                  foregroundColor: colorScheme.onTertiaryContainer,
-                  message: tool.metadataWarning!,
-                ),
-              ],
               const SizedBox(height: 18),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (tool.description.trim().isNotEmpty) ...[
+                        _ToolDescriptionPanel(description: tool.description),
+                        const SizedBox(height: 14),
+                      ],
+                      if (tool.hasMetadataWarning) ...[
+                        _McpInlineNotice(
+                          icon: Icons.warning_amber_rounded,
+                          color: colorScheme.tertiaryContainer,
+                          foregroundColor: colorScheme.onTertiaryContainer,
+                          message: tool.metadataWarning!,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       Wrap(
                         spacing: 12,
                         runSpacing: 12,
@@ -1333,6 +1601,58 @@ class _ToolMetaTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(value, style: Theme.of(context).textTheme.titleLarge),
         ],
+      ),
+    );
+  }
+}
+
+class _ToolDescriptionPanel extends StatelessWidget {
+  const _ToolDescriptionPanel({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final styleSheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
+      p: theme.textTheme.bodyLarge?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+        height: 1.45,
+      ),
+      listBullet: theme.textTheme.bodyLarge?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+      strong: theme.textTheme.bodyLarge?.copyWith(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+      code: theme.textTheme.bodyMedium?.copyWith(
+        color: colorScheme.onSurface,
+        fontFamily: 'monospace',
+      ),
+      codeblockDecoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      blockquoteDecoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(14),
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: MarkdownBody(
+        data: description,
+        selectable: true,
+        softLineBreak: true,
+        styleSheet: styleSheet,
       ),
     );
   }

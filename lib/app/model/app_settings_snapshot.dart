@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
@@ -17,13 +18,16 @@ class AppSettingsSnapshot {
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.aiMessageCompressionThresholdChars,
+    required this.aiSingleRoundToolCallLimit,
     required this.aiWriteCommandConfirmationEnabled,
+    required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
     required this.aiModels,
     required this.selectedAiModelId,
   });
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
+  static const int defaultAiSingleRoundToolCallLimit = 40;
 
   factory AppSettingsSnapshot.defaults() {
     return AppSettingsSnapshot(
@@ -37,7 +41,9 @@ class AppSettingsSnapshot {
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
+      aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiWriteCommandConfirmationEnabled: true,
+      aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
@@ -53,7 +59,9 @@ class AppSettingsSnapshot {
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final int aiMessageCompressionThresholdChars;
+  final int aiSingleRoundToolCallLimit;
   final bool aiWriteCommandConfirmationEnabled;
+  final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
@@ -68,7 +76,9 @@ class AppSettingsSnapshot {
     bool? memoryEnabled,
     String? userMemoryFilePath,
     int? aiMessageCompressionThresholdChars,
+    int? aiSingleRoundToolCallLimit,
     bool? aiWriteCommandConfirmationEnabled,
+    List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
@@ -86,9 +96,12 @@ class AppSettingsSnapshot {
       aiMessageCompressionThresholdChars:
           aiMessageCompressionThresholdChars ??
           this.aiMessageCompressionThresholdChars,
+      aiSingleRoundToolCallLimit:
+          aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??
           this.aiWriteCommandConfirmationEnabled,
+      aiAllowCommandRules: aiAllowCommandRules ?? this.aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules ?? this.aiDenyCommandRules,
       aiModels: aiModels ?? this.aiModels,
       selectedAiModelId: clearSelectedAiModelId

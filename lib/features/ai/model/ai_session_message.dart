@@ -159,6 +159,40 @@ class AiSessionMessage {
     );
   }
 
+  factory AiSessionMessage.mcpResult({
+    required String id,
+    required String content,
+    required DateTime createdAt,
+    required Map<String, Object?> metadata,
+  }) {
+    return AiSessionMessage(
+      id: id,
+      kind: AiSessionMessageKind.mcp,
+      role: AiSessionMessageRole.tool,
+      content: content.trim(),
+      createdAt: createdAt.toUtc(),
+      characterCount: countCharacters(content),
+      metadata: metadata,
+    );
+  }
+
+  factory AiSessionMessage.skillResult({
+    required String id,
+    required String content,
+    required DateTime createdAt,
+    required Map<String, Object?> metadata,
+  }) {
+    return AiSessionMessage(
+      id: id,
+      kind: AiSessionMessageKind.skill,
+      role: AiSessionMessageRole.tool,
+      content: content.trim(),
+      createdAt: createdAt.toUtc(),
+      characterCount: countCharacters(content),
+      metadata: metadata,
+    );
+  }
+
   factory AiSessionMessage.status({
     required String id,
     required String content,

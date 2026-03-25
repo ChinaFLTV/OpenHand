@@ -13,6 +13,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
@@ -35,6 +36,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _memoryFileFocusNode;
   late final TextEditingController _compressionThresholdController;
   late final FocusNode _compressionThresholdFocusNode;
+  late final TextEditingController _toolCallLimitController;
+  late final FocusNode _toolCallLimitFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -46,6 +49,8 @@ class _SettingsViewState extends State<SettingsView> {
     _memoryFileFocusNode = FocusNode();
     _compressionThresholdController = TextEditingController();
     _compressionThresholdFocusNode = FocusNode();
+    _toolCallLimitController = TextEditingController();
+    _toolCallLimitFocusNode = FocusNode();
   }
 
   @override
@@ -56,6 +61,8 @@ class _SettingsViewState extends State<SettingsView> {
     _memoryFileFocusNode.dispose();
     _compressionThresholdController.dispose();
     _compressionThresholdFocusNode.dispose();
+    _toolCallLimitController.dispose();
+    _toolCallLimitFocusNode.dispose();
     super.dispose();
   }
 
@@ -78,6 +85,12 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_compressionThresholdFocusNode.hasFocus &&
         _compressionThresholdController.text != compressionThresholdText) {
       _compressionThresholdController.text = compressionThresholdText;
+    }
+    final toolCallLimitText =
+        '${settingsController.aiSingleRoundToolCallLimit}';
+    if (!_toolCallLimitFocusNode.hasFocus &&
+        _toolCallLimitController.text != toolCallLimitText) {
+      _toolCallLimitController.text = toolCallLimitText;
     }
 
     return ScrollConfiguration(
@@ -294,6 +307,7 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
+          key: const ValueKey<String>('settingsCompressionThresholdField'),
           controller: _compressionThresholdController,
           focusNode: _compressionThresholdFocusNode,
           keyboardType: TextInputType.number,
@@ -311,12 +325,50 @@ class _SettingsViewState extends State<SettingsView> {
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsCompressionThresholdSaveButton',
+            ),
             onPressed: () => _saveCompressionThreshold(
               context,
               _compressionThresholdController.text,
             ),
             icon: const Icon(Icons.save_outlined),
             label: Text(l10n.aiCompressionThresholdSave),
+          ),
+        ),
+      ],
+    );
+    final toolCallLimitControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsToolCallLimitField'),
+          controller: _toolCallLimitController,
+          focusNode: _toolCallLimitFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '单轮工具调用上限',
+              en: 'Per-Response Tool Call Limit',
+            ),
+            hintText:
+                '${AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit}',
+          ),
+          onSubmitted: (value) => _saveToolCallLimit(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>('settingsToolCallLimitSaveButton'),
+            onPressed: () =>
+                _saveToolCallLimit(context, _toolCallLimitController.text),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
           ),
         ),
       ],
@@ -386,19 +438,38 @@ class _SettingsViewState extends State<SettingsView> {
         _SettingsSubsectionCard(
           title: l10n.aiCompressionThresholdLabel,
           description: l10n.aiCompressionThresholdBody,
-          child: _ResponsiveSettingRow(
-            title: _localizedText(
-              context,
-              zh: '压缩触发阈值',
-              en: 'Compression Trigger',
-            ),
-            subtitle: _localizedText(
-              context,
-              zh: '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。',
-              en: 'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.',
-            ),
-            control: compressionControl,
-            controlMaxWidth: 360,
+          child: Column(
+            children: [
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '压缩触发阈值',
+                  en: 'Compression Trigger',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。',
+                  en: 'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.',
+                ),
+                control: compressionControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '单轮工具调用上限',
+                  en: 'Per-Response Tool Call Limit',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。',
+                  en: 'Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.',
+                ),
+                control: toolCallLimitControl,
+                controlMaxWidth: 360,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -435,6 +506,64 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
               ),
+              const SizedBox(height: 18),
+              Text(
+                _localizedText(context, zh: '允许命令列表', en: 'Allow Command List'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _localizedText(
+                  context,
+                  zh: '匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。',
+                  en: 'Matching write-like bash commands skip the confirmation dialog and run immediately. Only use this for stable command patterns you explicitly trust.',
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () => _showAllowCommandRuleDialog(context),
+                icon: const Icon(Icons.verified_outlined),
+                label: Text(
+                  _localizedText(context, zh: '新增允许规则', en: 'Add Allow Rule'),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (settingsController.aiAllowCommandRules.isEmpty)
+                _SettingsStateBox(
+                  icon: Icons.verified_user_outlined,
+                  title: _localizedText(
+                    context,
+                    zh: '当前没有允许命令规则',
+                    en: 'No allow rules configured',
+                  ),
+                  body: _localizedText(
+                    context,
+                    zh: '新增规则后，匹配到的写命令将跳过确认弹窗。',
+                    en: 'Add a rule to let matching write commands bypass confirmation.',
+                  ),
+                )
+              else
+                Column(
+                  children: settingsController.aiAllowCommandRules
+                      .map(
+                        (rule) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _AllowCommandRuleTile(
+                            rule: rule,
+                            onEdit: () => _showAllowCommandRuleDialog(
+                              context,
+                              initialRule: rule,
+                            ),
+                            onDelete: () =>
+                                _deleteAllowCommandRule(context, rule),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
               const SizedBox(height: 18),
               Text(
                 _localizedText(context, zh: '禁止命令列表', en: 'Deny Command List'),
@@ -899,6 +1028,40 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(context, l10n.aiCompressionThresholdSaved);
   }
 
+  Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue <= 0) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入大于 0 的工具调用上限。',
+          en: 'Enter a tool call limit greater than 0.',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiSingleRoundToolCallLimit(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _toolCallLimitController.text = '$parsedValue';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '单轮工具调用上限已保存。',
+        en: 'The per-response tool call limit has been saved.',
+      ),
+    );
+  }
+
   Future<void> _showDenyCommandRuleDialog(
     BuildContext context, {
     AiDenyCommandRule? initialRule,
@@ -987,6 +1150,99 @@ class _SettingsViewState extends State<SettingsView> {
         context,
         zh: '禁止命令规则已删除。',
         en: 'The deny command rule has been deleted.',
+      ),
+    );
+  }
+
+  Future<void> _showAllowCommandRuleDialog(
+    BuildContext context, {
+    AiAllowCommandRule? initialRule,
+  }) async {
+    final settingsController = context.read<SettingsController>();
+    final submittedRule = await showDialog<AiAllowCommandRule>(
+      context: context,
+      builder: (dialogContext) {
+        return _AllowCommandRuleDialog(
+          initialRule: initialRule,
+          draftRuleId:
+              initialRule?.id ??
+              settingsController.createAiAllowCommandRuleId(),
+        );
+      },
+    );
+    if (!context.mounted || submittedRule == null) {
+      return;
+    }
+    await Future<void>.delayed(Duration.zero);
+    if (!context.mounted) {
+      return;
+    }
+    final saved = initialRule == null
+        ? await settingsController.addAiAllowCommandRule(submittedRule)
+        : await settingsController.updateAiAllowCommandRule(submittedRule);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: initialRule == null ? '允许命令规则已新增。' : '允许命令规则已更新。',
+        en: initialRule == null
+            ? 'The allow command rule has been added.'
+            : 'The allow command rule has been updated.',
+      ),
+    );
+  }
+
+  Future<void> _deleteAllowCommandRule(
+    BuildContext context,
+    AiAllowCommandRule rule,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(context, zh: '删除允许命令规则', en: 'Delete Allow Rule'),
+          ),
+          content: Text(rule.pattern),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: AppLocalizations.of(context)!.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: AppLocalizations.of(context)!.commonDelete,
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    final deleted = await context
+        .read<SettingsController>()
+        .deleteAiAllowCommandRule(rule.id);
+    if (!context.mounted) {
+      return;
+    }
+    if (!deleted) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '允许命令规则已删除。',
+        en: 'The allow command rule has been deleted.',
       ),
     );
   }
@@ -1582,6 +1838,90 @@ class _DenyCommandRuleTile extends StatelessWidget {
   }
 }
 
+class _AllowCommandRuleTile extends StatelessWidget {
+  const _AllowCommandRuleTile({
+    required this.rule,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final AiAllowCommandRule rule;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isChinese = Localizations.localeOf(
+      context,
+    ).languageCode.startsWith('zh');
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.verified_outlined,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(rule.pattern, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 6),
+                  Text(
+                    rule.matchMode == AiDenyCommandMatchMode.regex
+                        ? (isChinese ? '正则匹配' : 'Regex Match')
+                        : (isChinese ? '简单匹配' : 'Simple Match'),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  if (rule.note.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      rule.note.trim(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              onPressed: onEdit,
+              tooltip: AppLocalizations.of(context)!.commonEdit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            IconButton(
+              onPressed: onDelete,
+              tooltip: AppLocalizations.of(context)!.commonDelete,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DenyCommandRuleDialog extends StatefulWidget {
   const _DenyCommandRuleDialog({required this.draftRuleId, this.initialRule});
 
@@ -1708,6 +2048,147 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
             }
             Navigator.of(context).pop(
               AiDenyCommandRule(
+                id: widget.initialRule?.id ?? widget.draftRuleId,
+                pattern: _patternController.text.trim(),
+                matchMode: _matchMode,
+                note: _noteController.text.trim(),
+              ),
+            );
+          },
+          label: l10n.commonSave,
+        ),
+      ],
+    );
+  }
+}
+
+class _AllowCommandRuleDialog extends StatefulWidget {
+  const _AllowCommandRuleDialog({required this.draftRuleId, this.initialRule});
+
+  final AiAllowCommandRule? initialRule;
+  final String draftRuleId;
+
+  @override
+  State<_AllowCommandRuleDialog> createState() =>
+      _AllowCommandRuleDialogState();
+}
+
+class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _patternController;
+  late final TextEditingController _noteController;
+  late AiDenyCommandMatchMode _matchMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _patternController = TextEditingController(
+      text: widget.initialRule?.pattern ?? '',
+    );
+    _noteController = TextEditingController(
+      text: widget.initialRule?.note ?? '',
+    );
+    _matchMode = widget.initialRule?.matchMode ?? AiDenyCommandMatchMode.simple;
+  }
+
+  @override
+  void dispose() {
+    _patternController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final isChinese = Localizations.localeOf(
+      context,
+    ).languageCode.startsWith('zh');
+    return AlertDialog(
+      title: Text(
+        isChinese
+            ? (widget.initialRule == null ? '新增允许命令规则' : '编辑允许命令规则')
+            : (widget.initialRule == null
+                  ? 'Add Allow Command Rule'
+                  : 'Edit Allow Command Rule'),
+      ),
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: _patternController,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '匹配表达式' : 'Pattern',
+                  hintText: isChinese
+                      ? '例如：flutter test * 或 ^git\\s+commit'
+                      : 'For example: flutter test * or ^git\\s+commit',
+                ),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return isChinese
+                        ? '请输入要放行的命令表达式。'
+                        : 'Enter the command pattern to allow.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<AiDenyCommandMatchMode>(
+                initialValue: _matchMode,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '匹配模式' : 'Match Mode',
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: AiDenyCommandMatchMode.simple,
+                    child: Text(isChinese ? '简单匹配' : 'Simple Match'),
+                  ),
+                  DropdownMenuItem(
+                    value: AiDenyCommandMatchMode.regex,
+                    child: Text(isChinese ? '正则匹配' : 'Regex Match'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  setState(() {
+                    _matchMode = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _noteController,
+                decoration: InputDecoration(
+                  labelText: isChinese ? '备注' : 'Note',
+                  hintText: isChinese
+                      ? '可选，用于说明为什么允许这条命令'
+                      : 'Optional description for why this command is allowed',
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: l10n.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: () {
+            if (!_formKey.currentState!.validate()) {
+              return;
+            }
+            Navigator.of(context).pop(
+              AiAllowCommandRule(
                 id: widget.initialRule?.id ?? widget.draftRuleId,
                 pattern: _patternController.text.trim(),
                 matchMode: _matchMode,

@@ -37,6 +37,7 @@ class McpServer {
     this.url = '',
     this.command = '',
     this.args = const <String>[],
+    this.headers = const <String, String>{},
   });
 
   final String name;
@@ -45,6 +46,7 @@ class McpServer {
   final String url;
   final String command;
   final List<String> args;
+  final Map<String, String> headers;
 
   String get initials {
     final trimmed = name.trim();
@@ -71,6 +73,7 @@ class McpServer {
     String? url,
     String? command,
     List<String>? args,
+    Map<String, String>? headers,
   }) {
     return McpServer(
       name: name ?? this.name,
@@ -79,6 +82,7 @@ class McpServer {
       url: url ?? this.url,
       command: command ?? this.command,
       args: args ?? this.args,
+      headers: headers ?? this.headers,
     );
   }
 }

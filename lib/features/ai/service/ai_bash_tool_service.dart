@@ -127,14 +127,204 @@ class _WriteConfirmationOutcome {
   final bool cancelled;
 }
 
+class _PersistentBashCommandOutcome {
+  const _PersistentBashCommandOutcome({
+    required this.exitCode,
+    required this.workingDirectory,
+  });
+
+  final int exitCode;
+  final String workingDirectory;
+}
+
+class _PersistentBashExecution {
+  _PersistentBashExecution({
+    required this.command,
+    required this.workingDirectory,
+    required this.stdoutStartMarker,
+    required this.stdoutExitMarker,
+    required this.stdoutPwdEndMarker,
+    required this.stopwatch,
+    this.onUpdate,
+  });
+
+  final String command;
+  final String workingDirectory;
+  final String stdoutStartMarker;
+  final String stdoutExitMarker;
+  final String stdoutPwdEndMarker;
+  final Stopwatch stopwatch;
+  final void Function(BashToolExecutionUpdate update)? onUpdate;
+  final StringBuffer stdoutBuffer = StringBuffer();
+  final StringBuffer stderrBuffer = StringBuffer();
+  final Completer<_PersistentBashCommandOutcome> outcome =
+      Completer<_PersistentBashCommandOutcome>();
+
+  String _stdoutLineBuffer = '';
+  String? _resolvedWorkingDirectory;
+  int? _exitCode;
+  bool _awaitingPwdLine = false;
+  int _lastRunningEmitMs = -1;
+
+  void appendStdoutChunk(String chunk, int maxCapturedCharacters) {
+    final normalized = chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    _stdoutLineBuffer += normalized;
+    while (true) {
+      final lineEnding = _stdoutLineBuffer.indexOf('\n');
+      if (lineEnding == -1) {
+        break;
+      }
+      final line = _stdoutLineBuffer.substring(0, lineEnding);
+      _stdoutLineBuffer = _stdoutLineBuffer.substring(lineEnding + 1);
+      _handleStdoutLine('$line\n', maxCapturedCharacters);
+    }
+  }
+
+  void finalizeStdout(int maxCapturedCharacters) {
+    if (_stdoutLineBuffer.isEmpty) {
+      return;
+    }
+    _handleStdoutLine(_stdoutLineBuffer, maxCapturedCharacters);
+    _stdoutLineBuffer = '';
+  }
+
+  void appendStderrChunk(String chunk, int maxCapturedCharacters) {
+    _appendChunk(stderrBuffer, chunk, maxCapturedCharacters);
+    emitUpdate(phase: BashToolExecutionPhase.running);
+  }
+
+  void emitUpdate({
+    required BashToolExecutionPhase phase,
+    bool force = false,
+    int? exitCode,
+  }) {
+    final callback = onUpdate;
+    if (callback == null) {
+      return;
+    }
+    final durationMs = stopwatch.elapsedMilliseconds;
+    if (phase == BashToolExecutionPhase.running &&
+        !force &&
+        _lastRunningEmitMs != -1 &&
+        durationMs - _lastRunningEmitMs < 160) {
+      return;
+    }
+    if (phase == BashToolExecutionPhase.running) {
+      _lastRunningEmitMs = durationMs;
+    }
+    callback(
+      BashToolExecutionUpdate(
+        phase: phase,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: stdoutBuffer.toString(),
+        stderr: stderrBuffer.toString(),
+        durationMs: durationMs,
+        exitCode: exitCode,
+      ),
+    );
+  }
+
+  void completeError(Object error, int maxCapturedCharacters) {
+    if (!outcome.isCompleted) {
+      final message = '$error'.trim();
+      if (message.isNotEmpty) {
+        _appendChunk(stderrBuffer, '$message\n', maxCapturedCharacters);
+      }
+      outcome.complete(
+        _PersistentBashCommandOutcome(
+          exitCode: -1,
+          workingDirectory: _resolvedWorkingDirectory ?? workingDirectory,
+        ),
+      );
+    }
+  }
+
+  void _handleStdoutLine(String line, int maxCapturedCharacters) {
+    final normalizedLine = line.endsWith('\n')
+        ? line.substring(0, line.length - 1)
+        : line;
+    if (normalizedLine == stdoutStartMarker) {
+      return;
+    }
+    if (normalizedLine.startsWith(stdoutExitMarker)) {
+      final exitCodeText = normalizedLine
+          .substring(stdoutExitMarker.length)
+          .trim();
+      _exitCode = int.tryParse(exitCodeText) ?? -1;
+      _awaitingPwdLine = true;
+      return;
+    }
+    if (_awaitingPwdLine) {
+      _resolvedWorkingDirectory = normalizedLine.trim().isEmpty
+          ? workingDirectory
+          : normalizedLine.trim();
+      _awaitingPwdLine = false;
+      return;
+    }
+    if (normalizedLine == stdoutPwdEndMarker) {
+      if (!outcome.isCompleted) {
+        outcome.complete(
+          _PersistentBashCommandOutcome(
+            exitCode: _exitCode ?? 0,
+            workingDirectory: _resolvedWorkingDirectory ?? workingDirectory,
+          ),
+        );
+      }
+      return;
+    }
+    _appendChunk(stdoutBuffer, line, maxCapturedCharacters);
+    emitUpdate(phase: BashToolExecutionPhase.running);
+  }
+
+  static void _appendChunk(
+    StringBuffer buffer,
+    String chunk,
+    int maxCapturedCharacters,
+  ) {
+    if (buffer.length >= maxCapturedCharacters) {
+      return;
+    }
+    final allowed = maxCapturedCharacters - buffer.length;
+    if (chunk.length <= allowed) {
+      buffer.write(chunk);
+      return;
+    }
+    buffer
+      ..write(chunk.substring(0, allowed))
+      ..write('\n...[output truncated]');
+  }
+}
+
+class _PersistentBashSession {
+  _PersistentBashSession({
+    required this.process,
+    required this.currentWorkingDirectory,
+  });
+
+  final Process process;
+  String currentWorkingDirectory;
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
+  _PersistentBashExecution? activeExecution;
+}
+
+class _CancelledPersistentBashExecution implements Exception {
+  const _CancelledPersistentBashExecution();
+}
+
 class AiBashToolService {
-  static const int defaultTimeoutMs = 30000;
+  static const int defaultTimeoutMs = 120000;
+  static const int maxCapturedCharacters = 32000;
   static const int _writeConfirmationTimeoutMs = 300000;
-  static const int _maxCapturedCharacters = 32000;
   static const int _fastPathWriteAnalysisThreshold = 512;
+  final Map<String, _PersistentBashSession> _persistentSessions =
+      <String, _PersistentBashSession>{};
+  int _persistentMarkerCounter = 0;
 
   Future<BashToolExecutionResult> execute({
     required String command,
+    String? sessionId,
     String? workingDirectory,
     required List<AiDenyCommandRule> denyRules,
     required bool requireWriteConfirmation,
@@ -145,17 +335,27 @@ class AiBashToolService {
     int timeoutMs = defaultTimeoutMs,
   }) async {
     final normalizedCommand = command.trim();
-    final normalizedWorkingDirectory = (workingDirectory ?? '').trim().isEmpty
-        ? OpenHandPaths.applicationDirectoryPath()
+    final normalizedSessionId = (sessionId ?? '').trim();
+    final shouldUsePersistentSession =
+        normalizedSessionId.isNotEmpty && !Platform.isWindows;
+    final rawWorkingDirectory = (workingDirectory ?? '').trim();
+    final normalizedWorkingDirectory = rawWorkingDirectory.isEmpty
+        ? (shouldUsePersistentSession
+              ? ''
+              : OpenHandPaths.applicationDirectoryPath())
         : OpenHandPaths.normalizePath(
-            workingDirectory,
+            rawWorkingDirectory,
             defaultPath: OpenHandPaths.applicationDirectoryPath(),
           );
+    final displayedWorkingDirectory = normalizedWorkingDirectory.isEmpty
+        ? _persistentSessions[normalizedSessionId]?.currentWorkingDirectory ??
+              OpenHandPaths.applicationDirectoryPath()
+        : normalizedWorkingDirectory;
     if (normalizedCommand.isEmpty) {
       return BashToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: normalizedCommand,
-        workingDirectory: normalizedWorkingDirectory,
+        workingDirectory: displayedWorkingDirectory,
         stdout: '',
         stderr: 'The bash tool requires a non-empty command.',
         durationMs: 0,
@@ -170,7 +370,7 @@ class AiBashToolService {
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.denied,
           command: normalizedCommand,
-          workingDirectory: normalizedWorkingDirectory,
+          workingDirectory: displayedWorkingDirectory,
           stdout: '',
           stderr:
               'The command was blocked because it matched a deny rule configured by the user.',
@@ -191,7 +391,7 @@ class AiBashToolService {
                         ?.call(
                           BashCommandApprovalRequest(
                             command: normalizedCommand,
-                            workingDirectory: normalizedWorkingDirectory,
+                            workingDirectory: displayedWorkingDirectory,
                             isWriteCommand: true,
                           ),
                         )
@@ -220,7 +420,7 @@ class AiBashToolService {
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.rejected,
           command: normalizedCommand,
-          workingDirectory: normalizedWorkingDirectory,
+          workingDirectory: displayedWorkingDirectory,
           stdout: '',
           stderr:
               'The command confirmation timed out before the user approved execution.',
@@ -233,7 +433,7 @@ class AiBashToolService {
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.cancelled,
           command: normalizedCommand,
-          workingDirectory: normalizedWorkingDirectory,
+          workingDirectory: displayedWorkingDirectory,
           stdout: '',
           stderr:
               'The command execution was cancelled before confirmation completed.',
@@ -246,7 +446,7 @@ class AiBashToolService {
         return BashToolExecutionResult(
           status: BashToolExecutionStatus.rejected,
           command: normalizedCommand,
-          workingDirectory: normalizedWorkingDirectory,
+          workingDirectory: displayedWorkingDirectory,
           stdout: '',
           stderr:
               'The command was rejected because write-command confirmation was not granted by the user.',
@@ -255,6 +455,19 @@ class AiBashToolService {
           writeAnalysisReason: writeAnalysis.reason,
         );
       }
+    }
+
+    if (shouldUsePersistentSession) {
+      return _executeWithPersistentSession(
+        sessionId: normalizedSessionId,
+        command: normalizedCommand,
+        requestedWorkingDirectory: normalizedWorkingDirectory,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysis.reason,
+        onUpdate: onUpdate,
+        cancelSignal: cancelSignal,
+        timeoutMs: timeoutMs,
+      );
     }
 
     final stopwatch = Stopwatch()..start();
@@ -432,6 +645,172 @@ class AiBashToolService {
     );
   }
 
+  Future<BashToolExecutionResult> _executeWithPersistentSession({
+    required String sessionId,
+    required String command,
+    required String requestedWorkingDirectory,
+    required bool isWriteCommand,
+    required String writeAnalysisReason,
+    void Function(BashToolExecutionUpdate update)? onUpdate,
+    Future<void>? cancelSignal,
+    required int timeoutMs,
+  }) async {
+    final fallbackWorkingDirectory = requestedWorkingDirectory.isEmpty
+        ? OpenHandPaths.applicationDirectoryPath()
+        : requestedWorkingDirectory;
+    final session = await _ensurePersistentSession(
+      sessionId: sessionId,
+      initialWorkingDirectory: fallbackWorkingDirectory,
+    );
+    final effectiveWorkingDirectory = requestedWorkingDirectory.isEmpty
+        ? session.currentWorkingDirectory
+        : requestedWorkingDirectory;
+    if (session.activeExecution != null) {
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: effectiveWorkingDirectory,
+        stdout: '',
+        stderr: 'Another bash command is already running for this session.',
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    }
+
+    final markerToken =
+        'openhand_${DateTime.now().microsecondsSinceEpoch}_${_persistentMarkerCounter++}';
+    final execution = _PersistentBashExecution(
+      command: command,
+      workingDirectory: effectiveWorkingDirectory,
+      stdoutStartMarker: '__OPENHAND_CMD_START__$markerToken',
+      stdoutExitMarker: '__OPENHAND_EXIT__$markerToken:',
+      stdoutPwdEndMarker: '__OPENHAND_PWD_END__$markerToken',
+      stopwatch: Stopwatch()..start(),
+      onUpdate: onUpdate,
+    );
+    session.activeExecution = execution;
+    execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
+    final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      execution.emitUpdate(phase: BashToolExecutionPhase.running, force: true);
+    });
+
+    try {
+      session.process.stdin.write(
+        _buildPersistentCommandScript(
+          command: command,
+          markerToken: markerToken,
+          workingDirectory: requestedWorkingDirectory,
+        ),
+      );
+      session.process.stdin.write('\n');
+      final waitForCompletion = execution.outcome.future.timeout(
+        Duration(milliseconds: timeoutMs),
+      );
+      late final _PersistentBashCommandOutcome outcome;
+      if (cancelSignal == null) {
+        outcome = await waitForCompletion;
+      } else {
+        outcome = await Future.any<_PersistentBashCommandOutcome>([
+          waitForCompletion,
+          cancelSignal.then(
+            (_) => throw const _CancelledPersistentBashExecution(),
+          ),
+        ]);
+      }
+      execution.finalizeStdout(maxCapturedCharacters);
+      execution.stopwatch.stop();
+      session.currentWorkingDirectory = outcome.workingDirectory;
+      execution.emitUpdate(
+        phase: BashToolExecutionPhase.completed,
+        force: true,
+        exitCode: outcome.exitCode,
+      );
+      return BashToolExecutionResult(
+        status: outcome.exitCode == 0
+            ? BashToolExecutionStatus.success
+            : BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: outcome.workingDirectory,
+        stdout: execution.stdoutBuffer.toString(),
+        stderr: execution.stderrBuffer.toString(),
+        durationMs: execution.stopwatch.elapsedMilliseconds,
+        exitCode: outcome.exitCode,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    } on TimeoutException {
+      execution.finalizeStdout(maxCapturedCharacters);
+      execution.stopwatch.stop();
+      await _closePersistentSession(sessionId);
+      execution.emitUpdate(
+        phase: BashToolExecutionPhase.completed,
+        force: true,
+        exitCode: -1,
+      );
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.timedOut,
+        command: command,
+        workingDirectory: effectiveWorkingDirectory,
+        stdout: execution.stdoutBuffer.toString(),
+        stderr: execution.stderrBuffer.toString().trim().isEmpty
+            ? 'The command timed out before completion.'
+            : execution.stderrBuffer.toString(),
+        durationMs: execution.stopwatch.elapsedMilliseconds,
+        exitCode: -1,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    } on _CancelledPersistentBashExecution {
+      execution.finalizeStdout(maxCapturedCharacters);
+      execution.stopwatch.stop();
+      await _closePersistentSession(sessionId);
+      execution.emitUpdate(
+        phase: BashToolExecutionPhase.completed,
+        force: true,
+        exitCode: -2,
+      );
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.cancelled,
+        command: command,
+        workingDirectory: effectiveWorkingDirectory,
+        stdout: execution.stdoutBuffer.toString(),
+        stderr: execution.stderrBuffer.toString().trim().isEmpty
+            ? 'The command was cancelled by the user.'
+            : execution.stderrBuffer.toString(),
+        durationMs: execution.stopwatch.elapsedMilliseconds,
+        exitCode: -2,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    } catch (error) {
+      execution.finalizeStdout(maxCapturedCharacters);
+      execution.stopwatch.stop();
+      await _closePersistentSession(sessionId);
+      execution.emitUpdate(
+        phase: BashToolExecutionPhase.completed,
+        force: true,
+      );
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: effectiveWorkingDirectory,
+        stdout: execution.stdoutBuffer.toString(),
+        stderr: execution.stderrBuffer.toString().trim().isEmpty
+            ? '$error'
+            : execution.stderrBuffer.toString(),
+        durationMs: execution.stopwatch.elapsedMilliseconds,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    } finally {
+      progressTimer.cancel();
+      if (identical(session.activeExecution, execution)) {
+        session.activeExecution = null;
+      }
+    }
+  }
+
   Future<Process> _startProcess(String command, String workingDirectory) {
     if (Platform.isWindows) {
       return Process.start(
@@ -450,6 +829,93 @@ class AiBashToolService {
     );
   }
 
+  Future<_PersistentBashSession> _ensurePersistentSession({
+    required String sessionId,
+    required String initialWorkingDirectory,
+  }) async {
+    final existing = _persistentSessions[sessionId];
+    if (existing != null) {
+      return existing;
+    }
+    final process = await Process.start(
+      _resolveShellExecutable(),
+      const <String>[],
+      workingDirectory: initialWorkingDirectory,
+      runInShell: false,
+    );
+    final session = _PersistentBashSession(
+      process: process,
+      currentWorkingDirectory: initialWorkingDirectory,
+    );
+    session.stdoutSubscription = process.stdout.transform(utf8.decoder).listen((
+      chunk,
+    ) {
+      session.activeExecution?.appendStdoutChunk(chunk, maxCapturedCharacters);
+    });
+    session.stderrSubscription = process.stderr.transform(utf8.decoder).listen((
+      chunk,
+    ) {
+      session.activeExecution?.appendStderrChunk(chunk, maxCapturedCharacters);
+    });
+    process.exitCode.then((_) {
+      final activeExecution = session.activeExecution;
+      if (activeExecution != null && !activeExecution.outcome.isCompleted) {
+        activeExecution.completeError(
+          StateError('The persistent bash session exited unexpectedly.'),
+          maxCapturedCharacters,
+        );
+      }
+      _persistentSessions.remove(sessionId);
+    });
+    _persistentSessions[sessionId] = session;
+    return session;
+  }
+
+  String _buildPersistentCommandScript({
+    required String command,
+    required String markerToken,
+    required String workingDirectory,
+  }) {
+    final startMarker = _quoteShellString('__OPENHAND_CMD_START__$markerToken');
+    final exitMarker = _quoteShellString('__OPENHAND_EXIT__$markerToken');
+    final pwdEndMarker = _quoteShellString('__OPENHAND_PWD_END__$markerToken');
+    final buffer = StringBuffer()
+      ..writeln("printf '%s\\n' $startMarker")
+      ..writeln('__OPENHAND_EXIT_CODE=0');
+    if (workingDirectory.trim().isNotEmpty) {
+      buffer
+        ..writeln('if cd ${_quoteShellString(workingDirectory)}; then')
+        ..writeln(command)
+        ..writeln(r'  __OPENHAND_EXIT_CODE=$?')
+        ..writeln('else')
+        ..writeln(r'  __OPENHAND_EXIT_CODE=$?')
+        ..writeln('fi');
+    } else {
+      buffer
+        ..writeln(command)
+        ..writeln(r'__OPENHAND_EXIT_CODE=$?');
+    }
+    buffer
+      ..writeln("printf '\\n%s:%s\\n' $exitMarker \"\$__OPENHAND_EXIT_CODE\"")
+      ..writeln('pwd')
+      ..writeln("printf '%s\\n' $pwdEndMarker");
+    return buffer.toString().trimRight();
+  }
+
+  String _quoteShellString(String value) {
+    return "'${value.replaceAll("'", r"'\''")}'";
+  }
+
+  Future<void> _closePersistentSession(String sessionId) async {
+    final session = _persistentSessions.remove(sessionId);
+    if (session == null) {
+      return;
+    }
+    session.process.kill(ProcessSignal.sigkill);
+    await session.stdoutSubscription?.cancel();
+    await session.stderrSubscription?.cancel();
+  }
+
   String _resolveShellExecutable() {
     final environmentShell = Platform.environment['SHELL']?.trim() ?? '';
     if (environmentShell.isNotEmpty) {
@@ -465,10 +931,10 @@ class AiBashToolService {
   }
 
   void _appendChunk(StringBuffer buffer, String chunk) {
-    if (buffer.length >= _maxCapturedCharacters) {
+    if (buffer.length >= maxCapturedCharacters) {
       return;
     }
-    final allowed = _maxCapturedCharacters - buffer.length;
+    final allowed = maxCapturedCharacters - buffer.length;
     if (chunk.length <= allowed) {
       buffer.write(chunk);
       return;
@@ -524,6 +990,19 @@ class AiBashToolService {
         command.contains('/dev/fd/') ||
         command.contains('/proc/self/fd/') ||
         command.contains('>&');
+  }
+
+  void dispose() {
+    final sessionIds = _persistentSessions.keys.toList(growable: false);
+    for (final sessionId in sessionIds) {
+      final session = _persistentSessions.remove(sessionId);
+      if (session == null) {
+        continue;
+      }
+      session.process.kill(ProcessSignal.sigkill);
+      session.stdoutSubscription?.cancel();
+      session.stderrSubscription?.cancel();
+    }
   }
 }
 

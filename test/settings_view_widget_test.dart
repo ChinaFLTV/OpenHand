@@ -27,44 +27,47 @@ void main() {
   const skillsSaveButtonKey = ValueKey<String>('settingsSkillsSaveButton');
   const memoryFileFieldKey = ValueKey<String>('settingsMemoryFileField');
   const memorySaveButtonKey = ValueKey<String>('settingsMemorySaveButton');
-
-  testWidgets(
-    'SettingsView rolls back skills path when skills reload fails',
-    (tester) async {
-      final harness = await _createSettingsViewHarness();
-      addTearDown(harness.dispose);
-      final invalidSkillsPath = p.join('/broken', 'skills');
-
-      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-
-      await tester.ensureVisible(find.byKey(skillsPathFieldKey));
-      await tester.enterText(find.byKey(skillsPathFieldKey), invalidSkillsPath);
-      await tester.ensureVisible(find.byKey(skillsSaveButtonKey));
-      await tester.tap(find.byKey(skillsSaveButtonKey));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pump(const Duration(milliseconds: 250));
-
-      expect(
-        harness.settingsController.skillsStoragePath,
-        harness.initialSkillsPath,
-      );
-      expect(harness.skillsController.storagePath, harness.initialSkillsPath);
-      expect(harness.skillsController.errorMessage, isNull);
-      expect(
-        find.text('The skill action failed. Please try again.'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('The skills storage location has been updated'),
-        findsNothing,
-      );
-      final field = tester.widget<TextField>(find.byKey(skillsPathFieldKey));
-      expect(field.controller!.text, harness.initialSkillsPath);
-    },
+  const toolCallLimitFieldKey = ValueKey<String>('settingsToolCallLimitField');
+  const toolCallLimitSaveButtonKey = ValueKey<String>(
+    'settingsToolCallLimitSaveButton',
   );
+
+  testWidgets('SettingsView rolls back skills path when skills reload fails', (
+    tester,
+  ) async {
+    final harness = await _createSettingsViewHarness();
+    addTearDown(harness.dispose);
+    final invalidSkillsPath = p.join('/broken', 'skills');
+
+    await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.ensureVisible(find.byKey(skillsPathFieldKey));
+    await tester.enterText(find.byKey(skillsPathFieldKey), invalidSkillsPath);
+    await tester.ensureVisible(find.byKey(skillsSaveButtonKey));
+    await tester.tap(find.byKey(skillsSaveButtonKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      harness.settingsController.skillsStoragePath,
+      harness.initialSkillsPath,
+    );
+    expect(harness.skillsController.storagePath, harness.initialSkillsPath);
+    expect(harness.skillsController.errorMessage, isNull);
+    expect(
+      find.text('The skill action failed. Please try again.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('The skills storage location has been updated'),
+      findsNothing,
+    );
+    final field = tester.widget<TextField>(find.byKey(skillsPathFieldKey));
+    expect(field.controller!.text, harness.initialSkillsPath);
+  });
 
   testWidgets(
     'SettingsView rolls back memory file path when memory reload fails',
@@ -107,6 +110,30 @@ void main() {
       expect(field.controller!.text, harness.initialMemoryFilePath);
     },
   );
+
+  testWidgets('SettingsView saves the per-response tool call limit', (
+    tester,
+  ) async {
+    final harness = await _createSettingsViewHarness();
+    addTearDown(harness.dispose);
+
+    await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.ensureVisible(find.byKey(toolCallLimitFieldKey));
+    await tester.enterText(find.byKey(toolCallLimitFieldKey), '55');
+    await tester.ensureVisible(find.byKey(toolCallLimitSaveButtonKey));
+    await tester.tap(find.byKey(toolCallLimitSaveButtonKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(harness.settingsController.aiSingleRoundToolCallLimit, 55);
+    expect(
+      find.text('The per-response tool call limit has been saved.'),
+      findsOneWidget,
+    );
+  });
 }
 
 Future<_SettingsViewHarness> _createSettingsViewHarness() async {

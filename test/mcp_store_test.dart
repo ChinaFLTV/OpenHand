@@ -35,6 +35,10 @@ void main() {
         type: McpServerType.streamableHttp,
         enabled: true,
         url: 'https://mcp.example/amap',
+        headers: <String, String>{
+          'Authorization': 'Bearer secret-token',
+          'X-Workspace': 'openhand',
+        },
       ),
       McpServer(
         name: 'local-shell',
@@ -48,8 +52,13 @@ void main() {
     final reloaded = await store.load();
     expect(reloaded.servers, hasLength(2));
     expect(reloaded.servers.first.name, 'amap-maps');
+    expect(reloaded.servers.first.headers, <String, String>{
+      'Authorization': 'Bearer secret-token',
+      'X-Workspace': 'openhand',
+    });
     expect(reloaded.servers.last.enabled, isFalse);
     expect(File(serversFilePath).readAsStringSync(), contains('"mcpServers"'));
+    expect(File(serversFilePath).readAsStringSync(), contains('"headers"'));
     expect(
       File(serversFilePath).readAsStringSync(),
       contains('"transport": "http"'),
@@ -135,6 +144,46 @@ void main() {
     expect(loaded.servers, hasLength(1));
     expect(loaded.servers.single.name, 'odin-cloud-manager');
     expect(loaded.servers.single.type, McpServerType.streamableHttp);
+  });
+
+  test('McpStore sanitizes invalid header entries', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'openhand_mcp_headers_sanitize_test_',
+    );
+    addTearDown(() => tempDirectory.delete(recursive: true));
+    final serversFilePath = p.join(
+      tempDirectory.path,
+      '.openhand',
+      'mcp',
+      'mcp_servers.json',
+    );
+    final targetFile = File(serversFilePath);
+    await targetFile.parent.create(recursive: true);
+    await targetFile.writeAsString('''
+{
+  "mcpServers": {
+    "odin-cloud-manager": {
+      "type": "streamable_http",
+      "transport": "http",
+      "url": "https://cloud.op.zuoyebang.cc/mcp/v1",
+      "headers": {
+        "Authorization": "Bearer token",
+        "": "ignored",
+        "X-Empty": ""
+      }
+    }
+  }
+}
+''', flush: true);
+
+    final store = McpStore(serversFilePath: serversFilePath);
+    final loaded = await store.load();
+
+    expect(loaded.issue, isNotNull);
+    expect(loaded.servers, hasLength(1));
+    expect(loaded.servers.single.headers, <String, String>{
+      'Authorization': 'Bearer token',
+    });
   });
 
   test('McpController serializes save and refresh operations', () async {
@@ -895,6 +944,17 @@ class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
     final completer = Completer<McpServerHealth>();
     _pendingHealthRequests.add(completer);
     return completer.future;
+  }
+
+  @override
+  Future<McpToolCallResult> callTool({
+    required McpServer server,
+    required String toolName,
+    Map<String, Object?> arguments = const <String, Object?>{},
+  }) {
+    return Future<McpToolCallResult>.value(
+      const McpToolCallResult(outputText: 'fake-mcp-tool-result'),
+    );
   }
 
   void queueResult(McpToolCatalog catalog) {

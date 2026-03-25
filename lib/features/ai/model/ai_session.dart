@@ -1,6 +1,38 @@
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
+class AiSessionTodoItem {
+  const AiSessionTodoItem({
+    required this.id,
+    required this.content,
+    required this.status,
+  });
+
+  final String id;
+  final String content;
+  final String status;
+
+  AiSessionTodoItem copyWith({String? id, String? content, String? status}) {
+    return AiSessionTodoItem(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      status: status ?? this.status,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'id': id, 'content': content, 'status': status};
+  }
+
+  static AiSessionTodoItem fromJson(Map<String, Object?> json) {
+    return AiSessionTodoItem(
+      id: '${json['id'] ?? ''}',
+      content: '${json['content'] ?? ''}',
+      status: '${json['status'] ?? ''}',
+    );
+  }
+}
+
 class AiSession {
   const AiSession({
     required this.id,
@@ -23,9 +55,12 @@ class AiSession {
     this.latestCompressionCheckpointMessageId,
     this.latestCompressionAt,
     this.lastPromptMetadata = const <String, Object?>{},
+    this.todoItems = const <AiSessionTodoItem>[],
+    this.awaitingPlanApproval = false,
+    this.pendingPlan,
   });
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 3;
 
   final String id;
   final String title;
@@ -47,6 +82,9 @@ class AiSession {
   final String? latestCompressionCheckpointMessageId;
   final DateTime? latestCompressionAt;
   final Map<String, Object?> lastPromptMetadata;
+  final List<AiSessionTodoItem> todoItems;
+  final bool awaitingPlanApproval;
+  final String? pendingPlan;
 
   AiSession copyWith({
     String? title,
@@ -64,6 +102,10 @@ class AiSession {
     DateTime? latestCompressionAt,
     bool clearLatestCompressionAt = false,
     Map<String, Object?>? lastPromptMetadata,
+    List<AiSessionTodoItem>? todoItems,
+    bool? awaitingPlanApproval,
+    String? pendingPlan,
+    bool clearPendingPlan = false,
   }) {
     return AiSession(
       id: id,
@@ -92,6 +134,9 @@ class AiSession {
           ? null
           : latestCompressionAt ?? this.latestCompressionAt,
       lastPromptMetadata: lastPromptMetadata ?? this.lastPromptMetadata,
+      todoItems: todoItems ?? this.todoItems,
+      awaitingPlanApproval: awaitingPlanApproval ?? this.awaitingPlanApproval,
+      pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
     );
   }
 
@@ -155,10 +200,15 @@ class AiSession {
         'latest_compression_checkpoint_message_id':
             latestCompressionCheckpointMessageId,
         'latest_compression_at': latestCompressionAt?.toUtc().toIso8601String(),
+        'awaiting_plan_approval': awaitingPlanApproval,
+        'pending_plan': pendingPlan,
       },
       'environment': environment.toJson(),
       'statistics': statistics.toJson(),
       'last_prompt_metadata': lastPromptMetadata,
+      'todo_items': todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'messages': messages.map((item) => item.toJson()).toList(growable: false),
       'recent_errors': recentErrors
           .map((item) => item.toJson())
@@ -170,6 +220,7 @@ class AiSession {
     final sessionJson = _requireMap(json['session'], 'session');
     final messagesJson = _requireList(json['messages'], 'messages');
     final errorsJson = json['recent_errors'];
+    final todoItemsJson = json['todo_items'];
     final environmentJson = _requireMap(json['environment'], 'environment');
     final statisticsJson = _requireMap(json['statistics'], 'statistics');
     final createdAt = DateTime.parse('${sessionJson['created_at']}').toUtc();
@@ -221,6 +272,10 @@ class AiSession {
           _readNullableString(sessionJson['latest_compression_at']) == null
           ? null
           : DateTime.parse('${sessionJson['latest_compression_at']}').toUtc(),
+      awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
+          ? sessionJson['awaiting_plan_approval'] as bool
+          : false,
+      pendingPlan: _readNullableString(sessionJson['pending_plan']),
       lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
           ? Map<String, Object?>.from(
               json['last_prompt_metadata'] as Map<String, Object?>,
@@ -228,6 +283,15 @@ class AiSession {
           : json['last_prompt_metadata'] is Map
           ? Map<String, Object?>.from(json['last_prompt_metadata'] as Map)
           : const <String, Object?>{},
+      todoItems: todoItemsJson is List
+          ? todoItemsJson
+                .map(
+                  (item) => AiSessionTodoItem.fromJson(
+                    _requireMap(item, 'todo_items'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionTodoItem>[],
     );
   }
 
@@ -277,6 +341,7 @@ class AiSessionEnvironment {
     required this.userMemoryFilePath,
     required this.sessionsDirectoryPath,
     required this.compressionThresholdChars,
+    this.singleRoundToolCallLimit = 40,
   });
 
   final String localeTag;
@@ -291,6 +356,7 @@ class AiSessionEnvironment {
   final String userMemoryFilePath;
   final String sessionsDirectoryPath;
   final int compressionThresholdChars;
+  final int singleRoundToolCallLimit;
 
   AiSessionEnvironment copyWith({
     String? localeTag,
@@ -305,6 +371,7 @@ class AiSessionEnvironment {
     String? userMemoryFilePath,
     String? sessionsDirectoryPath,
     int? compressionThresholdChars,
+    int? singleRoundToolCallLimit,
   }) {
     return AiSessionEnvironment(
       localeTag: localeTag ?? this.localeTag,
@@ -321,6 +388,8 @@ class AiSessionEnvironment {
           sessionsDirectoryPath ?? this.sessionsDirectoryPath,
       compressionThresholdChars:
           compressionThresholdChars ?? this.compressionThresholdChars,
+      singleRoundToolCallLimit:
+          singleRoundToolCallLimit ?? this.singleRoundToolCallLimit,
     );
   }
 
@@ -338,6 +407,7 @@ class AiSessionEnvironment {
       'user_memory_file_path': userMemoryFilePath,
       'sessions_directory_path': sessionsDirectoryPath,
       'compression_threshold_chars': compressionThresholdChars,
+      'single_round_tool_call_limit': singleRoundToolCallLimit,
     };
   }
 
@@ -357,6 +427,9 @@ class AiSessionEnvironment {
       compressionThresholdChars: json['compression_threshold_chars'] is int
           ? json['compression_threshold_chars'] as int
           : 0,
+      singleRoundToolCallLimit: json['single_round_tool_call_limit'] is int
+          ? json['single_round_tool_call_limit'] as int
+          : 40,
     );
   }
 }

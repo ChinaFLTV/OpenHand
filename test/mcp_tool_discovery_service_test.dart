@@ -108,6 +108,76 @@ void main() {
   );
 
   test(
+    'DefaultMcpToolDiscoveryService sends custom headers on streamable HTTP requests',
+    () async {
+      final client = _QueuedHttpClient(<_QueuedHttpResponse>[
+        _QueuedHttpResponse(
+          statusCode: 200,
+          headers: <String, String>{
+            'content-type': 'application/json',
+            'mcp-session-id': 'session-custom-headers',
+          },
+          body: jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 1,
+            'result': <String, Object?>{'protocolVersion': '2025-03-26'},
+          }),
+        ),
+        const _QueuedHttpResponse(
+          statusCode: 202,
+          headers: <String, String>{'content-type': 'application/json'},
+          body: '',
+        ),
+        _QueuedHttpResponse(
+          statusCode: 200,
+          headers: <String, String>{
+            'content-type': 'application/json',
+            'mcp-session-id': 'session-custom-headers',
+          },
+          body: jsonEncode(<String, Object?>{
+            'jsonrpc': '2.0',
+            'id': 2,
+            'result': <String, Object?>{
+              'tools': <Object?>[
+                <String, Object?>{
+                  'name': 'tail_logs',
+                  'description': 'Inspect service logs.',
+                  'inputSchema': <String, Object?>{'type': 'object'},
+                },
+              ],
+            },
+          }),
+        ),
+      ]);
+      final service = DefaultMcpToolDiscoveryService(client: client);
+      addTearDown(service.dispose);
+
+      final catalog = await service.discoverTools(
+        const McpServer(
+          name: 'local-http',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://mcp.example/tools',
+          headers: <String, String>{
+            'Authorization': 'Bearer secret-token',
+            'X-Workspace': 'openhand',
+          },
+        ),
+      );
+
+      expect(catalog.status, McpToolCatalogStatus.ready);
+      expect(client.requests, hasLength(3));
+      for (final request in client.requests) {
+        expect(
+          _readRequestHeader(request, 'authorization'),
+          'Bearer secret-token',
+        );
+        expect(_readRequestHeader(request, 'x-workspace'), 'openhand');
+      }
+    },
+  );
+
+  test(
     'DefaultMcpToolDiscoveryService follows POST redirects for streamable HTTP servers',
     () async {
       final client = _QueuedHttpClient(<_QueuedHttpResponse>[
@@ -239,17 +309,28 @@ void main() {
           type: McpServerType.streamableHttp,
           enabled: true,
           url: 'https://mcp.example/mcp/v1/',
+          headers: <String, String>{
+            'Authorization': 'Bearer secret-token',
+            'X-Workspace': 'openhand',
+          },
         ),
       );
 
       expect(catalog.status, McpToolCatalogStatus.ready);
       expect(client.requests, hasLength(4));
       expect(
+        _readRequestHeader(client.requests[2], 'authorization'),
+        'Bearer secret-token',
+      );
+      expect(_readRequestHeader(client.requests[2], 'x-workspace'), 'openhand');
+      expect(
         client.requests[2].headers['mcp-session-id'],
         'session-cross-origin',
       );
       expect(client.requests[3].url.host, 'redirect.example');
       expect(client.requests[3].headers.containsKey('mcp-session-id'), isFalse);
+      expect(_readRequestHeader(client.requests[3], 'authorization'), isNull);
+      expect(_readRequestHeader(client.requests[3], 'x-workspace'), isNull);
     },
   );
 
@@ -528,4 +609,14 @@ class _QueuedHttpResponse {
   final int statusCode;
   final Map<String, String> headers;
   final String body;
+}
+
+String? _readRequestHeader(http.BaseRequest request, String name) {
+  final target = name.toLowerCase();
+  for (final entry in request.headers.entries) {
+    if (entry.key.toLowerCase() == target) {
+      return entry.value;
+    }
+  }
+  return null;
 }

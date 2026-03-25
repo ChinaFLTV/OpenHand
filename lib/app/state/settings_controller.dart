@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
@@ -28,8 +29,12 @@ class SettingsController extends ChangeNotifier {
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _aiMessageCompressionThresholdChars =
            snapshot.aiMessageCompressionThresholdChars,
+       _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
+       _aiAllowCommandRules = List<AiAllowCommandRule>.from(
+         snapshot.aiAllowCommandRules,
+       ),
        _aiDenyCommandRules = List<AiDenyCommandRule>.from(
          snapshot.aiDenyCommandRules,
        ),
@@ -57,7 +62,9 @@ class SettingsController extends ChangeNotifier {
   bool _memoryEnabled;
   String _userMemoryFilePath;
   int _aiMessageCompressionThresholdChars;
+  int _aiSingleRoundToolCallLimit;
   bool _aiWriteCommandConfirmationEnabled;
+  List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
@@ -88,8 +95,11 @@ class SettingsController extends ChangeNotifier {
   String get userMemoryFilePath => _userMemoryFilePath;
   int get aiMessageCompressionThresholdChars =>
       _aiMessageCompressionThresholdChars;
+  int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
+  List<AiAllowCommandRule> get aiAllowCommandRules =>
+      List<AiAllowCommandRule>.unmodifiable(_aiAllowCommandRules);
   List<AiDenyCommandRule> get aiDenyCommandRules =>
       List<AiDenyCommandRule>.unmodifiable(_aiDenyCommandRules);
   String get displayUserMemoryFilePath =>
@@ -229,12 +239,66 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateAiSingleRoundToolCallLimit(int value) async {
+    final normalizedValue = value <= 0
+        ? AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit
+        : value;
+    return _commitMutation(() {
+      if (_aiSingleRoundToolCallLimit == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiSingleRoundToolCallLimit = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateAiWriteCommandConfirmationEnabled(bool value) async {
     return _commitMutation(() {
       if (_aiWriteCommandConfirmationEnabled == value) {
         return _MutationDisposition.successNoChange;
       }
       _aiWriteCommandConfirmationEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> addAiAllowCommandRule(AiAllowCommandRule rule) async {
+    return _commitMutation(() {
+      if (_aiAllowCommandRules.any((item) => item.id == rule.id)) {
+        return _MutationDisposition.reject;
+      }
+      _aiAllowCommandRules = <AiAllowCommandRule>[
+        ..._aiAllowCommandRules,
+        rule,
+      ];
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAllowCommandRule(AiAllowCommandRule rule) async {
+    return _commitMutation(() {
+      final index = _aiAllowCommandRules.indexWhere(
+        (item) => item.id == rule.id,
+      );
+      if (index == -1) {
+        return _MutationDisposition.reject;
+      }
+      final updatedRules = List<AiAllowCommandRule>.from(_aiAllowCommandRules);
+      updatedRules[index] = rule;
+      _aiAllowCommandRules = updatedRules;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> deleteAiAllowCommandRule(String id) async {
+    return _commitMutation(() {
+      final updatedRules = _aiAllowCommandRules
+          .where((item) => item.id != id)
+          .toList(growable: false);
+      if (updatedRules.length == _aiAllowCommandRules.length) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAllowCommandRules = updatedRules;
       return _MutationDisposition.apply;
     });
   }
@@ -251,7 +315,9 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiDenyCommandRule(AiDenyCommandRule rule) async {
     return _commitMutation(() {
-      final index = _aiDenyCommandRules.indexWhere((item) => item.id == rule.id);
+      final index = _aiDenyCommandRules.indexWhere(
+        (item) => item.id == rule.id,
+      );
       if (index == -1) {
         return _MutationDisposition.reject;
       }
@@ -346,6 +412,10 @@ class SettingsController extends ChangeNotifier {
     return DateTime.now().microsecondsSinceEpoch.toString();
   }
 
+  String createAiAllowCommandRuleId() {
+    return DateTime.now().microsecondsSinceEpoch.toString();
+  }
+
   AppSettingsSnapshot _snapshot() {
     return AppSettingsSnapshot(
       themeMode: _themeMode,
@@ -357,7 +427,9 @@ class SettingsController extends ChangeNotifier {
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
+      aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
+      aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
@@ -375,8 +447,12 @@ class SettingsController extends ChangeNotifier {
     _userMemoryFilePath = snapshot.userMemoryFilePath;
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;
+    _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;
+    _aiAllowCommandRules = List<AiAllowCommandRule>.from(
+      snapshot.aiAllowCommandRules,
+    );
     _aiDenyCommandRules = List<AiDenyCommandRule>.from(
       snapshot.aiDenyCommandRules,
     );

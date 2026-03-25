@@ -250,7 +250,6 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   late final TextEditingController _tagInputController;
   late final FocusNode _tagInputFocusNode;
   late final List<String> _tags;
-  late final KeyEventCallback _tagInputKeyHandler;
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -261,15 +260,12 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
       text: widget.initialEntry?.content ?? '',
     );
     _tagInputController = TextEditingController();
-    _tagInputFocusNode = FocusNode();
+    _tagInputFocusNode = FocusNode(onKeyEvent: _handleTagInputKeyEvent);
     _tags = List<String>.from(widget.initialEntry?.tags ?? const <String>[]);
-    _tagInputKeyHandler = _handleTagInputKeyEvent;
-    HardwareKeyboard.instance.addHandler(_tagInputKeyHandler);
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_tagInputKeyHandler);
     _contentController.dispose();
     _tagInputController.dispose();
     _tagInputFocusNode.dispose();
@@ -550,24 +546,24 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
     return value.contains(RegExp(r'[\n,，;；]'));
   }
 
-  bool _handleTagInputKeyEvent(KeyEvent event) {
-    if (!mounted || _isSaving || !_tagInputFocusNode.hasFocus) {
-      return false;
+  KeyEventResult _handleTagInputKeyEvent(FocusNode node, KeyEvent event) {
+    if (!mounted || _isSaving || !node.hasFocus) {
+      return KeyEventResult.ignored;
     }
     if (event is! KeyDownEvent) {
-      return false;
+      return KeyEventResult.ignored;
     }
     if (event.logicalKey != LogicalKeyboardKey.backspace) {
-      return false;
+      return KeyEventResult.ignored;
     }
     if (_tagInputController.text.isNotEmpty || _tags.isEmpty) {
-      return false;
+      return KeyEventResult.ignored;
     }
     setState(() {
       _tags.removeLast();
       _errorMessage = null;
     });
-    return true;
+    return KeyEventResult.handled;
   }
 }
 

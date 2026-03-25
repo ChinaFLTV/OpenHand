@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:highlight/highlight.dart' as highlight;
@@ -27,11 +29,16 @@ import '../ai/model/ai_session_message.dart';
 import '../ai/model/ai_session_runtime_context.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart';
+import '../ai/service/ai_git_snapshot_service.dart';
+import '../ai/service/ai_workspace_instruction_service.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
+import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../settings/settings_view.dart';
+import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
+import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
 
 enum AppSection { workspace, automations, skills, memory, mcp, settings }
@@ -45,6 +52,9 @@ const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
 const double _autoFollowDistanceThreshold = 96;
+const double _autoFollowAnimatedDistanceThreshold = 8;
+const int _slowUiFrameThresholdMs = 24;
+const int _slowUiLogThrottleMs = 800;
 
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
@@ -56,6 +66,9 @@ class OpenHandHomePage extends StatefulWidget {
 class _OpenHandHomePageState extends State<OpenHandHomePage> {
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
+  final AiWorkspaceInstructionService _workspaceInstructionService =
+      AiWorkspaceInstructionService();
+  final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
 
   AppSection _selectedSection = AppSection.workspace;
   double _composerHeight = _composerDefaultHeight;
@@ -64,44 +77,153 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   String? _submittingSessionId;
   bool _shouldAutoFollowMessages = true;
   bool _pendingForcedScrollToBottom = false;
+  bool _queuedForcedScrollToBottom = false;
   bool _scrollToBottomCallbackQueued = false;
   bool _pendingAnimatedScrollToBottom = false;
+  int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
+  DateTime? _lastSlowUiLogAt;
 
-  AiSendPhase _effectiveSendPhase(AiSessionController sessionController) {
-    final currentSessionId = sessionController.currentSessionId;
-    final controllerPhase = sessionController.sendPhaseForSession(
-      currentSessionId,
-    );
+  AiSendPhase _displaySendPhaseForSession(
+    AiSessionController sessionController,
+    String? sessionId,
+  ) {
+    if (sessionId == null) {
+      return AiSendPhase.idle;
+    }
+    final controllerPhase = sessionController.sendPhaseForSession(sessionId);
     if (controllerPhase != AiSendPhase.idle) {
       return controllerPhase;
     }
-    return _submittingSessionId == currentSessionId
+    return _submittingSessionId == sessionId
         ? AiSendPhase.sendingMessage
         : AiSendPhase.idle;
+  }
+
+  AiSendPhase _effectiveSendPhase(AiSessionController sessionController) {
+    return _displaySendPhaseForSession(
+      sessionController,
+      sessionController.currentSessionId,
+    );
+  }
+
+  Map<String, AiSendPhase> _navigationSendPhases(
+    AiSessionController sessionController,
+  ) {
+    return <String, AiSendPhase>{
+      for (final session in sessionController.sessions)
+        session.id: _displaySendPhaseForSession(sessionController, session.id),
+    };
   }
 
   @override
   void initState() {
     super.initState();
     _messageScrollController.addListener(_handleMessageScroll);
+    SchedulerBinding.instance.addTimingsCallback(_handleFrameTimings);
   }
 
   @override
   void dispose() {
     _messageScrollController.removeListener(_handleMessageScroll);
+    SchedulerBinding.instance.removeTimingsCallback(_handleFrameTimings);
     _composerController.dispose();
     _messageScrollController.dispose();
     super.dispose();
   }
 
-  void _handleMessageScroll() {
-    final nextValue = _isNearBottom();
-    if (nextValue == _shouldAutoFollowMessages) {
+  void _handleFrameTimings(List<FrameTiming> timings) {
+    if (!kDebugMode || !mounted || timings.isEmpty) {
       return;
     }
-    _shouldAutoFollowMessages = nextValue;
-    if (nextValue) {
+    final sessionController = context.read<AiSessionController>();
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null ||
+        _displaySendPhaseForSession(sessionController, sessionId) !=
+            AiSendPhase.responding) {
+      return;
+    }
+    final now = DateTime.now().toUtc();
+    final lastLoggedAt = _lastSlowUiLogAt;
+    if (lastLoggedAt != null &&
+        now.difference(lastLoggedAt).inMilliseconds < _slowUiLogThrottleMs) {
+      return;
+    }
+    for (final timing in timings) {
+      final buildMs = timing.buildDuration.inMilliseconds;
+      final rasterMs = timing.rasterDuration.inMilliseconds;
+      if (buildMs < _slowUiFrameThresholdMs &&
+          rasterMs < _slowUiFrameThresholdMs) {
+        continue;
+      }
+      _lastSlowUiLogAt = now;
+      final currentSession = _sessionForId(sessionController, sessionId);
+      final messageCount = currentSession == null
+          ? 0
+          : _displayMessages(currentSession).length;
+      final activePosition = _activeMessageScrollPosition();
+      final distanceToBottom = activePosition == null
+          ? 0
+          : (activePosition.maxScrollExtent - activePosition.pixels).round();
+      debugPrint(
+        '[OpenHand][UI][$sessionId] slow_frame build_ms=$buildMs raster_ms=$rasterMs total_ms=${timing.totalSpan.inMilliseconds} messages=$messageCount auto_follow=$_shouldAutoFollowMessages enabled=$_autoFollowEnabled scroll_distance=$distanceToBottom queued=$_scrollToBottomCallbackQueued settle=$_pendingScrollToBottomSettlePasses',
+      );
+      break;
+    }
+  }
+
+  void _clearPendingAutoFollowState() {
+    _pendingForcedScrollToBottom = false;
+    _queuedForcedScrollToBottom = false;
+    _pendingAnimatedScrollToBottom = false;
+    _pendingScrollToBottomSettlePasses = 0;
+  }
+
+  void _armAutoFollowToBottom() {
+    _shouldAutoFollowMessages = true;
+    _pendingForcedScrollToBottom = true;
+  }
+
+  bool _consumePendingAutoFollowRequest() {
+    final shouldForce = _pendingForcedScrollToBottom;
+    _pendingForcedScrollToBottom = false;
+    return shouldForce;
+  }
+
+  bool _shouldScheduleAutoFollow({bool consumePendingRequest = false}) {
+    final shouldForce = consumePendingRequest
+        ? _consumePendingAutoFollowRequest()
+        : _pendingForcedScrollToBottom;
+    if (!_autoFollowEnabled && !shouldForce) {
+      return false;
+    }
+    if (!_shouldAutoFollowMessages && !shouldForce) {
+      return false;
+    }
+    return true;
+  }
+
+  void _scheduleAutoFollowIfNeeded({
+    bool consumePendingRequest = false,
+    bool animated = true,
+  }) {
+    if (!_shouldScheduleAutoFollow(
+      consumePendingRequest: consumePendingRequest,
+    )) {
+      return;
+    }
+    _scheduleScrollToBottom(force: true, animated: animated);
+  }
+
+  void _handleMessageScroll() {
+    final nextValue = _isNearBottom();
+    if (!nextValue) {
+      return;
+    }
+    if (!_shouldAutoFollowMessages) {
+      _shouldAutoFollowMessages = true;
+    }
+    if (_pendingForcedScrollToBottom) {
       _pendingForcedScrollToBottom = false;
     }
   }
@@ -113,11 +235,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final isNearBottom = distanceToBottom <= _autoFollowDistanceThreshold;
-    if (notification is ScrollUpdateNotification &&
-        notification.dragDetails != null &&
-        !isNearBottom) {
+    final userScrolledAwayFromBottom =
+        !isNearBottom &&
+        ((notification is ScrollStartNotification &&
+                notification.dragDetails != null) ||
+            (notification is ScrollUpdateNotification &&
+                notification.dragDetails != null) ||
+            (notification is OverscrollNotification &&
+                notification.dragDetails != null) ||
+            (notification is UserScrollNotification &&
+                notification.direction != ScrollDirection.idle));
+    if (userScrolledAwayFromBottom) {
       _shouldAutoFollowMessages = false;
-      _pendingForcedScrollToBottom = false;
+      _clearPendingAutoFollowState();
       return false;
     }
     if (isNearBottom) {
@@ -137,10 +267,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     setState(() {
       _autoFollowEnabled = nextValue;
       if (!nextValue) {
-        _pendingForcedScrollToBottom = false;
+        _clearPendingAutoFollowState();
       } else {
-        _shouldAutoFollowMessages = true;
-        _pendingForcedScrollToBottom = true;
+        _armAutoFollowToBottom();
       }
     });
     if (nextValue) {
@@ -148,23 +277,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     }
   }
 
-  Future<void> _createSessionFromDialog() async {
-    final sessionController = context.read<AiSessionController>();
-    final templateId = await showDialog<String>(
+  Future<String?> _showThreadTemplateDialog() async {
+    return showDialog<String>(
       context: context,
       builder: (dialogContext) {
+        final sessionController = dialogContext.read<AiSessionController>();
         return _ThreadTemplateDialog(templates: sessionController.templates);
       },
     );
-    if (!mounted || templateId == null) {
-      return;
+  }
+
+  Future<bool> _createSession({
+    required String templateId,
+    AiSessionRuntimeContext? runtimeContext,
+  }) async {
+    final sessionController = context.read<AiSessionController>();
+    final resolvedRuntimeContext =
+        runtimeContext ?? await _buildRuntimeContext();
+    if (!mounted) {
+      return false;
     }
     final created = await sessionController.createSession(
       templateId: templateId,
-      runtimeContext: _buildRuntimeContext(),
+      runtimeContext: resolvedRuntimeContext,
     );
     if (!mounted) {
-      return;
+      return false;
     }
     if (!created) {
       final l10n = AppLocalizations.of(context)!;
@@ -172,18 +310,39 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
       );
-      return;
+      return false;
     }
     setState(() {
       _selectedSection = AppSection.workspace;
-      _pendingForcedScrollToBottom = true;
+      _armAutoFollowToBottom();
     });
+    return true;
   }
 
-  AiSessionRuntimeContext _buildRuntimeContext() {
+  Future<bool> _createSessionFromDialog({
+    AiSessionRuntimeContext? runtimeContext,
+  }) async {
+    final templateId = await _showThreadTemplateDialog();
+    if (!mounted || templateId == null) {
+      return false;
+    }
+    return _createSession(
+      templateId: templateId,
+      runtimeContext: runtimeContext,
+    );
+  }
+
+  Future<AiSessionRuntimeContext> _buildRuntimeContext() async {
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
+    final skillsController = context.read<SkillsController>();
+    final mcpController = context.read<McpController>();
     final appInfo = context.read<AppInfo>();
+    final workingDirectory = OpenHandPaths.applicationDirectoryPath();
+    final gitSnapshot = await _gitSnapshotService.loadSnapshot(
+      workingDirectory: workingDirectory,
+    );
+    final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
       appVersion: appInfo.version,
@@ -194,10 +353,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       userMemoryFilePath: settingsController.userMemoryFilePath,
       compressionThresholdChars:
           settingsController.aiMessageCompressionThresholdChars,
+      singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       memoryEnabled: settingsController.memoryEnabled,
+      writeCommandConfirmationEnabled:
+          settingsController.aiWriteCommandConfirmationEnabled,
+      platformName: Platform.operatingSystem,
+      workingDirectory: workingDirectory,
+      todayLocalDate:
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      timeZoneName: now.timeZoneName,
+      repositorySnapshot: gitSnapshot,
       memoryEntries: settingsController.memoryEnabled
           ? memoryController.entries
           : const [],
+      allowCommandRules: settingsController.aiAllowCommandRules,
+      availableSkills: skillsController.skills,
+      availableMcpServers: mcpController.servers,
+      workspaceInstructionDocuments: _workspaceInstructionService.loadDocuments(
+        startDirectory: OpenHandPaths.applicationDirectoryPath(),
+        homeDirectory: OpenHandPaths.homeDirectoryPath(),
+      ),
     );
   }
 
@@ -205,6 +380,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final l10n = AppLocalizations.of(context)!;
     final prompt = _composerController.text.trim();
     if (prompt.isEmpty) {
+      return;
+    }
+    final slashCommand = parseOpenHandSlashCommand(prompt);
+    if (slashCommand != null) {
+      _replaceComposerText('');
+      await _handleSlashCommand(slashCommand);
       return;
     }
 
@@ -218,28 +399,47 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     }
 
     final sessionController = context.read<AiSessionController>();
+    AiSessionRuntimeContext? runtimeContext;
     if (sessionController.currentSession == null) {
-      await _createSessionFromDialog();
-      if (!mounted || sessionController.currentSession == null) {
+      final templateId = await _showThreadTemplateDialog();
+      if (!mounted || templateId == null) {
+        return;
+      }
+      runtimeContext = await _buildRuntimeContext();
+      if (!mounted) {
+        return;
+      }
+      final created = await _createSession(
+        templateId: templateId,
+        runtimeContext: runtimeContext,
+      );
+      if (!mounted || !created || sessionController.currentSession == null) {
         return;
       }
     }
+    final initialSession = sessionController.currentSession;
     final targetSessionId = sessionController.currentSessionId;
     if (targetSessionId == null || _submittingSessionId == targetSessionId) {
       return;
     }
+    final initialUserMessageCount = _visibleUserMessageCount(initialSession);
+    final editingMessageIdBeforeSend = sessionController.editingMessageId;
 
-    _composerController.clear();
+    _replaceComposerText('');
     setState(() {
       _submittingSessionId = targetSessionId;
-      _pendingForcedScrollToBottom = true;
+      _armAutoFollowToBottom();
     });
     try {
+      runtimeContext ??= await _buildRuntimeContext();
+      if (!mounted) {
+        return;
+      }
       final sent = await sessionController.sendMessage(
         sessionId: targetSessionId,
         content: prompt,
         model: selectedModel,
-        runtimeContext: _buildRuntimeContext(),
+        runtimeContext: runtimeContext,
         denyCommandRules: settingsController.aiDenyCommandRules,
         requireWriteCommandConfirmation:
             settingsController.aiWriteCommandConfirmationEnabled,
@@ -249,10 +449,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         return;
       }
       if (!sent) {
-        if (sessionController.currentSessionId == targetSessionId) {
-          _composerController.text = prompt;
+        if (_shouldRestoreSubmittedPrompt(
+          sessionController: sessionController,
+          sessionId: targetSessionId,
+          prompt: prompt,
+          initialUserMessageCount: initialUserMessageCount,
+          editingMessageId: editingMessageIdBeforeSend,
+        )) {
+          _replaceComposerText(prompt);
         }
-        final errorMessage = sessionController.lastErrorMessage;
+        final errorMessage = sessionController.lastErrorMessageForSession(
+          targetSessionId,
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
         );
@@ -262,12 +470,41 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       if (!mounted) {
         return;
       }
-      if (sessionController.didCompressInLastSend) {
+      if (sessionController.didCompressInLastSendForSession(targetSessionId)) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(l10n.threadCompressionNotice)));
       }
       _scheduleScrollToBottom(force: true, animated: true);
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'openhand_home_page',
+          context: ErrorDescription('while sending a chat message'),
+        ),
+      );
+      if (mounted &&
+          _shouldRestoreSubmittedPrompt(
+            sessionController: sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            initialUserMessageCount: initialUserMessageCount,
+            editingMessageId: editingMessageIdBeforeSend,
+          )) {
+        _replaceComposerText(prompt);
+      }
+      if (mounted) {
+        final errorMessage = '$error'.trim();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              errorMessage.isEmpty ? l10n.chatRequestFailed : errorMessage,
+            ),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -281,6 +518,67 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     }
   }
 
+  void _replaceComposerText(String value) {
+    _composerController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+      composing: TextRange.empty,
+    );
+  }
+
+  int _visibleUserMessageCount(AiSession? session) {
+    if (session == null) {
+      return 0;
+    }
+    return session.messages
+        .where(
+          (message) =>
+              !message.isDeleted && message.kind == AiSessionMessageKind.user,
+        )
+        .length;
+  }
+
+  AiSession? _sessionForId(
+    AiSessionController sessionController,
+    String sessionId,
+  ) {
+    for (final session in sessionController.sessions) {
+      if (session.id == sessionId) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  bool _shouldRestoreSubmittedPrompt({
+    required AiSessionController sessionController,
+    required String sessionId,
+    required String prompt,
+    required int initialUserMessageCount,
+    required String? editingMessageId,
+  }) {
+    if (_composerController.text.trim().isNotEmpty) {
+      return false;
+    }
+    final targetSession = _sessionForId(sessionController, sessionId);
+    if (targetSession == null) {
+      return false;
+    }
+    if (_visibleUserMessageCount(targetSession) > initialUserMessageCount) {
+      return false;
+    }
+    if (editingMessageId != null) {
+      for (final message in targetSession.messages) {
+        if (message.id == editingMessageId &&
+            !message.isDeleted &&
+            message.content.trim() == prompt) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   Future<void> _stopResponding() async {
     final sessionController = context.read<AiSessionController>();
     final sessionId = sessionController.currentSessionId;
@@ -290,40 +588,77 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     await sessionController.stopResponding(sessionId);
   }
 
-  void _scheduleScrollToBottom({bool force = false, bool animated = false}) {
+  void _scheduleScrollToBottom({
+    bool force = false,
+    bool animated = false,
+    bool allowSettlePasses = true,
+  }) {
     if (!force && !_shouldAutoFollowMessages) {
       return;
     }
+    if (force) {
+      _shouldAutoFollowMessages = true;
+      _queuedForcedScrollToBottom = true;
+    }
     _pendingAnimatedScrollToBottom = _pendingAnimatedScrollToBottom || animated;
+    if (allowSettlePasses) {
+      _pendingScrollToBottomSettlePasses = math.max(
+        _pendingScrollToBottomSettlePasses,
+        animated ? 4 : 3,
+      );
+    }
     if (_scrollToBottomCallbackQueued) {
       return;
     }
     _scrollToBottomCallbackQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottomCallbackQueued = false;
+      if (!mounted) {
+        _queuedForcedScrollToBottom = false;
+        _pendingAnimatedScrollToBottom = false;
+        _pendingScrollToBottomSettlePasses = 0;
+        return;
+      }
+      final shouldForce = _queuedForcedScrollToBottom;
       final shouldAnimate = _pendingAnimatedScrollToBottom;
+      _queuedForcedScrollToBottom = false;
       _pendingAnimatedScrollToBottom = false;
+      if (!shouldForce && (!_autoFollowEnabled || !_shouldAutoFollowMessages)) {
+        _pendingScrollToBottomSettlePasses = 0;
+        return;
+      }
       final activePosition = _activeMessageScrollPosition();
       if (activePosition == null) {
+        _pendingScrollToBottomSettlePasses = 0;
         return;
       }
       final targetOffset = activePosition.maxScrollExtent
           .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
           .toDouble();
       final distance = (targetOffset - activePosition.pixels).abs();
-      if (distance < 1) {
-        return;
-      }
-      if (shouldAnimate && distance > 24) {
+      if (distance >= 1 &&
+          shouldAnimate &&
+          distance > _autoFollowAnimatedDistanceThreshold) {
         _messageScrollController.animateTo(
           targetOffset,
-          duration: const Duration(milliseconds: 220),
+          duration: _scrollToBottomAnimationDuration(distance),
           curve: Curves.easeOutCubic,
         );
+      } else if (distance >= 1) {
+        _messageScrollController.jumpTo(targetOffset);
+      }
+      if (_pendingScrollToBottomSettlePasses <= 0) {
         return;
       }
-      _messageScrollController.jumpTo(targetOffset);
+      _pendingScrollToBottomSettlePasses -= 1;
+      _scheduleScrollToBottom(force: false, allowSettlePasses: false);
     });
+  }
+
+  Duration _scrollToBottomAnimationDuration(double distance) {
+    final clampedDistance = distance.clamp(24, 520).toDouble();
+    final milliseconds = (110 + clampedDistance * 0.24).round().clamp(110, 280);
+    return Duration(milliseconds: milliseconds);
   }
 
   bool _isNearBottom() {
@@ -344,26 +679,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (nextSignature == null) {
       return;
     }
-    final shouldForce = _pendingForcedScrollToBottom;
-    _pendingForcedScrollToBottom = false;
-    if (!_autoFollowEnabled && !shouldForce) {
-      return;
-    }
-    if (!_shouldAutoFollowMessages && !shouldForce) {
-      return;
-    }
-    _scheduleScrollToBottom(force: true);
+    _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
   }
 
   void _handleComposerLayoutChanged() {
-    final shouldForce = _pendingForcedScrollToBottom;
-    if (!_autoFollowEnabled && !shouldForce) {
-      return;
-    }
-    if (!_shouldAutoFollowMessages && !shouldForce) {
-      return;
-    }
-    _scheduleScrollToBottom(force: true);
+    _scheduleAutoFollowIfNeeded();
+  }
+
+  void _handleTranscriptLayoutChanged() {
+    _scheduleAutoFollowIfNeeded();
   }
 
   String? _sessionAutoScrollSignature(AiSession? session) {
@@ -401,12 +725,244 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   }
 
   Future<bool> _confirmWriteCommand(BashCommandApprovalRequest request) async {
+    final settingsController = context.read<SettingsController>();
+    for (final rule in settingsController.aiAllowCommandRules) {
+      if (rule.matches(request.command)) {
+        return true;
+      }
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) =>
           _WriteCommandConfirmationDialog(request: request),
     );
     return confirmed == true;
+  }
+
+  Future<void> _handleSlashCommand(OpenHandSlashCommand command) async {
+    switch (command.kind) {
+      case OpenHandSlashCommandKind.help:
+        setState(() {
+          _selectedSection = AppSection.settings;
+        });
+        await _showSlashHelpDialog();
+        return;
+      case OpenHandSlashCommandKind.feedback:
+        setState(() {
+          _selectedSection = AppSection.settings;
+        });
+        await _showFeedbackDialog(command.argument);
+        return;
+      case OpenHandSlashCommandKind.newSession:
+        await _createSessionFromDialog();
+        return;
+      case OpenHandSlashCommandKind.status:
+        final session = context.read<AiSessionController>().currentSession;
+        if (session == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _localizedText(
+                  context,
+                  zh: '当前没有活动会话。',
+                  en: 'There is no active session.',
+                ),
+              ),
+            ),
+          );
+          return;
+        }
+        await _showSessionMetadataDialog(context, session);
+        return;
+      case OpenHandSlashCommandKind.stop:
+        final sessionController = context.read<AiSessionController>();
+        final currentSessionId = sessionController.currentSessionId;
+        final hasActiveResponse =
+            currentSessionId != null &&
+            sessionController.sendPhaseForSession(currentSessionId) !=
+                AiSendPhase.idle;
+        if (!hasActiveResponse) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _localizedText(
+                  context,
+                  zh: '当前没有正在进行的响应。',
+                  en: 'There is no active response to stop.',
+                ),
+              ),
+            ),
+          );
+          return;
+        }
+        await _stopResponding();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _localizedText(
+                  context,
+                  zh: '已请求当前会话停止继续响应。',
+                  en: 'Requested the current session to stop responding.',
+                ),
+              ),
+            ),
+          );
+        }
+        return;
+      case OpenHandSlashCommandKind.settings:
+        _activateSlashCommandSection(AppSection.settings);
+        return;
+      case OpenHandSlashCommandKind.workspace:
+        _activateSlashCommandSection(AppSection.workspace);
+        return;
+      case OpenHandSlashCommandKind.automations:
+        _activateSlashCommandSection(AppSection.automations);
+        return;
+      case OpenHandSlashCommandKind.skills:
+        _activateSlashCommandSection(AppSection.skills);
+        return;
+      case OpenHandSlashCommandKind.memory:
+        _activateSlashCommandSection(AppSection.memory);
+        return;
+      case OpenHandSlashCommandKind.mcp:
+        _activateSlashCommandSection(AppSection.mcp);
+        return;
+    }
+  }
+
+  void _activateSlashCommandSection(AppSection section) {
+    setState(() {
+      _selectedSection = section;
+    });
+    final label = switch (section) {
+      AppSection.workspace => _localizedText(
+        context,
+        zh: '工作区',
+        en: 'Workspace',
+      ),
+      AppSection.automations => _localizedText(
+        context,
+        zh: '自动化',
+        en: 'Automations',
+      ),
+      AppSection.skills => _localizedText(context, zh: '技能', en: 'Skills'),
+      AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
+      AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
+      AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '已切换到 $label。',
+            en: 'Switched to $label.',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showSlashHelpDialog() {
+    final settingsController = context.read<SettingsController>();
+    final sessionController = context.read<AiSessionController>();
+    final closeLabel = _localizedText(context, zh: '关闭', en: 'Close');
+    final allowRulePreview = settingsController.aiAllowCommandRules
+        .take(4)
+        .map((item) => '- ${item.pattern}')
+        .join('\n');
+    final commandList = <String>[
+      '/help',
+      '/commands',
+      '/feedback [note]',
+      '/new',
+      '/status',
+      '/stop',
+      '/settings',
+      '/config',
+      '/workspace',
+      '/sessions',
+      '/chat',
+      '/automations',
+      '/skills',
+      '/memory',
+      '/mcp',
+    ].join('\n');
+    final detail = _localizedText(
+      context,
+      zh: '可用本地命令：\n$commandList\n\n`/help`、`/commands`、`/feedback`、`/new`、`/status`、`/stop` 不会发给模型，而是由 OpenHand 本地处理。\n\n写命令确认：${settingsController.aiWriteCommandConfirmationEnabled ? '开启' : '关闭'}\n允许命令规则：${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\n设置文件：${settingsController.displaySettingsFilePath}\n会话目录：${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
+      en: 'Available local commands:\n$commandList\n\n`/help`, `/commands`, `/feedback`, `/new`, `/status`, and `/stop` are handled locally by OpenHand instead of being sent to the model.\n\nWrite command confirmation: ${settingsController.aiWriteCommandConfirmationEnabled ? 'enabled' : 'disabled'}\nAllow command rules: ${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\nSettings file: ${settingsController.displaySettingsFilePath}\nSession directory: ${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
+    );
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(context, zh: 'Slash Commands', en: 'Slash Commands'),
+          ),
+          content: SelectableText(detail),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              label: closeLabel,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showFeedbackDialog(String note) {
+    final settingsController = context.read<SettingsController>();
+    final sessionController = context.read<AiSessionController>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final closeLabel = _localizedText(context, zh: '关闭', en: 'Close');
+    final copiedLabel = _localizedText(
+      context,
+      zh: '反馈模板已复制。',
+      en: 'Feedback template copied.',
+    );
+    final trimmedNote = note.trim();
+    final feedbackTemplate = _localizedText(
+      context,
+      zh: 'OpenHand 反馈\n备注：${trimmedNote.isEmpty ? '请在这里补充问题描述。' : trimmedNote}\n设置文件：${settingsController.settingsFilePath}\n会话目录：${sessionController.sessionsDirectoryPath}',
+      en: 'OpenHand Feedback\nNote: ${trimmedNote.isEmpty ? 'Add your issue details here.' : trimmedNote}\nSettings file: ${settingsController.settingsFilePath}\nSession directory: ${sessionController.sessionsDirectoryPath}',
+    );
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(_localizedText(context, zh: '反馈信息', en: 'Feedback Info')),
+          content: SelectableText(
+            _localizedText(
+              context,
+              zh: '该命令不会发送给模型。你可以把下面这段信息复制出去提交反馈：\n\n$feedbackTemplate',
+              en: 'This command is handled locally and is not sent to the model. You can copy the following report template for feedback:\n\n$feedbackTemplate',
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              label: closeLabel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: feedbackTemplate));
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                Navigator.of(dialogContext).pop();
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text(copiedLabel)),
+                );
+              },
+              label: _localizedText(context, zh: '复制模板', en: 'Copy Template'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _renameSession(AiSession session) async {
@@ -511,11 +1067,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (!mounted || content == null) {
       return;
     }
-    _composerController
-      ..text = content
-      ..selection = TextSelection.fromPosition(
-        TextPosition(offset: content.length),
-      );
+    _replaceComposerText(content);
     setState(() {
       _selectedSection = AppSection.workspace;
       _composerCollapsed = false;
@@ -584,9 +1136,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
                     _stackedNavigationMaxHeight,
                   )
                   .toDouble();
+              final sessionSendPhases = _navigationSendPhases(
+                sessionController,
+              );
               final navigationPane = _NavigationPane(
                 selectedSection: _selectedSection,
                 sessions: sessionController.sessions,
+                sessionSendPhases: sessionSendPhases,
                 currentSessionId: sessionController.currentSessionId,
                 onCreateThreadRequested: _createSessionFromDialog,
                 onSessionSelected: (sessionId) async {
@@ -596,7 +1152,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
                   }
                   setState(() {
                     _selectedSection = AppSection.workspace;
-                    _pendingForcedScrollToBottom = true;
+                    _armAutoFollowToBottom();
                   });
                   _scheduleScrollToBottom(force: true, animated: true);
                 },
@@ -670,6 +1226,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
           });
         },
         onComposerLayoutChanged: _handleComposerLayoutChanged,
+        onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
         autoFollowEnabled: _autoFollowEnabled,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
@@ -725,6 +1282,7 @@ class _NavigationPane extends StatelessWidget {
   const _NavigationPane({
     required this.selectedSection,
     required this.sessions,
+    required this.sessionSendPhases,
     required this.currentSessionId,
     required this.onCreateThreadRequested,
     required this.onSessionSelected,
@@ -735,6 +1293,7 @@ class _NavigationPane extends StatelessWidget {
 
   final AppSection selectedSection;
   final List<AiSession> sessions;
+  final Map<String, AiSendPhase> sessionSendPhases;
   final String? currentSessionId;
   final Future<void> Function() onCreateThreadRequested;
   final Future<void> Function(String sessionId) onSessionSelected;
@@ -815,6 +1374,8 @@ class _NavigationPane extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _ThreadTile(
                           session: session,
+                          sendPhase:
+                              sessionSendPhases[session.id] ?? AiSendPhase.idle,
                           isSelected: currentSessionId == session.id,
                           onTap: () => onSessionSelected(session.id),
                           onRename: () => onRenameSession(session),
@@ -977,6 +1538,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onComposerHeightChanged,
     required this.onComposerCollapsedChanged,
     required this.onComposerLayoutChanged,
+    required this.onTranscriptLayoutChanged,
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
@@ -1002,6 +1564,7 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<double> onComposerHeightChanged;
   final ValueChanged<bool> onComposerCollapsedChanged;
   final VoidCallback onComposerLayoutChanged;
+  final VoidCallback onTranscriptLayoutChanged;
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
@@ -1043,6 +1606,7 @@ class _WorkspaceView extends StatelessWidget {
                       onScrollNotification: onMessageScrollNotification,
                       session: currentSession!,
                       sendPhase: sendPhase,
+                      onLayoutChanged: onTranscriptLayoutChanged,
                       onEditMessage: onEditMessage,
                       onCopyMessage: onCopyMessage,
                     ),
@@ -1152,6 +1716,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onScrollNotification,
     required this.session,
     required this.sendPhase,
+    required this.onLayoutChanged,
     required this.onEditMessage,
     required this.onCopyMessage,
   });
@@ -1160,6 +1725,7 @@ class _SessionTranscript extends StatefulWidget {
   final bool Function(ScrollNotification notification) onScrollNotification;
   final AiSession session;
   final AiSendPhase sendPhase;
+  final VoidCallback onLayoutChanged;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
 
@@ -1246,9 +1812,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final session = widget.session;
+    final displayMessagesStopwatch = Stopwatch()..start();
     final displayMessages = _displayMessages(session);
+    displayMessagesStopwatch.stop();
+    if (kDebugMode && displayMessagesStopwatch.elapsedMilliseconds >= 8) {
+      final lastMessage = displayMessages.isEmpty ? null : displayMessages.last;
+      debugPrint(
+        '[OpenHand][UI][${session.id}] transcript_messages_slow elapsed_ms=${displayMessagesStopwatch.elapsedMilliseconds} total_messages=${session.messages.length} display_messages=${displayMessages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'}',
+      );
+    }
     final userVisibleError = _resolveUserVisibleError(session);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1263,6 +1836,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           child: NotificationListener<ScrollNotification>(
             onNotification: widget.onScrollNotification,
             child: ListView.separated(
+              key: const ValueKey<String>('session-transcript-list'),
               controller: widget.controller,
               padding: const EdgeInsets.only(bottom: 12),
               itemCount: displayMessages.length,
@@ -1277,12 +1851,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   showReasoningSweep:
                       widget.sendPhase == AiSendPhase.responding &&
                       _isStreamingReasoningMessage(message),
+                  onLayoutChanged: widget.onLayoutChanged,
                   isSelected: _selectedMessageId == message.id,
                   onSelect: () {
                     setState(() {
-                      _selectedMessageId = _selectedMessageId == message.id
-                          ? null
-                          : message.id;
+                      _selectedMessageId = message.id;
                     });
                   },
                   onDeselect: () {
@@ -1304,14 +1877,63 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ),
         if (userVisibleError != null) ...[
           const SizedBox(height: 12),
-          Text(
-            userVisibleError.message,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
+          _SessionErrorBanner(error: userVisibleError),
+        ],
+      ],
+    );
+  }
+}
+
+class _SessionErrorBanner extends StatelessWidget {
+  const _SessionErrorBanner({required this.error});
+
+  final AiSessionErrorRecord error;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final presentation = _presentSessionError(context, error);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  presentation.title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onErrorContainer,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  presentation.message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onErrorContainer,
+                    height: 1.45,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -1454,6 +2076,23 @@ Future<void> _showSessionMetadataDialog(
   );
 }
 
+int _metadataInt(Object? rawValue) {
+  if (rawValue is int) {
+    return rawValue;
+  }
+  return int.tryParse('${rawValue ?? ''}'.trim()) ?? 0;
+}
+
+List<Map<String, Object?>> _metadataObjectList(Object? rawValue) {
+  if (rawValue is! List) {
+    return const <Map<String, Object?>>[];
+  }
+  return rawValue
+      .whereType<Map>()
+      .map((item) => Map<String, Object?>.from(item))
+      .toList(growable: false);
+}
+
 class _SessionMetadataDialog extends StatelessWidget {
   const _SessionMetadataDialog({required this.session});
 
@@ -1465,6 +2104,23 @@ class _SessionMetadataDialog extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final statistics = session.statistics;
     final environment = session.environment;
+    final lastPromptMetadata = session.lastPromptMetadata;
+    final hasPromptMetadata = lastPromptMetadata.isNotEmpty;
+    final writeCommandConfirmationEnabled =
+        lastPromptMetadata['write_command_confirmation_enabled'] == true;
+    final allowCommandRuleCount = _metadataInt(
+      lastPromptMetadata['allow_command_rule_count'],
+    );
+    final allowCommandRules = _metadataObjectList(
+      lastPromptMetadata['allow_command_rules'],
+    );
+    final todoWriteRecommended =
+        lastPromptMetadata['todo_write_recommended'] == true;
+    final todoWriteReason = '${lastPromptMetadata['todo_write_reason'] ?? ''}'
+        .trim();
+    final currentTodos = session.todoItems
+        .map((item) => item.toJson())
+        .toList(growable: false);
     final recentErrors = session.recentErrors
         .where((error) => error.stage != 'title_generation')
         .toList(growable: false);
@@ -1768,6 +2424,166 @@ class _SessionMetadataDialog extends StatelessWidget {
                       _MetadataSection(
                         title: _localizedText(
                           context,
+                          zh: '命令策略',
+                          en: 'Command Policy',
+                        ),
+                        children: !hasPromptMetadata
+                            ? [
+                                Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '当前还没有可展示的 prompt 元数据。',
+                                    en: 'Prompt metadata is not available yet.',
+                                  ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ]
+                            : [
+                                _MetadataEntryRow(
+                                  label: _localizedText(
+                                    context,
+                                    zh: '写命令确认',
+                                    en: 'Write Confirmation',
+                                  ),
+                                  value: writeCommandConfirmationEnabled
+                                      ? _localizedText(
+                                          context,
+                                          zh: '需要确认',
+                                          en: 'Required',
+                                        )
+                                      : _localizedText(
+                                          context,
+                                          zh: '无需确认',
+                                          en: 'Not required',
+                                        ),
+                                ),
+                                _MetadataEntryRow(
+                                  label: _localizedText(
+                                    context,
+                                    zh: '允许规则数',
+                                    en: 'Allow Rules',
+                                  ),
+                                  value: '$allowCommandRuleCount',
+                                ),
+                                if (allowCommandRules.isEmpty)
+                                  Text(
+                                    _localizedText(
+                                      context,
+                                      zh: '当前没有已上屏的允许命令规则。',
+                                      en: 'There are no surfaced allow command rules.',
+                                    ),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                else
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: allowCommandRules
+                                        .map((rule) {
+                                          final pattern =
+                                              '${rule['pattern'] ?? ''}'.trim();
+                                          final matchMode =
+                                              '${rule['match_mode'] ?? ''}'
+                                                  .trim();
+                                          if (pattern.isEmpty) {
+                                            return null;
+                                          }
+                                          final prefix = matchMode.isEmpty
+                                              ? ''
+                                              : '$matchMode: ';
+                                          return _MetadataChip(
+                                            label: '$prefix$pattern',
+                                          );
+                                        })
+                                        .whereType<Widget>()
+                                        .toList(growable: false),
+                                  ),
+                              ],
+                      ),
+                      const SizedBox(height: 16),
+                      _MetadataSection(
+                        title: _localizedText(
+                          context,
+                          zh: '任务跟踪',
+                          en: 'Task Tracking',
+                        ),
+                        children: [
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '当前 Todo 数量',
+                              en: 'Current Todos',
+                            ),
+                            value: '${currentTodos.length}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: 'TodoWrite 强提醒',
+                              en: 'TodoWrite Reminder',
+                            ),
+                            value: hasPromptMetadata
+                                ? (todoWriteRecommended
+                                      ? _localizedText(
+                                          context,
+                                          zh: '已触发',
+                                          en: 'Triggered',
+                                        )
+                                      : _localizedText(
+                                          context,
+                                          zh: '未触发',
+                                          en: 'Not triggered',
+                                        ))
+                                : _localizedText(
+                                    context,
+                                    zh: '暂无数据',
+                                    en: 'Unavailable',
+                                  ),
+                          ),
+                          if (todoWriteReason.isNotEmpty)
+                            _MetadataEntryRow(
+                              label: _localizedText(
+                                context,
+                                zh: '提醒原因',
+                                en: 'Reminder Reason',
+                              ),
+                              value: todoWriteReason,
+                            ),
+                          if (currentTodos.isNotEmpty)
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: currentTodos
+                                  .map((todo) {
+                                    final id = '${todo['id'] ?? ''}'.trim();
+                                    final content = '${todo['content'] ?? ''}'
+                                        .trim();
+                                    final status = '${todo['status'] ?? ''}'
+                                        .trim();
+                                    if (content.isEmpty) {
+                                      return null;
+                                    }
+                                    final prefix = status.isEmpty
+                                        ? ''
+                                        : '[$status] ';
+                                    final idPrefix = id.isEmpty ? '' : '$id: ';
+                                    return _MetadataChip(
+                                      label: '$prefix$idPrefix$content',
+                                    );
+                                  })
+                                  .whereType<Widget>()
+                                  .toList(growable: false),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _MetadataSection(
+                        title: _localizedText(
+                          context,
                           zh: '最近异常',
                           en: 'Recent Errors',
                         ),
@@ -1963,6 +2779,9 @@ class _MetadataErrorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final presentation = _presentSessionError(context, error);
+    final detail = (error.detail ?? '').trim();
+    final rawMessage = error.message.trim();
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
@@ -1975,7 +2794,7 @@ class _MetadataErrorCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            error.stage,
+            presentation.title,
             style: theme.textTheme.labelLarge?.copyWith(
               color: colorScheme.onErrorContainer,
               fontWeight: FontWeight.w800,
@@ -1983,15 +2802,33 @@ class _MetadataErrorCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           SelectableText(
-            error.message,
+            presentation.message,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onErrorContainer,
               height: 1.4,
             ),
           ),
+          if (detail.isNotEmpty && detail != rawMessage) ...[
+            const SizedBox(height: 8),
+            Text(
+              _localizedText(context, zh: '错误细节', en: 'Error Detail'),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onErrorContainer.withValues(alpha: 0.9),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              detail,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onErrorContainer.withValues(alpha: 0.9),
+                height: 1.4,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
-            '${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? _localizedText(context, zh: '已展示', en: 'Presented') : _localizedText(context, zh: '未展示', en: 'Pending')}',
+            '${_sessionErrorStageLabel(context, error.stage)} · ${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? _localizedText(context, zh: '已展示', en: 'Presented') : _localizedText(context, zh: '未展示', en: 'Pending')}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onErrorContainer.withValues(alpha: 0.84),
             ),
@@ -2000,6 +2837,91 @@ class _MetadataErrorCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SessionErrorPresentation {
+  const _SessionErrorPresentation({required this.title, required this.message});
+
+  final String title;
+  final String message;
+}
+
+_SessionErrorPresentation _presentSessionError(
+  BuildContext context,
+  AiSessionErrorRecord error,
+) {
+  final fallbackTitle = _sessionErrorStageLabel(context, error.stage);
+  final rawMessage = error.message.trim();
+  final fallbackMessage = rawMessage.isNotEmpty
+      ? rawMessage
+      : _localizedText(
+          context,
+          zh: '当前会话已提前结束。请重试或继续发送更具体的指令。',
+          en: 'This session ended early. Retry the request or continue with a more specific instruction.',
+        );
+  return switch (error.stage) {
+    'tool_loop' => _SessionErrorPresentation(
+      title: _localizedText(
+        context,
+        zh: '工具调用已安全停止',
+        en: 'Tool Calls Stopped for Safety',
+      ),
+      message: _localizedText(
+        context,
+        zh: '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。你可以继续让助手先总结当前进展，或给出更具体的下一步指令。',
+        en: 'OpenHand stopped this session for safety after too many sequential tool rounds. Ask the assistant to summarize the current progress or give a more specific next step.',
+      ),
+    ),
+    'chat_stream' => _SessionErrorPresentation(
+      title: _localizedText(context, zh: '回答已中断', en: 'Response Interrupted'),
+      message: _localizedText(
+        context,
+        zh: '本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。',
+        en: 'The response was interrupted while streaming and this session has stopped. Retry the request or continue with a new message.',
+      ),
+    ),
+    'chat_request' => _SessionErrorPresentation(
+      title: _localizedText(context, zh: '请求发送失败', en: 'Request Failed'),
+      message: _localizedText(
+        context,
+        zh: '本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。',
+        en: 'The request failed before the assistant could continue. Check the configuration and retry, or send a new message.',
+      ),
+    ),
+    _ => _SessionErrorPresentation(
+      title: fallbackTitle,
+      message: fallbackMessage,
+    ),
+  };
+}
+
+String _sessionErrorStageLabel(BuildContext context, String stage) {
+  return switch (stage) {
+    'tool_loop' => _localizedText(context, zh: '安全停止', en: 'Safety Stop'),
+    'chat_stream' => _localizedText(context, zh: '响应中断', en: 'Stream Error'),
+    'chat_request' => _localizedText(context, zh: '请求失败', en: 'Request Error'),
+    'tool_execution' => _localizedText(
+      context,
+      zh: '工具执行失败',
+      en: 'Tool Execution Error',
+    ),
+    'history_compression' => _localizedText(
+      context,
+      zh: '历史压缩失败',
+      en: 'Compression Error',
+    ),
+    'user_prompt_hook' => _localizedText(
+      context,
+      zh: '提示词被拦截',
+      en: 'Prompt Blocked',
+    ),
+    'title_generation' => _localizedText(
+      context,
+      zh: '标题生成失败',
+      en: 'Title Generation Error',
+    ),
+    _ => _localizedText(context, zh: '会话异常', en: 'Session Error'),
+  };
 }
 
 class _MetadataJsonPanel extends StatelessWidget {
@@ -2076,6 +2998,7 @@ class _MessageBubble extends StatefulWidget {
     required this.sessionTitle,
     required this.sessionEnvironment,
     required this.showReasoningSweep,
+    required this.onLayoutChanged,
     required this.isSelected,
     required this.onSelect,
     required this.onDeselect,
@@ -2087,6 +3010,7 @@ class _MessageBubble extends StatefulWidget {
   final String sessionTitle;
   final AiSessionEnvironment sessionEnvironment;
   final bool showReasoningSweep;
+  final VoidCallback onLayoutChanged;
   final bool isSelected;
   final VoidCallback onSelect;
   final VoidCallback onDeselect;
@@ -2099,14 +3023,14 @@ class _MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<_MessageBubble> {
   bool _compressionExpanded = false;
-  bool _reasoningExpanded = false;
+  bool? _reasoningExpandedOverride;
 
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
-      _reasoningExpanded = false;
+      _reasoningExpandedOverride = null;
     }
   }
 
@@ -2119,10 +3043,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final isCompressionPoint =
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
+    final isStreamingReasoning = _isStreamingReasoningMessage(message);
     final isToolCall = message.kind == AiSessionMessageKind.toolCall;
-    final isToolResult = message.kind == AiSessionMessageKind.tool;
+    final isToolResult =
+        message.kind == AiSessionMessageKind.tool ||
+        message.kind == AiSessionMessageKind.mcp ||
+        message.kind == AiSessionMessageKind.skill;
     final isStatus = message.kind == AiSessionMessageKind.status;
-    final isBashToolCall = isToolCall && _toolCallName(message) == 'bash';
+    final reasoningExpanded =
+        _reasoningExpandedOverride ?? _shouldDefaultExpandReasoning(message);
 
     final alignment = isCompressionPoint
         ? Alignment.center
@@ -2185,9 +3114,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
       _ExistingFilePathSyntax(candidateRoots: filePathRoots),
     ];
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: widget.onSelect,
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => widget.onSelect(),
       child: TapRegion(
         enabled: widget.isSelected,
         onTapOutside: (_) => widget.onDeselect(),
@@ -2195,143 +3124,164 @@ class _MessageBubbleState extends State<_MessageBubble> {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
-            child: Column(
-              crossAxisAlignment: isUser
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: borderRadius,
-                    border: isToolCall
-                        ? Border.all(color: colorScheme.secondary, width: 1.2)
-                        : null,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (isCompressionPoint)
-                          _MessageMetaRow(
-                            icon: Icons.summarize_rounded,
-                            label: AppLocalizations.of(
-                              context,
-                            )!.threadCompressionCheckpointLabel,
-                            color: textColor,
-                          )
-                        else if (isReasoning)
-                          _ReasoningMetaRow(
-                            message: message,
-                            color: textColor,
-                            showSweep: widget.showReasoningSweep,
-                            expanded: _reasoningExpanded,
-                            onTap: () {
-                              setState(() {
-                                _reasoningExpanded = !_reasoningExpanded;
-                              });
-                            },
-                          )
-                        else if (isToolCall)
-                          _ToolCallMetaRow(message: message, color: textColor)
-                        else if (isToolResult)
-                          _MessageMetaRow(
-                            icon: Icons.inventory_2_outlined,
-                            label: _localizedText(
-                              context,
-                              zh: '工具结果',
-                              en: 'Tool Result',
+            child: NotificationListener<SizeChangedLayoutNotification>(
+              onNotification: (notification) {
+                widget.onLayoutChanged();
+                return false;
+              },
+              child: SizeChangedLayoutNotifier(
+                child: Column(
+                  crossAxisAlignment: isUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        borderRadius: borderRadius,
+                        border: isToolCall
+                            ? Border.all(
+                                color: colorScheme.secondary,
+                                width: 1.2,
+                              )
+                            : null,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (isCompressionPoint)
+                              _MessageMetaRow(
+                                icon: Icons.summarize_rounded,
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.threadCompressionCheckpointLabel,
+                                color: textColor,
+                              )
+                            else if (isReasoning)
+                              _ReasoningMetaRow(
+                                message: message,
+                                color: textColor,
+                                showSweep: widget.showReasoningSweep,
+                                expanded: reasoningExpanded,
+                                onTap: () {
+                                  final nextExpanded = !reasoningExpanded;
+                                  setState(() {
+                                    _reasoningExpandedOverride = nextExpanded;
+                                  });
+                                },
+                              )
+                            else if (isToolCall)
+                              _ToolCallMetaRow(
+                                message: message,
+                                color: textColor,
+                              )
+                            else if (isToolResult)
+                              _MessageMetaRow(
+                                icon: Icons.inventory_2_outlined,
+                                label: _localizedText(
+                                  context,
+                                  zh: '工具结果',
+                                  en: 'Tool Result',
+                                ),
+                                color: textColor,
+                              )
+                            else if (message.modelLabel != null)
+                              Text(
+                                message.modelLabel!,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: isUser
+                                      ? textColor.withValues(alpha: 0.86)
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            if (isCompressionPoint ||
+                                isReasoning ||
+                                isToolCall ||
+                                isToolResult ||
+                                message.modelLabel != null)
+                              const SizedBox(height: 10),
+                            if (isCompressionPoint)
+                              _CompressionCheckpointBody(
+                                content: message.content,
+                                expanded: _compressionExpanded,
+                                onToggle: () {
+                                  setState(() {
+                                    _compressionExpanded =
+                                        !_compressionExpanded;
+                                  });
+                                },
+                                textColor: textColor,
+                                fadeColor: backgroundColor,
+                                styleSheet: markdownStyleSheet,
+                                builders: markdownBuilders,
+                                inlineSyntaxes: inlineSyntaxes,
+                                parseKey: filePathParseKey,
+                              )
+                            else if (isReasoning)
+                              _ReasoningBody(
+                                content: message.content,
+                                expanded: reasoningExpanded,
+                                streaming: isStreamingReasoning,
+                                textColor: textColor,
+                                fadeColor: backgroundColor,
+                                styleSheet: markdownStyleSheet,
+                                builders: markdownBuilders,
+                                inlineSyntaxes: inlineSyntaxes,
+                                parseKey: filePathParseKey,
+                              )
+                            else if (isToolCall)
+                              _ToolCallBody(message: message)
+                            else
+                              _SafeMarkdownBody(
+                                data: message.content.isEmpty
+                                    ? ' '
+                                    : message.content,
+                                selectable: true,
+                                builders: markdownBuilders,
+                                styleSheet: markdownStyleSheet,
+                                inlineSyntaxes: inlineSyntaxes,
+                                parseKey: filePathParseKey,
+                              ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _formatDateTime(message.createdAt),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: textColor.withValues(alpha: 0.78),
+                              ),
                             ),
-                            color: textColor,
-                          )
-                        else if (message.modelLabel != null)
-                          Text(
-                            message.modelLabel!,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: isUser
-                                  ? textColor.withValues(alpha: 0.86)
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        if (isCompressionPoint ||
-                            isReasoning ||
-                            isToolCall ||
-                            isToolResult ||
-                            message.modelLabel != null)
-                          const SizedBox(height: 10),
-                        if (isCompressionPoint)
-                          _CompressionCheckpointBody(
-                            content: message.content,
-                            expanded: _compressionExpanded,
-                            onToggle: () {
-                              setState(() {
-                                _compressionExpanded = !_compressionExpanded;
-                              });
-                            },
-                            textColor: textColor,
-                            fadeColor: backgroundColor,
-                            styleSheet: markdownStyleSheet,
-                            builders: markdownBuilders,
-                            inlineSyntaxes: inlineSyntaxes,
-                            parseKey: filePathParseKey,
-                          )
-                        else if (isReasoning)
-                          _ReasoningBody(
-                            content: message.content,
-                            expanded: _reasoningExpanded,
-                            textColor: textColor,
-                            fadeColor: backgroundColor,
-                            styleSheet: markdownStyleSheet,
-                            builders: markdownBuilders,
-                            inlineSyntaxes: inlineSyntaxes,
-                            parseKey: filePathParseKey,
-                          )
-                        else if (isBashToolCall)
-                          _BashToolCallBody(message: message)
-                        else
-                          _SafeMarkdownBody(
-                            data: message.content.isEmpty
-                                ? ' '
-                                : message.content,
-                            selectable: true,
-                            builders: markdownBuilders,
-                            styleSheet: markdownStyleSheet,
-                            inlineSyntaxes: inlineSyntaxes,
-                            parseKey: filePathParseKey,
-                          ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _formatDateTime(message.createdAt),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: textColor.withValues(alpha: 0.78),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (widget.isSelected)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Wrap(
+                          spacing: 8,
+                          children: [
+                            _MessageActionButton(
+                              onPressed: widget.onCopy,
+                              icon: Icons.content_copy_outlined,
+                              label: _localizedText(
+                                context,
+                                zh: '复制',
+                                en: 'Copy',
+                              ),
+                            ),
+                            if (widget.onEdit != null)
+                              _MessageActionButton(
+                                onPressed: widget.onEdit,
+                                icon: Icons.edit_outlined,
+                                label: AppLocalizations.of(context)!.commonEdit,
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-                if (widget.isSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        _MessageActionButton(
-                          onPressed: widget.onCopy,
-                          icon: Icons.content_copy_outlined,
-                          label: _localizedText(context, zh: '复制', en: 'Copy'),
-                        ),
-                        if (widget.onEdit != null)
-                          _MessageActionButton(
-                            onPressed: widget.onEdit,
-                            icon: Icons.edit_outlined,
-                            label: AppLocalizations.of(context)!.commonEdit,
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
@@ -2485,6 +3435,7 @@ class _ReasoningBody extends StatelessWidget {
   const _ReasoningBody({
     required this.content,
     required this.expanded,
+    required this.streaming,
     required this.textColor,
     required this.fadeColor,
     required this.styleSheet,
@@ -2495,6 +3446,7 @@ class _ReasoningBody extends StatelessWidget {
 
   final String content;
   final bool expanded;
+  final bool streaming;
   final Color textColor;
   final Color fadeColor;
   final MarkdownStyleSheet styleSheet;
@@ -2504,6 +3456,14 @@ class _ReasoningBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (streaming) {
+      return _StreamingReasoningBody(
+        content: content,
+        expanded: expanded,
+        textStyle: styleSheet.p?.copyWith(color: textColor),
+        fadeColor: fadeColor,
+      );
+    }
     return ClipRect(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 220),
@@ -2532,6 +3492,65 @@ class _ReasoningBody extends StatelessWidget {
                   parseKey: '$parseKey|reasoning-preview',
                   fadeColor: fadeColor,
                 ),
+              ),
+      ),
+    );
+  }
+}
+
+class _StreamingReasoningBody extends StatelessWidget {
+  const _StreamingReasoningBody({
+    required this.content,
+    required this.expanded,
+    required this.textStyle,
+    required this.fadeColor,
+  });
+
+  final String content;
+  final bool expanded;
+  final TextStyle? textStyle;
+  final Color fadeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveContent = content.isEmpty ? ' ' : content;
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: expanded
+            ? SelectableText(effectiveContent, style: textStyle)
+            : Stack(
+                children: [
+                  Text(
+                    effectiveContent,
+                    maxLines: 6,
+                    overflow: TextOverflow.fade,
+                    softWrap: true,
+                    style: textStyle,
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: Container(
+                        height: 26,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              fadeColor.withValues(alpha: 0),
+                              fadeColor.withValues(alpha: 0.96),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
@@ -2892,25 +3911,25 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 }
 
-class _BashToolCallBody extends StatefulWidget {
-  const _BashToolCallBody({required this.message});
+class _ToolCallBody extends StatefulWidget {
+  const _ToolCallBody({required this.message});
 
   final AiSessionMessage message;
 
   @override
-  State<_BashToolCallBody> createState() => _BashToolCallBodyState();
+  State<_ToolCallBody> createState() => _ToolCallBodyState();
 }
 
-class _BashToolCallBodyState extends State<_BashToolCallBody> {
-  bool _commandExpanded = false;
-  bool _resultExpanded = false;
+class _ToolCallBodyState extends State<_ToolCallBody> {
+  bool? _argumentsExpandedOverride;
+  bool? _resultExpandedOverride;
 
   @override
-  void didUpdateWidget(covariant _BashToolCallBody oldWidget) {
+  void didUpdateWidget(covariant _ToolCallBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id) {
-      _commandExpanded = false;
-      _resultExpanded = false;
+      _argumentsExpandedOverride = null;
+      _resultExpandedOverride = null;
     }
   }
 
@@ -2918,79 +3937,125 @@ class _BashToolCallBodyState extends State<_BashToolCallBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final message = widget.message;
-    final command = _toolExecutionCommand(message);
-    final workingDirectory = _toolExecutionWorkingDirectory(message);
-    final stdout = _toolExecutionStdout(message);
-    final stderr = _toolExecutionStderr(message);
-    final exitCode = _toolExecutionExitCode(message);
-    final status = _toolExecutionStatus(message);
-    final hasResultContent =
-        stdout.trim().isNotEmpty ||
-        stderr.trim().isNotEmpty ||
-        exitCode != null ||
-        status.isNotEmpty;
-    final commandPlaceholder = _localizedText(
-      context,
-      zh: '正在解析命令参数...',
-      en: 'Parsing command arguments...',
-    );
+    final toolCall = _ToolCallViewData.from(context, message);
+    final argumentsExpanded =
+        _argumentsExpandedOverride ?? toolCall.defaultExpanded;
+    final resultExpanded = _resultExpandedOverride ?? toolCall.defaultExpanded;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ExpandableToolSection(
-          title: _localizedText(context, zh: '执行命令', en: 'Command'),
-          preview: command.isEmpty ? commandPlaceholder : '\$ $command',
-          expanded: _commandExpanded,
-          onToggle: () {
-            setState(() {
-              _commandExpanded = !_commandExpanded;
-            });
-          },
-          child: command.isEmpty
-              ? Text(
-                  commandPlaceholder,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                )
-              : _ToolCodePanel(content: '\$ $command', theme: theme),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _ToolExecutionChip(
+              icon: toolCall.presentation.icon,
+              label: toolCall.primaryChipLabel,
+            ),
+            if (toolCall.workingDirectory.isNotEmpty)
+              _ToolExecutionChip(
+                icon: Icons.folder_outlined,
+                label:
+                    '${_localizedText(context, zh: '目录', en: 'Dir')}: ${toolCall.workingDirectory}',
+              ),
+            if (toolCall.status.isNotEmpty)
+              _ToolExecutionChip(
+                icon: toolCall.statusIcon,
+                label: toolCall.outcomeLabel,
+              ),
+            if (toolCall.durationMs > 0 || toolCall.status == 'running')
+              _ToolExecutionChip(
+                icon: Icons.timer_outlined,
+                label:
+                    '${_localizedText(context, zh: '耗时', en: 'Elapsed')}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
+              ),
+            if (toolCall.exitCode != null)
+              _ToolExecutionChip(
+                icon: Icons.flag_outlined,
+                label:
+                    '${_localizedText(context, zh: '退出码', en: 'Exit')}: ${toolCall.exitCode}',
+              ),
+          ],
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '执行结果', en: 'Output'),
-          preview: hasResultContent
-              ? _toolExecutionPreview(context, message)
-              : _localizedText(context, zh: '暂无输出', en: 'No output yet'),
-          expanded: _resultExpanded,
+          title: _localizedText(context, zh: '工具入参', en: 'Tool Input'),
+          preview: toolCall.argumentsPreview,
+          expanded: argumentsExpanded,
           onToggle: () {
             setState(() {
-              _resultExpanded = !_resultExpanded;
+              _argumentsExpandedOverride = !argumentsExpanded;
             });
           },
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (stdout.trim().isNotEmpty)
+              if (toolCall.command.isNotEmpty)
                 _ToolOutputPanel(
-                  label: 'stdout',
-                  content: stdout.trimRight(),
+                  label: _localizedText(context, zh: 'command', en: 'command'),
+                  content: '\$ ${toolCall.command}',
                   theme: theme,
                 ),
-              if (stderr.trim().isNotEmpty) ...[
-                if (stdout.trim().isNotEmpty) const SizedBox(height: 10),
+              if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
+              _ToolOutputPanel(
+                label: _localizedText(
+                  context,
+                  zh: 'arguments',
+                  en: 'arguments',
+                ),
+                content: toolCall.prettyArguments,
+                theme: theme,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        _ExpandableToolSection(
+          title: _localizedText(context, zh: '结果输出', en: 'Tool Output'),
+          preview: toolCall.hasResultContent
+              ? toolCall.resultPreview
+              : _localizedText(context, zh: '暂无输出', en: 'No output yet'),
+          expanded: resultExpanded,
+          onToggle: () {
+            setState(() {
+              _resultExpandedOverride = !resultExpanded;
+            });
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (toolCall.stdout.isNotEmpty)
+                _ToolOutputPanel(
+                  label: 'stdout',
+                  content: toolCall.stdout,
+                  theme: theme,
+                ),
+              if (toolCall.stderr.isNotEmpty) ...[
+                if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
                 _ToolOutputPanel(
                   label: 'stderr',
-                  content: stderr.trimRight(),
+                  content: toolCall.stderr,
                   theme: theme,
                   isError: true,
                 ),
               ],
-              if (stdout.trim().isEmpty && stderr.trim().isEmpty)
+              if (toolCall.showResultText) ...[
+                if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
+                  const SizedBox(height: 10),
+                _ToolOutputPanel(
+                  label: _localizedText(context, zh: 'result', en: 'result'),
+                  content: toolCall.resultText,
+                  theme: theme,
+                ),
+              ],
+              if (toolCall.stdout.isEmpty &&
+                  toolCall.stderr.isEmpty &&
+                  !toolCall.showResultText)
                 Text(
                   _localizedText(
                     context,
-                    zh: '当前还没有命令输出。',
-                    en: 'There is no command output yet.',
+                    zh: '当前还没有工具输出。',
+                    en: 'There is no tool output yet.',
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -2998,36 +4063,6 @@ class _BashToolCallBodyState extends State<_BashToolCallBody> {
                 ),
             ],
           ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (workingDirectory.isNotEmpty)
-              _ToolExecutionChip(
-                icon: Icons.folder_outlined,
-                label:
-                    '${_localizedText(context, zh: '目录', en: 'Dir')}: $workingDirectory',
-              ),
-            if (status.isNotEmpty)
-              _ToolExecutionChip(
-                icon: _toolCallStatusIcon(message),
-                label: _toolExecutionOutcomeLabel(context, status),
-              ),
-            if (_toolExecutionDurationMs(message) > 0 || status == 'running')
-              _ToolExecutionChip(
-                icon: Icons.timer_outlined,
-                label:
-                    '${_localizedText(context, zh: '耗时', en: 'Elapsed')}: ${_formatToolExecutionDuration(_toolExecutionDurationMs(message))}',
-              ),
-            if (exitCode != null)
-              _ToolExecutionChip(
-                icon: Icons.flag_outlined,
-                label:
-                    '${_localizedText(context, zh: '退出码', en: 'Exit')}: $exitCode',
-              ),
-          ],
         ),
       ],
     );
@@ -3194,17 +4229,145 @@ class _ToolExecutionChip extends StatelessWidget {
   }
 }
 
+class _ToolCallPresentation {
+  const _ToolCallPresentation({
+    required this.categoryLabel,
+    required this.displayName,
+    required this.icon,
+    this.isCommandLike = false,
+  });
+
+  final String categoryLabel;
+  final String displayName;
+  final IconData icon;
+  final bool isCommandLike;
+}
+
+class _ToolCallViewData {
+  const _ToolCallViewData({
+    required this.presentation,
+    required this.status,
+    required this.command,
+    required this.workingDirectory,
+    required this.stdout,
+    required this.stderr,
+    required this.resultText,
+    required this.exitCode,
+    required this.durationMs,
+    required this.argumentsPreview,
+    required this.prettyArguments,
+    required this.defaultExpanded,
+    required this.showResultText,
+    required this.hasResultContent,
+    required this.shouldSweepBadge,
+    required this.statusIcon,
+    required this.primaryChipLabel,
+    required this.statusLabel,
+    required this.outcomeLabel,
+    required this.resultPreview,
+  });
+
+  factory _ToolCallViewData.from(
+    BuildContext context,
+    AiSessionMessage message,
+  ) {
+    final stopwatch = Stopwatch()..start();
+    final presentation = _toolCallPresentation(context, message);
+    final status = _toolExecutionStatus(message);
+    final command = _toolExecutionCommand(message);
+    final workingDirectory = _toolExecutionWorkingDirectory(message);
+    final stdout = _toolExecutionStdout(message).trimRight();
+    final stderr = _toolExecutionStderr(message).trimRight();
+    final resultText = _toolExecutionResult(message).trimRight();
+    final exitCode = _toolExecutionExitCode(message);
+    final durationMs = _toolExecutionDurationMs(message);
+    final argumentsPreview = _toolArgumentsPreview(message);
+    final prettyArguments = _prettyToolArgumentsForDisplay(
+      '${message.metadata['tool_arguments'] ?? ''}',
+    );
+    final showResultText =
+        resultText.isNotEmpty &&
+        resultText != stdout.trim() &&
+        resultText != stderr.trim();
+    final hasResultContent =
+        stdout.isNotEmpty ||
+        stderr.isNotEmpty ||
+        resultText.isNotEmpty ||
+        exitCode != null ||
+        status.isNotEmpty;
+    final viewData = _ToolCallViewData(
+      presentation: presentation,
+      status: status,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: stdout,
+      stderr: stderr,
+      resultText: resultText,
+      exitCode: exitCode,
+      durationMs: durationMs,
+      argumentsPreview: argumentsPreview,
+      prettyArguments: prettyArguments,
+      defaultExpanded: _shouldDefaultExpandToolStatus(status),
+      showResultText: showResultText,
+      hasResultContent: hasResultContent,
+      shouldSweepBadge: _shouldSweepToolStatus(status),
+      statusIcon: _toolExecutionStatusIcon(status),
+      primaryChipLabel: presentation.displayName == presentation.categoryLabel
+          ? presentation.categoryLabel
+          : '${presentation.categoryLabel}: ${presentation.displayName}',
+      statusLabel: _toolCallStatusLabelForData(
+        context,
+        presentation,
+        status,
+        durationMs,
+      ),
+      outcomeLabel: _toolExecutionOutcomeLabel(context, status),
+      resultPreview: _toolExecutionPreviewText(
+        context,
+        status: status,
+        stdout: stdout,
+        stderr: stderr,
+        resultText: resultText,
+      ),
+    );
+    stopwatch.stop();
+    if (kDebugMode && stopwatch.elapsedMilliseconds >= 8) {
+      debugPrint(
+        '[OpenHand][UI][${message.id}] tool_viewdata_slow elapsed_ms=${stopwatch.elapsedMilliseconds} tool=${presentation.displayName} status=$status arg_chars=${'${message.metadata['tool_arguments'] ?? ''}'.length} stdout_chars=${stdout.length} stderr_chars=${stderr.length}',
+      );
+    }
+    return viewData;
+  }
+
+  final _ToolCallPresentation presentation;
+  final String status;
+  final String command;
+  final String workingDirectory;
+  final String stdout;
+  final String stderr;
+  final String resultText;
+  final int? exitCode;
+  final int durationMs;
+  final String argumentsPreview;
+  final String prettyArguments;
+  final bool defaultExpanded;
+  final bool showResultText;
+  final bool hasResultContent;
+  final bool shouldSweepBadge;
+  final IconData statusIcon;
+  final String primaryChipLabel;
+  final String statusLabel;
+  final String outcomeLabel;
+  final String resultPreview;
+}
+
 String _toolCallName(AiSessionMessage message) =>
     '${message.metadata['tool_name'] ?? ''}'.trim();
 
 String _toolExecutionStatus(AiSessionMessage message) =>
     '${message.metadata['tool_execution_status'] ?? ''}'.trim();
 
-bool _shouldSweepToolCallBadge(AiSessionMessage message) {
-  if (_toolCallName(message) != 'bash') {
-    return false;
-  }
-  final status = _toolExecutionStatus(message);
+bool _shouldSweepToolStatus(String status) {
   return status.isEmpty || status == 'running';
 }
 
@@ -3240,9 +4403,20 @@ String _toolExecutionStdout(AiSessionMessage message) =>
 String _toolExecutionStderr(AiSessionMessage message) =>
     '${message.metadata['tool_execution_stderr'] ?? ''}';
 
+String _toolExecutionResult(AiSessionMessage message) =>
+    '${message.metadata['tool_execution_result'] ?? ''}';
+
 bool _isStreamingReasoningMessage(AiSessionMessage message) {
   return message.kind == AiSessionMessageKind.reasoning &&
       message.metadata[aiSessionMessageMetadataStreamingKey] == true;
+}
+
+bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
+  return _isStreamingReasoningMessage(message);
+}
+
+bool _shouldDefaultExpandToolStatus(String status) {
+  return status.isEmpty || status == 'running';
 }
 
 int _reasoningElapsedMs(AiSessionMessage message) {
@@ -3261,8 +4435,8 @@ int? _toolExecutionExitCode(AiSessionMessage message) {
   return int.tryParse('${value ?? ''}'.trim());
 }
 
-IconData _toolCallStatusIcon(AiSessionMessage message) {
-  return switch (_toolExecutionStatus(message)) {
+IconData _toolExecutionStatusIcon(String status) {
+  return switch (status) {
     'running' => Icons.play_circle_outline_rounded,
     'cancelled' => Icons.stop_circle_outlined,
     'success' => Icons.check_circle_outline_rounded,
@@ -3275,34 +4449,221 @@ IconData _toolCallStatusIcon(AiSessionMessage message) {
   };
 }
 
-String _toolCallStatusLabel(BuildContext context, AiSessionMessage message) {
-  final status = _toolExecutionStatus(message);
-  if (_toolCallName(message) != 'bash') {
-    return _localizedText(context, zh: '工具调用', en: 'Tool Call');
+_ToolCallPresentation _toolCallPresentation(
+  BuildContext context,
+  AiSessionMessage message,
+) {
+  final rawToolName = _toolCallName(message);
+  final normalizedToolName = rawToolName.trim().toLowerCase();
+  final toolSource = '${message.metadata['tool_source'] ?? ''}'
+      .trim()
+      .toLowerCase();
+  if (toolSource == 'skill' || normalizedToolName.startsWith('skill__')) {
+    final skillName = '${message.metadata['skill_name'] ?? ''}'.trim();
+    return _ToolCallPresentation(
+      categoryLabel: _localizedText(context, zh: '技能', en: 'Skill'),
+      displayName: skillName.isEmpty ? rawToolName : skillName,
+      icon: Icons.extension_rounded,
+    );
   }
-  final durationMs = _toolExecutionDurationMs(message);
+  if (toolSource == 'mcp' || normalizedToolName.startsWith('mcp__')) {
+    final serverName = '${message.metadata['mcp_server_name'] ?? ''}'.trim();
+    final toolName = '${message.metadata['mcp_tool_name'] ?? ''}'.trim();
+    final toolId = '${message.metadata['mcp_tool_id'] ?? ''}'.trim();
+    final displayName = <String>[
+      if (serverName.isNotEmpty) serverName,
+      if (toolName.isNotEmpty) toolName else if (toolId.isNotEmpty) toolId,
+    ].join(' / ');
+    return _ToolCallPresentation(
+      categoryLabel: 'MCP',
+      displayName: displayName.isEmpty ? rawToolName : displayName,
+      icon: Icons.account_tree_outlined,
+    );
+  }
+  return switch (normalizedToolName) {
+    'bash' => const _ToolCallPresentation(
+      categoryLabel: 'Bash',
+      displayName: 'Bash',
+      icon: Icons.terminal_rounded,
+      isCommandLike: true,
+    ),
+    'grep' => const _ToolCallPresentation(
+      categoryLabel: 'Grep',
+      displayName: 'Grep',
+      icon: Icons.manage_search_rounded,
+    ),
+    'ls' => const _ToolCallPresentation(
+      categoryLabel: 'LS',
+      displayName: 'LS',
+      icon: Icons.folder_open_rounded,
+    ),
+    'read' => const _ToolCallPresentation(
+      categoryLabel: 'Read',
+      displayName: 'Read',
+      icon: Icons.article_outlined,
+    ),
+    'write' => const _ToolCallPresentation(
+      categoryLabel: 'Write',
+      displayName: 'Write',
+      icon: Icons.edit_note_rounded,
+    ),
+    'edit' => const _ToolCallPresentation(
+      categoryLabel: 'Edit',
+      displayName: 'Edit',
+      icon: Icons.edit_outlined,
+    ),
+    'multiedit' => const _ToolCallPresentation(
+      categoryLabel: 'MultiEdit',
+      displayName: 'MultiEdit',
+      icon: Icons.edit_note_outlined,
+    ),
+    'notebookedit' => const _ToolCallPresentation(
+      categoryLabel: 'NotebookEdit',
+      displayName: 'NotebookEdit',
+      icon: Icons.menu_book_outlined,
+    ),
+    'webfetch' => const _ToolCallPresentation(
+      categoryLabel: 'WebFetch',
+      displayName: 'WebFetch',
+      icon: Icons.language_rounded,
+    ),
+    'websearch' => const _ToolCallPresentation(
+      categoryLabel: 'WebSearch',
+      displayName: 'WebSearch',
+      icon: Icons.travel_explore_rounded,
+    ),
+    'todowrite' => const _ToolCallPresentation(
+      categoryLabel: 'TodoWrite',
+      displayName: 'TodoWrite',
+      icon: Icons.checklist_rounded,
+    ),
+    'task' => const _ToolCallPresentation(
+      categoryLabel: 'Task',
+      displayName: 'Task',
+      icon: Icons.hub_outlined,
+    ),
+    'glob' => const _ToolCallPresentation(
+      categoryLabel: 'Glob',
+      displayName: 'Glob',
+      icon: Icons.filter_alt_outlined,
+    ),
+    'exitplanmode' => const _ToolCallPresentation(
+      categoryLabel: 'ExitPlanMode',
+      displayName: 'ExitPlanMode',
+      icon: Icons.assignment_turned_in_outlined,
+    ),
+    _ => _ToolCallPresentation(
+      categoryLabel: _localizedText(context, zh: '工具', en: 'Tool'),
+      displayName: rawToolName.isEmpty
+          ? _localizedText(context, zh: '工具', en: 'Tool')
+          : rawToolName,
+      icon: Icons.build_circle_outlined,
+    ),
+  };
+}
+
+String _prettyToolArgumentsForDisplay(String rawArguments) {
+  final trimmed = rawArguments.trim();
+  if (trimmed.isEmpty) {
+    return '{}';
+  }
+  try {
+    return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+  } catch (_) {
+    return trimmed;
+  }
+}
+
+String _toolArgumentsPreview(AiSessionMessage message) {
+  final command = _toolExecutionCommand(message);
+  if (command.isNotEmpty) {
+    return '\$ $command';
+  }
+  final rawArguments = '${message.metadata['tool_arguments'] ?? ''}'.trim();
+  if (rawArguments.isNotEmpty) {
+    try {
+      final decoded = jsonDecode(rawArguments);
+      if (decoded is Map) {
+        final entries = Map<String, Object?>.from(decoded).entries.take(2);
+        final summary = entries
+            .map((entry) => '${entry.key}: ${entry.value}')
+            .join(', ');
+        if (summary.isNotEmpty) {
+          return summary;
+        }
+      }
+      if (decoded is List) {
+        return '[${decoded.length} items]';
+      }
+    } catch (_) {
+      // Fallback to the prettified text preview below.
+    }
+  }
+  final preview = _prettyToolArgumentsForDisplay(rawArguments);
+  final firstLine = const LineSplitter()
+      .convert(preview)
+      .map((line) => line.trim())
+      .firstWhere((line) => line.isNotEmpty, orElse: () => '{}');
+  return firstLine;
+}
+
+String _toolCallStatusLabelForData(
+  BuildContext context,
+  _ToolCallPresentation presentation,
+  String status,
+  int durationMs,
+) {
   final suffix = durationMs <= 0
       ? ''
       : ' (${_formatToolExecutionDuration(durationMs)})';
+  final toolLabel = presentation.displayName.trim().isEmpty
+      ? presentation.categoryLabel
+      : presentation.displayName.trim();
+  final statusLabel = _toolCallStatusActionLabel(
+    context,
+    status,
+    isCommandLike: presentation.isCommandLike,
+  );
+  return suffix.isEmpty
+      ? '$toolLabel · $statusLabel'
+      : '$toolLabel · $statusLabel$suffix';
+}
+
+String _toolCallStatusActionLabel(
+  BuildContext context,
+  String status, {
+  required bool isCommandLike,
+}) {
   return switch (status) {
-    '' => _localizedText(context, zh: '准备执行命令', en: 'Preparing Command'),
-    'running' =>
-      '${_localizedText(context, zh: '正在运行命令', en: 'Running Command')}$suffix',
-    'cancelled' =>
-      '${_localizedText(context, zh: '命令已停止', en: 'Command Stopped')}$suffix',
-    'success' =>
-      '${_localizedText(context, zh: '命令执行完成', en: 'Command Completed')}$suffix',
-    'denied' => _localizedText(context, zh: '命令已拦截', en: 'Command Blocked'),
-    'rejected' => _localizedText(context, zh: '命令已拒绝', en: 'Command Rejected'),
-    'timed_out' =>
-      '${_localizedText(context, zh: '命令执行超时', en: 'Command Timed Out')}$suffix',
-    'failed' =>
-      '${_localizedText(context, zh: '命令执行失败', en: 'Command Failed')}$suffix',
-    'invalid_arguments' => _localizedText(
+    '' => _localizedText(
       context,
-      zh: '命令参数无效',
-      en: 'Invalid Command',
+      zh: isCommandLike ? '准备执行' : '准备调用',
+      en: 'Preparing',
     ),
+    'running' => _localizedText(
+      context,
+      zh: isCommandLike ? '执行中' : '调用中',
+      en: 'Running',
+    ),
+    'cancelled' => _localizedText(context, zh: '已停止', en: 'Stopped'),
+    'success' => _localizedText(
+      context,
+      zh: isCommandLike ? '执行完成' : '调用完成',
+      en: 'Completed',
+    ),
+    'denied' => _localizedText(context, zh: '已拦截', en: 'Blocked'),
+    'rejected' => _localizedText(context, zh: '已拒绝', en: 'Rejected'),
+    'timed_out' => _localizedText(
+      context,
+      zh: isCommandLike ? '执行超时' : '调用超时',
+      en: 'Timed Out',
+    ),
+    'failed' => _localizedText(
+      context,
+      zh: isCommandLike ? '执行失败' : '调用失败',
+      en: 'Failed',
+    ),
+    'invalid_arguments' => _localizedText(context, zh: '参数无效', en: 'Invalid'),
     _ => _localizedText(context, zh: '工具调用', en: 'Tool Call'),
   };
 }
@@ -3321,26 +4682,36 @@ String _toolExecutionOutcomeLabel(BuildContext context, String status) {
   };
 }
 
-String _toolExecutionPreview(BuildContext context, AiSessionMessage message) {
-  final stderrLine = _lastNonEmptyToolOutputLine(_toolExecutionStderr(message));
+String _toolExecutionPreviewText(
+  BuildContext context, {
+  required String status,
+  required String stdout,
+  required String stderr,
+  required String resultText,
+}) {
+  final stderrLine = _lastNonEmptyToolOutputLine(stderr);
   if (stderrLine.isNotEmpty) {
     return 'stderr · $stderrLine';
   }
-  final stdoutLine = _lastNonEmptyToolOutputLine(_toolExecutionStdout(message));
+  final stdoutLine = _lastNonEmptyToolOutputLine(stdout);
   if (stdoutLine.isNotEmpty) {
     return 'stdout · $stdoutLine';
   }
-  if (_shouldSweepToolCallBadge(message)) {
+  final resultLine = _lastNonEmptyToolOutputLine(resultText);
+  if (resultLine.isNotEmpty) {
+    return 'result · $resultLine';
+  }
+  if (_shouldSweepToolStatus(status)) {
     return _localizedText(
       context,
-      zh: '命令准备中，等待新的输出...',
-      en: 'Command is starting. Waiting for output...',
+      zh: '工具运行中，等待新的输出...',
+      en: 'Tool is running. Waiting for output...',
     );
   }
   return _localizedText(
     context,
-    zh: '点击展开查看命令输出',
-    en: 'Expand to inspect command output',
+    zh: '点击展开查看工具输出',
+    en: 'Expand to inspect tool output',
   );
 }
 
@@ -3984,6 +5355,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 class _ThreadTile extends StatelessWidget {
   const _ThreadTile({
     required this.session,
+    required this.sendPhase,
     required this.isSelected,
     required this.onTap,
     required this.onRename,
@@ -3991,6 +5363,7 @@ class _ThreadTile extends StatelessWidget {
   });
 
   final AiSession session;
+  final AiSendPhase sendPhase;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onRename;
@@ -4006,6 +5379,7 @@ class _ThreadTile extends StatelessWidget {
     final titleColor = isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.onSurface;
+    final isActive = sendPhase != AiSendPhase.idle;
     return GestureDetector(
       onSecondaryTapDown: (details) async {
         final selected = await showMenu<String>(
@@ -4053,14 +5427,98 @@ class _ThreadTile extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Text(
-              session.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall?.copyWith(color: titleColor),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    session.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: titleColor,
+                    ),
+                  ),
+                ),
+                if (isActive) ...[
+                  const SizedBox(width: 12),
+                  _ActiveThreadBadge(
+                    key: ValueKey<String>('thread-active-${session.id}'),
+                    sendPhase: sendPhase,
+                    isSelected: isSelected,
+                  ),
+                ],
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ActiveThreadBadge extends StatelessWidget {
+  const _ActiveThreadBadge({
+    super.key,
+    required this.sendPhase,
+    required this.isSelected,
+  });
+
+  final AiSendPhase sendPhase;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final foregroundColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.primary;
+    final backgroundColor = isSelected
+        ? colorScheme.onPrimaryContainer.withValues(alpha: 0.14)
+        : colorScheme.primary.withValues(alpha: 0.12);
+    final label = switch (sendPhase) {
+      AiSendPhase.compressing => _localizedText(
+        context,
+        zh: '压缩中',
+        en: 'Compressing',
+      ),
+      AiSendPhase.sendingMessage => _localizedText(
+        context,
+        zh: '发送中',
+        en: 'Sending',
+      ),
+      AiSendPhase.responding => _localizedText(
+        context,
+        zh: '进行中',
+        en: 'Active',
+      ),
+      AiSendPhase.idle => '',
+    };
+    return _SweepBadge(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      backgroundColor: backgroundColor,
+      borderColor: foregroundColor.withValues(alpha: 0.22),
+      sweepColor: foregroundColor.withValues(alpha: 0.18),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: foregroundColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4233,18 +5691,19 @@ class _ToolCallMetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final showSweep = _shouldSweepToolCallBadge(message);
+    final toolCall = _ToolCallViewData.from(context, message);
+    final showSweep = toolCall.shouldSweepBadge;
     final effectiveColor = showSweep
         ? theme.colorScheme.onSurfaceVariant
         : color;
     final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(_toolCallStatusIcon(message), size: 18, color: effectiveColor),
+        Icon(toolCall.statusIcon, size: 18, color: effectiveColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
-            _toolCallStatusLabel(context, message),
+            toolCall.statusLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelLarge?.copyWith(color: effectiveColor),
@@ -4777,7 +6236,9 @@ List<AiSessionMessage> _displayMessages(AiSession session) {
       .toSet();
   return visibleMessages
       .where((message) {
-        if (message.kind != AiSessionMessageKind.tool) {
+        if (message.kind != AiSessionMessageKind.tool &&
+            message.kind != AiSessionMessageKind.mcp &&
+            message.kind != AiSessionMessageKind.skill) {
           return true;
         }
         final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();

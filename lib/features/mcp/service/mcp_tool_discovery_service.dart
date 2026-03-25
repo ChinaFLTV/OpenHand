@@ -11,8 +11,25 @@ import '../model/mcp_tool.dart';
 abstract class McpToolDiscoveryService {
   Future<McpToolCatalog> discoverTools(McpServer server);
   Future<McpServerHealth> checkHealth(McpServer server);
+  Future<McpToolCallResult> callTool({
+    required McpServer server,
+    required String toolName,
+    Map<String, Object?> arguments = const <String, Object?>{},
+  });
 
   void dispose();
+}
+
+class McpToolCallResult {
+  const McpToolCallResult({
+    required this.outputText,
+    this.isError = false,
+    this.rawResult,
+  });
+
+  final String outputText;
+  final bool isError;
+  final Object? rawResult;
 }
 
 class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
@@ -104,11 +121,38 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
   }
 
+  @override
+  Future<McpToolCallResult> callTool({
+    required McpServer server,
+    required String toolName,
+    Map<String, Object?> arguments = const <String, Object?>{},
+  }) async {
+    final result = await switch (server.type) {
+      McpServerType.streamableHttp => _callToolOverStreamableHttp(
+        server,
+        toolName,
+        arguments,
+      ),
+      McpServerType.sse => _callToolOverLegacySseWithFallback(
+        server,
+        toolName,
+        arguments,
+      ),
+      McpServerType.stdio => _callToolOverStdio(server, toolName, arguments),
+    }.timeout(_scanTimeout);
+    return McpToolCallResult(
+      outputText: _renderToolCallResult(result),
+      isError: result['isError'] == true,
+      rawResult: result,
+    );
+  }
+
   Future<_DiscoveredTools> _discoverOverStreamableHttp(McpServer server) async {
     final session = await _initializeStreamableHttpSession(server);
 
     return _listTools(
       (cursor) => _postJsonRpc(
+        server: server,
         uri: session.uri,
         protocolVersion: session.protocolVersion,
         sessionId: session.sessionId,
@@ -165,6 +209,82 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
   }
 
+  Future<Map<String, Object?>> _callToolOverStreamableHttp(
+    McpServer server,
+    String toolName,
+    Map<String, Object?> arguments,
+  ) async {
+    final session = await _initializeStreamableHttpSession(server);
+    final response = await _postJsonRpc(
+      server: server,
+      uri: session.uri,
+      protocolVersion: session.protocolVersion,
+      sessionId: session.sessionId,
+      payload: _jsonRpcRequest(
+        id: _nextId(),
+        method: 'tools/call',
+        params: <String, Object?>{'name': toolName, 'arguments': arguments},
+      ),
+      expectResponse: true,
+    );
+    return _extractResult(response.message);
+  }
+
+  Future<Map<String, Object?>> _callToolOverLegacySse(
+    McpServer server,
+    String toolName,
+    Map<String, Object?> arguments,
+  ) async {
+    final session = await _initializeLegacySseSession(server);
+    try {
+      return _extractResult(
+        await session.sendRequest(
+          _jsonRpcRequest(
+            id: _nextId(),
+            method: 'tools/call',
+            params: <String, Object?>{'name': toolName, 'arguments': arguments},
+          ),
+        ),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
+  Future<Map<String, Object?>> _callToolOverLegacySseWithFallback(
+    McpServer server,
+    String toolName,
+    Map<String, Object?> arguments,
+  ) {
+    return _runLegacySseWithStreamableFallback(
+      primaryOperation: () =>
+          _callToolOverLegacySse(server, toolName, arguments),
+      fallbackOperation: () =>
+          _callToolOverStreamableHttp(server, toolName, arguments),
+    );
+  }
+
+  Future<Map<String, Object?>> _callToolOverStdio(
+    McpServer server,
+    String toolName,
+    Map<String, Object?> arguments,
+  ) async {
+    final session = await _initializeStdioSession(server);
+    try {
+      return _extractResult(
+        await session.sendRequest(
+          _jsonRpcRequest(
+            id: _nextId(),
+            method: 'tools/call',
+            params: <String, Object?>{'name': toolName, 'arguments': arguments},
+          ),
+        ),
+      );
+    } finally {
+      await session.close();
+    }
+  }
+
   Future<void> _checkStreamableHttpHealth(McpServer server) async {
     await _initializeStreamableHttpSession(server);
   }
@@ -191,6 +311,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   ) async {
     final uri = _parseServerUri(server.url);
     final initializeResponse = await _postJsonRpc(
+      server: server,
       uri: uri,
       protocolVersion: _streamableHttpProtocolVersion,
       payload: _jsonRpcInitializeRequest(
@@ -207,6 +328,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final resolvedUri = initializeResponse.uri ?? uri;
 
     await _postJsonRpc(
+      server: server,
       uri: resolvedUri,
       protocolVersion: negotiatedProtocolVersion,
       sessionId: initializeResponse.sessionId,
@@ -226,6 +348,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final session = await _LegacySseSession.connect(
       client: _client,
       sseUri: _parseServerUri(server.url),
+      headers: server.headers,
+      sensitiveHeaderNames: _sensitiveHeaderNames(server.headers),
       endpointTimeout: _legacyEndpointTimeout,
       requestTimeout: _requestTimeout,
     );
@@ -410,16 +534,26 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_JsonRpcHttpResponse> _postJsonRpc({
+    required McpServer server,
     required Uri uri,
     required String protocolVersion,
     required Map<String, Object?> payload,
     String? sessionId,
     required bool expectResponse,
   }) async {
-    final headers = <String, String>{
-      'content-type': 'application/json',
-      'accept': 'application/json, text/event-stream',
-    };
+    final headers = _mergeRequestHeaders(
+      baseHeaders: const <String, String>{
+        'content-type': 'application/json',
+        'accept': 'application/json, text/event-stream',
+      },
+      extraHeaders: server.headers,
+      protectedHeaderNames: const <String>{
+        'content-type',
+        'accept',
+        'mcp-protocol-version',
+        'mcp-session-id',
+      },
+    );
     if (protocolVersion.trim().isNotEmpty) {
       headers['mcp-protocol-version'] = protocolVersion.trim();
     }
@@ -435,6 +569,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       body: jsonEncode(payload),
       requestTimeout: _requestTimeout,
       maxRedirects: _maxRedirects,
+      additionalSensitiveHeaderNames: _sensitiveHeaderNames(server.headers),
     );
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = _readHeader(response.headers, 'mcp-session-id');
@@ -621,6 +756,45 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     return text;
   }
 
+  String _renderToolCallResult(Map<String, Object?> result) {
+    final content = result['content'];
+    if (content is List) {
+      final renderedItems = content
+          .map((item) => _renderToolCallContentItem(item))
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+      if (renderedItems.isNotEmpty) {
+        final isError = result['isError'] == true;
+        final buffer = StringBuffer()
+          ..writeln('is_error: $isError')
+          ..writeln('content:')
+          ..write(renderedItems.join('\n'));
+        return buffer.toString().trim();
+      }
+    }
+    return const JsonEncoder.withIndent('  ').convert(result);
+  }
+
+  String _renderToolCallContentItem(Object? rawItem) {
+    final item = _asMap(rawItem);
+    if (item == null) {
+      return '$rawItem'.trim();
+    }
+    final type = _readText(item['type']);
+    switch (type) {
+      case 'text':
+        return _readText(item['text']);
+      case 'image':
+        return '[image] ${_readText(item['mimeType'])}';
+      case 'resource':
+        return '[resource] ${_readText(item['uri'])}';
+      case 'resource_link':
+        return '[resource_link] ${_readText(item['uri'])}';
+      default:
+        return const JsonEncoder.withIndent('  ').convert(item);
+    }
+  }
+
   String _readHeader(Map<String, String> headers, String name) {
     final target = name.toLowerCase();
     for (final entry in headers.entries) {
@@ -707,6 +881,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
   String? body,
   required Duration requestTimeout,
   required int maxRedirects,
+  Set<String> additionalSensitiveHeaderNames = const <String>{},
 }) async {
   var currentMethod = method;
   var currentUri = uri;
@@ -740,7 +915,10 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
     await response.stream.drain<void>();
     final redirectedUri = currentUri.resolve(redirectLocation);
     if (_isCrossOriginRedirect(currentUri, redirectedUri)) {
-      _stripSensitiveRedirectHeaders(currentHeaders);
+      _stripSensitiveRedirectHeaders(
+        currentHeaders,
+        additionalSensitiveHeaderNames,
+      );
     }
     currentUri = redirectedUri;
     if (response.statusCode == 303 &&
@@ -777,12 +955,16 @@ int _effectivePort(Uri uri) {
   };
 }
 
-void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
-  const sensitiveHeaderNames = <String>{
+void _stripSensitiveRedirectHeaders(
+  Map<String, String> headers,
+  Set<String> additionalSensitiveHeaderNames,
+) {
+  final sensitiveHeaderNames = <String>{
     'authorization',
     'cookie',
     'mcp-session-id',
     'proxy-authorization',
+    ...additionalSensitiveHeaderNames.map((item) => item.toLowerCase()),
   };
   headers.removeWhere(
     (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
@@ -839,17 +1021,23 @@ class _LegacySseSession {
   _LegacySseSession._({
     required http.Client client,
     required Uri endpointUri,
+    required Map<String, String> headers,
+    required Set<String> sensitiveHeaderNames,
     required StreamController<Map<String, Object?>> messages,
     required StreamSubscription<String> subscription,
     required Duration requestTimeout,
   }) : _client = client,
        _endpointUri = endpointUri,
+       _headers = headers,
+       _sensitiveHeaderNames = sensitiveHeaderNames,
        _messages = messages,
        _subscription = subscription,
        _requestTimeout = requestTimeout;
 
   final http.Client _client;
   final Uri _endpointUri;
+  final Map<String, String> _headers;
+  final Set<String> _sensitiveHeaderNames;
   final StreamController<Map<String, Object?>> _messages;
   final StreamSubscription<String> _subscription;
   final Duration _requestTimeout;
@@ -857,6 +1045,8 @@ class _LegacySseSession {
   static Future<_LegacySseSession> connect({
     required http.Client client,
     required Uri sseUri,
+    required Map<String, String> headers,
+    required Set<String> sensitiveHeaderNames,
     required Duration endpointTimeout,
     required Duration requestTimeout,
   }) async {
@@ -864,9 +1054,14 @@ class _LegacySseSession {
       client: client,
       method: 'GET',
       uri: sseUri,
-      headers: const <String, String>{'accept': 'text/event-stream'},
+      headers: _mergeRequestHeaders(
+        baseHeaders: const <String, String>{'accept': 'text/event-stream'},
+        extraHeaders: headers,
+        protectedHeaderNames: const <String>{'accept'},
+      ),
       requestTimeout: requestTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
+      additionalSensitiveHeaderNames: sensitiveHeaderNames,
     );
     final resolvedSseUri = response.request?.url ?? sseUri;
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -968,6 +1163,8 @@ class _LegacySseSession {
       return _LegacySseSession._(
         client: client,
         endpointUri: endpointUri,
+        headers: headers,
+        sensitiveHeaderNames: sensitiveHeaderNames,
         messages: messages,
         subscription: subscription,
         requestTimeout: requestTimeout,
@@ -1001,10 +1198,15 @@ class _LegacySseSession {
       client: _client,
       method: 'POST',
       uri: _endpointUri,
-      headers: const <String, String>{'content-type': 'application/json'},
+      headers: _mergeRequestHeaders(
+        baseHeaders: const <String, String>{'content-type': 'application/json'},
+        extraHeaders: _headers,
+        protectedHeaderNames: const <String>{'content-type'},
+      ),
       body: jsonEncode(payload),
       requestTimeout: _requestTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
+      additionalSensitiveHeaderNames: _sensitiveHeaderNames,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final body = await response.stream.bytesToString();
@@ -1339,4 +1541,49 @@ class _SseEvent {
 
   final String name;
   final String data;
+}
+
+Map<String, String> _mergeRequestHeaders({
+  required Map<String, String> baseHeaders,
+  Map<String, String> extraHeaders = const <String, String>{},
+  Set<String> protectedHeaderNames = const <String>{},
+}) {
+  final merged = <String, String>{};
+  for (final entry in extraHeaders.entries) {
+    final name = entry.key.trim();
+    final value = entry.value.trim();
+    if (name.isEmpty || value.isEmpty) {
+      continue;
+    }
+    if (protectedHeaderNames.contains(name.toLowerCase())) {
+      continue;
+    }
+    _setHeaderIgnoreCase(merged, name, value);
+  }
+  for (final entry in baseHeaders.entries) {
+    _setHeaderIgnoreCase(merged, entry.key, entry.value);
+  }
+  return merged;
+}
+
+Set<String> _sensitiveHeaderNames(Map<String, String> headers) {
+  return headers.keys
+      .map((item) => item.trim().toLowerCase())
+      .where((item) => item.isNotEmpty)
+      .toSet();
+}
+
+void _setHeaderIgnoreCase(
+  Map<String, String> headers,
+  String name,
+  String value,
+) {
+  final normalizedName = name.toLowerCase();
+  final existingKeys = headers.keys
+      .where((item) => item.toLowerCase() == normalizedName)
+      .toList(growable: false);
+  for (final existingKey in existingKeys) {
+    headers.remove(existingKey);
+  }
+  headers[name] = value;
 }
