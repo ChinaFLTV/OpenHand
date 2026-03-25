@@ -14,6 +14,8 @@ import 'package:highlight/highlight.dart' as highlight;
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:xml/xml.dart' as xml;
+import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
@@ -3174,7 +3176,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               )
                             else if (isToolCall)
                               _ToolCallMetaRow(
-                                message: message,
+                                data: _ToolCallStatusViewData.from(
+                                  context,
+                                  message,
+                                ),
                                 color: textColor,
                               )
                             else if (isToolResult)
@@ -3462,6 +3467,10 @@ class _ReasoningBody extends StatelessWidget {
         expanded: expanded,
         textStyle: styleSheet.p?.copyWith(color: textColor),
         fadeColor: fadeColor,
+        styleSheet: styleSheet,
+        builders: builders,
+        inlineSyntaxes: inlineSyntaxes,
+        parseKey: parseKey,
       );
     }
     return ClipRect(
@@ -3504,22 +3513,60 @@ class _StreamingReasoningBody extends StatelessWidget {
     required this.expanded,
     required this.textStyle,
     required this.fadeColor,
+    required this.styleSheet,
+    required this.builders,
+    required this.inlineSyntaxes,
+    required this.parseKey,
   });
 
   final String content;
   final bool expanded;
   final TextStyle? textStyle;
   final Color fadeColor;
+  final MarkdownStyleSheet styleSheet;
+  final Map<String, MarkdownElementBuilder> builders;
+  final List<md.InlineSyntax> inlineSyntaxes;
+  final String parseKey;
 
   @override
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
+    final renderMarkdown = _containsMarkdownCodeFence(effectiveContent);
     return ClipRect(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
-        child: expanded
+        child: renderMarkdown
+            ? expanded
+                  ? KeyedSubtree(
+                      key: const ValueKey<String>(
+                        'streaming-reasoning-markdown-expanded',
+                      ),
+                      child: _SafeMarkdownBody(
+                        data: effectiveContent,
+                        selectable: true,
+                        builders: builders,
+                        styleSheet: styleSheet,
+                        inlineSyntaxes: inlineSyntaxes,
+                        parseKey: '$parseKey|streaming-markdown',
+                      ),
+                    )
+                  : KeyedSubtree(
+                      key: const ValueKey<String>(
+                        'streaming-reasoning-markdown-preview',
+                      ),
+                      child: _MarkdownPreviewBody(
+                        data: effectiveContent,
+                        maxHeight: 142,
+                        styleSheet: styleSheet,
+                        builders: builders,
+                        inlineSyntaxes: inlineSyntaxes,
+                        parseKey: '$parseKey|streaming-markdown-preview',
+                        fadeColor: fadeColor,
+                      ),
+                    )
+            : expanded
             ? SelectableText(effectiveContent, style: textStyle)
             : Stack(
                 children: [
@@ -3843,13 +3890,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   String _sanitizeMarkdownSource(String source) {
-    return source
-        .replaceAll('\r\n', '\n')
-        .replaceAll('\r', '\n')
-        .replaceAllMapped(
-          RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)'),
-          (match) => '${match[1]}${match[2]}\\${match[3]}',
-        );
+    return _closeUnterminatedFencedCodeBlock(
+      source.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
+    ).replaceAllMapped(
+      RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)'),
+      (match) => '${match[1]}${match[2]}\\${match[3]}',
+    );
   }
 
   void _sanitizeMarkdownAst(List<md.Node> nodes) {
@@ -3923,6 +3969,8 @@ class _ToolCallBody extends StatefulWidget {
 class _ToolCallBodyState extends State<_ToolCallBody> {
   bool? _argumentsExpandedOverride;
   bool? _resultExpandedOverride;
+  _ToolCallViewData? _cachedViewData;
+  int? _cachedViewDataSignature;
 
   @override
   void didUpdateWidget(covariant _ToolCallBody oldWidget) {
@@ -3930,6 +3978,8 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
     if (oldWidget.message.id != widget.message.id) {
       _argumentsExpandedOverride = null;
       _resultExpandedOverride = null;
+      _cachedViewData = null;
+      _cachedViewDataSignature = null;
     }
   }
 
@@ -3937,10 +3987,17 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final message = widget.message;
-    final toolCall = _ToolCallViewData.from(context, message);
-    final argumentsExpanded =
-        _argumentsExpandedOverride ?? toolCall.defaultExpanded;
-    final resultExpanded = _resultExpandedOverride ?? toolCall.defaultExpanded;
+    final defaultExpanded = _shouldDefaultExpandToolStatus(
+      _toolExecutionStatus(message),
+    );
+    final argumentsExpanded = _argumentsExpandedOverride ?? defaultExpanded;
+    final resultExpanded = _resultExpandedOverride ?? defaultExpanded;
+    final toolCall = _resolveToolCallViewData(
+      context,
+      message,
+      argumentsExpanded: argumentsExpanded,
+      resultExpanded: resultExpanded,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3987,13 +4044,13 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               _argumentsExpandedOverride = !argumentsExpanded;
             });
           },
-          child: Column(
+          expandedBuilder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (toolCall.command.isNotEmpty)
                 _ToolOutputPanel(
                   label: _localizedText(context, zh: 'command', en: 'command'),
-                  content: '\$ ${toolCall.command}',
+                  content: toolCall.formattedCommand,
                   theme: theme,
                 ),
               if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
@@ -4003,7 +4060,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   zh: 'arguments',
                   en: 'arguments',
                 ),
-                content: toolCall.prettyArguments,
+                content: toolCall.formattedArguments,
                 theme: theme,
               ),
             ],
@@ -4021,20 +4078,20 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               _resultExpandedOverride = !resultExpanded;
             });
           },
-          child: Column(
+          expandedBuilder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (toolCall.stdout.isNotEmpty)
                 _ToolOutputPanel(
                   label: 'stdout',
-                  content: toolCall.stdout,
+                  content: toolCall.formattedStdout,
                   theme: theme,
                 ),
               if (toolCall.stderr.isNotEmpty) ...[
                 if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
                 _ToolOutputPanel(
                   label: 'stderr',
-                  content: toolCall.stderr,
+                  content: toolCall.formattedStderr,
                   theme: theme,
                   isError: true,
                 ),
@@ -4044,7 +4101,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   const SizedBox(height: 10),
                 _ToolOutputPanel(
                   label: _localizedText(context, zh: 'result', en: 'result'),
-                  content: toolCall.resultText,
+                  content: toolCall.formattedResult,
                   theme: theme,
                 ),
               ],
@@ -4067,6 +4124,47 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       ],
     );
   }
+
+  _ToolCallViewData _resolveToolCallViewData(
+    BuildContext context,
+    AiSessionMessage message, {
+    required bool argumentsExpanded,
+    required bool resultExpanded,
+  }) {
+    final signature = Object.hashAll(<Object?>[
+      Localizations.localeOf(context).toLanguageTag(),
+      message.id,
+      '${message.metadata['tool_name'] ?? ''}',
+      '${message.metadata['tool_source'] ?? ''}',
+      '${message.metadata['mcp_server_name'] ?? ''}',
+      '${message.metadata['mcp_tool_name'] ?? ''}',
+      '${message.metadata['mcp_tool_id'] ?? ''}',
+      '${message.metadata['skill_name'] ?? ''}',
+      '${message.metadata['tool_execution_status'] ?? ''}',
+      '${message.metadata['tool_execution_command'] ?? ''}',
+      '${message.metadata['tool_execution_working_directory'] ?? ''}',
+      '${message.metadata['tool_execution_stdout'] ?? ''}',
+      '${message.metadata['tool_execution_stderr'] ?? ''}',
+      '${message.metadata['tool_execution_result'] ?? ''}',
+      '${message.metadata['tool_arguments'] ?? ''}',
+      '${message.metadata['tool_execution_exit_code'] ?? ''}',
+      '${message.metadata['tool_execution_elapsed_ms'] ?? message.metadata['tool_execution_duration_ms'] ?? ''}',
+      argumentsExpanded,
+      resultExpanded,
+    ]);
+    if (_cachedViewData != null && _cachedViewDataSignature == signature) {
+      return _cachedViewData!;
+    }
+    final viewData = _ToolCallViewData.from(
+      context,
+      message,
+      includeArgumentsContent: argumentsExpanded,
+      includeResultContent: resultExpanded,
+    );
+    _cachedViewData = viewData;
+    _cachedViewDataSignature = signature;
+    return viewData;
+  }
 }
 
 class _ExpandableToolSection extends StatelessWidget {
@@ -4075,14 +4173,14 @@ class _ExpandableToolSection extends StatelessWidget {
     required this.preview,
     required this.expanded,
     required this.onToggle,
-    required this.child,
+    required this.expandedBuilder,
   });
 
   final String title;
   final String preview;
   final bool expanded;
   final VoidCallback onToggle;
-  final Widget child;
+  final WidgetBuilder expandedBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -4129,38 +4227,11 @@ class _ExpandableToolSection extends StatelessWidget {
                   ),
                 ),
               ],
-              if (expanded) ...[const SizedBox(height: 12), child],
+              if (expanded) ...[
+                const SizedBox(height: 12),
+                Builder(builder: expandedBuilder),
+              ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ToolCodePanel extends StatelessWidget {
-  const _ToolCodePanel({required this.content, required this.theme});
-
-  final String content;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF202126),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SelectableText(
-          content,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Colors.white,
-            fontFamily: 'monospace',
-            height: 1.42,
           ),
         ),
       ),
@@ -4177,7 +4248,7 @@ class _ToolOutputPanel extends StatelessWidget {
   });
 
   final String label;
-  final String content;
+  final _FormattedToolContent content;
   final ThemeData theme;
   final bool isError;
 
@@ -4196,7 +4267,15 @@ class _ToolOutputPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        _ToolCodePanel(content: content, theme: theme),
+        _HighlightedCodePanel(
+          content: content.text,
+          theme: theme,
+          language: content.language,
+          baseColor: isError
+              ? theme.colorScheme.onErrorContainer
+              : theme.colorScheme.onSurface,
+          accentColor: isError ? theme.colorScheme.error : null,
+        ),
       ],
     );
   }
@@ -4255,7 +4334,11 @@ class _ToolCallViewData {
     required this.exitCode,
     required this.durationMs,
     required this.argumentsPreview,
-    required this.prettyArguments,
+    required this.formattedCommand,
+    required this.formattedArguments,
+    required this.formattedStdout,
+    required this.formattedStderr,
+    required this.formattedResult,
     required this.defaultExpanded,
     required this.showResultText,
     required this.hasResultContent,
@@ -4269,8 +4352,10 @@ class _ToolCallViewData {
 
   factory _ToolCallViewData.from(
     BuildContext context,
-    AiSessionMessage message,
-  ) {
+    AiSessionMessage message, {
+    bool includeArgumentsContent = true,
+    bool includeResultContent = true,
+  }) {
     final stopwatch = Stopwatch()..start();
     final presentation = _toolCallPresentation(context, message);
     final status = _toolExecutionStatus(message);
@@ -4282,9 +4367,24 @@ class _ToolCallViewData {
     final exitCode = _toolExecutionExitCode(message);
     final durationMs = _toolExecutionDurationMs(message);
     final argumentsPreview = _toolArgumentsPreview(message);
-    final prettyArguments = _prettyToolArgumentsForDisplay(
-      '${message.metadata['tool_arguments'] ?? ''}',
-    );
+    final formattedCommand = !includeArgumentsContent || command.isEmpty
+        ? const _FormattedToolContent(text: '')
+        : _FormattedToolContent(text: '\$ $command', language: 'bash');
+    final formattedArguments = includeArgumentsContent
+        ? _formatToolContent(
+            '${message.metadata['tool_arguments'] ?? ''}',
+            emptyFallback: '{}',
+          )
+        : const _FormattedToolContent(text: '{}');
+    final formattedStdout = includeResultContent
+        ? _formatToolContent(stdout)
+        : const _FormattedToolContent(text: '');
+    final formattedStderr = includeResultContent
+        ? _formatToolContent(stderr)
+        : const _FormattedToolContent(text: '');
+    final formattedResult = includeResultContent
+        ? _formatToolContent(resultText)
+        : const _FormattedToolContent(text: '');
     final showResultText =
         resultText.isNotEmpty &&
         resultText != stdout.trim() &&
@@ -4306,7 +4406,11 @@ class _ToolCallViewData {
       exitCode: exitCode,
       durationMs: durationMs,
       argumentsPreview: argumentsPreview,
-      prettyArguments: prettyArguments,
+      formattedCommand: formattedCommand,
+      formattedArguments: formattedArguments,
+      formattedStdout: formattedStdout,
+      formattedStderr: formattedStderr,
+      formattedResult: formattedResult,
       defaultExpanded: _shouldDefaultExpandToolStatus(status),
       showResultText: showResultText,
       hasResultContent: hasResultContent,
@@ -4349,7 +4453,11 @@ class _ToolCallViewData {
   final int? exitCode;
   final int durationMs;
   final String argumentsPreview;
-  final String prettyArguments;
+  final _FormattedToolContent formattedCommand;
+  final _FormattedToolContent formattedArguments;
+  final _FormattedToolContent formattedStdout;
+  final _FormattedToolContent formattedStderr;
+  final _FormattedToolContent formattedResult;
   final bool defaultExpanded;
   final bool showResultText;
   final bool hasResultContent;
@@ -4562,16 +4670,228 @@ _ToolCallPresentation _toolCallPresentation(
   };
 }
 
-String _prettyToolArgumentsForDisplay(String rawArguments) {
-  final trimmed = rawArguments.trim();
+class _FormattedToolContent {
+  const _FormattedToolContent({required this.text, this.language});
+
+  final String text;
+  final String? language;
+}
+
+_FormattedToolContent _formatToolContent(
+  String rawContent, {
+  String emptyFallback = '',
+}) {
+  final normalized = rawContent
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n')
+      .trimRight();
+  final trimmed = normalized.trim();
   if (trimmed.isEmpty) {
-    return '{}';
+    return _FormattedToolContent(text: emptyFallback);
+  }
+  final jsonContent = _tryFormatJsonContent(trimmed);
+  if (jsonContent != null) {
+    return _FormattedToolContent(text: jsonContent, language: 'json');
+  }
+  final xmlContent = _tryFormatXmlContent(trimmed);
+  if (xmlContent != null) {
+    return _FormattedToolContent(text: xmlContent, language: 'xml');
+  }
+  final yamlContent = _tryFormatYamlContent(trimmed);
+  if (yamlContent != null) {
+    return _FormattedToolContent(text: yamlContent, language: 'yaml');
+  }
+  if (_looksLikeTomlContent(trimmed)) {
+    return _FormattedToolContent(text: normalized, language: 'toml');
+  }
+  return _FormattedToolContent(text: normalized);
+}
+
+String? _tryFormatJsonContent(String content) {
+  if (!_looksLikeJsonContent(content)) {
+    return null;
   }
   try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+    return const JsonEncoder.withIndent('  ').convert(jsonDecode(content));
   } catch (_) {
-    return trimmed;
+    return null;
   }
+}
+
+bool _looksLikeJsonContent(String content) {
+  if (content.length < 2) {
+    return false;
+  }
+  final startsWithObject = content.startsWith('{') && content.endsWith('}');
+  final startsWithArray = content.startsWith('[') && content.endsWith(']');
+  return startsWithObject || startsWithArray;
+}
+
+String? _tryFormatXmlContent(String content) {
+  if (!_looksLikeXmlContent(content)) {
+    return null;
+  }
+  try {
+    return xml.XmlDocument.parse(
+      content,
+    ).toXmlString(pretty: true, indent: '  ');
+  } catch (_) {
+    try {
+      return xml.XmlDocumentFragment.parse(
+        content,
+      ).toXmlString(pretty: true, indent: '  ');
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+bool _looksLikeXmlContent(String content) {
+  return content.startsWith('<') &&
+      content.endsWith('>') &&
+      RegExp(r'^<[\w!?]').hasMatch(content);
+}
+
+String? _tryFormatYamlContent(String content) {
+  if (!_looksLikeYamlContent(content)) {
+    return null;
+  }
+  try {
+    final decoded = loadYamlNode(content);
+    final value = decoded.value;
+    if (value is! YamlMap &&
+        value is! YamlList &&
+        !_isYamlMultilineScalar(value)) {
+      return null;
+    }
+    return _renderYamlNode(value, 0);
+  } catch (_) {
+    return null;
+  }
+}
+
+bool _looksLikeYamlContent(String content) {
+  final lines = const LineSplitter()
+      .convert(content)
+      .map((line) => line.trimLeft())
+      .where((line) => line.isNotEmpty)
+      .take(12)
+      .toList(growable: false);
+  if (lines.isEmpty) {
+    return false;
+  }
+  var structuredLineCount = 0;
+  for (final line in lines) {
+    if (line == '---' || line == '...') {
+      structuredLineCount += 1;
+      continue;
+    }
+    if (line.startsWith('- ') || RegExp(r'^[\w./-]+:\s').hasMatch(line)) {
+      structuredLineCount += 1;
+    }
+  }
+  return structuredLineCount > 0;
+}
+
+bool _looksLikeTomlContent(String content) {
+  final lines = const LineSplitter()
+      .convert(content)
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty && !line.startsWith('#'))
+      .take(12)
+      .toList(growable: false);
+  if (lines.isEmpty) {
+    return false;
+  }
+  return lines.every(
+    (line) =>
+        RegExp(r'^\[[^\]]+\]$').hasMatch(line) ||
+        RegExp(r'^[A-Za-z0-9_.-]+\s*=').hasMatch(line),
+  );
+}
+
+bool _isYamlMultilineScalar(Object? value) {
+  return value is String && value.contains('\n');
+}
+
+String _renderYamlNode(Object? value, int indent) {
+  final padding = ' ' * indent;
+  if (value is YamlMap) {
+    if (value.isEmpty) {
+      return '$padding{}';
+    }
+    final buffer = StringBuffer();
+    var isFirst = true;
+    for (final entry in value.entries) {
+      if (!isFirst) {
+        buffer.writeln();
+      }
+      final key = _renderYamlKey(entry.key);
+      final entryValue = entry.value;
+      if (_isYamlInlineValue(entryValue)) {
+        buffer.write('$padding$key: ${_renderYamlScalar(entryValue)}');
+      } else {
+        buffer.write(
+          '$padding$key:\n${_renderYamlNode(entryValue, indent + 2)}',
+        );
+      }
+      isFirst = false;
+    }
+    return buffer.toString();
+  }
+  if (value is YamlList) {
+    if (value.isEmpty) {
+      return '$padding[]';
+    }
+    final buffer = StringBuffer();
+    for (var index = 0; index < value.length; index += 1) {
+      if (index > 0) {
+        buffer.writeln();
+      }
+      final item = value[index];
+      if (_isYamlInlineValue(item)) {
+        buffer.write('$padding- ${_renderYamlScalar(item)}');
+      } else {
+        buffer.write('$padding-\n${_renderYamlNode(item, indent + 2)}');
+      }
+    }
+    return buffer.toString();
+  }
+  if (value is String && value.contains('\n')) {
+    final childPadding = ' ' * (indent + 2);
+    final lines = value.split('\n');
+    return '$padding|\n${lines.map((line) => '$childPadding$line').join('\n')}';
+  }
+  return '$padding${_renderYamlScalar(value)}';
+}
+
+bool _isYamlInlineValue(Object? value) {
+  return switch (value) {
+    null => true,
+    bool() => true,
+    num() => true,
+    String() => !value.contains('\n'),
+    _ => false,
+  };
+}
+
+String _renderYamlKey(Object? value) {
+  final key = '${value ?? ''}';
+  if (RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(key)) {
+    return key;
+  }
+  return jsonEncode(key);
+}
+
+String _renderYamlScalar(Object? value) {
+  return switch (value) {
+    null => 'null',
+    bool() => value ? 'true' : 'false',
+    num() => '$value',
+    String() => jsonEncode(value),
+    DateTime() => jsonEncode(value.toIso8601String()),
+    _ => jsonEncode('$value'),
+  };
 }
 
 String _toolArgumentsPreview(AiSessionMessage message) {
@@ -4599,7 +4919,7 @@ String _toolArgumentsPreview(AiSessionMessage message) {
       // Fallback to the prettified text preview below.
     }
   }
-  final preview = _prettyToolArgumentsForDisplay(rawArguments);
+  final preview = rawArguments.isEmpty ? '{}' : rawArguments;
   final firstLine = const LineSplitter()
       .convert(preview)
       .map((line) => line.trim())
@@ -5683,27 +6003,26 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
 }
 
 class _ToolCallMetaRow extends StatelessWidget {
-  const _ToolCallMetaRow({required this.message, required this.color});
+  const _ToolCallMetaRow({required this.data, required this.color});
 
-  final AiSessionMessage message;
+  final _ToolCallStatusViewData data;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final toolCall = _ToolCallViewData.from(context, message);
-    final showSweep = toolCall.shouldSweepBadge;
+    final showSweep = data.shouldSweepBadge;
     final effectiveColor = showSweep
         ? theme.colorScheme.onSurfaceVariant
         : color;
     final row = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(toolCall.statusIcon, size: 18, color: effectiveColor),
+        Icon(data.statusIcon, size: 18, color: effectiveColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
-            toolCall.statusLabel,
+            data.statusLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelLarge?.copyWith(color: effectiveColor),
@@ -5723,6 +6042,37 @@ class _ToolCallMetaRow extends StatelessWidget {
       child: row,
     );
   }
+}
+
+class _ToolCallStatusViewData {
+  const _ToolCallStatusViewData({
+    required this.shouldSweepBadge,
+    required this.statusIcon,
+    required this.statusLabel,
+  });
+
+  factory _ToolCallStatusViewData.from(
+    BuildContext context,
+    AiSessionMessage message,
+  ) {
+    final presentation = _toolCallPresentation(context, message);
+    final status = _toolExecutionStatus(message);
+    final durationMs = _toolExecutionDurationMs(message);
+    return _ToolCallStatusViewData(
+      shouldSweepBadge: _shouldSweepToolStatus(status),
+      statusIcon: _toolExecutionStatusIcon(status),
+      statusLabel: _toolCallStatusLabelForData(
+        context,
+        presentation,
+        status,
+        durationMs,
+      ),
+    );
+  }
+
+  final bool shouldSweepBadge;
+  final IconData statusIcon;
+  final String statusLabel;
 }
 
 class _SweepBadge extends StatefulWidget {
@@ -5817,24 +6167,12 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     required ThemeData theme,
     required Color baseColor,
     required bool darkSurface,
-  }) : _baseStyle =
-           theme.textTheme.bodyMedium?.copyWith(
-             color: baseColor,
-             fontFamily: 'monospace',
-             height: 1.48,
-           ) ??
-           TextStyle(color: baseColor, fontFamily: 'monospace', height: 1.48),
-       _containerColor = darkSurface
-           ? Colors.white.withValues(alpha: 0.08)
-           : theme.colorScheme.surface.withValues(alpha: 0.9),
-       _borderColor = darkSurface
-           ? Colors.white.withValues(alpha: 0.08)
-           : theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+  }) : _theme = theme,
+       _baseColor = baseColor,
        _darkSurface = darkSurface;
 
-  final TextStyle _baseStyle;
-  final Color _containerColor;
-  final Color _borderColor;
+  final ThemeData _theme;
+  final Color _baseColor;
   final bool _darkSurface;
 
   @override
@@ -5850,20 +6188,15 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     final codeElement = _findCodeElement(element);
     final rawCode = (codeElement?.textContent ?? element.textContent)
         .replaceFirst(RegExp(r'\n$'), '');
-    final language = _extractLanguage(codeElement);
+    final language = _extractCodeLanguage(codeElement);
     final content = rawCode.isEmpty ? ' ' : rawCode;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: _containerColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _borderColor),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SelectableText.rich(_buildHighlightedText(content, language)),
-      ),
+    return _HighlightedCodePanel(
+      content: content,
+      theme: _theme,
+      language: language,
+      baseColor: _baseColor,
+      forceDarkSurface: _darkSurface,
+      allowAutoDetection: true,
     );
   }
 
@@ -5875,43 +6208,469 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     }
     return null;
   }
+}
 
-  String? _extractLanguage(md.Element? element) {
-    final classes = (element?.attributes['class'] ?? '').trim();
-    if (classes.isEmpty) {
-      return null;
-    }
-    for (final name in classes.split(' ')) {
-      if (name.startsWith('language-') && name.length > 9) {
-        return name.substring(9);
-      }
-      if (name.startsWith('lang-') && name.length > 5) {
-        return name.substring(5);
-      }
-    }
-    return null;
+class _HighlightedCodePanel extends StatefulWidget {
+  const _HighlightedCodePanel({
+    required this.content,
+    required this.theme,
+    required this.baseColor,
+    this.language,
+    this.forceDarkSurface = false,
+    this.accentColor,
+    this.allowAutoDetection = false,
+  });
+
+  final String content;
+  final ThemeData theme;
+  final String? language;
+  final Color baseColor;
+  final bool forceDarkSurface;
+  final Color? accentColor;
+  final bool allowAutoDetection;
+
+  @override
+  State<_HighlightedCodePanel> createState() => _HighlightedCodePanelState();
+}
+
+class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
+  TextSpan? _highlightedSpan;
+  int? _highlightSignature;
+  bool _copied = false;
+  Timer? _copiedResetTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureHighlightedSpan();
   }
 
-  TextSpan _buildHighlightedText(String source, String? language) {
+  @override
+  void didUpdateWidget(covariant _HighlightedCodePanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content ||
+        oldWidget.language != widget.language ||
+        oldWidget.baseColor != widget.baseColor ||
+        oldWidget.forceDarkSurface != widget.forceDarkSurface ||
+        oldWidget.allowAutoDetection != widget.allowAutoDetection ||
+        oldWidget.theme.brightness != widget.theme.brightness ||
+        oldWidget.theme.textTheme.bodyMedium?.fontSize !=
+            widget.theme.textTheme.bodyMedium?.fontSize ||
+        oldWidget.theme.textTheme.bodyMedium?.fontFamily !=
+            widget.theme.textTheme.bodyMedium?.fontFamily ||
+        oldWidget.theme.textTheme.bodyMedium?.height !=
+            widget.theme.textTheme.bodyMedium?.height) {
+      _highlightedSpan = null;
+      _highlightSignature = null;
+    }
+    if (oldWidget.content != widget.content) {
+      _copiedResetTimer?.cancel();
+      _copied = false;
+    }
+    _ensureHighlightedSpan();
+  }
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final useDarkPalette =
+        widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
+    final palette = _CodeBlockPalette.fromTheme(
+      widget.theme,
+      useDarkPalette: useDarkPalette,
+      accentColor: widget.accentColor,
+    );
+    final copyLabel = _localizedText(
+      context,
+      zh: _copied ? '已复制' : '复制',
+      en: _copied ? 'Copied' : 'Copy',
+    );
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: palette.containerColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: palette.shadowColor,
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(
+              color: palette.headerColor,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(17),
+              ),
+              border: Border(bottom: BorderSide(color: palette.dividerColor)),
+            ),
+            child: Row(
+              children: [
+                if (effectiveLanguage != null)
+                  _buildHeaderPill(
+                    label: effectiveLanguage,
+                    icon: Icons.code_rounded,
+                    backgroundColor: palette.badgeColor,
+                    foregroundColor: palette.badgeTextColor,
+                  )
+                else
+                  const SizedBox(height: 32),
+                const Spacer(),
+                _buildHeaderPill(
+                  label: copyLabel,
+                  icon: _copied
+                      ? Icons.check_rounded
+                      : Icons.content_copy_rounded,
+                  backgroundColor: palette.actionColor,
+                  foregroundColor: palette.actionTextColor,
+                  onTap: _copyCodeBlock,
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: palette.bodyColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: palette.bodyBorderColor),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SelectableText.rich(
+                    _highlightedSpan ?? const TextSpan(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _ensureHighlightedSpan() {
+    final effectiveLanguage = _normalizeCodeLanguage(widget.language);
+    final useDarkPalette =
+        widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
+    final signature = Object.hashAll(<Object?>[
+      widget.content,
+      effectiveLanguage,
+      widget.allowAutoDetection,
+      widget.baseColor.toARGB32(),
+      useDarkPalette,
+      widget.theme.textTheme.bodyMedium?.fontSize,
+      widget.theme.textTheme.bodyMedium?.fontFamily,
+      widget.theme.textTheme.bodyMedium?.height,
+    ]);
+    if (_highlightedSpan != null && _highlightSignature == signature) {
+      return;
+    }
+    final highlighter = _CodeSyntaxHighlighter(
+      baseStyle:
+          widget.theme.textTheme.bodyMedium?.copyWith(
+            color: widget.baseColor,
+            fontFamily: 'monospace',
+            height: 1.48,
+          ) ??
+          TextStyle(
+            color: widget.baseColor,
+            fontFamily: 'monospace',
+            height: 1.48,
+          ),
+      darkSurface: useDarkPalette,
+    );
+    _highlightedSpan = highlighter.build(
+      widget.content,
+      language: effectiveLanguage,
+      allowAutoDetection: widget.allowAutoDetection,
+    );
+    _highlightSignature = signature;
+  }
+
+  Widget _buildHeaderPill({
+    required String label,
+    required IconData icon,
+    required Color backgroundColor,
+    required Color foregroundColor,
+    VoidCallback? onTap,
+  }) {
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: foregroundColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: widget.theme.textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+    final decoration = BoxDecoration(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(999),
+    );
+    if (onTap == null) {
+      return DecoratedBox(decoration: decoration, child: child);
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(decoration: decoration, child: child),
+      ),
+    );
+  }
+
+  void _copyCodeBlock() {
+    _copiedResetTimer?.cancel();
+    setState(() {
+      _copied = true;
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
+          ),
+        ),
+      );
+    _copiedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _copied = false;
+      });
+    });
+    unawaited(_writeCodeBlockToClipboard());
+  }
+
+  Future<void> _writeCodeBlockToClipboard() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.content));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _copiedResetTimer?.cancel();
+      setState(() {
+        _copied = false;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '复制代码块失败。',
+                en: 'Failed to copy code.',
+              ),
+            ),
+          ),
+        );
+    }
+  }
+}
+
+class _CodeBlockPalette {
+  const _CodeBlockPalette({
+    required this.containerColor,
+    required this.borderColor,
+    required this.headerColor,
+    required this.dividerColor,
+    required this.bodyColor,
+    required this.bodyBorderColor,
+    required this.badgeColor,
+    required this.badgeTextColor,
+    required this.actionColor,
+    required this.actionTextColor,
+    required this.shadowColor,
+  });
+
+  factory _CodeBlockPalette.fromTheme(
+    ThemeData theme, {
+    required bool useDarkPalette,
+    Color? accentColor,
+  }) {
+    final colorScheme = theme.colorScheme;
+    final tint = accentColor ?? colorScheme.primary;
+    if (useDarkPalette) {
+      final darkScheme = theme.brightness == Brightness.dark
+          ? colorScheme
+          : ColorScheme.fromSeed(
+              seedColor: tint,
+              brightness: Brightness.dark,
+              dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+              contrastLevel: 0.0,
+            );
+      return _CodeBlockPalette(
+        containerColor: Color.alphaBlend(
+          tint.withValues(alpha: 0.05),
+          darkScheme.surfaceContainerHigh,
+        ),
+        borderColor: darkScheme.outlineVariant.withValues(alpha: 0.78),
+        headerColor: Color.alphaBlend(
+          tint.withValues(alpha: 0.08),
+          darkScheme.surfaceContainerHighest,
+        ),
+        dividerColor: darkScheme.outlineVariant.withValues(alpha: 0.52),
+        bodyColor: Color.alphaBlend(
+          Colors.black.withValues(alpha: 0.14),
+          darkScheme.surfaceContainerLow,
+        ),
+        bodyBorderColor: darkScheme.outlineVariant.withValues(alpha: 0.34),
+        badgeColor: Color.alphaBlend(
+          tint.withValues(alpha: 0.16),
+          darkScheme.surfaceContainerHighest,
+        ),
+        badgeTextColor: darkScheme.onSurface,
+        actionColor: Color.alphaBlend(
+          tint.withValues(alpha: 0.08),
+          darkScheme.surfaceContainerHighest,
+        ),
+        actionTextColor: darkScheme.onSurface,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
+      );
+    }
+    return _CodeBlockPalette(
+      containerColor: Color.alphaBlend(
+        tint.withValues(alpha: 0.025),
+        colorScheme.surfaceContainerLow,
+      ),
+      borderColor: Color.alphaBlend(
+        tint.withValues(alpha: 0.08),
+        colorScheme.outlineVariant.withValues(alpha: 0.85),
+      ),
+      headerColor: Color.alphaBlend(
+        tint.withValues(alpha: 0.05),
+        colorScheme.surfaceContainer,
+      ),
+      dividerColor: colorScheme.outlineVariant.withValues(alpha: 0.62),
+      bodyColor: Colors.white.withValues(alpha: 0.45),
+      bodyBorderColor: colorScheme.outlineVariant.withValues(alpha: 0.38),
+      badgeColor: Color.alphaBlend(
+        tint.withValues(alpha: 0.08),
+        colorScheme.surface,
+      ),
+      badgeTextColor: colorScheme.onSurface,
+      actionColor: Color.alphaBlend(
+        colorScheme.surface.withValues(alpha: 0.4),
+        colorScheme.surfaceContainerHighest,
+      ),
+      actionTextColor: colorScheme.onSurface,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.03),
+    );
+  }
+
+  final Color containerColor;
+  final Color borderColor;
+  final Color headerColor;
+  final Color dividerColor;
+  final Color bodyColor;
+  final Color bodyBorderColor;
+  final Color badgeColor;
+  final Color badgeTextColor;
+  final Color actionColor;
+  final Color actionTextColor;
+  final Color shadowColor;
+}
+
+bool _containsMarkdownCodeFence(String source) {
+  return RegExp(r'(^|\n)[ ]{0,3}(`{3,}|~{3,})').hasMatch(source);
+}
+
+String _closeUnterminatedFencedCodeBlock(String source) {
+  final fencePattern = RegExp(r'^[ ]{0,3}((`{3,}|~{3,}))[^\n]*$');
+  String? openFence;
+  String? openFenceMarker;
+  for (final line in const LineSplitter().convert(source)) {
+    final match = fencePattern.firstMatch(line);
+    if (match == null) {
+      continue;
+    }
+    final delimiter = match.group(1)!;
+    final marker = delimiter[0];
+    if (openFence == null) {
+      openFence = delimiter;
+      openFenceMarker = marker;
+      continue;
+    }
+    if (marker == openFenceMarker && delimiter.length >= openFence.length) {
+      openFence = null;
+      openFenceMarker = null;
+    }
+  }
+  if (openFence == null) {
+    return source;
+  }
+  final separator = source.isEmpty || source.endsWith('\n') ? '' : '\n';
+  return '$source$separator$openFence';
+}
+
+class _CodeSyntaxHighlighter {
+  const _CodeSyntaxHighlighter({
+    required TextStyle baseStyle,
+    required bool darkSurface,
+  }) : _baseStyle = baseStyle,
+       _darkSurface = darkSurface;
+
+  final TextStyle _baseStyle;
+  final bool _darkSurface;
+
+  TextSpan build(
+    String source, {
+    String? language,
+    bool allowAutoDetection = false,
+  }) {
+    final normalizedLanguage = _normalizeCodeLanguage(language);
     try {
       final parsed = highlight.highlight.parse(
         source,
-        language: language,
-        autoDetection: language == null,
+        language: normalizedLanguage,
+        autoDetection: allowAutoDetection && normalizedLanguage == null,
       );
       return TextSpan(
         style: _baseStyle,
         children: _buildHighlightedNodes(parsed.nodes),
       );
     } catch (_) {
-      if (language != null) {
+      if (normalizedLanguage != null) {
         try {
           final parsed = highlight.highlight.parse(source, autoDetection: true);
           return TextSpan(
             style: _baseStyle,
             children: _buildHighlightedNodes(parsed.nodes),
           );
-        } catch (_) {}
+        } catch (_) {
+          // Fall through to plain text rendering.
+        }
       }
       return TextSpan(text: source, style: _baseStyle);
     }
@@ -5925,13 +6684,18 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     for (final node in nodes) {
       if (node.value != null) {
         spans.add(
-          TextSpan(text: node.value, style: _styleForClass(node.className)),
+          TextSpan(
+            text: node.value,
+            style: node.className == null
+                ? null
+                : _styleForClass(node.className),
+          ),
         );
         continue;
       }
       spans.add(
         TextSpan(
-          style: _styleForClass(node.className),
+          style: node.className == null ? null : _styleForClass(node.className),
           children: _buildHighlightedNodes(node.children),
         ),
       );
@@ -5948,18 +6712,36 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
         fontStyle: FontStyle.italic,
       );
     }
-    if (classes.any((item) => item == 'keyword' || item == 'selector-tag')) {
+    if (classes.any(
+      (item) =>
+          item == 'keyword' ||
+          item == 'selector-tag' ||
+          item == 'meta-keyword' ||
+          item == 'doctag',
+    )) {
       return style.copyWith(
         color: _darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFFB42367),
         fontWeight: FontWeight.w700,
       );
     }
-    if (classes.any((item) => item == 'string' || item == 'regexp')) {
+    if (classes.any(
+      (item) =>
+          item == 'string' ||
+          item == 'regexp' ||
+          item == 'attribute' ||
+          item == 'template-variable',
+    )) {
       return style.copyWith(
         color: _darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
       );
     }
-    if (classes.any((item) => item == 'number' || item == 'literal')) {
+    if (classes.any(
+      (item) =>
+          item == 'number' ||
+          item == 'literal' ||
+          item == 'symbol' ||
+          item == 'bullet',
+    )) {
       return style.copyWith(
         color: _darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
       );
@@ -5968,6 +6750,7 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
       (item) =>
           item == 'title' ||
           item == 'function' ||
+          item == 'section' ||
           item == 'title.function_' ||
           item == 'title.class_',
     )) {
@@ -5981,20 +6764,63 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
           item == 'type' ||
           item == 'built_in' ||
           item == 'class' ||
-          item == 'params',
+          item == 'params' ||
+          item == 'variable' ||
+          item == 'selector-id' ||
+          item == 'selector-class' ||
+          item == 'selector-attr' ||
+          item == 'selector-pseudo' ||
+          item == 'property',
     )) {
       return style.copyWith(
         color: _darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
         fontWeight: FontWeight.w600,
       );
     }
-    if (classes.any((item) => item == 'meta' || item == 'attr')) {
+    if (classes.any(
+      (item) =>
+          item == 'meta' || item == 'attr' || item == 'tag' || item == 'name',
+    )) {
       return style.copyWith(
         color: _darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
       );
     }
+    if (classes.any((item) => item == 'operator' || item == 'punctuation')) {
+      return style.copyWith(
+        color: _darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+      );
+    }
     return style;
   }
+}
+
+String? _extractCodeLanguage(md.Element? element) {
+  final classes = (element?.attributes['class'] ?? '').trim();
+  if (classes.isEmpty) {
+    return null;
+  }
+  for (final name in classes.split(' ')) {
+    if (name.startsWith('language-') && name.length > 9) {
+      return name.substring(9);
+    }
+    if (name.startsWith('lang-') && name.length > 5) {
+      return name.substring(5);
+    }
+  }
+  return null;
+}
+
+String? _normalizeCodeLanguage(String? language) {
+  final normalized = (language ?? '').trim().toLowerCase();
+  if (normalized.isEmpty || normalized == 'text' || normalized == 'plaintext') {
+    return null;
+  }
+  return switch (normalized) {
+    'shell' || 'sh' || 'zsh' => 'bash',
+    'yml' => 'yaml',
+    'htm' => 'html',
+    _ => normalized,
+  };
 }
 
 class _TokenDial extends StatefulWidget {
@@ -6027,14 +6853,14 @@ class _TokenDialState extends State<_TokenDial> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final ringColor = colorScheme.outlineVariant.withValues(alpha: 0.75);
-    final activeColor = colorScheme.primary;
-    final previousTurns = _previousTokens <= 0
-        ? 0.0
-        : (math.min(_previousTokens, 9999) / 9999);
-    final turns = widget.totalTokens <= 0
-        ? 0.0
-        : (math.min(widget.totalTokens, 9999) / 9999);
+    final numberStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+      color: colorScheme.onSurface,
+    );
+    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: colorScheme.onSurfaceVariant,
+    );
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -6048,58 +6874,24 @@ class _TokenDialState extends State<_TokenDial> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              shape: BoxShape.circle,
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: 1,
-                  strokeWidth: 2.6,
-                  color: ringColor,
-                ),
-                TweenAnimationBuilder<double>(
-                  tween: Tween<double>(begin: previousTurns, end: turns),
-                  duration: const Duration(milliseconds: 520),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, child) {
-                    return CircularProgressIndicator(
-                      value: value,
-                      strokeWidth: 2.6,
-                      color: activeColor,
-                    );
-                  },
-                ),
-              ],
-            ),
+          Icon(
+            Icons.confirmation_number_rounded,
+            size: 14,
+            color: colorScheme.primary,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           TweenAnimationBuilder<int>(
             tween: IntTween(begin: _previousTokens, end: widget.totalTokens),
             duration: const Duration(milliseconds: 800),
             curve: Curves.easeOutCubic,
             builder: (context, value, child) {
-              return Text(
-                '$value',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: colorScheme.onSurface,
-                ),
-              );
+              return Text('$value', style: numberStyle);
             },
           ),
           const SizedBox(width: 6),
           Text(
             _localizedText(context, zh: 'Token', en: 'Token'),
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: labelStyle,
           ),
         ],
       ),

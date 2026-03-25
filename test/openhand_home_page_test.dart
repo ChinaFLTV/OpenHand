@@ -337,6 +337,133 @@ void main() {
   );
 
   testWidgets(
+    'OpenHandHomePage keeps the token pill typography aligned with toolbar pills',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-toolbar-token-pill']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 5, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-toolbar-token-pill',
+          content: 'Show me the toolbar',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 5, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 5, 1),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 12097),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final tokenIcon = tester.widget<Icon>(
+        find.byIcon(Icons.confirmation_number_rounded),
+      );
+      expect(tokenIcon.size, 14);
+
+      final tokenCountText = tester.widget<Text>(find.text('12097'));
+      final tokenLabelText = tester.widget<Text>(find.text('Token'));
+      final metadataLabelText = tester.widget<Text>(
+        find.text('Session Metadata'),
+      );
+
+      expect(tokenCountText.style?.fontSize, metadataLabelText.style?.fontSize);
+      expect(tokenLabelText.style?.fontSize, metadataLabelText.style?.fontSize);
+    },
+  );
+
+  testWidgets(
     'OpenHandHomePage rearms auto follow after a new UI send from an older scroll position',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 820);
@@ -1233,6 +1360,440 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'OpenHandHomePage formats compact structured tool output before rendering',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-formatted-tool']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 15, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-formatted-tool',
+          content: 'Inspect the response payload',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 15, 0),
+        ),
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-formatted',
+          content: '**Bash**',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 15, 1),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-formatted',
+            'tool_name': 'Bash',
+            'tool_arguments': '{"cmd":"cat response.json"}',
+            'tool_execution_status': 'success',
+            'tool_execution_stdout':
+                '{"service":"openhand","metrics":{"latency_ms":12,"healthy":true}}',
+            'tool_execution_elapsed_ms': 640,
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 15, 1),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      await tester.tap(find.text('Tool Output'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('json'), findsOneWidget);
+      expect(find.textContaining('"service": "openhand"'), findsOneWidget);
+      expect(find.textContaining('"latency_ms": 12'), findsOneWidget);
+      expect(find.textContaining('"healthy": true'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage uses multiple syntax colors for markdown code blocks in dark mode',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-dark-code-block']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 18, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      await settingsController.updateThemeMode(ThemeMode.dark);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-dark-code-block',
+          content: 'Show me a Dart example',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 18, 0),
+        ),
+        AiSessionMessage.assistant(
+          id: 'message-assistant-dark-code-block',
+          content: '```dart\nfinal name = "OpenHand";\nconst retries = 3;\n```',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 18, 1),
+          modelLabel: 'gpt-test',
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 18, 1),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final codeWidget = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .firstWhere(
+            (widget) =>
+                widget.textSpan != null &&
+                widget.textSpan!.toPlainText().contains('final name'),
+          );
+      final colors = <Color>{};
+      _collectRenderedTextSpanColors(codeWidget.textSpan!, colors);
+
+      expect(colors.length, greaterThan(1));
+
+      final languageFinder = find.text('dart');
+      final copyFinder = find.text('Copy');
+      expect(languageFinder, findsOneWidget);
+      expect(copyFinder, findsOneWidget);
+
+      final languageTopLeft = tester.getTopLeft(languageFinder);
+      final copyTopLeft = tester.getTopLeft(copyFinder);
+      expect(languageTopLeft.dx, lessThan(copyTopLeft.dx));
+      expect((languageTopLeft.dy - copyTopLeft.dy).abs(), lessThan(12));
+
+      await tester.tap(copyFinder);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('Code copied.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage renders streaming reasoning code fences with highlight on dark surfaces',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-streaming-reasoning']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 20, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      await settingsController.updateThemeMode(ThemeMode.light);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-streaming-reasoning',
+          content: 'Show me how merge sort works',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 20, 0),
+        ),
+        AiSessionMessage.reasoning(
+          id: 'message-reasoning-streaming-code',
+          content:
+              'Let me reason it out first.\n```kotlin\nfun mergeSort(list: List<Int>): List<Int> {\n  return list\n}\n',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 20, 1),
+          modelLabel: 'deepseek-reasoner',
+          metadata: const <String, Object?>{
+            aiSessionMessageMetadataStreamingKey: true,
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 20, 1),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('kotlin'), findsOneWidget);
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.textContaining('```'), findsNothing);
+
+      final codeWidget = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .firstWhere(
+            (widget) =>
+                widget.textSpan != null &&
+                widget.textSpan!.toPlainText().contains('fun mergeSort'),
+          );
+      final colors = <Color>{};
+      _collectRenderedTextSpanColors(codeWidget.textSpan!, colors);
+      expect(colors.length, greaterThan(1));
+
+      final codeElement = find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is SelectableText &&
+                widget.textSpan != null &&
+                widget.textSpan!.toPlainText().contains('fun mergeSort'),
+          )
+          .evaluate()
+          .single;
+      final codePanelBodyColor = _nearestDecoratedBoxColor(codeElement);
+      expect(codePanelBodyColor, isNotNull);
+      expect(codePanelBodyColor!.computeLuminance(), lessThan(0.1));
+    },
+  );
 }
 
 class _InMemorySettingsStore extends SettingsStore {
@@ -1473,10 +2034,49 @@ Future<void> _pumpHomePage(
         locale: settingsController.locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
+        themeMode: settingsController.themeMode,
         theme: OpenHandTheme.light(OpenHandThemePreset.deepSeaBlue),
+        darkTheme: OpenHandTheme.dark(OpenHandThemePreset.deepSeaBlue),
         home: const Scaffold(body: OpenHandHomePage()),
       ),
     ),
   );
   await tester.pump(const Duration(milliseconds: 300));
+}
+
+void _collectRenderedTextSpanColors(
+  InlineSpan span,
+  Set<Color> colors, {
+  TextStyle? inheritedStyle,
+}) {
+  if (span is! TextSpan) {
+    return;
+  }
+  final mergedStyle = inheritedStyle?.merge(span.style) ?? span.style;
+  if ((span.text ?? '').isNotEmpty) {
+    final color = mergedStyle?.color;
+    if (color != null) {
+      colors.add(color);
+    }
+  }
+  final children = span.children;
+  if (children == null || children.isEmpty) {
+    return;
+  }
+  for (final child in children) {
+    _collectRenderedTextSpanColors(child, colors, inheritedStyle: mergedStyle);
+  }
+}
+
+Color? _nearestDecoratedBoxColor(Element element) {
+  Color? color;
+  element.visitAncestorElements((ancestor) {
+    final widget = ancestor.widget;
+    if (widget is DecoratedBox && widget.decoration is BoxDecoration) {
+      color = (widget.decoration as BoxDecoration).color;
+      return false;
+    }
+    return true;
+  });
+  return color;
 }
