@@ -567,4 +567,178 @@ description: "Fallback description."
     expect(skills.single.iconPath, isNull);
     expect(skills.single.iconKind, isNull);
   });
+
+  test(
+    'SkillsRepository skips unreadable skill manifests while loading others',
+    () async {
+      final repository = SkillsRepository();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_skip_invalid_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+
+      final validSkillDirectory = Directory(
+        p.join(tempDirectory.path, 'valid-skill'),
+      );
+      await validSkillDirectory.create(recursive: true);
+      await File(p.join(validSkillDirectory.path, 'SKILL.md')).writeAsString('''
+---
+name: Valid Skill
+description: Should still load.
+---
+
+# Valid Skill
+''');
+
+      final invalidSkillDirectory = Directory(
+        p.join(tempDirectory.path, 'invalid-skill'),
+      );
+      await invalidSkillDirectory.create(recursive: true);
+      await File(
+        p.join(invalidSkillDirectory.path, 'SKILL.md'),
+      ).writeAsBytes(const <int>[0xff, 0xfe, 0xff], flush: true);
+
+      final skills = await repository.loadInstalledSkills(tempDirectory.path);
+
+      expect(skills, hasLength(1));
+      expect(skills.single.name, 'Valid Skill');
+    },
+  );
+
+  test(
+    'SkillsRepository rolls back manifest changes when OpenAI metadata update fails',
+    () async {
+      final repository = SkillsRepository();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_update_rollback_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+
+      final skillDirectory = Directory(
+        p.join(tempDirectory.path, 'broken-metadata-skill'),
+      );
+      await skillDirectory.create(recursive: true);
+      final manifestFile = File(p.join(skillDirectory.path, 'SKILL.md'));
+      await manifestFile.writeAsString('''
+---
+name: Stable Skill
+description: Original description.
+---
+
+# Stable Skill
+''');
+      await File(
+        p.join(skillDirectory.path, 'agents'),
+      ).writeAsString('block metadata directory creation');
+
+      final skill = (await repository.loadInstalledSkills(
+        tempDirectory.path,
+      )).single;
+
+      await expectLater(
+        () => repository.updateSkill(
+          skill,
+          tempDirectory.path,
+          name: 'Broken Update',
+          emojiIcon: '🧠',
+          imageIconBytes: null,
+          shortDescription: 'Updated description.',
+          manifestContent: '''
+---
+name: Broken Update
+description: Updated description.
+---
+
+# Broken Update
+''',
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      final restoredManifest = await manifestFile.readAsString();
+      expect(restoredManifest, contains('name: Stable Skill'));
+      expect(restoredManifest, contains('description: Original description.'));
+      expect(restoredManifest, isNot(contains('Broken Update')));
+
+      final reloadedSkill = (await repository.loadInstalledSkills(
+        tempDirectory.path,
+      )).single;
+      expect(reloadedSkill.name, 'Stable Skill');
+      expect(reloadedSkill.description, 'Original description.');
+    },
+  );
+
+  test(
+    'SkillsRepository ignores nested manifests inside an installed skill directory',
+    () async {
+      final repository = SkillsRepository();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_nested_manifest_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+
+      final parentSkillDirectory = Directory(
+        p.join(tempDirectory.path, 'parent-skill'),
+      );
+      await parentSkillDirectory.create(recursive: true);
+      await File(p.join(parentSkillDirectory.path, 'SKILL.md')).writeAsString(
+        '''
+---
+name: Parent Skill
+description: The real installed skill.
+---
+
+# Parent Skill
+''',
+      );
+
+      final nestedDirectory = Directory(
+        p.join(parentSkillDirectory.path, 'references', 'example-skill'),
+      );
+      await nestedDirectory.create(recursive: true);
+      await File(p.join(nestedDirectory.path, 'SKILL.md')).writeAsString('''
+---
+name: Nested Skill
+description: Should not appear as an installed skill.
+---
+
+# Nested Skill
+''');
+
+      final skills = await repository.loadInstalledSkills(tempDirectory.path);
+
+      expect(skills, hasLength(1));
+      expect(skills.single.name, 'Parent Skill');
+      expect(skills.single.relativeDirectoryPath, 'parent-skill');
+    },
+  );
+
+  test(
+    'SkillsRepository removes copied directories when import parsing fails',
+    () async {
+      final repository = SkillsRepository();
+      final storageDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_import_cleanup_storage_test_',
+      );
+      final sourceDirectory = await Directory.systemTemp.createTemp(
+        'openhand_skills_import_cleanup_source_test_',
+      );
+      addTearDown(() => storageDirectory.delete(recursive: true));
+      addTearDown(() => sourceDirectory.delete(recursive: true));
+
+      await File(
+        p.join(sourceDirectory.path, 'SKILL.md'),
+      ).writeAsBytes(const <int>[0xff, 0xfe, 0xff], flush: true);
+
+      await expectLater(
+        () => repository.importSkillDirectory(
+          storageDirectory.path,
+          sourceDirectory.path,
+        ),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      expect(await storageDirectory.list().toList(), isEmpty);
+    },
+  );
 }

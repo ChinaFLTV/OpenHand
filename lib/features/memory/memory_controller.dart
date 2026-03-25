@@ -90,10 +90,25 @@ class MemoryController extends ChangeNotifier {
         filePath,
         defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
       );
-      if (_store.userMemoryFilePath != normalizedPath) {
+      final previousStore = _store;
+      final previousEntries = List<UserMemoryEntry>.from(_entries);
+      final previousErrorMessage = _errorMessage;
+      final previousPersistenceIssue = _persistenceIssue;
+      final changedPath = _store.userMemoryFilePath != normalizedPath;
+      if (changedPath) {
         _store = _storeFactory(normalizedPath);
       }
       await _loadLocked();
+      final didLoadFail =
+          _errorMessage != null ||
+          _persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed;
+      if (changedPath && didLoadFail) {
+        _store = previousStore;
+        _entries = previousEntries;
+        _errorMessage = previousErrorMessage;
+        _persistenceIssue = previousPersistenceIssue;
+        notifyListeners();
+      }
     });
   }
 

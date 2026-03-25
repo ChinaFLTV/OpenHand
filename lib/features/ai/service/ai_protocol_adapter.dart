@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
@@ -48,18 +49,48 @@ class AiToolDefinition {
   }
 }
 
+enum AiChatContentPartKind { text, imageFile }
+
+class AiChatContentPart {
+  const AiChatContentPart._({
+    required this.kind,
+    this.text,
+    this.filePath,
+    this.mimeType,
+  });
+
+  const AiChatContentPart.text(String value)
+    : this._(kind: AiChatContentPartKind.text, text: value);
+
+  const AiChatContentPart.imageFile({
+    required String filePath,
+    required String mimeType,
+  }) : this._(
+         kind: AiChatContentPartKind.imageFile,
+         filePath: filePath,
+         mimeType: mimeType,
+       );
+
+  final AiChatContentPartKind kind;
+  final String? text;
+  final String? filePath;
+  final String? mimeType;
+}
+
 class AiChatTurn {
   const AiChatTurn({
     required this.role,
     required this.content,
     this.toolCallId,
     this.toolCalls = const <AiToolCall>[],
+    this.parts = const <AiChatContentPart>[],
   });
 
   final AiChatRole role;
   final String content;
   final String? toolCallId;
   final List<AiToolCall> toolCalls;
+  final List<AiChatContentPart> parts;
 
   String get roleName {
     return switch (role) {
@@ -68,6 +99,28 @@ class AiChatTurn {
       AiChatRole.assistant => 'assistant',
       AiChatRole.tool => 'tool',
     };
+  }
+
+  List<AiChatContentPart> get effectiveParts {
+    final normalizedContent = content.trim();
+    if (normalizedContent.isEmpty) {
+      return parts;
+    }
+    return <AiChatContentPart>[
+      AiChatContentPart.text(content),
+      ...parts,
+    ];
+  }
+
+  int get promptCharacterCount {
+    var total = content.length;
+    for (final part in parts) {
+      total += switch (part.kind) {
+        AiChatContentPartKind.text => part.text?.length ?? 0,
+        AiChatContentPartKind.imageFile => 64,
+      };
+    }
+    return total;
   }
 }
 
@@ -100,12 +153,12 @@ abstract class AiProtocolAdapter {
     return '${protocolType.storageValue.toUpperCase()} · ${model.modelId}';
   }
 
-  AiRequestBlueprint buildChatRequest({
+  Future<AiRequestBlueprint> buildChatRequest({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     bool stream = false,
-  }) {
+  }) async {
     return AiRequestBlueprint(
       url: _buildUrl(
         model.normalizedBaseUrl,
@@ -113,7 +166,7 @@ abstract class AiProtocolAdapter {
         model.modelId,
       ),
       headers: buildHeaders(model),
-      body: buildBody(model, messages, tools: tools, stream: stream),
+      body: await buildBody(model, messages, tools: tools, stream: stream),
     );
   }
 
@@ -131,12 +184,16 @@ abstract class AiProtocolAdapter {
     return headers;
   }
 
-  Map<String, Object?> buildBody(
+  Future<Map<String, Object?>> buildBody(
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     bool stream = false,
   });
+
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    return false;
+  }
 
   AiTokenUsage? parseUsage(String rawResponse) {
     return null;
@@ -144,6 +201,14 @@ abstract class AiProtocolAdapter {
 
   List<AiToolCall> parseToolCalls(String rawResponse) {
     return const <AiToolCall>[];
+  }
+
+  Future<String> encodeFileAsDataUrl({
+    required String filePath,
+    required String mimeType,
+  }) async {
+    final bytes = await File(filePath).readAsBytes();
+    return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
   String parseAssistantMessage(String rawResponse) {
@@ -247,12 +312,15 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   bool get supportsToolCalls => true;
 
   @override
-  Map<String, Object?> buildBody(
+  Future<Map<String, Object?>> buildBody(
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     bool stream = false,
-  }) {
+  }) async {
+    final requestMessages = await Future.wait<Map<String, Object?>>(
+      messages.map((item) => _mapOpenAiMessage(item)),
+    );
     return <String, Object?>{
       'model': model.modelId,
       if (stream) 'stream': true,
@@ -262,24 +330,69 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
             .map((item) => item.toOpenAiJson())
             .toList(growable: false),
       if (tools.isNotEmpty) 'tool_choice': 'auto',
-      'messages': messages
-          .map((item) => _mapOpenAiMessage(item))
-          .toList(growable: false),
+      'messages': requestMessages,
     };
   }
 
-  Map<String, Object?> _mapOpenAiMessage(AiChatTurn item) {
+  @override
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    return _supportsOpenAiCompatibleAttachments(protocolType, model.modelId);
+  }
+
+  Future<Map<String, Object?>> _mapOpenAiMessage(AiChatTurn item) async {
     final payload = <String, Object?>{'role': item.roleName};
     if (item.role == AiChatRole.tool) {
       payload['tool_call_id'] = item.toolCallId ?? '';
       payload['content'] = item.content;
       return payload;
     }
-    payload['content'] = item.content;
+    final contentParts = item.effectiveParts;
+    if (contentParts.isNotEmpty &&
+        contentParts.any(
+          (part) => part.kind != AiChatContentPartKind.text,
+        )) {
+      payload['content'] = await _mapOpenAiContentParts(contentParts);
+    } else {
+      payload['content'] = contentParts.isEmpty
+          ? item.content
+          : contentParts.map((part) => part.text ?? '').join('\n\n').trim();
+    }
     if (item.role == AiChatRole.assistant && item.toolCalls.isNotEmpty) {
       payload['tool_calls'] = item.toolCalls
           .map((toolCall) => toolCall.toOpenAiJson())
           .toList(growable: false);
+    }
+    return payload;
+  }
+
+  Future<List<Map<String, Object?>>> _mapOpenAiContentParts(
+    List<AiChatContentPart> parts,
+  ) async {
+    final payload = <Map<String, Object?>>[];
+    for (final part in parts) {
+      switch (part.kind) {
+        case AiChatContentPartKind.text:
+          final text = (part.text ?? '').trim();
+          if (text.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{'type': 'text', 'text': text});
+        case AiChatContentPartKind.imageFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{
+            'type': 'image_url',
+            'image_url': <String, Object?>{
+              'url': await encodeFileAsDataUrl(
+                filePath: filePath,
+                mimeType: mimeType,
+              ),
+            },
+          });
+      }
     }
     return payload;
   }
@@ -391,33 +504,94 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  Map<String, Object?> buildBody(
+  Future<Map<String, Object?>> buildBody(
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     bool stream = false,
-  }) {
+  }) async {
     final systemContent = messages
         .where((item) => item.role == AiChatRole.system)
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
+    final requestMessages = await Future.wait<Map<String, Object?>>(
+      messages
+          .where((item) => item.role != AiChatRole.system)
+          .where((item) => item.role != AiChatRole.tool)
+          .map(_mapClaudeMessage),
+    );
     return <String, Object?>{
       'model': model.modelId,
       if (systemContent.isNotEmpty) 'system': systemContent,
       'max_tokens': 1024,
       if (stream) 'stream': true,
-      'messages': messages
-          .where((item) => item.role != AiChatRole.system)
-          .where((item) => item.role != AiChatRole.tool)
-          .map(
-            (item) => <String, Object?>{
-              'role': item.role == AiChatRole.user ? 'user' : 'assistant',
-              'content': item.content,
-            },
-          )
-          .toList(growable: false),
+      'messages': requestMessages,
     };
+  }
+
+  @override
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    return _containsAny(
+      model.modelId,
+      const <String>[
+        'claude-3',
+        'claude-4',
+        'claude-sonnet',
+        'claude-opus',
+        'claude-haiku',
+      ],
+    );
+  }
+
+  Future<Map<String, Object?>> _mapClaudeMessage(AiChatTurn item) async {
+    final contentParts = item.effectiveParts;
+    if (contentParts.isEmpty ||
+        contentParts.every((part) => part.kind == AiChatContentPartKind.text)) {
+      final textContent = contentParts.isEmpty
+          ? item.content
+          : contentParts.map((part) => part.text ?? '').join('\n\n').trim();
+      return <String, Object?>{
+        'role': item.role == AiChatRole.user ? 'user' : 'assistant',
+        'content': textContent,
+      };
+    }
+    return <String, Object?>{
+      'role': item.role == AiChatRole.user ? 'user' : 'assistant',
+      'content': await _mapClaudeContentParts(contentParts),
+    };
+  }
+
+  Future<List<Map<String, Object?>>> _mapClaudeContentParts(
+    List<AiChatContentPart> parts,
+  ) async {
+    final payload = <Map<String, Object?>>[];
+    for (final part in parts) {
+      switch (part.kind) {
+        case AiChatContentPartKind.text:
+          final text = (part.text ?? '').trim();
+          if (text.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{'type': 'text', 'text': text});
+        case AiChatContentPartKind.imageFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          final bytes = await File(filePath).readAsBytes();
+          payload.add(<String, Object?>{
+            'type': 'image',
+            'source': <String, Object?>{
+              'type': 'base64',
+              'media_type': mimeType,
+              'data': base64Encode(bytes),
+            },
+          });
+      }
+    }
+    return payload;
   }
 
   @override
@@ -502,17 +676,23 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  Map<String, Object?> buildBody(
+  Future<Map<String, Object?>> buildBody(
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     bool stream = false,
-  }) {
+  }) async {
     final systemContent = messages
         .where((item) => item.role == AiChatRole.system)
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
+    final requestContents = await Future.wait<Map<String, Object?>>(
+      messages
+          .where((item) => item.role != AiChatRole.system)
+          .where((item) => item.role != AiChatRole.tool)
+          .map(_mapGeminiMessage),
+    );
     return <String, Object?>{
       if (systemContent.isNotEmpty)
         'systemInstruction': <String, Object?>{
@@ -520,19 +700,53 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
             <String, Object?>{'text': systemContent},
           ],
         },
-      'contents': messages
-          .where((item) => item.role != AiChatRole.system)
-          .where((item) => item.role != AiChatRole.tool)
-          .map(
-            (item) => <String, Object?>{
-              'role': item.role == AiChatRole.assistant ? 'model' : 'user',
-              'parts': <Map<String, Object?>>[
-                <String, Object?>{'text': item.content},
-              ],
-            },
-          )
-          .toList(growable: false),
+      'contents': requestContents,
     };
+  }
+
+  @override
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    return _containsAny(
+      model.modelId,
+      const <String>['gemini-1.5', 'gemini-2.0', 'gemini-2.5', 'gemini'],
+    );
+  }
+
+  Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
+    return <String, Object?>{
+      'role': item.role == AiChatRole.assistant ? 'model' : 'user',
+      'parts': await _mapGeminiContentParts(item.effectiveParts),
+    };
+  }
+
+  Future<List<Map<String, Object?>>> _mapGeminiContentParts(
+    List<AiChatContentPart> parts,
+  ) async {
+    final payload = <Map<String, Object?>>[];
+    for (final part in parts) {
+      switch (part.kind) {
+        case AiChatContentPartKind.text:
+          final text = (part.text ?? '').trim();
+          if (text.isEmpty) {
+            continue;
+          }
+          payload.add(<String, Object?>{'text': text});
+        case AiChatContentPartKind.imageFile:
+          final filePath = (part.filePath ?? '').trim();
+          final mimeType = (part.mimeType ?? '').trim();
+          if (filePath.isEmpty || mimeType.isEmpty) {
+            continue;
+          }
+          final bytes = await File(filePath).readAsBytes();
+          payload.add(<String, Object?>{
+            'inline_data': <String, Object?>{
+              'mime_type': mimeType,
+              'data': base64Encode(bytes),
+            },
+          });
+      }
+    }
+    return payload;
   }
 
   @override
@@ -608,6 +822,7 @@ abstract final class AiProtocolRegistry {
         AiProtocolType.deepseek: const OpenAiProtocolAdapter(
           AiProtocolType.deepseek,
         ),
+        AiProtocolType.qwen: const OpenAiProtocolAdapter(AiProtocolType.qwen),
         AiProtocolType.kimi: const OpenAiProtocolAdapter(AiProtocolType.kimi),
         AiProtocolType.glm: const OpenAiProtocolAdapter(AiProtocolType.glm),
         AiProtocolType.grok: const OpenAiProtocolAdapter(AiProtocolType.grok),
@@ -676,4 +891,61 @@ int? _readInt(Object? value) {
   }
   final coercedValue = parsedDouble.toInt();
   return parsedDouble == coercedValue ? coercedValue : null;
+}
+
+bool _containsAny(String value, List<String> candidates) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return false;
+  }
+  for (final candidate in candidates) {
+    if (normalized.contains(candidate.toLowerCase())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _supportsOpenAiCompatibleAttachments(
+  AiProtocolType protocolType,
+  String modelId,
+) {
+  final normalized = modelId.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return false;
+  }
+  return switch (protocolType) {
+    AiProtocolType.openai => _containsAny(
+      normalized,
+      const <String>[
+        'gpt-4o',
+        'gpt-4.1',
+        'gpt-4.5',
+        'gpt-5',
+        'o1',
+        'o3',
+        'o4',
+        'vision',
+        'omni',
+      ],
+    ),
+    AiProtocolType.deepseek => false,
+    AiProtocolType.qwen => _containsAny(
+      normalized,
+      const <String>['vl', 'omni', 'vision', 'doc', 'long'],
+    ),
+    AiProtocolType.kimi => _containsAny(
+      normalized,
+      const <String>['vision', 'vl', 'k2v', 'k2vv', 'moonshot-v'],
+    ),
+    AiProtocolType.glm => _containsAny(
+      normalized,
+      const <String>['glm-4v', 'glm-4.5v', '4v', 'vision', 'vlm'],
+    ),
+    AiProtocolType.grok => _containsAny(
+      normalized,
+      const <String>['vision', 'grok-2-vision', 'grok-vision'],
+    ),
+    AiProtocolType.claude || AiProtocolType.gemini => true,
+  };
 }

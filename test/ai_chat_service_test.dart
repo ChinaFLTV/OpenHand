@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as img;
 
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/ai_chat_service.dart';
@@ -153,6 +155,79 @@ void main() {
       expect(completion.usage?.promptTokens, 12);
       expect(completion.usage?.completionTokens, 4);
       expect(completion.usage?.totalTokens, 16);
+    },
+  );
+
+  test(
+    'AiChatService encodes OpenAI-compatible image attachments as content parts',
+    () async {
+      Map<String, Object?>? requestBody;
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-ai-chat-image-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final imageFile = File('${tempDirectory.path}/sample.png');
+      final sourceImage = img.Image(width: 4, height: 3);
+      await imageFile.writeAsBytes(img.encodePng(sourceImage), flush: true);
+      final service = AiChatService(
+        client: MockClient((request) async {
+          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          return http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'content': 'Ready'},
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      const model = AiModelConfig(
+        id: 'model-image',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-4o-mini',
+        protocolType: AiProtocolType.openai,
+      );
+
+      addTearDown(service.dispose);
+
+      await service.sendMessage(
+        model: model,
+        messages: <AiChatTurn>[
+          AiChatTurn(
+            role: AiChatRole.user,
+            content: 'Describe the attachment',
+            parts: <AiChatContentPart>[
+              AiChatContentPart.imageFile(
+                filePath: imageFile.path,
+                mimeType: 'image/png',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      final messages = requestBody?['messages'] as List<dynamic>?;
+      expect(messages, isNotNull);
+      final firstMessage = messages!.first as Map<String, Object?>;
+      final content = firstMessage['content'] as List<dynamic>;
+      expect(content, hasLength(2));
+      expect(content.first, <String, Object?>{
+        'type': 'text',
+        'text': 'Describe the attachment',
+      });
+      final imagePart = content.last as Map<String, Object?>;
+      final imageUrl = imagePart['image_url'] as Map<String, Object?>;
+      expect(imagePart['type'], 'image_url');
+      expect('${imageUrl['url']}', startsWith('data:image/png;base64,'));
     },
   );
 

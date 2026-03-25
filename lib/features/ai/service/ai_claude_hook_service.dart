@@ -155,14 +155,8 @@ class AiClaudeHookService {
       workingDirectory: workingDirectory,
       runInShell: false,
     );
-    final stdoutFuture = process.stdout
-        .transform(utf8.decoder)
-        .join()
-        .then(_truncateText);
-    final stderrFuture = process.stderr
-        .transform(utf8.decoder)
-        .join()
-        .then(_truncateText);
+    final stdoutFuture = _collectTruncatedText(process.stdout);
+    final stderrFuture = _collectTruncatedText(process.stderr);
     process.stdin.write(jsonEncode(payload));
     await process.stdin.close();
     try {
@@ -201,7 +195,6 @@ class AiClaudeHookService {
       if (!await file.exists()) {
         continue;
       }
-      loadedConfigPaths.add(filePath);
       try {
         final rawContent = await file.readAsString();
         final decoded = jsonDecode(rawContent);
@@ -212,6 +205,7 @@ class AiClaudeHookService {
         if (hooks is! Map) {
           continue;
         }
+        loadedConfigPaths.add(filePath);
         final eventHooks = hooks[eventName];
         if (eventHooks is! List) {
           continue;
@@ -473,12 +467,36 @@ class AiClaudeHookService {
     return normalized;
   }
 
-  String _truncateText(String text) {
-    final trimmed = text.trim();
-    if (trimmed.length <= _maxHookTextCharacters) {
+  Future<String> _collectTruncatedText(Stream<List<int>> stream) async {
+    final buffer = StringBuffer();
+    var collectedCharacters = 0;
+    var truncated = false;
+    await for (final chunk in stream.transform(utf8.decoder)) {
+      if (truncated) {
+        continue;
+      }
+      final remainingCharacters = _maxHookTextCharacters - collectedCharacters;
+      if (remainingCharacters <= 0) {
+        truncated = true;
+        continue;
+      }
+      if (chunk.length <= remainingCharacters) {
+        buffer.write(chunk);
+        collectedCharacters += chunk.length;
+        continue;
+      }
+      buffer.write(chunk.substring(0, remainingCharacters));
+      collectedCharacters += remainingCharacters;
+      truncated = true;
+    }
+    final trimmed = buffer.toString().trim();
+    if (!truncated) {
       return trimmed;
     }
-    return '${trimmed.substring(0, _maxHookTextCharacters)}\n...[truncated]';
+    if (trimmed.isEmpty) {
+      return '...[truncated]';
+    }
+    return '$trimmed\n...[truncated]';
   }
 
   List<String> _deduplicate(List<String> items) {

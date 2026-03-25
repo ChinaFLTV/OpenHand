@@ -832,6 +832,7 @@ class _SettingsViewState extends State<SettingsView> {
         if (!context.mounted) {
           return;
         }
+        _skillsPathController.text = settingsController.skillsStoragePath;
         _showPersistenceFailureSnackBar(context);
         return;
       }
@@ -918,6 +919,7 @@ class _SettingsViewState extends State<SettingsView> {
         if (!context.mounted) {
           return;
         }
+        _memoryFileController.text = settingsController.userMemoryFilePath;
         _showPersistenceFailureSnackBar(context);
         return;
       }
@@ -1021,6 +1023,8 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (!saved) {
+      _compressionThresholdController.text =
+          '${context.read<SettingsController>().aiMessageCompressionThresholdChars}';
       _showPersistenceFailureSnackBar(context);
       return;
     }
@@ -1048,6 +1052,8 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     if (!saved) {
+      _toolCallLimitController.text =
+          '${context.read<SettingsController>().aiSingleRoundToolCallLimit}';
       _showPersistenceFailureSnackBar(context);
       return;
     }

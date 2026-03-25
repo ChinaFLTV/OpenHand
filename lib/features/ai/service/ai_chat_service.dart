@@ -134,7 +134,7 @@ class AiChatService implements AiChatClient {
   }) async {
     try {
       final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-      final blueprint = adapter.buildChatRequest(
+      final blueprint = await adapter.buildChatRequest(
         model: model,
         messages: messages,
         tools: tools,
@@ -189,7 +189,7 @@ class AiChatService implements AiChatClient {
       );
     }
 
-    final blueprint = adapter.buildChatRequest(
+    final blueprint = await adapter.buildChatRequest(
       model: model,
       messages: messages,
       tools: tools,

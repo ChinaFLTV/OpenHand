@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -47,34 +48,71 @@ void main() {
     expect(controller.errorMessage, isNull);
   });
 
-  test('SkillsController ignores late refresh completion after dispose', () async {
-    final repository = _QueuedSkillsRepository(
-      initialSkills: const <LocalSkill>[],
-    );
-    final controller = await SkillsController.create(
-      initialStoragePath: repository.storagePath,
-      repository: repository,
-    );
+  test(
+    'SkillsController ignores late refresh completion after dispose',
+    () async {
+      final repository = _QueuedSkillsRepository(
+        initialSkills: const <LocalSkill>[],
+      );
+      final controller = await SkillsController.create(
+        initialStoragePath: repository.storagePath,
+        repository: repository,
+      );
 
-    repository.blockNextLoad();
-    final refreshFuture = controller.refresh();
+      repository.blockNextLoad();
+      final refreshFuture = controller.refresh();
 
-    await Future<void>.delayed(Duration.zero);
-    expect(repository.pendingLoadCount, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.pendingLoadCount, 1);
 
-    controller.dispose();
-    repository.completeNextLoad();
+      controller.dispose();
+      repository.completeNextLoad();
 
-    await refreshFuture;
-  });
+      await refreshFuture;
+    },
+  );
+
+  test(
+    'SkillsController restores the previous storage path when reloading a new path fails',
+    () async {
+      final repository = _QueuedSkillsRepository(
+        initialSkills: const <LocalSkill>[
+          LocalSkill(
+            name: 'Planner Skill',
+            description: 'Planner Skill',
+            directoryPath: '/tmp/openhand-test-skills/planner-skill',
+            manifestPath: '/tmp/openhand-test-skills/planner-skill/SKILL.md',
+            relativeDirectoryPath: 'planner-skill',
+            emojiIcon: '🧠',
+          ),
+        ],
+        failingPaths: const <String>{'/broken/skills'},
+      );
+      final controller = await SkillsController.create(
+        initialStoragePath: repository.storagePath,
+        repository: repository,
+      );
+
+      await controller.reloadFromPath('/broken/skills');
+
+      expect(controller.storagePath, repository.storagePath);
+      expect(controller.skills, hasLength(1));
+      expect(controller.skills.single.name, 'Planner Skill');
+      expect(controller.errorMessage, isNull);
+    },
+  );
 }
 
 class _QueuedSkillsRepository extends SkillsRepository {
-  _QueuedSkillsRepository({required List<LocalSkill> initialSkills})
-    : _persistedSkills = List<LocalSkill>.from(initialSkills);
+  _QueuedSkillsRepository({
+    required List<LocalSkill> initialSkills,
+    Set<String> failingPaths = const <String>{},
+  }) : _persistedSkills = List<LocalSkill>.from(initialSkills),
+       _failingPaths = failingPaths;
 
   final String storagePath = '/tmp/openhand-test-skills';
   List<LocalSkill> _persistedSkills;
+  final Set<String> _failingPaths;
   int loadCallCount = 0;
   final List<_PendingSkillCreate> _pendingCreates = <_PendingSkillCreate>[];
   final List<Completer<void>> _pendingLoads = <Completer<void>>[];
@@ -86,6 +124,9 @@ class _QueuedSkillsRepository extends SkillsRepository {
   @override
   Future<List<LocalSkill>> loadInstalledSkills(String storagePath) async {
     loadCallCount += 1;
+    if (_failingPaths.contains(storagePath)) {
+      throw FileSystemException('Injected skills reload failure');
+    }
     if (_blockLoads) {
       final completer = Completer<void>();
       _pendingLoads.add(completer);

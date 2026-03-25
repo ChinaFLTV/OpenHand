@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:convert';
 
 import '../model/ai_session.dart';
+import '../model/ai_attachment.dart';
 import '../model/ai_session_message.dart';
 import '../model/ai_session_runtime_context.dart';
 import '../model/ai_thread_template.dart';
@@ -81,12 +83,13 @@ class AiPromptBuilder {
       historyMessages.add(message);
     }
     final historyTurns = _sanitizeToolSequence(
-      _mapHistoryMessages(historyMessages),
+      _mapHistoryMessages(historyMessages, model),
     );
     final latestUserTurns = latestUserMessage == null
         ? const <AiChatTurn>[]
-        : _mapMessageContent(
-            role: AiChatRole.user,
+        : _mapUserMessage(
+            latestUserMessage,
+            model: model,
             content:
                 '# [6] Your latest message\n\n${_promptContentForMessage(latestUserMessage)}',
           );
@@ -188,7 +191,7 @@ class AiPromptBuilder {
 
     final promptCharacterCount = messages.fold<int>(
       0,
-      (sum, item) => sum + item.content.length,
+      (sum, item) => sum + item.promptCharacterCount,
     );
     return AiPromptBuildResult(
       messages: messages,
@@ -298,6 +301,7 @@ class AiPromptBuilder {
     required String content,
     String? toolCallId,
     List<AiToolCall> toolCalls = const <AiToolCall>[],
+    List<AiChatContentPart> parts = const <AiChatContentPart>[],
   }) {
     final extracted = _extractSystemReminders(content);
     final turns = extracted.reminders
@@ -317,6 +321,7 @@ class AiPromptBuilder {
         content: extracted.content,
         toolCallId: toolCallId,
         toolCalls: toolCalls,
+        parts: parts,
       ),
     );
     return turns;
@@ -360,7 +365,7 @@ class AiPromptBuilder {
     final transcript = messagesToCompress
         .map(
           (message) =>
-              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${message.content}',
+              '- [${message.createdAt.toIso8601String()}][${message.role.storageValue}][${message.kind.storageValue}] ${_renderMessageForCompression(message)}',
         )
         .join('\n');
     final previousCheckpointText = previousCompressionPoint == null
@@ -385,13 +390,16 @@ class AiPromptBuilder {
     ];
   }
 
-  List<AiChatTurn> _mapHistoryMessages(List<AiSessionMessage> messages) {
+  List<AiChatTurn> _mapHistoryMessages(
+    List<AiSessionMessage> messages,
+    AiModelConfig model,
+  ) {
     final turns = <AiChatTurn>[];
     var index = 0;
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.toolCall) {
-        final mappedGroup = _mapToolExchange(messages, index);
+        final mappedGroup = _mapToolExchange(messages, index, model);
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(mappedGroup.turns);
         }
@@ -402,7 +410,7 @@ class AiPromptBuilder {
         index += 1;
         continue;
       }
-      turns.addAll(_mapNonToolHistoryMessage(message));
+      turns.addAll(_mapNonToolHistoryMessage(message, model));
       index += 1;
     }
     return turns;
@@ -444,6 +452,7 @@ class AiPromptBuilder {
   _MappedToolExchange _mapToolExchange(
     List<AiSessionMessage> messages,
     int startIndex,
+    AiModelConfig model,
   ) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
@@ -457,7 +466,7 @@ class AiPromptBuilder {
       if (toolCalls.isEmpty) {
         if (groupedToolCallMessages.isEmpty) {
           return _MappedToolExchange(
-            turns: _mapNonToolHistoryMessage(toolCallMessage),
+            turns: _mapNonToolHistoryMessage(toolCallMessage, model),
             nextIndex: cursor + 1,
           );
         }
@@ -474,7 +483,7 @@ class AiPromptBuilder {
     }
     if (groupedToolCalls.isEmpty) {
       return _MappedToolExchange(
-        turns: _mapNonToolHistoryMessage(firstMessage),
+        turns: _mapNonToolHistoryMessage(firstMessage, model),
         nextIndex: startIndex + 1,
       );
     }
@@ -520,14 +529,14 @@ class AiPromptBuilder {
     return _MappedToolExchange(turns: turns, nextIndex: cursor);
   }
 
-  List<AiChatTurn> _mapNonToolHistoryMessage(AiSessionMessage message) {
+  List<AiChatTurn> _mapNonToolHistoryMessage(
+    AiSessionMessage message,
+    AiModelConfig model,
+  ) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
       case AiSessionMessageKind.user:
-        return _mapMessageContent(
-          role: AiChatRole.user,
-          content: promptContent,
-        );
+        return _mapUserMessage(message, model: model, content: promptContent);
       case AiSessionMessageKind.assistant:
         return _mapMessageContent(
           role: AiChatRole.assistant,
@@ -555,6 +564,18 @@ class AiPromptBuilder {
     }
   }
 
+  List<AiChatTurn> _mapUserMessage(
+    AiSessionMessage message, {
+    required AiModelConfig model,
+    required String content,
+  }) {
+    return _mapMessageContent(
+      role: AiChatRole.user,
+      content: content,
+      parts: _attachmentPartsForMessage(message, model),
+    );
+  }
+
   String _promptContentForMessage(AiSessionMessage message) {
     final buffer = StringBuffer(message.content.trim());
     final hookReminders = _readStringList(
@@ -580,6 +601,89 @@ class AiPromptBuilder {
       }
     }
     return buffer.toString().trim();
+  }
+
+  List<AiChatContentPart> _attachmentPartsForMessage(
+    AiSessionMessage message,
+    AiModelConfig model,
+  ) {
+    final attachments = _readAttachments(message.metadata);
+    if (attachments.isEmpty) {
+      return const <AiChatContentPart>[];
+    }
+    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    if (!adapter.supportsAttachmentsForModel(model)) {
+      return const <AiChatContentPart>[];
+    }
+    final parts = <AiChatContentPart>[];
+    for (final attachment in attachments) {
+      if (attachment.isImage) {
+        final summaryText = attachment.summaryText.trim();
+        final promptText = attachment.promptText.trim();
+        final storagePath = attachment.storagePath.trim();
+        final mimeType = attachment.mimeType.trim();
+        final hasLocalImageFile =
+            storagePath.isNotEmpty &&
+            mimeType.isNotEmpty &&
+            File(storagePath).existsSync();
+        final detailText = summaryText.isNotEmpty ? summaryText : promptText;
+        if (detailText.isNotEmpty) {
+          parts.add(AiChatContentPart.text('[Attachment]\n$detailText'));
+        }
+        if (!hasLocalImageFile) {
+          if (detailText.isEmpty) {
+            parts.add(
+              AiChatContentPart.text(
+                '[Attachment]\nImage attachment: ${attachment.name} is unavailable in local storage.',
+              ),
+            );
+          }
+          continue;
+        }
+        parts.add(
+          AiChatContentPart.imageFile(
+            filePath: storagePath,
+            mimeType: mimeType,
+          ),
+        );
+        continue;
+      }
+      final promptText = attachment.promptText.trim();
+      if (promptText.isEmpty) {
+        continue;
+      }
+      parts.add(AiChatContentPart.text(promptText));
+    }
+    return parts;
+  }
+
+  String _renderMessageForCompression(AiSessionMessage message) {
+    final buffer = StringBuffer(_promptContentForMessage(message));
+    final attachments = _readAttachments(message.metadata);
+    if (attachments.isEmpty) {
+      return buffer.toString().trim();
+    }
+    buffer
+      ..writeln()
+      ..writeln()
+      ..writeln('Attachments:');
+    for (final attachment in attachments) {
+      final detail = attachment.isImage
+          ? attachment.summaryText.trim()
+          : attachment.promptText.trim();
+      if (detail.isNotEmpty) {
+        buffer.writeln('- $detail');
+        continue;
+      }
+      buffer.writeln('- ${attachment.name} (${attachment.kind.storageValue})');
+    }
+    return buffer.toString().trim();
+  }
+
+  List<AiMessageAttachment> _readAttachments(Map<String, Object?> metadata) {
+    return AiMessageAttachment.listFromMetadata(
+      metadata[aiSessionMessageAttachmentsMetadataKey],
+    );
   }
 
   String _renderUserMemory(

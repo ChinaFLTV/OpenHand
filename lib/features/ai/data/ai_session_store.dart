@@ -36,8 +36,19 @@ class AiSessionStore {
 
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
 
+  String get attachmentsDirectoryPath =>
+      p.join(_sessionsDirectoryPath, 'attachments');
+
+  String sessionAttachmentsDirectoryPath(String sessionId) {
+    return p.join(attachmentsDirectoryPath, sessionId);
+  }
+
   String sessionFilePath(String sessionId) {
     return p.join(_sessionsDirectoryPath, 'session-$sessionId.json');
+  }
+
+  Future<bool> exists(String sessionId) async {
+    return File(sessionFilePath(sessionId)).exists();
   }
 
   Future<AiSessionLoadResult> loadAll() async {
@@ -97,10 +108,15 @@ class AiSessionStore {
 
   Future<void> delete(String sessionId) async {
     final file = File(sessionFilePath(sessionId));
-    if (!await file.exists()) {
-      return;
+    if (await file.exists()) {
+      await file.delete();
     }
-    await file.delete();
+    final attachmentsDirectory = Directory(
+      sessionAttachmentsDirectoryPath(sessionId),
+    );
+    if (await attachmentsDirectory.exists()) {
+      await attachmentsDirectory.delete(recursive: true);
+    }
   }
 
   Future<void> openStorageDirectory() async {

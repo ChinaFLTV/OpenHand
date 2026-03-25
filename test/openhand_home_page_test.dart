@@ -626,6 +626,293 @@ void main() {
   );
 
   testWidgets(
+    'OpenHandHomePage keeps composer drafts isolated per session when switching threads',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionController = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-a', 'session-b']),
+        clock: () => DateTime.utc(2026, 3, 25, 4, 0, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionAId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionAId, 'Thread A'),
+        isTrue,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionBId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionBId, 'Thread B'),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      await tester.tap(find.text('Thread A').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final composerField = find.byType(TextField).first;
+      await tester.enterText(composerField, 'Draft for A');
+      await tester.pump();
+
+      await tester.tap(find.text('Thread B').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.widget<TextField>(composerField).controller!.text, isEmpty);
+
+      await tester.enterText(composerField, 'Draft for B');
+      await tester.pump();
+
+      await tester.tap(find.text('Thread A').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        tester.widget<TextField>(composerField).controller!.text,
+        'Draft for A',
+      );
+
+      await tester.tap(find.text('Thread B').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(composerField).controller!.text,
+        'Draft for B',
+      );
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage restores a failed send draft to its original thread after switching away',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionController = await AiSessionController.create(
+        store: _DelayedFailingUserMessageSessionStore(),
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(
+          List<String>.generate(16, (index) => 'send-failure-id-$index'),
+        ),
+        clock: () => DateTime.utc(2026, 3, 25, 4, 20, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-send-failure-restore',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+      expect(await settingsController.saveAiModel(model), isTrue);
+      expect(await settingsController.updateSelectedAiModel(model.id), isTrue);
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionAId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionAId, 'Thread A'),
+        isTrue,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionBId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionBId, 'Thread B'),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      await tester.tap(find.text('Thread A').first);
+      await tester.pumpAndSettle();
+
+      final composerField = find.byType(TextField).first;
+      await tester.enterText(composerField, 'Keep this draft in A');
+      await tester.pump();
+
+      await tester.tap(find.text('Send'));
+      await tester.pump(const Duration(milliseconds: 40));
+
+      await tester.tap(find.text('Thread B').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.widget<TextField>(composerField).controller!.text, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 640));
+
+      expect(tester.widget<TextField>(composerField).controller!.text, isEmpty);
+
+      await tester.tap(find.text('Thread A').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        tester.widget<TextField>(composerField).controller!.text,
+        'Keep this draft in A',
+      );
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'OpenHandHomePage pauses auto follow for wheel-like user scroll notifications',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 820);
@@ -1831,6 +2118,19 @@ class _InMemoryAiSessionStore extends AiSessionStore {
   @override
   Future<void> save(AiSession session) async {
     _sessions[session.id] = session;
+  }
+}
+
+class _DelayedFailingUserMessageSessionStore extends _InMemoryAiSessionStore {
+  static const Duration _delay = Duration(milliseconds: 180);
+
+  @override
+  Future<void> save(AiSession session) async {
+    if (session.messages.isNotEmpty) {
+      await Future<void>.delayed(_delay);
+      throw StateError('Injected session save failure');
+    }
+    await super.save(session);
   }
 }
 

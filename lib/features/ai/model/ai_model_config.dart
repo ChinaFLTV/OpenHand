@@ -45,6 +45,7 @@ enum AiProtocolType {
   claude('claude'),
   gemini('gemini'),
   deepseek('deepseek'),
+  qwen('qwen'),
   kimi('kimi'),
   glm('glm'),
   grok('grok');
@@ -70,6 +71,7 @@ enum AiProtocolType {
       AiProtocolType.claude => l10n.aiProtocolClaude,
       AiProtocolType.gemini => l10n.aiProtocolGemini,
       AiProtocolType.deepseek => l10n.aiProtocolDeepSeek,
+      AiProtocolType.qwen => 'Qwen',
       AiProtocolType.kimi => l10n.aiProtocolKimi,
       AiProtocolType.glm => l10n.aiProtocolGlm,
       AiProtocolType.grok => l10n.aiProtocolGrok,

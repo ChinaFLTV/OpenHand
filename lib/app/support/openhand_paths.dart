@@ -9,6 +9,8 @@ abstract final class OpenHandPaths {
   static const String defaultMcpServersFileLabel =
       '~/.openhand/mcp/mcp_servers.json';
   static const String defaultSessionsDirectoryLabel = '~/.openhand/sessions';
+  static const String defaultSessionAttachmentsDirectoryLabel =
+      '~/.openhand/sessions/attachments';
 
   static String homeDirectoryPath() {
     final home = Platform.environment['HOME'];
@@ -55,6 +57,10 @@ abstract final class OpenHandPaths {
 
   static String defaultSessionsDirectoryPath() {
     return p.join(homeDirectoryPath(), '.openhand', 'sessions');
+  }
+
+  static String defaultSessionAttachmentsDirectoryPath() {
+    return p.join(defaultSessionsDirectoryPath(), 'attachments');
   }
 
   static String applicationDirectoryPath() {

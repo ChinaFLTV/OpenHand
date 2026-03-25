@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -576,6 +577,133 @@ void main() {
       expect(tool.rawInputSchema, isA<List<Object?>>());
       expect(tool.rawOutputSchema, 'plain-text');
       expect(tool.rawMetadata['outputSchema'], 'plain-text');
+    },
+  );
+
+  test(
+    'DefaultMcpToolDiscoveryService ignores duplicate tool ids returned across pages',
+    () async {
+      final service = DefaultMcpToolDiscoveryService(
+        client: _QueuedHttpClient(<_QueuedHttpResponse>[
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-duplicates',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 1,
+              'result': <String, Object?>{'protocolVersion': '2025-11-25'},
+            }),
+          ),
+          const _QueuedHttpResponse(
+            statusCode: 202,
+            headers: <String, String>{'content-type': 'application/json'},
+            body: '',
+          ),
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-duplicates',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 2,
+              'result': <String, Object?>{
+                'tools': <Object?>[
+                  <String, Object?>{
+                    'name': 'tail_logs',
+                    'description': 'Inspect service logs.',
+                    'inputSchema': <String, Object?>{'type': 'object'},
+                  },
+                ],
+                'nextCursor': 'page-2',
+              },
+            }),
+          ),
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-duplicates',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 3,
+              'result': <String, Object?>{
+                'tools': <Object?>[
+                  <String, Object?>{
+                    'name': 'tail_logs',
+                    'title': 'Tail Logs Duplicate',
+                    'description': 'Duplicate entry that should be ignored.',
+                    'inputSchema': <String, Object?>{'type': 'object'},
+                  },
+                  <String, Object?>{
+                    'name': 'restart_service',
+                    'description': 'Restart the service.',
+                    'inputSchema': <String, Object?>{'type': 'object'},
+                  },
+                ],
+              },
+            }),
+          ),
+        ]),
+      );
+      addTearDown(service.dispose);
+
+      final catalog = await service.discoverTools(
+        const McpServer(
+          name: 'local-http',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://mcp.example/tools',
+        ),
+      );
+
+      expect(catalog.status, McpToolCatalogStatus.ready);
+      expect(catalog.tools, hasLength(2));
+      expect(catalog.tools.map((item) => item.id), <String>[
+        'tail_logs',
+        'restart_service',
+      ]);
+      expect(
+        catalog.warningMessage,
+        contains('Ignored 1 duplicate tool entry.'),
+      );
+    },
+  );
+
+  test(
+    'DefaultMcpToolDiscoveryService fails fast when a stdio server floods stdout without a protocol message',
+    () async {
+      if (Platform.isWindows) {
+        return;
+      }
+      final service = DefaultMcpToolDiscoveryService();
+      addTearDown(service.dispose);
+
+      final catalog = await service.discoverTools(
+        const McpServer(
+          name: 'stdio-noise',
+          type: McpServerType.stdio,
+          enabled: true,
+          command: '/bin/sh',
+          args: <String>[
+            '-lc',
+            'dd if=/dev/zero bs=1024 count=5000 2>/dev/null | tr "\\000" x; sleep 1',
+          ],
+        ),
+      );
+
+      expect(catalog.status, McpToolCatalogStatus.failed);
+      expect(
+        catalog.errorMessage,
+        contains(
+          'wrote more than 4 MiB to stdout without a complete protocol message',
+        ),
+      );
     },
   );
 }

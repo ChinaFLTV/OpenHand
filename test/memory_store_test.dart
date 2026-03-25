@@ -69,6 +69,54 @@ void main() {
     expect(backupFiles, isNotEmpty);
   });
 
+  test(
+    'MemoryStore preserves sanitized entries when rewriting them fails during load',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_memory_store_sanitize_save_failure_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final userMemoryFilePath = p.join(
+        tempDirectory.path,
+        '.openhand',
+        'memory',
+        'user-memory.json',
+      );
+      final targetFile = File(userMemoryFilePath);
+      await targetFile.parent.create(recursive: true);
+      await targetFile.writeAsString('''
+[
+  {
+    "id": "memory-1",
+    "type": "user",
+    "created_at": "2026-03-22T09:00:00.000Z",
+    "content": "Remember the preferred terminal layout."
+  }
+]
+''', flush: true);
+
+      final store = _FailingSanitizedMemoryStore(
+        userMemoryFilePath: userMemoryFilePath,
+      );
+      final result = await store.load();
+
+      expect(result.entries, hasLength(1));
+      expect(result.entries.single.id, 'memory-1');
+      expect(result.entries.single.tags, isEmpty);
+      expect(result.issue?.kind, MemoryPersistenceIssueKind.saveFailed);
+      expect(result.issue?.filePath, userMemoryFilePath);
+      expect(result.issue?.detail, contains('Injected memory save failure'));
+      expect(await targetFile.exists(), isTrue);
+      expect(await targetFile.readAsString(), contains('"content"'));
+      expect(
+        Directory(targetFile.parent.path).listSync().whereType<File>().where(
+          (file) => p.basename(file.path).startsWith('user-memory.invalid-'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   test('MemoryController serializes create and refresh operations', () async {
     final store = _QueuedMemoryStore(initialEntries: const <UserMemoryEntry>[]);
     final controller = await MemoryController.create(
@@ -149,26 +197,69 @@ void main() {
     },
   );
 
-  test('MemoryController ignores late refresh completion after dispose', () async {
-    final store = _QueuedMemoryStore(initialEntries: const <UserMemoryEntry>[]);
-    final controller = await MemoryController.create(
-      initialFilePath: store.userMemoryFilePath,
-      store: store,
-      idGenerator: () => 'memory-1',
-      clock: () => DateTime.utc(2026, 3, 22, 9, 0, 0),
-    );
+  test(
+    'MemoryController ignores late refresh completion after dispose',
+    () async {
+      final store = _QueuedMemoryStore(
+        initialEntries: const <UserMemoryEntry>[],
+      );
+      final controller = await MemoryController.create(
+        initialFilePath: store.userMemoryFilePath,
+        store: store,
+        idGenerator: () => 'memory-1',
+        clock: () => DateTime.utc(2026, 3, 22, 9, 0, 0),
+      );
 
-    store.blockNextLoad();
-    final refreshFuture = controller.refresh();
+      store.blockNextLoad();
+      final refreshFuture = controller.refresh();
 
-    await Future<void>.delayed(Duration.zero);
-    expect(store.pendingLoadCount, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(store.pendingLoadCount, 1);
 
-    controller.dispose();
-    store.completeNextLoad();
+      controller.dispose();
+      store.completeNextLoad();
 
-    await refreshFuture;
-  });
+      await refreshFuture;
+    },
+  );
+
+  test(
+    'MemoryController restores the previous file path when reloading a new path fails',
+    () async {
+      const initialPath = '/tmp/openhand-memory-initial.json';
+      const invalidPath = '/broken/user-memory.json';
+      final initialEntries = <UserMemoryEntry>[
+        UserMemoryEntry(
+          id: 'memory-1',
+          type: UserMemoryEntry.userType,
+          createdAt: DateTime.utc(2026, 3, 22, 9, 0, 0),
+          content: 'Remember the preferred terminal layout.',
+          tags: const <String>['ui'],
+        ),
+      ];
+      final controller = await MemoryController.create(
+        initialFilePath: initialPath,
+        store: _PathAwareMemoryStore(
+          userMemoryFilePath: initialPath,
+          entries: initialEntries,
+          failingPaths: const <String>{invalidPath},
+        ),
+        storeFactory: (filePath) => _PathAwareMemoryStore(
+          userMemoryFilePath: filePath,
+          entries: initialEntries,
+          failingPaths: const <String>{invalidPath},
+        ),
+      );
+
+      await controller.reloadFromFilePath(invalidPath);
+
+      expect(controller.userMemoryFilePath, initialPath);
+      expect(controller.entries, hasLength(1));
+      expect(controller.entries.single.id, 'memory-1');
+      expect(controller.errorMessage, isNull);
+      expect(controller.persistenceIssue, isNull);
+    },
+  );
 }
 
 class _QueuedMemoryStore extends MemoryStore {
@@ -224,6 +315,38 @@ class _QueuedMemoryStore extends MemoryStore {
   void completeNextLoad() {
     final completer = _pendingLoads.removeAt(0);
     completer.complete();
+  }
+}
+
+class _PathAwareMemoryStore extends MemoryStore {
+  _PathAwareMemoryStore({
+    required super.userMemoryFilePath,
+    required List<UserMemoryEntry> entries,
+    required Set<String> failingPaths,
+  }) : _entries = List<UserMemoryEntry>.from(entries),
+       _failingPaths = failingPaths;
+
+  final List<UserMemoryEntry> _entries;
+  final Set<String> _failingPaths;
+
+  @override
+  Future<MemoryLoadResult> load() async {
+    if (_failingPaths.contains(userMemoryFilePath)) {
+      throw const FileSystemException('Injected memory reload failure');
+    }
+    return MemoryLoadResult(entries: List<UserMemoryEntry>.from(_entries));
+  }
+
+  @override
+  Future<void> save(List<UserMemoryEntry> entries) async {}
+}
+
+class _FailingSanitizedMemoryStore extends MemoryStore {
+  _FailingSanitizedMemoryStore({required super.userMemoryFilePath});
+
+  @override
+  Future<void> save(List<UserMemoryEntry> entries) async {
+    throw const FileSystemException('Injected memory save failure');
   }
 }
 

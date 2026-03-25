@@ -78,6 +78,53 @@ void main() {
     expect(backupFiles, isNotEmpty);
   });
 
+  test(
+    'McpStore preserves sanitized servers when rewriting them fails during load',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_mcp_store_sanitize_save_failure_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final serversFilePath = p.join(
+        tempDirectory.path,
+        '.openhand',
+        'mcp',
+        'mcp_servers.json',
+      );
+      final targetFile = File(serversFilePath);
+      await targetFile.parent.create(recursive: true);
+      await targetFile.writeAsString('''
+{
+  "mcpServers": {
+    "local-shell": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@example/mcp-shell"]
+    }
+  }
+}
+''', flush: true);
+
+      final store = _FailingSanitizedMcpStore(serversFilePath: serversFilePath);
+      final result = await store.load();
+
+      expect(result.servers, hasLength(1));
+      expect(result.servers.single.name, 'local-shell');
+      expect(result.servers.single.enabled, isTrue);
+      expect(result.issue?.kind, McpPersistenceIssueKind.saveFailed);
+      expect(result.issue?.filePath, serversFilePath);
+      expect(result.issue?.detail, contains('Injected MCP save failure'));
+      expect(await targetFile.exists(), isTrue);
+      expect(await targetFile.readAsString(), contains('"command"'));
+      expect(
+        Directory(targetFile.parent.path).listSync().whereType<File>().where(
+          (file) => p.basename(file.path).startsWith('mcp_servers.invalid-'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   test('McpStore loads Cursor-style transport fields', () async {
     final tempDirectory = await Directory.systemTemp.createTemp(
       'openhand_mcp_transport_test_',
@@ -562,7 +609,7 @@ void main() {
           McpServer(
             name: 'local-shell',
             type: McpServerType.stdio,
-            enabled: true,
+            enabled: false,
             command: 'npx',
             args: <String>['-y', '@example/mcp-shell'],
           ),
@@ -690,6 +737,63 @@ void main() {
       final catalog = controller.toolCatalogFor('local-shell');
       expect(catalog.status, McpToolCatalogStatus.failed);
       expect(catalog.errorMessage, 'Tool scan timed out.');
+      expect(catalog.tools, hasLength(1));
+      expect(catalog.tools.single.id, 'tail_logs');
+    },
+  );
+
+  test(
+    'McpController converts thrown tool refresh errors into a failed catalog',
+    () async {
+      final store = _QueuedMcpStore(
+        initialServers: const <McpServer>[
+          McpServer(
+            name: 'local-shell',
+            type: McpServerType.stdio,
+            enabled: false,
+            command: 'npx',
+            args: <String>['-y', '@example/mcp-shell'],
+          ),
+        ],
+      );
+      final discoveryService = _FakeMcpToolDiscoveryService();
+      discoveryService.queueResult(
+        const McpToolCatalog(
+          status: McpToolCatalogStatus.ready,
+          tools: <McpTool>[
+            McpTool(
+              id: 'tail_logs',
+              name: 'Tail Logs',
+              description: 'Inspect service logs.',
+              inputSchema: <String, Object?>{'type': 'object'},
+            ),
+          ],
+        ),
+      );
+      final controller = await McpController.create(
+        initialFilePath: store.serversFilePath,
+        store: store,
+        toolDiscoveryService: discoveryService,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.refreshServerTools('local-shell');
+      expect(controller.toolCatalogFor('local-shell').tools, hasLength(1));
+
+      final refreshFuture = controller.refreshServerTools('local-shell');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        controller.toolCatalogFor('local-shell').status,
+        McpToolCatalogStatus.loading,
+      );
+
+      discoveryService.completeNextError(StateError('tool discovery crashed'));
+      await refreshFuture;
+
+      final catalog = controller.toolCatalogFor('local-shell');
+      expect(catalog.status, McpToolCatalogStatus.failed);
+      expect(catalog.errorMessage, contains('tool discovery crashed'));
       expect(catalog.tools, hasLength(1));
       expect(catalog.tools.single.id, 'tail_logs');
     },
@@ -846,6 +950,49 @@ void main() {
       );
     },
   );
+
+  test(
+    'McpController converts thrown health-check errors into unhealthy status',
+    () async {
+      final store = _QueuedMcpStore(
+        initialServers: const <McpServer>[
+          McpServer(
+            name: 'local-shell',
+            type: McpServerType.stdio,
+            enabled: false,
+            command: 'npx',
+            args: <String>['-y', '@example/mcp-shell'],
+          ),
+        ],
+      );
+      final discoveryService = _FakeMcpToolDiscoveryService();
+      final controller = await McpController.create(
+        initialFilePath: store.serversFilePath,
+        store: store,
+        toolDiscoveryService: discoveryService,
+      );
+      addTearDown(controller.dispose);
+
+      controller.setPageActive(true);
+      final checkFuture = controller.checkServerHealth('local-shell');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(discoveryService.requestedHealthServerNames, <String>[
+        'local-shell',
+      ]);
+      expect(controller.healthStatusFor('local-shell').isChecking, isTrue);
+
+      discoveryService.completeNextHealthError(
+        StateError('health probe crashed'),
+      );
+      await checkFuture;
+
+      final health = controller.healthStatusFor('local-shell');
+      expect(health.status, McpServerHealthStatus.unhealthy);
+      expect(health.errorMessage, contains('health probe crashed'));
+      expect(health.isChecking, isFalse);
+    },
+  );
 }
 
 class _QueuedMcpStore extends McpStore {
@@ -966,6 +1113,11 @@ class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
     completer.complete(catalog);
   }
 
+  void completeNextError(Object error) {
+    final completer = _pendingRequests.removeAt(0);
+    completer.completeError(error);
+  }
+
   void queueHealthResult(McpServerHealth health) {
     _queuedHealthResults.add(health);
   }
@@ -975,6 +1127,20 @@ class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
     completer.complete(health);
   }
 
+  void completeNextHealthError(Object error) {
+    final completer = _pendingHealthRequests.removeAt(0);
+    completer.completeError(error);
+  }
+
   @override
   void dispose() {}
+}
+
+class _FailingSanitizedMcpStore extends McpStore {
+  _FailingSanitizedMcpStore({required super.serversFilePath});
+
+  @override
+  Future<void> save(List<McpServer> servers) async {
+    throw const FileSystemException('Injected MCP save failure');
+  }
 }

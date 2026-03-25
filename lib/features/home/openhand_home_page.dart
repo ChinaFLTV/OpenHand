@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
+import '../ai/model/ai_attachment.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session.dart';
 import '../ai/model/ai_session_message.dart';
@@ -32,6 +34,7 @@ import '../ai/model/ai_session_runtime_context.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
+import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
@@ -57,6 +60,7 @@ const double _autoFollowDistanceThreshold = 96;
 const double _autoFollowAnimatedDistanceThreshold = 8;
 const int _slowUiFrameThresholdMs = 24;
 const int _slowUiLogThrottleMs = 800;
+const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
@@ -85,6 +89,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
   DateTime? _lastSlowUiLogAt;
+  List<_ComposerAttachmentDraft> _pendingAttachments =
+      const <_ComposerAttachmentDraft>[];
+  final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
+      <String, _ComposerDraftState>{};
+  AiSessionController? _observedSessionController;
+  String? _activeComposerSessionId;
 
   AiSendPhase _displaySendPhaseForSession(
     AiSessionController sessionController,
@@ -126,7 +136,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final sessionController = context.read<AiSessionController>();
+    if (identical(_observedSessionController, sessionController)) {
+      return;
+    }
+    _observedSessionController?.removeListener(_handleSessionControllerChanged);
+    _observedSessionController = sessionController;
+    _observedSessionController?.addListener(_handleSessionControllerChanged);
+    _activeComposerSessionId = sessionController.currentSessionId;
+  }
+
+  @override
   void dispose() {
+    _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
     SchedulerBinding.instance.removeTimingsCallback(_handleFrameTimings);
     _composerController.dispose();
@@ -179,6 +203,124 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
     _pendingScrollToBottomSettlePasses = 0;
+  }
+
+  void _handleSessionControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+    _syncComposerDraftForSession(_observedSessionController?.currentSessionId);
+  }
+
+  String _composerDraftKeyForSessionId(String? sessionId) {
+    final normalized = sessionId?.trim() ?? '';
+    return normalized.isEmpty ? _detachedComposerDraftSessionKey : normalized;
+  }
+
+  void _removeComposerDraftForSession(String? sessionId) {
+    _composerDraftsBySessionId.remove(_composerDraftKeyForSessionId(sessionId));
+  }
+
+  void _storeComposerDraftForSession(
+    String? sessionId, {
+    String? text,
+    List<_ComposerAttachmentDraft>? attachments,
+  }) {
+    final resolvedText = text ?? _composerController.text;
+    final resolvedAttachments = List<_ComposerAttachmentDraft>.from(
+      attachments ?? _pendingAttachments,
+    );
+    if (resolvedText.trim().isEmpty && resolvedAttachments.isEmpty) {
+      _removeComposerDraftForSession(sessionId);
+      return;
+    }
+    _composerDraftsBySessionId[_composerDraftKeyForSessionId(
+      sessionId,
+    )] = _ComposerDraftState(
+      text: resolvedText,
+      attachments: resolvedAttachments,
+    );
+  }
+
+  bool _sameComposerAttachments(
+    List<_ComposerAttachmentDraft> left,
+    List<_ComposerAttachmentDraft> right,
+  ) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (left[index].filePath != right[index].filePath ||
+          left[index].sizeBytes != right[index].sizeBytes) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _syncComposerDraftForSession(String? nextSessionId) {
+    if (_activeComposerSessionId == nextSessionId) {
+      return;
+    }
+    final previousSessionId = _activeComposerSessionId;
+    final currentText = _composerController.text;
+    final currentAttachments = List<_ComposerAttachmentDraft>.from(
+      _pendingAttachments,
+    );
+    final shouldTransferDetachedDraft =
+        (previousSessionId?.trim().isEmpty ?? true) &&
+        (nextSessionId?.trim().isNotEmpty ?? false) &&
+        !_composerDraftsBySessionId.containsKey(
+          _composerDraftKeyForSessionId(nextSessionId),
+        );
+    final shouldPreserveSubmittingDraft =
+        previousSessionId != null &&
+        previousSessionId == _submittingSessionId &&
+        currentText.trim().isEmpty &&
+        currentAttachments.isEmpty;
+    if (shouldTransferDetachedDraft) {
+      _storeComposerDraftForSession(
+        nextSessionId,
+        text: currentText,
+        attachments: currentAttachments,
+      );
+      _removeComposerDraftForSession(null);
+    } else if (!shouldPreserveSubmittingDraft) {
+      _storeComposerDraftForSession(
+        previousSessionId,
+        text: currentText,
+        attachments: currentAttachments,
+      );
+    }
+    _activeComposerSessionId = nextSessionId;
+
+    final nextDraft =
+        _composerDraftsBySessionId[_composerDraftKeyForSessionId(
+          nextSessionId,
+        )];
+    final nextText = nextDraft?.text ?? '';
+    final nextAttachments =
+        nextDraft?.attachments ?? const <_ComposerAttachmentDraft>[];
+    final attachmentsChanged = !_sameComposerAttachments(
+      _pendingAttachments,
+      nextAttachments,
+    );
+    if (_composerController.text != nextText) {
+      _replaceComposerText(nextText);
+    }
+    if (!attachmentsChanged &&
+        (!(nextText.trim().isNotEmpty || nextAttachments.isNotEmpty) ||
+            !_composerCollapsed)) {
+      return;
+    }
+    setState(() {
+      _pendingAttachments = List<_ComposerAttachmentDraft>.from(
+        nextAttachments,
+      );
+      if (nextText.trim().isNotEmpty || nextAttachments.isNotEmpty) {
+        _composerCollapsed = false;
+      }
+    });
   }
 
   void _armAutoFollowToBottom() {
@@ -381,11 +523,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   Future<void> _sendMessage() async {
     final l10n = AppLocalizations.of(context)!;
     final prompt = _composerController.text.trim();
-    if (prompt.isEmpty) {
+    final pendingAttachments = List<_ComposerAttachmentDraft>.from(
+      _pendingAttachments,
+    );
+    if (prompt.isEmpty && pendingAttachments.isEmpty) {
       return;
     }
     final slashCommand = parseOpenHandSlashCommand(prompt);
     if (slashCommand != null) {
+      if (pendingAttachments.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '本地斜杠命令不支持携带附件。',
+                en: 'Local slash commands do not accept attachments.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
       _replaceComposerText('');
       await _handleSlashCommand(slashCommand);
       return;
@@ -397,6 +556,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(l10n.aiModelSelectionRequired)));
+      return;
+    }
+    if (pendingAttachments.isNotEmpty &&
+        !_selectedModelSupportsAttachments(selectedModel)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '当前模型不支持附件。',
+              en: 'The selected model does not support attachments.',
+            ),
+          ),
+        ),
+      );
       return;
     }
 
@@ -427,9 +601,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final initialUserMessageCount = _visibleUserMessageCount(initialSession);
     final editingMessageIdBeforeSend = sessionController.editingMessageId;
 
+    _storeComposerDraftForSession(
+      targetSessionId,
+      text: prompt,
+      attachments: pendingAttachments,
+    );
+
     _replaceComposerText('');
     setState(() {
       _submittingSessionId = targetSessionId;
+      _pendingAttachments = const <_ComposerAttachmentDraft>[];
       _armAutoFollowToBottom();
     });
     try {
@@ -442,6 +623,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         content: prompt,
         model: selectedModel,
         runtimeContext: runtimeContext,
+        attachmentFilePaths: pendingAttachments
+            .map((item) => item.filePath)
+            .toList(growable: false),
         denyCommandRules: settingsController.aiDenyCommandRules,
         requireWriteCommandConfirmation:
             settingsController.aiWriteCommandConfirmationEnabled,
@@ -458,7 +642,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
           initialUserMessageCount: initialUserMessageCount,
           editingMessageId: editingMessageIdBeforeSend,
         )) {
-          _replaceComposerText(prompt);
+          _restoreSubmittedDraft(
+            sessionController,
+            sessionId: targetSessionId,
+            prompt: prompt,
+            attachments: pendingAttachments,
+          );
         }
         final errorMessage = sessionController.lastErrorMessageForSession(
           targetSessionId,
@@ -468,6 +657,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         );
         return;
       }
+      _removeComposerDraftForSession(targetSessionId);
       await sessionController.completeEditingMessage();
       if (!mounted) {
         return;
@@ -495,7 +685,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
             initialUserMessageCount: initialUserMessageCount,
             editingMessageId: editingMessageIdBeforeSend,
           )) {
-        _replaceComposerText(prompt);
+        _restoreSubmittedDraft(
+          sessionController,
+          sessionId: targetSessionId,
+          prompt: prompt,
+          attachments: pendingAttachments,
+        );
       }
       if (mounted) {
         final errorMessage = '$error'.trim();
@@ -526,6 +721,124 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       selection: TextSelection.collapsed(offset: value.length),
       composing: TextRange.empty,
     );
+  }
+
+  bool _selectedModelSupportsAttachments(AiModelConfig? model) {
+    if (model == null) {
+      return false;
+    }
+    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    return adapter.supportsAttachmentsForModel(model);
+  }
+
+  Future<void> _pickComposerAttachments() async {
+    final l10n = AppLocalizations.of(context)!;
+    final selectedModel = context.read<SettingsController>().selectedAiModel;
+    if (selectedModel == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.aiModelSelectionRequired)));
+      return;
+    }
+    if (!_selectedModelSupportsAttachments(selectedModel)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '当前模型不支持附件。',
+              en: 'The selected model does not support attachments.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final remainingSlots =
+        aiMessageAttachmentLimit - _pendingAttachments.length;
+    if (remainingSlots <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '单条消息最多携带 20 个附件。',
+              en: 'A single message supports at most 20 attachments.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final pickedFiles = await openFiles(
+      acceptedTypeGroups: <XTypeGroup>[
+        XTypeGroup(
+          label: 'Attachments',
+          extensions: aiAttachmentPickerExtensions(),
+        ),
+      ],
+    );
+    if (!mounted || pickedFiles.isEmpty) {
+      return;
+    }
+    final existingPaths = _pendingAttachments
+        .map((item) => item.filePath)
+        .toSet();
+    final nextAttachments = List<_ComposerAttachmentDraft>.from(
+      _pendingAttachments,
+    );
+    var addedCount = 0;
+    for (final file in pickedFiles) {
+      final path = file.path.trim();
+      if (path.isEmpty || existingPaths.contains(path)) {
+        continue;
+      }
+      if (nextAttachments.length >= aiMessageAttachmentLimit) {
+        break;
+      }
+      nextAttachments.add(await _ComposerAttachmentDraft.fromPath(path));
+      existingPaths.add(path);
+      addedCount += 1;
+    }
+    if (!mounted) {
+      return;
+    }
+    if (addedCount == 0) {
+      return;
+    }
+    setState(() {
+      _pendingAttachments = nextAttachments;
+      _composerCollapsed = false;
+    });
+  }
+
+  void _removePendingAttachment(String filePath) {
+    setState(() {
+      _pendingAttachments = _pendingAttachments
+          .where((item) => item.filePath != filePath)
+          .toList(growable: false);
+    });
+  }
+
+  void _restoreSubmittedDraft(
+    AiSessionController sessionController, {
+    required String sessionId,
+    required String prompt,
+    required List<_ComposerAttachmentDraft> attachments,
+  }) {
+    _storeComposerDraftForSession(
+      sessionId,
+      text: prompt,
+      attachments: attachments,
+    );
+    if (sessionController.currentSessionId != sessionId) {
+      return;
+    }
+    _replaceComposerText(prompt);
+    setState(() {
+      _pendingAttachments = List<_ComposerAttachmentDraft>.from(attachments);
+      _composerCollapsed = false;
+    });
   }
 
   int _visibleUserMessageCount(AiSession? session) {
@@ -1050,6 +1363,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final controller = context.read<AiSessionController>();
     final deleted = await controller.deleteSession(session.id);
     if (!mounted || deleted) {
+      if (deleted) {
+        _removeComposerDraftForSession(session.id);
+      }
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1073,6 +1389,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     setState(() {
       _selectedSection = AppSection.workspace;
       _composerCollapsed = false;
+      _pendingAttachments = const <_ComposerAttachmentDraft>[];
     });
     _scheduleScrollToBottom();
   }
@@ -1232,6 +1549,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         autoFollowEnabled: _autoFollowEnabled,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
+        pendingAttachments: _pendingAttachments,
+        attachmentsEnabled: _selectedModelSupportsAttachments(
+          settingsController.selectedAiModel,
+        ),
+        onPickAttachments: _pickComposerAttachments,
+        onRemoveAttachment: _removePendingAttachment,
         onSend: _sendMessage,
         onStop: _stopResponding,
         onCreateThreadRequested: _createSessionFromDialog,
@@ -1254,6 +1577,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       AppSection.settings => const SettingsView(),
     };
   }
+}
+
+class _ComposerDraftState {
+  const _ComposerDraftState({required this.text, required this.attachments});
+
+  final String text;
+  final List<_ComposerAttachmentDraft> attachments;
 }
 
 extension on AppSection {
@@ -1544,6 +1874,10 @@ class _WorkspaceView extends StatelessWidget {
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
+    required this.pendingAttachments,
+    required this.attachmentsEnabled,
+    required this.onPickAttachments,
+    required this.onRemoveAttachment,
     required this.onSend,
     required this.onStop,
     required this.onCreateThreadRequested,
@@ -1570,6 +1904,10 @@ class _WorkspaceView extends StatelessWidget {
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
+  final List<_ComposerAttachmentDraft> pendingAttachments;
+  final bool attachmentsEnabled;
+  final Future<void> Function() onPickAttachments;
+  final ValueChanged<String> onRemoveAttachment;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final Future<void> Function() onCreateThreadRequested;
@@ -1631,6 +1969,10 @@ class _WorkspaceView extends StatelessWidget {
                   autoFollowEnabled: autoFollowEnabled,
                   onToggleAutoFollow: onToggleAutoFollow,
                   sendPhase: sendPhase,
+                  pendingAttachments: pendingAttachments,
+                  attachmentsEnabled: attachmentsEnabled,
+                  onPickAttachments: onPickAttachments,
+                  onRemoveAttachment: onRemoveAttachment,
                   onSend: onSend,
                   onStop: onStop,
                   editingMessageId: editingMessageId,
@@ -3052,6 +3394,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.mcp ||
         message.kind == AiSessionMessageKind.skill;
     final isStatus = message.kind == AiSessionMessageKind.status;
+    final attachments = AiMessageAttachment.listFromMetadata(
+      message.metadata[aiSessionMessageAttachmentsMetadataKey],
+    );
     final reasoningExpanded =
         _reasoningExpandedOverride ?? _shouldDefaultExpandReasoning(message);
 
@@ -3239,15 +3584,28 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             else if (isToolCall)
                               _ToolCallBody(message: message)
                             else
-                              _SafeMarkdownBody(
-                                data: message.content.isEmpty
-                                    ? ' '
-                                    : message.content,
-                                selectable: true,
-                                builders: markdownBuilders,
-                                styleSheet: markdownStyleSheet,
-                                inlineSyntaxes: inlineSyntaxes,
-                                parseKey: filePathParseKey,
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (attachments.isNotEmpty) ...[
+                                    _MessageAttachmentSummaryBlock(
+                                      attachments: attachments,
+                                      textColor: textColor,
+                                      backgroundColor: backgroundColor,
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                  _SafeMarkdownBody(
+                                    data: message.content.isEmpty
+                                        ? ' '
+                                        : message.content,
+                                    selectable: true,
+                                    builders: markdownBuilders,
+                                    styleSheet: markdownStyleSheet,
+                                    inlineSyntaxes: inlineSyntaxes,
+                                    parseKey: filePathParseKey,
+                                  ),
+                                ],
                               ),
                             const SizedBox(height: 10),
                             Text(
@@ -3327,6 +3685,63 @@ class _MessageActionButton extends StatelessWidget {
         softWrap: false,
         overflow: TextOverflow.fade,
       ),
+    );
+  }
+}
+
+class _MessageAttachmentSummaryBlock extends StatelessWidget {
+  const _MessageAttachmentSummaryBlock({
+    required this.attachments,
+    required this.textColor,
+    required this.backgroundColor,
+  });
+
+  final List<AiMessageAttachment> attachments;
+  final Color textColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attachments
+          .map(
+            (attachment) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  textColor.withValues(alpha: 0.08),
+                  backgroundColor,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: textColor.withValues(alpha: 0.12)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _iconForAttachmentKind(attachment.kind),
+                    size: 16,
+                    color: textColor.withValues(alpha: 0.88),
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 280),
+                    child: Text(
+                      '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textColor.withValues(alpha: 0.88),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }
@@ -5386,6 +5801,10 @@ class _ComposerPanel extends StatefulWidget {
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
+    required this.pendingAttachments,
+    required this.attachmentsEnabled,
+    required this.onPickAttachments,
+    required this.onRemoveAttachment,
     required this.onSend,
     required this.onStop,
     required this.editingMessageId,
@@ -5402,6 +5821,10 @@ class _ComposerPanel extends StatefulWidget {
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
+  final List<_ComposerAttachmentDraft> pendingAttachments;
+  final bool attachmentsEnabled;
+  final Future<void> Function() onPickAttachments;
+  final ValueChanged<String> onRemoveAttachment;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final String? editingMessageId;
@@ -5481,6 +5904,22 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           const SizedBox(height: 10),
         ],
+        if (widget.pendingAttachments.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.pendingAttachments
+                .map(
+                  (attachment) => _ComposerAttachmentChip(
+                    attachment: attachment,
+                    onRemove: () =>
+                        widget.onRemoveAttachment(attachment.filePath),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 12),
+        ],
         AnimatedSize(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
@@ -5534,6 +5973,38 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
             );
           },
+        ),
+        const SizedBox(width: 10),
+        Tooltip(
+          message: widget.attachmentsEnabled
+              ? _localizedText(
+                  context,
+                  zh: '选择附件（最多 $aiMessageAttachmentLimit 个，支持图片、文本、代码、表格和 PDF）',
+                  en: 'Choose attachments (up to $aiMessageAttachmentLimit; images, text, code, spreadsheets, and PDF)',
+                )
+              : _localizedText(
+                  context,
+                  zh: '当前模型不支持附件',
+                  en: 'The selected model does not support attachments',
+                ),
+          child: SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: widget.attachmentsEnabled
+                  ? widget.onPickAttachments
+                  : null,
+              icon: const Icon(Icons.attach_file_rounded),
+              label: Text(
+                widget.pendingAttachments.isEmpty
+                    ? _localizedText(context, zh: '附件', en: 'Attach')
+                    : _localizedText(
+                        context,
+                        zh: '附件 ${widget.pendingAttachments.length}',
+                        en: 'Files ${widget.pendingAttachments.length}',
+                      ),
+              ),
+            ),
+          ),
         ),
         const Spacer(),
         Tooltip(
@@ -5670,6 +6141,95 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       ),
     );
   }
+}
+
+class _ComposerAttachmentChip extends StatelessWidget {
+  const _ComposerAttachmentChip({
+    required this.attachment,
+    required this.onRemove,
+  });
+
+  final _ComposerAttachmentDraft attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _iconForAttachmentKind(attachment.kind),
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Text(
+              '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onRemove,
+            child: Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerAttachmentDraft {
+  const _ComposerAttachmentDraft({
+    required this.filePath,
+    required this.name,
+    required this.kind,
+    required this.sizeBytes,
+  });
+
+  final String filePath;
+  final String name;
+  final AiAttachmentKind kind;
+  final int sizeBytes;
+
+  static Future<_ComposerAttachmentDraft> fromPath(String path) async {
+    final file = File(path);
+    final stat = await file.stat();
+    return _ComposerAttachmentDraft(
+      filePath: path,
+      name: p.basename(path),
+      kind: aiAttachmentKindForPath(path),
+      sizeBytes: stat.size,
+    );
+  }
+}
+
+IconData _iconForAttachmentKind(AiAttachmentKind kind) {
+  return switch (kind) {
+    AiAttachmentKind.image => Icons.image_outlined,
+    AiAttachmentKind.text => Icons.description_outlined,
+    AiAttachmentKind.spreadsheet => Icons.table_chart_outlined,
+    AiAttachmentKind.pdf => Icons.picture_as_pdf_outlined,
+    AiAttachmentKind.binary => Icons.insert_drive_file_outlined,
+  };
 }
 
 class _ThreadTile extends StatelessWidget {

@@ -59,8 +59,17 @@ class SkillsController extends ChangeNotifier {
 
   Future<void> reloadFromPath(String storagePath) async {
     await _enqueueOperation(() async {
+      final previousStoragePath = _storagePath;
+      final previousSkills = List<LocalSkill>.from(_skills);
+      final previousErrorMessage = _errorMessage;
       _storagePath = storagePath;
       await _refreshLocked();
+      if (_storagePath != previousStoragePath && _errorMessage != null) {
+        _storagePath = previousStoragePath;
+        _skills = previousSkills;
+        _errorMessage = previousErrorMessage;
+        notifyListeners();
+      }
     });
   }
 

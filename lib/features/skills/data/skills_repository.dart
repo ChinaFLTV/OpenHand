@@ -37,10 +37,35 @@ class SkillsRepository {
         )
         .cast<File>()
         .toList();
+    skillFiles.sort((left, right) {
+      final normalizedLeftDirectory = p.normalize(left.parent.path);
+      final normalizedRightDirectory = p.normalize(right.parent.path);
+      final depthComparison = p
+          .split(normalizedLeftDirectory)
+          .length
+          .compareTo(p.split(normalizedRightDirectory).length);
+      if (depthComparison != 0) {
+        return depthComparison;
+      }
+      return normalizedLeftDirectory.compareTo(normalizedRightDirectory);
+    });
 
     final skills = <LocalSkill>[];
+    final loadedSkillDirectories = <String>{};
     for (final file in skillFiles) {
-      skills.add(await _parseSkill(file, storagePath));
+      final normalizedDirectoryPath = p.normalize(file.parent.path);
+      if (_isNestedUnderLoadedSkill(
+        normalizedDirectoryPath,
+        loadedSkillDirectories,
+      )) {
+        continue;
+      }
+      try {
+        skills.add(await _parseSkill(file, storagePath));
+        loadedSkillDirectories.add(normalizedDirectoryPath);
+      } catch (_) {
+        continue;
+      }
     }
 
     skills.sort(
@@ -164,19 +189,25 @@ class SkillsRepository {
       normalizedSourcePath,
       from: normalizedStoragePath,
     );
+    final parsedSourceSkill = await _parseSkill(sourceManifest, storagePath);
     if (relativeSourcePath == '.' || !relativeSourcePath.startsWith('..')) {
-      return _parseSkill(sourceManifest, storagePath);
+      return parsedSourceSkill;
     }
 
     final targetDirectory = await _createUniqueSkillDirectory(
       storageDirectory,
       preferredSlug: _slugify(OpenHandPaths.basename(sourceDirectory.path)),
     );
-    await _copyDirectory(sourceDirectory, targetDirectory);
-    return _parseSkill(
-      File(p.join(targetDirectory.path, _manifestFileName)),
-      storagePath,
-    );
+    try {
+      await _copyDirectory(sourceDirectory, targetDirectory);
+      return _parseSkill(
+        File(p.join(targetDirectory.path, _manifestFileName)),
+        storagePath,
+      );
+    } catch (_) {
+      await _deleteDirectoryIfExists(targetDirectory);
+      rethrow;
+    }
   }
 
   Future<String> readSkillManifest(LocalSkill skill) {
@@ -194,13 +225,31 @@ class SkillsRepository {
 
     final manifestFile = File(skill.manifestPath);
     final normalizedContent = content.replaceAll('\r\n', '\n');
-    await manifestFile.writeAsString(normalizedContent, flush: true);
-    await _syncOpenAiMetadataWithManifest(
-      skillDirectoryPath: manifestFile.parent.path,
-      content: normalizedContent,
-      fallbackSkill: skill,
+    final skillDirectoryPath = manifestFile.parent.path;
+    final metadataPath = p.join(
+      skillDirectoryPath,
+      _openAiMetadataRelativePath,
     );
-    return _parseSkill(manifestFile, storagePath);
+    final previousManifestContent = await manifestFile.readAsString();
+    final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
+
+    try {
+      await manifestFile.writeAsString(normalizedContent, flush: true);
+      await _syncOpenAiMetadataWithManifest(
+        skillDirectoryPath: skillDirectoryPath,
+        content: normalizedContent,
+        fallbackSkill: skill,
+      );
+      return _parseSkill(manifestFile, storagePath);
+    } catch (_) {
+      await manifestFile.writeAsString(previousManifestContent, flush: true);
+      await _restoreOptionalFile(
+        metadataPath,
+        previousMetadataBytes,
+        rootDirectoryPath: skillDirectoryPath,
+      );
+      rethrow;
+    }
   }
 
   Future<LocalSkill> updateSkill(
@@ -243,27 +292,71 @@ class SkillsRepository {
       rawContent: manifestContent,
     );
     final manifestFile = File(skill.manifestPath);
-    await manifestFile.writeAsString(rebuiltContent, flush: true);
-    if (preserveExistingIcon) {
-      await _syncOpenAiMetadataWithManifest(
-        skillDirectoryPath: manifestFile.parent.path,
-        content: rebuiltContent,
-        fallbackSkill: skill,
+    final skillDirectoryPath = manifestFile.parent.path;
+    final metadataPath = p.join(
+      skillDirectoryPath,
+      _openAiMetadataRelativePath,
+    );
+    final generatedEmojiIconPath = p.join(
+      skillDirectoryPath,
+      _openAiAssetsRelativePath,
+      _generatedEmojiIconFileName,
+    );
+    final generatedImageIconPath = p.join(
+      skillDirectoryPath,
+      _openAiAssetsRelativePath,
+      _generatedImageIconFileName,
+    );
+    final previousManifestContent = await manifestFile.readAsString();
+    final previousMetadataBytes = await _readOptionalFileBytes(metadataPath);
+    final previousEmojiIconBytes = await _readOptionalFileBytes(
+      generatedEmojiIconPath,
+    );
+    final previousImageIconBytes = await _readOptionalFileBytes(
+      generatedImageIconPath,
+    );
+
+    try {
+      await manifestFile.writeAsString(rebuiltContent, flush: true);
+      if (preserveExistingIcon) {
+        await _syncOpenAiMetadataWithManifest(
+          skillDirectoryPath: skillDirectoryPath,
+          content: rebuiltContent,
+          fallbackSkill: skill,
+        );
+      } else {
+        await _writeOpenAiMetadata(
+          skillDirectoryPath,
+          displayName: normalizedName,
+          shortDescription: normalizedShortDescription,
+          emojiIcon: normalizedEmojiIcon,
+          imageIconBytes: normalizedImageIconBytes,
+          defaultPrompt: _deriveDefaultPrompt(
+            rebuiltContent,
+            fallback: normalizedShortDescription,
+          ),
+        );
+      }
+      return _parseSkill(manifestFile, storagePath);
+    } catch (_) {
+      await manifestFile.writeAsString(previousManifestContent, flush: true);
+      await _restoreOptionalFile(
+        metadataPath,
+        previousMetadataBytes,
+        rootDirectoryPath: skillDirectoryPath,
       );
-    } else {
-      await _writeOpenAiMetadata(
-        manifestFile.parent.path,
-        displayName: normalizedName,
-        shortDescription: normalizedShortDescription,
-        emojiIcon: normalizedEmojiIcon,
-        imageIconBytes: normalizedImageIconBytes,
-        defaultPrompt: _deriveDefaultPrompt(
-          rebuiltContent,
-          fallback: normalizedShortDescription,
-        ),
+      await _restoreOptionalFile(
+        generatedEmojiIconPath,
+        previousEmojiIconBytes,
+        rootDirectoryPath: skillDirectoryPath,
       );
+      await _restoreOptionalFile(
+        generatedImageIconPath,
+        previousImageIconBytes,
+        rootDirectoryPath: skillDirectoryPath,
+      );
+      rethrow;
     }
-    return _parseSkill(manifestFile, storagePath);
   }
 
   Future<void> deleteSkill(LocalSkill skill, String storagePath) async {
@@ -847,6 +940,74 @@ class SkillsRepository {
   Future<void> _deleteDirectoryIfExists(Directory directory) async {
     if (await directory.exists()) {
       await directory.delete(recursive: true);
+    }
+  }
+
+  bool _isNestedUnderLoadedSkill(
+    String directoryPath,
+    Set<String> loadedSkillDirectories,
+  ) {
+    for (final loadedSkillDirectory in loadedSkillDirectories) {
+      if (p.equals(directoryPath, loadedSkillDirectory)) {
+        return true;
+      }
+      if (p.isWithin(loadedSkillDirectory, directoryPath)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<Uint8List?> _readOptionalFileBytes(String filePath) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      return null;
+    }
+    return Uint8List.fromList(await file.readAsBytes());
+  }
+
+  Future<void> _restoreOptionalFile(
+    String filePath,
+    Uint8List? bytes, {
+    required String rootDirectoryPath,
+  }) async {
+    final file = File(filePath);
+    if (bytes == null) {
+      if (await file.exists()) {
+        await file.delete();
+      }
+      await _deleteEmptyParentDirectories(
+        file.parent,
+        rootDirectoryPath: rootDirectoryPath,
+      );
+      return;
+    }
+
+    final parentDirectory = file.parent;
+    if (!await parentDirectory.exists()) {
+      await parentDirectory.create(recursive: true);
+    }
+    await file.writeAsBytes(bytes, flush: true);
+  }
+
+  Future<void> _deleteEmptyParentDirectories(
+    Directory directory, {
+    required String rootDirectoryPath,
+  }) async {
+    final normalizedRootPath = p.normalize(rootDirectoryPath);
+    var currentPath = p.normalize(directory.path);
+    while (p.isWithin(normalizedRootPath, currentPath)) {
+      final currentDirectory = Directory(currentPath);
+      if (!await currentDirectory.exists()) {
+        currentPath = p.dirname(currentPath);
+        continue;
+      }
+      final children = await currentDirectory.list(followLinks: false).toList();
+      if (children.isNotEmpty) {
+        return;
+      }
+      await currentDirectory.delete();
+      currentPath = p.dirname(currentPath);
     }
   }
 

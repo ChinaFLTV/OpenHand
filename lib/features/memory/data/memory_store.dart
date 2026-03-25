@@ -80,14 +80,25 @@ class MemoryStore {
       if (!sanitized.didSanitize) {
         return MemoryLoadResult(entries: sanitized.entries);
       }
-      await save(sanitized.entries);
-      return MemoryLoadResult(
-        entries: sanitized.entries,
-        issue: MemoryPersistenceIssue(
-          kind: MemoryPersistenceIssueKind.sanitizedInvalidContent,
-          filePath: _userMemoryFilePath,
-        ),
-      );
+      try {
+        await save(sanitized.entries);
+        return MemoryLoadResult(
+          entries: sanitized.entries,
+          issue: MemoryPersistenceIssue(
+            kind: MemoryPersistenceIssueKind.sanitizedInvalidContent,
+            filePath: _userMemoryFilePath,
+          ),
+        );
+      } catch (error) {
+        return MemoryLoadResult(
+          entries: sanitized.entries,
+          issue: MemoryPersistenceIssue(
+            kind: MemoryPersistenceIssueKind.saveFailed,
+            filePath: _userMemoryFilePath,
+            detail: '$error',
+          ),
+        );
+      }
     } catch (error) {
       try {
         final backupPath = await _backupInvalidFile(targetFile);

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:openhand/features/ai/ai_session_controller.dart';
 import 'package:openhand/features/ai/data/ai_session_store.dart';
+import 'package:openhand/features/ai/model/ai_attachment.dart';
 import 'package:openhand/features/ai/model/ai_deny_command_rule.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
@@ -13,6 +14,7 @@ import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
 import 'package:openhand/features/ai/model/ai_token_usage.dart';
 import 'package:openhand/features/ai/service/ai_bash_tool_service.dart';
+import 'package:openhand/features/ai/service/ai_attachment_service.dart';
 import 'package:openhand/features/ai/service/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/ai_claude_hook_service.dart';
 import 'package:openhand/features/ai/service/ai_prompt_template_repository.dart';
@@ -302,6 +304,369 @@ void main() {
   );
 
   test(
+    'AiSessionController stores attachment metadata and injects attachment parts into the prompt',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[AiChatCompletion(reply: 'Done')],
+      );
+      final backgroundClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[],
+        autoTitleResponses: const <AiChatCompletion>[
+          AiChatCompletion(reply: 'Attachment Thread'),
+        ],
+      );
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-session-attachments-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final attachmentDirectory = Directory(
+        '${tempDirectory.path}/stored-attachments',
+      );
+      final markdownFile = File('${tempDirectory.path}/notes.md');
+      await markdownFile.writeAsString(
+        '# Release Notes\n- attachment preview\n- keep the important lines',
+        flush: true,
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        backgroundChatClient: backgroundClient,
+        templateRepository: promptRepository,
+        attachmentService: AiAttachmentService(
+          attachmentsDirectoryPath: attachmentDirectory.path,
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-attachment',
+          'user-message',
+          'attachment-1',
+          'assistant-message',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 10, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath:
+            '/workspace/openhand/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-attachment',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-4o-mini',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Inspect the attached notes',
+          model: model,
+          runtimeContext: runtimeContext,
+          attachmentFilePaths: <String>[markdownFile.path],
+        ),
+        isTrue,
+      );
+
+      final currentSession = controller.currentSession;
+      expect(currentSession, isNotNull);
+      final userMessage = currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.user,
+      );
+      final attachments = AiMessageAttachment.listFromMetadata(
+        userMessage.metadata[aiSessionMessageAttachmentsMetadataKey],
+      );
+      expect(attachments, hasLength(1));
+      expect(attachments.single.name, 'notes.md');
+      expect(await File(attachments.single.storagePath).exists(), isTrue);
+      final latestPrompt = chatClient.requests.single.last;
+      expect(latestPrompt.role, AiChatRole.user);
+      expect(
+        latestPrompt.parts
+            .where((part) => part.kind == AiChatContentPartKind.text)
+            .map((part) => part.text ?? '')
+            .join('\n'),
+        contains('Attachment: notes.md'),
+      );
+    },
+  );
+
+  test(
+    'AiSessionController blocks attachments for non-multimodal models',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[AiChatCompletion(reply: 'Done')],
+      );
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-session-attachment-block-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final markdownFile = File('${tempDirectory.path}/notes.md');
+      await markdownFile.writeAsString('plain attachment', flush: true);
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        attachmentService: AiAttachmentService(
+          attachmentsDirectoryPath: '${tempDirectory.path}/stored-attachments',
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plain',
+          'user-message',
+          'attachment-1',
+          'assistant-message',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 11, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath:
+            '/workspace/openhand/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-plain',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-3.5-turbo',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Inspect the file',
+          model: model,
+          runtimeContext: runtimeContext,
+          attachmentFilePaths: <String>[markdownFile.path],
+        ),
+        isFalse,
+      );
+      expect(
+        controller.lastErrorMessage,
+        contains('does not support file attachments'),
+      );
+      expect(chatClient.requests, isEmpty);
+    },
+  );
+
+  test(
+    'AiSessionController removes imported attachments when persisting the user message fails',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-session-attachment-save-failure-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final sourceFile = File('${tempDirectory.path}/attachment.txt');
+      await sourceFile.writeAsString('attachment content', flush: true);
+      final store = _FailingSaveAiSessionStore(
+        sessionsDirectoryPath: '${tempDirectory.path}/sessions',
+        failOnSaveNumber: 2,
+      );
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[AiChatCompletion(reply: 'unused')],
+      );
+      final controller = await AiSessionController.create(
+        store: store,
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-save-failure',
+          'message-user-save-failure',
+          'attachment-save-failure',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 12, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-attachment-save-failure',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-4o-mini',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Inspect this file',
+          model: model,
+          runtimeContext: runtimeContext,
+          attachmentFilePaths: <String>[sourceFile.path],
+        ),
+        isFalse,
+      );
+      expect(
+        Directory(
+          '${store.sessionAttachmentsDirectoryPath('session-save-failure')}/message-user-save-failure',
+        ).existsSync(),
+        isFalse,
+      );
+      expect(chatClient.requests, isEmpty);
+    },
+  );
+
+  test(
+    'AiSessionController does not resurrect a session after a partial persisted delete failure',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-session-partial-delete-',
+      );
+      addTearDown(() async {
+        if (await tempDirectory.exists()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final store = _PartiallyFailingDeleteAiSessionStore(
+        sessionsDirectoryPath: '${tempDirectory.path}/sessions',
+      );
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: store,
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>['session-partial-delete']),
+        clock: () => DateTime.utc(2026, 3, 25, 13, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(await controller.deleteSession('session-partial-delete'), isTrue);
+      expect(controller.sessions, isEmpty);
+      expect(await store.exists('session-partial-delete'), isFalse);
+    },
+  );
+
+  test(
     'AiSessionController generates the first auto title while the reply is still streaming',
     () async {
       final promptRepository = AiPromptTemplateRepository(
@@ -470,6 +835,99 @@ void main() {
       streamingClient.completeStream();
       expect(await pendingSend, isTrue);
       expect(controller.currentSession!.title, 'Delayed Title');
+    },
+  );
+
+  test(
+    'AiSessionController records an error when persisting an auto title fails',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final streamingClient = _AutoTitleStreamingChatClient();
+      final backgroundClient = _DelayedAutoTitleChatClient();
+      final controller = await AiSessionController.create(
+        store: _AutoTitleFailingAiSessionStore(),
+        chatClient: streamingClient,
+        backgroundChatClient: backgroundClient,
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-auto-title-persist-failure',
+          'message-user-auto-title-persist-failure',
+          'message-assistant-auto-title-persist-failure',
+          'error-auto-title-persist-failure',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 14, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-auto-title-persist-failure',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final pendingSend = controller.sendMessage(
+        content: 'Please keep trying to save the generated title',
+        model: model,
+        runtimeContext: runtimeContext,
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(backgroundClient.requestCount, 1);
+      expect(controller.currentSession, isNotNull);
+      expect(controller.currentSession!.title, '新会话');
+
+      backgroundClient.completeTitle();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final currentSession = controller.currentSession;
+      expect(currentSession, isNotNull);
+      expect(currentSession!.title, '新会话');
+      expect(currentSession.recentErrors, isNotEmpty);
+      expect(currentSession.recentErrors.first.stage, 'title_generation');
+      expect(
+        currentSession.recentErrors.first.detail,
+        contains('Injected auto title save failure'),
+      );
+
+      streamingClient.completeStream();
+      expect(await pendingSend, isTrue);
+      expect(controller.currentSession!.title, '新会话');
     },
   );
 
@@ -676,6 +1134,88 @@ void main() {
           );
       expect(
         reasoningAfterCompletion.metadata[aiSessionMessageMetadataStreamingKey],
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'AiSessionController reconciles final stream reply and reasoning when deltas are partial',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _PartialDeltaStreamingChatClient();
+      final generatedIds = <String>[
+        'session-final-stream-sync',
+        'message-user-final-stream-sync',
+        'message-reasoning-final-stream-sync',
+        'message-assistant-final-stream-sync',
+      ];
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        idGenerator: () => generatedIds.removeAt(0),
+        clock: () => DateTime.utc(2026, 3, 25, 16, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-final-stream-sync',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Return the final answer after partial deltas.',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final assistantMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.assistant,
+      );
+      final reasoningMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.reasoning,
+      );
+      expect(assistantMessage.content, 'Partial answer completed');
+      expect(reasoningMessage.content, 'Step 1 complete');
+      expect(
+        reasoningMessage.metadata[aiSessionMessageMetadataStreamingKey],
         isFalse,
       );
     },
@@ -3742,6 +4282,94 @@ Use this skill when the task requires careful planning.
   );
 
   test(
+    'AiSessionController removes streamed tool call previews that are absent from the final stream result',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _ToolCallDeltaDroppedStreamingChatClient(),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-tool-call-preview-dropped',
+          'message-user-tool-call-preview-dropped',
+          'message-tool-call-preview-dropped',
+          'message-assistant-tool-call-preview-dropped',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 20, 0),
+      );
+      addTearDown(controller.dispose);
+
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-tool-call-preview-dropped',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Stream a temporary tool call, then finish normally.',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      expect(
+        controller.currentSession!.messages
+            .where(
+              (message) =>
+                  !message.isDeleted &&
+                  message.kind == AiSessionMessageKind.toolCall,
+            )
+            .isEmpty,
+        isTrue,
+      );
+      expect(
+        controller.currentSession!.messages.any(
+          (message) =>
+              message.kind == AiSessionMessageKind.assistant &&
+              message.content == 'Finished without tool calls',
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
     'AiSessionController stops queued tool calls after the running tool is cancelled',
     () async {
       final promptRepository = AiPromptTemplateRepository(
@@ -4708,6 +5336,93 @@ class _InMemoryAiSessionStore extends AiSessionStore {
   Future<void> save(AiSession session) async {
     _sessions[session.id] = session;
   }
+
+  @override
+  Future<bool> exists(String sessionId) async {
+    return _sessions.containsKey(sessionId);
+  }
+}
+
+class _FailingSaveAiSessionStore extends AiSessionStore {
+  _FailingSaveAiSessionStore({
+    required super.sessionsDirectoryPath,
+    required this.failOnSaveNumber,
+  });
+
+  final int failOnSaveNumber;
+  final Map<String, AiSession> _sessions = <String, AiSession>{};
+  int _saveCount = 0;
+
+  @override
+  Future<AiSessionLoadResult> loadAll() async {
+    final sessions = _sessions.values.toList(growable: false)
+      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    return AiSessionLoadResult(
+      sessions: sessions,
+      issues: const <AiSessionPersistenceIssue>[],
+    );
+  }
+
+  @override
+  Future<void> save(AiSession session) async {
+    _saveCount += 1;
+    if (_saveCount >= failOnSaveNumber) {
+      throw const FileSystemException('Injected save failure');
+    }
+    _sessions[session.id] = session;
+  }
+
+  @override
+  Future<bool> exists(String sessionId) async {
+    return _sessions.containsKey(sessionId);
+  }
+}
+
+class _AutoTitleFailingAiSessionStore extends AiSessionStore {
+  _AutoTitleFailingAiSessionStore()
+    : super(
+        sessionsDirectoryPath: '/tmp/openhand-auto-title-persist-failure-test',
+      );
+
+  final Map<String, AiSession> _sessions = <String, AiSession>{};
+  bool _didFailAutoTitleSave = false;
+
+  @override
+  Future<AiSessionLoadResult> loadAll() async {
+    final sessions = _sessions.values.toList(growable: false)
+      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+    return AiSessionLoadResult(
+      sessions: sessions,
+      issues: const <AiSessionPersistenceIssue>[],
+    );
+  }
+
+  @override
+  Future<void> save(AiSession session) async {
+    if (!_didFailAutoTitleSave && session.autoTitleGeneratedAt != null) {
+      _didFailAutoTitleSave = true;
+      throw const FileSystemException('Injected auto title save failure');
+    }
+    _sessions[session.id] = session;
+  }
+
+  @override
+  Future<bool> exists(String sessionId) async {
+    return _sessions.containsKey(sessionId);
+  }
+}
+
+class _PartiallyFailingDeleteAiSessionStore extends AiSessionStore {
+  _PartiallyFailingDeleteAiSessionStore({required super.sessionsDirectoryPath});
+
+  @override
+  Future<void> delete(String sessionId) async {
+    final file = File(sessionFilePath(sessionId));
+    if (await file.exists()) {
+      await file.delete();
+    }
+    throw const FileSystemException('Injected partial delete failure');
+  }
 }
 
 class _FakeClaudeHookService extends AiClaudeHookService {
@@ -5118,6 +5833,48 @@ class _ReasoningStreamingChatClient implements AiChatClient {
       return;
     }
     _streamCompleter.complete();
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _PartialDeltaStreamingChatClient implements AiChatClient {
+  @override
+  Future<AiChatCompletion> sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return const AiChatCompletion(reply: '');
+  }
+
+  @override
+  Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return AiChatStreamingResponse(
+      events: Stream<AiChatStreamEvent>.fromIterable(const <AiChatStreamEvent>[
+        AiChatStreamEvent.reasoningDelta('Step'),
+        AiChatStreamEvent.textDelta('Partial'),
+      ]),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: 'Partial answer completed',
+          reasoning: 'Step 1 complete',
+          toolCalls: <AiToolCall>[],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<String> testModel(AiModelConfig model) async {
+    return 'OK';
   }
 
   @override
@@ -5799,6 +6556,55 @@ class _ToolCallDeltaErrorStreamingChatClient implements AiChatClient {
       result: Future<AiChatStreamResult>.delayed(
         const Duration(milliseconds: 20),
         () => throw StateError('stream failure'),
+      ),
+    );
+  }
+
+  @override
+  Future<String> testModel(AiModelConfig model) async {
+    return 'OK';
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _ToolCallDeltaDroppedStreamingChatClient implements AiChatClient {
+  @override
+  Future<AiChatCompletion> sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return const AiChatCompletion(reply: '');
+  }
+
+  @override
+  Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return AiChatStreamingResponse(
+      events: Stream<AiChatStreamEvent>.fromIterable(const <AiChatStreamEvent>[
+        AiChatStreamEvent.toolCallDelta(
+          AiToolCallDelta(
+            index: 0,
+            id: 'tool-call-preview-dropped',
+            name: 'TodoWrite',
+            argumentsFragment:
+                '{"todos":[{"id":"1","content":"Temporary preview","status":"pending"}]}',
+          ),
+        ),
+      ]),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: 'Finished without tool calls',
+          reasoning: '',
+          toolCalls: <AiToolCall>[],
+        ),
       ),
     );
   }

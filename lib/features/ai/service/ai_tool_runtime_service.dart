@@ -288,32 +288,43 @@ class AiToolRuntimeService {
       );
     }
 
-    final rawResult = await switch (resolvedTool.source) {
-      AiRuntimeToolSource.builtin => _executeBuiltinTool(
-        sessionId: sessionId,
-        catalog: catalog,
+    final rawExecutionStartedAt = Stopwatch()..start();
+    late final AiToolExecutionResult rawResult;
+    try {
+      rawResult = await switch (resolvedTool.source) {
+        AiRuntimeToolSource.builtin => _executeBuiltinTool(
+          sessionId: sessionId,
+          catalog: catalog,
+          tool: resolvedTool,
+          toolCall: toolCall,
+          decodedArguments: decodedArguments,
+          model: model,
+          previouslyReadFiles: previouslyReadFiles,
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
+          cancelSignal: cancelSignal,
+          onBashUpdate: onBashUpdate,
+        ),
+        AiRuntimeToolSource.mcp => _executeMcpTool(
+          tool: resolvedTool,
+          toolCall: toolCall,
+          decodedArguments: decodedArguments,
+        ),
+        AiRuntimeToolSource.skill => _executeSkillTool(
+          tool: resolvedTool,
+          toolCall: toolCall,
+          decodedArguments: decodedArguments,
+        ),
+      };
+    } catch (error) {
+      rawResult = _toolExecutionErrorResult(
         tool: resolvedTool,
-        toolCall: toolCall,
-        decodedArguments: decodedArguments,
-        model: model,
-        previouslyReadFiles: previouslyReadFiles,
-        denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
-        confirmWriteCommand: confirmWriteCommand,
-        cancelSignal: cancelSignal,
-        onBashUpdate: onBashUpdate,
-      ),
-      AiRuntimeToolSource.mcp => _executeMcpTool(
-        tool: resolvedTool,
-        toolCall: toolCall,
-        decodedArguments: decodedArguments,
-      ),
-      AiRuntimeToolSource.skill => _executeSkillTool(
-        tool: resolvedTool,
-        toolCall: toolCall,
-        decodedArguments: decodedArguments,
-      ),
-    };
+        fallbackWorkingDirectory: hookWorkingDirectory,
+        error: error,
+        durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+      );
+    }
     final postHookResult = await _hookService.runHooks(
       eventName: rawResult.status == BashToolExecutionStatus.success
           ? 'PostToolUse'
@@ -412,7 +423,7 @@ class AiToolRuntimeService {
                     permissionHookResult.systemReminders,
                   );
                   if (permissionHookResult.blocked) {
-                    await _hookService.runHooks(
+                    final notificationHookResult = await _runAuxiliaryHook(
                       eventName: 'Notification',
                       sessionId: sessionId,
                       matcherValue: 'permission_prompt',
@@ -424,10 +435,13 @@ class AiToolRuntimeService {
                         'status': 'blocked',
                       },
                     );
+                    permissionHookReminders.addAll(
+                      notificationHookResult.systemReminders,
+                    );
                     return false;
                   }
                   final approved = await confirmWriteCommand(request);
-                  await _hookService.runHooks(
+                  final notificationHookResult = await _runAuxiliaryHook(
                     eventName: 'Notification',
                     sessionId: sessionId,
                     matcherValue: 'permission_prompt',
@@ -438,6 +452,9 @@ class AiToolRuntimeService {
                       'command': request.command,
                       'status': approved ? 'approved' : 'rejected',
                     },
+                  );
+                  permissionHookReminders.addAll(
+                    notificationHookResult.systemReminders,
                   );
                   return approved;
                 };
@@ -889,7 +906,7 @@ class AiToolRuntimeService {
         final output = reply.isEmpty
             ? 'The background task completed without additional output.'
             : reply;
-        final subagentStopHookResult = await _hookService.runHooks(
+        final subagentStopHookResult = await _runAuxiliaryHook(
           eventName: 'SubagentStop',
           sessionId: subagentSessionId,
           matcherValue: canonicalSubagentType,
@@ -970,6 +987,28 @@ class AiToolRuntimeService {
               subagentStartHookResult.systemReminders,
       },
     );
+  }
+
+  Future<AiClaudeHookInvocationResult> _runAuxiliaryHook({
+    required String eventName,
+    required String sessionId,
+    required Map<String, Object?> payload,
+    String? matcherValue,
+    String? cwd,
+  }) async {
+    try {
+      return await _hookService.runHooks(
+        eventName: eventName,
+        sessionId: sessionId,
+        matcherValue: matcherValue,
+        cwd: cwd,
+        payload: payload,
+      );
+    } catch (error) {
+      return AiClaudeHookInvocationResult(
+        systemReminders: <String>['Hook event $eventName failed: $error'],
+      );
+    }
   }
 
   AiToolExecutionResult _executeExitPlanModeTool(
@@ -2676,6 +2715,57 @@ class AiToolRuntimeService {
       durationMs: 0,
       resultText: 'status: invalid_arguments\nerror: $message',
     );
+  }
+
+  AiToolExecutionResult _toolExecutionErrorResult({
+    required AiResolvedTool tool,
+    required String fallbackWorkingDirectory,
+    required Object error,
+    required int durationMs,
+  }) {
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.failed,
+      command: _toolExecutionCommand(tool),
+      workingDirectory: fallbackWorkingDirectory,
+      stdout: '',
+      stderr: '$error',
+      durationMs: durationMs,
+      resultText: 'status: failed\nerror: $error',
+      metadata: _toolExecutionMetadata(tool),
+    );
+  }
+
+  String _toolExecutionCommand(AiResolvedTool tool) {
+    return switch (tool.source) {
+      AiRuntimeToolSource.builtin => tool.name,
+      AiRuntimeToolSource.mcp =>
+        '${tool.name} (${tool.mcpServer?.name ?? 'mcp'}/${tool.mcpTool?.id ?? tool.name})',
+      AiRuntimeToolSource.skill => tool.name,
+    };
+  }
+
+  Map<String, Object?> _toolExecutionMetadata(AiResolvedTool tool) {
+    return switch (tool.source) {
+      AiRuntimeToolSource.builtin => const <String, Object?>{
+        'tool_source': 'builtin',
+      },
+      AiRuntimeToolSource.mcp => <String, Object?>{
+        'tool_source': 'mcp',
+        if (tool.mcpServer != null) 'mcp_server_name': tool.mcpServer!.name,
+        if (tool.mcpTool != null) ...<String, Object?>{
+          'mcp_tool_id': tool.mcpTool!.id,
+          'mcp_tool_name': tool.mcpTool!.name,
+        },
+      },
+      AiRuntimeToolSource.skill => <String, Object?>{
+        'tool_source': 'skill',
+        if (tool.skill != null) ...<String, Object?>{
+          'skill_name': tool.skill!.name,
+          'skill_manifest_path': tool.skill!.manifestPath,
+          'skill_directory_path': tool.skill!.directoryPath,
+        },
+      },
+    };
   }
 
   List<_WebSearchResult> _parseDuckDuckGoResults(String html) {

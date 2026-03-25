@@ -558,6 +558,77 @@ void main() {
   );
 
   test(
+    'AiToolRuntimeService runs PostToolUseFailure hooks when an MCP tool throws',
+    () async {
+      final hookService = _FakeClaudeHookService();
+      final mcpService = _FakeMcpToolDiscoveryService(
+        toolCatalog: const McpToolCatalog(
+          status: McpToolCatalogStatus.ready,
+          tools: <McpTool>[
+            McpTool(
+              id: 'deploy_release',
+              name: 'Deploy Release',
+              description: 'Deploy the prepared release.',
+              inputSchema: <String, Object?>{'type': 'object'},
+            ),
+          ],
+        ),
+        callToolError: StateError('MCP tool crashed before returning output.'),
+      );
+      final hookedService = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: hookService,
+        mcpToolService: mcpService,
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(hookedService.dispose);
+      final catalog = await hookedService.resolveCatalog(
+        runtimeContext: _runtimeContext(
+          availableMcpServers: const <McpServer>[
+            McpServer(
+              name: 'local-http',
+              type: McpServerType.streamableHttp,
+              enabled: true,
+              url: 'https://mcp.example/tools',
+            ),
+          ],
+        ),
+      );
+      final toolName = catalog.toolsByName.entries
+          .singleWhere((entry) => entry.value.source == AiRuntimeToolSource.mcp)
+          .key;
+
+      final result = await hookedService.execute(
+        sessionId: 'mcp-hook-failure',
+        catalog: catalog,
+        toolCall: AiToolCall(
+          id: 'tool-1',
+          name: toolName,
+          arguments: jsonEncode(const <String, Object?>{}),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.failed);
+      expect(
+        result.stderr,
+        contains('MCP tool crashed before returning output.'),
+      );
+      expect(hookService.recordedEventNames, <String>[
+        'PreToolUse',
+        'PostToolUseFailure',
+      ]);
+      expect(result.metadata['tool_source'], 'mcp');
+      expect(result.metadata['mcp_server_name'], 'local-http');
+      expect(result.metadata['mcp_tool_id'], 'deploy_release');
+    },
+  );
+
+  test(
     'AiToolRuntimeService emits PermissionRequest and Notification for write confirmation',
     () async {
       if (Platform.isWindows) {
@@ -604,6 +675,112 @@ void main() {
       expect(hookService.recordedEventNames, contains('PermissionRequest'));
       expect(hookService.recordedEventNames, contains('Notification'));
       expect(await targetFile.readAsString(), 'hello');
+    },
+  );
+
+  test(
+    'AiToolRuntimeService ignores Notification hook failures after write confirmation',
+    () async {
+      if (Platform.isWindows) {
+        return;
+      }
+      final hookService = _FakeClaudeHookService(
+        throwOnEvents: <String, Object>{
+          'Notification': StateError('Notification hook crashed.'),
+        },
+      );
+      final hookedService = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: hookService,
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(hookedService.dispose);
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-permission-hook-notification-failure-',
+      );
+      addTearDown(() async {
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      final targetFile = File('${tempDirectory.path}/note.txt');
+
+      final result = await hookedService.execute(
+        sessionId: 'permission-hook-notification-failure',
+        catalog: await hookedService.resolveCatalog(
+          runtimeContext: _runtimeContext(),
+        ),
+        toolCall: AiToolCall(
+          id: 'tool-1',
+          name: 'Bash',
+          arguments: jsonEncode(<String, Object?>{
+            'cmd': 'printf "hello" > "${targetFile.path}"',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: true,
+        confirmWriteCommand: (_) async => true,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        result.metadata[aiHookSystemRemindersMetadataKey],
+        contains(
+          'Hook event Notification failed: Bad state: Notification hook crashed.',
+        ),
+      );
+      expect(await targetFile.readAsString(), 'hello');
+    },
+  );
+
+  test(
+    'AiToolRuntimeService preserves successful Task results when SubagentStop hook fails',
+    () async {
+      final hookService = _FakeClaudeHookService(
+        throwOnEvents: <String, Object>{
+          'SubagentStop': StateError('Subagent stop hook crashed.'),
+        },
+      );
+      final taskService = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: hookService,
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: _FakeChatClient(),
+      );
+      addTearDown(taskService.dispose);
+
+      final result = await taskService.execute(
+        sessionId: 'task-subagent-stop-hook-failure',
+        catalog: await taskService.resolveCatalog(
+          runtimeContext: _runtimeContext(),
+        ),
+        toolCall: AiToolCall(
+          id: 'task-1',
+          name: 'Task',
+          arguments: jsonEncode(<String, Object?>{
+            'description': 'summarize',
+            'prompt': 'Return a concise answer.',
+            'subagent_type': 'general-purpose',
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(
+        result.metadata[aiHookSystemRemindersMetadataKey],
+        contains(
+          'Hook event SubagentStop failed: Bad state: Subagent stop hook crashed.',
+        ),
+      );
+      expect(result.metadata['subagent_session_isolated'], isTrue);
     },
   );
 
@@ -786,8 +963,10 @@ void main() {
   });
 }
 
-AiSessionRuntimeContext _runtimeContext() {
-  return const AiSessionRuntimeContext(
+AiSessionRuntimeContext _runtimeContext({
+  List<McpServer> availableMcpServers = const <McpServer>[],
+}) {
+  return AiSessionRuntimeContext(
     localeTag: 'en-US',
     appVersion: '0.1.0',
     appBuildNumber: '1',
@@ -798,6 +977,7 @@ AiSessionRuntimeContext _runtimeContext() {
     compressionThresholdChars: 12000,
     memoryEnabled: true,
     memoryEntries: <UserMemoryEntry>[],
+    availableMcpServers: availableMcpServers,
   );
 }
 
@@ -846,10 +1026,12 @@ class _FakeClaudeHookService extends AiClaudeHookService {
   _FakeClaudeHookService({
     this.preToolUseResult = const AiClaudeHookInvocationResult(),
     this.postToolUseResult = const AiClaudeHookInvocationResult(),
+    this.throwOnEvents = const <String, Object>{},
   });
 
   final AiClaudeHookInvocationResult preToolUseResult;
   final AiClaudeHookInvocationResult postToolUseResult;
+  final Map<String, Object> throwOnEvents;
   final List<String> recordedEventNames = <String>[];
 
   @override
@@ -861,6 +1043,10 @@ class _FakeClaudeHookService extends AiClaudeHookService {
     String? cwd,
   }) async {
     recordedEventNames.add(eventName);
+    final thrownError = throwOnEvents[eventName];
+    if (thrownError != null) {
+      throw thrownError;
+    }
     return switch (eventName) {
       'PreToolUse' => preToolUseResult,
       'PostToolUse' => postToolUseResult,
@@ -870,12 +1056,20 @@ class _FakeClaudeHookService extends AiClaudeHookService {
 }
 
 class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
-  @override
-  Future<McpToolCatalog> discoverTools(McpServer server) async {
-    return const McpToolCatalog(
+  _FakeMcpToolDiscoveryService({
+    this.toolCatalog = const McpToolCatalog(
       status: McpToolCatalogStatus.ready,
       tools: <McpTool>[],
-    );
+    ),
+    this.callToolError,
+  });
+
+  final McpToolCatalog toolCatalog;
+  final Object? callToolError;
+
+  @override
+  Future<McpToolCatalog> discoverTools(McpServer server) async {
+    return toolCatalog;
   }
 
   @override
@@ -889,6 +1083,9 @@ class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
   }) async {
+    if (callToolError != null) {
+      throw callToolError!;
+    }
     return const McpToolCallResult(outputText: '');
   }
 

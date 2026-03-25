@@ -41,6 +41,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _requestTimeout = Duration(seconds: 6);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
+  static const int _maxStdioStdoutBufferBytes = 4 * 1024 * 1024;
   static const int _maxRedirects = 4;
   static const int _maxToolPages = 8;
   static const String _streamableHttpProtocolVersion = '2025-11-25';
@@ -405,8 +406,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   ) async {
     final tools = <McpTool>[];
     final warnings = <String>[];
+    final seenToolIds = <String>{};
     var cursor = '';
     var invalidTools = 0;
+    var duplicateTools = 0;
     var metadataWarnings = 0;
 
     for (var pageIndex = 0; pageIndex < _maxToolPages; pageIndex++) {
@@ -422,6 +425,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         final parsedTool = _parseTool(rawTool);
         if (parsedTool == null) {
           invalidTools += 1;
+          continue;
+        }
+        if (!seenToolIds.add(parsedTool.id)) {
+          duplicateTools += 1;
           continue;
         }
         if (parsedTool.hasMetadataWarning) {
@@ -445,6 +452,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (invalidTools > 0) {
       warnings.add(
         'Ignored $invalidTools invalid tool entr${invalidTools == 1 ? 'y' : 'ies'}.',
+      );
+    }
+    if (duplicateTools > 0) {
+      warnings.add(
+        'Ignored $duplicateTools duplicate tool entr${duplicateTools == 1 ? 'y' : 'ies'}.',
       );
     }
     if (metadataWarnings > 0) {
@@ -1301,6 +1313,7 @@ class _StdioSession {
       _appendTrace('stdout:chunk:${chunk.length}');
       _stdoutBuffer.addAll(chunk);
       _drainStdoutBuffer();
+      _enforceStdoutBufferLimit();
     } catch (error, stackTrace) {
       _failPendingResponses(error, stackTrace);
     }
@@ -1420,6 +1433,23 @@ class _StdioSession {
       return 'Tool scan failed because the stdio MCP server closed unexpectedly.$traceSuffix';
     }
     return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix';
+  }
+
+  void _enforceStdoutBufferLimit() {
+    if (_stdoutBuffer.length <=
+        DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes) {
+      return;
+    }
+    throw McpToolDiscoveryException(_stdoutOverflowMessage());
+  }
+
+  String _stdoutOverflowMessage() {
+    final trace = _traceBuffer.toString().trim();
+    final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
+    final maxMiB =
+        DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes ~/
+        (1024 * 1024);
+    return 'Tool scan failed because the stdio MCP server wrote more than $maxMiB MiB to stdout without a complete protocol message.$traceSuffix';
   }
 
   void _appendTrace(String message) {

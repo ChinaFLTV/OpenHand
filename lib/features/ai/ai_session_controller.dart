@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/support/openhand_paths.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';
+import 'model/ai_attachment.dart';
 import 'model/ai_deny_command_rule.dart';
 import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
@@ -21,6 +22,7 @@ import 'service/ai_chat_service.dart';
 import 'service/ai_claude_hook_service.dart';
 import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
+import 'service/ai_attachment_service.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
 
@@ -41,6 +43,7 @@ class AiSessionController extends ChangeNotifier {
     required AiBashToolService bashToolService,
     required AiClaudeHookService hookService,
     required AiToolRuntimeService toolRuntimeService,
+    required AiAttachmentService attachmentService,
     required String Function() idGenerator,
     required DateTime Function() clock,
   }) : _store = store,
@@ -51,6 +54,7 @@ class AiSessionController extends ChangeNotifier {
        _bashToolService = bashToolService,
        _hookService = hookService,
        _toolRuntimeService = toolRuntimeService,
+       _attachmentService = attachmentService,
        _idGenerator = idGenerator,
        _clock = clock;
 
@@ -63,10 +67,12 @@ class AiSessionController extends ChangeNotifier {
     AiBashToolService? bashToolService,
     AiClaudeHookService? hookService,
     AiToolRuntimeService? toolRuntimeService,
+    AiAttachmentService? attachmentService,
     McpToolDiscoveryService? mcpToolService,
     String Function()? idGenerator,
     DateTime Function()? clock,
   }) async {
+    final resolvedStore = store ?? AiSessionStore();
     final resolvedChatClient = chatClient ?? AiChatService();
     final resolvedBackgroundChatClient =
         backgroundChatClient ??
@@ -77,7 +83,7 @@ class AiSessionController extends ChangeNotifier {
         ? null
         : (mcpToolService ?? DefaultMcpToolDiscoveryService());
     final controller = AiSessionController._(
-      store: store ?? AiSessionStore(),
+      store: resolvedStore,
       chatClient: resolvedChatClient,
       backgroundChatClient: resolvedBackgroundChatClient,
       templateRepository: templateRepository ?? AiPromptTemplateRepository(),
@@ -91,6 +97,11 @@ class AiSessionController extends ChangeNotifier {
             hookService: resolvedHookService,
             mcpToolService: resolvedMcpToolService!,
             backgroundChatClient: resolvedBackgroundChatClient,
+          ),
+      attachmentService:
+          attachmentService ??
+          AiAttachmentService(
+            attachmentsDirectoryPath: resolvedStore.attachmentsDirectoryPath,
           ),
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
@@ -139,6 +150,7 @@ class AiSessionController extends ChangeNotifier {
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
   final AiToolRuntimeService _toolRuntimeService;
+  final AiAttachmentService _attachmentService;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
 
@@ -474,30 +486,23 @@ class AiSessionController extends ChangeNotifier {
       notifyListeners();
       try {
         await _store.delete(sessionId);
-        if (wasSending) {
-          final stopSignal = _sessionStopSignals.putIfAbsent(
-            sessionId,
-            Completer<void>.new,
-          );
-          if (!stopSignal.isCompleted) {
-            stopSignal.complete();
-          }
-        }
-        if (!wasSending) {
-          _clearSessionExecutionState(sessionId);
-          _sessionOperationQueues.remove(sessionId);
-        }
-        if (cancelHandler != null) {
-          unawaited(
-            cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
-          );
-        }
-        if (deletedSession != null) {
-          await _emitSessionEndHook(session: deletedSession, reason: 'other');
-        }
-        _clearSessionScopedSendState(sessionId);
+        await _finalizeDeletedSession(
+          sessionId: sessionId,
+          wasSending: wasSending,
+          cancelHandler: cancelHandler,
+          deletedSession: deletedSession,
+        );
         return true;
       } catch (error) {
+        if (!await _store.exists(sessionId)) {
+          await _finalizeDeletedSession(
+            sessionId: sessionId,
+            wasSending: wasSending,
+            cancelHandler: cancelHandler,
+            deletedSession: deletedSession,
+          );
+          return true;
+        }
         _deletedSessionIds.remove(sessionId);
         _sessions = previousSessions;
         _currentSessionId = previousCurrentSessionId;
@@ -513,6 +518,36 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
     });
+  }
+
+  Future<void> _finalizeDeletedSession({
+    required String sessionId,
+    required bool wasSending,
+    required Future<void> Function()? cancelHandler,
+    required AiSession? deletedSession,
+  }) async {
+    if (wasSending) {
+      final stopSignal = _sessionStopSignals.putIfAbsent(
+        sessionId,
+        Completer<void>.new,
+      );
+      if (!stopSignal.isCompleted) {
+        stopSignal.complete();
+      }
+    }
+    if (!wasSending) {
+      _clearSessionExecutionState(sessionId);
+      _sessionOperationQueues.remove(sessionId);
+    }
+    if (cancelHandler != null) {
+      unawaited(
+        cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
+      );
+    }
+    if (deletedSession != null) {
+      await _emitSessionEndHook(session: deletedSession, reason: 'other');
+    }
+    _clearSessionScopedSendState(sessionId);
   }
 
   Future<String?> beginEditingMessage(String messageId) async {
@@ -710,12 +745,16 @@ class AiSessionController extends ChangeNotifier {
     required String content,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
+    List<String> attachmentFilePaths = const <String>[],
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
     bool requireWriteCommandConfirmation = true,
     WriteCommandConfirmationCallback? confirmWriteCommand,
   }) async {
     final normalizedContent = content.trim();
-    if (normalizedContent.isEmpty) {
+    final normalizedAttachmentPaths = _normalizeAttachmentPaths(
+      attachmentFilePaths,
+    );
+    if (normalizedContent.isEmpty && normalizedAttachmentPaths.isEmpty) {
       return false;
     }
     final resolvedSessionId = sessionId ?? _currentSessionId;
@@ -738,7 +777,7 @@ class AiSessionController extends ChangeNotifier {
 
       _debugSessionLog(
         session.id,
-        'send_message_start model=${model.modelId} chars=${normalizedContent.length}',
+        'send_message_start model=${model.modelId} chars=${normalizedContent.length} attachments=${normalizedAttachmentPaths.length}',
       );
       _setSessionSendPhase(session.id, AiSendPhase.sendingMessage);
       _sessionCancelHandlers.remove(session.id);
@@ -841,16 +880,35 @@ class AiSessionController extends ChangeNotifier {
           await Future<void>.delayed(Duration.zero);
         }
 
-        final preparedUserTurn = _prepareUserTurn(
+        if (!_supportsAttachmentsForSession(
+          model: model,
+          session: session,
+          newAttachmentPaths: normalizedAttachmentPaths,
+        )) {
+          _setLastSendErrorMessage(
+            session.id,
+            'The selected model does not support file attachments for this conversation.',
+          );
+          return false;
+        }
+
+        final preparedUserTurn = await _prepareUserTurn(
           session: session,
           content: normalizedContent,
           model: model,
           runtimeContext: runtimeContext,
+          attachmentFilePaths: normalizedAttachmentPaths,
           userMessageMetadata: userMessageMetadata,
         );
         session = preparedUserTurn.session;
         final userCommitted = await _commitSessionLocked(session);
         if (!userCommitted) {
+          if (preparedUserTurn.importedAttachments) {
+            await _attachmentService.deleteMessageAttachments(
+              sessionId: session.id,
+              messageId: preparedUserTurn.userMessage.id,
+            );
+          }
           _setLastSendErrorMessage(
             session.id,
             'Failed to persist the user message.',
@@ -906,6 +964,48 @@ class AiSessionController extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  List<String> _normalizeAttachmentPaths(List<String> attachmentFilePaths) {
+    final normalized = <String>[];
+    final seen = <String>{};
+    for (final rawPath in attachmentFilePaths) {
+      final path = rawPath.trim();
+      if (path.isEmpty || !seen.add(path)) {
+        continue;
+      }
+      normalized.add(path);
+    }
+    return normalized;
+  }
+
+  bool _supportsAttachmentsForSession({
+    required AiModelConfig model,
+    required AiSession session,
+    required List<String> newAttachmentPaths,
+  }) {
+    final hasNewAttachments = newAttachmentPaths.isNotEmpty;
+    final hasExistingAttachments = session.activeConversationMessages.any(
+      (message) => AiMessageAttachment.listFromMetadata(
+        message.metadata[aiSessionMessageAttachmentsMetadataKey],
+      ).isNotEmpty,
+    );
+    if (!hasNewAttachments && !hasExistingAttachments) {
+      return true;
+    }
+    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    return adapter.supportsAttachmentsForModel(model);
+  }
+
+  int _characterCountForMessageContent(
+    String content, {
+    List<AiMessageAttachment> attachments = const <AiMessageAttachment>[],
+  }) {
+    final attachmentCharacterCount = attachments.fold<int>(
+      0,
+      (sum, item) => sum + item.promptText.length,
+    );
+    return AiSessionMessage.countCharacters(content) + attachmentCharacterCount;
   }
 
   @override
@@ -1109,6 +1209,73 @@ class AiSessionController extends ChangeNotifier {
           return;
         }
         streamedSession = upsertReasoningPreview(streamedSession, content);
+      }
+
+      AiSession syncFinalAssistantMessage(
+        AiSession session,
+        String finalReply,
+      ) {
+        final sanitizedContent = _sanitizeVisibleModelContent(finalReply);
+        if (sanitizedContent.isEmpty && assistantMessageId == null) {
+          return session;
+        }
+        final resolvedMessageId = assistantMessageId ?? _idGenerator();
+        assistantMessageId = resolvedMessageId;
+        return _upsertMessage(
+          session,
+          messageId: resolvedMessageId,
+          create: () => AiSessionMessage.assistant(
+            id: resolvedMessageId,
+            content: sanitizedContent,
+            createdAt: _clock().toUtc(),
+            modelId: model.id,
+            modelLabel: model.displayName,
+          ),
+          update: (message) => message.copyWith(
+            content: sanitizedContent.isEmpty
+                ? message.content
+                : sanitizedContent,
+            modelId: model.id,
+            modelLabel: model.displayName,
+          ),
+        );
+      }
+
+      AiSession syncFinalReasoningMessage(
+        AiSession session,
+        String finalReasoning,
+      ) {
+        final sanitizedContent = _sanitizeVisibleModelContent(finalReasoning);
+        if (sanitizedContent.isEmpty && reasoningMessageId == null) {
+          return session;
+        }
+        final resolvedMessageId = reasoningMessageId ?? _idGenerator();
+        reasoningMessageId = resolvedMessageId;
+        return _upsertMessage(
+          session,
+          messageId: resolvedMessageId,
+          create: () => AiSessionMessage.reasoning(
+            id: resolvedMessageId,
+            content: sanitizedContent,
+            createdAt: _clock().toUtc(),
+            modelId: model.id,
+            modelLabel: model.displayName,
+            metadata: const <String, Object?>{
+              aiSessionMessageMetadataStreamingKey: false,
+            },
+          ),
+          update: (message) => message.copyWith(
+            content: sanitizedContent.isEmpty
+                ? message.content
+                : sanitizedContent,
+            modelId: model.id,
+            modelLabel: model.displayName,
+            metadata: <String, Object?>{
+              ...message.metadata,
+              aiSessionMessageMetadataStreamingKey: false,
+            },
+          ),
+        );
       }
 
       void flushPreview(String reason) {
@@ -1334,6 +1501,14 @@ class AiSessionController extends ChangeNotifier {
       }
       _setSessionCancelHandler(workingSession.id, null);
       materializePendingReasoningPreview();
+      streamedSession = syncFinalAssistantMessage(
+        streamedSession,
+        result.reply,
+      );
+      streamedSession = syncFinalReasoningMessage(
+        streamedSession,
+        result.reasoning,
+      );
       streamedSession = setReasoningStreamingState(streamedSession, false);
       flushPreview('stream_completed');
       _debugSessionLog(
@@ -2634,7 +2809,7 @@ class AiSessionController extends ChangeNotifier {
             session.statistics.totalPromptCharacters +
             compressionPrompt.fold<int>(
               0,
-              (sum, message) => sum + message.content.length,
+              (sum, message) => sum + message.promptCharacterCount,
             ),
         promptBuildCount: session.statistics.promptBuildCount + 1,
         compressionRunCount: session.statistics.compressionRunCount + 1,
@@ -2671,13 +2846,14 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  _PreparedUserTurn _prepareUserTurn({
+  Future<_PreparedUserTurn> _prepareUserTurn({
     required AiSession session,
     required String content,
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
+    List<String> attachmentFilePaths = const <String>[],
     Map<String, Object?> userMessageMetadata = const <String, Object?>{},
-  }) {
+  }) async {
     final now = _clock().toUtc();
     final visibleUserMessageCount = session.messages
         .where(
@@ -2707,6 +2883,12 @@ class AiSessionController extends ChangeNotifier {
         ];
         final editedMessage = original.copyWith(
           content: content,
+          characterCount: _characterCountForMessageContent(
+            content,
+            attachments: AiMessageAttachment.listFromMetadata(
+              original.metadata[aiSessionMessageAttachmentsMetadataKey],
+            ),
+          ),
           metadata: <String, Object?>{
             ...original.metadata,
             ...userMessageMetadata,
@@ -2731,17 +2913,40 @@ class AiSessionController extends ChangeNotifier {
           shouldGenerateTitle:
               !updatedSession.isTitleManuallyEdited &&
               visibleUserMessageCount == 1,
+          importedAttachments: false,
         );
       }
       _editingMessageId = null;
     }
 
-    final userMessage = AiSessionMessage.user(
-      id: _idGenerator(),
-      content: content,
-      createdAt: now,
-      metadata: userMessageMetadata,
+    final userMessageId = _idGenerator();
+    final attachments = await _attachmentService.importAttachments(
+      sessionId: session.id,
+      messageId: userMessageId,
+      filePaths: attachmentFilePaths,
+      idGenerator: _idGenerator,
     );
+    final attachmentMetadata = attachments.isEmpty
+        ? const <String, Object?>{}
+        : <String, Object?>{
+            aiSessionMessageAttachmentsMetadataKey:
+                AiMessageAttachment.listToMetadata(attachments),
+          };
+    final userMessage =
+        AiSessionMessage.user(
+          id: userMessageId,
+          content: content,
+          createdAt: now,
+          metadata: <String, Object?>{
+            ...userMessageMetadata,
+            ...attachmentMetadata,
+          },
+        ).copyWith(
+          characterCount: _characterCountForMessageContent(
+            content,
+            attachments: attachments,
+          ),
+        );
     final isFirstVisibleUserMessage = visibleUserMessageCount == 0;
     final shouldKeepDefaultTitle =
         isFirstVisibleUserMessage &&
@@ -2766,6 +2971,7 @@ class AiSessionController extends ChangeNotifier {
       userMessage: userMessage,
       shouldGenerateTitle:
           !updatedSession.isTitleManuallyEdited && isFirstVisibleUserMessage,
+      importedAttachments: attachments.isNotEmpty,
     );
   }
 
@@ -2846,13 +3052,18 @@ class AiSessionController extends ChangeNotifier {
               latestSession.statistics.totalPromptCharacters +
               promptMessages.fold<int>(
                 0,
-                (sum, message) => sum + message.content.length,
+                (sum, message) => sum + message.promptCharacterCount,
               ),
           promptBuildCount: latestSession.statistics.promptBuildCount + 1,
           totalUsage: totalUsage,
         );
-        await _commitSessionLocked(updatedSession);
-        return;
+        final committed = await _commitSessionLocked(updatedSession);
+        if (committed) {
+          return;
+        }
+        lastError =
+            _lastErrorMessage ?? 'Failed to persist the generated auto title.';
+        break;
       } catch (error) {
         lastError = error;
         final shouldRetryAfterIdle =
@@ -2943,6 +3154,55 @@ class AiSessionController extends ChangeNotifier {
     AiModelConfig model,
   ) {
     var updatedSession = session;
+    final expectedToolCallIds = toolCalls
+        .map((toolCall) => toolCall.id.trim())
+        .where((toolCallId) => toolCallId.isNotEmpty)
+        .toSet();
+    final expectedToolCallIndexes = <int>{};
+    for (var index = 0; index < toolCalls.length; index++) {
+      expectedToolCallIndexes.add(index);
+    }
+    final updatedMessages = List<AiSessionMessage>.from(
+      updatedSession.messages,
+    );
+    var removedPreviewCount = 0;
+    for (var index = 0; index < updatedMessages.length; index++) {
+      final message = updatedMessages[index];
+      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      final currentStatus = '${message.metadata['tool_execution_status'] ?? ''}'
+          .trim();
+      if (_isTerminalToolExecutionStatus(currentStatus)) {
+        continue;
+      }
+      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      final toolCallIndex = int.tryParse(
+        '${message.metadata['tool_call_index'] ?? ''}'.trim(),
+      );
+      final matchesById =
+          toolCallId.isNotEmpty && expectedToolCallIds.contains(toolCallId);
+      final matchesByIndex =
+          toolCallIndex != null &&
+          expectedToolCallIndexes.contains(toolCallIndex);
+      if (matchesById || matchesByIndex) {
+        continue;
+      }
+      removedPreviewCount += 1;
+      updatedMessages[index] = message.copyWith(
+        isDeleted: true,
+        metadata: <String, Object?>{
+          ...message.metadata,
+          'stream_preview_discarded': true,
+        },
+      );
+    }
+    if (removedPreviewCount > 0) {
+      updatedSession = updatedSession.copyWith(
+        messages: updatedMessages,
+        updatedAt: _clock().toUtc(),
+      );
+    }
     for (var index = 0; index < toolCalls.length; index++) {
       final toolCall = toolCalls[index];
       final existingIndex = updatedSession.messages.lastIndexWhere(
@@ -4057,9 +4317,11 @@ class _PreparedUserTurn {
     required this.session,
     required this.userMessage,
     required this.shouldGenerateTitle,
+    required this.importedAttachments,
   });
 
   final AiSession session;
   final AiSessionMessage userMessage;
   final bool shouldGenerateTitle;
+  final bool importedAttachments;
 }

@@ -23,6 +23,12 @@ import 'package:openhand/features/skills/skills_controller.dart';
 import 'package:openhand/l10n/app_localizations.dart';
 
 void main() {
+  const compressionThresholdFieldKey = ValueKey<String>(
+    'settingsCompressionThresholdField',
+  );
+  const compressionThresholdSaveButtonKey = ValueKey<String>(
+    'settingsCompressionThresholdSaveButton',
+  );
   const skillsPathFieldKey = ValueKey<String>('settingsSkillsPathField');
   const skillsSaveButtonKey = ValueKey<String>('settingsSkillsSaveButton');
   const memoryFileFieldKey = ValueKey<String>('settingsMemoryFileField');
@@ -134,6 +140,151 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'SettingsView restores the skills path field when settings persistence fails',
+    (tester) async {
+      final harness = await _createSettingsViewHarness();
+      addTearDown(harness.dispose);
+      final nextSkillsPath = p.join('/workspace', 'skills-next');
+      harness.settingsStore.failNextSave();
+
+      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      await tester.ensureVisible(find.byKey(skillsPathFieldKey));
+      await tester.enterText(find.byKey(skillsPathFieldKey), nextSkillsPath);
+      await tester.ensureVisible(find.byKey(skillsSaveButtonKey));
+      await tester.tap(find.byKey(skillsSaveButtonKey));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        harness.settingsController.skillsStoragePath,
+        harness.initialSkillsPath,
+      );
+      expect(harness.skillsController.storagePath, harness.initialSkillsPath);
+      expect(
+        find.text(
+          'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.',
+        ),
+        findsOneWidget,
+      );
+      final field = tester.widget<TextField>(find.byKey(skillsPathFieldKey));
+      expect(field.controller!.text, harness.initialSkillsPath);
+    },
+  );
+
+  testWidgets(
+    'SettingsView restores the memory path field when settings persistence fails',
+    (tester) async {
+      final harness = await _createSettingsViewHarness();
+      addTearDown(harness.dispose);
+      final nextMemoryPath = p.join('/workspace', 'memory-next.json');
+      harness.settingsStore.failNextSave();
+
+      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      await tester.ensureVisible(find.byKey(memoryFileFieldKey));
+      await tester.enterText(find.byKey(memoryFileFieldKey), nextMemoryPath);
+      await tester.ensureVisible(find.byKey(memorySaveButtonKey));
+      await tester.tap(find.byKey(memorySaveButtonKey));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        harness.settingsController.userMemoryFilePath,
+        harness.initialMemoryFilePath,
+      );
+      expect(
+        harness.memoryController.userMemoryFilePath,
+        harness.initialMemoryFilePath,
+      );
+      expect(
+        find.text(
+          'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.',
+        ),
+        findsOneWidget,
+      );
+      final field = tester.widget<TextField>(find.byKey(memoryFileFieldKey));
+      expect(field.controller!.text, harness.initialMemoryFilePath);
+    },
+  );
+
+  testWidgets(
+    'SettingsView restores the compression threshold field when settings persistence fails',
+    (tester) async {
+      final harness = await _createSettingsViewHarness();
+      addTearDown(harness.dispose);
+      final initialValue =
+          harness.settingsController.aiMessageCompressionThresholdChars;
+      harness.settingsStore.failNextSave();
+
+      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      await tester.ensureVisible(find.byKey(compressionThresholdFieldKey));
+      await tester.enterText(find.byKey(compressionThresholdFieldKey), '7777');
+      await tester.ensureVisible(find.byKey(compressionThresholdSaveButtonKey));
+      await tester.tap(find.byKey(compressionThresholdSaveButtonKey));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        harness.settingsController.aiMessageCompressionThresholdChars,
+        initialValue,
+      );
+      expect(
+        find.text(
+          'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.',
+        ),
+        findsOneWidget,
+      );
+      final field = tester.widget<TextField>(
+        find.byKey(compressionThresholdFieldKey),
+      );
+      expect(field.controller!.text, '$initialValue');
+    },
+  );
+
+  testWidgets(
+    'SettingsView restores the tool call limit field when settings persistence fails',
+    (tester) async {
+      final harness = await _createSettingsViewHarness();
+      addTearDown(harness.dispose);
+      final initialValue =
+          harness.settingsController.aiSingleRoundToolCallLimit;
+      harness.settingsStore.failNextSave();
+
+      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      await tester.ensureVisible(find.byKey(toolCallLimitFieldKey));
+      await tester.enterText(find.byKey(toolCallLimitFieldKey), '55');
+      await tester.ensureVisible(find.byKey(toolCallLimitSaveButtonKey));
+      await tester.tap(find.byKey(toolCallLimitSaveButtonKey));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        harness.settingsController.aiSingleRoundToolCallLimit,
+        initialValue,
+      );
+      expect(
+        find.text(
+          'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.',
+        ),
+        findsOneWidget,
+      );
+      final field = tester.widget<TextField>(find.byKey(toolCallLimitFieldKey));
+      expect(field.controller!.text, '$initialValue');
+    },
+  );
 }
 
 Future<_SettingsViewHarness> _createSettingsViewHarness() async {
@@ -144,8 +295,9 @@ Future<_SettingsViewHarness> _createSettingsViewHarness() async {
     'user-memory.json',
   );
   final initialMcpFilePath = p.join('/workspace', 'mcp', 'servers.json');
+  final settingsStore = _ToggleFailingSettingsStore();
   final settingsController = await SettingsController.create(
-    store: _InMemorySettingsStore(),
+    store: settingsStore,
   );
   expect(
     await settingsController.updateSkillsStoragePath(initialSkillsPath),
@@ -178,6 +330,7 @@ Future<_SettingsViewHarness> _createSettingsViewHarness() async {
   return _SettingsViewHarness(
     initialSkillsPath: initialSkillsPath,
     initialMemoryFilePath: initialMemoryFilePath,
+    settingsStore: settingsStore,
     settingsController: settingsController,
     skillsController: skillsController,
     memoryController: memoryController,
@@ -222,6 +375,7 @@ class _SettingsViewHarness {
   const _SettingsViewHarness({
     required this.initialSkillsPath,
     required this.initialMemoryFilePath,
+    required this.settingsStore,
     required this.settingsController,
     required this.skillsController,
     required this.memoryController,
@@ -230,6 +384,7 @@ class _SettingsViewHarness {
 
   final String initialSkillsPath;
   final String initialMemoryFilePath;
+  final _ToggleFailingSettingsStore settingsStore;
   final SettingsController settingsController;
   final SkillsController skillsController;
   final MemoryController memoryController;
@@ -258,6 +413,23 @@ class _InMemorySettingsStore extends SettingsStore {
   @override
   Future<void> save(AppSettingsSnapshot snapshot) async {
     _snapshot = snapshot;
+  }
+}
+
+class _ToggleFailingSettingsStore extends _InMemorySettingsStore {
+  bool _failNextSave = false;
+
+  void failNextSave() {
+    _failNextSave = true;
+  }
+
+  @override
+  Future<void> save(AppSettingsSnapshot snapshot) async {
+    if (_failNextSave) {
+      _failNextSave = false;
+      throw const FileSystemException('Cannot save settings.');
+    }
+    await super.save(snapshot);
   }
 }
 

@@ -80,14 +80,25 @@ class McpStore {
       if (!sanitized.didSanitize) {
         return McpLoadResult(servers: sanitized.servers);
       }
-      await save(sanitized.servers);
-      return McpLoadResult(
-        servers: sanitized.servers,
-        issue: McpPersistenceIssue(
-          kind: McpPersistenceIssueKind.sanitizedInvalidContent,
-          filePath: _serversFilePath,
-        ),
-      );
+      try {
+        await save(sanitized.servers);
+        return McpLoadResult(
+          servers: sanitized.servers,
+          issue: McpPersistenceIssue(
+            kind: McpPersistenceIssueKind.sanitizedInvalidContent,
+            filePath: _serversFilePath,
+          ),
+        );
+      } catch (error) {
+        return McpLoadResult(
+          servers: sanitized.servers,
+          issue: McpPersistenceIssue(
+            kind: McpPersistenceIssueKind.saveFailed,
+            filePath: _serversFilePath,
+            detail: '$error',
+          ),
+        );
+      }
     } catch (error) {
       try {
         final backupPath = await _backupInvalidFile(targetFile);

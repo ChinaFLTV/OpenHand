@@ -229,16 +229,34 @@ class McpController extends ChangeNotifier {
     );
     notifyListeners();
 
-    final discoveredCatalog = await _toolDiscoveryService.discoverTools(server);
-    if (_isDisposed ||
-        _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
-      return;
+    try {
+      final discoveredCatalog = await _toolDiscoveryService.discoverTools(
+        server,
+      );
+      if (_isDisposed ||
+          _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
+        return;
+      }
+      _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
+        previousCatalog: previousCatalog,
+        discoveredCatalog: discoveredCatalog,
+      );
+      notifyListeners();
+    } catch (error) {
+      if (_isDisposed ||
+          _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
+        return;
+      }
+      _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
+        previousCatalog: previousCatalog,
+        discoveredCatalog: McpToolCatalog(
+          status: McpToolCatalogStatus.failed,
+          errorMessage: '$error',
+          lastScannedAt: DateTime.now().toUtc(),
+        ),
+      );
+      notifyListeners();
     }
-    _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
-      previousCatalog: previousCatalog,
-      discoveredCatalog: discoveredCatalog,
-    );
-    notifyListeners();
   }
 
   Future<void> checkServerHealth(String serverName) async {
@@ -259,14 +277,28 @@ class McpController extends ChangeNotifier {
     );
     notifyListeners();
 
-    final resolvedHealth = await _toolDiscoveryService.checkHealth(server);
-    if (_isDisposed ||
-        !_isPageActive ||
-        _healthCheckGenerationByServerName[serverName] != nextGeneration) {
-      return;
+    try {
+      final resolvedHealth = await _toolDiscoveryService.checkHealth(server);
+      if (_isDisposed ||
+          !_isPageActive ||
+          _healthCheckGenerationByServerName[serverName] != nextGeneration) {
+        return;
+      }
+      _healthByServerName[serverName] = resolvedHealth;
+      notifyListeners();
+    } catch (error) {
+      if (_isDisposed ||
+          !_isPageActive ||
+          _healthCheckGenerationByServerName[serverName] != nextGeneration) {
+        return;
+      }
+      _healthByServerName[serverName] = McpServerHealth(
+        status: McpServerHealthStatus.unhealthy,
+        errorMessage: '$error',
+        lastCheckedAt: DateTime.now().toUtc(),
+      );
+      notifyListeners();
     }
-    _healthByServerName[serverName] = resolvedHealth;
-    notifyListeners();
   }
 
   Future<bool> _commitSaveLocked(

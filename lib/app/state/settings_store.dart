@@ -90,14 +90,25 @@ class SettingsStore {
       if (!sanitizedResult.didSanitize) {
         return SettingsLoadResult(snapshot: sanitizedResult.snapshot);
       }
-      await save(sanitizedResult.snapshot);
-      return SettingsLoadResult(
-        snapshot: sanitizedResult.snapshot,
-        issue: SettingsPersistenceIssue(
-          kind: SettingsPersistenceIssueKind.sanitizedInvalidContent,
-          filePath: _settingsFilePath,
-        ),
-      );
+      try {
+        await save(sanitizedResult.snapshot);
+        return SettingsLoadResult(
+          snapshot: sanitizedResult.snapshot,
+          issue: SettingsPersistenceIssue(
+            kind: SettingsPersistenceIssueKind.sanitizedInvalidContent,
+            filePath: _settingsFilePath,
+          ),
+        );
+      } catch (error) {
+        return SettingsLoadResult(
+          snapshot: sanitizedResult.snapshot,
+          issue: SettingsPersistenceIssue(
+            kind: SettingsPersistenceIssueKind.saveFailed,
+            filePath: _settingsFilePath,
+            detail: '$error',
+          ),
+        );
+      }
     } catch (error) {
       try {
         final backupPath = await _backupInvalidFile(targetFile);
