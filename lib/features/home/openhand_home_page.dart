@@ -43,6 +43,7 @@ import '../mcp/mcp_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
+import 'message_path_linking.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
 
@@ -3441,9 +3442,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
         fontFamily: 'monospace',
       ),
     );
-    final filePathRoots = _messageFilePathRoots(
+    final filePathRoots = messageFilePathRoots(
       widget.sessionEnvironment,
-      message,
+      workingDirectory: _toolExecutionWorkingDirectory(message),
     );
     final filePathParseKey = filePathRoots.join('|');
     final markdownBuilders = <String, MarkdownElementBuilder>{
@@ -3458,7 +3459,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
       ),
     };
     final inlineSyntaxes = <md.InlineSyntax>[
-      _ExistingFilePathSyntax(candidateRoots: filePathRoots),
+      MessageFilePathSyntax(candidateRoots: filePathRoots),
     ];
 
     return Listener(
@@ -3567,6 +3568,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 styleSheet: markdownStyleSheet,
                                 builders: markdownBuilders,
                                 inlineSyntaxes: inlineSyntaxes,
+                                pathRoots: filePathRoots,
                                 parseKey: filePathParseKey,
                               )
                             else if (isReasoning)
@@ -3579,6 +3581,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 styleSheet: markdownStyleSheet,
                                 builders: markdownBuilders,
                                 inlineSyntaxes: inlineSyntaxes,
+                                pathRoots: filePathRoots,
                                 parseKey: filePathParseKey,
                               )
                             else if (isToolCall)
@@ -3603,6 +3606,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                     builders: markdownBuilders,
                                     styleSheet: markdownStyleSheet,
                                     inlineSyntaxes: inlineSyntaxes,
+                                    pathRoots: filePathRoots,
                                     parseKey: filePathParseKey,
                                   ),
                                 ],
@@ -3756,6 +3760,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
     required this.styleSheet,
     required this.builders,
     required this.inlineSyntaxes,
+    required this.pathRoots,
     required this.parseKey,
   });
 
@@ -3767,6 +3772,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
   final MarkdownStyleSheet styleSheet;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
   final String parseKey;
 
   @override
@@ -3826,6 +3832,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                             builders: builders,
                             styleSheet: styleSheet,
                             inlineSyntaxes: inlineSyntaxes,
+                            pathRoots: pathRoots,
                             parseKey: parseKey,
                           ),
                         )
@@ -3837,6 +3844,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                             styleSheet: styleSheet,
                             builders: builders,
                             inlineSyntaxes: inlineSyntaxes,
+                            pathRoots: pathRoots,
                             parseKey: '$parseKey|compression-preview',
                             fadeColor: fadeColor,
                           ),
@@ -3861,6 +3869,7 @@ class _ReasoningBody extends StatelessWidget {
     required this.styleSheet,
     required this.builders,
     required this.inlineSyntaxes,
+    required this.pathRoots,
     required this.parseKey,
   });
 
@@ -3872,6 +3881,7 @@ class _ReasoningBody extends StatelessWidget {
   final MarkdownStyleSheet styleSheet;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
   final String parseKey;
 
   @override
@@ -3885,6 +3895,7 @@ class _ReasoningBody extends StatelessWidget {
         styleSheet: styleSheet,
         builders: builders,
         inlineSyntaxes: inlineSyntaxes,
+        pathRoots: pathRoots,
         parseKey: parseKey,
       );
     }
@@ -3902,6 +3913,7 @@ class _ReasoningBody extends StatelessWidget {
                   builders: builders,
                   styleSheet: styleSheet,
                   inlineSyntaxes: inlineSyntaxes,
+                  pathRoots: pathRoots,
                   parseKey: parseKey,
                 ),
               )
@@ -3913,6 +3925,7 @@ class _ReasoningBody extends StatelessWidget {
                   styleSheet: styleSheet,
                   builders: builders,
                   inlineSyntaxes: inlineSyntaxes,
+                  pathRoots: pathRoots,
                   parseKey: '$parseKey|reasoning-preview',
                   fadeColor: fadeColor,
                 ),
@@ -3931,6 +3944,7 @@ class _StreamingReasoningBody extends StatelessWidget {
     required this.styleSheet,
     required this.builders,
     required this.inlineSyntaxes,
+    required this.pathRoots,
     required this.parseKey,
   });
 
@@ -3941,6 +3955,7 @@ class _StreamingReasoningBody extends StatelessWidget {
   final MarkdownStyleSheet styleSheet;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
   final String parseKey;
 
   @override
@@ -3964,6 +3979,7 @@ class _StreamingReasoningBody extends StatelessWidget {
                         builders: builders,
                         styleSheet: styleSheet,
                         inlineSyntaxes: inlineSyntaxes,
+                        pathRoots: pathRoots,
                         parseKey: '$parseKey|streaming-markdown',
                       ),
                     )
@@ -3977,6 +3993,7 @@ class _StreamingReasoningBody extends StatelessWidget {
                         styleSheet: styleSheet,
                         builders: builders,
                         inlineSyntaxes: inlineSyntaxes,
+                        pathRoots: pathRoots,
                         parseKey: '$parseKey|streaming-markdown-preview',
                         fadeColor: fadeColor,
                       ),
@@ -4026,6 +4043,7 @@ class _MarkdownPreviewBody extends StatefulWidget {
     required this.styleSheet,
     required this.builders,
     required this.inlineSyntaxes,
+    required this.pathRoots,
     required this.parseKey,
     required this.fadeColor,
   });
@@ -4035,6 +4053,7 @@ class _MarkdownPreviewBody extends StatefulWidget {
   final MarkdownStyleSheet styleSheet;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
   final String parseKey;
   final Color fadeColor;
 
@@ -4101,6 +4120,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                           builders: widget.builders,
                           styleSheet: widget.styleSheet,
                           inlineSyntaxes: widget.inlineSyntaxes,
+                          pathRoots: widget.pathRoots,
                           parseKey: widget.parseKey,
                         ),
                       ),
@@ -4183,6 +4203,7 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.selectable = false,
     this.builders = const <String, MarkdownElementBuilder>{},
     this.inlineSyntaxes = const <md.InlineSyntax>[],
+    this.pathRoots = const <String>[],
     this.parseKey = '',
   });
 
@@ -4191,6 +4212,7 @@ class _SafeMarkdownBody extends StatefulWidget {
   final bool selectable;
   final Map<String, MarkdownElementBuilder> builders;
   final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
   final String parseKey;
 
   @override
@@ -4346,13 +4368,47 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   GestureRecognizer createLink(String text, String? href, String title) {
     final recognizer = TapGestureRecognizer();
     _recognizers.add(recognizer);
+    final resolvedPath = resolveMarkdownMessageLinkPath(href, widget.pathRoots);
+    if (resolvedPath != null) {
+      recognizer.onTap = () {
+        unawaited(_openResolvedMessagePath(context, resolvedPath));
+      };
+      return recognizer;
+    }
+    final externalUri = parseSupportedMessageLinkUri(href);
+    if (externalUri != null) {
+      recognizer.onTap = () {
+        unawaited(_openMessageLinkUri(context, externalUri));
+      };
+    }
     return recognizer;
   }
 
   @override
   TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
     final normalizedCode = code.replaceAll(RegExp(r'\n$'), '');
-    return TextSpan(text: normalizedCode, style: styleSheet.code);
+    final resolvedPath = resolveExistingMessagePath(
+      normalizedCode,
+      widget.pathRoots,
+    );
+    if (resolvedPath == null) {
+      return TextSpan(text: normalizedCode, style: styleSheet.code);
+    }
+    final recognizer = TapGestureRecognizer()
+      ..onTap = () {
+        unawaited(_openResolvedMessagePath(context, resolvedPath));
+      };
+    _recognizers.add(recognizer);
+    final linkColor = Theme.of(context).colorScheme.primary;
+    return TextSpan(
+      text: normalizedCode,
+      recognizer: recognizer,
+      style: styleSheet.code?.copyWith(
+        color: linkColor,
+        decoration: TextDecoration.underline,
+        decorationColor: linkColor,
+      ),
+    );
   }
 
   @override
@@ -5483,113 +5539,9 @@ String _formatToolExecutionDuration(int durationMs) {
   return '${minutes}m ${seconds}s';
 }
 
-final Map<String, _ResolvedMessagePath?> _resolvedMessagePathCache =
-    <String, _ResolvedMessagePath?>{};
-final RegExp _detectedFilePathTrailingPattern = RegExp(
-  r'''[),.;:!?\]\}'"]+$''',
-);
-
-List<String> _messageFilePathRoots(
-  AiSessionEnvironment environment,
-  AiSessionMessage message,
-) {
-  final roots = <String>{};
-  void addRoot(String? rawPath) {
-    if (rawPath == null) {
-      return;
-    }
-    final trimmed = rawPath.trim();
-    if (trimmed.isEmpty) {
-      return;
-    }
-    roots.add(p.normalize(trimmed));
-  }
-
-  void addParentRoot(String? rawPath) {
-    if (rawPath == null) {
-      return;
-    }
-    final trimmed = rawPath.trim();
-    if (trimmed.isEmpty) {
-      return;
-    }
-    addRoot(p.dirname(trimmed));
-  }
-
-  addRoot(Directory.current.path);
-  addRoot(environment.applicationDirectory);
-  addRoot(environment.homeDirectory);
-  addRoot(_toolExecutionWorkingDirectory(message));
-  addRoot(environment.skillsStoragePath);
-  addRoot(environment.sessionsDirectoryPath);
-  addParentRoot(environment.settingsFilePath);
-  addParentRoot(environment.mcpServersFilePath);
-  addParentRoot(environment.userMemoryFilePath);
-  return roots.toList(growable: false);
-}
-
-_ResolvedMessagePath? _resolveExistingMessagePath(
-  String rawPath,
-  List<String> candidateRoots,
-) {
-  final displayPath = rawPath.trim();
-  if (displayPath.isEmpty) {
-    return null;
-  }
-  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
-  if (_resolvedMessagePathCache.containsKey(cacheKey)) {
-    return _resolvedMessagePathCache[cacheKey];
-  }
-
-  final candidates = <String>{};
-  if (displayPath == '~' ||
-      displayPath.startsWith('~/') ||
-      displayPath.startsWith(r'~\')) {
-    candidates.add(
-      OpenHandPaths.normalizePath(
-        displayPath,
-        defaultPath: OpenHandPaths.homeDirectoryPath(),
-      ),
-    );
-  }
-  if (_looksLikeAbsoluteMessagePath(displayPath)) {
-    candidates.add(p.normalize(displayPath));
-  } else {
-    for (final root in candidateRoots) {
-      if (root.trim().isEmpty) {
-        continue;
-      }
-      candidates.add(p.normalize(p.join(root, displayPath)));
-    }
-  }
-
-  _ResolvedMessagePath? resolved;
-  for (final candidate in candidates) {
-    final entityType = FileSystemEntity.typeSync(candidate, followLinks: true);
-    if (entityType == FileSystemEntityType.notFound) {
-      continue;
-    }
-    final isDirectory =
-        entityType == FileSystemEntityType.directory ||
-        Directory(candidate).existsSync();
-    resolved = _ResolvedMessagePath(
-      displayPath: displayPath,
-      resolvedPath: p.normalize(candidate),
-      isDirectory: isDirectory,
-    );
-    break;
-  }
-  _resolvedMessagePathCache[cacheKey] = resolved;
-  return resolved;
-}
-
-bool _looksLikeAbsoluteMessagePath(String path) {
-  return path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
-}
-
 Future<void> _openResolvedMessagePath(
   BuildContext context,
-  _ResolvedMessagePath resolvedPath,
+  MessageResolvedPath resolvedPath,
 ) async {
   try {
     late final ProcessResult result;
@@ -5627,74 +5579,53 @@ Future<void> _openResolvedMessagePath(
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _localizedText(
-            context,
-            zh: '打开文件位置失败：$error',
-            en: 'Failed to open file location: $error',
-          ),
+    _showMessageLinkOpenError(context, error);
+  }
+}
+
+Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {
+  try {
+    late final ProcessResult result;
+    final target = uri.toString();
+    if (Platform.isMacOS) {
+      result = await Process.run('open', <String>[target]);
+    } else if (Platform.isWindows) {
+      result = await Process.run('explorer', <String>[target]);
+    } else if (Platform.isLinux) {
+      result = await Process.run('xdg-open', <String>[target]);
+    } else {
+      throw const FileSystemException('Unsupported platform.');
+    }
+    if (result.exitCode == 0) {
+      return;
+    }
+    final message = '${result.stderr}'.trim();
+    throw FileSystemException(
+      message.isEmpty ? 'Unable to open link.' : message,
+    );
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    _showMessageLinkOpenError(context, error);
+  }
+}
+
+void _showMessageLinkOpenError(BuildContext context, Object error) {
+  if (!context.mounted) {
+    return;
+  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        _localizedText(
+          context,
+          zh: '打开文件位置失败：$error',
+          en: 'Failed to open file location: $error',
         ),
       ),
-    );
-  }
-}
-
-class _ResolvedMessagePath {
-  const _ResolvedMessagePath({
-    required this.displayPath,
-    required this.resolvedPath,
-    required this.isDirectory,
-  });
-
-  final String displayPath;
-  final String resolvedPath;
-  final bool isDirectory;
-}
-
-class _ExistingFilePathSyntax extends md.InlineSyntax {
-  _ExistingFilePathSyntax({required this.candidateRoots})
-    : super(
-        r'''(^|[\s(>"'])((?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[A-Za-z0-9_.-]+[\\/]))[^\s<>()\[\]{}]+)''',
-      );
-
-  final List<String> candidateRoots;
-
-  @override
-  bool onMatch(md.InlineParser parser, Match match) {
-    final prefix = match[1] ?? '';
-    final matchedPath = match[2] ?? '';
-    final normalizedPath = matchedPath.replaceFirst(
-      _detectedFilePathTrailingPattern,
-      '',
-    );
-    if (normalizedPath.isEmpty) {
-      return false;
-    }
-    final trailing = matchedPath.substring(normalizedPath.length);
-    final resolvedPath = _resolveExistingMessagePath(
-      normalizedPath,
-      candidateRoots,
-    );
-    if (resolvedPath == null) {
-      return false;
-    }
-    if (prefix.isNotEmpty) {
-      parser.addNode(md.Text(prefix));
-    }
-    parser.addNode(
-      md.Element.text('openhand-file', resolvedPath.displayPath)
-        ..attributes['resolved_path'] = resolvedPath.resolvedPath
-        ..attributes['entity_type'] = resolvedPath.isDirectory
-            ? 'directory'
-            : 'file',
-    );
-    if (trailing.isNotEmpty) {
-      parser.addNode(md.Text(trailing));
-    }
-    return true;
-  }
+    ),
+  );
 }
 
 class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
@@ -5703,7 +5634,7 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
   final Color textColor;
   final Future<void> Function(
     BuildContext context,
-    _ResolvedMessagePath resolvedPath,
+    MessageResolvedPath resolvedPath,
   )
   onOpenPath;
 
@@ -5741,7 +5672,7 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
                 onTap: () {
                   onOpenPath(
                     context,
-                    _ResolvedMessagePath(
+                    MessageResolvedPath(
                       displayPath: displayPath,
                       resolvedPath: resolvedPath,
                       isDirectory: isDirectory,

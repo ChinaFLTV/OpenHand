@@ -84,8 +84,8 @@ class MemoryController extends ChangeNotifier {
     await _enqueueOperation(_loadLocked);
   }
 
-  Future<void> reloadFromFilePath(String filePath) async {
-    await _enqueueOperation(() async {
+  Future<bool> reloadFromFilePath(String filePath) async {
+    return _enqueueOperation(() async {
       final normalizedPath = OpenHandPaths.normalizePath(
         filePath,
         defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
@@ -109,6 +109,7 @@ class MemoryController extends ChangeNotifier {
         _persistenceIssue = previousPersistenceIssue;
         notifyListeners();
       }
+      return !didLoadFail;
     });
   }
 

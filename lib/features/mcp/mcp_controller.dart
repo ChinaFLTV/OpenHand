@@ -59,11 +59,13 @@ class McpController extends ChangeNotifier {
   String get storageDirectoryPath => _store.storageDirectoryPath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
   McpToolCatalog toolCatalogFor(String serverName) {
-    return _toolCatalogByServerName[serverName] ?? const McpToolCatalog();
+    return _toolCatalogByServerName[_normalizeServerName(serverName)] ??
+        const McpToolCatalog();
   }
 
   McpServerHealth healthStatusFor(String serverName) {
-    return _healthByServerName[serverName] ?? const McpServerHealth();
+    return _healthByServerName[_normalizeServerName(serverName)] ??
+        const McpServerHealth();
   }
 
   @override
@@ -190,7 +192,8 @@ class McpController extends ChangeNotifier {
 
   Future<bool> updateServerEnabled(String name, bool enabled) async {
     return _enqueueOperation(() async {
-      final index = _servers.indexWhere((item) => item.name == name);
+      final normalizedName = _normalizeServerName(name);
+      final index = _servers.indexWhere((item) => item.name == normalizedName);
       if (index == -1) {
         return false;
       }
@@ -215,15 +218,19 @@ class McpController extends ChangeNotifier {
   }
 
   Future<void> refreshServerTools(String serverName) async {
-    final server = _serverByName(serverName);
+    final normalizedServerName = _normalizeServerName(serverName);
+    if (normalizedServerName.isEmpty) {
+      return;
+    }
+    final server = _serverByName(normalizedServerName);
     if (server == null) {
       return;
     }
     final nextGeneration =
-        (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
-    _toolRefreshGenerationByServerName[serverName] = nextGeneration;
-    final previousCatalog = toolCatalogFor(serverName);
-    _toolCatalogByServerName[serverName] = previousCatalog.copyWith(
+        (_toolRefreshGenerationByServerName[normalizedServerName] ?? 0) + 1;
+    _toolRefreshGenerationByServerName[normalizedServerName] = nextGeneration;
+    final previousCatalog = toolCatalogFor(normalizedServerName);
+    _toolCatalogByServerName[normalizedServerName] = previousCatalog.copyWith(
       status: McpToolCatalogStatus.loading,
       clearErrorMessage: true,
     );
@@ -234,20 +241,22 @@ class McpController extends ChangeNotifier {
         server,
       );
       if (_isDisposed ||
-          _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
+          _toolRefreshGenerationByServerName[normalizedServerName] !=
+              nextGeneration) {
         return;
       }
-      _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
+      _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
         previousCatalog: previousCatalog,
         discoveredCatalog: discoveredCatalog,
       );
       notifyListeners();
     } catch (error) {
       if (_isDisposed ||
-          _toolRefreshGenerationByServerName[serverName] != nextGeneration) {
+          _toolRefreshGenerationByServerName[normalizedServerName] !=
+              nextGeneration) {
         return;
       }
-      _toolCatalogByServerName[serverName] = _resolvedRefreshCatalog(
+      _toolCatalogByServerName[normalizedServerName] = _resolvedRefreshCatalog(
         previousCatalog: previousCatalog,
         discoveredCatalog: McpToolCatalog(
           status: McpToolCatalogStatus.failed,
@@ -263,15 +272,19 @@ class McpController extends ChangeNotifier {
     if (_isDisposed || !_isPageActive) {
       return;
     }
-    final server = _serverByName(serverName);
+    final normalizedServerName = _normalizeServerName(serverName);
+    if (normalizedServerName.isEmpty) {
+      return;
+    }
+    final server = _serverByName(normalizedServerName);
     if (server == null) {
       return;
     }
     final nextGeneration =
-        (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
-    _healthCheckGenerationByServerName[serverName] = nextGeneration;
-    final previousHealth = healthStatusFor(serverName);
-    _healthByServerName[serverName] = previousHealth.copyWith(
+        (_healthCheckGenerationByServerName[normalizedServerName] ?? 0) + 1;
+    _healthCheckGenerationByServerName[normalizedServerName] = nextGeneration;
+    final previousHealth = healthStatusFor(normalizedServerName);
+    _healthByServerName[normalizedServerName] = previousHealth.copyWith(
       status: McpServerHealthStatus.checking,
       clearErrorMessage: true,
     );
@@ -281,24 +294,56 @@ class McpController extends ChangeNotifier {
       final resolvedHealth = await _toolDiscoveryService.checkHealth(server);
       if (_isDisposed ||
           !_isPageActive ||
-          _healthCheckGenerationByServerName[serverName] != nextGeneration) {
+          _healthCheckGenerationByServerName[normalizedServerName] !=
+              nextGeneration) {
         return;
       }
-      _healthByServerName[serverName] = resolvedHealth;
+      _healthByServerName[normalizedServerName] = resolvedHealth;
       notifyListeners();
     } catch (error) {
       if (_isDisposed ||
           !_isPageActive ||
-          _healthCheckGenerationByServerName[serverName] != nextGeneration) {
+          _healthCheckGenerationByServerName[normalizedServerName] !=
+              nextGeneration) {
         return;
       }
-      _healthByServerName[serverName] = McpServerHealth(
+      _healthByServerName[normalizedServerName] = McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
         errorMessage: '$error',
         lastCheckedAt: DateTime.now().toUtc(),
       );
       notifyListeners();
     }
+  }
+
+  Future<McpToolCallResult> callTool({
+    required String serverName,
+    required String toolName,
+    Map<String, Object?> arguments = const <String, Object?>{},
+  }) async {
+    if (_isDisposed) {
+      throw StateError('MCP controller has been disposed.');
+    }
+    final normalizedServerName = serverName.trim();
+    final normalizedToolName = toolName.trim();
+    if (normalizedServerName.isEmpty) {
+      throw StateError('Missing MCP server name.');
+    }
+    if (normalizedToolName.isEmpty) {
+      throw StateError('Missing MCP tool name.');
+    }
+    final server = _serverByName(normalizedServerName);
+    if (server == null) {
+      throw StateError('Missing MCP server: $normalizedServerName');
+    }
+    if (!server.enabled) {
+      throw StateError('MCP server is disabled: $normalizedServerName');
+    }
+    return _toolDiscoveryService.callTool(
+      server: server,
+      toolName: normalizedToolName,
+      arguments: arguments,
+    );
   }
 
   Future<bool> _commitSaveLocked(
@@ -502,12 +547,20 @@ class McpController extends ChangeNotifier {
   }
 
   McpServer? _serverByName(String serverName) {
+    final normalizedServerName = _normalizeServerName(serverName);
+    if (normalizedServerName.isEmpty) {
+      return null;
+    }
     for (final server in _servers) {
-      if (server.name == serverName) {
+      if (server.name == normalizedServerName) {
         return server;
       }
     }
     return null;
+  }
+
+  String _normalizeServerName(String serverName) {
+    return serverName.trim();
   }
 
   McpToolCatalog _resolvedRefreshCatalog({

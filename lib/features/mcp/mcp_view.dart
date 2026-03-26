@@ -12,6 +12,7 @@ import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_tool.dart';
+import 'service/mcp_tool_discovery_service.dart';
 
 enum _McpCardAction { edit, delete }
 
@@ -1209,7 +1210,13 @@ class _McpServerCard extends StatelessWidget {
                             ),
                             label: Text(tool.name),
                             onPressed: () {
-                              _showToolDetailsDialog(context, tool);
+                              _showToolDetailsDialog(
+                                context,
+                                mcpController: context.read<McpController>(),
+                                server: server,
+                                toolCatalog: toolCatalog,
+                                tool: tool,
+                              );
                             },
                           ),
                         )
@@ -1393,16 +1400,53 @@ class _McpInlineNotice extends StatelessWidget {
   }
 }
 
-void _showToolDetailsDialog(BuildContext context, McpTool tool) {
+void _showToolDetailsDialog(
+  BuildContext context, {
+  required McpController mcpController,
+  required McpServer server,
+  required McpToolCatalog toolCatalog,
+  required McpTool tool,
+}) {
   showDialog<void>(
     context: context,
-    builder: (dialogContext) => _McpToolDetailsDialog(tool: tool),
+    builder: (dialogContext) => _McpToolDetailsDialog(
+      mcpController: mcpController,
+      server: server,
+      toolCatalog: toolCatalog,
+      tool: tool,
+    ),
+  );
+}
+
+void _showToolDebugDialog(
+  BuildContext context, {
+  required McpController mcpController,
+  required McpServer server,
+  required McpToolCatalog toolCatalog,
+  McpTool? initialTool,
+}) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => _McpToolDebugDialog(
+      mcpController: mcpController,
+      server: server,
+      toolCatalog: toolCatalog,
+      initialTool: initialTool,
+    ),
   );
 }
 
 class _McpToolDetailsDialog extends StatelessWidget {
-  const _McpToolDetailsDialog({required this.tool});
+  const _McpToolDetailsDialog({
+    required this.mcpController,
+    required this.server,
+    required this.toolCatalog,
+    required this.tool,
+  });
 
+  final McpController mcpController;
+  final McpServer server;
+  final McpToolCatalog toolCatalog;
   final McpTool tool;
 
   @override
@@ -1421,6 +1465,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
     );
     final inputFields = _schemaFields(inputSchemaMetadata);
     final outputFields = _schemaFields(outputSchemaMetadata);
+    final outputDescription = tool.outputDescription?.trim() ?? '';
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -1447,6 +1492,23 @@ class _McpToolDetailsDialog extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.tonalIcon(
+                    key: ValueKey<String>(
+                      'mcpToolDetailsDebugButton-${tool.id}',
+                    ),
+                    onPressed: () => _showToolDebugDialog(
+                      context,
+                      mcpController: mcpController,
+                      server: server,
+                      toolCatalog: toolCatalog,
+                      initialTool: tool,
+                    ),
+                    icon: const Icon(Icons.play_circle_outline_rounded),
+                    label: Text(
+                      _localizedText(context, zh: '调试 Tool', en: 'Debug Tool'),
                     ),
                   ),
                   IconButton(
@@ -1500,6 +1562,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                               context,
                               rawSchema: outputSchemaMetadata,
                               fields: outputFields,
+                              description: outputDescription,
                             ),
                           ),
                           _ToolMetaTile(
@@ -1528,6 +1591,24 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
+                      if (outputDescription.isNotEmpty) ...[
+                        _ToolTextSection(
+                          title: _localizedText(
+                            context,
+                            zh: '返回说明',
+                            en: 'Return Description',
+                          ),
+                          body: outputDescription,
+                          caption: tool.outputDescriptionIsInferred
+                              ? _localizedText(
+                                  context,
+                                  zh: '基于 Tool 描述推断',
+                                  en: 'Derived from the tool description',
+                                )
+                              : null,
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                       _ToolSchemaSection(
                         title: _localizedText(
                           context,
@@ -1537,11 +1618,17 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         fields: outputFields,
                         schema: outputSchemaMetadata,
                         emptyLabel: outputSchemaMetadata == null
-                            ? _localizedText(
-                                context,
-                                zh: '该 Tool 未声明返回值 Schema。',
-                                en: 'This tool does not declare an output schema.',
-                              )
+                            ? outputDescription.isNotEmpty
+                                  ? _localizedText(
+                                      context,
+                                      zh: '该 Tool 未声明结构化返回值 Schema。',
+                                      en: 'This tool does not declare a structured output schema.',
+                                    )
+                                  : _localizedText(
+                                      context,
+                                      zh: '该 Tool 未声明返回值 Schema。',
+                                      en: 'This tool does not declare an output schema.',
+                                    )
                             : _localizedText(
                                 context,
                                 zh: '返回值 Schema 未提供结构化字段。',
@@ -1565,6 +1652,437 @@ class _McpToolDetailsDialog extends StatelessWidget {
                   ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _McpToolDebugDialog extends StatefulWidget {
+  const _McpToolDebugDialog({
+    required this.mcpController,
+    required this.server,
+    required this.toolCatalog,
+    this.initialTool,
+  });
+
+  final McpController mcpController;
+  final McpServer server;
+  final McpToolCatalog toolCatalog;
+  final McpTool? initialTool;
+
+  @override
+  State<_McpToolDebugDialog> createState() => _McpToolDebugDialogState();
+}
+
+class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
+  late McpTool? _selectedTool;
+  late final TextEditingController _argumentsController;
+  McpToolCallResult? _result;
+  String? _errorMessage;
+  bool _isRunning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTool =
+        widget.initialTool ??
+        (widget.toolCatalog.tools.isEmpty
+            ? null
+            : widget.toolCatalog.tools.first);
+    _argumentsController = TextEditingController(
+      text: _selectedTool == null
+          ? '{}'
+          : _suggestedArgumentsJson(_selectedTool!),
+    );
+  }
+
+  @override
+  void dispose() {
+    _argumentsController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _runTool() async {
+    final tool = _selectedTool;
+    if (tool == null || _isRunning) {
+      return;
+    }
+
+    Map<String, Object?> arguments;
+    final rawArguments = _argumentsController.text.trim();
+    try {
+      if (rawArguments.isEmpty) {
+        arguments = const <String, Object?>{};
+      } else {
+        final decoded = jsonDecode(rawArguments);
+        if (decoded is! Map) {
+          throw const FormatException('root-not-object');
+        }
+        arguments = Map<String, Object?>.from(decoded);
+      }
+    } catch (_) {
+      setState(() {
+        _result = null;
+        _errorMessage = _localizedText(
+          context,
+          zh: '参数必须是合法的 JSON 对象。',
+          en: 'Arguments must be a valid JSON object.',
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _isRunning = true;
+      _result = null;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.mcpController.callTool(
+        serverName: widget.server.name,
+        toolName: tool.id,
+        arguments: arguments,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _result = result;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = '$error';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRunning = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tool = _selectedTool;
+    final inputSchemaMetadata = tool == null
+        ? null
+        : _displayedSchemaMetadata(
+            rawSchema: tool.rawInputSchema,
+            normalizedSchema: tool.inputSchema,
+            hasRawMetadata: tool.hasRawMetadata,
+          );
+    final inputFields = tool == null
+        ? const <_SchemaField>[]
+        : _schemaFields(inputSchemaMetadata);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920, maxHeight: 820),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '调试 MCP Tool',
+                            en: 'Debug MCP Tool',
+                          ),
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              if (tool == null)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      _localizedText(
+                        context,
+                        zh: '当前服务还没有可调试的 Tool，请先刷新 Tool 列表。',
+                        en: 'No tools are available for debugging yet. Refresh the tool list first.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          key: ValueKey<String>(
+                            'mcpToolDebugToolField-${tool.id}',
+                          ),
+                          initialValue: tool.id,
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '选择 Tool',
+                              en: 'Tool',
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          items: widget.toolCatalog.tools
+                              .map(
+                                (item) => DropdownMenuItem<String>(
+                                  value: item.id,
+                                  child: Text(item.name),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            McpTool? nextTool;
+                            for (final item in widget.toolCatalog.tools) {
+                              if (item.id == value) {
+                                nextTool = item;
+                                break;
+                              }
+                            }
+                            if (nextTool == null) {
+                              return;
+                            }
+                            setState(() {
+                              _selectedTool = nextTool;
+                              _result = null;
+                              _errorMessage = null;
+                              _argumentsController.text =
+                                  _suggestedArgumentsJson(nextTool!);
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        if (tool.description.trim().isNotEmpty) ...[
+                          _ToolDescriptionPanel(description: tool.description),
+                          const SizedBox(height: 14),
+                        ],
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '参数 JSON',
+                            en: 'Arguments JSON',
+                          ),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: const ValueKey<String>(
+                            'mcpToolDebugArgumentsField',
+                          ),
+                          controller: _argumentsController,
+                          minLines: 8,
+                          maxLines: 16,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: 'monospace',
+                          ),
+                          decoration: InputDecoration(
+                            hintText: _localizedText(
+                              context,
+                              zh: '请输入 JSON 对象，例如 {"page": 1}',
+                              en: 'Enter a JSON object, for example {"page": 1}',
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            FilledButton.icon(
+                              key: const ValueKey<String>(
+                                'mcpToolDebugRunButton',
+                              ),
+                              onPressed: _isRunning ? null : _runTool,
+                              icon: _isRunning
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.play_arrow_rounded),
+                              label: Text(
+                                _isRunning
+                                    ? _localizedText(
+                                        context,
+                                        zh: '执行中',
+                                        en: 'Running',
+                                      )
+                                    : _localizedText(
+                                        context,
+                                        zh: '执行 Tool',
+                                        en: 'Run Tool',
+                                      ),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: _isRunning
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _argumentsController.text =
+                                            _suggestedArgumentsJson(tool);
+                                      });
+                                    },
+                              icon: const Icon(Icons.restart_alt_rounded),
+                              label: Text(
+                                _localizedText(
+                                  context,
+                                  zh: '恢复示例参数',
+                                  en: 'Reset Sample',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 14),
+                          _McpInlineNotice(
+                            icon: Icons.error_outline_rounded,
+                            color: colorScheme.errorContainer,
+                            foregroundColor: colorScheme.onErrorContainer,
+                            message: _errorMessage!,
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        Text(
+                          _localizedText(
+                            context,
+                            zh: '参数参考',
+                            en: 'Parameter Reference',
+                          ),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        if (inputFields.isEmpty)
+                          Text(
+                            _localizedText(
+                              context,
+                              zh: '该 Tool 未声明结构化参数字段。',
+                              en: 'This tool does not declare structured input fields.',
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        else
+                          Column(
+                            children: inputFields
+                                .map(
+                                  (field) => _ToolSchemaFieldCard(field: field),
+                                )
+                                .toList(growable: false),
+                          ),
+                        if (inputSchemaMetadata != null) ...[
+                          const SizedBox(height: 12),
+                          _ToolSchemaPanel(schema: inputSchemaMetadata),
+                        ],
+                        const SizedBox(height: 20),
+                        Text(
+                          _localizedText(context, zh: '执行结果', en: 'Result'),
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 12),
+                        if (_result == null &&
+                            _errorMessage == null &&
+                            !_isRunning)
+                          Text(
+                            _localizedText(
+                              context,
+                              zh: '执行后会在这里展示原始返回结果。',
+                              en: 'The raw tool result will appear here after execution.',
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          )
+                        else if (_result != null) ...[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              _McpStatusChip(
+                                icon: _result!.isError
+                                    ? Icons.error_outline_rounded
+                                    : Icons.check_circle_outline_rounded,
+                                label: _result!.isError
+                                    ? _localizedText(
+                                        context,
+                                        zh: '服务端返回错误',
+                                        en: 'Server Returned Error',
+                                      )
+                                    : _localizedText(
+                                        context,
+                                        zh: '执行成功',
+                                        en: 'Succeeded',
+                                      ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (_result!.rawResult != null)
+                            _ToolSchemaPanel(schema: _result!.rawResult!)
+                          else
+                            _ToolConsolePanel(content: _result!.outputText),
+                        ] else if (_isRunning)
+                          _ToolConsolePanel(
+                            content: _localizedText(
+                              context,
+                              zh: '正在等待 MCP 服务返回结果...',
+                              en: 'Waiting for the MCP service to return a result...',
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1654,6 +2172,41 @@ class _ToolDescriptionPanel extends StatelessWidget {
         softLineBreak: true,
         styleSheet: styleSheet,
       ),
+    );
+  }
+}
+
+class _ToolTextSection extends StatelessWidget {
+  const _ToolTextSection({
+    required this.title,
+    required this.body,
+    this.caption,
+  });
+
+  final String title;
+  final String body;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        if (caption?.trim().isNotEmpty ?? false) ...[
+          const SizedBox(height: 4),
+          Text(
+            caption!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        _ToolDescriptionPanel(description: body),
+      ],
     );
   }
 }
@@ -1763,6 +2316,35 @@ class _ToolSchemaPanel extends StatelessWidget {
     final content = const JsonEncoder.withIndent(
       '  ',
     ).convert(_jsonFriendlyValue(schema));
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF18181B),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectableText(
+          content,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white,
+            fontFamily: 'monospace',
+            height: 1.45,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ToolConsolePanel extends StatelessWidget {
+  const _ToolConsolePanel({required this.content});
+
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -2208,8 +2790,12 @@ String _schemaSummary(
   BuildContext context, {
   required Object? rawSchema,
   required List<_SchemaField> fields,
+  String description = '',
 }) {
   if (rawSchema == null) {
+    if (description.trim().isNotEmpty) {
+      return _localizedText(context, zh: '已描述', en: 'Described');
+    }
     return _localizedText(context, zh: '未声明', en: 'Unspecified');
   }
   if (fields.isNotEmpty) {
@@ -2236,6 +2822,38 @@ String _schemaSummary(
     return _localizedText(context, zh: '枚举', en: 'Enum');
   }
   return _localizedText(context, zh: '原始元数据', en: 'Raw Metadata');
+}
+
+String _suggestedArgumentsJson(McpTool tool) {
+  final schemaMap = _asMap(tool.inputSchema);
+  final properties = schemaMap == null ? null : _asMap(schemaMap['properties']);
+  if (properties == null || properties.isEmpty) {
+    return '{}';
+  }
+  final suggested = <String, Object?>{};
+  for (final entry in properties.entries) {
+    suggested[entry.key] = _schemaExampleValue(entry.value);
+  }
+  return const JsonEncoder.withIndent('  ').convert(suggested);
+}
+
+Object? _schemaExampleValue(Object? schema) {
+  final schemaMap = _asMap(schema);
+  if (schemaMap == null) {
+    return '';
+  }
+  final enumValues = schemaMap['enum'];
+  if (enumValues is List && enumValues.isNotEmpty) {
+    return _jsonFriendlyValue(enumValues.first);
+  }
+  final type = _schemaType(schemaMap).toLowerCase();
+  return switch (type) {
+    'boolean' => false,
+    'number' || 'integer' => 0,
+    'array' => <Object?>[],
+    'object' => <String, Object?>{},
+    _ => '',
+  };
 }
 
 String _executionSummary(BuildContext context, McpTool tool) {

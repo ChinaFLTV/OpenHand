@@ -1516,12 +1516,25 @@ class AiSessionController extends ChangeNotifier {
         'stream_completed cancelled=${result.wasCancelled} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
       );
 
+      final didCancelStream =
+          result.wasCancelled || _isStopRequestedForSession(workingSession.id);
       final toolSyncStopwatch = Stopwatch()..start();
-      streamedSession = _syncToolCallMessagesFromResult(
-        streamedSession,
-        result.toolCalls,
-        model,
-      );
+      if (didCancelStream) {
+        if (result.toolCalls.isNotEmpty) {
+          streamedSession = _syncToolCallMessagesFromResult(
+            streamedSession,
+            result.toolCalls,
+            model,
+          );
+        }
+        streamedSession = _markPendingToolCallsCancelled(streamedSession);
+      } else {
+        streamedSession = _syncToolCallMessagesFromResult(
+          streamedSession,
+          result.toolCalls,
+          model,
+        );
+      }
       toolSyncStopwatch.stop();
       if (toolSyncStopwatch.elapsedMilliseconds >= _slowPreviewLogThresholdMs) {
         _debugSessionLog(
@@ -1560,8 +1573,7 @@ class AiSessionController extends ChangeNotifier {
       }
       workingSession = streamedSession;
 
-      if (result.wasCancelled ||
-          _isStopRequestedForSession(workingSession.id)) {
+      if (didCancelStream) {
         final cancelledSession = await _commitCancelledPendingToolCalls(
           workingSession,
         );

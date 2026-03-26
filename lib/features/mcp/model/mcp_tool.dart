@@ -51,6 +51,8 @@ class McpTool {
     required this.description,
     required this.inputSchema,
     this.outputSchema,
+    this.outputDescription,
+    this.outputDescriptionIsInferred = false,
     this.annotations = const <String, Object?>{},
     this.execution = const <String, Object?>{},
     this.rawInputSchema,
@@ -64,6 +66,8 @@ class McpTool {
   final String description;
   final Map<String, Object?> inputSchema;
   final Map<String, Object?>? outputSchema;
+  final String? outputDescription;
+  final bool outputDescriptionIsInferred;
   final Map<String, Object?> annotations;
   final Map<String, Object?> execution;
   final Object? rawInputSchema;
@@ -72,6 +76,8 @@ class McpTool {
   final String? metadataWarning;
 
   bool get hasMetadataWarning => metadataWarning?.trim().isNotEmpty ?? false;
+  bool get hasOutputDescription =>
+      outputDescription?.trim().isNotEmpty ?? false;
   bool get hasOutputSchema =>
       rawOutputSchema != null ||
       (outputSchema != null && outputSchema!.isNotEmpty);

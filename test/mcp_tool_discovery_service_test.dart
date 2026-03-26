@@ -581,6 +581,157 @@ void main() {
   );
 
   test(
+    'DefaultMcpToolDiscoveryService resolves output metadata from return descriptors',
+    () async {
+      final service = DefaultMcpToolDiscoveryService(
+        client: _QueuedHttpClient(<_QueuedHttpResponse>[
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-output-descriptor',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 1,
+              'result': <String, Object?>{'protocolVersion': '2025-11-25'},
+            }),
+          ),
+          const _QueuedHttpResponse(
+            statusCode: 202,
+            headers: <String, String>{'content-type': 'application/json'},
+            body: '',
+          ),
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-output-descriptor',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 2,
+              'result': <String, Object?>{
+                'tools': <Object?>[
+                  <String, Object?>{
+                    'name': 'cloud_machine_inventory_list',
+                    'description': 'Query inventory records.',
+                    'inputSchema': <String, Object?>{'type': 'object'},
+                    'annotations': <String, Object?>{
+                      'returns': <String, Object?>{
+                        'description':
+                            'Returns the paged inventory records and totals.',
+                        'schema': <String, Object?>{
+                          'type': 'object',
+                          'properties': <String, Object?>{
+                            'total': <String, Object?>{
+                              'type': 'number',
+                              'description': 'Total number of records.',
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            }),
+          ),
+        ]),
+      );
+      addTearDown(service.dispose);
+
+      final catalog = await service.discoverTools(
+        const McpServer(
+          name: 'local-http',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://mcp.example/tools',
+        ),
+      );
+
+      expect(catalog.status, McpToolCatalogStatus.ready);
+      final tool = catalog.tools.single;
+      expect(
+        tool.outputDescription,
+        'Returns the paged inventory records and totals.',
+      );
+      expect(tool.outputDescriptionIsInferred, isFalse);
+      expect(tool.outputSchema, isNotNull);
+      expect(tool.outputSchema, containsPair('type', 'object'));
+      expect(tool.rawOutputSchema, isA<Map<String, Object?>>());
+    },
+  );
+
+  test(
+    'DefaultMcpToolDiscoveryService infers output descriptions from tool descriptions',
+    () async {
+      final service = DefaultMcpToolDiscoveryService(
+        client: _QueuedHttpClient(<_QueuedHttpResponse>[
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-output-description',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 1,
+              'result': <String, Object?>{'protocolVersion': '2025-11-25'},
+            }),
+          ),
+          const _QueuedHttpResponse(
+            statusCode: 202,
+            headers: <String, String>{'content-type': 'application/json'},
+            body: '',
+          ),
+          _QueuedHttpResponse(
+            statusCode: 200,
+            headers: <String, String>{
+              'content-type': 'application/json',
+              'mcp-session-id': 'session-output-description',
+            },
+            body: jsonEncode(<String, Object?>{
+              'jsonrpc': '2.0',
+              'id': 2,
+              'result': <String, Object?>{
+                'tools': <Object?>[
+                  <String, Object?>{
+                    'name': 'grafana_query_from_url',
+                    'description':
+                        'Query Grafana metrics from a dashboard URL and return the full query result.',
+                    'inputSchema': <String, Object?>{'type': 'object'},
+                  },
+                ],
+              },
+            }),
+          ),
+        ]),
+      );
+      addTearDown(service.dispose);
+
+      final catalog = await service.discoverTools(
+        const McpServer(
+          name: 'local-http',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://mcp.example/tools',
+        ),
+      );
+
+      expect(catalog.status, McpToolCatalogStatus.ready);
+      final tool = catalog.tools.single;
+      expect(tool.rawOutputSchema, isNull);
+      expect(tool.outputSchema, isNull);
+      expect(
+        tool.outputDescription,
+        'Query Grafana metrics from a dashboard URL and return the full query result.',
+      );
+      expect(tool.outputDescriptionIsInferred, isTrue);
+    },
+  );
+
+  test(
     'DefaultMcpToolDiscoveryService ignores duplicate tool ids returned across pages',
     () async {
       final service = DefaultMcpToolDiscoveryService(

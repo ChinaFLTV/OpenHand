@@ -93,8 +93,9 @@ void main() {
         repository: repository,
       );
 
-      await controller.reloadFromPath('/broken/skills');
+      final reloaded = await controller.reloadFromPath('/broken/skills');
 
+      expect(reloaded, isFalse);
       expect(controller.storagePath, repository.storagePath);
       expect(controller.skills, hasLength(1));
       expect(controller.skills.single.name, 'Planner Skill');

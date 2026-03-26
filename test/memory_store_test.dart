@@ -251,8 +251,9 @@ void main() {
         ),
       );
 
-      await controller.reloadFromFilePath(invalidPath);
+      final reloaded = await controller.reloadFromFilePath(invalidPath);
 
+      expect(reloaded, isFalse);
       expect(controller.userMemoryFilePath, initialPath);
       expect(controller.entries, hasLength(1));
       expect(controller.entries.single.id, 'memory-1');

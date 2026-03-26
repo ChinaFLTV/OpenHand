@@ -17,10 +17,12 @@ import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
-import '../memory/data/memory_store.dart';
 import '../memory/memory_controller.dart';
 import '../mcp/mcp_controller.dart';
 import '../skills/skills_controller.dart';
+
+typedef _SettingsPathGetter = String Function(SettingsController controller);
+typedef _SettingsPathOperation = Future<bool> Function(String path);
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -825,58 +827,21 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.read<SettingsController>();
     final skillsController = context.read<SkillsController>();
-    final previousPath = settingsController.skillsStoragePath;
-    try {
-      final saved = await settingsController.updateSkillsStoragePath(rawPath);
-      if (!saved) {
-        if (!context.mounted) {
-          return;
-        }
-        _skillsPathController.text = settingsController.skillsStoragePath;
-        _showPersistenceFailureSnackBar(context);
-        return;
-      }
-      await skillsController.reloadFromPath(
-        settingsController.skillsStoragePath,
-      );
-      if (skillsController.errorMessage != null) {
-        final rolledBack = await _restoreSkillsPath(
-          settingsController,
-          skillsController,
-          previousPath,
-        );
-        if (!context.mounted) {
-          return;
-        }
-        _skillsPathController.text = settingsController.skillsStoragePath;
-        if (!rolledBack && settingsController.persistenceIssue != null) {
-          _showPersistenceFailureSnackBar(context);
-          return;
-        }
-        _showSnackBar(context, l10n.skillOperationFailed);
-        return;
-      }
-      if (!context.mounted) {
-        return;
-      }
-      _skillsPathController.text = settingsController.skillsStoragePath;
-      _showSnackBar(context, l10n.skillsPathSaved);
-    } catch (_) {
-      final rolledBack = await _restoreSkillsPath(
+    await _saveReloadablePathSetting(
+      context: context,
+      fieldController: _skillsPathController,
+      rawPath: rawPath,
+      currentPath: (controller) => controller.skillsStoragePath,
+      saveSetting: settingsController.updateSkillsStoragePath,
+      reloadRuntime: skillsController.reloadFromPath,
+      restoreSetting: (previousPath) => _restoreSkillsPath(
         settingsController,
         skillsController,
         previousPath,
-      );
-      if (!context.mounted) {
-        return;
-      }
-      _skillsPathController.text = settingsController.skillsStoragePath;
-      if (!rolledBack && settingsController.persistenceIssue != null) {
-        _showPersistenceFailureSnackBar(context);
-        return;
-      }
-      _showSnackBar(context, l10n.skillOperationFailed);
-    }
+      ),
+      successMessage: l10n.skillsPathSaved,
+      failureMessage: l10n.skillOperationFailed,
+    );
   }
 
   Future<void> _browseSkillsDirectory(BuildContext context) async {
@@ -912,57 +877,76 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
-    final previousPath = settingsController.userMemoryFilePath;
+    await _saveReloadablePathSetting(
+      context: context,
+      fieldController: _memoryFileController,
+      rawPath: rawPath,
+      currentPath: (controller) => controller.userMemoryFilePath,
+      saveSetting: settingsController.updateUserMemoryFilePath,
+      reloadRuntime: memoryController.reloadFromFilePath,
+      restoreSetting: (previousPath) => _restoreMemoryFilePath(
+        settingsController,
+        memoryController,
+        previousPath,
+      ),
+      successMessage: l10n.memoryPathSaved,
+      failureMessage: l10n.memoryOperationFailed,
+    );
+  }
+
+  Future<void> _saveReloadablePathSetting({
+    required BuildContext context,
+    required TextEditingController fieldController,
+    required String rawPath,
+    required _SettingsPathGetter currentPath,
+    required _SettingsPathOperation saveSetting,
+    required _SettingsPathOperation reloadRuntime,
+    required _SettingsPathOperation restoreSetting,
+    required String successMessage,
+    required String failureMessage,
+  }) async {
+    final settingsController = context.read<SettingsController>();
+    final previousPath = currentPath(settingsController);
     try {
-      final saved = await settingsController.updateUserMemoryFilePath(rawPath);
+      final saved = await saveSetting(rawPath);
       if (!saved) {
         if (!context.mounted) {
           return;
         }
-        _memoryFileController.text = settingsController.userMemoryFilePath;
+        fieldController.text = currentPath(settingsController);
         _showPersistenceFailureSnackBar(context);
         return;
       }
-      await memoryController.reloadFromFilePath(
-        settingsController.userMemoryFilePath,
-      );
-      if (_didMemoryReloadFail(memoryController)) {
-        final rolledBack = await _restoreMemoryFilePath(
-          settingsController,
-          memoryController,
-          previousPath,
-        );
+      final reloaded = await reloadRuntime(currentPath(settingsController));
+      if (!reloaded) {
+        final rolledBack = await restoreSetting(previousPath);
         if (!context.mounted) {
           return;
         }
-        _memoryFileController.text = settingsController.userMemoryFilePath;
+        fieldController.text = currentPath(settingsController);
         if (!rolledBack && settingsController.persistenceIssue != null) {
           _showPersistenceFailureSnackBar(context);
           return;
         }
-        _showSnackBar(context, l10n.memoryOperationFailed);
+        _showSnackBar(context, failureMessage);
         return;
       }
       if (!context.mounted) {
         return;
       }
-      _memoryFileController.text = settingsController.userMemoryFilePath;
-      _showSnackBar(context, l10n.memoryPathSaved);
+      fieldController.text = currentPath(settingsController);
+      _showSnackBar(context, successMessage);
     } catch (_) {
-      final rolledBack = await _restoreMemoryFilePath(
-        settingsController,
-        memoryController,
-        previousPath,
-      );
+      final rolledBack = await restoreSetting(previousPath);
       if (!context.mounted) {
         return;
       }
-      _memoryFileController.text = settingsController.userMemoryFilePath;
+      fieldController.text = currentPath(settingsController);
       if (!rolledBack && settingsController.persistenceIssue != null) {
         _showPersistenceFailureSnackBar(context);
         return;
       }
-      _showSnackBar(context, l10n.memoryOperationFailed);
+      _showSnackBar(context, failureMessage);
     }
   }
 
@@ -979,8 +963,7 @@ class _SettingsViewState extends State<SettingsView> {
         return false;
       }
     }
-    await skillsController.reloadFromPath(previousPath);
-    return skillsController.errorMessage == null;
+    return skillsController.reloadFromPath(previousPath);
   }
 
   Future<bool> _restoreMemoryFilePath(
@@ -996,14 +979,7 @@ class _SettingsViewState extends State<SettingsView> {
         return false;
       }
     }
-    await memoryController.reloadFromFilePath(previousPath);
-    return !_didMemoryReloadFail(memoryController);
-  }
-
-  bool _didMemoryReloadFail(MemoryController memoryController) {
-    return memoryController.errorMessage != null ||
-        memoryController.persistenceIssue?.kind ==
-            MemoryPersistenceIssueKind.saveFailed;
+    return memoryController.reloadFromFilePath(previousPath);
   }
 
   Future<void> _saveCompressionThreshold(

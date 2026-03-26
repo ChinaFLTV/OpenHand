@@ -499,13 +499,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       'argsSchema',
       'argumentSchema',
     ]);
-    final rawOutputSchema = _firstPresentValue(rawMap, const <String>[
-      'outputSchema',
-      'output_schema',
-      'returnSchema',
-      'resultSchema',
-      'returns',
-    ]);
+    final resolvedOutputMetadata = _resolveToolOutputMetadata(
+      rawMap,
+      description,
+    );
+    final rawOutputSchema = resolvedOutputMetadata.rawSchema;
     final inputSchema = _asMap(rawInputSchema);
     final outputSchema = _asMap(rawOutputSchema);
     final annotations =
@@ -534,6 +532,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       description: description,
       inputSchema: resolvedInputSchema,
       outputSchema: outputSchema,
+      outputDescription: resolvedOutputMetadata.description,
+      outputDescriptionIsInferred: resolvedOutputMetadata.descriptionIsInferred,
       annotations: annotations,
       execution: execution,
       rawInputSchema: rawInputSchema,
@@ -836,6 +836,210 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     return null;
   }
 
+  _ResolvedToolOutputMetadata _resolveToolOutputMetadata(
+    Map<String, Object?> rawMap,
+    String toolDescription,
+  ) {
+    const schemaKeys = <String>[
+      'outputSchema',
+      'output_schema',
+      'returnSchema',
+      'return_schema',
+      'resultSchema',
+      'result_schema',
+      'responseSchema',
+      'response_schema',
+    ];
+    const descriptorKeys = <String>[
+      'returns',
+      'returnValue',
+      'return_value',
+      'result',
+      'response',
+      'output',
+    ];
+    const descriptionKeys = <String>[
+      'outputDescription',
+      'output_description',
+      'returnDescription',
+      'return_description',
+      'resultDescription',
+      'result_description',
+      'responseDescription',
+      'response_description',
+      'returnsDescription',
+      'returns_description',
+    ];
+
+    final containers = _toolMetadataContainers(rawMap);
+    Object? rawSchema;
+    String? description;
+    var descriptionIsInferred = false;
+
+    rawSchema = _firstPresentValue(rawMap, schemaKeys);
+    for (final container in containers) {
+      rawSchema ??= _firstPresentValue(container, schemaKeys);
+      final descriptor = _firstPresentValue(container, descriptorKeys);
+      final resolvedDescriptor = _resolveOutputDescriptor(descriptor);
+      rawSchema ??= resolvedDescriptor.rawSchema;
+      description ??= resolvedDescriptor.description;
+    }
+
+    if (rawSchema is Map) {
+      final rawSchemaMap = Map<String, Object?>.from(rawSchema);
+      final nestedDescriptor = _resolveOutputDescriptor(rawSchemaMap);
+      if (nestedDescriptor.rawSchema != null) {
+        rawSchema = nestedDescriptor.rawSchema;
+      }
+      description ??= nestedDescriptor.description;
+    }
+
+    for (final container in containers) {
+      description ??= _firstNonEmptyText(container, descriptionKeys);
+    }
+    description ??= _schemaDescription(rawSchema);
+    if (description == null) {
+      description = _inferOutputDescriptionFromToolDescription(toolDescription);
+      descriptionIsInferred = description != null;
+    }
+
+    return _ResolvedToolOutputMetadata(
+      rawSchema: rawSchema,
+      description: description,
+      descriptionIsInferred: descriptionIsInferred,
+    );
+  }
+
+  List<Map<String, Object?>> _toolMetadataContainers(
+    Map<String, Object?> rawMap,
+  ) {
+    final containers = <Map<String, Object?>>[rawMap];
+    for (final key in const <String>[
+      'annotations',
+      '_meta',
+      'meta',
+      'metadata',
+    ]) {
+      final container = _asMap(rawMap[key]);
+      if (container != null) {
+        containers.add(container);
+      }
+    }
+    return containers;
+  }
+
+  _ResolvedToolOutputMetadata _resolveOutputDescriptor(Object? descriptor) {
+    final descriptorMap = _asMap(descriptor);
+    if (descriptorMap == null) {
+      final description = _readText(descriptor);
+      return _ResolvedToolOutputMetadata(
+        description: description.isEmpty ? null : description,
+      );
+    }
+
+    final nestedSchema = descriptorMap.containsKey('schema')
+        ? descriptorMap['schema']
+        : _firstPresentValue(descriptorMap, const <String>[
+            'outputSchema',
+            'output_schema',
+            'returnSchema',
+            'return_schema',
+            'resultSchema',
+            'result_schema',
+            'responseSchema',
+            'response_schema',
+          ]);
+    final rawSchema =
+        nestedSchema ??
+        (_looksLikeSchemaMap(descriptorMap) ? descriptorMap : null);
+    final description =
+        _firstNonEmptyText(descriptorMap, const <String>[
+          'description',
+          'summary',
+          'details',
+          'title',
+          'text',
+        ]) ??
+        _schemaDescription(rawSchema);
+    return _ResolvedToolOutputMetadata(
+      rawSchema: rawSchema,
+      description: description,
+    );
+  }
+
+  bool _looksLikeSchemaMap(Map<String, Object?> value) {
+    for (final key in const <String>[
+      'type',
+      'properties',
+      'items',
+      'required',
+      'oneOf',
+      'anyOf',
+      'allOf',
+      '\$ref',
+      'enum',
+    ]) {
+      if (value.containsKey(key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String? _schemaDescription(Object? schema) {
+    final schemaMap = _asMap(schema);
+    if (schemaMap == null) {
+      return null;
+    }
+    return _firstNonEmptyText(schemaMap, const <String>[
+      'description',
+      'summary',
+      'details',
+      'title',
+    ]);
+  }
+
+  String? _inferOutputDescriptionFromToolDescription(String description) {
+    final normalized = description.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    final matchedLines = normalized
+        .split(RegExp(r'[\r\n]+'))
+        .map((item) => item.trim())
+        .where(
+          (item) => item.isNotEmpty && _looksLikeOutputDescriptionLine(item),
+        )
+        .toList(growable: false);
+    if (matchedLines.isNotEmpty) {
+      return matchedLines.join('\n');
+    }
+
+    final sentenceMatch = RegExp(
+      r'[^。！？.!?]*(返回|输出|结果|returns?|output|response|result)[^。！？.!?]*[。！？.!?]?',
+      caseSensitive: false,
+    ).allMatches(normalized);
+    final sentences = sentenceMatch
+        .map((match) => match.group(0)?.trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (sentences.isNotEmpty) {
+      return sentences.join('\n');
+    }
+    return null;
+  }
+
+  bool _looksLikeOutputDescriptionLine(String line) {
+    final normalized = line.toLowerCase();
+    return line.contains('返回') ||
+        line.contains('输出') ||
+        line.contains('结果') ||
+        normalized.contains('return') ||
+        normalized.contains('output') ||
+        normalized.contains('response') ||
+        normalized.contains('result');
+  }
+
   Map<String, Object?>? _asMap(Object? value) {
     if (value is Map<String, Object?>) {
       return value;
@@ -1007,6 +1211,18 @@ class _DiscoveredTools {
 
   final List<McpTool> tools;
   final String? warningMessage;
+}
+
+class _ResolvedToolOutputMetadata {
+  const _ResolvedToolOutputMetadata({
+    this.rawSchema,
+    this.description,
+    this.descriptionIsInferred = false,
+  });
+
+  final Object? rawSchema;
+  final String? description;
+  final bool descriptionIsInferred;
 }
 
 class _InitializedStreamableHttpSession {

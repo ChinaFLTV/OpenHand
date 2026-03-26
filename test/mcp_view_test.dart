@@ -186,6 +186,173 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('McpView shows return descriptions without output schemas', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final settingsController = await SettingsController.create(
+      store: _InMemorySettingsStore(),
+    );
+    final mcpStore = _InMemoryMcpStore(
+      servers: <McpServer>[
+        const McpServer(
+          name: 'Inventory',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://api.example.com/mcp',
+        ),
+      ],
+    );
+    final mcpController = await McpController.create(
+      initialFilePath: mcpStore.serversFilePath,
+      store: mcpStore,
+      toolDiscoveryService: _FakeMcpToolDiscoveryService(
+        toolsByServer: <String, List<McpTool>>{
+          'Inventory': <McpTool>[
+            const McpTool(
+              id: 'cloud_machine_inventory_list',
+              name: 'cloud_machine_inventory_list',
+              description: 'Query inventory records.',
+              inputSchema: <String, Object?>{
+                'type': 'object',
+                'properties': <String, Object?>{},
+              },
+              outputDescription:
+                  'Returns the paged inventory records and totals.',
+              outputDescriptionIsInferred: true,
+            ),
+          ],
+        },
+      ),
+      healthCheckInterval: const Duration(days: 1),
+    );
+    addTearDown(settingsController.dispose);
+    addTearDown(mcpController.dispose);
+    await settingsController.updateLanguage(AppLanguage.english);
+    await mcpController.refreshServerTools('Inventory');
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        settingsController: settingsController,
+        mcpController: mcpController,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('cloud_machine_inventory_list'));
+    await tester.pump();
+
+    expect(find.text('Return Description'), findsOneWidget);
+    expect(find.text('Derived from the tool description'), findsOneWidget);
+    expect(
+      find.text('Returns the paged inventory records and totals.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('McpView debugs MCP tools from the tool details dialog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final settingsController = await SettingsController.create(
+      store: _InMemorySettingsStore(),
+    );
+    final fakeService = _FakeMcpToolDiscoveryService(
+      toolsByServer: <String, List<McpTool>>{
+        'Ops': <McpTool>[
+          const McpTool(
+            id: 'cloud_machine_inventory_list',
+            name: 'cloud_machine_inventory_list',
+            description: 'Inspect inventory records.',
+            inputSchema: <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'page': <String, Object?>{
+                  'type': 'number',
+                  'description': 'Page number.',
+                },
+              },
+            },
+          ),
+        ],
+      },
+      callResult: const McpToolCallResult(
+        outputText: 'debug ok',
+        rawResult: <String, Object?>{
+          'isError': false,
+          'content': <Object?>[
+            <String, Object?>{'type': 'text', 'text': 'debug ok'},
+          ],
+        },
+      ),
+    );
+    final mcpStore = _InMemoryMcpStore(
+      servers: <McpServer>[
+        const McpServer(
+          name: 'Ops',
+          type: McpServerType.streamableHttp,
+          enabled: true,
+          url: 'https://api.example.com/mcp',
+        ),
+      ],
+    );
+    final mcpController = await McpController.create(
+      initialFilePath: mcpStore.serversFilePath,
+      store: mcpStore,
+      toolDiscoveryService: fakeService,
+      healthCheckInterval: const Duration(days: 1),
+    );
+    addTearDown(settingsController.dispose);
+    addTearDown(mcpController.dispose);
+    await settingsController.updateLanguage(AppLanguage.english);
+    await mcpController.refreshServerTools('Ops');
+
+    await tester.pumpWidget(
+      _buildTestApp(
+        settingsController: settingsController,
+        mcpController: mcpController,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('cloud_machine_inventory_list'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey<String>(
+          'mcpToolDetailsDebugButton-cloud_machine_inventory_list',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('mcpToolDebugArgumentsField')),
+      '{"page":2}',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('mcpToolDebugRunButton')),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(fakeService.calls, hasLength(1));
+    expect(fakeService.calls.single.serverName, 'Ops');
+    expect(fakeService.calls.single.toolName, 'cloud_machine_inventory_list');
+    expect(fakeService.calls.single.arguments, <String, Object?>{'page': 2});
+    expect(find.text('Debug MCP Tool'), findsOneWidget);
+    expect(find.textContaining('debug ok'), findsOneWidget);
+  });
+
   testWidgets(
     'McpView allows adding header rows when editing an existing server',
     (tester) async {
@@ -328,9 +495,12 @@ class _InMemoryMcpStore extends McpStore {
 class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
   _FakeMcpToolDiscoveryService({
     this.toolsByServer = const <String, List<McpTool>>{},
+    this.callResult = const McpToolCallResult(outputText: ''),
   });
 
   final Map<String, List<McpTool>> toolsByServer;
+  final McpToolCallResult callResult;
+  final List<_FakeMcpToolCall> calls = <_FakeMcpToolCall>[];
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
@@ -355,9 +525,28 @@ class _FakeMcpToolDiscoveryService implements McpToolDiscoveryService {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
   }) async {
-    return const McpToolCallResult(outputText: '');
+    calls.add(
+      _FakeMcpToolCall(
+        serverName: server.name,
+        toolName: toolName,
+        arguments: Map<String, Object?>.from(arguments),
+      ),
+    );
+    return callResult;
   }
 
   @override
   void dispose() {}
+}
+
+class _FakeMcpToolCall {
+  const _FakeMcpToolCall({
+    required this.serverName,
+    required this.toolName,
+    required this.arguments,
+  });
+
+  final String serverName;
+  final String toolName;
+  final Map<String, Object?> arguments;
 }
