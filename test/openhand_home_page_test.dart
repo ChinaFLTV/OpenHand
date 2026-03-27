@@ -33,6 +33,7 @@ import 'package:openhand/features/skills/data/skills_repository.dart';
 import 'package:openhand/features/skills/model/local_skill.dart';
 import 'package:openhand/features/skills/skills_controller.dart';
 import 'package:openhand/l10n/app_localizations.dart';
+import 'package:openhand/shared/widgets/openhand_dialog_action_button.dart';
 
 void main() {
   testWidgets(
@@ -173,6 +174,152 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage deletes the selected message and later messages from the transcript',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-delete-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionController = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Assistant delete reply'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Delete Thread Title'),
+          ],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-delete',
+          'message-home-page-delete-user',
+          'message-home-page-delete-assistant',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 8, 0, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-home-page-delete',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await sessionController.sendMessage(
+          content: 'Delete target message',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Delete target message'), findsOneWidget);
+      expect(find.text('Assistant delete reply'), findsOneWidget);
+
+      await tester.tap(find.text('Delete target message'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Delete From Here'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.delete_sweep_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(OpenHandDialogActionButton, 'Delete'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.widgetWithText(OpenHandDialogActionButton, 'Delete'),
+      );
+      await tester.pump();
+
+      expect(find.text('Delete target message'), findsOneWidget);
+      expect(find.text('Assistant delete reply'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 260));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete target message'), findsNothing);
+      expect(find.text('Assistant delete reply'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

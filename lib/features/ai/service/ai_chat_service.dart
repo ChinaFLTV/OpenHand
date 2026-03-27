@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../model/ai_model_config.dart';
@@ -602,10 +601,7 @@ class AiChatService implements AiChatClient {
 }
 
 void _debugAiStreamLog(String message) {
-  if (!kDebugMode) {
-    return;
-  }
-  debugPrint('[OpenHand][AiChatService] $message');
+  return;
 }
 
 class AiChatException implements Exception {

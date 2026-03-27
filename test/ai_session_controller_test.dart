@@ -1947,6 +1947,328 @@ void main() {
     },
   );
 
+  test(
+    'AiSessionController logically deletes a single visible message',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Assistant reply one'),
+            AiChatCompletion(reply: 'Assistant reply two'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Delete Thread'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-delete-one',
+          'message-delete-user-1',
+          'message-delete-assistant-1',
+          'message-delete-user-2',
+          'message-delete-assistant-2',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 7, 0, 0),
+      );
+      addTearDown(controller.dispose);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-delete-one',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'First delete target',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Second keep target',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final assistantMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.content == 'Assistant reply one',
+      );
+
+      expect(
+        await controller.deleteMessages(<String>[assistantMessage.id]),
+        isTrue,
+      );
+      expect(
+        controller.currentSession!.messages
+            .firstWhere((message) => message.id == assistantMessage.id)
+            .isDeleted,
+        isTrue,
+      );
+      expect(
+        controller.currentSession!.displayMessages
+            .map((message) => message.content)
+            .toList(),
+        isNot(contains('Assistant reply one')),
+      );
+      expect(controller.currentSession!.displayMessages, hasLength(3));
+    },
+  );
+
+  test(
+    'AiSessionController logically deletes visible messages from an anchor message',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Assistant batch one'),
+            AiChatCompletion(reply: 'Assistant batch two'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Delete Later Thread'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-delete-from',
+          'message-delete-from-user-1',
+          'message-delete-from-assistant-1',
+          'message-delete-from-user-2',
+          'message-delete-from-assistant-2',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 7, 10, 0),
+      );
+      addTearDown(controller.dispose);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-delete-from',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Batch delete anchor',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Batch delete tail',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstUserMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.user,
+      );
+
+      expect(await controller.deleteMessagesFrom(firstUserMessage.id), isTrue);
+      expect(
+        controller.currentSession!.messages.every(
+          (message) => message.isDeleted,
+        ),
+        isTrue,
+      );
+      expect(controller.currentSession!.displayMessages, isEmpty);
+    },
+  );
+
+  test(
+    'AiSessionController clears editing rollback markers when deleting the edited message',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Assistant edit one'),
+            AiChatCompletion(reply: 'Assistant edit two'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Delete Edited Thread'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-delete-editing',
+          'message-delete-editing-user-1',
+          'message-delete-editing-assistant-1',
+          'message-delete-editing-user-2',
+          'message-delete-editing-assistant-2',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 7, 20, 0),
+      );
+      addTearDown(controller.dispose);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-delete-editing',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Edit delete anchor',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Edit delete tail',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstUserMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.user,
+      );
+      expect(
+        await controller.beginEditingMessage(firstUserMessage.id),
+        isNotNull,
+      );
+      expect(controller.editingMessageId, firstUserMessage.id);
+
+      expect(
+        await controller.deleteMessages(<String>[firstUserMessage.id]),
+        isTrue,
+      );
+      expect(controller.editingMessageId, isNull);
+      expect(controller.currentSession!.displayMessages, isEmpty);
+      expect(
+        controller.currentSession!.messages.any(
+          (message) => '${message.metadata['deleted_by_edit_message_id'] ?? ''}'
+              .isNotEmpty,
+        ),
+        isFalse,
+      );
+    },
+  );
+
   test('AiSessionController marks session errors as presented once', () async {
     final promptRepository = AiPromptTemplateRepository(
       loader: (assetPath) async {

@@ -161,8 +161,6 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 96,
   );
-  static const int _slowPreviewLogThresholdMs = 12;
-  static const int _slowCommitLogThresholdMs = 24;
   static const int _maxSequentialToolRounds = 8;
   static const Set<String> _internalPromptLeakHeaders = <String>{
     '[[5] Current Session Messages]',
@@ -562,6 +560,145 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
     });
+  }
+
+  Future<bool> deleteMessages(
+    Iterable<String> messageIds, {
+    String? sessionId,
+  }) async {
+    final normalizedMessageIds = messageIds
+        .map((messageId) => messageId.trim())
+        .where((messageId) => messageId.isNotEmpty)
+        .toSet();
+    if (normalizedMessageIds.isEmpty) {
+      return false;
+    }
+    return _enqueueOperation(() async {
+      final normalizedSessionId = sessionId?.trim() ?? '';
+      final session = normalizedSessionId.isEmpty
+          ? currentSession
+          : _sessionById(normalizedSessionId);
+      if (session == null) {
+        return false;
+      }
+      return _deleteMessagesLocked(
+        session: session,
+        messageIds: normalizedMessageIds,
+      );
+    });
+  }
+
+  Future<bool> deleteMessagesFrom(String messageId, {String? sessionId}) async {
+    final normalizedMessageId = messageId.trim();
+    if (normalizedMessageId.isEmpty) {
+      return false;
+    }
+    return _enqueueOperation(() async {
+      final normalizedSessionId = sessionId?.trim() ?? '';
+      final session = normalizedSessionId.isEmpty
+          ? currentSession
+          : _sessionById(normalizedSessionId);
+      if (session == null) {
+        return false;
+      }
+      final startIndex = session.messages.indexWhere(
+        (message) => message.id == normalizedMessageId && !message.isDeleted,
+      );
+      if (startIndex == -1) {
+        return false;
+      }
+      final targetMessageIds = session.messages
+          .skip(startIndex)
+          .where((message) => !message.isDeleted)
+          .map((message) => message.id)
+          .toSet();
+      if (targetMessageIds.isEmpty) {
+        return false;
+      }
+      return _deleteMessagesLocked(
+        session: session,
+        messageIds: targetMessageIds,
+      );
+    });
+  }
+
+  Future<bool> _deleteMessagesLocked({
+    required AiSession session,
+    required Set<String> messageIds,
+  }) async {
+    final currentEditingMessageId = session.id == _currentSessionId
+        ? _editingMessageId
+        : null;
+    var matchedMessage = false;
+    var didChange = false;
+    var shouldFinalizeEditRollback = false;
+    final updatedMessages = <AiSessionMessage>[];
+    for (final message in session.messages) {
+      final rollbackMarker = '${message.metadata[_editRollbackMarkerKey] ?? ''}'
+          .trim();
+      if (!messageIds.contains(message.id)) {
+        updatedMessages.add(message);
+        continue;
+      }
+      matchedMessage = true;
+      if (currentEditingMessageId != null &&
+          rollbackMarker == currentEditingMessageId) {
+        shouldFinalizeEditRollback = true;
+      }
+      if (message.isDeleted) {
+        updatedMessages.add(message);
+        continue;
+      }
+      didChange = true;
+      updatedMessages.add(message.copyWith(isDeleted: true));
+    }
+    if (!matchedMessage) {
+      return false;
+    }
+    var nextEditingMessageId = currentEditingMessageId;
+    if (currentEditingMessageId != null) {
+      final editingMessageStillVisible = updatedMessages.any(
+        (message) =>
+            message.id == currentEditingMessageId && !message.isDeleted,
+      );
+      if (!editingMessageStillVisible) {
+        nextEditingMessageId = null;
+        shouldFinalizeEditRollback = true;
+      }
+      if (shouldFinalizeEditRollback) {
+        for (var index = 0; index < updatedMessages.length; index++) {
+          final message = updatedMessages[index];
+          final rollbackMarker =
+              '${message.metadata[_editRollbackMarkerKey] ?? ''}'.trim();
+          if (rollbackMarker != currentEditingMessageId) {
+            continue;
+          }
+          final nextMetadata = Map<String, Object?>.from(message.metadata)
+            ..remove(_editRollbackMarkerKey);
+          updatedMessages[index] = message.copyWith(metadata: nextMetadata);
+          didChange = true;
+        }
+      }
+    }
+    if (!didChange) {
+      return true;
+    }
+    final previousEditingMessageId = _editingMessageId;
+    if (session.id == _currentSessionId) {
+      _editingMessageId = nextEditingMessageId;
+    }
+    final updatedSession = _rebuildSession(
+      session.copyWith(messages: updatedMessages, updatedAt: _clock().toUtc()),
+    );
+    final committed = await _commitSessionLocked(updatedSession);
+    if (committed) {
+      return true;
+    }
+    if (session.id == _currentSessionId) {
+      _editingMessageId = previousEditingMessageId;
+      notifyListeners();
+    }
+    return false;
   }
 
   Future<void> _finalizeDeletedSession({
@@ -1323,7 +1460,6 @@ class AiSessionController extends ChangeNotifier {
       }
 
       void flushPreview(String reason) {
-        final previewStopwatch = Stopwatch()..start();
         previewTimer?.cancel();
         previewTimer = null;
         pendingPreviewReason = null;
@@ -1337,14 +1473,6 @@ class AiSessionController extends ChangeNotifier {
           'stream_preview_flush reason=$reason messages=${sessionToPreview.messages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'} last_chars=${lastMessage?.characterCount ?? 0}',
         );
         _previewSession(sessionToPreview);
-        previewStopwatch.stop();
-        if (previewStopwatch.elapsedMilliseconds >=
-            _slowPreviewLogThresholdMs) {
-          _debugSessionLog(
-            workingSession.id,
-            'stream_preview_slow reason=$reason elapsed_ms=${previewStopwatch.elapsedMilliseconds} messages=${sessionToPreview.messages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'}',
-          );
-        }
         hasPreviewedStreamDelta = true;
       }
 
@@ -1562,7 +1690,6 @@ class AiSessionController extends ChangeNotifier {
 
       final didCancelStream =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
-      final toolSyncStopwatch = Stopwatch()..start();
       if (didCancelStream) {
         if (result.toolCalls.isNotEmpty) {
           streamedSession = _syncToolCallMessagesFromResult(
@@ -1577,13 +1704,6 @@ class AiSessionController extends ChangeNotifier {
           streamedSession,
           result.toolCalls,
           model,
-        );
-      }
-      toolSyncStopwatch.stop();
-      if (toolSyncStopwatch.elapsedMilliseconds >= _slowPreviewLogThresholdMs) {
-        _debugSessionLog(
-          workingSession.id,
-          'tool_call_sync_slow elapsed_ms=${toolSyncStopwatch.elapsedMilliseconds} tool_calls=${result.toolCalls.length} messages=${streamedSession.messages.length}',
         );
       }
       final rebasedSession = _sessionById(workingSession.id) ?? workingSession;
@@ -3355,20 +3475,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   void _previewSession(AiSession session) {
-    final stopwatch = Stopwatch()..start();
     final replaced = _replaceSessionInMemory(session, sortSessions: false);
     if (replaced) {
       notifyListeners();
-    }
-    stopwatch.stop();
-    if (stopwatch.elapsedMilliseconds >= _slowPreviewLogThresholdMs) {
-      final lastMessage = session.messages.isEmpty
-          ? null
-          : session.messages.last;
-      _debugSessionLog(
-        session.id,
-        'preview_session_slow elapsed_ms=${stopwatch.elapsedMilliseconds} replaced=$replaced messages=${session.messages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'} last_chars=${lastMessage?.characterCount ?? 0}',
-      );
     }
   }
 
@@ -3403,18 +3512,10 @@ class AiSessionController extends ChangeNotifier {
     final previousIssues = List<AiSessionPersistenceIssue>.from(
       _persistenceIssues,
     );
-    final commitStopwatch = Stopwatch()..start();
     _replaceSessionInMemory(effectiveSession);
     notifyListeners();
     try {
       await _store.save(effectiveSession);
-      commitStopwatch.stop();
-      if (commitStopwatch.elapsedMilliseconds >= _slowCommitLogThresholdMs) {
-        _debugSessionLog(
-          session.id,
-          'commit_session_slow elapsed_ms=${commitStopwatch.elapsedMilliseconds} messages=${effectiveSession.messages.length} recent_errors=${effectiveSession.recentErrors.length}',
-        );
-      }
       if (_persistenceIssues.isNotEmpty) {
         _persistenceIssues = const <AiSessionPersistenceIssue>[];
         notifyListeners();
@@ -3432,7 +3533,6 @@ class AiSessionController extends ChangeNotifier {
       _sessions = restoredSessions;
       _persistenceIssues = previousIssues;
       _lastErrorMessage = '$error';
-      commitStopwatch.stop();
       notifyListeners();
       return false;
     }
@@ -4502,10 +4602,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   void _debugSessionLog(String sessionId, String message) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint('[OpenHand][AiSession][$sessionId] $message');
+    return;
   }
 }
 

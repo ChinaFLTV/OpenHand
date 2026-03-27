@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:highlight/highlight.dart' as highlight;
@@ -59,13 +58,14 @@ const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
 const double _autoFollowDistanceThreshold = 96;
 const double _autoFollowAnimatedDistanceThreshold = 8;
-const int _slowUiFrameThresholdMs = 24;
-const int _slowUiLogThrottleMs = 800;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 const int _transcriptInitialWindowSize = 80;
 const int _transcriptWindowIncrement = 80;
 const int _transcriptWindowingThreshold = 120;
 const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 48);
+const Duration _transcriptMessageDeleteAnimationDuration = Duration(
+  milliseconds: 220,
+);
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -98,7 +98,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   bool _programmaticAutoFollowScrollInProgress = false;
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
-  DateTime? _lastSlowUiLogAt;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
@@ -145,7 +144,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   void initState() {
     super.initState();
     _messageScrollController.addListener(_handleMessageScroll);
-    SchedulerBinding.instance.addTimingsCallback(_handleFrameTimings);
   }
 
   @override
@@ -166,50 +164,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   void dispose() {
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
-    SchedulerBinding.instance.removeTimingsCallback(_handleFrameTimings);
     _composerController.dispose();
     _messageScrollController.dispose();
     super.dispose();
-  }
-
-  void _handleFrameTimings(List<FrameTiming> timings) {
-    if (!kDebugMode || !mounted || timings.isEmpty) {
-      return;
-    }
-    final sessionController = context.read<AiSessionController>();
-    final sessionId = sessionController.currentSessionId;
-    if (sessionId == null ||
-        _displaySendPhaseForSession(sessionController, sessionId) !=
-            AiSendPhase.responding) {
-      return;
-    }
-    final now = DateTime.now().toUtc();
-    final lastLoggedAt = _lastSlowUiLogAt;
-    if (lastLoggedAt != null &&
-        now.difference(lastLoggedAt).inMilliseconds < _slowUiLogThrottleMs) {
-      return;
-    }
-    for (final timing in timings) {
-      final buildMs = timing.buildDuration.inMilliseconds;
-      final rasterMs = timing.rasterDuration.inMilliseconds;
-      if (buildMs < _slowUiFrameThresholdMs &&
-          rasterMs < _slowUiFrameThresholdMs) {
-        continue;
-      }
-      _lastSlowUiLogAt = now;
-      final currentSession = _sessionForId(sessionController, sessionId);
-      final messageCount = currentSession == null
-          ? 0
-          : currentSession.displayMessages.length;
-      final activePosition = _activeMessageScrollPosition();
-      final distanceToBottom = activePosition == null
-          ? 0
-          : (activePosition.maxScrollExtent - activePosition.pixels).round();
-      debugPrint(
-        '[OpenHand][UI][$sessionId] slow_frame build_ms=$buildMs raster_ms=$rasterMs total_ms=${timing.totalSpan.inMilliseconds} messages=$messageCount auto_follow=$_shouldAutoFollowMessages enabled=$_autoFollowEnabled scroll_distance=$distanceToBottom queued=$_scrollToBottomCallbackQueued settle=$_pendingScrollToBottomSettlePasses',
-      );
-      break;
-    }
   }
 
   void _clearPendingAutoFollowState() {
@@ -1500,6 +1457,104 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     );
   }
 
+  Future<bool> _deleteMessage(AiSessionMessage message) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(dialogContext, zh: '删除消息', en: 'Delete Message'),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh: '删除后，这条消息将不再显示。',
+              en: 'This message will no longer be shown.',
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: AppLocalizations.of(context)!.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: AppLocalizations.of(context)!.commonDelete,
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return false;
+    }
+    final controller = context.read<AiSessionController>();
+    final deleted = await controller.deleteMessages(<String>[message.id]);
+    if (!mounted || deleted) {
+      return deleted;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          controller.lastErrorMessage ??
+              _localizedText(context, zh: '消息删除失败。', en: 'Delete failed.'),
+        ),
+      ),
+    );
+    return false;
+  }
+
+  Future<bool> _deleteMessageFromHere(AiSessionMessage message) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '删除此条及后续消息',
+              en: 'Delete From Here',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              dialogContext,
+              zh: '删除后，这条消息及其后续消息将不再显示。',
+              en: 'This message and the later messages will no longer be shown.',
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: AppLocalizations.of(context)!.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: AppLocalizations.of(context)!.commonDelete,
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return false;
+    }
+    final controller = context.read<AiSessionController>();
+    final deleted = await controller.deleteMessagesFrom(message.id);
+    if (!mounted || deleted) {
+      return deleted;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          controller.lastErrorMessage ??
+              _localizedText(context, zh: '批量删除消息失败。', en: 'Delete failed.'),
+        ),
+      ),
+    );
+    return false;
+  }
+
   Future<void> _cancelEditingMessage() async {
     final controller = context.read<AiSessionController>();
     final cancelled = await controller.cancelEditingMessage();
@@ -1661,6 +1716,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         onCancelEditing: _cancelEditingMessage,
         onEditMessage: _editMessage,
         onCopyMessage: _copyMessage,
+        onDeleteMessage: _deleteMessage,
+        onDeleteMessageFromHere: _deleteMessageFromHere,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,
@@ -1986,6 +2043,8 @@ class _WorkspaceView extends StatelessWidget {
     required this.onCancelEditing,
     required this.onEditMessage,
     required this.onCopyMessage,
+    required this.onDeleteMessage,
+    required this.onDeleteMessageFromHere,
   });
 
   final TextEditingController draftController;
@@ -2018,6 +2077,8 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function() onCancelEditing;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
+  final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
+  final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
 
   @override
   Widget build(BuildContext context) {
@@ -2060,6 +2121,8 @@ class _WorkspaceView extends StatelessWidget {
                       onRevealOlderMessages: onRevealOlderMessages,
                       onEditMessage: onEditMessage,
                       onCopyMessage: onCopyMessage,
+                      onDeleteMessage: onDeleteMessage,
+                      onDeleteMessageFromHere: onDeleteMessageFromHere,
                     ),
             ),
             const SizedBox(height: 16),
@@ -2336,6 +2399,22 @@ class _TranscriptPlaceholderLine extends StatelessWidget {
   }
 }
 
+class _TranscriptRenderEntry {
+  const _TranscriptRenderEntry({required this.message, this.exiting = false});
+
+  final AiSessionMessage message;
+  final bool exiting;
+
+  String get id => message.id;
+
+  _TranscriptRenderEntry copyWith({AiSessionMessage? message, bool? exiting}) {
+    return _TranscriptRenderEntry(
+      message: message ?? this.message,
+      exiting: exiting ?? this.exiting,
+    );
+  }
+}
+
 class _SessionTranscript extends StatefulWidget {
   const _SessionTranscript({
     super.key,
@@ -2347,6 +2426,8 @@ class _SessionTranscript extends StatefulWidget {
     required this.onRevealOlderMessages,
     required this.onEditMessage,
     required this.onCopyMessage,
+    required this.onDeleteMessage,
+    required this.onDeleteMessageFromHere,
   });
 
   final ScrollController controller;
@@ -2357,6 +2438,8 @@ class _SessionTranscript extends StatefulWidget {
   final VoidCallback onRevealOlderMessages;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
+  final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
+  final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
@@ -2368,11 +2451,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _pendingPresentedErrorId;
   int _windowStartIndex = 0;
   bool _loadingOlderMessages = false;
+  List<_TranscriptRenderEntry> _renderEntries =
+      const <_TranscriptRenderEntry>[];
 
   @override
   void initState() {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
+    _replaceRenderEntries(_visibleMessagesForWindow());
     _syncVisibleError();
   }
 
@@ -2381,10 +2467,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
       _syncWindowStartIndex(forceReset: true);
-    } else if (oldWidget.session.messages.length !=
-            widget.session.messages.length ||
+      _replaceRenderEntries(_visibleMessagesForWindow());
+    } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
+      final previousWindowStartIndex = _windowStartIndex;
       _syncWindowStartIndex();
+      _syncRenderEntries(
+        forceReset: previousWindowStartIndex != _windowStartIndex,
+      );
     }
     if (oldWidget.session.id != widget.session.id ||
         oldWidget.session.recentErrors != widget.session.recentErrors) {
@@ -2404,6 +2494,116 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     _windowStartIndex = nextWindowStartIndex;
+  }
+
+  List<AiSessionMessage> _visibleMessagesForWindow() {
+    final displayMessages = widget.session.displayMessages;
+    final clampedWindowStartIndex = _windowStartIndex
+        .clamp(0, displayMessages.length)
+        .toInt();
+    return displayMessages.sublist(clampedWindowStartIndex);
+  }
+
+  void _replaceRenderEntries(List<AiSessionMessage> visibleMessages) {
+    _renderEntries = <_TranscriptRenderEntry>[
+      for (final message in visibleMessages)
+        _TranscriptRenderEntry(message: message),
+    ];
+  }
+
+  void _syncRenderEntries({bool forceReset = false}) {
+    final visibleMessages = _visibleMessagesForWindow();
+    if (forceReset || _renderEntries.isEmpty) {
+      _replaceRenderEntries(visibleMessages);
+      return;
+    }
+    final visibleMessageIds = visibleMessages
+        .map((message) => message.id)
+        .toList(growable: false);
+    final visibleMessageIdSet = visibleMessageIds.toSet();
+    final visibleMessagesById = <String, AiSessionMessage>{
+      for (final message in visibleMessages) message.id: message,
+    };
+    final activeEntries = _renderEntries
+        .where((entry) => !entry.exiting)
+        .toList(growable: false);
+    final activeEntryIds = activeEntries
+        .map((entry) => entry.id)
+        .toList(growable: false);
+    final activeEntryIdSet = activeEntryIds.toSet();
+    final removedIds = activeEntryIds
+        .where((id) => !visibleMessageIdSet.contains(id))
+        .toSet();
+    final hasAddedIds = visibleMessages.any(
+      (message) => !activeEntryIdSet.contains(message.id),
+    );
+    final hasExitingEntries = _renderEntries.any((entry) => entry.exiting);
+    if (removedIds.isEmpty) {
+      if (!hasExitingEntries) {
+        _replaceRenderEntries(visibleMessages);
+        return;
+      }
+      _renderEntries = <_TranscriptRenderEntry>[
+        for (final entry in _renderEntries)
+          entry.exiting
+              ? entry
+              : entry.copyWith(message: visibleMessagesById[entry.id]),
+      ];
+      return;
+    }
+    if (hasAddedIds ||
+        !_isOrderedSubsequence(visibleMessageIds, activeEntryIds)) {
+      _replaceRenderEntries(visibleMessages);
+      return;
+    }
+    _renderEntries = <_TranscriptRenderEntry>[
+      for (final entry in _renderEntries)
+        if (entry.exiting)
+          entry
+        else if (visibleMessagesById.containsKey(entry.id))
+          entry.copyWith(message: visibleMessagesById[entry.id])
+        else
+          entry.copyWith(exiting: true),
+    ];
+  }
+
+  bool _isOrderedSubsequence(List<String> candidate, List<String> source) {
+    if (candidate.length > source.length) {
+      return false;
+    }
+    var sourceIndex = 0;
+    for (final candidateId in candidate) {
+      var matched = false;
+      while (sourceIndex < source.length) {
+        if (source[sourceIndex] == candidateId) {
+          matched = true;
+          sourceIndex++;
+          break;
+        }
+        sourceIndex++;
+      }
+      if (!matched) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _handleRenderEntryExitCompleted(String messageId) {
+    if (!mounted) {
+      return;
+    }
+    final shouldRemove = _renderEntries.any(
+      (entry) => entry.id == messageId && entry.exiting,
+    );
+    if (!shouldRemove) {
+      return;
+    }
+    setState(() {
+      _renderEntries = _renderEntries
+          .where((entry) => !(entry.id == messageId && entry.exiting))
+          .toList(growable: false);
+    });
   }
 
   int _initialWindowStartIndex(int messageCount) {
@@ -2429,7 +2629,21 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         0,
         _windowStartIndex - _transcriptWindowIncrement,
       );
+      _replaceRenderEntries(_visibleMessagesForWindow());
       _loadingOlderMessages = false;
+    });
+  }
+
+  Future<void> _runDeleteAction(
+    AiSessionMessage message,
+    Future<bool> Function(AiSessionMessage message) deleteAction,
+  ) async {
+    final deleted = await deleteAction(message);
+    if (!mounted || !deleted || _selectedMessageId != message.id) {
+      return;
+    }
+    setState(() {
+      _selectedMessageId = null;
     });
   }
 
@@ -2493,20 +2707,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    final displayMessagesStopwatch = Stopwatch()..start();
     final displayMessages = session.displayMessages;
-    displayMessagesStopwatch.stop();
-    if (kDebugMode && displayMessagesStopwatch.elapsedMilliseconds >= 8) {
-      final lastMessage = displayMessages.isEmpty ? null : displayMessages.last;
-      debugPrint(
-        '[OpenHand][UI][${session.id}] transcript_messages_slow elapsed_ms=${displayMessagesStopwatch.elapsedMilliseconds} total_messages=${session.messages.length} display_messages=${displayMessages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'}',
-      );
-    }
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
     final hiddenMessageCount = clampedWindowStartIndex;
     final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
+    if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
+      return _WorkspaceEmptyState(
+        key: ValueKey<String>('empty-session-transcript-${session.id}'),
+        session: session,
+      );
+    }
+    final visibleMessageIndexById = <String, int>{
+      for (var index = 0; index < visibleMessages.length; index++)
+        visibleMessages[index].id: index,
+    };
     final userVisibleError = _resolveUserVisibleError(session);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2520,66 +2736,110 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: widget.onScrollNotification,
-            child: ListView.separated(
+            child: ListView.builder(
               key: const ValueKey<String>('session-transcript-list'),
               controller: widget.controller,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
               itemCount:
-                  visibleMessages.length + (hiddenMessageCount > 0 ? 1 : 0),
-              separatorBuilder: (context, index) => const SizedBox(height: 14),
+                  _renderEntries.length + (hiddenMessageCount > 0 ? 1 : 0),
               itemBuilder: (context, index) {
                 if (hiddenMessageCount > 0 && index == 0) {
-                  return _TranscriptLoadEarlierButton(
-                    hiddenMessageCount: hiddenMessageCount,
-                    loading: _loadingOlderMessages,
-                    onPressed: () {
-                      widget.onRevealOlderMessages();
-                      unawaited(_revealOlderMessages(displayMessages.length));
-                    },
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: _renderEntries.isEmpty ? 0 : 14,
+                    ),
+                    child: _TranscriptLoadEarlierButton(
+                      hiddenMessageCount: hiddenMessageCount,
+                      loading: _loadingOlderMessages,
+                      onPressed: () {
+                        widget.onRevealOlderMessages();
+                        unawaited(_revealOlderMessages(displayMessages.length));
+                      },
+                    ),
                   );
                 }
                 final messageIndex = hiddenMessageCount > 0 ? index - 1 : index;
-                final message = visibleMessages[messageIndex];
-                final isSelected = _selectedMessageId == message.id;
+                final entry = _renderEntries[messageIndex];
+                final message = entry.message;
+                final visibleMessageIndex = visibleMessageIndexById[message.id];
+                final isSelected =
+                    !entry.exiting && _selectedMessageId == message.id;
                 final isLastVisibleMessage =
-                    messageIndex == visibleMessages.length - 1;
-                return RepaintBoundary(
-                  child: _MessageBubble(
-                    key: ValueKey<String>(message.id),
-                    message: message,
-                    sessionTitle: session.title,
-                    sessionEnvironment: session.environment,
-                    showReasoningSweep:
-                        widget.sendPhase == AiSendPhase.responding &&
-                        _isStreamingReasoningMessage(message),
-                    trackLayoutChanges: _shouldTrackMessageLayout(
-                      message: message,
-                      sendPhase: widget.sendPhase,
-                      isLastVisibleMessage: isLastVisibleMessage,
+                    visibleMessageIndex != null &&
+                    visibleMessageIndex == visibleMessages.length - 1;
+                final hasLaterVisibleMessages =
+                    visibleMessageIndex != null &&
+                    visibleMessageIndex < visibleMessages.length - 1;
+                return _TranscriptAnimatedMessageEntry(
+                  key: ValueKey<String>('transcript-entry-${message.id}'),
+                  exiting: entry.exiting,
+                  bottomSpacing: messageIndex == _renderEntries.length - 1
+                      ? 0
+                      : 14,
+                  onExitCompleted: () =>
+                      _handleRenderEntryExitCompleted(message.id),
+                  child: IgnorePointer(
+                    ignoring: entry.exiting,
+                    child: RepaintBoundary(
+                      child: _MessageBubble(
+                        key: ValueKey<String>(message.id),
+                        message: message,
+                        sessionTitle: session.title,
+                        sessionEnvironment: session.environment,
+                        showReasoningSweep:
+                            !entry.exiting &&
+                            widget.sendPhase == AiSendPhase.responding &&
+                            _isStreamingReasoningMessage(message),
+                        trackLayoutChanges:
+                            !entry.exiting &&
+                            _shouldTrackMessageLayout(
+                              message: message,
+                              sendPhase: widget.sendPhase,
+                              isLastVisibleMessage: isLastVisibleMessage,
+                            ),
+                        onLayoutChanged: widget.onLayoutChanged,
+                        isSelected: isSelected,
+                        onSelect: () {
+                          if (_selectedMessageId == message.id) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedMessageId = message.id;
+                          });
+                        },
+                        onDeselect: () {
+                          if (_selectedMessageId != message.id) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedMessageId = null;
+                          });
+                        },
+                        onEdit:
+                            !entry.exiting &&
+                                message.kind == AiSessionMessageKind.user
+                            ? () => widget.onEditMessage(message)
+                            : null,
+                        onCopy: () => widget.onCopyMessage(message),
+                        onDelete: () async {
+                          if (entry.exiting) {
+                            return;
+                          }
+                          await _runDeleteAction(
+                            message,
+                            widget.onDeleteMessage,
+                          );
+                        },
+                        onDeleteFromHere:
+                            !entry.exiting && hasLaterVisibleMessages
+                            ? () => _runDeleteAction(
+                                message,
+                                widget.onDeleteMessageFromHere,
+                              )
+                            : null,
+                      ),
                     ),
-                    onLayoutChanged: widget.onLayoutChanged,
-                    isSelected: isSelected,
-                    onSelect: () {
-                      if (_selectedMessageId == message.id) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedMessageId = message.id;
-                      });
-                    },
-                    onDeselect: () {
-                      if (_selectedMessageId != message.id) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedMessageId = null;
-                      });
-                    },
-                    onEdit: message.kind == AiSessionMessageKind.user
-                        ? () => widget.onEditMessage(message)
-                        : null,
-                    onCopy: () => widget.onCopyMessage(message),
                   ),
                 );
               },
@@ -2591,6 +2851,58 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _SessionErrorBanner(error: userVisibleError),
         ],
       ],
+    );
+  }
+}
+
+class _TranscriptAnimatedMessageEntry extends StatelessWidget {
+  const _TranscriptAnimatedMessageEntry({
+    super.key,
+    required this.exiting,
+    required this.bottomSpacing,
+    required this.onExitCompleted,
+    required this.child,
+  });
+
+  final bool exiting;
+  final double bottomSpacing;
+  final VoidCallback onExitCompleted;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = exiting
+        ? _transcriptMessageDeleteAnimationDuration
+        : Duration.zero;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 1, end: exiting ? 0 : 1),
+      duration: duration,
+      curve: Curves.easeInOutCubic,
+      onEnd: exiting ? onExitCompleted : null,
+      builder: (context, value, child) {
+        final clampedValue = value.clamp(0.0, 1.0);
+        final exitProgress = 1 - clampedValue;
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: clampedValue,
+            child: Opacity(
+              opacity: clampedValue,
+              child: Transform.translate(
+                offset: Offset(
+                  0,
+                  -8 * Curves.easeOutCubic.transform(exitProgress),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomSpacing),
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      child: child,
     );
   }
 }
@@ -3758,6 +4070,8 @@ class _MessageBubble extends StatefulWidget {
     required this.onSelect,
     required this.onDeselect,
     required this.onCopy,
+    required this.onDelete,
+    this.onDeleteFromHere,
     this.onEdit,
   });
 
@@ -3771,6 +4085,8 @@ class _MessageBubble extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onDeselect;
   final Future<void> Function() onCopy;
+  final Future<void> Function() onDelete;
+  final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
 
   @override
@@ -4020,6 +4336,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     onPressed: widget.onEdit,
                     icon: Icons.edit_outlined,
                     label: AppLocalizations.of(context)!.commonEdit,
+                  ),
+                _MessageActionButton(
+                  onPressed: widget.onDelete,
+                  icon: Icons.delete_outline_rounded,
+                  label: AppLocalizations.of(context)!.commonDelete,
+                ),
+                if (widget.onDeleteFromHere != null)
+                  _MessageActionButton(
+                    onPressed: widget.onDeleteFromHere,
+                    icon: Icons.delete_sweep_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '删除此条及后续',
+                      en: 'Delete From Here',
+                    ),
                   ),
               ],
             ),
@@ -5368,7 +5699,6 @@ class _ToolCallViewData {
     bool includeArgumentsContent = true,
     bool includeResultContent = true,
   }) {
-    final stopwatch = Stopwatch()..start();
     final presentation = _toolCallPresentation(context, message);
     final status = _toolExecutionStatus(message);
     final command = _toolExecutionCommand(message);
@@ -5446,12 +5776,6 @@ class _ToolCallViewData {
         resultText: resultText,
       ),
     );
-    stopwatch.stop();
-    if (kDebugMode && stopwatch.elapsedMilliseconds >= 8) {
-      debugPrint(
-        '[OpenHand][UI][${message.id}] tool_viewdata_slow elapsed_ms=${stopwatch.elapsedMilliseconds} tool=${presentation.displayName} status=$status arg_chars=${'${message.metadata['tool_arguments'] ?? ''}'.length} stdout_chars=${stdout.length} stderr_chars=${stderr.length}',
-      );
-    }
     return viewData;
   }
 
