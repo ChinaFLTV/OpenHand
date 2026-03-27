@@ -1931,6 +1931,160 @@ void main() {
   );
 
   testWidgets(
+    'OpenHandHomePage keeps markdown blockquotes readable in dark and light themes',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-blockquote-theme']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 19, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-blockquote-theme',
+          content: 'Show me a readable blockquote',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 19, 0),
+        ),
+        AiSessionMessage.assistant(
+          id: 'message-assistant-blockquote-theme',
+          content:
+              '> Important note: this markdown blockquote should stay readable in every theme.',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 19, 1),
+          modelLabel: 'gpt-test',
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 19, 1),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      Future<void> assertReadableQuote(ThemeMode themeMode) async {
+        await settingsController.updateThemeMode(themeMode);
+        await _pumpHomePage(
+          tester,
+          settingsController: settingsController,
+          sessionController: sessionController,
+          memoryController: memoryController,
+          skillsController: skillsController,
+          mcpController: mcpController,
+        );
+
+        final quoteFinder = find.byWidgetPredicate(
+          (widget) =>
+              widget is SelectableText &&
+              widget.textSpan != null &&
+              widget.textSpan!.toPlainText().contains(
+                'Important note: this markdown blockquote should stay readable in every theme.',
+              ),
+        );
+        expect(quoteFinder, findsOneWidget);
+
+        final quoteWidget = tester.widget<SelectableText>(quoteFinder);
+        final colors = <Color>{};
+        _collectRenderedTextSpanColors(quoteWidget.textSpan!, colors);
+        expect(colors, isNotEmpty);
+
+        final quoteElement = quoteFinder.evaluate().single;
+        final quoteDecoration = _nearestBoxDecoration(quoteElement);
+        expect(quoteDecoration, isNotNull);
+        final quoteBackground = quoteDecoration!.color;
+        expect(quoteBackground, isNotNull);
+
+        final leftBorder = quoteDecoration.border;
+        expect(leftBorder, isA<Border>());
+        expect((leftBorder as Border).left.width, greaterThanOrEqualTo(3));
+
+        final textColor = colors.first;
+        expect(_contrastRatio(textColor, quoteBackground!), greaterThan(4.5));
+      }
+
+      await assertReadableQuote(ThemeMode.dark);
+      await assertReadableQuote(ThemeMode.light);
+    },
+  );
+
+  testWidgets(
     'OpenHandHomePage renders streaming reasoning code fences with highlight on dark surfaces',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 1200);
@@ -2369,14 +2523,30 @@ void _collectRenderedTextSpanColors(
 }
 
 Color? _nearestDecoratedBoxColor(Element element) {
-  Color? color;
+  return _nearestBoxDecoration(element)?.color;
+}
+
+BoxDecoration? _nearestBoxDecoration(Element element) {
+  BoxDecoration? decoration;
   element.visitAncestorElements((ancestor) {
     final widget = ancestor.widget;
     if (widget is DecoratedBox && widget.decoration is BoxDecoration) {
-      color = (widget.decoration as BoxDecoration).color;
+      decoration = widget.decoration as BoxDecoration;
       return false;
     }
     return true;
   });
-  return color;
+  return decoration;
+}
+
+double _contrastRatio(Color foreground, Color background) {
+  final foregroundLuminance = foreground.computeLuminance();
+  final backgroundLuminance = background.computeLuminance();
+  final lighter = foregroundLuminance > backgroundLuminance
+      ? foregroundLuminance
+      : backgroundLuminance;
+  final darker = foregroundLuminance > backgroundLuminance
+      ? backgroundLuminance
+      : foregroundLuminance;
+  return (lighter + 0.05) / (darker + 0.05);
 }

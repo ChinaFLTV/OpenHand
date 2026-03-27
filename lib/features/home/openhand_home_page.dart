@@ -3429,18 +3429,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : isToolCall
         ? colorScheme.onSecondaryContainer
         : colorScheme.onSurface;
-    final markdownStyleSheet = MarkdownStyleSheet.fromTheme(theme).copyWith(
-      p: theme.textTheme.bodyLarge?.copyWith(color: textColor),
-      codeblockDecoration: BoxDecoration(
-        color: isReasoning
-            ? Colors.white.withValues(alpha: 0.08)
-            : colorScheme.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      code: theme.textTheme.bodyMedium?.copyWith(
-        color: textColor,
-        fontFamily: 'monospace',
-      ),
+    final markdownStyleSheet = _MessageMarkdownThemeData.fromMessageBubble(
+      theme: theme,
+      backgroundColor: backgroundColor,
+      textColor: textColor,
+      useDarkCodeSurface: isReasoning || isToolCall,
     );
     final filePathRoots = messageFilePathRoots(
       widget.sessionEnvironment,
@@ -3565,7 +3558,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 },
                                 textColor: textColor,
                                 fadeColor: backgroundColor,
-                                styleSheet: markdownStyleSheet,
+                                styleSheet: markdownStyleSheet.styleSheet,
                                 builders: markdownBuilders,
                                 inlineSyntaxes: inlineSyntaxes,
                                 pathRoots: filePathRoots,
@@ -3578,7 +3571,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 streaming: isStreamingReasoning,
                                 textColor: textColor,
                                 fadeColor: backgroundColor,
-                                styleSheet: markdownStyleSheet,
+                                styleSheet: markdownStyleSheet.styleSheet,
                                 builders: markdownBuilders,
                                 inlineSyntaxes: inlineSyntaxes,
                                 pathRoots: filePathRoots,
@@ -3604,7 +3597,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                         : message.content,
                                     selectable: true,
                                     builders: markdownBuilders,
-                                    styleSheet: markdownStyleSheet,
+                                    styleSheet: markdownStyleSheet.styleSheet,
                                     inlineSyntaxes: inlineSyntaxes,
                                     pathRoots: filePathRoots,
                                     parseKey: filePathParseKey,
@@ -4196,6 +4189,120 @@ class _RenderMeasureSize extends RenderProxyBox {
   }
 }
 
+class _MessageMarkdownThemeData {
+  const _MessageMarkdownThemeData({required this.styleSheet});
+
+  final MarkdownStyleSheet styleSheet;
+
+  factory _MessageMarkdownThemeData.fromMessageBubble({
+    required ThemeData theme,
+    required Color backgroundColor,
+    required Color textColor,
+    required bool useDarkCodeSurface,
+  }) {
+    final colorScheme = theme.colorScheme;
+    final palette = theme.extension<OpenHandPalette>();
+    final bubbleIsDark =
+        ThemeData.estimateBrightnessForColor(backgroundColor) ==
+        Brightness.dark;
+    final overlayBase = bubbleIsDark ? Colors.white : Colors.black;
+    final subtleSurface = Color.alphaBlend(
+      overlayBase.withValues(alpha: bubbleIsDark ? 0.06 : 0.035),
+      backgroundColor,
+    );
+    final elevatedSurface = Color.alphaBlend(
+      overlayBase.withValues(alpha: bubbleIsDark ? 0.11 : 0.06),
+      backgroundColor,
+    );
+    final accentColor = bubbleIsDark
+        ? Color.lerp(colorScheme.primaryContainer, Colors.white, 0.08) ??
+              colorScheme.primaryContainer
+        : colorScheme.primary;
+    final linkColor = bubbleIsDark
+        ? Color.lerp(accentColor, Colors.white, 0.08) ?? accentColor
+        : accentColor;
+    final borderColor =
+        palette?.outlineSoft.withValues(alpha: bubbleIsDark ? 0.72 : 0.88) ??
+        Color.alphaBlend(
+          overlayBase.withValues(alpha: bubbleIsDark ? 0.18 : 0.12),
+          backgroundColor,
+        );
+    final quoteSurface = Color.alphaBlend(
+      accentColor.withValues(alpha: bubbleIsDark ? 0.22 : 0.10),
+      elevatedSurface,
+    );
+    final secondaryTextColor = textColor.withValues(
+      alpha: bubbleIsDark ? 0.92 : 0.88,
+    );
+    final bodyStyle =
+        theme.textTheme.bodyLarge?.copyWith(color: textColor, height: 1.55) ??
+        TextStyle(color: textColor, height: 1.55);
+    final tableBodyStyle =
+        theme.textTheme.bodyMedium?.copyWith(color: textColor, height: 1.5) ??
+        TextStyle(color: textColor, height: 1.5);
+    final codeStyle =
+        theme.textTheme.bodyMedium?.copyWith(
+          color: textColor,
+          fontFamily: 'monospace',
+          fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.94,
+          backgroundColor: subtleSurface,
+        ) ??
+        TextStyle(
+          color: textColor,
+          fontFamily: 'monospace',
+          backgroundColor: subtleSurface,
+        );
+    final codeBlockSurface = useDarkCodeSurface
+        ? Colors.white.withValues(alpha: 0.08)
+        : subtleSurface;
+    return _MessageMarkdownThemeData(
+      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+        a: bodyStyle.copyWith(
+          color: linkColor,
+          fontWeight: FontWeight.w600,
+          decoration: TextDecoration.underline,
+          decorationColor: linkColor.withValues(alpha: 0.78),
+        ),
+        p: bodyStyle,
+        code: codeStyle,
+        em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
+        strong: bodyStyle.copyWith(fontWeight: FontWeight.w700),
+        blockquote: bodyStyle.copyWith(color: secondaryTextColor),
+        listBullet: bodyStyle.copyWith(
+          color: secondaryTextColor,
+          fontWeight: FontWeight.w700,
+        ),
+        listBulletPadding: const EdgeInsets.only(right: 8),
+        tableHead: bodyStyle.copyWith(fontWeight: FontWeight.w700),
+        tableBody: tableBodyStyle,
+        tableBorder: TableBorder.all(color: borderColor),
+        tableCellsPadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        tableCellsDecoration: BoxDecoration(color: subtleSurface),
+        tableHeadCellsPadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
+        blockquotePadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        blockquoteDecoration: BoxDecoration(
+          color: quoteSurface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border(left: BorderSide(color: accentColor, width: 3)),
+        ),
+        codeblockPadding: const EdgeInsets.all(12),
+        codeblockDecoration: BoxDecoration(
+          color: codeBlockSurface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        horizontalRuleDecoration: BoxDecoration(
+          border: Border(top: BorderSide(color: borderColor, width: 1.2)),
+        ),
+      ),
+    );
+  }
+}
+
 class _SafeMarkdownBody extends StatefulWidget {
   const _SafeMarkdownBody({
     required this.data,
@@ -4316,6 +4423,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       theme.colorScheme.surface.toARGB32(),
       theme.colorScheme.onSurface.toARGB32(),
       theme.colorScheme.primary.toARGB32(),
+      widget.styleSheet.hashCode,
       widget.styleSheet.p?.color?.toARGB32(),
       widget.styleSheet.code?.color?.toARGB32(),
     ]);

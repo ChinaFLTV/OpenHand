@@ -1520,6 +1520,166 @@ void main() {
   );
 
   test(
+    'AiSessionController strengthens auto title instructions and strips markdown wrappers',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final streamingClient = _AutoTitleStreamingChatClient();
+      final backgroundClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[],
+        autoTitleResponses: const <AiChatCompletion>[
+          AiChatCompletion(reply: '**Markdown配色优化**'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: streamingClient,
+        backgroundChatClient: backgroundClient,
+        templateRepository: promptRepository,
+        idGenerator: () => 'prompt-${DateTime.now().microsecondsSinceEpoch}',
+        clock: () => DateTime.utc(2026, 3, 23, 7, 5, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-auto-title-prompt',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final pendingSend = controller.sendMessage(
+        content: '请帮我优化 Markdown 在深浅色主题下的引用块配色',
+        model: model,
+        runtimeContext: runtimeContext,
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(backgroundClient.requests, hasLength(1));
+      final systemPrompt = backgroundClient.requests.single.first.content;
+      expect(systemPrompt, contains('Generate a concise chat title.'));
+      expect(
+        systemPrompt,
+        contains('Avoid titles that are too short, generic'),
+      );
+      expect(systemPrompt, contains('combine the main themes'));
+      expect(controller.currentSession!.title, 'Markdown配色优化');
+
+      streamingClient.completeStream();
+      expect(await pendingSend, isTrue);
+    },
+  );
+
+  test(
+    'AiSessionController falls back to a readable local title when auto title is too generic',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final streamingClient = _AutoTitleStreamingChatClient();
+      final backgroundClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[],
+        autoTitleResponses: const <AiChatCompletion>[
+          AiChatCompletion(reply: '优化'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: streamingClient,
+        backgroundChatClient: backgroundClient,
+        templateRepository: promptRepository,
+        idGenerator: () => 'fallback-${DateTime.now().microsecondsSinceEpoch}',
+        clock: () => DateTime.utc(2026, 3, 23, 7, 10, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-auto-title-fallback',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final pendingSend = controller.sendMessage(
+        content: '请帮我修复 Markdown 配色问题',
+        model: model,
+        runtimeContext: runtimeContext,
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.currentSession!.title, '修复 Markdown 配色问题');
+
+      streamingClient.completeStream();
+      expect(await pendingSend, isTrue);
+    },
+  );
+
+  test(
     'AiSessionController retries auto title after a timeout once the session becomes idle',
     () async {
       final promptRepository = AiPromptTemplateRepository(

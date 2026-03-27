@@ -33,6 +33,42 @@ enum AiSendPhase { idle, compressing, sendingMessage, responding }
 
 class AiSessionController extends ChangeNotifier {
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
+  static const String _autoTitleSystemPrompt =
+      'Generate a concise chat title. Return a single title only. Keep it within 20 characters. No quotes. No markdown.\n'
+      'Summarize the first user request into a clear, specific, human-friendly thread title.\n'
+      'Prefer concrete task names or topic names over vague summaries.\n'
+      'Avoid titles that are too short, generic, or hard to understand, such as "帮助", "问题", "优化", "定位", "Help", "Question", or "Bug".\n'
+      'If the request includes multiple related tasks, combine the main themes into one compact title.\n'
+      'Do not mention "first message", do not add prefixes, numbering, emojis, or ending punctuation.';
+  static const Set<String> _genericAutoTitleCandidates = <String>{
+    '新会话',
+    '会话',
+    '对话',
+    '聊天',
+    '标题',
+    '问题',
+    '需求',
+    '任务',
+    '优化',
+    '修复',
+    '定位',
+    '排查',
+    '帮忙',
+    '求助',
+    '咨询',
+    'chat',
+    'thread',
+    'conversation',
+    'title',
+    'help',
+    'question',
+    'bug',
+    'fix',
+    'optimize',
+    'update',
+    'task',
+    'issue',
+  };
 
   AiSessionController._({
     required AiSessionStore store,
@@ -111,8 +147,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   static const int _maxRecentErrors = 20;
-  static const int _defaultTitleMaxCharacters = 48;
+  static const int _fallbackTitleMaxCharacters = 20;
   static const int _generatedTitleMaxCharacters = 20;
+  static const int _minimumMeaningfulTitleCharacters = 4;
+  static const int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
   static const Duration _autoTitleRetryWaitTimeout = Duration(seconds: 45);
@@ -3005,8 +3043,7 @@ class AiSessionController extends ChangeNotifier {
     final promptMessages = <AiChatTurn>[
       const AiChatTurn(
         role: AiChatRole.system,
-        content:
-            'Generate a concise chat title. Return a single title only. Keep it within 20 characters. No quotes. No markdown.',
+        content: _autoTitleSystemPrompt,
       ),
       AiChatTurn(
         role: AiChatRole.user,
@@ -3029,7 +3066,18 @@ class AiSessionController extends ChangeNotifier {
           timeout: _autoTitleRequestTimeout,
         );
         final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
-        if (generatedTitle.isEmpty) {
+        final acceptedGeneratedTitle = _isMeaningfulAutoTitle(generatedTitle)
+            ? generatedTitle
+            : '';
+        final resolvedTitle = acceptedGeneratedTitle.isNotEmpty
+            ? acceptedGeneratedTitle
+            : isLastAttempt && generatedTitle.isNotEmpty
+            ? _deriveReadableTitleFromContent(
+                sourceContent,
+                maxCharacters: _generatedTitleMaxCharacters,
+              )
+            : '';
+        if (resolvedTitle.isEmpty) {
           if (isLastAttempt) {
             return;
           }
@@ -3055,7 +3103,7 @@ class AiSessionController extends ChangeNotifier {
         ).merge(completion.usage ?? const AiTokenUsage());
         final updatedSession = _rebuildSession(
           latestSession.copyWith(
-            title: generatedTitle,
+            title: resolvedTitle,
             updatedAt: generatedAt,
             autoTitleGeneratedAt: generatedAt,
             autoTitleSourceMessageId: sourceMessageId,
@@ -3745,31 +3793,193 @@ class AiSessionController extends ChangeNotifier {
         !session.isTitleManuallyEdited) {
       return session.title;
     }
-    final characters = latestUserMessage.content.characters;
-    if (characters.isEmpty) {
-      return session.title;
-    }
-    final truncated = characters.take(_defaultTitleMaxCharacters).toString();
-    if (characters.length <= _defaultTitleMaxCharacters) {
-      return truncated;
-    }
-    return '$truncated...';
+    final derivedTitle = _deriveReadableTitleFromContent(
+      latestUserMessage.content,
+      maxCharacters: _fallbackTitleMaxCharacters,
+    );
+    return derivedTitle.isEmpty ? session.title : derivedTitle;
   }
 
   String _sanitizeGeneratedTitle(String value) {
-    var normalized = value.trim();
-    if (normalized.startsWith('"') && normalized.endsWith('"')) {
-      normalized = normalized.substring(1, normalized.length - 1).trim();
-    }
-    if (normalized.startsWith('《') && normalized.endsWith('》')) {
-      normalized = normalized.substring(1, normalized.length - 1).trim();
-    }
-    normalized = normalized.replaceAll(RegExp(r'[\r\n]+'), ' ');
+    var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    normalized = normalized.replaceAll(RegExp(r'[\n]+'), ' ');
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+      (match) => match.group(1) ?? '',
+    );
+    normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、:：-]\s*'), '');
+    normalized = normalized.replaceFirst(RegExp(r'^\s*[-*+#>]+\s*'), '');
+    normalized = _stripTitleWrappers(normalized);
     final collapsed = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (collapsed.isEmpty) {
       return '';
     }
-    return collapsed.characters.take(_generatedTitleMaxCharacters).toString();
+    return _trimTitleToMaxCharacters(
+      _stripTitleWrappers(collapsed),
+      _generatedTitleMaxCharacters,
+    );
+  }
+
+  bool _isMeaningfulAutoTitle(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return false;
+    }
+    final normalized = _normalizeAutoTitleForComparison(trimmed);
+    if (normalized.isEmpty ||
+        normalized ==
+            _normalizeAutoTitleForComparison(_defaultNewSessionTitle) ||
+        _genericAutoTitleCandidates.contains(normalized)) {
+      return false;
+    }
+    final hasCjk = RegExp(r'[\u4E00-\u9FFF]').hasMatch(trimmed);
+    if (hasCjk) {
+      return normalized.characters.length >= _minimumMeaningfulTitleCharacters;
+    }
+    final words = trimmed
+        .split(RegExp(r'\s+'))
+        .where((item) => item.trim().isNotEmpty)
+        .length;
+    if (words >= _minimumMeaningfulLatinTitleWords) {
+      return true;
+    }
+    final latinOrDigitCount = normalized.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return latinOrDigitCount.length >= 6;
+  }
+
+  String _deriveReadableTitleFromContent(
+    String value, {
+    required int maxCharacters,
+  }) {
+    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = normalized
+        .split('\n')
+        .map(_sanitizeTitleSourceLine)
+        .where((item) => item.isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+    if (lines.isEmpty) {
+      return '';
+    }
+    final candidates = <String>[
+      for (final line in lines) ..._splitTitleSourceLine(line),
+      lines.join(' '),
+      lines.first,
+    ];
+    for (final candidate in candidates) {
+      final trimmed = _trimTitleToMaxCharacters(candidate, maxCharacters);
+      if (_isMeaningfulAutoTitle(trimmed)) {
+        return trimmed;
+      }
+    }
+    return _trimTitleToMaxCharacters(lines.first, maxCharacters);
+  }
+
+  List<String> _splitTitleSourceLine(String value) {
+    return value
+        .split(RegExp(r'[。！？!?；;]'))
+        .map(_sanitizeTitleSourceLine)
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  String _sanitizeTitleSourceLine(String value) {
+    var normalized = value.trim();
+    if (normalized.isEmpty) {
+      return '';
+    }
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+      (match) => match.group(1) ?? '',
+    );
+    normalized = normalized.replaceAll(RegExp(r'`{1,3}'), '');
+    normalized = normalized.replaceAll(RegExp(r'[*_~]'), '');
+    normalized = normalized.replaceFirst(RegExp(r'^\s*[#>]+\s*'), '');
+    normalized = normalized.replaceFirst(RegExp(r'^\s*[-+*]\s+'), '');
+    normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、]\s*'), '');
+    normalized = normalized.replaceFirst(
+      RegExp(r'^\s*(第一|第二|第三|第四|第五|首先|其次|然后|最后)[，,:：\s-]*'),
+      '',
+    );
+    normalized = normalized.replaceFirst(
+      RegExp(r'^\s*(有几处地方需要改进优化|有几个地方需要改进优化)[，,:：\s-]*'),
+      '',
+    );
+    normalized = _stripTitleLeadIn(normalized);
+    normalized = _stripTitleWrappers(normalized);
+    return normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  String _stripTitleLeadIn(String value) {
+    var normalized = value.trim();
+    const chinesePrefixes = <String>[
+      '请帮我',
+      '帮我',
+      '请你',
+      '麻烦你',
+      '麻烦帮我',
+      '请问',
+      '需要你',
+      '我想请你',
+      '我想',
+      '我需要',
+      '帮忙',
+      '求助',
+    ];
+    for (final prefix in chinesePrefixes) {
+      if (normalized.startsWith(prefix) &&
+          normalized.characters.length > prefix.characters.length) {
+        normalized = normalized.substring(prefix.length).trimLeft();
+        break;
+      }
+    }
+    final englishPrefixes = <RegExp>[
+      RegExp(r'^(please|plz)\s+', caseSensitive: false),
+      RegExp(r'^(can|could|would)\s+you\s+', caseSensitive: false),
+      RegExp(r'^(help\s+me)\s+', caseSensitive: false),
+      RegExp(r'^(i\s+need\s+to)\s+', caseSensitive: false),
+      RegExp(r'^(i\s+want\s+to)\s+', caseSensitive: false),
+      RegExp(r'^(need\s+to)\s+', caseSensitive: false),
+    ];
+    for (final pattern in englishPrefixes) {
+      normalized = normalized.replaceFirst(pattern, '').trimLeft();
+    }
+    return normalized;
+  }
+
+  String _stripTitleWrappers(String value) {
+    var normalized = value.trim();
+    while (normalized.isNotEmpty) {
+      final stripped = normalized
+          .replaceFirst(RegExp(r'^[`*_#~>"“”‘’《》〈〉【】\[\]\(\)\-:：]+'), '')
+          .replaceFirst(RegExp(r'[`*_#~<>"“”‘’《》〈〉【】\[\]\(\)\-:：]+$'), '')
+          .trim();
+      if (stripped == normalized) {
+        return stripped;
+      }
+      normalized = stripped;
+    }
+    return normalized;
+  }
+
+  String _trimTitleToMaxCharacters(String value, int maxCharacters) {
+    final collapsed = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (collapsed.isEmpty) {
+      return '';
+    }
+    final characters = collapsed.characters;
+    if (characters.length <= maxCharacters) {
+      return collapsed;
+    }
+    final trimmed = characters.take(maxCharacters).toString().trimRight();
+    return trimmed.replaceFirst(RegExp(r'[\s,:：，。；、-]+$'), '').trimRight();
+  }
+
+  String _normalizeAutoTitleForComparison(String value) {
+    return _stripTitleWrappers(value).trim().toLowerCase().replaceAll(
+      RegExp("[\\s\\.,!?\\-_:;'\"“”‘’《》〈〉【】\\[\\]\\(\\)，。！？：；、]+"),
+      '',
+    );
   }
 
   String _sanitizeVisibleModelContent(String value) {
