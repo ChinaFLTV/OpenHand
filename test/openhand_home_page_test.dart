@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -2245,6 +2246,317 @@ void main() {
         ),
         findsNothing,
       );
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage dismisses a visible session error banner and keeps it hidden after rebuild',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-error-dismiss-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-error-dismiss',
+          'error-dismiss-banner',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 4, 0, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.simplifiedChinese);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-error-dismiss-user',
+          content: 'Show the warning banner',
+          createdAt: DateTime.utc(2026, 3, 25, 4, 0, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 4, 0, 1),
+          messages: messages,
+          recentErrors: <AiSessionErrorRecord>[
+            AiSessionErrorRecord(
+              id: 'error-dismiss-banner',
+              createdAt: DateTime.utc(2026, 3, 25, 4, 0, 1),
+              stage: 'tool_loop',
+              message:
+                  'The assistant requested too many sequential tool rounds.',
+              detail: 'tool_round_count=9 limit=8',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('工具调用已安全停止'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('session-error-dismiss-error-dismiss-banner'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('工具调用已安全停止'), findsNothing);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('工具调用已安全停止'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage applies workspace shortcuts for model and session actions',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-shortcut-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionController = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Shortcut reply'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Shortcut Thread'),
+          ],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-shortcut-a',
+          'session-shortcut-b',
+          'message-shortcut-user',
+          'message-shortcut-assistant',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 4, 30, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const modelA = AiModelConfig(
+        id: 'model-shortcut-a',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-shortcut-a',
+        protocolType: AiProtocolType.openai,
+      );
+      const modelB = AiModelConfig(
+        id: 'model-shortcut-b',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-shortcut-b',
+        protocolType: AiProtocolType.openai,
+      );
+      expect(await settingsController.saveAiModel(modelA), isTrue);
+      expect(await settingsController.saveAiModel(modelB), isTrue);
+      expect(await settingsController.updateSelectedAiModel(modelA.id), isTrue);
+
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionAId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionAId, 'Thread A'),
+        isTrue,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionBId = sessionController.currentSessionId!;
+      expect(
+        await sessionController.renameSession(sessionBId, 'Thread B'),
+        isTrue,
+      );
+
+      final sessions = sessionController.sessions;
+      final currentIndex = sessions.indexWhere(
+        (session) => session.id == sessionController.currentSessionId,
+      );
+      final expectedNextSession =
+          sessions[(currentIndex + 1) % sessions.length];
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text(modelA.displayName), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(settingsController.selectedAiModelId, modelB.id);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(sessionController.currentSessionId, expectedNextSession.id);
     },
   );
 

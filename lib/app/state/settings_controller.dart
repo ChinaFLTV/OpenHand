@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../model/openhand_shortcut.dart';
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
@@ -40,6 +41,7 @@ class SettingsController extends ChangeNotifier {
        ),
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
+       _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _persistenceIssue = persistenceIssue;
 
   static Future<SettingsController> create({SettingsStore? store}) async {
@@ -68,6 +70,7 @@ class SettingsController extends ChangeNotifier {
   List<AiDenyCommandRule> _aiDenyCommandRules;
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
+  Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -114,6 +117,8 @@ class SettingsController extends ChangeNotifier {
   List<AiModelConfig> get aiModels =>
       List<AiModelConfig>.unmodifiable(_aiModels);
   String? get selectedAiModelId => _selectedAiModelId;
+  Map<OpenHandShortcutAction, List<int>> get shortcutBindings =>
+      _cloneShortcutBindings(_shortcutBindings);
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -404,6 +409,34 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateShortcutBinding(
+    OpenHandShortcutAction action,
+    List<int> keyIds,
+  ) async {
+    final normalizedKeyIds = normalizeShortcutKeyIds(keyIds);
+    if (!isValidShortcutBinding(normalizedKeyIds)) {
+      return false;
+    }
+    return _commitMutation(() {
+      final currentKeyIds = _shortcutBindings[action] ?? const <int>[];
+      if (_sameIntList(currentKeyIds, normalizedKeyIds)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _shortcutBindings = <OpenHandShortcutAction, List<int>>{
+        ..._shortcutBindings,
+        action: normalizedKeyIds,
+      };
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> resetShortcutBinding(OpenHandShortcutAction action) async {
+    return updateShortcutBinding(
+      action,
+      defaultOpenHandShortcutBindings()[action] ?? const <int>[],
+    );
+  }
+
   String createAiModelId() {
     return DateTime.now().microsecondsSinceEpoch.toString();
   }
@@ -433,6 +466,7 @@ class SettingsController extends ChangeNotifier {
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
+      shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
     );
   }
 
@@ -458,6 +492,7 @@ class SettingsController extends ChangeNotifier {
     );
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
     _selectedAiModelId = snapshot.selectedAiModelId;
+    _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
@@ -494,4 +529,25 @@ class SettingsController extends ChangeNotifier {
     });
     return completer.future;
   }
+}
+
+Map<OpenHandShortcutAction, List<int>> _cloneShortcutBindings(
+  Map<OpenHandShortcutAction, List<int>> bindings,
+) {
+  return <OpenHandShortcutAction, List<int>>{
+    for (final entry in bindings.entries)
+      entry.key: List<int>.from(entry.value, growable: false),
+  };
+}
+
+bool _sameIntList(List<int> left, List<int> right) {
+  if (left.length != right.length) {
+    return false;
+  }
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) {
+      return false;
+    }
+  }
+  return true;
 }

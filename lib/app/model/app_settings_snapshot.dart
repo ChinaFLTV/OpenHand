@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import 'openhand_shortcut.dart';
 import '../model/app_language.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
@@ -24,6 +25,7 @@ class AppSettingsSnapshot {
     required this.aiDenyCommandRules,
     required this.aiModels,
     required this.selectedAiModelId,
+    required this.shortcutBindings,
   });
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
@@ -47,6 +49,7 @@ class AppSettingsSnapshot {
       aiDenyCommandRules: const <AiDenyCommandRule>[],
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
+      shortcutBindings: defaultOpenHandShortcutBindings(),
     );
   }
 
@@ -65,6 +68,7 @@ class AppSettingsSnapshot {
   final List<AiDenyCommandRule> aiDenyCommandRules;
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
+  final Map<OpenHandShortcutAction, List<int>> shortcutBindings;
 
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
@@ -82,6 +86,7 @@ class AppSettingsSnapshot {
     List<AiDenyCommandRule>? aiDenyCommandRules,
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
+    Map<OpenHandShortcutAction, List<int>>? shortcutBindings,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -107,6 +112,7 @@ class AppSettingsSnapshot {
       selectedAiModelId: clearSelectedAiModelId
           ? null
           : selectedAiModelId ?? this.selectedAiModelId,
+      shortcutBindings: shortcutBindings ?? this.shortcutBindings,
     );
   }
 }

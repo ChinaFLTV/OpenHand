@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:openhand/app/model/app_info.dart';
 import 'package:openhand/app/model/app_language.dart';
 import 'package:openhand/app/model/app_settings_snapshot.dart';
+import 'package:openhand/app/model/openhand_shortcut.dart';
 import 'package:openhand/app/state/settings_controller.dart';
 import 'package:openhand/app/state/settings_store.dart';
 import 'package:openhand/features/memory/data/memory_store.dart';
@@ -139,6 +141,61 @@ void main() {
       find.text('The per-response tool call limit has been saved.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('SettingsView records and saves shortcut bindings', (
+    tester,
+  ) async {
+    final harness = await _createSettingsViewHarness();
+    addTearDown(harness.dispose);
+
+    await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    final recordButton = find.byKey(
+      const ValueKey<String>('shortcut-record-send_message'),
+    );
+    await tester.ensureVisible(recordButton);
+    await tester.tap(recordButton);
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    expect(find.text('Ctrl + Shift + Enter'), findsWidgets);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Save'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      harness.settingsController.shortcutBindings[OpenHandShortcutAction
+          .sendMessage],
+      normalizeShortcutKeyIds(<int>[
+        LogicalKeyboardKey.control.keyId,
+        LogicalKeyboardKey.shift.keyId,
+        LogicalKeyboardKey.enter.keyId,
+      ]),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('shortcut-value-send_message')),
+      findsOneWidget,
+    );
+    expect(find.text('The shortcut has been updated.'), findsOneWidget);
   });
 
   testWidgets(

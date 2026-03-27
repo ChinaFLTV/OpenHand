@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/app_info.dart';
 import '../../app/model/app_language.dart';
 import '../../app/model/app_settings_snapshot.dart';
+import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
 import '../../app/support/openhand_paths.dart';
@@ -241,6 +242,16 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 18),
+            _SettingsGroupCard(
+              title: _localizedText(context, zh: '快捷键', en: 'Shortcuts'),
+              description: _localizedText(
+                context,
+                zh: '为常用操作配置组合键。当前最多支持同时按下 4 个按键。',
+                en: 'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.',
+              ),
+              children: [_buildShortcutsSection(context, settingsController)],
             ),
             const SizedBox(height: 18),
             _SettingsGroupCard(
@@ -628,6 +639,46 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildShortcutsSection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    final bindings = settingsController.shortcutBindings;
+    return _SettingsSubsectionCard(
+      title: _localizedText(context, zh: '快捷键绑定', en: 'Shortcut Bindings'),
+      description: _localizedText(
+        context,
+        zh: '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。',
+        en: 'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.',
+      ),
+      child: Column(
+        children: OpenHandShortcutAction.values
+            .map(
+              (action) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ShortcutBindingTile(
+                  actionStorageKey: openHandShortcutActionStorageKey(action),
+                  title: _shortcutActionTitle(context, action),
+                  subtitle: _shortcutActionSubtitle(context, action),
+                  value: formatShortcutLabel(bindings[action] ?? const <int>[]),
+                  onRecord: () => _showShortcutRecorderDialog(context, action),
+                  onReset: () async {
+                    final saved = await settingsController.resetShortcutBinding(
+                      action,
+                    );
+                    if (!context.mounted || saved) {
+                      return;
+                    }
+                    _showPersistenceFailureSnackBar(context);
+                  },
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
     );
   }
 
@@ -1394,6 +1445,131 @@ class _SettingsViewState extends State<SettingsView> {
   String _normalizeAiModelTestMessage(String raw, String fallback) {
     final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
     return normalized.isEmpty ? fallback : normalized;
+  }
+
+  Future<void> _showShortcutRecorderDialog(
+    BuildContext context,
+    OpenHandShortcutAction action,
+  ) async {
+    final settingsController = context.read<SettingsController>();
+    final shortcutBinding = await showDialog<List<int>>(
+      context: context,
+      builder: (dialogContext) {
+        return _ShortcutRecorderDialog(
+          title: _shortcutActionTitle(dialogContext, action),
+          initialKeyIds:
+              settingsController.shortcutBindings[action] ?? const <int>[],
+        );
+      },
+    );
+    if (!context.mounted || shortcutBinding == null) {
+      return;
+    }
+    final saved = await settingsController.updateShortcutBinding(
+      action,
+      shortcutBinding,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '快捷键已更新。',
+        en: 'The shortcut has been updated.',
+      ),
+    );
+  }
+
+  String _shortcutActionTitle(
+    BuildContext context,
+    OpenHandShortcutAction action,
+  ) {
+    return switch (action) {
+      OpenHandShortcutAction.sendMessage => _localizedText(
+        context,
+        zh: '发送消息',
+        en: 'Send Message',
+      ),
+      OpenHandShortcutAction.toggleComposer => _localizedText(
+        context,
+        zh: '折叠或展开输入框',
+        en: 'Collapse or Expand Composer',
+      ),
+      OpenHandShortcutAction.selectPreviousModel => _localizedText(
+        context,
+        zh: '上一个模型',
+        en: 'Previous Model',
+      ),
+      OpenHandShortcutAction.selectNextModel => _localizedText(
+        context,
+        zh: '下一个模型',
+        en: 'Next Model',
+      ),
+      OpenHandShortcutAction.toggleAutoFollow => _localizedText(
+        context,
+        zh: '开关自动滚动',
+        en: 'Toggle Auto Follow',
+      ),
+      OpenHandShortcutAction.selectPreviousSession => _localizedText(
+        context,
+        zh: '上一个会话',
+        en: 'Previous Session',
+      ),
+      OpenHandShortcutAction.selectNextSession => _localizedText(
+        context,
+        zh: '下一个会话',
+        en: 'Next Session',
+      ),
+    };
+  }
+
+  String _shortcutActionSubtitle(
+    BuildContext context,
+    OpenHandShortcutAction action,
+  ) {
+    return switch (action) {
+      OpenHandShortcutAction.sendMessage => _localizedText(
+        context,
+        zh: '默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。',
+        en: 'Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.',
+      ),
+      OpenHandShortcutAction.toggleComposer => _localizedText(
+        context,
+        zh: '默认 Ctrl + P，用于快速折叠或展开输入框。',
+        en: 'Defaults to Ctrl + P for quickly collapsing or expanding the composer.',
+      ),
+      OpenHandShortcutAction.selectPreviousModel => _localizedText(
+        context,
+        zh: '默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。',
+        en: 'Defaults to Ctrl + Left and wraps around to the last model when needed.',
+      ),
+      OpenHandShortcutAction.selectNextModel => _localizedText(
+        context,
+        zh: '默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。',
+        en: 'Defaults to Ctrl + Right and wraps around to the first model when needed.',
+      ),
+      OpenHandShortcutAction.toggleAutoFollow => _localizedText(
+        context,
+        zh: '默认 Ctrl + S，开关自动滚动模式。',
+        en: 'Defaults to Ctrl + S for toggling auto follow.',
+      ),
+      OpenHandShortcutAction.selectPreviousSession => _localizedText(
+        context,
+        zh: '默认 Ctrl + ↑，切换到上一个会话并支持绕圈。',
+        en: 'Defaults to Ctrl + Up and wraps to the end of the session list.',
+      ),
+      OpenHandShortcutAction.selectNextSession => _localizedText(
+        context,
+        zh: '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。',
+        en: 'Defaults to Ctrl + Down and wraps to the start of the session list.',
+      ),
+    };
   }
 
   void _showSnackBar(BuildContext context, String message) {
@@ -2497,6 +2673,256 @@ class _SettingsStateBox extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ShortcutBindingTile extends StatelessWidget {
+  const _ShortcutBindingTile({
+    required this.actionStorageKey,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onRecord,
+    required this.onReset,
+  });
+
+  final String actionStorageKey;
+  final String title;
+  final String subtitle;
+  final String value;
+  final VoidCallback onRecord;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked = constraints.maxWidth < 680;
+            final content = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            );
+            final controls = Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  key: ValueKey<String>('shortcut-value-$actionStorageKey'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: colorScheme.outlineVariant),
+                  ),
+                  child: Text(
+                    value,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  key: ValueKey<String>('shortcut-record-$actionStorageKey'),
+                  onPressed: onRecord,
+                  icon: const Icon(Icons.keyboard_alt_rounded),
+                  label: Text(
+                    Localizations.localeOf(
+                          context,
+                        ).languageCode.startsWith('zh')
+                        ? '录制'
+                        : 'Record',
+                  ),
+                ),
+                IconButton(
+                  key: ValueKey<String>('shortcut-reset-$actionStorageKey'),
+                  onPressed: onReset,
+                  tooltip:
+                      Localizations.localeOf(
+                        context,
+                      ).languageCode.startsWith('zh')
+                      ? '恢复默认'
+                      : 'Reset to default',
+                  icon: const Icon(Icons.restart_alt_rounded),
+                ),
+              ],
+            );
+            if (stacked) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [content, const SizedBox(height: 14), controls],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: content),
+                const SizedBox(width: 16),
+                Flexible(child: controls),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ShortcutRecorderDialog extends StatefulWidget {
+  const _ShortcutRecorderDialog({
+    required this.title,
+    required this.initialKeyIds,
+  });
+
+  final String title;
+  final List<int> initialKeyIds;
+
+  @override
+  State<_ShortcutRecorderDialog> createState() =>
+      _ShortcutRecorderDialogState();
+}
+
+class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
+  late final FocusNode _focusNode;
+  late List<int> _currentKeyIds;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _currentKeyIds = normalizeShortcutKeyIds(widget.initialKeyIds);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_focusNode.hasFocus) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.handled;
+    }
+    final nextKeyIds = normalizeShortcutKeyIds(
+      HardwareKeyboard.instance.logicalKeysPressed.map((key) => key.keyId),
+    );
+    if (nextKeyIds.length > openHandShortcutMaxKeyCount) {
+      setState(() {
+        _errorText =
+            Localizations.localeOf(context).languageCode.startsWith('zh')
+            ? '最多支持同时按下 4 个按键。'
+            : 'OpenHand supports up to four simultaneous keys.';
+      });
+      return KeyEventResult.handled;
+    }
+    setState(() {
+      _currentKeyIds = nextKeyIds;
+      _errorText = null;
+    });
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isChinese = Localizations.localeOf(
+      context,
+    ).languageCode.startsWith('zh');
+    final canSave = isValidShortcutBinding(_currentKeyIds);
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Focus(
+        focusNode: _focusNode,
+        onKeyEvent: _handleKeyEvent,
+        autofocus: true,
+        child: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isChinese
+                    ? '按下新的组合键即可更新绑定。最多支持同时按下 4 个按键。'
+                    : 'Press the new key combination to update this binding. OpenHand supports up to four simultaneous keys.',
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  formatShortcutLabel(_currentKeyIds),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isChinese
+                    ? '提示：至少需要一个非修饰键，例如 Enter、P、方向键。'
+                    : 'Tip: include at least one non-modifier key such as Enter, P, or an arrow key.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (_errorText != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _errorText!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)!.commonCancel,
+        ),
+        OpenHandDialogActionButton.primary(
+          onPressed: canSave
+              ? () => Navigator.of(
+                  context,
+                ).pop(normalizeShortcutKeyIds(_currentKeyIds))
+              : null,
+          label: AppLocalizations.of(context)!.commonSave,
+        ),
+      ],
     );
   }
 }

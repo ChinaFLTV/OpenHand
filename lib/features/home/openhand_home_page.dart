@@ -18,6 +18,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
+import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/theme/openhand_palette.dart';
@@ -66,6 +67,9 @@ const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 48);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
 );
+const Duration _sessionTitleRevealAnimationDuration = Duration(
+  milliseconds: 420,
+);
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -81,6 +85,7 @@ class OpenHandHomePage extends StatefulWidget {
 class _OpenHandHomePageState extends State<OpenHandHomePage> {
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
+  final FocusNode _composerFocusNode = FocusNode();
   final AiWorkspaceInstructionService _workspaceInstructionService =
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
@@ -143,6 +148,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   @override
   void initState() {
     super.initState();
+    _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
     _messageScrollController.addListener(_handleMessageScroll);
   }
 
@@ -164,6 +170,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   void dispose() {
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
+    _composerFocusNode.dispose();
     _composerController.dispose();
     _messageScrollController.dispose();
     super.dispose();
@@ -449,6 +456,192 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (nextValue) {
       _scheduleScrollToBottom(force: true, animated: true);
     }
+  }
+
+  bool _handleGlobalShortcutKeyEvent(KeyEvent event) {
+    if (!mounted ||
+        _selectedSection != AppSection.workspace ||
+        (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
+      return false;
+    }
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final currentRoute = ModalRoute.of(context);
+    final focusedRoute = focusContext == null
+        ? currentRoute
+        : ModalRoute.of(focusContext);
+    if (currentRoute != null &&
+        focusedRoute != null &&
+        !identical(currentRoute, focusedRoute)) {
+      return false;
+    }
+    final isEditableFocused = _isEditableTextFocused(focusContext);
+    final settingsController = context.read<SettingsController>();
+    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+    final shortcutAction = _matchShortcutAction(
+      settingsController.shortcutBindings,
+      pressedKeyIds,
+    );
+    if (shortcutAction == null) {
+      return false;
+    }
+    if (isEditableFocused &&
+        (shortcutAction != OpenHandShortcutAction.sendMessage ||
+            !_composerFocusNode.hasFocus)) {
+      return false;
+    }
+    unawaited(_performShortcutAction(shortcutAction));
+    return true;
+  }
+
+  KeyEventResult _handleGlobalShortcutFocusEvent(
+    FocusNode node,
+    KeyEvent event,
+  ) {
+    return _handleGlobalShortcutKeyEvent(event)
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleComposerFocusNodeKeyEvent(
+    FocusNode node,
+    KeyEvent event,
+  ) {
+    if (!mounted ||
+        _selectedSection != AppSection.workspace ||
+        (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
+      return KeyEventResult.ignored;
+    }
+    final bindings = context.read<SettingsController>().shortcutBindings;
+    final sendShortcutKeyIds = normalizeShortcutKeyIds(
+      bindings[OpenHandShortcutAction.sendMessage] ?? const <int>[],
+    );
+    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+    if (pressedKeyIds.length != sendShortcutKeyIds.length ||
+        !pressedKeyIds.containsAll(sendShortcutKeyIds)) {
+      return KeyEventResult.ignored;
+    }
+    final sessionController = context.read<AiSessionController>();
+    final sendPhase = _effectiveSendPhase(sessionController);
+    if (sendPhase == AiSendPhase.responding) {
+      unawaited(_stopResponding());
+      return KeyEventResult.handled;
+    }
+    if (sendPhase == AiSendPhase.idle) {
+      unawaited(_sendMessage());
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.handled;
+  }
+
+  bool _isEditableTextFocused(BuildContext? focusContext) {
+    if (focusContext == null) {
+      return false;
+    }
+    return focusContext.widget is EditableText ||
+        focusContext.findAncestorWidgetOfExactType<EditableText>() != null;
+  }
+
+  OpenHandShortcutAction? _matchShortcutAction(
+    Map<OpenHandShortcutAction, List<int>> bindings,
+    Set<int> pressedKeyIds,
+  ) {
+    if (pressedKeyIds.isEmpty) {
+      return null;
+    }
+    for (final action in OpenHandShortcutAction.values) {
+      final shortcutKeyIds = normalizeShortcutKeyIds(
+        bindings[action] ?? const <int>[],
+      );
+      if (shortcutKeyIds.length != pressedKeyIds.length) {
+        continue;
+      }
+      if (pressedKeyIds.containsAll(shortcutKeyIds)) {
+        return action;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _performShortcutAction(OpenHandShortcutAction action) async {
+    switch (action) {
+      case OpenHandShortcutAction.sendMessage:
+        final sessionController = context.read<AiSessionController>();
+        final sendPhase = _effectiveSendPhase(sessionController);
+        if (sendPhase == AiSendPhase.responding) {
+          await _stopResponding();
+          return;
+        }
+        await _sendMessage();
+        return;
+      case OpenHandShortcutAction.toggleComposer:
+        setState(() {
+          _composerCollapsed = !_composerCollapsed;
+        });
+        return;
+      case OpenHandShortcutAction.selectPreviousModel:
+        _cycleSelectedModel(-1);
+        return;
+      case OpenHandShortcutAction.selectNextModel:
+        _cycleSelectedModel(1);
+        return;
+      case OpenHandShortcutAction.toggleAutoFollow:
+        _toggleAutoFollow();
+        return;
+      case OpenHandShortcutAction.selectPreviousSession:
+        await _cycleSessionSelection(-1);
+        return;
+      case OpenHandShortcutAction.selectNextSession:
+        await _cycleSessionSelection(1);
+        return;
+    }
+  }
+
+  void _cycleSelectedModel(int delta) {
+    final settingsController = context.read<SettingsController>();
+    final models = settingsController.aiModels;
+    if (models.isEmpty) {
+      return;
+    }
+    final currentModelId = settingsController.selectedAiModelId;
+    final currentIndex = models.indexWhere((item) => item.id == currentModelId);
+    final baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    final nextIndex = (baseIndex + delta + models.length) % models.length;
+    unawaited(settingsController.updateSelectedAiModel(models[nextIndex].id));
+  }
+
+  Future<void> _cycleSessionSelection(int delta) async {
+    final sessionController = context.read<AiSessionController>();
+    final sessions = sessionController.sessions;
+    if (sessions.isEmpty) {
+      return;
+    }
+    final currentSessionId = sessionController.currentSessionId;
+    final currentIndex = sessions.indexWhere(
+      (item) => item.id == currentSessionId,
+    );
+    final baseIndex = currentIndex >= 0 ? currentIndex : 0;
+    final nextIndex = (baseIndex + delta + sessions.length) % sessions.length;
+    await _activateSession(sessions[nextIndex].id);
+  }
+
+  Future<void> _activateSession(String sessionId) async {
+    final sessionController = context.read<AiSessionController>();
+    await sessionController.selectSession(sessionId);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedSection = AppSection.workspace;
+      _clearPendingAutoFollowState();
+      _armAutoFollowToBottom();
+    });
+    _scheduleScrollToBottom(force: true, animated: false);
   }
 
   Future<String?> _showThreadTemplateDialog() async {
@@ -1575,86 +1768,91 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     );
   }
 
+  Future<void> _dismissSessionError(AiSessionErrorRecord error) async {
+    final sessionController = context.read<AiSessionController>();
+    final sessionId = sessionController.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+    await sessionController.markErrorAsPresented(
+      sessionId: sessionId,
+      errorId: error.id,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final palette = theme.extension<OpenHandPalette>()!;
     final sessionController = context.watch<AiSessionController>();
 
-    return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [palette.canvasStart, palette.canvasEnd],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _handleGlobalShortcutFocusEvent,
+      child: Scaffold(
+        body: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [palette.canvasStart, palette.canvasEnd],
+            ),
           ),
-        ),
-        child: SafeArea(
-          minimum: const EdgeInsets.all(20),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final stackedLayout =
-                  constraints.maxWidth < _sideBySideLayoutMinWidth;
-              final stackedNavigationHeight = (constraints.maxHeight * 0.34)
-                  .clamp(
-                    _stackedNavigationMinHeight,
-                    _stackedNavigationMaxHeight,
-                  )
-                  .toDouble();
-              final sessionSendPhases = _navigationSendPhases(
-                sessionController,
-              );
-              final navigationPane = _NavigationPane(
-                selectedSection: _selectedSection,
-                sessions: sessionController.sessions,
-                sessionSendPhases: sessionSendPhases,
-                currentSessionId: sessionController.currentSessionId,
-                onCreateThreadRequested: _createSessionFromDialog,
-                onSessionSelected: (sessionId) async {
-                  await sessionController.selectSession(sessionId);
-                  if (!mounted) {
-                    return;
-                  }
-                  setState(() {
-                    _selectedSection = AppSection.workspace;
-                    _clearPendingAutoFollowState();
-                    _armAutoFollowToBottom();
-                  });
-                  _scheduleScrollToBottom(force: true, animated: false);
-                },
-                onRenameSession: _renameSession,
-                onDeleteSession: _deleteSession,
-                onSectionSelected: _selectSection,
-              );
-              final contentPane = _ContentPane(
-                child: _buildSectionContent(context),
-              );
+          child: SafeArea(
+            minimum: const EdgeInsets.all(20),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stackedLayout =
+                    constraints.maxWidth < _sideBySideLayoutMinWidth;
+                final stackedNavigationHeight = (constraints.maxHeight * 0.34)
+                    .clamp(
+                      _stackedNavigationMinHeight,
+                      _stackedNavigationMaxHeight,
+                    )
+                    .toDouble();
+                final sessionSendPhases = _navigationSendPhases(
+                  sessionController,
+                );
+                final navigationPane = _NavigationPane(
+                  selectedSection: _selectedSection,
+                  sessions: sessionController.sessions,
+                  sessionSendPhases: sessionSendPhases,
+                  currentSessionId: sessionController.currentSessionId,
+                  onCreateThreadRequested: _createSessionFromDialog,
+                  onSessionSelected: _activateSession,
+                  onRenameSession: _renameSession,
+                  onDeleteSession: _deleteSession,
+                  onSectionSelected: _selectSection,
+                );
+                final contentPane = _ContentPane(
+                  child: _buildSectionContent(context),
+                );
 
-              if (stackedLayout) {
-                return Column(
+                if (stackedLayout) {
+                  return Column(
+                    children: [
+                      SizedBox(
+                        height: stackedNavigationHeight,
+                        child: navigationPane,
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(child: contentPane),
+                    ],
+                  );
+                }
+
+                return Row(
                   children: [
                     SizedBox(
-                      height: stackedNavigationHeight,
+                      width: _desktopNavigationWidth,
                       child: navigationPane,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(width: _contentPaneGap),
                     Expanded(child: contentPane),
                   ],
                 );
-              }
-
-              return Row(
-                children: [
-                  SizedBox(
-                    width: _desktopNavigationWidth,
-                    child: navigationPane,
-                  ),
-                  const SizedBox(width: _contentPaneGap),
-                  Expanded(child: contentPane),
-                ],
-              );
-            },
+              },
+            ),
           ),
         ),
       ),
@@ -1685,6 +1883,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         onModelSelected: (modelId) {
           settingsController.updateSelectedAiModel(modelId);
         },
+        composerFocusNode: _composerFocusNode,
         composerHeight: _composerHeight,
         composerCollapsed: _composerCollapsed,
         onComposerHeightChanged: (nextHeight) {
@@ -1718,6 +1917,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         onCopyMessage: _copyMessage,
         onDeleteMessage: _deleteMessage,
         onDeleteMessageFromHere: _deleteMessageFromHere,
+        onDismissError: _dismissSessionError,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,
@@ -2022,6 +2222,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.selectedModel,
     required this.availableModels,
     required this.onModelSelected,
+    required this.composerFocusNode,
     required this.composerHeight,
     required this.composerCollapsed,
     required this.onComposerHeightChanged,
@@ -2045,6 +2246,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onCopyMessage,
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
+    required this.onDismissError,
   });
 
   final TextEditingController draftController;
@@ -2056,6 +2258,7 @@ class _WorkspaceView extends StatelessWidget {
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
   final ValueChanged<String> onModelSelected;
+  final FocusNode composerFocusNode;
   final double composerHeight;
   final bool composerCollapsed;
   final ValueChanged<double> onComposerHeightChanged;
@@ -2079,6 +2282,7 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
+  final Future<void> Function(AiSessionErrorRecord error) onDismissError;
 
   @override
   Widget build(BuildContext context) {
@@ -2123,6 +2327,7 @@ class _WorkspaceView extends StatelessWidget {
                       onCopyMessage: onCopyMessage,
                       onDeleteMessage: onDeleteMessage,
                       onDeleteMessageFromHere: onDeleteMessageFromHere,
+                      onDismissError: onDismissError,
                     ),
             ),
             const SizedBox(height: 16),
@@ -2137,6 +2342,7 @@ class _WorkspaceView extends StatelessWidget {
                   selectedModel: selectedModel,
                   availableModels: availableModels,
                   onModelSelected: onModelSelected,
+                  focusNode: composerFocusNode,
                   composerHeight: effectiveComposerHeight,
                   isCollapsed: composerCollapsed,
                   onCollapsedChanged: onComposerCollapsedChanged,
@@ -2428,6 +2634,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onCopyMessage,
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
+    required this.onDismissError,
   });
 
   final ScrollController controller;
@@ -2440,6 +2647,7 @@ class _SessionTranscript extends StatefulWidget {
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
+  final Future<void> Function(AiSessionErrorRecord error) onDismissError;
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
@@ -2449,6 +2657,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
   String? _visibleErrorId;
   String? _pendingPresentedErrorId;
+  final Set<String> _dismissedErrorIds = <String>{};
   int _windowStartIndex = 0;
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
@@ -2688,6 +2897,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (error.stage == 'title_generation') {
         continue;
       }
+      if (_dismissedErrorIds.contains(error.id)) {
+        continue;
+      }
       if (!error.hasBeenPresented) {
         return error;
       }
@@ -2697,6 +2909,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return null;
     }
     for (final error in session.recentErrors) {
+      if (_dismissedErrorIds.contains(error.id)) {
+        continue;
+      }
       if (error.id == visibleErrorId && error.stage != 'title_generation') {
         return error;
       }
@@ -2848,7 +3063,21 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ),
         if (userVisibleError != null) ...[
           const SizedBox(height: 12),
-          _SessionErrorBanner(error: userVisibleError),
+          _SessionErrorBanner(
+            error: userVisibleError,
+            onDismiss: () async {
+              _dismissedErrorIds.add(userVisibleError.id);
+              setState(() {
+                if (_visibleErrorId == userVisibleError.id) {
+                  _visibleErrorId = null;
+                }
+                if (_pendingPresentedErrorId == userVisibleError.id) {
+                  _pendingPresentedErrorId = null;
+                }
+              });
+              await widget.onDismissError(userVisibleError);
+            },
+          ),
         ],
       ],
     );
@@ -2951,9 +3180,10 @@ class _TranscriptLoadEarlierButton extends StatelessWidget {
 }
 
 class _SessionErrorBanner extends StatelessWidget {
-  const _SessionErrorBanner({required this.error});
+  const _SessionErrorBanner({required this.error, required this.onDismiss});
 
   final AiSessionErrorRecord error;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -2998,7 +3228,79 @@ class _SessionErrorBanner extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: 8),
+          IconButton(
+            key: ValueKey<String>('session-error-dismiss-${error.id}'),
+            onPressed: onDismiss,
+            tooltip: _localizedText(context, zh: '关闭提示', en: 'Dismiss'),
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: colorScheme.onErrorContainer,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _AnimatedSessionTitleText extends StatelessWidget {
+  const _AnimatedSessionTitleText({required this.text, required this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: _sessionTitleRevealAnimationDuration,
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.centerLeft,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder: (child, animation) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        final slide =
+            Tween<Offset>(
+              begin: const Offset(0, 0.35),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              ),
+            );
+        final scale = Tween<double>(begin: 0.96, end: 1).animate(curved);
+        return ClipRect(
+          child: FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: slide,
+              child: ScaleTransition(scale: scale, child: child),
+            ),
+          ),
+        );
+      },
+      child: Text(
+        text,
+        key: ValueKey<String>(text),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
       ),
     );
   }
@@ -3027,10 +3329,8 @@ class _SessionToolbar extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    session.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: _AnimatedSessionTitleText(
+                    text: session.title,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
@@ -6611,6 +6911,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.selectedModel,
     required this.availableModels,
     required this.onModelSelected,
+    required this.focusNode,
     required this.composerHeight,
     required this.isCollapsed,
     required this.onCollapsedChanged,
@@ -6631,6 +6932,7 @@ class _ComposerPanel extends StatefulWidget {
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
   final ValueChanged<String> onModelSelected;
+  final FocusNode focusNode;
   final double composerHeight;
   final bool isCollapsed;
   final ValueChanged<bool> onCollapsedChanged;
@@ -6743,6 +7045,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             height: widget.composerHeight,
             child: TextField(
               controller: widget.controller,
+              focusNode: widget.focusNode,
               expands: true,
               minLines: null,
               maxLines: null,
@@ -7126,10 +7429,8 @@ class _ThreadTile extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    session.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: _AnimatedSessionTitleText(
+                    text: session.title,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: titleColor,
                     ),

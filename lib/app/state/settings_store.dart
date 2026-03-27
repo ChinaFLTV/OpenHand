@@ -9,6 +9,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
 
@@ -486,6 +487,51 @@ class SettingsStore {
       selectedAiModelId = aiModels.isEmpty ? '' : aiModels.first.id;
       didSanitize = true;
     }
+    final rawShortcutBindings = '${rootValues['shortcut_bindings'] ?? ''}';
+    var shortcutBindings = defaultOpenHandShortcutBindings();
+    if (rawShortcutBindings.trim().isEmpty) {
+      didSanitize = true;
+    } else {
+      try {
+        final decoded = jsonDecode(rawShortcutBindings);
+        if (decoded is Map) {
+          final parsedBindings = <OpenHandShortcutAction, List<int>>{};
+          for (final entry in decoded.entries) {
+            final action = openHandShortcutActionFromStorageKey('${entry.key}');
+            if (action == null) {
+              didSanitize = true;
+              continue;
+            }
+            final value = entry.value;
+            if (value is! List) {
+              didSanitize = true;
+              continue;
+            }
+            final normalizedKeyIds = normalizeShortcutKeyIds(
+              value.whereType<num>().map((item) => item.toInt()),
+            );
+            if (!isValidShortcutBinding(normalizedKeyIds)) {
+              didSanitize = true;
+              continue;
+            }
+            parsedBindings[action] = normalizedKeyIds;
+          }
+          for (final action in OpenHandShortcutAction.values) {
+            if (!parsedBindings.containsKey(action)) {
+              didSanitize = true;
+            }
+          }
+          shortcutBindings = <OpenHandShortcutAction, List<int>>{
+            ...defaultOpenHandShortcutBindings(),
+            ...parsedBindings,
+          };
+        } else {
+          didSanitize = true;
+        }
+      } catch (_) {
+        didSanitize = true;
+      }
+    }
 
     return _SanitizedSettingsResult(
       didSanitize: didSanitize,
@@ -505,6 +551,7 @@ class SettingsStore {
         aiDenyCommandRules: aiDenyCommandRules,
         aiModels: aiModels,
         selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
+        shortcutBindings: shortcutBindings,
       ),
     );
   }
@@ -545,6 +592,9 @@ class SettingsStore {
       )
       ..writeln(
         'selected_ai_model_id = ${jsonEncode(snapshot.selectedAiModelId ?? '')}',
+      )
+      ..writeln(
+        'shortcut_bindings = ${jsonEncode(jsonEncode(<String, List<int>>{for (final entry in snapshot.shortcutBindings.entries) openHandShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(entry.value)}))}',
       );
 
     for (final model in snapshot.aiModels) {
