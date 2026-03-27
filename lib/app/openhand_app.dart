@@ -24,6 +24,45 @@ class OpenHandApp extends StatefulWidget {
 }
 
 class _OpenHandAppState extends State<OpenHandApp> {
+  static const Object _invalidRawKeyField = Object();
+  static const Set<String> _supportedRawKeymaps = <String>{
+    'android',
+    'fuchsia',
+    'ios',
+    'linux',
+    'macos',
+    'web',
+    'windows',
+  };
+  static const Set<String> _rawKeyIntegerFields = <String>{
+    'characterCodePoint',
+    'codePoint',
+    'deviceId',
+    'flags',
+    'hidUsage',
+    'keyCode',
+    'location',
+    'metaState',
+    'modifiers',
+    'plainCodePoint',
+    'productId',
+    'repeatCount',
+    'scanCode',
+    'source',
+    'specifiedLogicalKey',
+    'unicodeScalarValues',
+    'vendorId',
+  };
+  static const Set<String> _rawKeyStringFields = <String>{
+    'character',
+    'characters',
+    'charactersIgnoringModifiers',
+    'code',
+    'key',
+    'keymap',
+    'toolkit',
+    'type',
+  };
   bool Function(ui.KeyData data)? _previousOnKeyData;
   Future<dynamic> Function(dynamic message)? _previousRawKeyMessageHandler;
   bool _keyboardStateSyncQueued = false;
@@ -62,25 +101,16 @@ class _OpenHandAppState extends State<OpenHandApp> {
     final physicalKey =
         PhysicalKeyboardKey.findKeyByCode(data.physical) ??
         PhysicalKeyboardKey(data.physical);
-    final logicalKey =
-        LogicalKeyboardKey.findKeyByKeyId(data.logical) ??
-        LogicalKeyboardKey(data.logical);
     final hardwareKeyboard = HardwareKeyboard.instance;
     final isPressed = hardwareKeyboard.physicalKeysPressed.contains(
       physicalKey,
     );
 
     if (data.type == ui.KeyEventType.up && !isPressed) {
-      _debugKeyboardLog(
-        'suppressing_orphan_key_up physical=$physicalKey logical=$logicalKey',
-      );
       _scheduleKeyboardStateResync('orphan_key_up');
       return false;
     }
     if (data.type == ui.KeyEventType.down && isPressed) {
-      _debugKeyboardLog(
-        'suppressing_duplicate_key_down physical=$physicalKey logical=$logicalKey',
-      );
       _scheduleKeyboardStateResync('duplicate_key_down');
       return false;
     }
@@ -89,11 +119,14 @@ class _OpenHandAppState extends State<OpenHandApp> {
 
   Future<dynamic> _handleRawKeyMessageSafely(dynamic message) async {
     if (message is Map<Object?, Object?>) {
+      final normalizedMessage = _normalizeRawKeyMessage(message);
+      if (normalizedMessage == null) {
+        _scheduleKeyboardStateResync('raw_key_payload_invalid');
+        return _unhandledRawKeyMessage();
+      }
       late final RawKeyEvent rawEvent;
       try {
-        rawEvent = RawKeyEvent.fromMessage(
-          message.map((key, value) => MapEntry('$key', value)),
-        );
+        rawEvent = RawKeyEvent.fromMessage(normalizedMessage);
       } catch (error, stackTrace) {
         _debugKeyboardGuardFailure(
           stage: 'raw_key_parse',
@@ -107,19 +140,14 @@ class _OpenHandAppState extends State<OpenHandApp> {
       final hardwarePressed = HardwareKeyboard.instance.physicalKeysPressed
           .contains(physicalKey);
       if (rawEvent is RawKeyDownEvent && !rawEvent.repeat && hardwarePressed) {
-        _debugKeyboardLog(
-          'suppressing_duplicate_raw_key_down physical=$physicalKey logical=${rawEvent.logicalKey}',
-        );
         _scheduleKeyboardStateResync('duplicate_raw_key_down');
         return _unhandledRawKeyMessage();
       }
       if (rawEvent is RawKeyUpEvent && !hardwarePressed) {
-        _debugKeyboardLog(
-          'suppressing_orphan_raw_key_up physical=$physicalKey',
-        );
         _scheduleKeyboardStateResync('orphan_raw_key_up');
         return _unhandledRawKeyMessage();
       }
+      return _forwardRawKeyMessage(normalizedMessage);
     }
     return _forwardRawKeyMessage(message);
   }
@@ -158,7 +186,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
     }
   }
 
-  void _scheduleKeyboardStateResync(String reason) {
+  void _scheduleKeyboardStateResync(String _reason) {
     if (_keyboardStateSyncQueued) {
       return;
     }
@@ -166,7 +194,6 @@ class _OpenHandAppState extends State<OpenHandApp> {
     unawaited(() async {
       try {
         await HardwareKeyboard.instance.syncKeyboardState();
-        _debugKeyboardLog('state_resynced reason=$reason');
       } catch (error, stackTrace) {
         _debugKeyboardGuardFailure(
           stage: 'keyboard_state_resync',
@@ -185,6 +212,66 @@ class _OpenHandAppState extends State<OpenHandApp> {
     });
   }
 
+  Map<String, Object?>? _normalizeRawKeyMessage(Map<Object?, Object?> message) {
+    final normalized = <String, Object?>{
+      for (final entry in message.entries) '${entry.key}': entry.value,
+    };
+    for (final field in _rawKeyStringFields) {
+      if (!normalized.containsKey(field)) {
+        continue;
+      }
+      final value = normalized[field];
+      if (value != null && value is! String) {
+        return null;
+      }
+    }
+    for (final field in _rawKeyIntegerFields) {
+      if (!normalized.containsKey(field)) {
+        continue;
+      }
+      final value = _normalizeRawKeyIntegerField(normalized[field]);
+      if (identical(value, _invalidRawKeyField)) {
+        return null;
+      }
+      normalized[field] = value;
+    }
+    final type = normalized['type'];
+    if (type is! String || (type != 'keydown' && type != 'keyup')) {
+      return null;
+    }
+    if (!kIsWeb) {
+      final keymap = normalized['keymap'];
+      if (keymap is! String || !_supportedRawKeymaps.contains(keymap)) {
+        return null;
+      }
+    }
+    return normalized;
+  }
+
+  Object? _normalizeRawKeyIntegerField(Object? value) {
+    if (value == null || value is int) {
+      return value;
+    }
+    if (value is num) {
+      if (!value.isFinite || value != value.roundToDouble()) {
+        return _invalidRawKeyField;
+      }
+      return value.toInt();
+    }
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) {
+        return _invalidRawKeyField;
+      }
+      if (text.startsWith('0x') || text.startsWith('0X')) {
+        return int.tryParse(text.substring(2), radix: 16) ??
+            _invalidRawKeyField;
+      }
+      return int.tryParse(text) ?? _invalidRawKeyField;
+    }
+    return _invalidRawKeyField;
+  }
+
   void _debugKeyboardGuardFailure({
     required String stage,
     required Object error,
@@ -193,20 +280,11 @@ class _OpenHandAppState extends State<OpenHandApp> {
     if (!kDebugMode) {
       return;
     }
-    debugPrint(
-      '[OpenHand][Keyboard] guard_failure stage=$stage error=$error',
-    );
+    debugPrint('[OpenHand][Keyboard] guard_failure stage=$stage error=$error');
     debugPrintStack(
       label: '[OpenHand][Keyboard] guard_failure_stack stage=$stage',
       stackTrace: stackTrace,
     );
-  }
-
-  void _debugKeyboardLog(String message) {
-    if (!kDebugMode) {
-      return;
-    }
-    debugPrint('[OpenHand][Keyboard] $message');
   }
 
   @override

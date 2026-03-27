@@ -418,10 +418,16 @@ class AiSessionController extends ChangeNotifier {
     _currentSessionId = sessionId;
     _editingMessageId = null;
     final selectedSession = _sessionById(sessionId);
-    if (selectedSession != null) {
-      await _emitSessionStartHook(session: selectedSession, source: 'resume');
-    }
     notifyListeners();
+    if (selectedSession == null) {
+      return;
+    }
+    unawaited(
+      _emitSessionStartHook(
+        session: selectedSession,
+        source: 'resume',
+      ).catchError((Object _, StackTrace stackTrace) {}),
+    );
   }
 
   Future<bool> _createSessionUnlocked({

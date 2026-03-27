@@ -34,7 +34,7 @@ class AiSessionTodoItem {
 }
 
 class AiSession {
-  const AiSession({
+  AiSession({
     required this.id,
     required this.title,
     required this.templateId,
@@ -85,6 +85,13 @@ class AiSession {
   final List<AiSessionTodoItem> todoItems;
   final bool awaitingPlanApproval;
   final String? pendingPlan;
+  late final int? _latestCompressionPointIndexCache =
+      _computeLatestCompressionPointIndex();
+  late final List<AiSessionMessage> _visibleMessagesCache = messages
+      .where((item) => item.isVisible)
+      .toList(growable: false);
+  late final List<AiSessionMessage> _displayMessagesCache =
+      _computeDisplayMessages();
 
   AiSession copyWith({
     String? title,
@@ -141,28 +148,20 @@ class AiSession {
   }
 
   AiSessionMessage? get latestCompressionPoint {
-    for (var index = messages.length - 1; index >= 0; index--) {
-      final message = messages[index];
-      if (!message.isDeleted &&
-          message.kind == AiSessionMessageKind.compressionPoint) {
-        return message;
-      }
-    }
-    return null;
+    final index = latestCompressionPointIndex;
+    return index == null ? null : messages[index];
   }
 
   int? get latestCompressionPointIndex {
-    for (var index = messages.length - 1; index >= 0; index--) {
-      if (!messages[index].isDeleted &&
-          messages[index].kind == AiSessionMessageKind.compressionPoint) {
-        return index;
-      }
-    }
-    return null;
+    return _latestCompressionPointIndexCache;
   }
 
   List<AiSessionMessage> get visibleMessages {
-    return messages.where((item) => item.isVisible).toList(growable: false);
+    return _visibleMessagesCache;
+  }
+
+  List<AiSessionMessage> get displayMessages {
+    return _displayMessagesCache;
   }
 
   List<AiSessionMessage> get activeConversationMessages {
@@ -175,6 +174,36 @@ class AiSession {
     return messages
         .skip(latestCompressionPointIndex + 1)
         .where((item) => item.isConversationTurn)
+        .toList(growable: false);
+  }
+
+  int? _computeLatestCompressionPointIndex() {
+    for (var index = messages.length - 1; index >= 0; index--) {
+      if (!messages[index].isDeleted &&
+          messages[index].kind == AiSessionMessageKind.compressionPoint) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  List<AiSessionMessage> _computeDisplayMessages() {
+    final visibleMessages = this.visibleMessages;
+    final toolCallIds = visibleMessages
+        .where((message) => message.kind == AiSessionMessageKind.toolCall)
+        .map((message) => '${message.metadata['tool_call_id'] ?? ''}'.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+    return visibleMessages
+        .where((message) {
+          if (message.kind != AiSessionMessageKind.tool &&
+              message.kind != AiSessionMessageKind.mcp &&
+              message.kind != AiSessionMessageKind.skill) {
+            return true;
+          }
+          final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+          return toolCallId.isEmpty || !toolCallIds.contains(toolCallId);
+        })
         .toList(growable: false);
   }
 

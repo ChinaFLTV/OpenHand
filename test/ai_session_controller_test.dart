@@ -1048,6 +1048,77 @@ void main() {
   );
 
   test(
+    'AiSessionController switches sessions before the resume hook finishes',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final hookService = _DelayedResumeClaudeHookService();
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        templateRepository: promptRepository,
+        hookService: hookService,
+        idGenerator: () => 'session-${DateTime.now().microsecondsSinceEpoch}',
+        clock: () => DateTime.utc(2026, 3, 27, 4, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionAId = controller.currentSessionId!;
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final sessionBId = controller.currentSessionId!;
+      expect(sessionBId, isNot(sessionAId));
+
+      final selectFuture = controller.selectSession(sessionAId);
+      await selectFuture.timeout(const Duration(milliseconds: 100));
+
+      expect(controller.currentSessionId, sessionAId);
+      expect(hookService.resumeHookStarted, isTrue);
+      expect(hookService.resumeHookCompleted, isFalse);
+
+      hookService.completeResume();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(hookService.resumeHookCompleted, isTrue);
+    },
+  );
+
+  test(
     'AiSessionController marks reasoning messages as streaming only while reasoning deltas are active',
     () async {
       final promptRepository = AiPromptTemplateRepository(
@@ -5606,6 +5677,41 @@ class _FakeClaudeHookService extends AiClaudeHookService {
       'UserPromptSubmit' => userPromptSubmitResult,
       _ => const AiClaudeHookInvocationResult(),
     };
+  }
+}
+
+class _DelayedResumeClaudeHookService extends _FakeClaudeHookService {
+  final Completer<void> _resumeCompleter = Completer<void>();
+  bool resumeHookStarted = false;
+  bool resumeHookCompleted = false;
+
+  void completeResume() {
+    if (_resumeCompleter.isCompleted) {
+      return;
+    }
+    _resumeCompleter.complete();
+  }
+
+  @override
+  Future<AiClaudeHookInvocationResult> runHooks({
+    required String eventName,
+    required String sessionId,
+    required Map<String, Object?> payload,
+    String? matcherValue,
+    String? cwd,
+  }) async {
+    if (eventName == 'SessionStart' && matcherValue == 'resume') {
+      resumeHookStarted = true;
+      await _resumeCompleter.future;
+      resumeHookCompleted = true;
+    }
+    return super.runHooks(
+      eventName: eventName,
+      sessionId: sessionId,
+      payload: payload,
+      matcherValue: matcherValue,
+      cwd: cwd,
+    );
   }
 }
 

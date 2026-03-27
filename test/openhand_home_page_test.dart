@@ -1205,6 +1205,455 @@ void main() {
   );
 
   testWidgets(
+    'OpenHandHomePage windows long transcripts and loads older messages on demand',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-windowed-transcript']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 31, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = List<AiSessionMessage>.generate(180, (index) {
+        return AiSessionMessage.assistant(
+          id: 'message-window-$index',
+          content: 'Windowed transcript message $index',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 31, index),
+          modelLabel: 'gpt-test',
+        );
+      });
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 34, 0),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Windowed transcript message 100'), findsOneWidget);
+      expect(find.text('Windowed transcript message 0'), findsNothing);
+
+      final transcriptFinder = find.byKey(
+        const ValueKey<String>('session-transcript-list'),
+      );
+      final transcriptController = tester
+          .widget<ListView>(transcriptFinder)
+          .controller!;
+      transcriptController.jumpTo(0);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Load earlier messages (100)'), findsOneWidget);
+      await tester.tap(find.text('Load earlier messages (100)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      transcriptController.jumpTo(0);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Windowed transcript message 0'), findsNothing);
+      expect(find.text('Load earlier messages (20)'), findsOneWidget);
+
+      await tester.tap(find.text('Load earlier messages (20)'));
+      await tester.pump(const Duration(milliseconds: 300));
+      transcriptController.jumpTo(0);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Windowed transcript message 0'), findsOneWidget);
+      expect(find.textContaining('Load earlier messages'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage shows a loading placeholder before mounting a long transcript',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-placeholder-short',
+          'session-placeholder-long',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 36, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final shortSession = sessionController.currentSession!;
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+      final longSession = sessionController.currentSession!;
+
+      final shortMessages = <AiSessionMessage>[
+        AiSessionMessage.assistant(
+          id: 'message-placeholder-short',
+          content: 'Short transcript message',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 36, 1),
+          modelLabel: 'gpt-test',
+        ),
+      ];
+      final longMessages = List<AiSessionMessage>.generate(180, (index) {
+        return AiSessionMessage.assistant(
+          id: 'message-placeholder-long-$index',
+          content: 'Placeholder transcript message $index',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 37, index),
+          modelLabel: 'gpt-test',
+        );
+      });
+      await sessionStore.save(
+        shortSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 36, 1),
+          messages: shortMessages,
+          statistics: AiSessionStatistics.fromMessages(
+            shortMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionStore.save(
+        longSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 40, 0),
+          messages: longMessages,
+          statistics: AiSessionStatistics.fromMessages(
+            longMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(shortSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Short transcript message'), findsOneWidget);
+
+      await sessionController.selectSession(longSession.id);
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          ValueKey<String>('session-transcript-loading-${longSession.id}'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('session-transcript-list')),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(milliseconds: 80));
+
+      expect(
+        find.byKey(
+          ValueKey<String>('session-transcript-loading-${longSession.id}'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('session-transcript-list')),
+        findsOneWidget,
+      );
+      expect(find.text('Placeholder transcript message 100'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage does not select a message when dragging the transcript',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-drag-selection']),
+        clock: () => DateTime.utc(2026, 3, 25, 3, 40, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = List<AiSessionMessage>.generate(36, (index) {
+        return AiSessionMessage.assistant(
+          id: 'message-drag-$index',
+          content: 'Plain transcript message $index',
+          createdAt: DateTime.utc(2026, 3, 25, 3, 40, index),
+          modelLabel: 'gpt-test',
+        );
+      });
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 25, 3, 42, 0),
+          messages: messages,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final transcriptFinder = find.byKey(
+        const ValueKey<String>('session-transcript-list'),
+      );
+      await tester.drag(transcriptFinder, const Offset(0, 180));
+      await tester.pump();
+
+      expect(find.text('Copy'), findsNothing);
+
+      await tester.tap(find.textContaining('Plain transcript message').first);
+      await tester.pump();
+
+      expect(find.text('Copy'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'OpenHandHomePage keeps running tool calls expanded and streams their visible output',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 1200);
@@ -1335,13 +1784,13 @@ void main() {
       expect(find.textContaining('Bash · Running'), findsOneWidget);
       expect(find.text('Tool Input'), findsOneWidget);
       expect(find.text('Tool Output'), findsOneWidget);
-      expect(find.textContaining(r'$ flutter test'), findsOneWidget);
+      expect(_findTextSpanWidgetContaining(r'$ flutter test'), findsOneWidget);
       expect(
-        find.textContaining('"working_directory": "/tmp/demo"'),
+        _findTextSpanWidgetContaining('"working_directory": "/tmp/demo"'),
         findsOneWidget,
       );
       expect(find.text('stdout'), findsOneWidget);
-      expect(find.text('00:00 +1'), findsOneWidget);
+      expect(_findTextSpanWidgetContaining('00:00 +1'), findsOneWidget);
     },
   );
 
@@ -1484,7 +1933,9 @@ void main() {
       expect(find.text('Tool Input'), findsOneWidget);
       expect(find.text('Tool Output'), findsOneWidget);
       expect(
-        find.textContaining('"uri": "file:///workspace/lib/main.dart"'),
+        _findTextSpanWidgetContaining(
+          '"uri": "file:///workspace/lib/main.dart"',
+        ),
         findsNothing,
       );
       expect(find.textContaining('stdout · No diagnostics'), findsOneWidget);
@@ -1493,7 +1944,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(
-        find.textContaining('"uri": "file:///workspace/lib/main.dart"'),
+        _findTextSpanWidgetContaining(
+          '"uri": "file:///workspace/lib/main.dart"',
+        ),
         findsOneWidget,
       );
     },
@@ -1777,9 +2230,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('json'), findsOneWidget);
-      expect(find.textContaining('"service": "openhand"'), findsOneWidget);
-      expect(find.textContaining('"latency_ms": 12'), findsOneWidget);
-      expect(find.textContaining('"healthy": true'), findsOneWidget);
+      expect(
+        _findTextSpanWidgetContaining('"service": "openhand"'),
+        findsOneWidget,
+      );
+      expect(_findTextSpanWidgetContaining('"latency_ms": 12'), findsOneWidget);
+      expect(_findTextSpanWidgetContaining('"healthy": true'), findsOneWidget);
     },
   );
 
@@ -1901,15 +2357,11 @@ void main() {
         mcpController: mcpController,
       );
 
-      final codeWidget = tester
-          .widgetList<SelectableText>(find.byType(SelectableText))
-          .firstWhere(
-            (widget) =>
-                widget.textSpan != null &&
-                widget.textSpan!.toPlainText().contains('final name'),
-          );
+      final codeFinder = _findTextSpanWidgetContaining('final name');
+      expect(codeFinder, findsOneWidget);
+      final codeWidget = tester.widget(codeFinder);
       final colors = <Color>{};
-      _collectRenderedTextSpanColors(codeWidget.textSpan!, colors);
+      _collectRenderedTextSpanColors(_textSpanForWidget(codeWidget), colors);
 
       expect(colors.length, greaterThan(1));
 
@@ -2050,19 +2502,14 @@ void main() {
           mcpController: mcpController,
         );
 
-        final quoteFinder = find.byWidgetPredicate(
-          (widget) =>
-              widget is SelectableText &&
-              widget.textSpan != null &&
-              widget.textSpan!.toPlainText().contains(
-                'Important note: this markdown blockquote should stay readable in every theme.',
-              ),
+        final quoteFinder = _findTextSpanWidgetContaining(
+          'Important note: this markdown blockquote should stay readable in every theme.',
         );
         expect(quoteFinder, findsOneWidget);
 
-        final quoteWidget = tester.widget<SelectableText>(quoteFinder);
+        final quoteWidget = tester.widget(quoteFinder);
         final colors = <Color>{};
-        _collectRenderedTextSpanColors(quoteWidget.textSpan!, colors);
+        _collectRenderedTextSpanColors(_textSpanForWidget(quoteWidget), colors);
         expect(colors, isNotEmpty);
 
         final quoteElement = quoteFinder.evaluate().single;
@@ -2210,26 +2657,14 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
       expect(find.textContaining('```'), findsNothing);
 
-      final codeWidget = tester
-          .widgetList<SelectableText>(find.byType(SelectableText))
-          .firstWhere(
-            (widget) =>
-                widget.textSpan != null &&
-                widget.textSpan!.toPlainText().contains('fun mergeSort'),
-          );
+      final codeFinder = _findTextSpanWidgetContaining('fun mergeSort');
+      expect(codeFinder, findsOneWidget);
+      final codeWidget = tester.widget(codeFinder);
       final colors = <Color>{};
-      _collectRenderedTextSpanColors(codeWidget.textSpan!, colors);
+      _collectRenderedTextSpanColors(_textSpanForWidget(codeWidget), colors);
       expect(colors.length, greaterThan(1));
 
-      final codeElement = find
-          .byWidgetPredicate(
-            (widget) =>
-                widget is SelectableText &&
-                widget.textSpan != null &&
-                widget.textSpan!.toPlainText().contains('fun mergeSort'),
-          )
-          .evaluate()
-          .single;
+      final codeElement = codeFinder.evaluate().single;
       final codePanelBodyColor = _nearestDecoratedBoxColor(codeElement);
       expect(codePanelBodyColor, isNotNull);
       expect(codePanelBodyColor!.computeLuminance(), lessThan(0.1));
@@ -2520,6 +2955,28 @@ void _collectRenderedTextSpanColors(
   for (final child in children) {
     _collectRenderedTextSpanColors(child, colors, inheritedStyle: mergedStyle);
   }
+}
+
+Finder _findTextSpanWidgetContaining(String text) {
+  return find.byWidgetPredicate((widget) {
+    if (widget is SelectableText && widget.textSpan != null) {
+      return widget.textSpan!.toPlainText().contains(text);
+    }
+    if (widget is RichText) {
+      return widget.text.toPlainText().contains(text);
+    }
+    return false;
+  });
+}
+
+InlineSpan _textSpanForWidget(Widget widget) {
+  if (widget is SelectableText && widget.textSpan != null) {
+    return widget.textSpan!;
+  }
+  if (widget is RichText) {
+    return widget.text;
+  }
+  throw ArgumentError('Unsupported text span widget: ${widget.runtimeType}');
 }
 
 Color? _nearestDecoratedBoxColor(Element element) {

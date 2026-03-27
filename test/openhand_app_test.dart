@@ -293,6 +293,67 @@ void main() {
     expect(keyboardStateRequests, 1);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'OpenHandApp rejects raw key payloads with invalid numeric marker strings',
+    (tester) async {
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      addTearDown(settingsController.dispose);
+      var keyboardStateRequests = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.keyboard,
+        (methodCall) async {
+          if (methodCall.method == 'getKeyboardState') {
+            keyboardStateRequests += 1;
+            return <int, int>{};
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.keyboard,
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider<SettingsController>.value(
+          value: settingsController,
+          child: const OpenHandApp(home: SizedBox.shrink()),
+        ),
+      );
+      await tester.pump();
+
+      final webResponse = await _sendRawKeyMessage(tester, <String, dynamic>{
+        'type': 'keydown',
+        'keymap': 'web',
+        'code': 'Equal',
+        'key': '=',
+        'location': '=',
+        'metaState': '^',
+        'keyCode': '=',
+      });
+      await tester.pump();
+
+      final macosResponse = await _sendRawKeyMessage(tester, <String, dynamic>{
+        'type': 'keydown',
+        'keymap': 'macos',
+        'characters': '=',
+        'charactersIgnoringModifiers': '=',
+        'keyCode': '=',
+        'modifiers': '^',
+      });
+      await tester.pump();
+
+      expect(webResponse, <String, dynamic>{'handled': false});
+      expect(macosResponse, <String, dynamic>{'handled': false});
+      expect(keyboardStateRequests, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 Future<void> _dispatchAppKeyDown(
@@ -363,6 +424,13 @@ Future<void> _dispatchAppKeyUp(
 }
 
 Future<Map<String, dynamic>> _sendRawWebKeyMessage(
+  WidgetTester tester,
+  Map<String, dynamic> message,
+) {
+  return _sendRawKeyMessage(tester, message);
+}
+
+Future<Map<String, dynamic>> _sendRawKeyMessage(
   WidgetTester tester,
   Map<String, dynamic> message,
 ) async {

@@ -62,6 +62,14 @@ const double _autoFollowAnimatedDistanceThreshold = 8;
 const int _slowUiFrameThresholdMs = 24;
 const int _slowUiLogThrottleMs = 800;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
+const int _transcriptInitialWindowSize = 80;
+const int _transcriptWindowIncrement = 80;
+const int _transcriptWindowingThreshold = 120;
+const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 48);
+final RegExp _markdownStructuralPattern = RegExp(
+  r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
+  multiLine: true,
+);
 
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
@@ -87,6 +95,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   bool _queuedForcedScrollToBottom = false;
   bool _scrollToBottomCallbackQueued = false;
   bool _pendingAnimatedScrollToBottom = false;
+  bool _programmaticAutoFollowScrollInProgress = false;
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
   DateTime? _lastSlowUiLogAt;
@@ -96,6 +105,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       <String, _ComposerDraftState>{};
   AiSessionController? _observedSessionController;
   String? _activeComposerSessionId;
+  String? _activeTranscriptSessionId;
+  String? _preparingTranscriptSessionId;
+  int _transcriptPreparationGeneration = 0;
 
   AiSendPhase _displaySendPhaseForSession(
     AiSessionController sessionController,
@@ -147,6 +159,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     _observedSessionController = sessionController;
     _observedSessionController?.addListener(_handleSessionControllerChanged);
     _activeComposerSessionId = sessionController.currentSessionId;
+    _activeTranscriptSessionId = sessionController.currentSessionId;
   }
 
   @override
@@ -187,7 +200,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       final currentSession = _sessionForId(sessionController, sessionId);
       final messageCount = currentSession == null
           ? 0
-          : _displayMessages(currentSession).length;
+          : currentSession.displayMessages.length;
       final activePosition = _activeMessageScrollPosition();
       final distanceToBottom = activePosition == null
           ? 0
@@ -210,7 +223,60 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (!mounted) {
       return;
     }
-    _syncComposerDraftForSession(_observedSessionController?.currentSessionId);
+    final sessionController = _observedSessionController;
+    _syncComposerDraftForSession(sessionController?.currentSessionId);
+    _syncTranscriptPreparation(sessionController?.currentSession);
+  }
+
+  bool _shouldPrepareTranscript(AiSession? session) {
+    return session != null &&
+        session.messages.length >= _transcriptWindowingThreshold;
+  }
+
+  bool _isPreparingTranscriptForSession(AiSession? session) {
+    return session != null && _preparingTranscriptSessionId == session.id;
+  }
+
+  void _syncTranscriptPreparation(AiSession? session) {
+    final nextSessionId = session?.id;
+    if (_activeTranscriptSessionId == nextSessionId) {
+      return;
+    }
+    _activeTranscriptSessionId = nextSessionId;
+    _transcriptPreparationGeneration += 1;
+    final generation = _transcriptPreparationGeneration;
+    if (!_shouldPrepareTranscript(session) || nextSessionId == null) {
+      if (_preparingTranscriptSessionId == null) {
+        return;
+      }
+      setState(() {
+        _preparingTranscriptSessionId = null;
+      });
+      return;
+    }
+    setState(() {
+      _preparingTranscriptSessionId = nextSessionId;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _transcriptPreparationGeneration ||
+          _preparingTranscriptSessionId != nextSessionId) {
+        return;
+      }
+      unawaited(() async {
+        await Future<void>.delayed(_transcriptLoadingPlaceholderDelay);
+        if (!mounted ||
+            generation != _transcriptPreparationGeneration ||
+            _preparingTranscriptSessionId != nextSessionId) {
+          return;
+        }
+        setState(() {
+          if (_preparingTranscriptSessionId == nextSessionId) {
+            _preparingTranscriptSessionId = null;
+          }
+        });
+      }());
+    });
   }
 
   String _composerDraftKeyForSessionId(String? sessionId) {
@@ -377,19 +443,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (!mounted) {
       return false;
     }
+    final explicitUserScroll =
+        (notification is ScrollStartNotification &&
+            notification.dragDetails != null) ||
+        (notification is ScrollUpdateNotification &&
+            notification.dragDetails != null) ||
+        (notification is OverscrollNotification &&
+            notification.dragDetails != null) ||
+        (notification is UserScrollNotification &&
+            notification.direction != ScrollDirection.idle);
+    if (_programmaticAutoFollowScrollInProgress) {
+      if (!explicitUserScroll) {
+        return false;
+      }
+      _programmaticAutoFollowScrollInProgress = false;
+    }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final isNearBottom = distanceToBottom <= _autoFollowDistanceThreshold;
-    final userScrolledAwayFromBottom =
-        !isNearBottom &&
-        ((notification is ScrollStartNotification &&
-                notification.dragDetails != null) ||
-            (notification is ScrollUpdateNotification &&
-                notification.dragDetails != null) ||
-            (notification is OverscrollNotification &&
-                notification.dragDetails != null) ||
-            (notification is UserScrollNotification &&
-                notification.direction != ScrollDirection.idle));
+    final userScrolledAwayFromBottom = !isNearBottom && explicitUserScroll;
     if (userScrolledAwayFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
@@ -614,6 +686,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
       _armAutoFollowToBottom();
     });
+    _scheduleScrollToBottom(force: true, animated: false);
     try {
       runtimeContext ??= await _buildRuntimeContext();
       if (!mounted) {
@@ -952,16 +1025,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
           .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
           .toDouble();
       final distance = (targetOffset - activePosition.pixels).abs();
+      void clearProgrammaticScrollFlag() {
+        _programmaticAutoFollowScrollInProgress = false;
+      }
+
       if (distance >= 1 &&
           shouldAnimate &&
           distance > _autoFollowAnimatedDistanceThreshold) {
-        _messageScrollController.animateTo(
-          targetOffset,
-          duration: _scrollToBottomAnimationDuration(distance),
-          curve: Curves.easeOutCubic,
+        _programmaticAutoFollowScrollInProgress = true;
+        unawaited(
+          _messageScrollController
+              .animateTo(
+                targetOffset,
+                duration: _scrollToBottomAnimationDuration(distance),
+                curve: Curves.easeOutCubic,
+              )
+              .whenComplete(clearProgrammaticScrollFlag),
         );
       } else if (distance >= 1) {
+        _programmaticAutoFollowScrollInProgress = true;
         _messageScrollController.jumpTo(targetOffset);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          clearProgrammaticScrollFlag();
+        });
       }
       if (_pendingScrollToBottomSettlePasses <= 0) {
         return;
@@ -1006,12 +1092,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     _scheduleAutoFollowIfNeeded();
   }
 
+  void _handleRevealOlderMessages() {
+    _shouldAutoFollowMessages = false;
+    _clearPendingAutoFollowState();
+  }
+
   String? _sessionAutoScrollSignature(AiSession? session) {
     final currentSession = session;
     if (currentSession == null) {
       return null;
     }
-    final displayMessages = _displayMessages(currentSession);
+    final displayMessages = currentSession.displayMessages;
     if (displayMessages.isEmpty) {
       return null;
     }
@@ -1472,9 +1563,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
                   }
                   setState(() {
                     _selectedSection = AppSection.workspace;
+                    _clearPendingAutoFollowState();
                     _armAutoFollowToBottom();
                   });
-                  _scheduleScrollToBottom(force: true, animated: true);
+                  _scheduleScrollToBottom(force: true, animated: false);
                 },
                 onRenameSession: _renameSession,
                 onDeleteSession: _deleteSession,
@@ -1518,8 +1610,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.watch<SettingsController>();
     final sessionController = context.watch<AiSessionController>();
-    if (_selectedSection == AppSection.workspace) {
-      _maybeAutoFollowSession(sessionController.currentSession);
+    final currentSession = sessionController.currentSession;
+    final transcriptPreparing = _isPreparingTranscriptForSession(
+      currentSession,
+    );
+    if (_selectedSection == AppSection.workspace && !transcriptPreparing) {
+      _maybeAutoFollowSession(currentSession);
     }
 
     return switch (_selectedSection) {
@@ -1527,7 +1623,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         draftController: _composerController,
         messageScrollController: _messageScrollController,
         onMessageScrollNotification: _handleMessageScrollNotification,
-        currentSession: sessionController.currentSession,
+        currentSession: currentSession,
+        transcriptPreparing: transcriptPreparing,
         selectedModel: settingsController.selectedAiModel,
         availableModels: settingsController.aiModels,
         onModelSelected: (modelId) {
@@ -1547,6 +1644,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         },
         onComposerLayoutChanged: _handleComposerLayoutChanged,
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
+        onRevealOlderMessages: _handleRevealOlderMessages,
         autoFollowEnabled: _autoFollowEnabled,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
@@ -1863,6 +1961,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.messageScrollController,
     required this.onMessageScrollNotification,
     required this.currentSession,
+    required this.transcriptPreparing,
     required this.selectedModel,
     required this.availableModels,
     required this.onModelSelected,
@@ -1872,6 +1971,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onComposerCollapsedChanged,
     required this.onComposerLayoutChanged,
     required this.onTranscriptLayoutChanged,
+    required this.onRevealOlderMessages,
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
@@ -1893,6 +1993,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool Function(ScrollNotification notification)
   onMessageScrollNotification;
   final AiSession? currentSession;
+  final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
   final ValueChanged<String> onModelSelected;
@@ -1902,6 +2003,7 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<bool> onComposerCollapsedChanged;
   final VoidCallback onComposerLayoutChanged;
   final VoidCallback onTranscriptLayoutChanged;
+  final VoidCallback onRevealOlderMessages;
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
@@ -1941,6 +2043,13 @@ class _WorkspaceView extends StatelessWidget {
                       key: ValueKey<String>(currentSession!.id),
                       session: currentSession,
                     )
+                  : transcriptPreparing
+                  ? _SessionTranscriptLoadingPlaceholder(
+                      key: ValueKey<String>(
+                        'session-transcript-loading-${currentSession!.id}',
+                      ),
+                      session: currentSession!,
+                    )
                   : _SessionTranscript(
                       key: ValueKey<String>('messages-${currentSession!.id}'),
                       controller: messageScrollController,
@@ -1948,6 +2057,7 @@ class _WorkspaceView extends StatelessWidget {
                       session: currentSession!,
                       sendPhase: sendPhase,
                       onLayoutChanged: onTranscriptLayoutChanged,
+                      onRevealOlderMessages: onRevealOlderMessages,
                       onEditMessage: onEditMessage,
                       onCopyMessage: onCopyMessage,
                     ),
@@ -2054,6 +2164,178 @@ class _WorkspaceEmptyState extends StatelessWidget {
   }
 }
 
+class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
+  const _SessionTranscriptLoadingPlaceholder({
+    super.key,
+    required this.session,
+  });
+
+  final AiSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mutedTextColor = colorScheme.onSurfaceVariant;
+    final cardColor = colorScheme.surfaceContainerHigh;
+    final accentColor = colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SessionToolbar(session: session),
+        const SizedBox(height: 14),
+        Expanded(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
+                  child: Column(
+                    key: const ValueKey<String>('session-transcript-loading'),
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _localizedText(
+                                context,
+                                zh: '正在载入会话消息...',
+                                en: 'Loading conversation messages...',
+                              ),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '正在准备较长的聊天记录并预热首屏渲染，请稍候。',
+                          en: 'Preparing a longer transcript and warming up the first render.',
+                        ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: mutedTextColor,
+                          height: 1.45,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _TranscriptPlaceholderBubble(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: 0.78,
+                        color: cardColor,
+                      ),
+                      const SizedBox(height: 14),
+                      _TranscriptPlaceholderBubble(
+                        alignment: Alignment.centerRight,
+                        widthFactor: 0.58,
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.82,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _TranscriptPlaceholderBubble(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: 0.86,
+                        color: cardColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TranscriptPlaceholderBubble extends StatelessWidget {
+  const _TranscriptPlaceholderBubble({
+    required this.alignment,
+    required this.widthFactor,
+    required this.color,
+  });
+
+  final Alignment alignment;
+  final double widthFactor;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFactor,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TranscriptPlaceholderLine(widthFactor: 0.88),
+                const SizedBox(height: 10),
+                _TranscriptPlaceholderLine(widthFactor: 0.72),
+                const SizedBox(height: 10),
+                _TranscriptPlaceholderLine(widthFactor: 0.54),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TranscriptPlaceholderLine extends StatelessWidget {
+  const _TranscriptPlaceholderLine({required this.widthFactor});
+
+  final double widthFactor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.08);
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: const SizedBox(height: 12),
+      ),
+    );
+  }
+}
+
 class _SessionTranscript extends StatefulWidget {
   const _SessionTranscript({
     super.key,
@@ -2062,6 +2344,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.session,
     required this.sendPhase,
     required this.onLayoutChanged,
+    required this.onRevealOlderMessages,
     required this.onEditMessage,
     required this.onCopyMessage,
   });
@@ -2071,6 +2354,7 @@ class _SessionTranscript extends StatefulWidget {
   final AiSession session;
   final AiSendPhase sendPhase;
   final VoidCallback onLayoutChanged;
+  final VoidCallback onRevealOlderMessages;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
   final Future<void> Function(AiSessionMessage message) onCopyMessage;
 
@@ -2082,20 +2366,71 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   String? _selectedMessageId;
   String? _visibleErrorId;
   String? _pendingPresentedErrorId;
+  int _windowStartIndex = 0;
+  bool _loadingOlderMessages = false;
 
   @override
   void initState() {
     super.initState();
+    _syncWindowStartIndex(forceReset: true);
     _syncVisibleError();
   }
 
   @override
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.id != widget.session.id) {
+      _syncWindowStartIndex(forceReset: true);
+    } else if (oldWidget.session.messages.length !=
+            widget.session.messages.length ||
+        oldWidget.session.updatedAt != widget.session.updatedAt) {
+      _syncWindowStartIndex();
+    }
     if (oldWidget.session.id != widget.session.id ||
         oldWidget.session.recentErrors != widget.session.recentErrors) {
       _syncVisibleError();
     }
+  }
+
+  void _syncWindowStartIndex({bool forceReset = false}) {
+    final displayMessages = widget.session.displayMessages;
+    final nextWindowStartIndex = forceReset
+        ? _initialWindowStartIndex(displayMessages.length)
+        : _windowStartIndex.clamp(0, displayMessages.length).toInt();
+    if (forceReset) {
+      _loadingOlderMessages = false;
+    }
+    if (nextWindowStartIndex == _windowStartIndex) {
+      return;
+    }
+    _windowStartIndex = nextWindowStartIndex;
+  }
+
+  int _initialWindowStartIndex(int messageCount) {
+    if (messageCount <= _transcriptWindowingThreshold) {
+      return 0;
+    }
+    return math.max(0, messageCount - _transcriptInitialWindowSize);
+  }
+
+  Future<void> _revealOlderMessages(int totalMessageCount) async {
+    if (_windowStartIndex <= 0 || _loadingOlderMessages) {
+      return;
+    }
+    setState(() {
+      _loadingOlderMessages = true;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 16));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _windowStartIndex = math.max(
+        0,
+        _windowStartIndex - _transcriptWindowIncrement,
+      );
+      _loadingOlderMessages = false;
+    });
   }
 
   void _syncVisibleError() {
@@ -2159,7 +2494,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final displayMessagesStopwatch = Stopwatch()..start();
-    final displayMessages = _displayMessages(session);
+    final displayMessages = session.displayMessages;
     displayMessagesStopwatch.stop();
     if (kDebugMode && displayMessagesStopwatch.elapsedMilliseconds >= 8) {
       final lastMessage = displayMessages.isEmpty ? null : displayMessages.last;
@@ -2167,6 +2502,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         '[OpenHand][UI][${session.id}] transcript_messages_slow elapsed_ms=${displayMessagesStopwatch.elapsedMilliseconds} total_messages=${session.messages.length} display_messages=${displayMessages.length} last_kind=${lastMessage?.kind.storageValue ?? 'none'}',
       );
     }
+    final clampedWindowStartIndex = _windowStartIndex
+        .clamp(0, displayMessages.length)
+        .toInt();
+    final hiddenMessageCount = clampedWindowStartIndex;
+    final visibleMessages = displayMessages.sublist(clampedWindowStartIndex);
     final userVisibleError = _resolveUserVisibleError(session);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2183,38 +2523,64 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             child: ListView.separated(
               key: const ValueKey<String>('session-transcript-list'),
               controller: widget.controller,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
-              itemCount: displayMessages.length,
+              itemCount:
+                  visibleMessages.length + (hiddenMessageCount > 0 ? 1 : 0),
               separatorBuilder: (context, index) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
-                final message = displayMessages[index];
-                return _MessageBubble(
-                  key: ValueKey<String>(message.id),
-                  message: message,
-                  sessionTitle: session.title,
-                  sessionEnvironment: session.environment,
-                  showReasoningSweep:
-                      widget.sendPhase == AiSendPhase.responding &&
-                      _isStreamingReasoningMessage(message),
-                  onLayoutChanged: widget.onLayoutChanged,
-                  isSelected: _selectedMessageId == message.id,
-                  onSelect: () {
-                    setState(() {
-                      _selectedMessageId = message.id;
-                    });
-                  },
-                  onDeselect: () {
-                    if (_selectedMessageId != message.id) {
-                      return;
-                    }
-                    setState(() {
-                      _selectedMessageId = null;
-                    });
-                  },
-                  onEdit: message.kind == AiSessionMessageKind.user
-                      ? () => widget.onEditMessage(message)
-                      : null,
-                  onCopy: () => widget.onCopyMessage(message),
+                if (hiddenMessageCount > 0 && index == 0) {
+                  return _TranscriptLoadEarlierButton(
+                    hiddenMessageCount: hiddenMessageCount,
+                    loading: _loadingOlderMessages,
+                    onPressed: () {
+                      widget.onRevealOlderMessages();
+                      unawaited(_revealOlderMessages(displayMessages.length));
+                    },
+                  );
+                }
+                final messageIndex = hiddenMessageCount > 0 ? index - 1 : index;
+                final message = visibleMessages[messageIndex];
+                final isSelected = _selectedMessageId == message.id;
+                final isLastVisibleMessage =
+                    messageIndex == visibleMessages.length - 1;
+                return RepaintBoundary(
+                  child: _MessageBubble(
+                    key: ValueKey<String>(message.id),
+                    message: message,
+                    sessionTitle: session.title,
+                    sessionEnvironment: session.environment,
+                    showReasoningSweep:
+                        widget.sendPhase == AiSendPhase.responding &&
+                        _isStreamingReasoningMessage(message),
+                    trackLayoutChanges: _shouldTrackMessageLayout(
+                      message: message,
+                      sendPhase: widget.sendPhase,
+                      isLastVisibleMessage: isLastVisibleMessage,
+                    ),
+                    onLayoutChanged: widget.onLayoutChanged,
+                    isSelected: isSelected,
+                    onSelect: () {
+                      if (_selectedMessageId == message.id) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedMessageId = message.id;
+                      });
+                    },
+                    onDeselect: () {
+                      if (_selectedMessageId != message.id) {
+                        return;
+                      }
+                      setState(() {
+                        _selectedMessageId = null;
+                      });
+                    },
+                    onEdit: message.kind == AiSessionMessageKind.user
+                        ? () => widget.onEditMessage(message)
+                        : null,
+                    onCopy: () => widget.onCopyMessage(message),
+                  ),
                 );
               },
             ),
@@ -2225,6 +2591,49 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _SessionErrorBanner(error: userVisibleError),
         ],
       ],
+    );
+  }
+}
+
+class _TranscriptLoadEarlierButton extends StatelessWidget {
+  const _TranscriptLoadEarlierButton({
+    required this.hiddenMessageCount,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final int hiddenMessageCount;
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = _localizedText(
+      context,
+      zh: loading ? '加载更早消息中...' : '加载更早消息（$hiddenMessageCount）',
+      en: loading
+          ? 'Loading earlier messages...'
+          : 'Load earlier messages ($hiddenMessageCount)',
+    );
+    return Center(
+      child: OutlinedButton.icon(
+        onPressed: loading ? null : onPressed,
+        icon: loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.history_rounded, size: 18),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
+          side: BorderSide(color: colorScheme.outlineVariant),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
     );
   }
 }
@@ -3343,6 +3752,7 @@ class _MessageBubble extends StatefulWidget {
     required this.sessionTitle,
     required this.sessionEnvironment,
     required this.showReasoningSweep,
+    required this.trackLayoutChanges,
     required this.onLayoutChanged,
     required this.isSelected,
     required this.onSelect,
@@ -3355,6 +3765,7 @@ class _MessageBubble extends StatefulWidget {
   final String sessionTitle;
   final AiSessionEnvironment sessionEnvironment;
   final bool showReasoningSweep;
+  final bool trackLayoutChanges;
   final VoidCallback onLayoutChanged;
   final bool isSelected;
   final VoidCallback onSelect;
@@ -3445,6 +3856,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         theme: theme,
         baseColor: textColor,
         darkSurface: isReasoning || isToolCall,
+        selectable: widget.isSelected,
       ),
       'openhand-file': _FilePathMarkdownBuilder(
         textColor: textColor,
@@ -3455,9 +3867,178 @@ class _MessageBubbleState extends State<_MessageBubble> {
       MessageFilePathSyntax(candidateRoots: filePathRoots),
     ];
 
-    return Listener(
+    final bubbleBody = Column(
+      crossAxisAlignment: isUser
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: borderRadius,
+            border: isToolCall
+                ? Border.all(color: colorScheme.secondary, width: 1.2)
+                : null,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isCompressionPoint)
+                  _MessageMetaRow(
+                    icon: Icons.summarize_rounded,
+                    label: AppLocalizations.of(
+                      context,
+                    )!.threadCompressionCheckpointLabel,
+                    color: textColor,
+                  )
+                else if (isReasoning)
+                  _ReasoningMetaRow(
+                    message: message,
+                    color: textColor,
+                    showSweep: widget.showReasoningSweep,
+                    expanded: reasoningExpanded,
+                    onTap: () {
+                      final nextExpanded = !reasoningExpanded;
+                      setState(() {
+                        _reasoningExpandedOverride = nextExpanded;
+                      });
+                    },
+                  )
+                else if (isToolCall)
+                  _ToolCallMetaRow(
+                    data: _ToolCallStatusViewData.from(context, message),
+                    color: textColor,
+                  )
+                else if (isToolResult)
+                  _MessageMetaRow(
+                    icon: Icons.inventory_2_outlined,
+                    label: _localizedText(
+                      context,
+                      zh: '工具结果',
+                      en: 'Tool Result',
+                    ),
+                    color: textColor,
+                  )
+                else if (message.modelLabel != null)
+                  Text(
+                    message.modelLabel!,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: isUser
+                          ? textColor.withValues(alpha: 0.86)
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                if (isCompressionPoint ||
+                    isReasoning ||
+                    isToolCall ||
+                    isToolResult ||
+                    message.modelLabel != null)
+                  const SizedBox(height: 10),
+                if (isCompressionPoint)
+                  _CompressionCheckpointBody(
+                    content: message.content,
+                    expanded: _compressionExpanded,
+                    onToggle: () {
+                      setState(() {
+                        _compressionExpanded = !_compressionExpanded;
+                      });
+                    },
+                    selectable: widget.isSelected,
+                    textColor: textColor,
+                    fadeColor: backgroundColor,
+                    styleSheet: markdownStyleSheet.styleSheet,
+                    builders: markdownBuilders,
+                    inlineSyntaxes: inlineSyntaxes,
+                    pathRoots: filePathRoots,
+                    parseKey: filePathParseKey,
+                  )
+                else if (isReasoning)
+                  _ReasoningBody(
+                    content: message.content,
+                    expanded: reasoningExpanded,
+                    streaming: isStreamingReasoning,
+                    selectable: widget.isSelected,
+                    textColor: textColor,
+                    fadeColor: backgroundColor,
+                    styleSheet: markdownStyleSheet.styleSheet,
+                    builders: markdownBuilders,
+                    inlineSyntaxes: inlineSyntaxes,
+                    pathRoots: filePathRoots,
+                    parseKey: filePathParseKey,
+                  )
+                else if (isToolCall)
+                  _ToolCallBody(message: message, selectable: widget.isSelected)
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (attachments.isNotEmpty) ...[
+                        _MessageAttachmentSummaryBlock(
+                          attachments: attachments,
+                          textColor: textColor,
+                          backgroundColor: backgroundColor,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      _SafeMarkdownBody(
+                        data: message.content.isEmpty ? ' ' : message.content,
+                        selectable: widget.isSelected,
+                        builders: markdownBuilders,
+                        styleSheet: markdownStyleSheet.styleSheet,
+                        inlineSyntaxes: inlineSyntaxes,
+                        pathRoots: filePathRoots,
+                        parseKey: filePathParseKey,
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 10),
+                Text(
+                  _formatDateTime(message.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: textColor.withValues(alpha: 0.78),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (widget.isSelected)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                _MessageActionButton(
+                  onPressed: widget.onCopy,
+                  icon: Icons.content_copy_outlined,
+                  label: _localizedText(context, zh: '复制', en: 'Copy'),
+                ),
+                if (widget.onEdit != null)
+                  _MessageActionButton(
+                    onPressed: widget.onEdit,
+                    icon: Icons.edit_outlined,
+                    label: AppLocalizations.of(context)!.commonEdit,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+    final messageContent = widget.trackLayoutChanges
+        ? NotificationListener<SizeChangedLayoutNotification>(
+            onNotification: (notification) {
+              widget.onLayoutChanged();
+              return false;
+            },
+            child: SizeChangedLayoutNotifier(child: bubbleBody),
+          )
+        : bubbleBody;
+
+    return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => widget.onSelect(),
+      onTap: widget.onSelect,
       child: TapRegion(
         enabled: widget.isSelected,
         onTapOutside: (_) => widget.onDeselect(),
@@ -3465,184 +4046,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
           alignment: alignment,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 760),
-            child: NotificationListener<SizeChangedLayoutNotification>(
-              onNotification: (notification) {
-                widget.onLayoutChanged();
-                return false;
-              },
-              child: SizeChangedLayoutNotifier(
-                child: Column(
-                  crossAxisAlignment: isUser
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: backgroundColor,
-                        borderRadius: borderRadius,
-                        border: isToolCall
-                            ? Border.all(
-                                color: colorScheme.secondary,
-                                width: 1.2,
-                              )
-                            : null,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (isCompressionPoint)
-                              _MessageMetaRow(
-                                icon: Icons.summarize_rounded,
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.threadCompressionCheckpointLabel,
-                                color: textColor,
-                              )
-                            else if (isReasoning)
-                              _ReasoningMetaRow(
-                                message: message,
-                                color: textColor,
-                                showSweep: widget.showReasoningSweep,
-                                expanded: reasoningExpanded,
-                                onTap: () {
-                                  final nextExpanded = !reasoningExpanded;
-                                  setState(() {
-                                    _reasoningExpandedOverride = nextExpanded;
-                                  });
-                                },
-                              )
-                            else if (isToolCall)
-                              _ToolCallMetaRow(
-                                data: _ToolCallStatusViewData.from(
-                                  context,
-                                  message,
-                                ),
-                                color: textColor,
-                              )
-                            else if (isToolResult)
-                              _MessageMetaRow(
-                                icon: Icons.inventory_2_outlined,
-                                label: _localizedText(
-                                  context,
-                                  zh: '工具结果',
-                                  en: 'Tool Result',
-                                ),
-                                color: textColor,
-                              )
-                            else if (message.modelLabel != null)
-                              Text(
-                                message.modelLabel!,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: isUser
-                                      ? textColor.withValues(alpha: 0.86)
-                                      : colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            if (isCompressionPoint ||
-                                isReasoning ||
-                                isToolCall ||
-                                isToolResult ||
-                                message.modelLabel != null)
-                              const SizedBox(height: 10),
-                            if (isCompressionPoint)
-                              _CompressionCheckpointBody(
-                                content: message.content,
-                                expanded: _compressionExpanded,
-                                onToggle: () {
-                                  setState(() {
-                                    _compressionExpanded =
-                                        !_compressionExpanded;
-                                  });
-                                },
-                                textColor: textColor,
-                                fadeColor: backgroundColor,
-                                styleSheet: markdownStyleSheet.styleSheet,
-                                builders: markdownBuilders,
-                                inlineSyntaxes: inlineSyntaxes,
-                                pathRoots: filePathRoots,
-                                parseKey: filePathParseKey,
-                              )
-                            else if (isReasoning)
-                              _ReasoningBody(
-                                content: message.content,
-                                expanded: reasoningExpanded,
-                                streaming: isStreamingReasoning,
-                                textColor: textColor,
-                                fadeColor: backgroundColor,
-                                styleSheet: markdownStyleSheet.styleSheet,
-                                builders: markdownBuilders,
-                                inlineSyntaxes: inlineSyntaxes,
-                                pathRoots: filePathRoots,
-                                parseKey: filePathParseKey,
-                              )
-                            else if (isToolCall)
-                              _ToolCallBody(message: message)
-                            else
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (attachments.isNotEmpty) ...[
-                                    _MessageAttachmentSummaryBlock(
-                                      attachments: attachments,
-                                      textColor: textColor,
-                                      backgroundColor: backgroundColor,
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                  _SafeMarkdownBody(
-                                    data: message.content.isEmpty
-                                        ? ' '
-                                        : message.content,
-                                    selectable: true,
-                                    builders: markdownBuilders,
-                                    styleSheet: markdownStyleSheet.styleSheet,
-                                    inlineSyntaxes: inlineSyntaxes,
-                                    pathRoots: filePathRoots,
-                                    parseKey: filePathParseKey,
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _formatDateTime(message.createdAt),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: textColor.withValues(alpha: 0.78),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (widget.isSelected)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Wrap(
-                          spacing: 8,
-                          children: [
-                            _MessageActionButton(
-                              onPressed: widget.onCopy,
-                              icon: Icons.content_copy_outlined,
-                              label: _localizedText(
-                                context,
-                                zh: '复制',
-                                en: 'Copy',
-                              ),
-                            ),
-                            if (widget.onEdit != null)
-                              _MessageActionButton(
-                                onPressed: widget.onEdit,
-                                icon: Icons.edit_outlined,
-                                label: AppLocalizations.of(context)!.commonEdit,
-                              ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+            child: messageContent,
           ),
         ),
       ),
@@ -3748,6 +4152,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
     required this.content,
     required this.expanded,
     required this.onToggle,
+    required this.selectable,
     required this.textColor,
     required this.fadeColor,
     required this.styleSheet,
@@ -3760,6 +4165,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
   final String content;
   final bool expanded;
   final VoidCallback onToggle;
+  final bool selectable;
   final Color textColor;
   final Color fadeColor;
   final MarkdownStyleSheet styleSheet;
@@ -3821,7 +4227,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                           key: const ValueKey<String>('compression-expanded'),
                           child: _SafeMarkdownBody(
                             data: content.isEmpty ? ' ' : content,
-                            selectable: true,
+                            selectable: selectable,
                             builders: builders,
                             styleSheet: styleSheet,
                             inlineSyntaxes: inlineSyntaxes,
@@ -3857,6 +4263,7 @@ class _ReasoningBody extends StatelessWidget {
     required this.content,
     required this.expanded,
     required this.streaming,
+    required this.selectable,
     required this.textColor,
     required this.fadeColor,
     required this.styleSheet,
@@ -3869,6 +4276,7 @@ class _ReasoningBody extends StatelessWidget {
   final String content;
   final bool expanded;
   final bool streaming;
+  final bool selectable;
   final Color textColor;
   final Color fadeColor;
   final MarkdownStyleSheet styleSheet;
@@ -3885,6 +4293,7 @@ class _ReasoningBody extends StatelessWidget {
         expanded: expanded,
         textStyle: styleSheet.p?.copyWith(color: textColor),
         fadeColor: fadeColor,
+        selectable: selectable,
         styleSheet: styleSheet,
         builders: builders,
         inlineSyntaxes: inlineSyntaxes,
@@ -3902,7 +4311,7 @@ class _ReasoningBody extends StatelessWidget {
                 key: const ValueKey<String>('reasoning-expanded'),
                 child: _SafeMarkdownBody(
                   data: content.isEmpty ? ' ' : content,
-                  selectable: true,
+                  selectable: selectable,
                   builders: builders,
                   styleSheet: styleSheet,
                   inlineSyntaxes: inlineSyntaxes,
@@ -3932,6 +4341,7 @@ class _StreamingReasoningBody extends StatelessWidget {
   const _StreamingReasoningBody({
     required this.content,
     required this.expanded,
+    required this.selectable,
     required this.textStyle,
     required this.fadeColor,
     required this.styleSheet,
@@ -3943,6 +4353,7 @@ class _StreamingReasoningBody extends StatelessWidget {
 
   final String content;
   final bool expanded;
+  final bool selectable;
   final TextStyle? textStyle;
   final Color fadeColor;
   final MarkdownStyleSheet styleSheet;
@@ -3968,7 +4379,7 @@ class _StreamingReasoningBody extends StatelessWidget {
                       ),
                       child: _SafeMarkdownBody(
                         data: effectiveContent,
-                        selectable: true,
+                        selectable: selectable,
                         builders: builders,
                         styleSheet: styleSheet,
                         inlineSyntaxes: inlineSyntaxes,
@@ -3992,7 +4403,9 @@ class _StreamingReasoningBody extends StatelessWidget {
                       ),
                     )
             : expanded
-            ? SelectableText(effectiveContent, style: textStyle)
+            ? selectable
+                  ? SelectableText(effectiveContent, style: textStyle)
+                  : Text(effectiveContent, style: textStyle)
             : Stack(
                 children: [
                   Text(
@@ -4374,12 +4787,23 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
+    final normalizedSource = _sanitizeMarkdownSource(
+      widget.data.isEmpty ? ' ' : widget.data,
+    );
     _lastThemeSignature = _computeThemeSignature();
     _lastData = widget.data;
     _lastSelectable = widget.selectable;
     _lastBuilderSignature = _builderSignature();
     _lastParseKey = widget.parseKey;
     _disposeRecognizers();
+    if (_canRenderMarkdownAsPlainText(widget.data)) {
+      _children = <Widget>[
+        widget.selectable
+            ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
+            : Text(normalizedSource, style: effectiveStyleSheet.p),
+      ];
+      return;
+    }
     try {
       final document = md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -4387,9 +4811,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         encodeHtml: false,
       );
       final astNodes = document.parseLines(
-        const LineSplitter().convert(
-          _sanitizeMarkdownSource(widget.data.isEmpty ? ' ' : widget.data),
-        ),
+        const LineSplitter().convert(normalizedSource),
       );
       _sanitizeMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
@@ -4411,7 +4833,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       _children = builder.build(astNodes);
     } catch (_) {
       _children = <Widget>[
-        SelectableText(widget.data, style: effectiveStyleSheet.p),
+        widget.selectable
+            ? SelectableText(widget.data, style: effectiveStyleSheet.p)
+            : Text(widget.data, style: effectiveStyleSheet.p),
       ];
     }
   }
@@ -4537,9 +4961,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 }
 
 class _ToolCallBody extends StatefulWidget {
-  const _ToolCallBody({required this.message});
+  const _ToolCallBody({required this.message, required this.selectable});
 
   final AiSessionMessage message;
+  final bool selectable;
 
   @override
   State<_ToolCallBody> createState() => _ToolCallBodyState();
@@ -4631,6 +5056,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   label: _localizedText(context, zh: 'command', en: 'command'),
                   content: toolCall.formattedCommand,
                   theme: theme,
+                  selectable: widget.selectable,
                 ),
               if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
               _ToolOutputPanel(
@@ -4641,6 +5067,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                 ),
                 content: toolCall.formattedArguments,
                 theme: theme,
+                selectable: widget.selectable,
               ),
             ],
           ),
@@ -4665,6 +5092,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   label: 'stdout',
                   content: toolCall.formattedStdout,
                   theme: theme,
+                  selectable: widget.selectable,
                 ),
               if (toolCall.stderr.isNotEmpty) ...[
                 if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
@@ -4673,6 +5101,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   content: toolCall.formattedStderr,
                   theme: theme,
                   isError: true,
+                  selectable: widget.selectable,
                 ),
               ],
               if (toolCall.showResultText) ...[
@@ -4682,6 +5111,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   label: _localizedText(context, zh: 'result', en: 'result'),
                   content: toolCall.formattedResult,
                   theme: theme,
+                  selectable: widget.selectable,
                 ),
               ],
               if (toolCall.stdout.isEmpty &&
@@ -4823,12 +5253,14 @@ class _ToolOutputPanel extends StatelessWidget {
     required this.label,
     required this.content,
     required this.theme,
+    required this.selectable,
     this.isError = false,
   });
 
   final String label;
   final _FormattedToolContent content;
   final ThemeData theme;
+  final bool selectable;
   final bool isError;
 
   @override
@@ -4850,6 +5282,7 @@ class _ToolOutputPanel extends StatelessWidget {
           content: content.text,
           theme: theme,
           language: content.language,
+          selectable: selectable,
           baseColor: isError
               ? theme.colorScheme.onErrorContainer
               : theme.colorScheme.onSurface,
@@ -5096,6 +5529,26 @@ String _toolExecutionResult(AiSessionMessage message) =>
 bool _isStreamingReasoningMessage(AiSessionMessage message) {
   return message.kind == AiSessionMessageKind.reasoning &&
       message.metadata[aiSessionMessageMetadataStreamingKey] == true;
+}
+
+bool _shouldTrackMessageLayout({
+  required AiSessionMessage message,
+  required AiSendPhase sendPhase,
+  required bool isLastVisibleMessage,
+}) {
+  if (_isStreamingReasoningMessage(message)) {
+    return true;
+  }
+  if (message.kind == AiSessionMessageKind.toolCall) {
+    final status = _toolExecutionStatus(message);
+    if (status.isEmpty || status == 'running') {
+      return true;
+    }
+  }
+  if (sendPhase != AiSendPhase.idle && isLastVisibleMessage) {
+    return true;
+  }
+  return false;
 }
 
 bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
@@ -6766,13 +7219,16 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
     required ThemeData theme,
     required Color baseColor,
     required bool darkSurface,
+    required bool selectable,
   }) : _theme = theme,
        _baseColor = baseColor,
-       _darkSurface = darkSurface;
+       _darkSurface = darkSurface,
+       _selectable = selectable;
 
   final ThemeData _theme;
   final Color _baseColor;
   final bool _darkSurface;
+  final bool _selectable;
 
   @override
   bool isBlockElement() => true;
@@ -6793,6 +7249,7 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
       content: content,
       theme: _theme,
       language: language,
+      selectable: _selectable,
       baseColor: _baseColor,
       forceDarkSurface: _darkSurface,
       allowAutoDetection: true,
@@ -6814,6 +7271,7 @@ class _HighlightedCodePanel extends StatefulWidget {
     required this.content,
     required this.theme,
     required this.baseColor,
+    required this.selectable,
     this.language,
     this.forceDarkSurface = false,
     this.accentColor,
@@ -6824,6 +7282,7 @@ class _HighlightedCodePanel extends StatefulWidget {
   final ThemeData theme;
   final String? language;
   final Color baseColor;
+  final bool selectable;
   final bool forceDarkSurface;
   final Color? accentColor;
   final bool allowAutoDetection;
@@ -6849,6 +7308,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.content != widget.content ||
         oldWidget.language != widget.language ||
+        oldWidget.selectable != widget.selectable ||
         oldWidget.baseColor != widget.baseColor ||
         oldWidget.forceDarkSurface != widget.forceDarkSurface ||
         oldWidget.allowAutoDetection != widget.allowAutoDetection ||
@@ -6952,9 +7412,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                 padding: const EdgeInsets.all(14),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: SelectableText.rich(
-                    _highlightedSpan ?? const TextSpan(),
-                  ),
+                  child: widget.selectable
+                      ? SelectableText.rich(
+                          _highlightedSpan ?? const TextSpan(),
+                        )
+                      : RichText(text: _highlightedSpan ?? const TextSpan()),
                 ),
               ),
             ),
@@ -7203,6 +7665,20 @@ class _CodeBlockPalette {
 
 bool _containsMarkdownCodeFence(String source) {
   return RegExp(r'(^|\n)[ ]{0,3}(`{3,}|~{3,})').hasMatch(source);
+}
+
+bool _canRenderMarkdownAsPlainText(String source) {
+  final normalized = source.trim();
+  if (normalized.isEmpty) {
+    return true;
+  }
+  if (_containsMarkdownCodeFence(normalized)) {
+    return false;
+  }
+  if (normalized.contains('/') || normalized.contains('\\')) {
+    return false;
+  }
+  return !_markdownStructuralPattern.hasMatch(normalized);
 }
 
 String _closeUnterminatedFencedCodeBlock(String source) {
@@ -7619,23 +8095,7 @@ String _formatDateTime(DateTime value) {
 }
 
 List<AiSessionMessage> _displayMessages(AiSession session) {
-  final visibleMessages = session.visibleMessages;
-  final toolCallIds = visibleMessages
-      .where((message) => message.kind == AiSessionMessageKind.toolCall)
-      .map((message) => '${message.metadata['tool_call_id'] ?? ''}'.trim())
-      .where((value) => value.isNotEmpty)
-      .toSet();
-  return visibleMessages
-      .where((message) {
-        if (message.kind != AiSessionMessageKind.tool &&
-            message.kind != AiSessionMessageKind.mcp &&
-            message.kind != AiSessionMessageKind.skill) {
-          return true;
-        }
-        final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
-        return toolCallId.isEmpty || !toolCallIds.contains(toolCallId);
-      })
-      .toList(growable: false);
+  return session.displayMessages;
 }
 
 String _localizedText(
