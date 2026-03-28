@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/url_validation.dart';
 import '../../mcp/model/mcp_server.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../mcp/service/mcp_tool_discovery_service.dart';
@@ -156,6 +157,7 @@ class AiToolRuntimeService {
   static const int _maxReadBytes = _maxFileCharacters * 4;
   static const int _maxSearchOutputCharacters = 24000;
   static const int _maxWebContentCharacters = 20000;
+  static const int _maxWebFetchResponseBytes = 1024 * 1024;
   static const int _maxReadLineLength = 2000;
   static const int _defaultReadLimit = 2000;
   static const int _maxToolNameLength = 64;
@@ -520,6 +522,7 @@ class AiToolRuntimeService {
           decodedArguments,
           model,
           startedAt,
+          cancelSignal: cancelSignal,
         ),
         AiBuiltinToolKind.todoWrite => _executeTodoWriteTool(
           decodedArguments,
@@ -529,6 +532,8 @@ class AiToolRuntimeService {
           decodedArguments,
           model,
           startedAt,
+          onBashUpdate: onBashUpdate,
+          cancelSignal: cancelSignal,
         ),
       };
     } catch (error) {
@@ -896,11 +901,24 @@ class AiToolRuntimeService {
       );
     }
     for (var round = 0; round < 6; round++) {
-      final completion = await _backgroundChatClient.sendMessage(
-        model: model,
-        messages: turns,
-        tools: subagentCatalog.definitions,
+      final completion = await _awaitWithCancellation<AiChatCompletion>(
+        _backgroundChatClient.sendMessage(
+          model: model,
+          messages: turns,
+          tools: subagentCatalog.definitions,
+        ),
+        cancelSignal: cancelSignal,
       );
+      if (completion == null) {
+        return _cancelledToolResult(
+          command: 'Task $description',
+          durationMs: startedAt.elapsedMilliseconds,
+          metadata: <String, Object?>{
+            'subagent_type': canonicalSubagentType,
+            'subagent_session_isolated': true,
+          },
+        );
+      }
       final reply = completion.reply.trim();
       if (completion.toolCalls.isEmpty) {
         final output = reply.isEmpty
@@ -1190,7 +1208,9 @@ class AiToolRuntimeService {
         matches.add(filePath);
       }
     } else {
-      await for (final entity in Directory(rootPath).list(recursive: true)) {
+      await for (final entity in Directory(
+        rootPath,
+      ).list(recursive: true, followLinks: false)) {
         final normalizedPath = p.normalize(entity.path);
         final relativePath = p
             .relative(normalizedPath, from: rootPath)
@@ -1608,8 +1628,9 @@ class AiToolRuntimeService {
   Future<AiToolExecutionResult> _executeWebFetchTool(
     Map<String, Object?> arguments,
     AiModelConfig model,
-    Stopwatch startedAt,
-  ) async {
+    Stopwatch startedAt, {
+    Future<void>? cancelSignal,
+  }) async {
     final rawUrl = '${arguments['url'] ?? ''}'.trim();
     final prompt = '${arguments['prompt'] ?? ''}'.trim();
     if (rawUrl.isEmpty || prompt.isEmpty) {
@@ -1618,11 +1639,17 @@ class AiToolRuntimeService {
         'WebFetch requires url and prompt.',
       );
     }
-    final uri = _normalizeWebFetchUri(Uri.tryParse(rawUrl));
+    final uri = tryParseValidHttpUrl(rawUrl);
     if (uri == null) {
       return _invalidToolResult('WebFetch', 'Invalid URL: $rawUrl');
     }
-    final fetchResult = await _fetchWebContent(uri);
+    final fetchResult = await _fetchWebContent(uri, cancelSignal: cancelSignal);
+    if (fetchResult.cancelled) {
+      return _cancelledToolResult(
+        command: 'WebFetch $rawUrl',
+        durationMs: startedAt.elapsedMilliseconds,
+      );
+    }
     if (fetchResult.crossHostRedirectUrl != null) {
       final redirectUrl = fetchResult.crossHostRedirectUrl!;
       return _simpleSuccessResult(
@@ -1654,21 +1681,30 @@ class AiToolRuntimeService {
       _htmlToText(contentType.contains('html') ? body : body),
       _maxWebContentCharacters,
     );
-    final completion = await _backgroundChatClient.sendMessage(
-      model: model,
-      messages: <AiChatTurn>[
-        const AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              'Answer the prompt using only the fetched page content. If the page content is insufficient, say so briefly.',
-        ),
-        AiChatTurn(
-          role: AiChatRole.user,
-          content:
-              'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n$normalizedContent',
-        ),
-      ],
+    final completion = await _awaitWithCancellation<AiChatCompletion>(
+      _backgroundChatClient.sendMessage(
+        model: model,
+        messages: <AiChatTurn>[
+          const AiChatTurn(
+            role: AiChatRole.system,
+            content:
+                'Answer the prompt using only the fetched page content. If the page content is insufficient, say so briefly.',
+          ),
+          AiChatTurn(
+            role: AiChatRole.user,
+            content:
+                'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n$normalizedContent',
+          ),
+        ],
+      ),
+      cancelSignal: cancelSignal,
     );
+    if (completion == null) {
+      return _cancelledToolResult(
+        command: 'WebFetch $rawUrl',
+        durationMs: startedAt.elapsedMilliseconds,
+      );
+    }
     final output = completion.reply.trim().isEmpty
         ? normalizedContent
         : completion.reply.trim();
@@ -1774,8 +1810,10 @@ class AiToolRuntimeService {
   Future<AiToolExecutionResult> _executeWebSearchTool(
     Map<String, Object?> arguments,
     AiModelConfig model,
-    Stopwatch startedAt,
-  ) async {
+    Stopwatch startedAt, {
+    void Function(BashToolExecutionUpdate update)? onBashUpdate,
+    Future<void>? cancelSignal,
+  }) async {
     final query = '${arguments['query'] ?? ''}'.trim();
     if (query.length < 2) {
       return _invalidToolResult(
@@ -1785,12 +1823,115 @@ class AiToolRuntimeService {
     }
     final allowedDomains = _normalizeStringList(arguments['allowed_domains']);
     final blockedDomains = _normalizeStringList(arguments['blocked_domains']);
+    final command = 'WebSearch $query';
+    final workingDirectory = _defaultWorkingDirectory();
+    final progressBuffer = StringBuffer()..writeln('query: $query');
+    if (allowedDomains.isNotEmpty) {
+      progressBuffer.writeln('allowed_domains: ${allowedDomains.join(', ')}');
+    }
+    if (blockedDomains.isNotEmpty) {
+      progressBuffer.writeln('blocked_domains: ${blockedDomains.join(', ')}');
+    }
+
+    void emitProgress({
+      required String stage,
+      required String detail,
+      List<_WebSearchResult> previewResults = const <_WebSearchResult>[],
+    }) {
+      if (progressBuffer.isNotEmpty) {
+        progressBuffer.writeln();
+      }
+      progressBuffer.writeln('stage: $stage');
+      if (previewResults.isNotEmpty) {
+        progressBuffer.writeln(
+          'results_preview_count: ${previewResults.length.clamp(0, 3)}',
+        );
+        for (final result in previewResults.take(3)) {
+          final title = _truncateContent(
+            result.title.replaceAll(RegExp(r'\s+'), ' ').trim(),
+            120,
+          );
+          final url = _truncateContent(result.url.trim(), 160);
+          progressBuffer.writeln('- $title');
+          progressBuffer.writeln('  $url');
+        }
+      }
+      progressBuffer.write('detail: $detail');
+      onBashUpdate?.call(
+        BashToolExecutionUpdate(
+          phase: BashToolExecutionPhase.running,
+          command: command,
+          workingDirectory: workingDirectory,
+          stdout: progressBuffer.toString().trimRight(),
+          stderr: '',
+          durationMs: startedAt.elapsedMilliseconds,
+        ),
+      );
+    }
+
+    Map<String, Object?> webSearchMetadata({int? resultCount}) {
+      final metadata = <String, Object?>{
+        'websearch_query': query,
+        'websearch_allowed_domains': allowedDomains,
+        'websearch_blocked_domains': blockedDomains,
+      };
+      if (resultCount != null) {
+        metadata['websearch_result_count'] = resultCount;
+      }
+      return metadata;
+    }
+
+    AiToolExecutionResult timedOutResult(String message) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.timedOut,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progressBuffer.toString().trimRight(),
+        stderr: message,
+        durationMs: startedAt.elapsedMilliseconds,
+        resultText: 'status: timed_out\nerror: $message',
+        metadata: webSearchMetadata(),
+      );
+    }
+
+    AiToolExecutionResult failedResult(String message) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progressBuffer.toString().trimRight(),
+        stderr: message,
+        durationMs: startedAt.elapsedMilliseconds,
+        resultText: 'status: failed\nerror: $message',
+        metadata: webSearchMetadata(),
+      );
+    }
+
+    emitProgress(
+      stage: 'searching',
+      detail: 'Requesting DuckDuckGo HTML search results.',
+    );
     final uri = Uri.https('duckduckgo.com', '/html/', <String, String>{
       'q': query,
     });
-    final response = await _httpClient
-        .get(uri)
-        .timeout(const Duration(seconds: 20));
+    late final http.Response response;
+    try {
+      response = await _httpClient
+          .get(uri)
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      return timedOutResult(
+        'WebSearch timed out while retrieving search results.',
+      );
+    } catch (error) {
+      final errorMessage = '$error';
+      if (_looksLikeTimeoutMessage(errorMessage)) {
+        return timedOutResult(
+          'WebSearch timed out while retrieving search results.',
+        );
+      }
+      return failedResult(errorMessage);
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errorDetails = _truncateContent(
         _htmlToText(response.body).trim(),
@@ -1799,17 +1940,14 @@ class AiToolRuntimeService {
       final message = errorDetails.isEmpty
           ? 'WebSearch failed with HTTP ${response.statusCode}.'
           : 'WebSearch failed with HTTP ${response.statusCode}: $errorDetails';
-      return AiToolExecutionResult(
-        status: BashToolExecutionStatus.failed,
-        command: 'WebSearch $query',
-        workingDirectory: _defaultWorkingDirectory(),
-        stdout: '',
-        stderr: message,
-        durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: $message',
-      );
+      return failedResult(message);
     }
     final html = response.body;
+    if (response.statusCode == 202 || _looksLikeDuckDuckGoChallengePage(html)) {
+      return failedResult(
+        'WebSearch could not retrieve results because DuckDuckGo returned an anti-bot challenge page.',
+      );
+    }
     final results = _parseDuckDuckGoResults(html)
         .where((item) {
           final host = Uri.tryParse(item.url)?.host.toLowerCase() ?? '';
@@ -1829,36 +1967,98 @@ class AiToolRuntimeService {
         .take(8)
         .toList(growable: false);
     if (results.isEmpty) {
-      return _simpleSuccessResult(
-        command: 'WebSearch $query',
-        output: 'No search results found.',
+      emitProgress(
+        stage: 'completed',
+        detail: 'No search results matched the current filters.',
+      );
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.success,
+        command: command,
+        workingDirectory: workingDirectory,
+        stdout: progressBuffer.toString().trimRight(),
+        stderr: '',
         durationMs: startedAt.elapsedMilliseconds,
+        resultText: 'No search results found.',
+        metadata: webSearchMetadata(resultCount: 0),
       );
     }
+    emitProgress(
+      stage: 'summarizing',
+      detail: 'Summarizing the retrieved search results.',
+      previewResults: results,
+    );
     final rawResults = results
         .map((item) => '- ${item.title}\n  ${item.url}\n  ${item.snippet}')
         .join('\n');
-    final completion = await _backgroundChatClient.sendMessage(
-      model: model,
-      messages: <AiChatTurn>[
-        const AiChatTurn(
-          role: AiChatRole.system,
-          content:
-              'Summarize the search results faithfully. Do not invent results that were not provided.',
+    late final AiChatCompletion completion;
+    try {
+      final maybeCompletion = await _awaitWithCancellation<AiChatCompletion>(
+        _backgroundChatClient.sendMessage(
+          model: model,
+          messages: <AiChatTurn>[
+            const AiChatTurn(
+              role: AiChatRole.system,
+              content:
+                  'Summarize the search results faithfully. Do not invent results that were not provided.',
+            ),
+            AiChatTurn(
+              role: AiChatRole.user,
+              content: 'Query: $query\n\nResults:\n$rawResults',
+            ),
+          ],
         ),
-        AiChatTurn(
-          role: AiChatRole.user,
-          content: 'Query: $query\n\nResults:\n$rawResults',
-        ),
-      ],
-    );
+        cancelSignal: cancelSignal,
+      );
+      if (maybeCompletion == null) {
+        return _cancelledToolResult(
+          command: command,
+          durationMs: startedAt.elapsedMilliseconds,
+          metadata: webSearchMetadata(resultCount: results.length),
+        );
+      }
+      completion = maybeCompletion;
+    } on TimeoutException {
+      return timedOutResult(
+        'WebSearch timed out while summarizing the retrieved results.',
+      );
+    } on AiChatException catch (error) {
+      final errorMessage = error.message.trim();
+      if (_looksLikeTimeoutMessage(errorMessage)) {
+        return timedOutResult(
+          'WebSearch timed out while summarizing the retrieved results.',
+        );
+      }
+      return failedResult(
+        'WebSearch failed while summarizing the retrieved results: $errorMessage',
+      );
+    } catch (error) {
+      final errorMessage = '$error';
+      if (_looksLikeTimeoutMessage(errorMessage)) {
+        return timedOutResult(
+          'WebSearch timed out while summarizing the retrieved results.',
+        );
+      }
+      return failedResult(
+        'WebSearch failed while summarizing the retrieved results: $errorMessage',
+      );
+    }
     final output = completion.reply.trim().isEmpty
         ? rawResults
         : completion.reply.trim();
-    return _simpleSuccessResult(
-      command: 'WebSearch $query',
-      output: output,
+    emitProgress(
+      stage: 'completed',
+      detail: 'Search summary is ready.',
+      previewResults: results,
+    );
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.success,
+      command: command,
+      workingDirectory: workingDirectory,
+      stdout: progressBuffer.toString().trimRight(),
+      stderr: '',
       durationMs: startedAt.elapsedMilliseconds,
+      resultText: output,
+      metadata: webSearchMetadata(resultCount: results.length),
     );
   }
 
@@ -2217,6 +2417,11 @@ class AiToolRuntimeService {
     return p.normalize(p.join(_defaultWorkingDirectory(), normalizedInput));
   }
 
+  bool _looksLikeTimeoutMessage(String message) {
+    final normalized = message.trim().toLowerCase();
+    return normalized.contains('timed out') || normalized.contains('timeout');
+  }
+
   String? _requireAbsoluteFilePath(String rawPath) {
     final normalizedInput = rawPath.trim();
     if (normalizedInput.isEmpty || !p.isAbsolute(normalizedInput)) {
@@ -2248,22 +2453,10 @@ class AiToolRuntimeService {
     return builder.takeBytes();
   }
 
-  Uri? _normalizeWebFetchUri(Uri? uri) {
-    if (uri == null || !uri.hasScheme || uri.host.trim().isEmpty) {
-      return null;
-    }
-    final normalizedScheme = uri.scheme.toLowerCase();
-    if (normalizedScheme != 'http' && normalizedScheme != 'https') {
-      return null;
-    }
-    if (normalizedScheme == 'http') {
-      final upgradePort = uri.hasPort && uri.port != 80 ? uri.port : 443;
-      return uri.replace(scheme: 'https', port: upgradePort);
-    }
-    return uri;
-  }
-
-  Future<_WebFetchContentResult> _fetchWebContent(Uri initialUri) async {
+  Future<_WebFetchContentResult> _fetchWebContent(
+    Uri initialUri, {
+    Future<void>? cancelSignal,
+  }) async {
     _pruneExpiredWebFetchCache();
     final cached = _webFetchCache[initialUri.toString()];
     if (cached != null && !_isWebFetchCacheExpired(cached)) {
@@ -2291,11 +2484,17 @@ class AiToolRuntimeService {
       final request = http.Request('GET', currentUri)
         ..followRedirects = false
         ..maxRedirects = 0;
-      late final http.Response response;
+      late final http.StreamedResponse response;
       try {
-        response = await http.Response.fromStream(
-          await _httpClient.send(request).timeout(const Duration(seconds: 20)),
-        );
+        final maybeResponse =
+            await _awaitWithCancellation<http.StreamedResponse>(
+              _httpClient.send(request).timeout(const Duration(seconds: 20)),
+              cancelSignal: cancelSignal,
+            );
+        if (maybeResponse == null) {
+          return const _WebFetchContentResult(cancelled: true);
+        }
+        response = maybeResponse;
       } on TimeoutException {
         return const _WebFetchContentResult(
           errorMessage: 'WebFetch timed out while retrieving the URL.',
@@ -2312,7 +2511,7 @@ class AiToolRuntimeService {
                 'Received redirect response without a location header from $currentUri.',
           );
         }
-        final nextUri = _normalizeWebFetchUri(currentUri.resolve(location));
+        final nextUri = normalizeValidHttpUri(currentUri.resolve(location));
         if (nextUri == null) {
           return _WebFetchContentResult(
             errorMessage: 'Invalid redirect target: $location',
@@ -2333,8 +2532,37 @@ class AiToolRuntimeService {
               'WebFetch failed with HTTP ${response.statusCode} for $currentUri.',
         );
       }
+      if (response.contentLength != null &&
+          response.contentLength! > _maxWebFetchResponseBytes) {
+        unawaited(response.stream.drain<void>().catchError((Object _) {}));
+        return _WebFetchContentResult(
+          errorMessage:
+              'WebFetch refused to download the response because it exceeded the $_maxWebFetchResponseBytes-byte safety limit.',
+        );
+      }
+      final bodyReadResult = await _readWebFetchBody(
+        response,
+        cancelSignal: cancelSignal,
+      );
+      if (bodyReadResult.cancelled) {
+        return const _WebFetchContentResult(cancelled: true);
+      }
+      if (bodyReadResult.errorMessage != null) {
+        return _WebFetchContentResult(
+          errorMessage: bodyReadResult.errorMessage,
+        );
+      }
+      final resolvedResponse = http.Response.bytes(
+        bodyReadResult.bytes!,
+        response.statusCode,
+        headers: response.headers,
+        request: response.request,
+        isRedirect: response.isRedirect,
+        persistentConnection: response.persistentConnection,
+        reasonPhrase: response.reasonPhrase,
+      );
       final cachedContent = _CachedWebFetchContent(
-        body: response.body,
+        body: resolvedResponse.body,
         contentType: (response.headers['content-type'] ?? '').trim(),
         finalUrl: currentUri.toString(),
         fetchedAt: DateTime.now().toUtc(),
@@ -2351,6 +2579,62 @@ class AiToolRuntimeService {
     return const _WebFetchContentResult(
       errorMessage: 'WebFetch exceeded the maximum redirect limit.',
     );
+  }
+
+  Future<_WebFetchBodyReadResult> _readWebFetchBody(
+    http.StreamedResponse response, {
+    Future<void>? cancelSignal,
+  }) async {
+    final completer = Completer<_WebFetchBodyReadResult>();
+    final buffer = BytesBuilder(copy: false);
+    StreamSubscription<List<int>>? subscription;
+
+    void complete(_WebFetchBodyReadResult result) {
+      if (completer.isCompleted) {
+        return;
+      }
+      final activeSubscription = subscription;
+      if (activeSubscription != null) {
+        unawaited(
+          activeSubscription.cancel().catchError(
+            (Object error, StackTrace stackTrace) {},
+          ),
+        );
+      }
+      completer.complete(result);
+    }
+
+    cancelSignal?.then((_) {
+      complete(const _WebFetchBodyReadResult(cancelled: true));
+    });
+
+    subscription = response.stream.listen(
+      (chunk) {
+        final nextLength = buffer.length + chunk.length;
+        if (nextLength > _maxWebFetchResponseBytes) {
+          complete(
+            _WebFetchBodyReadResult(
+              errorMessage:
+                  'WebFetch refused to download the response because it exceeded the $_maxWebFetchResponseBytes-byte safety limit.',
+            ),
+          );
+          return;
+        }
+        buffer.add(chunk);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        complete(_WebFetchBodyReadResult(errorMessage: '$error'));
+      },
+      onDone: () {
+        if (completer.isCompleted) {
+          return;
+        }
+        completer.complete(_WebFetchBodyReadResult(bytes: buffer.takeBytes()));
+      },
+      cancelOnError: true,
+    );
+
+    return completer.future;
   }
 
   bool _isRedirectStatusCode(int statusCode) {
@@ -2725,6 +3009,47 @@ class AiToolRuntimeService {
     );
   }
 
+  AiToolExecutionResult _cancelledToolResult({
+    required String command,
+    required int durationMs,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    const detail = 'The tool execution was cancelled by the user.';
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.cancelled,
+      command: command,
+      workingDirectory: _defaultWorkingDirectory(),
+      stdout: '',
+      stderr: detail,
+      durationMs: durationMs,
+      resultText: 'status: cancelled\ndetail: $detail',
+      metadata: metadata,
+    );
+  }
+
+  Future<T?> _awaitWithCancellation<T>(
+    Future<T> future, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (cancelSignal == null) {
+      return future;
+    }
+    final firstResult = await Future.any(<Future<Object?>>[
+      future,
+      cancelSignal.then<Object?>((_) => _toolExecutionCancelledSentinel),
+    ]);
+    if (identical(firstResult, _toolExecutionCancelledSentinel)) {
+      unawaited(
+        future.then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stackTrace) {},
+        ),
+      );
+      return null;
+    }
+    return firstResult as T;
+  }
+
   AiToolExecutionResult _invalidToolResult(String command, String message) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.invalidArguments,
@@ -2795,7 +3120,7 @@ class AiToolRuntimeService {
     ).allMatches(html);
     final results = <_WebSearchResult>[];
     for (final match in matches) {
-      final url = _htmlToText(match.group(1) ?? '');
+      final url = _resolveDuckDuckGoResultUrl(match.group(1) ?? '');
       final title = _htmlToText(match.group(2) ?? '');
       final snippet = _htmlToText(match.group(3) ?? '');
       if (url.isEmpty || title.isEmpty) {
@@ -2804,6 +3129,44 @@ class AiToolRuntimeService {
       results.add(_WebSearchResult(title: title, url: url, snippet: snippet));
     }
     return results;
+  }
+
+  String _resolveDuckDuckGoResultUrl(String rawUrl) {
+    final normalizedUrl = _htmlToText(rawUrl).trim();
+    if (normalizedUrl.isEmpty) {
+      return '';
+    }
+    final resolvedUrl = normalizedUrl.startsWith('//')
+        ? 'https:$normalizedUrl'
+        : normalizedUrl;
+    final parsedUri = Uri.tryParse(resolvedUrl);
+    if (parsedUri == null) {
+      return resolvedUrl;
+    }
+    final isDuckDuckGoRedirect =
+        (parsedUri.host == 'duckduckgo.com' ||
+            parsedUri.host == 'www.duckduckgo.com') &&
+        parsedUri.path.startsWith('/l/');
+    if (!isDuckDuckGoRedirect) {
+      return parsedUri.toString();
+    }
+    final redirectTarget = parsedUri.queryParameters['uddg']?.trim() ?? '';
+    if (redirectTarget.isEmpty) {
+      return parsedUri.toString();
+    }
+    final normalizedRedirectTarget = redirectTarget.startsWith('//')
+        ? 'https:$redirectTarget'
+        : redirectTarget;
+    final unwrappedUri = Uri.tryParse(normalizedRedirectTarget);
+    return unwrappedUri?.toString() ?? normalizedRedirectTarget;
+  }
+
+  bool _looksLikeDuckDuckGoChallengePage(String html) {
+    final normalized = html.toLowerCase();
+    return normalized.contains('challenge-form') ||
+        normalized.contains('anomaly.js') ||
+        normalized.contains('bot challenge') ||
+        normalized.contains('unusual traffic');
   }
 
   void dispose() {
@@ -3117,6 +3480,8 @@ class AiToolRuntimeService {
   }
 }
 
+const Object _toolExecutionCancelledSentinel = Object();
+
 class _ReplacementResult {
   const _ReplacementResult._({
     required this.success,
@@ -3185,6 +3550,7 @@ class _WebFetchContentResult {
     this.crossHostRedirectUrl,
     this.errorMessage,
     this.fromCache = false,
+    this.cancelled = false,
   });
 
   final String? body;
@@ -3193,4 +3559,17 @@ class _WebFetchContentResult {
   final String? crossHostRedirectUrl;
   final String? errorMessage;
   final bool fromCache;
+  final bool cancelled;
+}
+
+class _WebFetchBodyReadResult {
+  const _WebFetchBodyReadResult({
+    this.bytes,
+    this.errorMessage,
+    this.cancelled = false,
+  });
+
+  final Uint8List? bytes;
+  final String? errorMessage;
+  final bool cancelled;
 }

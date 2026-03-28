@@ -32,6 +32,16 @@ typedef WriteCommandConfirmationCallback =
 
 enum AiSendPhase { idle, compressing, sendingMessage, responding }
 
+class _CompressionWindowSelection {
+  const _CompressionWindowSelection({
+    required this.messagesToCompress,
+    required this.discardedMessages,
+  });
+
+  final List<AiSessionMessage> messagesToCompress;
+  final List<AiSessionMessage> discardedMessages;
+}
+
 class AiSessionController extends ChangeNotifier {
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _autoTitleSystemPrompt =
@@ -70,6 +80,9 @@ class AiSessionController extends ChangeNotifier {
     'task',
     'issue',
   };
+  static const int _estimatedCharactersPerToken = 4;
+  static const String _emptyPlanContinuationReplyError =
+      'The assistant returned an empty follow-up response after tool execution.';
 
   AiSessionController._({
     required AiSessionStore store,
@@ -148,6 +161,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   static const int _maxRecentErrors = 20;
+  static const int _maxPlanHistoryEntries = 20;
   static const int _fallbackTitleMaxCharacters = 20;
   static const int _generatedTitleMaxCharacters = 20;
   static const int _minimumMeaningfulTitleCharacters = 4;
@@ -477,7 +491,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<bool> updateSessionMode(String sessionId, AiSessionMode mode) async {
-    return _enqueueOperation(() async {
+    return _enqueueSessionOperation(sessionId, () async {
       final session = _sessionById(sessionId);
       if (session == null) {
         return false;
@@ -485,8 +499,12 @@ class AiSessionController extends ChangeNotifier {
       if (session.mode == mode) {
         return true;
       }
+      final clearedSession =
+          session.mode == AiSessionMode.plan && mode != AiSessionMode.plan
+          ? _clearActivePlanState(session)
+          : session;
       final updatedSession = _rebuildSession(
-        session.copyWith(mode: mode, updatedAt: _clock().toUtc()),
+        clearedSession.copyWith(mode: mode, updatedAt: _clock().toUtc()),
       );
       return _commitSessionLocked(updatedSession);
     });
@@ -497,7 +515,7 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedTitle.isEmpty) {
       return false;
     }
-    return _enqueueOperation(() async {
+    return _enqueueSessionOperation(sessionId, () async {
       final session = _sessionById(sessionId);
       if (session == null) {
         return false;
@@ -604,11 +622,15 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedMessageIds.isEmpty) {
       return false;
     }
-    return _enqueueOperation(() async {
-      final normalizedSessionId = sessionId?.trim() ?? '';
-      final session = normalizedSessionId.isEmpty
-          ? currentSession
-          : _sessionById(normalizedSessionId);
+    final normalizedSessionId = sessionId?.trim() ?? '';
+    final resolvedSessionId = normalizedSessionId.isEmpty
+        ? _currentSessionId
+        : normalizedSessionId;
+    if (resolvedSessionId == null || resolvedSessionId.isEmpty) {
+      return false;
+    }
+    return _enqueueSessionOperation(resolvedSessionId, () async {
+      final session = _sessionById(resolvedSessionId);
       if (session == null) {
         return false;
       }
@@ -624,11 +646,15 @@ class AiSessionController extends ChangeNotifier {
     if (normalizedMessageId.isEmpty) {
       return false;
     }
-    return _enqueueOperation(() async {
-      final normalizedSessionId = sessionId?.trim() ?? '';
-      final session = normalizedSessionId.isEmpty
-          ? currentSession
-          : _sessionById(normalizedSessionId);
+    final normalizedSessionId = sessionId?.trim() ?? '';
+    final resolvedSessionId = normalizedSessionId.isEmpty
+        ? _currentSessionId
+        : normalizedSessionId;
+    if (resolvedSessionId == null || resolvedSessionId.isEmpty) {
+      return false;
+    }
+    return _enqueueSessionOperation(resolvedSessionId, () async {
+      final session = _sessionById(resolvedSessionId);
       if (session == null) {
         return false;
       }
@@ -905,7 +931,7 @@ class AiSessionController extends ChangeNotifier {
     required String sessionId,
     required String errorId,
   }) async {
-    return _enqueueOperation(() async {
+    return _enqueueSessionOperation(sessionId, () async {
       final session = _sessionById(sessionId);
       if (session == null) {
         return false;
@@ -1069,6 +1095,13 @@ class AiSessionController extends ChangeNotifier {
               messages: <AiSessionMessage>[...session.messages, statusMessage],
             ),
           );
+          session = _syncPlanHistory(
+            session,
+            statusOverride:
+                _deriveTrackedPlanStatus(session) ??
+                AiSessionPlanStatus.inProgress,
+            trackedAt: statusMessage.createdAt,
+          );
           final approvedCommitted = await _commitSessionLocked(session);
           if (!approvedCommitted) {
             _setLastSendErrorMessage(
@@ -1081,6 +1114,7 @@ class AiSessionController extends ChangeNotifier {
         final shouldCompress = _shouldCompressSessionHistory(
           session,
           runtimeContext,
+          model,
         );
         if (shouldCompress) {
           _setSessionSendPhase(session.id, AiSendPhase.compressing);
@@ -1863,7 +1897,51 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
 
+      if (_shouldFailEmptyPlanContinuationReply(
+        session: workingSession,
+        toolRoundCount: toolRoundCount,
+        finalReply: _sanitizeVisibleModelContent(result.reply),
+        hasToolCalls: result.toolCalls.isNotEmpty,
+      )) {
+        _debugSessionLog(
+          workingSession.id,
+          'stream_empty_plan_continuation_reply round=${toolRoundCount + 1}',
+        );
+        await _emitStopFailureHook(
+          sessionId: workingSession.id,
+          stage: 'chat_continuation_request',
+          detail: _emptyPlanContinuationReplyError,
+        );
+        final failedSession = _appendError(
+          workingSession,
+          stage: 'chat_continuation_request',
+          message: _emptyPlanContinuationReplyError,
+          detail: _emptyPlanContinuationReplyError,
+        );
+        await _commitSessionLocked(_rebuildSession(failedSession));
+        _setLastSendErrorMessage(
+          workingSession.id,
+          _emptyPlanContinuationReplyError,
+        );
+        notifyListeners();
+        return false;
+      }
+
       if (result.toolCalls.isEmpty) {
+        final settledPlanSession = _archiveCompletedPlanStateIfNeeded(
+          workingSession,
+        );
+        if (!identical(settledPlanSession, workingSession)) {
+          final committed = await _commitSessionLocked(settledPlanSession);
+          if (!committed) {
+            _setLastSendErrorMessage(
+              workingSession.id,
+              'Failed to persist the completed plan state.',
+            );
+            return false;
+          }
+          workingSession = settledPlanSession;
+        }
         _debugSessionLog(
           workingSession.id,
           'assistant_waiting_for_user reason=${workingSession.awaitingPlanApproval ? 'plan_approval' : 'completed'}',
@@ -2390,13 +2468,31 @@ class AiSessionController extends ChangeNotifier {
     final command =
         '${decodedArguments['cmd'] ?? decodedArguments['command'] ?? ''}'
             .trim();
-    return command.isEmpty ? toolCall.name : command;
+    if (command.isNotEmpty) {
+      return command;
+    }
+    final normalizedToolName = toolCall.name.trim().toLowerCase();
+    if (normalizedToolName == 'websearch') {
+      final query = '${decodedArguments['query'] ?? ''}'.trim();
+      if (query.isNotEmpty) {
+        return 'WebSearch $query';
+      }
+    }
+    return toolCall.name;
   }
 
   String _toolCallWorkingDirectory(AiToolCall toolCall) {
     final decodedArguments = _decodeToolArguments(toolCall.arguments);
-    return '${decodedArguments['working_directory'] ?? decodedArguments['cwd'] ?? ''}'
-        .trim();
+    final workingDirectory =
+        '${decodedArguments['working_directory'] ?? decodedArguments['cwd'] ?? ''}'
+            .trim();
+    if (workingDirectory.isNotEmpty) {
+      return workingDirectory;
+    }
+    if (toolCall.name.trim().toLowerCase() == 'websearch') {
+      return OpenHandPaths.applicationDirectoryPath();
+    }
+    return '';
   }
 
   bool _shouldExecuteToolCallsInParallel({
@@ -2430,8 +2526,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.grep:
       case AiBuiltinToolKind.webFetch:
       case AiBuiltinToolKind.webSearch:
-      case AiBuiltinToolKind.task:
         return true;
+      case AiBuiltinToolKind.task:
+        return false;
       case AiBuiltinToolKind.bash:
         return !_bashToolService
             .analyzeWriteCommand(_toolCallCommand(toolCall))
@@ -2964,7 +3061,8 @@ class AiSessionController extends ChangeNotifier {
       return baseCatalog;
     }
     final allowExitPlanMode =
-        !recoveryInspectionRequired && session.todoItems.isNotEmpty;
+        !recoveryInspectionRequired &&
+        _hasIncompleteTodoItems(session.todoItems);
     final filteredEntries = baseCatalog.toolsByName.entries
         .where(
           (entry) => _isAllowedPlanModePlanningTool(
@@ -3038,6 +3136,26 @@ class AiSessionController extends ChangeNotifier {
         _hasRecentPlanToolFailure(session);
   }
 
+  bool _shouldFailEmptyPlanContinuationReply({
+    required AiSession session,
+    required int toolRoundCount,
+    required String finalReply,
+    required bool hasToolCalls,
+  }) {
+    if (toolRoundCount == 0 ||
+        hasToolCalls ||
+        finalReply.isNotEmpty ||
+        session.mode != AiSessionMode.plan ||
+        session.awaitingPlanApproval) {
+      return false;
+    }
+    if (session.todoItems.isNotEmpty) {
+      return _hasIncompleteTodoItems(session.todoItems);
+    }
+    return session.latestActivePlanRecord?.status ==
+        AiSessionPlanStatus.inProgress;
+  }
+
   bool _shouldResetPlanStateForNewTask({
     required AiSession session,
     required String latestUserContent,
@@ -3067,8 +3185,34 @@ class AiSessionController extends ChangeNotifier {
         (session.pendingPlan ?? '').trim().isEmpty) {
       return session;
     }
-    return session.copyWith(
-      updatedAt: _clock().toUtc(),
+    final clearedAt = _clock().toUtc();
+    final archivedSession = _syncPlanHistory(
+      session,
+      statusOverride: _statusAfterClearingActivePlan(session),
+      trackedAt: clearedAt,
+    );
+    return archivedSession.copyWith(
+      updatedAt: clearedAt,
+      todoItems: const <AiSessionTodoItem>[],
+      awaitingPlanApproval: false,
+      clearPendingPlan: true,
+    );
+  }
+
+  AiSession _archiveCompletedPlanStateIfNeeded(AiSession session) {
+    if (session.mode != AiSessionMode.plan ||
+        session.awaitingPlanApproval ||
+        !_hasCompletedTodoItemsOnly(session.todoItems)) {
+      return session;
+    }
+    final archivedAt = _clock().toUtc();
+    final trackedSession = _syncPlanHistory(
+      session,
+      statusOverride: AiSessionPlanStatus.completed,
+      trackedAt: archivedAt,
+    );
+    return trackedSession.copyWith(
+      updatedAt: archivedAt,
       todoItems: const <AiSessionTodoItem>[],
       awaitingPlanApproval: false,
       clearPendingPlan: true,
@@ -3108,6 +3252,262 @@ class AiSessionController extends ChangeNotifier {
       final status = item.status.trim().toLowerCase();
       return status == 'failed' || status == 'blocked' || status == 'cancelled';
     });
+  }
+
+  AiSessionPlanStatus _statusAfterClearingActivePlan(AiSession session) {
+    final derivedStatus = _deriveTrackedPlanStatus(session);
+    if (derivedStatus == AiSessionPlanStatus.completed ||
+        derivedStatus == AiSessionPlanStatus.failed) {
+      return derivedStatus!;
+    }
+    return AiSessionPlanStatus.cancelled;
+  }
+
+  AiSessionPlanStatus? _deriveTrackedPlanStatus(AiSession session) {
+    final pendingPlan = (session.pendingPlan ?? '').trim();
+    if (session.awaitingPlanApproval ||
+        (pendingPlan.isNotEmpty && session.todoItems.isEmpty)) {
+      return AiSessionPlanStatus.pendingApproval;
+    }
+    if (session.todoItems.isEmpty) {
+      return null;
+    }
+    if (_shouldReflectTrackedPlanFailure(session)) {
+      return AiSessionPlanStatus.failed;
+    }
+    if (_hasIncompleteTodoItems(session.todoItems)) {
+      return AiSessionPlanStatus.inProgress;
+    }
+    return AiSessionPlanStatus.completed;
+  }
+
+  bool _shouldReflectTrackedPlanFailure(AiSession session) {
+    if (session.awaitingPlanApproval) {
+      return false;
+    }
+    final sendPhase = sendPhaseForSession(session.id);
+    final latestRecoveryMessage = _latestTrackedPlanRecoveryMessage(session);
+    final latestErrorFailureAt = _latestTrackedPlanErrorFailureAt(session);
+    if (_shouldReflectTrackedPlanFailureAfter(
+      latestErrorFailureAt,
+      latestRecoveryMessage,
+    )) {
+      return true;
+    }
+    if (sendPhase != AiSendPhase.idle) {
+      return false;
+    }
+    if (_hasFailedTodoItems(session.todoItems)) {
+      return true;
+    }
+    return _shouldReflectTrackedPlanFailureAfter(
+      _latestTrackedPlanToolFailureAt(session),
+      latestRecoveryMessage,
+    );
+  }
+
+  bool _shouldReflectTrackedPlanFailureAfter(
+    DateTime? latestFailureAt,
+    AiSessionMessage? latestRecoveryMessage,
+  ) {
+    if (latestFailureAt == null) {
+      return false;
+    }
+    if (latestRecoveryMessage == null) {
+      return true;
+    }
+    return !latestRecoveryMessage.createdAt.isAfter(latestFailureAt);
+  }
+
+  DateTime? _latestTrackedPlanToolFailureAt(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      final status = '${message.metadata['tool_execution_status'] ?? ''}'
+          .trim()
+          .toLowerCase();
+      if (status.isEmpty || status == 'running') {
+        continue;
+      }
+      if (!_isFailureTrackedPlanToolStatus(status)) {
+        return null;
+      }
+      final finishedAt =
+          '${message.metadata['tool_execution_finished_at'] ?? ''}'.trim();
+      if (finishedAt.isNotEmpty) {
+        try {
+          return DateTime.parse(finishedAt).toUtc();
+        } catch (_) {}
+      }
+      return message.createdAt;
+    }
+    return null;
+  }
+
+  DateTime? _latestTrackedPlanErrorFailureAt(AiSession session) {
+    for (final error in session.recentErrors) {
+      if (_isTrackedPlanRelevantErrorStage(error.stage)) {
+        return error.createdAt;
+      }
+    }
+    return null;
+  }
+
+  bool _isFailureTrackedPlanToolStatus(String status) {
+    return switch (status) {
+      'failed' ||
+      'cancelled' ||
+      'denied' ||
+      'rejected' ||
+      'timed_out' ||
+      'invalid_arguments' => true,
+      _ => false,
+    };
+  }
+
+  bool _isTrackedPlanRelevantErrorStage(String stage) {
+    return switch (stage.trim().toLowerCase()) {
+      'chat_request' ||
+      'chat_continuation_request' ||
+      'chat_stream' ||
+      'follow_up_request' ||
+      'tool_execution' ||
+      'tool_loop' => true,
+      _ => false,
+    };
+  }
+
+  AiSessionMessage? _latestTrackedPlanRecoveryMessage(AiSession session) {
+    final latestUserMessage = _latestTrackedPlanUserMessage(session);
+    if (latestUserMessage == null) {
+      return null;
+    }
+    return _looksLikePlanRecoveryContinuation(latestUserMessage.content)
+        ? latestUserMessage
+        : null;
+  }
+
+  AiSessionMessage? _latestTrackedPlanUserMessage(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  AiSession _syncPlanHistory(
+    AiSession session, {
+    AiSessionPlanStatus? statusOverride,
+    DateTime? trackedAt,
+  }) {
+    final effectiveStatus = statusOverride ?? _deriveTrackedPlanStatus(session);
+    if (effectiveStatus == null) {
+      return session;
+    }
+    final normalizedPlan = (session.pendingPlan ?? '').trim();
+    final nextSteps = session.todoItems.isEmpty
+        ? null
+        : session.todoItems
+              .map(
+                (item) => AiSessionTodoItem(
+                  id: item.id,
+                  content: item.content,
+                  status: item.status,
+                ),
+              )
+              .toList(growable: false);
+    final planHistory = List<AiSessionPlanRecord>.from(session.planHistory);
+    final trackedIndex = _trackedPlanRecordIndex(
+      planHistory,
+      normalizedPlan: normalizedPlan,
+      nextSteps: nextSteps,
+    );
+    final effectiveTrackedAt = trackedAt ?? session.updatedAt;
+    if (trackedIndex >= 0) {
+      final existingRecord = planHistory[trackedIndex];
+      planHistory[trackedIndex] = existingRecord.copyWith(
+        updatedAt: effectiveTrackedAt,
+        status: effectiveStatus,
+        plan: normalizedPlan.isNotEmpty ? normalizedPlan : existingRecord.plan,
+        steps: nextSteps ?? existingRecord.steps,
+      );
+    } else {
+      planHistory.add(
+        AiSessionPlanRecord(
+          id: _idGenerator(),
+          createdAt: effectiveTrackedAt,
+          updatedAt: effectiveTrackedAt,
+          status: effectiveStatus,
+          plan: normalizedPlan,
+          steps: nextSteps ?? const <AiSessionTodoItem>[],
+        ),
+      );
+    }
+    final trimmedHistory = planHistory.length > _maxPlanHistoryEntries
+        ? planHistory
+              .sublist(planHistory.length - _maxPlanHistoryEntries)
+              .toList(growable: false)
+        : planHistory;
+    return session.copyWith(planHistory: trimmedHistory);
+  }
+
+  int _trackedPlanRecordIndex(
+    List<AiSessionPlanRecord> planHistory, {
+    required String normalizedPlan,
+    required List<AiSessionTodoItem>? nextSteps,
+  }) {
+    for (var index = planHistory.length - 1; index >= 0; index -= 1) {
+      final planRecord = planHistory[index];
+      if (!planRecord.status.isActive) {
+        continue;
+      }
+      if (planRecord.status == AiSessionPlanStatus.failed &&
+          !_matchesTrackedPlanRecord(
+            planRecord,
+            normalizedPlan: normalizedPlan,
+            nextSteps: nextSteps,
+          )) {
+        break;
+      }
+      return index;
+    }
+    if (planHistory.isNotEmpty &&
+        _matchesTrackedPlanRecord(
+          planHistory.last,
+          normalizedPlan: normalizedPlan,
+          nextSteps: nextSteps,
+        )) {
+      return planHistory.length - 1;
+    }
+    return -1;
+  }
+
+  bool _matchesTrackedPlanRecord(
+    AiSessionPlanRecord planRecord, {
+    required String normalizedPlan,
+    required List<AiSessionTodoItem>? nextSteps,
+  }) {
+    if (normalizedPlan.isNotEmpty && normalizedPlan == planRecord.plan.trim()) {
+      return true;
+    }
+    if (nextSteps == null ||
+        nextSteps.isEmpty ||
+        planRecord.steps.length != nextSteps.length) {
+      return false;
+    }
+    for (var index = 0; index < nextSteps.length; index += 1) {
+      final currentStep = nextSteps[index];
+      final recordedStep = planRecord.steps[index];
+      if (currentStep.id != recordedStep.id ||
+          currentStep.content.trim() != recordedStep.content.trim()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _hasRecentPlanToolFailure(AiSession session) {
@@ -3224,7 +3624,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
   }) async {
-    if (!_shouldCompressSessionHistory(session, runtimeContext)) {
+    if (!_shouldCompressSessionHistory(session, runtimeContext, model)) {
       return session;
     }
     final activeConversationMessages = session.activeConversationMessages
@@ -3232,7 +3632,10 @@ class AiSessionController extends ChangeNotifier {
           (message) => message.kind != AiSessionMessageKind.compressionPoint,
         )
         .toList(growable: false);
-    final threshold = runtimeContext.compressionThresholdChars;
+    final threshold = _effectiveCompressionThresholdChars(
+      runtimeContext: runtimeContext,
+      model: model,
+    );
 
     final retainedMessages = <AiSessionMessage>[];
     var retainedCharacterCount = 0;
@@ -3257,13 +3660,32 @@ class AiSessionController extends ChangeNotifier {
       return session;
     }
 
-    final messagesToCompress = activeConversationMessages
+    final candidateMessagesToCompress = activeConversationMessages
         .take(compressedMessageCount)
         .toList(growable: false);
     final previousCompressionPoint = session.latestCompressionPoint;
     final templateBundle = await _templateRepository.loadBundle(
       session.templateId,
     );
+    final template = _templateRepository.resolveTemplate(session.templateId);
+    final compressionWindow = _selectCompressionWindowForModelContext(
+      templateBundle: templateBundle,
+      template: template,
+      session: session,
+      runtimeContext: runtimeContext,
+      model: model,
+      candidateMessages: candidateMessagesToCompress,
+      previousCompressionPoint: previousCompressionPoint,
+    );
+    final messagesToCompress = compressionWindow.messagesToCompress;
+    if (messagesToCompress.isEmpty) {
+      _debugSessionLog(
+        session.id,
+        'compression_window_empty candidate_count=${candidateMessagesToCompress.length} max_context_tokens=${model.maxContextTokens ?? 0}',
+      );
+      return session;
+    }
+    final discardedMessages = compressionWindow.discardedMessages;
     try {
       await _emitCompactHooks(
         sessionId: session.id,
@@ -3271,11 +3693,13 @@ class AiSessionController extends ChangeNotifier {
         trigger: 'auto',
         payload: <String, Object?>{
           'messages_to_compress_count': messagesToCompress.length,
+          'discarded_message_count_due_to_context_limit':
+              discardedMessages.length,
         },
       );
       final compressionPrompt = _promptBuilder.buildCompressionPrompt(
         templateBundle: templateBundle,
-        template: _templateRepository.resolveTemplate(session.templateId),
+        template: template,
         session: session,
         runtimeContext: runtimeContext,
         messagesToCompress: messagesToCompress,
@@ -3309,12 +3733,18 @@ class AiSessionController extends ChangeNotifier {
               .toList(growable: false),
           'previous_checkpoint_message_id': previousCompressionPoint?.id,
           'trigger_threshold_chars': threshold,
+          'discarded_message_ids_due_to_context_limit': discardedMessages
+              .map((message) => message.id)
+              .toList(growable: false),
+          'discarded_message_count_due_to_context_limit':
+              discardedMessages.length,
           'source_character_count': sourceCharacterCount,
           'retained_message_ids_after_checkpoint': retainedMessages
               .map((message) => message.id)
               .toList(growable: false),
           'summary_model_id': model.id,
           'summary_model_label': model.displayName,
+          'summary_model_max_context_tokens': model.maxContextTokens,
         },
       );
       final anchorMessageId = messagesToCompress.last.id;
@@ -3365,6 +3795,8 @@ class AiSessionController extends ChangeNotifier {
           payload: <String, Object?>{
             'checkpoint_message_id': checkpoint.id,
             'messages_to_compress_count': messagesToCompress.length,
+            'discarded_message_count_due_to_context_limit':
+                discardedMessages.length,
           },
         );
       }
@@ -4187,9 +4619,12 @@ class AiSessionController extends ChangeNotifier {
       errorRecord,
       ...session.recentErrors,
     ].take(_maxRecentErrors).toList(growable: false);
-    return session.copyWith(
-      recentErrors: nextErrors,
-      updatedAt: errorRecord.createdAt,
+    return _syncPlanHistory(
+      session.copyWith(
+        recentErrors: nextErrors,
+        updatedAt: errorRecord.createdAt,
+      ),
+      trackedAt: errorRecord.createdAt,
     );
   }
 
@@ -4240,22 +4675,25 @@ class AiSessionController extends ChangeNotifier {
   }) {
     final effectiveUsage =
         totalUsage ?? _usageFromStatistics(session.statistics);
-    return session.copyWith(
+    final trackedSession = _syncPlanHistory(session);
+    return trackedSession.copyWith(
       statistics: AiSessionStatistics.fromMessages(
-        session.messages,
+        trackedSession.messages,
         totalPromptCharacters:
-            totalPromptCharacters ?? session.statistics.totalPromptCharacters,
+            totalPromptCharacters ??
+            trackedSession.statistics.totalPromptCharacters,
         promptBuildCount:
-            promptBuildCount ?? session.statistics.promptBuildCount,
+            promptBuildCount ?? trackedSession.statistics.promptBuildCount,
         compressionRunCount:
-            compressionRunCount ?? session.statistics.compressionRunCount,
+            compressionRunCount ??
+            trackedSession.statistics.compressionRunCount,
         totalUsage: effectiveUsage,
         lastPromptSystemMessageCount:
             lastPromptSystemMessageCount ??
-            session.statistics.lastPromptSystemMessageCount,
+            trackedSession.statistics.lastPromptSystemMessageCount,
         lastPromptHistoryMessageCount:
             lastPromptHistoryMessageCount ??
-            session.statistics.lastPromptHistoryMessageCount,
+            trackedSession.statistics.lastPromptHistoryMessageCount,
       ),
     );
   }
@@ -4501,8 +4939,12 @@ class AiSessionController extends ChangeNotifier {
   bool _shouldCompressSessionHistory(
     AiSession session,
     AiSessionRuntimeContext runtimeContext,
+    AiModelConfig model,
   ) {
-    final threshold = runtimeContext.compressionThresholdChars;
+    final threshold = _effectiveCompressionThresholdChars(
+      runtimeContext: runtimeContext,
+      model: model,
+    );
     if (threshold <= 0) {
       return false;
     }
@@ -4519,6 +4961,132 @@ class AiSessionController extends ChangeNotifier {
       (sum, message) => sum + message.characterCount,
     );
     return totalCharacters > threshold;
+  }
+
+  int _effectiveCompressionThresholdChars({
+    required AiSessionRuntimeContext runtimeContext,
+    required AiModelConfig model,
+  }) {
+    final configuredThreshold = runtimeContext.compressionThresholdChars;
+    final modelCharacterBudget = _estimatedCharacterBudgetForModel(model);
+    if (modelCharacterBudget == null) {
+      return configuredThreshold;
+    }
+    return math.min(configuredThreshold, modelCharacterBudget);
+  }
+
+  int? _estimatedCharacterBudgetForModel(AiModelConfig model) {
+    final maxContextTokens = model.maxContextTokens;
+    if (maxContextTokens == null || maxContextTokens <= 0) {
+      return null;
+    }
+    return maxContextTokens * _estimatedCharactersPerToken;
+  }
+
+  _CompressionWindowSelection _selectCompressionWindowForModelContext({
+    required AiPromptTemplateBundle templateBundle,
+    required AiThreadTemplate template,
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiModelConfig model,
+    required List<AiSessionMessage> candidateMessages,
+    required AiSessionMessage? previousCompressionPoint,
+  }) {
+    final maxContextTokens = model.maxContextTokens;
+    if (candidateMessages.isEmpty ||
+        maxContextTokens == null ||
+        maxContextTokens <= 0) {
+      return _CompressionWindowSelection(
+        messagesToCompress: candidateMessages,
+        discardedMessages: const <AiSessionMessage>[],
+      );
+    }
+    if (_compressionPromptFitsModelContext(
+      templateBundle: templateBundle,
+      template: template,
+      session: session,
+      runtimeContext: runtimeContext,
+      maxContextTokens: maxContextTokens,
+      messagesToCompress: candidateMessages,
+      previousCompressionPoint: previousCompressionPoint,
+    )) {
+      return _CompressionWindowSelection(
+        messagesToCompress: candidateMessages,
+        discardedMessages: const <AiSessionMessage>[],
+      );
+    }
+
+    var left = 0;
+    var right = candidateMessages.length - 1;
+    var bestStartIndex = -1;
+    while (left <= right) {
+      final middle = left + ((right - left) ~/ 2);
+      final candidateSlice = candidateMessages.sublist(middle);
+      final fits = _compressionPromptFitsModelContext(
+        templateBundle: templateBundle,
+        template: template,
+        session: session,
+        runtimeContext: runtimeContext,
+        maxContextTokens: maxContextTokens,
+        messagesToCompress: candidateSlice,
+        previousCompressionPoint: previousCompressionPoint,
+      );
+      if (fits) {
+        bestStartIndex = middle;
+        right = middle - 1;
+      } else {
+        left = middle + 1;
+      }
+    }
+
+    if (bestStartIndex == -1) {
+      return const _CompressionWindowSelection(
+        messagesToCompress: <AiSessionMessage>[],
+        discardedMessages: <AiSessionMessage>[],
+      );
+    }
+    final resolvedStartIndex = bestStartIndex;
+    return _CompressionWindowSelection(
+      messagesToCompress: candidateMessages.sublist(resolvedStartIndex),
+      discardedMessages: candidateMessages
+          .take(resolvedStartIndex)
+          .toList(growable: false),
+    );
+  }
+
+  bool _compressionPromptFitsModelContext({
+    required AiPromptTemplateBundle templateBundle,
+    required AiThreadTemplate template,
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required int maxContextTokens,
+    required List<AiSessionMessage> messagesToCompress,
+    required AiSessionMessage? previousCompressionPoint,
+  }) {
+    if (messagesToCompress.isEmpty) {
+      return false;
+    }
+    final prompt = _promptBuilder.buildCompressionPrompt(
+      templateBundle: templateBundle,
+      template: template,
+      session: session,
+      runtimeContext: runtimeContext,
+      messagesToCompress: messagesToCompress,
+      previousCompressionPoint: previousCompressionPoint,
+    );
+    final promptCharacters = prompt.fold<int>(
+      0,
+      (sum, message) => sum + message.promptCharacterCount,
+    );
+    return _estimateTokensFromCharacters(promptCharacters) <= maxContextTokens;
+  }
+
+  int _estimateTokensFromCharacters(int characterCount) {
+    if (characterCount <= 0) {
+      return 0;
+    }
+    return (characterCount + _estimatedCharactersPerToken - 1) ~/
+        _estimatedCharactersPerToken;
   }
 
   String _renderToolCallContent({
@@ -4852,7 +5420,10 @@ class AiSessionController extends ChangeNotifier {
       session.id,
       'tool_call_${debugLabel}_pending_messages count=$updatedCount',
     );
-    return session.copyWith(messages: updatedMessages, updatedAt: finishedAt);
+    return _syncPlanHistory(
+      session.copyWith(messages: updatedMessages, updatedAt: finishedAt),
+      trackedAt: finishedAt,
+    );
   }
 
   bool _isTerminalToolExecutionStatus(String status) {

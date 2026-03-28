@@ -1,6 +1,16 @@
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
+Map<String, Object?> _aiSessionRequireMap(Object? value, String label) {
+  if (value is Map<String, Object?>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, Object?>.from(value);
+  }
+  throw FormatException('Invalid $label payload.');
+}
+
 enum AiSessionMode {
   chat('chat'),
   plan('plan');
@@ -49,6 +59,98 @@ class AiSessionTodoItem {
   }
 }
 
+enum AiSessionPlanStatus {
+  pendingApproval('pending_approval'),
+  inProgress('in_progress'),
+  completed('completed'),
+  failed('failed'),
+  cancelled('cancelled');
+
+  const AiSessionPlanStatus(this.storageValue);
+
+  final String storageValue;
+
+  bool get isActive {
+    return this == AiSessionPlanStatus.pendingApproval ||
+        this == AiSessionPlanStatus.inProgress ||
+        this == AiSessionPlanStatus.failed;
+  }
+
+  static AiSessionPlanStatus fromStorage(String value) {
+    return AiSessionPlanStatus.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => AiSessionPlanStatus.inProgress,
+    );
+  }
+}
+
+class AiSessionPlanRecord {
+  const AiSessionPlanRecord({
+    required this.id,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.status,
+    this.plan = '',
+    this.steps = const <AiSessionTodoItem>[],
+  });
+
+  final String id;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final AiSessionPlanStatus status;
+  final String plan;
+  final List<AiSessionTodoItem> steps;
+
+  AiSessionPlanRecord copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    AiSessionPlanStatus? status,
+    String? plan,
+    List<AiSessionTodoItem>? steps,
+  }) {
+    return AiSessionPlanRecord(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      status: status ?? this.status,
+      plan: plan ?? this.plan,
+      steps: steps ?? this.steps,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'created_at': createdAt.toUtc().toIso8601String(),
+      'updated_at': updatedAt.toUtc().toIso8601String(),
+      'status': status.storageValue,
+      'plan': plan,
+      'steps': steps.map((item) => item.toJson()).toList(growable: false),
+    };
+  }
+
+  static AiSessionPlanRecord fromJson(Map<String, Object?> json) {
+    final rawSteps = json['steps'];
+    return AiSessionPlanRecord(
+      id: '${json['id'] ?? ''}',
+      createdAt: DateTime.parse('${json['created_at']}').toUtc(),
+      updatedAt: DateTime.parse('${json['updated_at']}').toUtc(),
+      status: AiSessionPlanStatus.fromStorage('${json['status'] ?? ''}'),
+      plan: '${json['plan'] ?? ''}'.trim(),
+      steps: rawSteps is List
+          ? rawSteps
+                .map(
+                  (item) => AiSessionTodoItem.fromJson(
+                    _aiSessionRequireMap(item, 'plan_history.steps'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionTodoItem>[],
+    );
+  }
+}
+
 class AiSession {
   AiSession({
     required this.id,
@@ -75,9 +177,10 @@ class AiSession {
     this.mode = AiSessionMode.chat,
     this.awaitingPlanApproval = false,
     this.pendingPlan,
+    this.planHistory = const <AiSessionPlanRecord>[],
   });
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
 
   final String id;
   final String title;
@@ -103,6 +206,7 @@ class AiSession {
   final AiSessionMode mode;
   final bool awaitingPlanApproval;
   final String? pendingPlan;
+  final List<AiSessionPlanRecord> planHistory;
   late final int? _latestCompressionPointIndexCache =
       _computeLatestCompressionPointIndex();
   late final List<AiSessionMessage> _visibleMessagesCache = messages
@@ -131,6 +235,7 @@ class AiSession {
     AiSessionMode? mode,
     bool? awaitingPlanApproval,
     String? pendingPlan,
+    List<AiSessionPlanRecord>? planHistory,
     bool clearPendingPlan = false,
   }) {
     return AiSession(
@@ -164,6 +269,7 @@ class AiSession {
       mode: mode ?? this.mode,
       awaitingPlanApproval: awaitingPlanApproval ?? this.awaitingPlanApproval,
       pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
+      planHistory: planHistory ?? this.planHistory,
     );
   }
 
@@ -182,6 +288,23 @@ class AiSession {
 
   List<AiSessionMessage> get displayMessages {
     return _displayMessagesCache;
+  }
+
+  AiSessionPlanRecord? get latestPlanRecord {
+    if (planHistory.isEmpty) {
+      return null;
+    }
+    return planHistory.last;
+  }
+
+  AiSessionPlanRecord? get latestActivePlanRecord {
+    for (var index = planHistory.length - 1; index >= 0; index -= 1) {
+      final planRecord = planHistory[index];
+      if (planRecord.status.isActive) {
+        return planRecord;
+      }
+    }
+    return null;
   }
 
   List<AiSessionMessage> get activeConversationMessages {
@@ -256,6 +379,9 @@ class AiSession {
       'environment': environment.toJson(),
       'statistics': statistics.toJson(),
       'last_prompt_metadata': lastPromptMetadata,
+      'plan_history': planHistory
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'todo_items': todoItems
           .map((item) => item.toJson())
           .toList(growable: false),
@@ -271,6 +397,7 @@ class AiSession {
     final messagesJson = _requireList(json['messages'], 'messages');
     final errorsJson = json['recent_errors'];
     final todoItemsJson = json['todo_items'];
+    final planHistoryJson = json['plan_history'];
     final environmentJson = _requireMap(json['environment'], 'environment');
     final statisticsJson = _requireMap(json['statistics'], 'statistics');
     final createdAt = DateTime.parse('${sessionJson['created_at']}').toUtc();
@@ -327,6 +454,15 @@ class AiSession {
           ? sessionJson['awaiting_plan_approval'] as bool
           : false,
       pendingPlan: _readNullableString(sessionJson['pending_plan']),
+      planHistory: planHistoryJson is List
+          ? planHistoryJson
+                .map(
+                  (item) => AiSessionPlanRecord.fromJson(
+                    _requireMap(item, 'plan_history'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionPlanRecord>[],
       lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
           ? Map<String, Object?>.from(
               json['last_prompt_metadata'] as Map<String, Object?>,

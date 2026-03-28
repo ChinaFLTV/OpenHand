@@ -62,6 +62,7 @@ const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 const int _transcriptInitialWindowSize = 80;
 const int _transcriptWindowIncrement = 80;
 const int _transcriptWindowingThreshold = 120;
+const int _resumeAutoFollowStabilizationFrameCount = 2;
 const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 48);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
@@ -84,7 +85,8 @@ class OpenHandHomePage extends StatefulWidget {
   State<OpenHandHomePage> createState() => _OpenHandHomePageState();
 }
 
-class _OpenHandHomePageState extends State<OpenHandHomePage> {
+class _OpenHandHomePageState extends State<OpenHandHomePage>
+    with WidgetsBindingObserver {
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
@@ -117,6 +119,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   String? _activeTranscriptSessionId;
   String? _preparingTranscriptSessionId;
   int _transcriptPreparationGeneration = 0;
+  AppLifecycleState? _appLifecycleState;
+  int _resumeAutoFollowSuppressionFrames = 0;
+  bool _resumeAutoFollowSyncQueued = false;
 
   AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
     return sessionController.currentSession?.mode ?? _detachedComposerMode;
@@ -211,8 +216,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
     _messageScrollController.addListener(_handleMessageScroll);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appLifecycleState = state;
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+    _resumeAutoFollowSuppressionFrames =
+        _resumeAutoFollowStabilizationFrameCount;
+    _scheduleResumeAutoFollowSync();
   }
 
   @override
@@ -231,6 +249,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
     _globalShortcutFocusNode.dispose();
@@ -429,29 +448,65 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     return shouldForce;
   }
 
-  bool _shouldScheduleAutoFollow({bool consumePendingRequest = false}) {
-    final shouldForce = consumePendingRequest
-        ? _consumePendingAutoFollowRequest()
-        : _pendingForcedScrollToBottom;
-    if (!_autoFollowEnabled && !shouldForce) {
-      return false;
+  bool _isAppLifecycleActive() {
+    final lifecycleState =
+        _appLifecycleState ?? WidgetsBinding.instance.lifecycleState;
+    return lifecycleState == null ||
+        lifecycleState == AppLifecycleState.resumed;
+  }
+
+  bool _shouldDeferAutoFollowScheduling() {
+    return !_isAppLifecycleActive() || _resumeAutoFollowSuppressionFrames > 0;
+  }
+
+  void _scheduleResumeAutoFollowSync() {
+    if (_resumeAutoFollowSyncQueued) {
+      return;
     }
-    if (!_shouldAutoFollowMessages && !shouldForce) {
-      return false;
-    }
-    return true;
+    _resumeAutoFollowSyncQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resumeAutoFollowSyncQueued = false;
+      if (!mounted) {
+        return;
+      }
+      if (_resumeAutoFollowSuppressionFrames > 0) {
+        _resumeAutoFollowSuppressionFrames -= 1;
+        _scheduleResumeAutoFollowSync();
+        return;
+      }
+      if (!_isAppLifecycleActive()) {
+        return;
+      }
+      _scheduleScrollToBottom(
+        force: _pendingForcedScrollToBottom,
+        animated: false,
+        allowSettlePasses: false,
+      );
+    });
   }
 
   void _scheduleAutoFollowIfNeeded({
     bool consumePendingRequest = false,
     bool animated = true,
+    bool allowSettlePasses = true,
   }) {
-    if (!_shouldScheduleAutoFollow(
-      consumePendingRequest: consumePendingRequest,
-    )) {
+    if (_shouldDeferAutoFollowScheduling()) {
       return;
     }
-    _scheduleScrollToBottom(force: true, animated: animated);
+    final shouldForce = consumePendingRequest
+        ? _consumePendingAutoFollowRequest()
+        : _pendingForcedScrollToBottom;
+    if (!_autoFollowEnabled && !shouldForce) {
+      return;
+    }
+    if (!_shouldAutoFollowMessages && !shouldForce) {
+      return;
+    }
+    _scheduleScrollToBottom(
+      force: shouldForce,
+      animated: animated,
+      allowSettlePasses: allowSettlePasses,
+    );
   }
 
   void _handleMessageScroll() {
@@ -1336,11 +1391,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   }
 
   void _handleComposerLayoutChanged() {
-    _scheduleAutoFollowIfNeeded();
+    if (_shouldDeferAutoFollowScheduling()) {
+      return;
+    }
+    _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
   }
 
   void _handleTranscriptLayoutChanged() {
-    _scheduleAutoFollowIfNeeded();
+    if (_shouldDeferAutoFollowScheduling()) {
+      return;
+    }
+    _scheduleAutoFollowIfNeeded(animated: false, allowSettlePasses: false);
   }
 
   void _handleRevealOlderMessages() {
@@ -1364,8 +1425,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       lastMessage.id,
       lastMessage.kind.storageValue,
       lastMessage.characterCount,
+      _toolExecutionStatus(lastMessage),
       '${_toolExecutionStdout(lastMessage).length}',
       '${_toolExecutionStderr(lastMessage).length}',
+      '${_toolExecutionResult(lastMessage).length}',
     ].join('|');
   }
 
@@ -1389,10 +1452,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         return true;
       }
     }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) =>
-          _WriteCommandConfirmationDialog(request: request),
+    final confirmed = await showWriteCommandConfirmationDialog(
+      context,
+      request: request,
     );
     return confirmed == true;
   }
@@ -2228,6 +2290,17 @@ class _ContentPane extends StatelessWidget {
   }
 }
 
+Future<bool?> showWriteCommandConfirmationDialog(
+  BuildContext context, {
+  required BashCommandApprovalRequest request,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) =>
+        _WriteCommandConfirmationDialog(request: request),
+  );
+}
+
 class _WriteCommandConfirmationDialog extends StatefulWidget {
   const _WriteCommandConfirmationDialog({required this.request});
 
@@ -2241,9 +2314,29 @@ class _WriteCommandConfirmationDialog extends StatefulWidget {
 class _WriteCommandConfirmationDialogState
     extends State<_WriteCommandConfirmationDialog> {
   final ScrollController _bodyScrollController = ScrollController();
+  final FocusNode _shortcutFocusNode = FocusNode();
+
+  void _closeWithResult(bool approved) {
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop(approved);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _shortcutFocusNode.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
+    _shortcutFocusNode.dispose();
     _bodyScrollController.dispose();
     super.dispose();
   }
@@ -2251,94 +2344,124 @@ class _WriteCommandConfirmationDialogState
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 860,
-          maxHeight: screenSize.height * 0.78,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _localizedText(
-                  context,
-                  zh: '确认执行写命令',
-                  en: 'Confirm Write Command',
+    return Focus(
+      focusNode: _shortcutFocusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          _closeWithResult(false);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.enter ||
+            event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+          _closeWithResult(true);
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 860,
+            maxHeight: screenSize.height * 0.78,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '确认执行写命令',
+                    en: 'Confirm Write Command',
+                  ),
+                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Scrollbar(
-                  controller: _bodyScrollController,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Scrollbar(
                     controller: _bodyScrollController,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _localizedText(
-                            context,
-                            zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
-                            en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _bodyScrollController,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _localizedText(
                               context,
-                            ).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: SelectableText(
-                              widget.request.command,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    fontFamily: 'monospace',
-                                    height: 1.45,
-                                  ),
+                              zh: '该 bash 命令可能修改文件或系统状态，需要你确认后才会真正执行。',
+                              en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SelectableText(
+                                widget.request.command,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      fontFamily: 'monospace',
+                                      height: 1.45,
+                                    ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OpenHandDialogActionButton.secondary(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    label: AppLocalizations.of(context)!.commonCancel,
+                const SizedBox(height: 12),
+                Text(
+                  _localizedText(
+                    context,
+                    zh: '快捷键：Enter 确认，Esc 取消',
+                    en: 'Shortcuts: Enter confirms, Esc cancels',
                   ),
-                  const SizedBox(width: 12),
-                  OpenHandDialogActionButton.primary(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    label: _localizedText(
-                      context,
-                      zh: '允许执行',
-                      en: 'Run Command',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: () => _closeWithResult(false),
+                      label: AppLocalizations.of(context)!.commonCancel,
                     ),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 12),
+                    OpenHandDialogActionButton.primary(
+                      onPressed: () => _closeWithResult(true),
+                      label: _localizedText(
+                        context,
+                        zh: '允许执行',
+                        en: 'Run Command',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -3118,10 +3241,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
         ),
         const SizedBox(height: 14),
-        if (session.latestCompressionAt != null) ...[
-          _CompressionNoticeCard(session: session),
-          const SizedBox(height: 14),
-        ],
         Expanded(
           child: NotificationListener<ScrollNotification>(
             onNotification: widget.onScrollNotification,
@@ -4085,59 +4204,35 @@ _PlanTimelineData? _buildPlanTimelineData(
   AiSession session,
   AiSendPhase sendPhase,
 ) {
-  final todoSteps = <_PlanTimelineStep>[];
-  var hasInProgressStep = false;
-  var hasFailedStep = false;
+  if (session.mode != AiSessionMode.plan) {
+    return null;
+  }
+  final activePlanRecord = _activePlanRecordForTimeline(session);
+  if (activePlanRecord != null) {
+    final planRecordTimeline = _buildPlanTimelineDataFromPlanRecord(
+      context,
+      session,
+      activePlanRecord,
+      sendPhase,
+    );
+    if (planRecordTimeline != null) {
+      return planRecordTimeline;
+    }
+  }
+  if (_shouldSuppressInactivePlanTimeline(session, sendPhase)) {
+    return null;
+  }
   final reflectRunningStepFailure = _shouldReflectCurrentPlanStepFailure(
     session,
+    sendPhase,
   );
-  for (final item in session.todoItems) {
-    final label = item.content.trim();
-    if (label.isEmpty) {
-      continue;
-    }
-    final state = switch (item.status.trim().toLowerCase()) {
-      'completed' => _PlanTimelineStepState.completed,
-      'in_progress' when reflectRunningStepFailure =>
-        _PlanTimelineStepState.failed,
-      'in_progress' => _PlanTimelineStepState.current,
-      'failed' || 'blocked' || 'cancelled' => _PlanTimelineStepState.failed,
-      _ => _PlanTimelineStepState.pending,
-    };
-    if (state == _PlanTimelineStepState.current) {
-      hasInProgressStep = true;
-    }
-    if (state == _PlanTimelineStepState.failed) {
-      hasFailedStep = true;
-    }
-    todoSteps.add(
-      _PlanTimelineStep(id: item.id.trim(), label: label, state: state),
-    );
-  }
+  final todoSteps = _planTimelineTodoSteps(
+    session.todoItems,
+    reflectRunningStepFailure: reflectRunningStepFailure,
+    reviewCompletedPlan: _shouldReviewCompletedPlan(session),
+    allowTerminalFailureStates: sendPhase == AiSendPhase.idle,
+  );
   if (todoSteps.isNotEmpty) {
-    if (!hasInProgressStep && !hasFailedStep) {
-      final firstPendingIndex = todoSteps.indexWhere(
-        (item) => item.state == _PlanTimelineStepState.pending,
-      );
-      if (firstPendingIndex >= 0) {
-        todoSteps[firstPendingIndex] = _PlanTimelineStep(
-          id: todoSteps[firstPendingIndex].id,
-          label: todoSteps[firstPendingIndex].label,
-          state: _PlanTimelineStepState.current,
-        );
-      } else if (_shouldReviewCompletedPlan(session)) {
-        final lastCompletedIndex = todoSteps.lastIndexWhere(
-          (item) => item.state == _PlanTimelineStepState.completed,
-        );
-        if (lastCompletedIndex >= 0) {
-          todoSteps[lastCompletedIndex] = _PlanTimelineStep(
-            id: todoSteps[lastCompletedIndex].id,
-            label: todoSteps[lastCompletedIndex].label,
-            state: _PlanTimelineStepState.current,
-          );
-        }
-      }
-    }
     return _PlanTimelineData(
       awaitingApproval: session.awaitingPlanApproval,
       steps: todoSteps,
@@ -4167,7 +4262,7 @@ _PlanTimelineData? _buildPlanTimelineData(
       ],
     );
   }
-  if (session.mode == AiSessionMode.plan) {
+  if (_shouldShowPlanModePlaceholderTimeline(session, sendPhase)) {
     return _PlanTimelineData(
       awaitingApproval: false,
       steps: <_PlanTimelineStep>[
@@ -4196,7 +4291,217 @@ _PlanTimelineData? _buildPlanTimelineData(
   return null;
 }
 
-bool _shouldReflectCurrentPlanStepFailure(AiSession session) {
+_PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
+  BuildContext context,
+  AiSession session,
+  AiSessionPlanRecord planRecord,
+  AiSendPhase sendPhase,
+) {
+  if (planRecord.status == AiSessionPlanStatus.cancelled ||
+      planRecord.status == AiSessionPlanStatus.completed) {
+    return null;
+  }
+  if (planRecord.status == AiSessionPlanStatus.pendingApproval) {
+    final pendingPlanSteps = _planTimelineStepsFromPlanRecord(planRecord);
+    return _PlanTimelineData(
+      awaitingApproval: true,
+      steps: <_PlanTimelineStep>[
+        _PlanTimelineStep(
+          id: 'plan-approval-${planRecord.id}',
+          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
+          state: _PlanTimelineStepState.current,
+        ),
+        ...pendingPlanSteps.asMap().entries.map(
+          (entry) => _PlanTimelineStep(
+            id: 'plan-step-${planRecord.id}-${entry.key}',
+            label: entry.value,
+            state: _PlanTimelineStepState.pending,
+          ),
+        ),
+      ],
+    );
+  }
+  final todoSteps = _planTimelineTodoSteps(
+    planRecord.steps,
+    reflectRunningStepFailure:
+        planRecord.status == AiSessionPlanStatus.failed ||
+        _shouldReflectCurrentPlanStepFailure(session, sendPhase),
+    reviewCompletedPlan: false,
+    allowTerminalFailureStates: sendPhase == AiSendPhase.idle,
+  );
+  if (todoSteps.isEmpty) {
+    return null;
+  }
+  return _PlanTimelineData(awaitingApproval: false, steps: todoSteps);
+}
+
+List<_PlanTimelineStep> _planTimelineTodoSteps(
+  List<AiSessionTodoItem> todoItems, {
+  required bool reflectRunningStepFailure,
+  required bool reviewCompletedPlan,
+  required bool allowTerminalFailureStates,
+}) {
+  final todoSteps = <_PlanTimelineStep>[];
+  var hasInProgressStep = false;
+  var hasFailedStep = false;
+  for (final item in todoItems) {
+    final label = item.content.trim();
+    if (label.isEmpty) {
+      continue;
+    }
+    final state = switch (item.status.trim().toLowerCase()) {
+      'completed' => _PlanTimelineStepState.completed,
+      'in_progress' when reflectRunningStepFailure =>
+        _PlanTimelineStepState.failed,
+      'in_progress' => _PlanTimelineStepState.current,
+      'failed' || 'blocked' || 'cancelled' when allowTerminalFailureStates =>
+        _PlanTimelineStepState.failed,
+      'failed' || 'blocked' || 'cancelled' => _PlanTimelineStepState.pending,
+      _ => _PlanTimelineStepState.pending,
+    };
+    if (state == _PlanTimelineStepState.current) {
+      hasInProgressStep = true;
+    }
+    if (state == _PlanTimelineStepState.failed) {
+      hasFailedStep = true;
+    }
+    todoSteps.add(
+      _PlanTimelineStep(id: item.id.trim(), label: label, state: state),
+    );
+  }
+  if (todoSteps.isEmpty) {
+    return const <_PlanTimelineStep>[];
+  }
+  if (!hasInProgressStep && !hasFailedStep) {
+    final firstPendingIndex = todoSteps.indexWhere(
+      (item) => item.state == _PlanTimelineStepState.pending,
+    );
+    if (firstPendingIndex >= 0) {
+      todoSteps[firstPendingIndex] = _PlanTimelineStep(
+        id: todoSteps[firstPendingIndex].id,
+        label: todoSteps[firstPendingIndex].label,
+        state: reflectRunningStepFailure
+            ? _PlanTimelineStepState.failed
+            : _PlanTimelineStepState.current,
+      );
+    } else if (reviewCompletedPlan) {
+      final lastCompletedIndex = todoSteps.lastIndexWhere(
+        (item) => item.state == _PlanTimelineStepState.completed,
+      );
+      if (lastCompletedIndex >= 0) {
+        todoSteps[lastCompletedIndex] = _PlanTimelineStep(
+          id: todoSteps[lastCompletedIndex].id,
+          label: todoSteps[lastCompletedIndex].label,
+          state: _PlanTimelineStepState.current,
+        );
+      }
+    }
+  }
+  return todoSteps;
+}
+
+bool _shouldSuppressInactivePlanTimeline(
+  AiSession session,
+  AiSendPhase sendPhase,
+) {
+  final latestPlanRecord = session.latestPlanRecord;
+  if (latestPlanRecord == null || latestPlanRecord.status.isActive) {
+    return false;
+  }
+  return !_shouldShowPlanModePlaceholderTimeline(session, sendPhase);
+}
+
+bool _shouldShowPlanModePlaceholderTimeline(
+  AiSession session,
+  AiSendPhase sendPhase,
+) {
+  if (session.mode != AiSessionMode.plan ||
+      _activePlanRecordForTimeline(session) != null) {
+    return false;
+  }
+  final latestUserMessage = _latestActiveUserMessage(session);
+  if (sendPhase != AiSendPhase.idle) {
+    return latestUserMessage != null;
+  }
+  if (latestUserMessage == null) {
+    return false;
+  }
+  final latestPlanRecord = session.latestPlanRecord;
+  if (latestPlanRecord == null) {
+    return true;
+  }
+  return _planTimelineMessageActivityAt(
+    latestUserMessage,
+  ).isAfter(latestPlanRecord.updatedAt);
+}
+
+AiSessionPlanRecord? _activePlanRecordForTimeline(AiSession session) {
+  final activePlanRecord = session.latestActivePlanRecord;
+  if (activePlanRecord == null || _hasTransientPlanState(session)) {
+    return activePlanRecord;
+  }
+  final latestUserMessage = _latestActiveUserMessage(session);
+  if (latestUserMessage == null) {
+    return activePlanRecord;
+  }
+  return _planTimelineMessageActivityAt(
+        latestUserMessage,
+      ).isAfter(activePlanRecord.updatedAt)
+      ? null
+      : activePlanRecord;
+}
+
+bool _hasTransientPlanState(AiSession session) {
+  return session.awaitingPlanApproval ||
+      session.todoItems.isNotEmpty ||
+      (session.pendingPlan ?? '').trim().isNotEmpty;
+}
+
+List<String> _planTimelineStepsFromPlanRecord(AiSessionPlanRecord planRecord) {
+  final planSteps = _planTimelineStepsFromPendingPlan(planRecord.plan);
+  if (planSteps.isNotEmpty) {
+    return planSteps;
+  }
+  return planRecord.steps
+      .map((item) => item.content.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+bool _shouldReflectCurrentPlanStepFailure(
+  AiSession session,
+  AiSendPhase sendPhase,
+) {
+  final latestRecoveryMessage = _latestPlanRecoveryTimelineMessage(session);
+  if (_shouldReflectPlanTimelineFailureAfter(
+    _latestPlanErrorFailureAt(session),
+    latestRecoveryMessage,
+  )) {
+    return true;
+  }
+  if (sendPhase != AiSendPhase.idle) {
+    return false;
+  }
+  return _shouldReflectPlanTimelineFailureAfter(
+    _latestPlanToolFailureAt(session),
+    latestRecoveryMessage,
+  );
+}
+
+bool _shouldReflectPlanTimelineFailureAfter(
+  DateTime? latestFailureAt,
+  AiSessionMessage? latestRecoveryMessage,
+) {
+  if (latestFailureAt == null) {
+    return false;
+  }
+  if (latestRecoveryMessage == null) {
+    return true;
+  }
+  return !latestRecoveryMessage.createdAt.isAfter(latestFailureAt);
+}
+
+DateTime? _latestPlanToolFailureAt(AiSession session) {
   for (var index = session.messages.length - 1; index >= 0; index -= 1) {
     final message = session.messages[index];
     if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
@@ -4206,14 +4511,68 @@ bool _shouldReflectCurrentPlanStepFailure(AiSession session) {
     if (status.isEmpty || status == 'running') {
       continue;
     }
-    return status == 'failed' ||
-        status == 'cancelled' ||
-        status == 'denied' ||
-        status == 'rejected' ||
-        status == 'timed_out' ||
-        status == 'invalid_arguments';
+    if (!_isFailurePlanTimelineToolStatus(status)) {
+      return null;
+    }
+    return _readToolExecutionFinishedAt(message) ?? message.createdAt;
   }
-  return false;
+  return null;
+}
+
+DateTime? _latestPlanErrorFailureAt(AiSession session) {
+  for (final error in session.recentErrors) {
+    if (_isPlanTimelineRelevantErrorStage(error.stage)) {
+      return error.createdAt;
+    }
+  }
+  return null;
+}
+
+bool _isFailurePlanTimelineToolStatus(String status) {
+  return switch (status) {
+    'failed' ||
+    'cancelled' ||
+    'denied' ||
+    'rejected' ||
+    'timed_out' ||
+    'invalid_arguments' => true,
+    _ => false,
+  };
+}
+
+bool _isPlanTimelineRelevantErrorStage(String stage) {
+  return switch (stage.trim().toLowerCase()) {
+    'chat_request' ||
+    'chat_continuation_request' ||
+    'chat_stream' ||
+    'follow_up_request' ||
+    'tool_execution' ||
+    'tool_loop' => true,
+    _ => false,
+  };
+}
+
+DateTime? _readToolExecutionFinishedAt(AiSessionMessage message) {
+  final rawValue = '${message.metadata['tool_execution_finished_at'] ?? ''}'
+      .trim();
+  if (rawValue.isEmpty) {
+    return null;
+  }
+  try {
+    return DateTime.parse(rawValue).toUtc();
+  } catch (_) {
+    return null;
+  }
+}
+
+AiSessionMessage? _latestPlanRecoveryTimelineMessage(AiSession session) {
+  final latestUserMessage = _latestActiveUserMessage(session);
+  if (latestUserMessage == null) {
+    return null;
+  }
+  return _looksLikePlanRecoveryTimelineMessage(latestUserMessage.content)
+      ? latestUserMessage
+      : null;
 }
 
 bool _shouldReviewCompletedPlan(AiSession session) {
@@ -4245,6 +4604,16 @@ AiSessionMessage? _latestActiveUserMessage(AiSession session) {
     }
   }
   return null;
+}
+
+DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {
+  final editedAt = '${message.metadata['edited_at'] ?? ''}'.trim();
+  if (editedAt.isNotEmpty) {
+    try {
+      return DateTime.parse(editedAt).toUtc();
+    } catch (_) {}
+  }
+  return message.createdAt;
 }
 
 bool _looksLikePlanRecoveryTimelineMessage(String content) {
@@ -4354,6 +4723,7 @@ class _SessionMetadataDialog extends StatelessWidget {
         lastPromptMetadata['todo_write_recommended'] == true;
     final todoWriteReason = '${lastPromptMetadata['todo_write_reason'] ?? ''}'
         .trim();
+    final planHistory = session.planHistory.reversed.toList(growable: false);
     final currentTodos = session.todoItems
         .map((item) => item.toJson())
         .toList(growable: false);
@@ -4773,6 +5143,14 @@ class _SessionMetadataDialog extends StatelessWidget {
                           _MetadataEntryRow(
                             label: _localizedText(
                               context,
+                              zh: '计划记录数量',
+                              en: 'Plan Records',
+                            ),
+                            value: '${planHistory.length}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
                               zh: 'TodoWrite 强提醒',
                               en: 'TodoWrite Reminder',
                             ),
@@ -4828,6 +5206,26 @@ class _SessionMetadataDialog extends StatelessWidget {
                                   .whereType<Widget>()
                                   .toList(growable: false),
                             ),
+                          if (planHistory.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '计划历史',
+                                en: 'Plan History',
+                              ),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            ...planHistory.asMap().entries.map(
+                              (entry) => _MetadataPlanRecordCard(
+                                planIndex: planHistory.length - entry.key,
+                                planRecord: entry.value,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -5015,6 +5413,139 @@ class _MetadataChip extends StatelessWidget {
         style: theme.textTheme.labelMedium?.copyWith(
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+String _sessionPlanStatusLabel(
+  BuildContext context,
+  AiSessionPlanStatus status,
+) {
+  return switch (status) {
+    AiSessionPlanStatus.pendingApproval => _localizedText(
+      context,
+      zh: '待确认',
+      en: 'Pending Approval',
+    ),
+    AiSessionPlanStatus.inProgress => _localizedText(
+      context,
+      zh: '进行中',
+      en: 'In Progress',
+    ),
+    AiSessionPlanStatus.completed => _localizedText(
+      context,
+      zh: '已完成',
+      en: 'Completed',
+    ),
+    AiSessionPlanStatus.failed => _localizedText(
+      context,
+      zh: '失败',
+      en: 'Failed',
+    ),
+    AiSessionPlanStatus.cancelled => _localizedText(
+      context,
+      zh: '已取消',
+      en: 'Cancelled',
+    ),
+  };
+}
+
+class _MetadataPlanRecordCard extends StatelessWidget {
+  const _MetadataPlanRecordCard({
+    required this.planIndex,
+    required this.planRecord,
+  });
+
+  final int planIndex;
+  final AiSessionPlanRecord planRecord;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final statusColor = switch (planRecord.status) {
+      AiSessionPlanStatus.pendingApproval => colorScheme.secondary,
+      AiSessionPlanStatus.inProgress => colorScheme.tertiary,
+      AiSessionPlanStatus.completed => colorScheme.primary,
+      AiSessionPlanStatus.failed => colorScheme.error,
+      AiSessionPlanStatus.cancelled => colorScheme.outline,
+    };
+    final steps = planRecord.steps
+        .map((item) {
+          final content = item.content.trim();
+          if (content.isEmpty) {
+            return null;
+          }
+          return _MetadataChip(label: content);
+        })
+        .whereType<Widget>()
+        .toList(growable: false);
+    final planSummary = planRecord.plan.trim();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                _localizedText(
+                  context,
+                  zh: '计划 #$planIndex',
+                  en: 'Plan #$planIndex',
+                ),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _sessionPlanStatusLabel(context, planRecord.status),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${_localizedText(context, zh: '创建', en: 'Created')} ${_formatDateTime(planRecord.createdAt)} · ${_localizedText(context, zh: '更新', en: 'Updated')} ${_formatDateTime(planRecord.updatedAt)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (planSummary.isNotEmpty && steps.isEmpty) ...[
+            const SizedBox(height: 10),
+            SelectableText(
+              planSummary,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+            ),
+          ],
+          if (steps.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: steps),
+          ],
+        ],
       ),
     );
   }
@@ -5233,43 +5764,6 @@ class _MetadataJsonPanel extends StatelessWidget {
             height: 1.45,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _CompressionNoticeCard extends StatelessWidget {
-  const _CompressionNoticeCard({required this.session});
-
-  final AiSession session;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.summarize_rounded,
-            color: theme.colorScheme.onSecondaryContainer,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              l10n.threadCompressionNotice,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSecondaryContainer,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -7088,7 +7582,10 @@ bool _shouldTrackMessageLayout({
     }
   }
   if (sendPhase != AiSendPhase.idle && isLastVisibleMessage) {
-    return true;
+    return switch (message.kind) {
+      AiSessionMessageKind.assistant || AiSessionMessageKind.status => true,
+      _ => false,
+    };
   }
   return false;
 }

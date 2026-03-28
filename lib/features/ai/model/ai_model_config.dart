@@ -87,6 +87,7 @@ class AiModelConfig {
     required this.token,
     required this.modelId,
     required this.protocolType,
+    this.maxContextTokens,
   });
 
   final String id;
@@ -95,6 +96,7 @@ class AiModelConfig {
   final String token;
   final String modelId;
   final AiProtocolType protocolType;
+  final int? maxContextTokens;
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
 
@@ -125,6 +127,8 @@ class AiModelConfig {
     String? token,
     String? modelId,
     AiProtocolType? protocolType,
+    int? maxContextTokens,
+    bool clearMaxContextTokens = false,
   }) {
     return AiModelConfig(
       id: id ?? this.id,
@@ -133,6 +137,9 @@ class AiModelConfig {
       token: token ?? this.token,
       modelId: modelId ?? this.modelId,
       protocolType: protocolType ?? this.protocolType,
+      maxContextTokens: clearMaxContextTokens
+          ? null
+          : maxContextTokens ?? this.maxContextTokens,
     );
   }
 
@@ -144,6 +151,7 @@ class AiModelConfig {
       'token': token,
       'model_id': modelId.trim(),
       'protocol_type': protocolType.storageValue,
+      'max_context_tokens': maxContextTokens,
     };
   }
 
@@ -157,6 +165,7 @@ class AiModelConfig {
       protocolType: AiProtocolType.fromStorage(
         '${json['protocol_type'] ?? ''}',
       ),
+      maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
     );
   }
 
@@ -168,5 +177,20 @@ class AiModelConfig {
     return trimmedValue.endsWith('/')
         ? trimmedValue.substring(0, trimmedValue.length - 1)
         : trimmedValue;
+  }
+
+  static int? _readNullablePositiveInt(Object? value) {
+    if (value is int) {
+      return value > 0 ? value : null;
+    }
+    if (value is num) {
+      final normalized = value.toInt();
+      return normalized > 0 ? normalized : null;
+    }
+    final parsed = int.tryParse('${value ?? ''}'.trim());
+    if (parsed == null || parsed <= 0) {
+      return null;
+    }
+    return parsed;
   }
 }

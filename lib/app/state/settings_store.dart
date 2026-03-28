@@ -7,11 +7,12 @@ import 'package:path/path.dart' as p;
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
+import '../support/url_validation.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
 import '../model/openhand_shortcut.dart';
-import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
+import '../support/openhand_paths.dart';
 
 enum SettingsPersistenceIssueKind {
   recoveredInvalidFile,
@@ -463,11 +464,12 @@ class SettingsStore {
     for (final rawModel in document.modelValues) {
       final rawAuthScheme = '${rawModel['auth_scheme'] ?? ''}'.trim();
       final rawProtocolType = '${rawModel['protocol_type'] ?? ''}'.trim();
+      final rawMaxContextTokens = rawModel['max_context_tokens'];
       final model = AiModelConfig.fromJson(rawModel);
       final isValid =
           model.id.trim().isNotEmpty &&
           model.modelId.trim().isNotEmpty &&
-          model.baseUrl.trim().isNotEmpty;
+          isValidHttpUrl(model.baseUrl);
       if (!isValid) {
         didSanitize = true;
         continue;
@@ -480,6 +482,9 @@ class SettingsStore {
         didSanitize = true;
       }
       if (!AiProtocolType.isValidStorageValue(rawProtocolType)) {
+        didSanitize = true;
+      }
+      if (!_isValidNullablePositiveInt(rawMaxContextTokens)) {
         didSanitize = true;
       }
       aiModels.add(model);
@@ -624,6 +629,9 @@ class SettingsStore {
         ..writeln(
           'protocol_type = ${jsonEncode(model.protocolType.storageValue)}',
         );
+      if (model.maxContextTokens != null) {
+        buffer.writeln('max_context_tokens = ${model.maxContextTokens}');
+      }
     }
 
     return buffer.toString();
@@ -664,4 +672,18 @@ String _themeModeToStorage(ThemeMode value) {
     ThemeMode.dark => 'dark',
     ThemeMode.system => 'system',
   };
+}
+
+bool _isValidNullablePositiveInt(Object? value) {
+  if (value == null) {
+    return true;
+  }
+  if (value is int) {
+    return value > 0;
+  }
+  if (value is num) {
+    return value > 0 && value == value.toInt();
+  }
+  final parsed = int.tryParse('$value'.trim());
+  return parsed != null && parsed > 0;
 }

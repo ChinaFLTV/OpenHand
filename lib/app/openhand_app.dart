@@ -66,6 +66,9 @@ class _OpenHandAppState extends State<OpenHandApp> {
   bool Function(ui.KeyData data)? _previousOnKeyData;
   Future<dynamic> Function(dynamic message)? _previousRawKeyMessageHandler;
   bool _keyboardStateSyncQueued = false;
+  final Map<PhysicalKeyboardKey, LogicalKeyboardKey>
+  _trackedRawLogicalKeysByPhysicalKey =
+      <PhysicalKeyboardKey, LogicalKeyboardKey>{};
 
   @override
   void initState() {
@@ -95,6 +98,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
       _previousRawKeyMessageHandler ??
           ServicesBinding.instance.keyEventManager.handleRawKeyMessage,
     );
+    _trackedRawLogicalKeysByPhysicalKey.clear();
   }
 
   bool _handleKeyDataSafely(ui.KeyData data) {
@@ -137,14 +141,33 @@ class _OpenHandAppState extends State<OpenHandApp> {
         return _unhandledRawKeyMessage();
       }
       final physicalKey = rawEvent.physicalKey;
+      final logicalKey = rawEvent.logicalKey;
       final hardwarePressed = HardwareKeyboard.instance.physicalKeysPressed
           .contains(physicalKey);
-      if (rawEvent is RawKeyDownEvent && !rawEvent.repeat && hardwarePressed) {
-        _scheduleKeyboardStateResync('duplicate_raw_key_down');
-        return _unhandledRawKeyMessage();
+      final trackedLogicalKey =
+          _trackedRawLogicalKeysByPhysicalKey[physicalKey];
+      if (rawEvent is RawKeyDownEvent) {
+        if (!rawEvent.repeat) {
+          _trackedRawLogicalKeysByPhysicalKey[physicalKey] = logicalKey;
+        }
+        if (!rawEvent.repeat && hardwarePressed) {
+          return _unhandledRawKeyMessage();
+        }
       }
-      if (rawEvent is RawKeyUpEvent && !hardwarePressed) {
-        _scheduleKeyboardStateResync('orphan_raw_key_up');
+      if (rawEvent is RawKeyUpEvent) {
+        _trackedRawLogicalKeysByPhysicalKey.remove(physicalKey);
+        if (trackedLogicalKey != null && trackedLogicalKey != logicalKey) {
+          _scheduleKeyboardStateResync('mismatched_raw_key_up');
+          return _unhandledRawKeyMessage();
+        }
+        if (!hardwarePressed) {
+          return _unhandledRawKeyMessage();
+        }
+      }
+      if (rawEvent is RawKeyDownEvent &&
+          trackedLogicalKey != null &&
+          trackedLogicalKey != logicalKey) {
+        _scheduleKeyboardStateResync('mismatched_raw_key_down');
         return _unhandledRawKeyMessage();
       }
       return _forwardRawKeyMessage(normalizedMessage);
@@ -201,6 +224,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
           stackTrace: stackTrace,
         );
       } finally {
+        _trackedRawLogicalKeysByPhysicalKey.clear();
         _keyboardStateSyncQueued = false;
       }
     }());

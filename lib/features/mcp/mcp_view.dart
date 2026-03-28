@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/url_validation.dart';
 import '../../l10n/app_localizations.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
@@ -501,10 +502,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog> {
                                 if (rawValue.isEmpty) {
                                   return l10n.mcpUrlRequired;
                                 }
-                                final parsed = Uri.tryParse(rawValue);
-                                if (parsed == null ||
-                                    (!parsed.hasScheme &&
-                                        !rawValue.startsWith('http'))) {
+                                if (!isValidHttpUrl(rawValue)) {
                                   return l10n.mcpUrlInvalid;
                                 }
                                 return null;

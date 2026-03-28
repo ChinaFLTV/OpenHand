@@ -11,6 +11,7 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
@@ -1712,6 +1713,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _baseUrlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
+  late final TextEditingController _maxContextTokensController;
   late AiAuthScheme _authScheme;
   late AiProtocolType _protocolType;
   bool _obscureToken = true;
@@ -1730,6 +1732,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _modelIdController = TextEditingController(
       text: widget.initialModel?.modelId ?? '',
     );
+    _maxContextTokensController = TextEditingController(
+      text: widget.initialModel?.maxContextTokens?.toString() ?? '',
+    );
     _authScheme = widget.initialModel?.authScheme ?? AiAuthScheme.bearer;
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
   }
@@ -1739,7 +1744,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _baseUrlController.dispose();
     _tokenController.dispose();
     _modelIdController.dispose();
+    _maxContextTokensController.dispose();
     super.dispose();
+  }
+
+  String _localizedText({required String zh, required String en}) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    return languageCode.startsWith('zh') ? zh : en;
   }
 
   @override
@@ -1782,10 +1793,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               if (rawValue.isEmpty) {
                                 return l10n.aiModelBaseUrlRequired;
                               }
-                              final parsed = Uri.tryParse(rawValue);
-                              if (parsed == null ||
-                                  (!parsed.hasScheme &&
-                                      !rawValue.startsWith('http'))) {
+                              if (!isValidHttpUrl(rawValue)) {
                                 return l10n.aiModelBaseUrlInvalid;
                               }
                               return null;
@@ -1927,6 +1935,36 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _maxContextTokensController,
+                            enabled: !_isSaving,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                zh: '最大上下文 Token 上限',
+                                en: 'Max Context Tokens',
+                              ),
+                              helperText: _localizedText(
+                                zh: '可选。用于在压缩时限制历史切片大小。',
+                                en: 'Optional. Limits the history slice used during compression.',
+                              ),
+                            ),
+                            validator: (value) {
+                              final trimmed = value?.trim() ?? '';
+                              if (trimmed.isEmpty) {
+                                return null;
+                              }
+                              final parsed = int.tryParse(trimmed);
+                              if (parsed == null || parsed <= 0) {
+                                return _localizedText(
+                                  zh: '请输入大于 0 的整数',
+                                  en: 'Enter a whole number greater than 0',
+                                );
+                              }
+                              return null;
+                            },
+                          ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -1989,6 +2027,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       token: _tokenController.text.trim(),
       modelId: _modelIdController.text.trim(),
       protocolType: _protocolType,
+      maxContextTokens: _parseOptionalPositiveInt(
+        _maxContextTokensController.text,
+      ),
     );
 
     late final bool saved;
@@ -2015,6 +2056,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       return;
     }
     Navigator.of(context).pop(true);
+  }
+
+  int? _parseOptionalPositiveInt(String rawValue) {
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null || parsed <= 0) {
+      return null;
+    }
+    return parsed;
   }
 }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/url_validation.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../model/mcp_server.dart';
 
@@ -195,7 +196,7 @@ class McpStore {
     final parsedHeaders = _parseHeaders(rawValue['headers']);
 
     final isValid = switch (type) {
-      McpServerType.streamableHttp || McpServerType.sse => url.isNotEmpty,
+      McpServerType.streamableHttp || McpServerType.sse => isValidHttpUrl(url),
       McpServerType.stdio => command.isNotEmpty,
     };
     if (!isValid) {
