@@ -38,6 +38,7 @@ import '../ai/service/ai_workspace_instruction_service.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
 import '../mcp/mcp_controller.dart';
+import '../mcp/model/mcp_tool.dart';
 import '../mcp/mcp_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/skills_controller.dart';
@@ -894,6 +895,41 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         startDirectory: OpenHandPaths.applicationDirectoryPath(),
         homeDirectory: OpenHandPaths.homeDirectoryPath(),
       ),
+    );
+  }
+
+  AiSessionRuntimeContext _buildRuntimeCatalogPreviewContext({
+    required SettingsController settingsController,
+    required SkillsController skillsController,
+    required McpController mcpController,
+    required AppInfo appInfo,
+  }) {
+    final now = DateTime.now().toLocal();
+    return AiSessionRuntimeContext(
+      localeTag: settingsController.locale.toLanguageTag(),
+      appVersion: appInfo.version,
+      appBuildNumber: appInfo.buildNumber,
+      settingsFilePath: settingsController.settingsFilePath,
+      skillsStoragePath: settingsController.skillsStoragePath,
+      mcpServersFilePath: settingsController.mcpServersFilePath,
+      userMemoryFilePath: settingsController.userMemoryFilePath,
+      compressionThresholdChars:
+          settingsController.aiMessageCompressionThresholdChars,
+      singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
+      sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
+      memoryEnabled: settingsController.memoryEnabled,
+      writeCommandConfirmationEnabled:
+          settingsController.aiWriteCommandConfirmationEnabled,
+      platformName: Platform.operatingSystem,
+      workingDirectory: OpenHandPaths.applicationDirectoryPath(),
+      todayLocalDate:
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
+      timeZoneName: now.timeZoneName,
+      memoryEntries: const [],
+      allowCommandRules: settingsController.aiAllowCommandRules,
+      availableSkills: skillsController.skills,
+      availableMcpServers: mcpController.servers,
+      workspaceInstructionDocuments: const <AiWorkspaceInstructionDocument>[],
     );
   }
 
@@ -2098,11 +2134,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Widget _buildSectionContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final settingsController = context.watch<SettingsController>();
+    final skillsController = context.watch<SkillsController>();
+    final mcpController = context.watch<McpController>();
     final sessionController = context.watch<AiSessionController>();
+    final appInfo = context.read<AppInfo>();
     final currentSession = sessionController.currentSession;
     final transcriptPreparing = _isPreparingTranscriptForSession(
       currentSession,
     );
+    final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
+      settingsController: settingsController,
+      skillsController: skillsController,
+      mcpController: mcpController,
+      appInfo: appInfo,
+    );
+    final liveRuntimeToolPreview =
+        currentSession == null || settingsController.selectedAiModel == null
+        ? null
+        : sessionController.previewRuntimeToolCatalog(
+            session: currentSession,
+            model: settingsController.selectedAiModel!,
+            runtimeContext: runtimeCatalogPreviewContext,
+            mcpToolCatalogsByServerName: <String, McpToolCatalog>{
+              for (final server in mcpController.servers)
+                server.name: mcpController.toolCatalogFor(server.name),
+            },
+          );
     if (_selectedSection == AppSection.workspace && !transcriptPreparing) {
       _maybeAutoFollowSession(currentSession);
     }
@@ -2113,6 +2170,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         messageScrollController: _messageScrollController,
         onMessageScrollNotification: _handleMessageScrollNotification,
         currentSession: currentSession,
+        liveRuntimeToolPreview: liveRuntimeToolPreview,
         transcriptPreparing: transcriptPreparing,
         selectedModel: settingsController.selectedAiModel,
         availableModels: settingsController.aiModels,
@@ -2548,6 +2606,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.messageScrollController,
     required this.onMessageScrollNotification,
     required this.currentSession,
+    required this.liveRuntimeToolPreview,
     required this.transcriptPreparing,
     required this.selectedModel,
     required this.availableModels,
@@ -2589,6 +2648,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool Function(ScrollNotification notification)
   onMessageScrollNotification;
   final AiSession? currentSession;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
@@ -2654,6 +2714,7 @@ class _WorkspaceView extends StatelessWidget {
                         'session-transcript-loading-${currentSession!.id}',
                       ),
                       session: currentSession!,
+                      liveRuntimeToolPreview: liveRuntimeToolPreview,
                       sendPhase: sendPhase,
                       planTimelineCollapsed: planTimelineCollapsed,
                       onPlanTimelineCollapsedChanged:
@@ -2664,6 +2725,7 @@ class _WorkspaceView extends StatelessWidget {
                       controller: messageScrollController,
                       onScrollNotification: onMessageScrollNotification,
                       session: currentSession!,
+                      liveRuntimeToolPreview: liveRuntimeToolPreview,
                       sendPhase: sendPhase,
                       planTimelineCollapsed: planTimelineCollapsed,
                       onPlanTimelineCollapsedChanged:
@@ -2685,6 +2747,8 @@ class _WorkspaceView extends StatelessWidget {
               },
               child: SizeChangedLayoutNotifier(
                 child: _ComposerPanel(
+                  currentSession: currentSession,
+                  liveRuntimeToolPreview: liveRuntimeToolPreview,
                   controller: draftController,
                   selectedModel: selectedModel,
                   availableModels: availableModels,
@@ -2787,12 +2851,14 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   const _SessionTranscriptLoadingPlaceholder({
     super.key,
     required this.session,
+    required this.liveRuntimeToolPreview,
     required this.sendPhase,
     required this.planTimelineCollapsed,
     required this.onPlanTimelineCollapsedChanged,
   });
 
   final AiSession session;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiSendPhase sendPhase;
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
@@ -2809,6 +2875,7 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
       children: [
         _SessionToolbar(
           session: session,
+          liveRuntimeToolPreview: liveRuntimeToolPreview,
           sendPhase: sendPhase,
           planTimelineCollapsed: planTimelineCollapsed,
           onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
@@ -2988,6 +3055,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.controller,
     required this.onScrollNotification,
     required this.session,
+    required this.liveRuntimeToolPreview,
     required this.sendPhase,
     required this.planTimelineCollapsed,
     required this.onPlanTimelineCollapsedChanged,
@@ -3003,6 +3071,7 @@ class _SessionTranscript extends StatefulWidget {
   final ScrollController controller;
   final bool Function(ScrollNotification notification) onScrollNotification;
   final AiSession session;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiSendPhase sendPhase;
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
@@ -3304,11 +3373,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         visibleMessages[index].id: index,
     };
     final userVisibleError = _resolveUserVisibleError(session);
+    if (_renderEntries.isEmpty &&
+        visibleMessages.isEmpty &&
+        userVisibleError == null) {
+      return _WorkspaceEmptyState(
+        key: ValueKey<String>('empty-session-transcript-${session.id}'),
+        session: session,
+      );
+    }
+    final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
+    final errorBannerCount = userVisibleError == null ? 0 : 1;
+    final listItemCount =
+        _renderEntries.length + hiddenLoadMoreCount + errorBannerCount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SessionToolbar(
           session: session,
+          liveRuntimeToolPreview: widget.liveRuntimeToolPreview,
           sendPhase: widget.sendPhase,
           planTimelineCollapsed: widget.planTimelineCollapsed,
           onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
@@ -3322,13 +3404,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               controller: widget.controller,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
-              itemCount:
-                  _renderEntries.length + (hiddenMessageCount > 0 ? 1 : 0),
+              itemCount: listItemCount,
               itemBuilder: (context, index) {
-                if (hiddenMessageCount > 0 && index == 0) {
+                if (hiddenLoadMoreCount > 0 && index == 0) {
                   return Padding(
                     padding: EdgeInsets.only(
-                      bottom: _renderEntries.isEmpty ? 0 : 14,
+                      bottom: listItemCount == 1 ? 0 : 14,
                     ),
                     child: _TranscriptLoadEarlierButton(
                       hiddenMessageCount: hiddenMessageCount,
@@ -3340,7 +3421,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     ),
                   );
                 }
-                final messageIndex = hiddenMessageCount > 0 ? index - 1 : index;
+                final messageIndex = index - hiddenLoadMoreCount;
+                if (messageIndex >= _renderEntries.length) {
+                  return _SessionErrorBanner(
+                    error: userVisibleError!,
+                    onDismiss: () async {
+                      _dismissedErrorIds.add(userVisibleError.id);
+                      setState(() {
+                        if (_visibleErrorId == userVisibleError.id) {
+                          _visibleErrorId = null;
+                        }
+                        if (_pendingPresentedErrorId == userVisibleError.id) {
+                          _pendingPresentedErrorId = null;
+                        }
+                      });
+                      await widget.onDismissError(userVisibleError);
+                    },
+                  );
+                }
                 final entry = _renderEntries[messageIndex];
                 final message = entry.message;
                 final visibleMessageIndex = visibleMessageIndexById[message.id];
@@ -3427,24 +3525,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             ),
           ),
         ),
-        if (userVisibleError != null) ...[
-          const SizedBox(height: 12),
-          _SessionErrorBanner(
-            error: userVisibleError,
-            onDismiss: () async {
-              _dismissedErrorIds.add(userVisibleError.id);
-              setState(() {
-                if (_visibleErrorId == userVisibleError.id) {
-                  _visibleErrorId = null;
-                }
-                if (_pendingPresentedErrorId == userVisibleError.id) {
-                  _pendingPresentedErrorId = null;
-                }
-              });
-              await widget.onDismissError(userVisibleError);
-            },
-          ),
-        ],
       ],
     );
   }
@@ -3675,12 +3755,14 @@ class _AnimatedSessionTitleText extends StatelessWidget {
 class _SessionToolbar extends StatelessWidget {
   const _SessionToolbar({
     required this.session,
+    this.liveRuntimeToolPreview,
     this.sendPhase = AiSendPhase.idle,
     this.planTimelineCollapsed = false,
     this.onPlanTimelineCollapsedChanged,
   });
 
   final AiSession session;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final AiSendPhase sendPhase;
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
@@ -3689,7 +3771,16 @@ class _SessionToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final planTimeline = _buildPlanTimelineData(context, session, sendPhase);
+    final runtimeStatus = _runtimeToolCatalogStatus(
+      session,
+      livePreview: liveRuntimeToolPreview,
+    );
+    final planTimeline = _buildPlanTimelineData(
+      context,
+      session,
+      sendPhase,
+      requiresReview: runtimeStatus.planRecoveryRequired,
+    );
     final showPlanTimelineToggle =
         planTimeline != null && onPlanTimelineCollapsedChanged != null;
     return Container(
@@ -3724,6 +3815,34 @@ class _SessionToolbar extends StatelessWidget {
                         child: Row(
                           children: [
                             _ToolbarPill(
+                              icon: _runtimeModeIcon(runtimeStatus),
+                              label: _runtimeModeLabel(
+                                context,
+                                runtimeStatus,
+                                compact: true,
+                              ),
+                            ),
+                            if (runtimeStatus.notices.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              _ToolbarPill(
+                                icon: Icons.info_outline_rounded,
+                                label: _localizedText(
+                                  context,
+                                  zh: '运行时 Notice ${runtimeStatus.notices.length}',
+                                  en: 'Runtime Notices ${runtimeStatus.notices.length}',
+                                ),
+                                onTap: () {
+                                  _showSessionMetadataDialog(
+                                    context,
+                                    session,
+                                    liveRuntimeToolPreview:
+                                        liveRuntimeToolPreview,
+                                  );
+                                },
+                              ),
+                            ],
+                            const SizedBox(width: 8),
+                            _ToolbarPill(
                               icon: Icons.layers_rounded,
                               label:
                                   '${session.templateName} · v${session.templateInternalVersion}',
@@ -3737,7 +3856,12 @@ class _SessionToolbar extends StatelessWidget {
                                 en: 'Session Metadata',
                               ),
                               onTap: () {
-                                _showSessionMetadataDialog(context, session);
+                                _showSessionMetadataDialog(
+                                  context,
+                                  session,
+                                  liveRuntimeToolPreview:
+                                      liveRuntimeToolPreview,
+                                );
                               },
                             ),
                             const SizedBox(width: 8),
@@ -3818,7 +3942,7 @@ class _SessionToolbar extends StatelessWidget {
                 ? const SizedBox(key: ValueKey<String>('plan-timeline-hidden'))
                 : Padding(
                     key: ValueKey<String>(
-                      'plan-timeline-visible-${planTimeline.awaitingApproval}-${planTimeline.steps.length}',
+                      'plan-timeline-visible-${planTimeline.awaitingApproval}-${planTimeline.requiresReview}-${planTimeline.steps.length}',
                     ),
                     padding: const EdgeInsets.only(top: 12),
                     child: _SessionPlanTimelineBar(
@@ -3911,10 +4035,12 @@ class _PlanTimelineStep {
 class _PlanTimelineData {
   const _PlanTimelineData({
     required this.awaitingApproval,
+    required this.requiresReview,
     required this.steps,
   });
 
   final bool awaitingApproval;
+  final bool requiresReview;
   final List<_PlanTimelineStep> steps;
 
   int get completedStepCount {
@@ -3945,6 +4071,8 @@ class _SessionPlanTimelineBar extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final statusColor = data.awaitingApproval
         ? colorScheme.secondary
+        : data.requiresReview
+        ? colorScheme.tertiary
         : data.hasFailedStep
         ? colorScheme.error
         : data.isComplete
@@ -3952,6 +4080,8 @@ class _SessionPlanTimelineBar extends StatelessWidget {
         : colorScheme.tertiary;
     final headline = data.awaitingApproval
         ? _localizedText(context, zh: '计划待确认', en: 'Plan Awaiting Approval')
+        : data.requiresReview
+        ? _localizedText(context, zh: '计划待复核', en: 'Plan Needs Review')
         : data.hasFailedStep
         ? _localizedText(context, zh: '计划需要处理', en: 'Plan Needs Attention')
         : data.isComplete
@@ -3962,6 +4092,12 @@ class _SessionPlanTimelineBar extends StatelessWidget {
             context,
             zh: '请确认后开始执行',
             en: 'Confirm to begin execution',
+          )
+        : data.requiresReview
+        ? _localizedText(
+            context,
+            zh: '继续前先检查已完成步骤、产物和 Todo',
+            en: 'Inspect completed steps, artifacts, and todos before resuming',
           )
         : data.hasFailedStep
         ? _localizedText(
@@ -4005,6 +4141,8 @@ class _SessionPlanTimelineBar extends StatelessWidget {
                 child: Icon(
                   data.awaitingApproval
                       ? Icons.fact_check_outlined
+                      : data.requiresReview
+                      ? Icons.manage_search_rounded
                       : data.isComplete
                       ? Icons.task_alt_rounded
                       : Icons.timeline_rounded,
@@ -4047,9 +4185,11 @@ class _SessionPlanTimelineBar extends StatelessWidget {
                 child: Text(
                   data.awaitingApproval
                       ? _localizedText(context, zh: '等待确认', en: 'Pending')
+                      : data.requiresReview
+                      ? _localizedText(context, zh: '待复核', en: 'Review')
                       : '${data.completedStepCount}/${data.steps.length}',
                   key: ValueKey<String>(
-                    '${data.awaitingApproval}-${data.completedStepCount}-${data.steps.length}',
+                    '${data.awaitingApproval}-${data.requiresReview}-${data.completedStepCount}-${data.steps.length}',
                   ),
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -4275,8 +4415,9 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
 _PlanTimelineData? _buildPlanTimelineData(
   BuildContext context,
   AiSession session,
-  AiSendPhase sendPhase,
-) {
+  AiSendPhase sendPhase, {
+  bool requiresReview = false,
+}) {
   if (session.mode != AiSessionMode.plan) {
     return null;
   }
@@ -4307,6 +4448,7 @@ _PlanTimelineData? _buildPlanTimelineData(
   if (todoSteps.isNotEmpty) {
     return _PlanTimelineData(
       awaitingApproval: session.awaitingPlanApproval,
+      requiresReview: requiresReview,
       steps: todoSteps,
     );
   }
@@ -4316,6 +4458,7 @@ _PlanTimelineData? _buildPlanTimelineData(
   if (pendingPlanSteps.isNotEmpty) {
     return _PlanTimelineData(
       awaitingApproval: session.awaitingPlanApproval,
+      requiresReview: false,
       steps: _planTimelinePendingSteps(
         pendingPlanSteps,
         awaitingApproval: session.awaitingPlanApproval,
@@ -4342,6 +4485,7 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
     }
     return _PlanTimelineData(
       awaitingApproval: true,
+      requiresReview: false,
       steps: _planTimelinePendingSteps(
         pendingPlanSteps,
         awaitingApproval: true,
@@ -4364,6 +4508,7 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
     }
     return _PlanTimelineData(
       awaitingApproval: false,
+      requiresReview: false,
       steps: _planTimelinePendingSteps(
         pendingPlanSteps,
         awaitingApproval: false,
@@ -4372,7 +4517,11 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
       ),
     );
   }
-  return _PlanTimelineData(awaitingApproval: false, steps: todoSteps);
+  return _PlanTimelineData(
+    awaitingApproval: false,
+    requiresReview: false,
+    steps: todoSteps,
+  );
 }
 
 List<_PlanTimelineStep> _planTimelinePendingSteps(
@@ -4727,11 +4876,15 @@ String? _structuredPlanTimelineStepLabel(String rawLine) {
 
 Future<void> _showSessionMetadataDialog(
   BuildContext context,
-  AiSession session,
-) {
+  AiSession session, {
+  AiRuntimeToolPreview? liveRuntimeToolPreview,
+}) {
   return showDialog<void>(
     context: context,
-    builder: (dialogContext) => _SessionMetadataDialog(session: session),
+    builder: (dialogContext) => _SessionMetadataDialog(
+      session: session,
+      liveRuntimeToolPreview: liveRuntimeToolPreview,
+    ),
   );
 }
 
@@ -4752,10 +4905,356 @@ List<Map<String, Object?>> _metadataObjectList(Object? rawValue) {
       .toList(growable: false);
 }
 
+List<String> _metadataStringList(Object? rawValue) {
+  if (rawValue is! List) {
+    return const <String>[];
+  }
+  return rawValue
+      .map((item) => '$item'.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+class _RuntimeToolCatalogStatus {
+  const _RuntimeToolCatalogStatus({
+    required this.sessionMode,
+    required this.hasSnapshot,
+    required this.stale,
+    required this.isLivePreview,
+    required this.awaitingPlanApproval,
+    required this.planRecoveryRequired,
+    required this.planExecutionApproved,
+    required this.hasActiveTodoItems,
+    required this.hasPendingPlan,
+    required this.toolCount,
+    required this.toolNames,
+    required this.notices,
+    required this.gateReason,
+    required this.supportsToolCalls,
+  });
+
+  final AiSessionMode sessionMode;
+  final bool hasSnapshot;
+  final bool stale;
+  final bool isLivePreview;
+  final bool awaitingPlanApproval;
+  final bool planRecoveryRequired;
+  final bool planExecutionApproved;
+  final bool hasActiveTodoItems;
+  final bool hasPendingPlan;
+  final int toolCount;
+  final List<String> toolNames;
+  final List<String> notices;
+  final String gateReason;
+  final bool supportsToolCalls;
+
+  bool get hasActivePlanState => hasActiveTodoItems || hasPendingPlan;
+}
+
+_RuntimeToolCatalogStatus _runtimeToolCatalogStatus(
+  AiSession session, {
+  AiRuntimeToolPreview? livePreview,
+}) {
+  if (livePreview != null) {
+    return _RuntimeToolCatalogStatus(
+      sessionMode: livePreview.sessionMode,
+      hasSnapshot: true,
+      stale: false,
+      isLivePreview: true,
+      awaitingPlanApproval: livePreview.awaitingPlanApproval,
+      planRecoveryRequired: livePreview.planRecoveryInspectionRequired,
+      planExecutionApproved: livePreview.planExecutionApproved,
+      hasActiveTodoItems: session.todoItems.isNotEmpty,
+      hasPendingPlan: (session.pendingPlan ?? '').trim().isNotEmpty,
+      toolCount: livePreview.toolCount,
+      toolNames: livePreview.toolNames,
+      notices: livePreview.notices,
+      gateReason: livePreview.gateReason,
+      supportsToolCalls: livePreview.supportsToolCalls,
+    );
+  }
+  final metadata = session.lastPromptMetadata;
+  final toolNames = _metadataStringList(metadata['current_tool_names']);
+  final notices = _metadataStringList(metadata['runtime_tool_catalog_notices']);
+  final rawToolCount = _metadataInt(metadata['current_tool_count']);
+  final awaitingPlanApproval =
+      metadata['awaiting_plan_approval'] == true ||
+      session.awaitingPlanApproval;
+  final planRecoveryRequired =
+      metadata['plan_mode_recovery_inspection_required'] == true ||
+      metadata['plan_recovery_required'] == true;
+  final planExecutionApproved =
+      metadata['plan_mode_execution_approved_for_send'] == true;
+  final hasActiveTodoItems = session.todoItems.isNotEmpty;
+  final hasPendingPlan = (session.pendingPlan ?? '').trim().isNotEmpty;
+  var gateReason = '${metadata['runtime_tool_gate_reason'] ?? ''}'.trim();
+  if (gateReason.isEmpty) {
+    if (awaitingPlanApproval) {
+      gateReason = 'awaiting_plan_approval';
+    } else if (session.mode != AiSessionMode.plan) {
+      gateReason = metadata.isEmpty ? 'no_runtime_snapshot' : 'chat_mode';
+    } else if (planRecoveryRequired) {
+      gateReason = 'plan_mode_recovery_inspection';
+    } else if (planExecutionApproved) {
+      gateReason = 'plan_mode_execution';
+    } else if (hasActiveTodoItems) {
+      gateReason = 'plan_mode_planning_with_exit_allowed';
+    } else {
+      gateReason = 'plan_mode_planning_only';
+    }
+  }
+  return _RuntimeToolCatalogStatus(
+    sessionMode: session.mode,
+    hasSnapshot: metadata.isNotEmpty,
+    stale: metadata['runtime_tool_catalog_stale'] == true,
+    isLivePreview: false,
+    awaitingPlanApproval: awaitingPlanApproval,
+    planRecoveryRequired: planRecoveryRequired,
+    planExecutionApproved: planExecutionApproved,
+    hasActiveTodoItems: hasActiveTodoItems,
+    hasPendingPlan: hasPendingPlan,
+    toolCount: rawToolCount > 0 ? rawToolCount : toolNames.length,
+    toolNames: toolNames,
+    notices: notices,
+    gateReason: gateReason,
+    supportsToolCalls: true,
+  );
+}
+
+String _runtimeModeLabel(
+  BuildContext context,
+  _RuntimeToolCatalogStatus? status, {
+  bool compact = false,
+}) {
+  if (status == null || status.sessionMode != AiSessionMode.plan) {
+    return _localizedText(
+      context,
+      zh: '聊天模式',
+      en: compact ? 'Chat Mode' : 'Chat Mode',
+    );
+  }
+  if (status.awaitingPlanApproval) {
+    return _localizedText(
+      context,
+      zh: '计划待确认',
+      en: compact ? 'Plan Awaiting' : 'Plan Awaiting Approval',
+    );
+  }
+  if (status.planRecoveryRequired) {
+    return _localizedText(
+      context,
+      zh: '计划待复核',
+      en: compact ? 'Plan Review' : 'Plan Needs Review',
+    );
+  }
+  if (status.planExecutionApproved) {
+    return _localizedText(
+      context,
+      zh: '执行计划',
+      en: compact ? 'Plan Execute' : 'Plan Execution',
+    );
+  }
+  if (status.hasActivePlanState) {
+    return _localizedText(
+      context,
+      zh: '计划规划中',
+      en: compact ? 'Plan Draft' : 'Plan Drafting',
+    );
+  }
+  return _localizedText(
+    context,
+    zh: '计划模式',
+    en: compact ? 'Plan Mode' : 'Plan Mode',
+  );
+}
+
+IconData _runtimeModeIcon(_RuntimeToolCatalogStatus? status) {
+  if (status == null || status.sessionMode != AiSessionMode.plan) {
+    return Icons.forum_outlined;
+  }
+  if (status.awaitingPlanApproval) {
+    return Icons.fact_check_outlined;
+  }
+  if (status.planRecoveryRequired) {
+    return Icons.manage_search_rounded;
+  }
+  if (status.planExecutionApproved) {
+    return Icons.playlist_play_rounded;
+  }
+  return Icons.alt_route_rounded;
+}
+
+String _runtimeToolCatalogStatusLabel(
+  BuildContext context,
+  _RuntimeToolCatalogStatus status,
+) {
+  if (!status.supportsToolCalls) {
+    return _localizedText(
+      context,
+      zh: '当前模型协议不支持工具调用',
+      en: 'The current model protocol does not support tool calls',
+    );
+  }
+  if (!status.hasSnapshot) {
+    return _localizedText(
+      context,
+      zh: '尚未生成运行时工具快照',
+      en: 'No runtime tool snapshot yet',
+    );
+  }
+  if (status.stale) {
+    return _localizedText(
+      context,
+      zh: '工具目录已过期，等待下一轮刷新',
+      en: 'The tool catalog is stale and will refresh next round',
+    );
+  }
+  return _localizedText(
+    context,
+    zh: '运行时工具目录已同步',
+    en: 'The runtime tool catalog is synchronized',
+  );
+}
+
+String _runtimeToolGateReasonLabel(BuildContext context, String gateReason) {
+  return switch (gateReason.trim()) {
+    'awaiting_plan_approval' => _localizedText(
+      context,
+      zh: '计划待确认，当前轮不开放执行工具',
+      en: 'The plan is awaiting approval, so execution tools stay hidden',
+    ),
+    'plan_mode_recovery_inspection' => _localizedText(
+      context,
+      zh: '需要先复核已有步骤、产物和 Todo',
+      en: 'Review completed steps, artifacts, and todos before resuming',
+    ),
+    'plan_mode_execution' => _localizedText(
+      context,
+      zh: '计划已获准执行，当前轮开放执行工具',
+      en: 'The plan is approved and execution tools are available',
+    ),
+    'plan_mode_planning_with_exit_allowed' => _localizedText(
+      context,
+      zh: '当前仅开放规划工具，可在准备好后提交执行计划',
+      en: 'Only planning tools are available until the execution plan is ready',
+    ),
+    'plan_mode_planning_only' => _localizedText(
+      context,
+      zh: '当前仅开放规划工具',
+      en: 'Only planning tools are available right now',
+    ),
+    'mode_switch_requires_refresh' => _localizedText(
+      context,
+      zh: '模式刚切换，等待下一轮重新计算工具目录',
+      en: 'The mode just changed, so the tool catalog will refresh next round',
+    ),
+    'chat_mode_no_tools' => _localizedText(
+      context,
+      zh: '聊天模式当前没有可用工具',
+      en: 'No tools are available in chat mode right now',
+    ),
+    'chat_mode' => _localizedText(
+      context,
+      zh: '聊天模式当前开放完整运行时工具目录',
+      en: 'Chat mode currently exposes the full runtime catalog',
+    ),
+    'model_no_tool_support' => _localizedText(
+      context,
+      zh: '当前模型协议不支持工具调用',
+      en: 'The current model protocol does not support tool calls',
+    ),
+    'no_runtime_snapshot' => _localizedText(
+      context,
+      zh: '当前还没有运行时快照，请先发起一轮请求',
+      en: 'No runtime snapshot is available yet; send a request first',
+    ),
+    _ =>
+      gateReason.isEmpty
+          ? _localizedText(
+              context,
+              zh: '暂无门控说明',
+              en: 'No gate reason available',
+            )
+          : gateReason,
+  };
+}
+
+String _composerModeTooltip(
+  BuildContext context,
+  AiSessionMode mode,
+  _RuntimeToolCatalogStatus? status,
+) {
+  if (mode != AiSessionMode.plan) {
+    if (status != null && !status.supportsToolCalls) {
+      return _localizedText(
+        context,
+        zh: '当前模型协议不支持工具调用。点击切换到计划模式。',
+        en: 'The current model protocol does not support tool calls. Click to switch to plan mode.',
+      );
+    }
+    return _localizedText(
+      context,
+      zh: '当前为聊天模式，点击切换到计划模式',
+      en: 'Chat mode is active. Click to switch to plan mode.',
+    );
+  }
+  if (status == null) {
+    return _localizedText(
+      context,
+      zh: '当前为计划模式，点击切换到聊天模式',
+      en: 'Plan mode is active. Click to switch to chat mode.',
+    );
+  }
+  if (!status.supportsToolCalls) {
+    return _localizedText(
+      context,
+      zh: '当前模型协议不支持工具调用。计划模式仍可组织步骤，但不会开放工具执行。点击切换到聊天模式。',
+      en: 'The current model protocol does not support tool calls. Plan mode can still organize steps, but tool execution stays unavailable. Click to switch to chat mode.',
+    );
+  }
+  if (status.stale) {
+    return _localizedText(
+      context,
+      zh: '计划模式刚切换完成，运行时工具会在下一轮自动刷新。点击切换到聊天模式。',
+      en: 'Plan mode just changed. Runtime tools will refresh on the next round. Click to switch to chat mode.',
+    );
+  }
+  if (status.awaitingPlanApproval) {
+    return _localizedText(
+      context,
+      zh: '计划待确认。当前轮不会暴露执行工具，请先确认计划。点击切换到聊天模式。',
+      en: 'The plan is awaiting approval. Execution tools stay hidden until approval. Click to switch to chat mode.',
+    );
+  }
+  if (status.planRecoveryRequired) {
+    return _localizedText(
+      context,
+      zh: '计划待复核。继续执行前应先检查已完成步骤、产物与 Todo。点击切换到聊天模式。',
+      en: 'The plan needs review. Inspect completed steps, artifacts, and todos before continuing. Click to switch to chat mode.',
+    );
+  }
+  if (status.planExecutionApproved) {
+    return _localizedText(
+      context,
+      zh: '计划执行中。当前轮会按运行时目录暴露执行工具。点击切换到聊天模式。',
+      en: 'The plan is executing. Runtime tools are exposed according to the current catalog. Click to switch to chat mode.',
+    );
+  }
+  return _localizedText(
+    context,
+    zh: '当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。',
+    en: 'Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.',
+  );
+}
+
 class _SessionMetadataDialog extends StatelessWidget {
-  const _SessionMetadataDialog({required this.session});
+  const _SessionMetadataDialog({
+    required this.session,
+    this.liveRuntimeToolPreview,
+  });
 
   final AiSession session;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -4764,6 +5263,10 @@ class _SessionMetadataDialog extends StatelessWidget {
     final statistics = session.statistics;
     final environment = session.environment;
     final lastPromptMetadata = session.lastPromptMetadata;
+    final runtimeStatus = _runtimeToolCatalogStatus(
+      session,
+      livePreview: liveRuntimeToolPreview,
+    );
     final hasPromptMetadata = lastPromptMetadata.isNotEmpty;
     final writeCommandConfirmationEnabled =
         lastPromptMetadata['write_command_confirmation_enabled'] == true;
@@ -4800,6 +5303,18 @@ class _SessionMetadataDialog extends StatelessWidget {
       _MetadataSummaryTile(
         label: _localizedText(context, zh: '总 Token', en: 'Total Tokens'),
         value: '${statistics.totalTokens ?? 0}',
+      ),
+      _MetadataSummaryTile(
+        label: _localizedText(context, zh: '当前模式', en: 'Mode'),
+        value: _runtimeModeLabel(context, runtimeStatus, compact: true),
+      ),
+      _MetadataSummaryTile(
+        label: _localizedText(context, zh: '运行工具', en: 'Runtime Tools'),
+        value: !runtimeStatus.supportsToolCalls
+            ? '-'
+            : runtimeStatus.hasSnapshot && !runtimeStatus.stale
+            ? '${runtimeStatus.toolCount}'
+            : _localizedText(context, zh: '待刷新', en: 'Pending'),
       ),
     ];
 
@@ -5177,6 +5692,123 @@ class _SessionMetadataDialog extends StatelessWidget {
                                         .toList(growable: false),
                                   ),
                               ],
+                      ),
+                      const SizedBox(height: 16),
+                      _MetadataSection(
+                        title: _localizedText(
+                          context,
+                          zh: '运行时编排',
+                          en: 'Runtime Orchestration',
+                        ),
+                        children: [
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '状态来源',
+                              en: 'State Source',
+                            ),
+                            value: runtimeStatus.isLivePreview
+                                ? _localizedText(
+                                    context,
+                                    zh: '根据当前模型、MCP/Skills 与 Plan 状态即时生成',
+                                    en: 'Generated from the current model, MCP/skills, and plan state',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '上一轮已落盘的运行时快照',
+                                    en: 'The last persisted runtime snapshot',
+                                  ),
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '当前模式',
+                              en: 'Mode',
+                            ),
+                            value: _runtimeModeLabel(context, runtimeStatus),
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '工具目录状态',
+                              en: 'Tool Catalog State',
+                            ),
+                            value: _runtimeToolCatalogStatusLabel(
+                              context,
+                              runtimeStatus,
+                            ),
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '门控原因',
+                              en: 'Gate Reason',
+                            ),
+                            value: _runtimeToolGateReasonLabel(
+                              context,
+                              runtimeStatus.gateReason,
+                            ),
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedText(
+                              context,
+                              zh: '当前运行时工具数',
+                              en: 'Runtime Tool Count',
+                            ),
+                            value:
+                                runtimeStatus.hasSnapshot &&
+                                    !runtimeStatus.stale
+                                ? '${runtimeStatus.toolCount}'
+                                : _localizedText(
+                                    context,
+                                    zh: '等待下一轮刷新',
+                                    en: 'Refreshes next round',
+                                  ),
+                          ),
+                          if (runtimeStatus.notices.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '运行时 Notices',
+                                en: 'Runtime Notices',
+                              ),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: runtimeStatus.notices
+                                  .map((item) => _MetadataChip(label: item))
+                                  .toList(growable: false),
+                            ),
+                          ],
+                          if (runtimeStatus.toolNames.isNotEmpty &&
+                              !runtimeStatus.stale) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '当前运行时工具',
+                                en: 'Current Runtime Tools',
+                              ),
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: runtimeStatus.toolNames
+                                  .map((item) => _MetadataChip(label: item))
+                                  .toList(growable: false),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
@@ -8376,6 +9008,8 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
 
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
+    required this.currentSession,
+    required this.liveRuntimeToolPreview,
     required this.controller,
     required this.selectedModel,
     required this.availableModels,
@@ -8400,6 +9034,8 @@ class _ComposerPanel extends StatefulWidget {
     required this.onCancelEditing,
   });
 
+  final AiSession? currentSession;
+  final AiRuntimeToolPreview? liveRuntimeToolPreview;
   final TextEditingController controller;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
@@ -8440,6 +9076,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isBusy = widget.sendPhase != AiSendPhase.idle;
     final canStopSending = widget.canStopSending;
     final modeToggleEnabled = widget.sendPhase == AiSendPhase.idle;
+    final runtimeStatus = widget.currentSession == null
+        ? null
+        : _runtimeToolCatalogStatus(
+            widget.currentSession!,
+            livePreview: widget.liveRuntimeToolPreview,
+          );
     final sendButtonLabel = canStopSending
         ? _localizedText(context, zh: '停止回答', en: 'Stop Response')
         : switch (widget.sendPhase) {
@@ -8607,21 +9249,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         const SizedBox(width: 10),
         Tooltip(
-          message: widget.sessionMode == AiSessionMode.plan
-              ? _localizedText(
-                  context,
-                  zh: '当前为计划模式，点击切换到聊天模式',
-                  en: 'Plan mode is active. Click to switch to chat mode.',
-                )
-              : _localizedText(
-                  context,
-                  zh: '当前为聊天模式，点击切换到计划模式',
-                  en: 'Chat mode is active. Click to switch to plan mode.',
-                ),
+          message: _composerModeTooltip(
+            context,
+            widget.sessionMode,
+            runtimeStatus,
+          ),
           child: SizedBox(
             height: 52,
             child: _ComposerModeButton(
               mode: widget.sessionMode,
+              runtimeStatus: runtimeStatus,
               enabled: modeToggleEnabled,
               onPressed: () {
                 widget.onSessionModeChanged(
@@ -8775,11 +9412,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 class _ComposerModeButton extends StatelessWidget {
   const _ComposerModeButton({
     required this.mode,
+    required this.runtimeStatus,
     required this.enabled,
     required this.onPressed,
   });
 
   final AiSessionMode mode;
+  final _RuntimeToolCatalogStatus? runtimeStatus;
   final bool enabled;
   final VoidCallback onPressed;
 
@@ -8788,6 +9427,10 @@ class _ComposerModeButton extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isPlanMode = mode == AiSessionMode.plan;
+    final modeIcon = _runtimeModeIcon(runtimeStatus);
+    final modeLabel = isPlanMode
+        ? _runtimeModeLabel(context, runtimeStatus, compact: true)
+        : _localizedText(context, zh: '聊天模式', en: 'Chat Mode');
     final backgroundColor = !enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : isPlanMode
@@ -8837,8 +9480,8 @@ class _ComposerModeButton extends StatelessWidget {
                 );
               },
               child: Icon(
-                isPlanMode ? Icons.alt_route_rounded : Icons.forum_outlined,
-                key: ValueKey<AiSessionMode>(mode),
+                modeIcon,
+                key: ValueKey<String>('${mode.storageValue}-$modeIcon'),
                 size: 16,
                 color: accentColor,
               ),
@@ -8860,10 +9503,8 @@ class _ComposerModeButton extends StatelessWidget {
               );
             },
             child: Text(
-              isPlanMode
-                  ? _localizedText(context, zh: '计划模式', en: 'Plan Mode')
-                  : _localizedText(context, zh: '聊天模式', en: 'Chat Mode'),
-              key: ValueKey<AiSessionMode>(mode),
+              modeLabel,
+              key: ValueKey<String>('${mode.storageValue}-$modeLabel'),
               style: theme.textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),

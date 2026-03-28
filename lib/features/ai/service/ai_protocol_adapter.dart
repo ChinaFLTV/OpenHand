@@ -243,7 +243,7 @@ abstract class AiProtocolAdapter {
     final normalizedPath = pathParts.first.startsWith('/')
         ? pathParts.first.substring(1)
         : pathParts.first;
-    final queryString = pathParts.length > 1
+    final endpointQuery = pathParts.length > 1
         ? pathParts.sublist(1).join('?')
         : '';
     final baseUri = Uri.parse(baseUrl);
@@ -253,20 +253,32 @@ abstract class AiProtocolAdapter {
     final pathSegments = normalizedPath
         .split('/')
         .where((segment) => segment.isNotEmpty)
+        .map((segment) => segment.replaceAll('{model_id}', modelId))
         .toList(growable: false);
     final overlapLength = _leadingPathOverlap(baseSegments, pathSegments);
-    final remainingPath = pathSegments.skip(overlapLength).join('/');
-    final joinedPath = remainingPath.isEmpty
-        ? baseUrl
-        : '$baseUrl/$remainingPath';
-    final resolvedPath = joinedPath.replaceAll(
-      '{model_id}',
-      Uri.encodeComponent(modelId),
-    );
-    if (queryString.isEmpty) {
-      return resolvedPath;
+    final mergedPathSegments = <String>[
+      ...baseSegments,
+      ...pathSegments.skip(overlapLength),
+    ];
+    final mergedQuery = _mergeQueryStrings(baseUri.query, endpointQuery);
+    return Uri(
+      scheme: baseUri.scheme,
+      userInfo: baseUri.userInfo.isEmpty ? null : baseUri.userInfo,
+      host: baseUri.host,
+      port: baseUri.hasPort ? baseUri.port : null,
+      pathSegments: mergedPathSegments,
+      query: mergedQuery.isEmpty ? null : mergedQuery,
+    ).toString();
+  }
+
+  String _mergeQueryStrings(String baseQuery, String endpointQuery) {
+    if (baseQuery.isEmpty) {
+      return endpointQuery;
     }
-    return '$resolvedPath?$queryString';
+    if (endpointQuery.isEmpty) {
+      return baseQuery;
+    }
+    return '$baseQuery&$endpointQuery';
   }
 
   int _leadingPathOverlap(

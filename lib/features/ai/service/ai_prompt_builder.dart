@@ -205,6 +205,11 @@ class AiPromptBuilder {
         content:
             '# [1] Developer Instructions\n\n${templateBundle.developerInstructions}',
       ),
+      AiChatTurn(
+        role: AiChatRole.system,
+        content:
+            '# [1.5] Current Runtime Tool Catalog (authoritative)\n\n${_renderRuntimeToolCatalog(availableTools)}',
+      ),
       if (todoReminder != null)
         AiChatTurn(
           role: AiChatRole.system,
@@ -349,6 +354,84 @@ class AiPromptBuilder {
       }
     }
     return buffer.toString().trimRight();
+  }
+
+  String _renderRuntimeToolCatalog(List<AiToolDefinition> availableTools) {
+    final visibleTools = availableTools
+        .where((tool) => tool.name.trim().isNotEmpty)
+        .toList(growable: false);
+    if (visibleTools.isEmpty) {
+      return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
+      );
+    for (final tool in visibleTools) {
+      final description = _truncateToolDescription(tool.description);
+      final requiredArguments = _toolArgumentNames(
+        tool.parameters,
+        requiredOnly: true,
+      );
+      final optionalArguments = _toolArgumentNames(
+        tool.parameters,
+        requiredOnly: false,
+      );
+      buffer
+        ..writeln()
+        ..write('- ${tool.name}: $description');
+      if (requiredArguments.isNotEmpty) {
+        buffer.write(' Required args: ${requiredArguments.join(', ')}.');
+      }
+      if (optionalArguments.isNotEmpty) {
+        buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
+      }
+      buffer.writeln();
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _truncateToolDescription(
+    String description, {
+    int maxCharacters = 220,
+  }) {
+    final normalized = description
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'\.\s*\.'), '.');
+    if (normalized.length <= maxCharacters) {
+      return normalized;
+    }
+    return '${normalized.substring(0, maxCharacters).trimRight()}...';
+  }
+
+  List<String> _toolArgumentNames(
+    Map<String, Object?> parameters, {
+    required bool requiredOnly,
+  }) {
+    final propertiesValue = parameters['properties'];
+    if (propertiesValue is! Map && propertiesValue is! Map<String, Object?>) {
+      return const <String>[];
+    }
+    final properties = propertiesValue is Map<String, Object?>
+        ? propertiesValue
+        : Map<String, Object?>.from(propertiesValue as Map);
+    final requiredValue = parameters['required'];
+    final requiredNames = requiredValue is List
+        ? requiredValue
+              .map((item) => '$item'.trim())
+              .where((item) => item.isNotEmpty)
+              .toSet()
+        : const <String>{};
+    return properties.keys
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .where(
+          (item) => requiredOnly
+              ? requiredNames.contains(item)
+              : !requiredNames.contains(item),
+        )
+        .toList(growable: false);
   }
 
   List<AiChatTurn> _mapMessageContent({
@@ -1290,6 +1373,13 @@ class AiPromptBuilder {
     final normalized = content.trim().toLowerCase();
     if (normalized.isEmpty) {
       return false;
+    }
+    final compactReply = normalized.replaceAll(
+      RegExp(r'[\s!！。．\.,，、;；:：~～?？]+'),
+      '',
+    );
+    if (compactReply == '确认') {
+      return true;
     }
     const approvalPhrases = <String>[
       'approve',

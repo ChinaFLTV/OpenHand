@@ -5,6 +5,8 @@ import 'dart:io';
 import '../../../app/support/openhand_paths.dart';
 import '../model/ai_deny_command_rule.dart';
 
+const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
+
 enum BashToolExecutionStatus {
   success('success'),
   failed('failed'),
@@ -529,18 +531,18 @@ class AiBashToolService {
     final progressTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       emitUpdate(phase: BashToolExecutionPhase.running, force: true);
     });
-    final stdoutSubscription = process.stdout.transform(utf8.decoder).listen((
-      chunk,
-    ) {
-      _appendChunk(stdoutBuffer, chunk);
-      emitUpdate(phase: BashToolExecutionPhase.running);
-    });
-    final stderrSubscription = process.stderr.transform(utf8.decoder).listen((
-      chunk,
-    ) {
-      _appendChunk(stderrBuffer, chunk);
-      emitUpdate(phase: BashToolExecutionPhase.running);
-    });
+    final stdoutSubscription = process.stdout
+        .transform(_shellOutputDecoder)
+        .listen((chunk) {
+          _appendChunk(stdoutBuffer, chunk);
+          emitUpdate(phase: BashToolExecutionPhase.running);
+        });
+    final stderrSubscription = process.stderr
+        .transform(_shellOutputDecoder)
+        .listen((chunk) {
+          _appendChunk(stderrBuffer, chunk);
+          emitUpdate(phase: BashToolExecutionPhase.running);
+        });
 
     int? exitCode;
     var cancelled = false;
@@ -861,16 +863,22 @@ class AiBashToolService {
       process: process,
       currentWorkingDirectory: initialWorkingDirectory,
     );
-    session.stdoutSubscription = process.stdout.transform(utf8.decoder).listen((
-      chunk,
-    ) {
-      session.activeExecution?.appendStdoutChunk(chunk, maxCapturedCharacters);
-    });
-    session.stderrSubscription = process.stderr.transform(utf8.decoder).listen((
-      chunk,
-    ) {
-      session.activeExecution?.appendStderrChunk(chunk, maxCapturedCharacters);
-    });
+    session.stdoutSubscription = process.stdout
+        .transform(_shellOutputDecoder)
+        .listen((chunk) {
+          session.activeExecution?.appendStdoutChunk(
+            chunk,
+            maxCapturedCharacters,
+          );
+        });
+    session.stderrSubscription = process.stderr
+        .transform(_shellOutputDecoder)
+        .listen((chunk) {
+          session.activeExecution?.appendStderrChunk(
+            chunk,
+            maxCapturedCharacters,
+          );
+        });
     process.exitCode.then((_) {
       final activeExecution = session.activeExecution;
       if (activeExecution != null && !activeExecution.outcome.isCompleted) {

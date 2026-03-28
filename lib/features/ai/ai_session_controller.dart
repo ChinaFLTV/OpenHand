@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/support/openhand_paths.dart';
+import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
@@ -40,6 +41,32 @@ class _CompressionWindowSelection {
 
   final List<AiSessionMessage> messagesToCompress;
   final List<AiSessionMessage> discardedMessages;
+}
+
+class AiRuntimeToolPreview {
+  const AiRuntimeToolPreview({
+    required this.sessionMode,
+    required this.awaitingPlanApproval,
+    required this.planRecoveryInspectionRequired,
+    required this.planExecutionApproved,
+    required this.toolNames,
+    required this.notices,
+    required this.gateReason,
+    this.supportsToolCalls = true,
+    this.isAuthoritative = true,
+  });
+
+  final AiSessionMode sessionMode;
+  final bool awaitingPlanApproval;
+  final bool planRecoveryInspectionRequired;
+  final bool planExecutionApproved;
+  final List<String> toolNames;
+  final List<String> notices;
+  final String gateReason;
+  final bool supportsToolCalls;
+  final bool isAuthoritative;
+
+  int get toolCount => toolNames.length;
 }
 
 class AiSessionController extends ChangeNotifier {
@@ -510,8 +537,17 @@ class AiSessionController extends ChangeNotifier {
           session.mode == AiSessionMode.plan && mode != AiSessionMode.plan
           ? _clearActivePlanState(session)
           : session;
+      final updatedPromptMetadata = _markRuntimeToolCatalogMetadataStale(
+        baseMetadata: clearedSession.lastPromptMetadata,
+        session: clearedSession,
+        mode: mode,
+      );
       final updatedSession = _rebuildSession(
-        clearedSession.copyWith(mode: mode, updatedAt: _clock().toUtc()),
+        clearedSession.copyWith(
+          mode: mode,
+          updatedAt: _clock().toUtc(),
+          lastPromptMetadata: updatedPromptMetadata,
+        ),
       );
       return _commitSessionLocked(updatedSession);
     });
@@ -616,6 +652,71 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
     });
+  }
+
+  AiRuntimeToolPreview previewRuntimeToolCatalog({
+    required AiSession session,
+    required AiModelConfig model,
+    required AiSessionRuntimeContext runtimeContext,
+    Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
+        const <String, McpToolCatalog>{},
+  }) {
+    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
+    if (!adapter.supportsToolCalls) {
+      return AiRuntimeToolPreview(
+        sessionMode: session.mode,
+        awaitingPlanApproval: session.awaitingPlanApproval,
+        planRecoveryInspectionRequired: false,
+        planExecutionApproved: false,
+        toolNames: const <String>[],
+        notices: const <String>[],
+        gateReason: 'model_no_tool_support',
+        supportsToolCalls: false,
+      );
+    }
+    final latestUserMessageId = _latestActiveUserMessageId(session);
+    final recoveryInspectionRequired = _shouldRequirePlanModeRecoveryInspection(
+      session: session,
+      latestUserMessageId: latestUserMessageId,
+    );
+    final executionApprovedForSend = _shouldAllowPlanModeExecutionTools(
+      session: session,
+      latestUserMessageId: latestUserMessageId,
+    );
+    final baseCatalog = _toolRuntimeService.resolveCatalogFromRuntimeSnapshot(
+      runtimeContext: runtimeContext,
+      mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
+    );
+    final effectiveCatalog = session.awaitingPlanApproval
+        ? AiResolvedToolCatalog(
+            definitions: const <AiToolDefinition>[],
+            toolsByName: const <String, AiResolvedTool>{},
+            notices: baseCatalog.notices,
+          )
+        : _toolCatalogForRound(
+            session: session,
+            baseCatalog: baseCatalog,
+            executionApprovedForSend: executionApprovedForSend,
+            recoveryInspectionRequired: recoveryInspectionRequired,
+          );
+    final toolNames = effectiveCatalog.definitions
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    return AiRuntimeToolPreview(
+      sessionMode: session.mode,
+      awaitingPlanApproval: session.awaitingPlanApproval,
+      planRecoveryInspectionRequired: recoveryInspectionRequired,
+      planExecutionApproved: executionApprovedForSend,
+      toolNames: toolNames,
+      notices: effectiveCatalog.notices,
+      gateReason: _runtimeToolCatalogGateReason(
+        session: session,
+        toolCatalog: effectiveCatalog,
+        executionApprovedForSend: executionApprovedForSend,
+        recoveryInspectionRequired: recoveryInspectionRequired,
+      ),
+    );
   }
 
   Future<bool> deleteMessages(
@@ -1865,13 +1966,20 @@ class AiSessionController extends ChangeNotifier {
       final totalUsage = _usageFromStatistics(
         rebasedSession.statistics,
       ).merge(effectiveUsage ?? const AiTokenUsage());
+      final runtimePromptMetadata = _promptMetadataWithRuntimeToolCatalog(
+        baseMetadata: promptResult.metadata,
+        session: streamedSession,
+        toolCatalog: toolCatalogForRound,
+        executionApprovedForSend: planModeExecutionApprovedForSend,
+        recoveryInspectionRequired: planModeRecoveryInspectionRequired,
+      );
       streamedSession = _rebuildSession(
         rebasedSession.copyWith(
           messages: streamedSession.messages,
           updatedAt: _clock().toUtc(),
           lastUsedModelId: model.id,
           lastUsedModelLabel: model.displayName,
-          lastPromptMetadata: promptResult.metadata,
+          lastPromptMetadata: runtimePromptMetadata,
         ),
         totalPromptCharacters:
             rebasedSession.statistics.totalPromptCharacters +
@@ -3098,6 +3206,90 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
+  Map<String, Object?> _promptMetadataWithRuntimeToolCatalog({
+    required Map<String, Object?> baseMetadata,
+    required AiSession session,
+    required AiResolvedToolCatalog toolCatalog,
+    required bool executionApprovedForSend,
+    required bool recoveryInspectionRequired,
+  }) {
+    final toolNames = toolCatalog.definitions
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    return <String, Object?>{
+      ...baseMetadata,
+      'tool_catalog_authoritative': true,
+      'session_mode': session.mode.storageValue,
+      'plan_mode_active': session.mode == AiSessionMode.plan,
+      'awaiting_plan_approval': session.awaitingPlanApproval,
+      'pending_plan': session.pendingPlan,
+      'current_todo_count': session.todoItems.length,
+      'current_todos': session.todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'current_tool_count': toolNames.length,
+      'current_tool_names': toolNames,
+      'runtime_tool_catalog_stale': false,
+      'runtime_tool_catalog_notices': toolCatalog.notices,
+      'runtime_tool_gate_reason': _runtimeToolCatalogGateReason(
+        session: session,
+        toolCatalog: toolCatalog,
+        executionApprovedForSend: executionApprovedForSend,
+        recoveryInspectionRequired: recoveryInspectionRequired,
+      ),
+      'plan_mode_execution_approved_for_send': executionApprovedForSend,
+      'plan_mode_recovery_inspection_required': recoveryInspectionRequired,
+    };
+  }
+
+  Map<String, Object?> _markRuntimeToolCatalogMetadataStale({
+    required Map<String, Object?> baseMetadata,
+    required AiSession session,
+    required AiSessionMode mode,
+  }) {
+    return <String, Object?>{
+      ...baseMetadata,
+      'tool_catalog_authoritative': false,
+      'session_mode': mode.storageValue,
+      'plan_mode_active': mode == AiSessionMode.plan,
+      'awaiting_plan_approval': session.awaitingPlanApproval,
+      'pending_plan': session.pendingPlan,
+      'current_todo_count': session.todoItems.length,
+      'current_todos': session.todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'runtime_tool_catalog_stale': true,
+      'runtime_tool_catalog_notices': const <String>[],
+      'runtime_tool_gate_reason': 'mode_switch_requires_refresh',
+    };
+  }
+
+  String _runtimeToolCatalogGateReason({
+    required AiSession session,
+    required AiResolvedToolCatalog toolCatalog,
+    required bool executionApprovedForSend,
+    required bool recoveryInspectionRequired,
+  }) {
+    if (session.awaitingPlanApproval) {
+      return 'awaiting_plan_approval';
+    }
+    if (session.mode != AiSessionMode.plan) {
+      return toolCatalog.definitions.isEmpty
+          ? 'chat_mode_no_tools'
+          : 'chat_mode';
+    }
+    if (recoveryInspectionRequired) {
+      return 'plan_mode_recovery_inspection';
+    }
+    if (executionApprovedForSend) {
+      return 'plan_mode_execution';
+    }
+    return _hasIncompleteTodoItems(session.todoItems)
+        ? 'plan_mode_planning_with_exit_allowed'
+        : 'plan_mode_planning_only';
+  }
+
   bool _isAllowedPlanModePlanningTool(
     String toolName, {
     required bool allowExitPlanMode,
@@ -3288,6 +3480,16 @@ class AiSessionController extends ChangeNotifier {
           !message.isDeleted &&
           message.kind == AiSessionMessageKind.user) {
         return message;
+      }
+    }
+    return null;
+  }
+
+  String? _latestActiveUserMessageId(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+        return message.id;
       }
     }
     return null;
@@ -3681,6 +3883,13 @@ class AiSessionController extends ChangeNotifier {
     final normalized = content.trim().toLowerCase();
     if (normalized.isEmpty) {
       return false;
+    }
+    final compactReply = normalized.replaceAll(
+      RegExp(r'[\s!！。．\.,，、;；:：~～?？]+'),
+      '',
+    );
+    if (compactReply == '确认') {
+      return true;
     }
     const approvalPhrases = <String>[
       'approve',

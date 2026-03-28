@@ -147,11 +147,16 @@ class AiToolRuntimeService {
     required McpToolDiscoveryService mcpToolService,
     required AiChatClient backgroundChatClient,
     http.Client? httpClient,
+    Future<List<InternetAddress>> Function(String host)? hostLookup,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
        _backgroundChatClient = backgroundChatClient,
-       _httpClient = httpClient ?? http.Client();
+       _httpClient = httpClient ?? http.Client(),
+       _hostLookup =
+           hostLookup ??
+           ((host) =>
+               InternetAddress.lookup(host, type: InternetAddressType.any));
 
   static const int _maxFileCharacters = 64000;
   static const int _maxReadBytes = _maxFileCharacters * 4;
@@ -174,6 +179,7 @@ class AiToolRuntimeService {
   final McpToolDiscoveryService _mcpToolService;
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
+  final Future<List<InternetAddress>> Function(String host) _hostLookup;
   final Map<String, _CachedWebFetchContent> _webFetchCache =
       <String, _CachedWebFetchContent>{};
 
@@ -230,6 +236,77 @@ class AiToolRuntimeService {
         }
       } catch (error) {
         notices.add('MCP ${server.name}: $error');
+      }
+    }
+
+    return AiResolvedToolCatalog(
+      definitions: definitions,
+      toolsByName: toolsByName,
+      notices: notices,
+    );
+  }
+
+  AiResolvedToolCatalog resolveCatalogFromRuntimeSnapshot({
+    required AiSessionRuntimeContext runtimeContext,
+    Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
+        const <String, McpToolCatalog>{},
+  }) {
+    final definitions = <AiToolDefinition>[];
+    final toolsByName = <String, AiResolvedTool>{};
+    final notices = <String>[];
+
+    void register(AiResolvedTool tool) {
+      if (toolsByName.containsKey(tool.name)) {
+        return;
+      }
+      toolsByName[tool.name] = tool;
+      definitions.add(tool.definition);
+    }
+
+    for (final tool in _builtinTools) {
+      register(tool);
+    }
+    register(_legacyBashAlias);
+
+    for (final skill in runtimeContext.availableSkills) {
+      final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
+      register(tool);
+    }
+
+    final enabledServers = runtimeContext.availableMcpServers
+        .where((item) => item.enabled)
+        .toList(growable: false);
+    for (final server in enabledServers) {
+      final catalog = mcpToolCatalogsByServerName[server.name];
+      if (catalog == null || catalog.status == McpToolCatalogStatus.idle) {
+        notices.add(
+          'MCP ${server.name}: Tool catalog has not been scanned yet.',
+        );
+        continue;
+      }
+      if (catalog.status == McpToolCatalogStatus.loading) {
+        notices.add('MCP ${server.name}: Tool catalog is refreshing.');
+        continue;
+      }
+      if (catalog.status != McpToolCatalogStatus.ready) {
+        final errorMessage = catalog.errorMessage?.trim() ?? '';
+        if (errorMessage.isNotEmpty) {
+          notices.add('MCP ${server.name}: $errorMessage');
+        }
+        continue;
+      }
+      if (catalog.warningMessage?.trim().isNotEmpty ?? false) {
+        notices.add('MCP ${server.name}: ${catalog.warningMessage!.trim()}');
+      }
+      final takenNames = toolsByName.keys.toSet();
+      for (final mcpTool in catalog.tools) {
+        final tool = _buildMcpTool(
+          server: server,
+          tool: mcpTool,
+          takenNames: takenNames,
+        );
+        takenNames.add(tool.name);
+        register(tool);
       }
     }
 
@@ -1077,6 +1154,12 @@ class AiToolRuntimeService {
     }
     final offset = _readInt(arguments['offset']);
     final limit = _readInt(arguments['limit']) ?? _defaultReadLimit;
+    if (limit <= 0) {
+      return _invalidToolResult(
+        'Read',
+        'Read limit must be a positive integer.',
+      );
+    }
     final renderedRead = await _renderReadForFile(file, filePath);
     final rawContent = renderedRead.content;
     if (rawContent.isEmpty) {
@@ -1697,6 +1780,10 @@ class AiToolRuntimeService {
     final uri = tryParseValidHttpUrl(rawUrl);
     if (uri == null) {
       return _invalidToolResult('WebFetch', 'Invalid URL: $rawUrl');
+    }
+    final blockedFetchReason = await _blockedWebFetchTargetReason(uri);
+    if (blockedFetchReason != null) {
+      return _invalidToolResult('WebFetch', blockedFetchReason);
     }
     final fetchResult = await _fetchWebContent(uri, cancelSignal: cancelSignal);
     if (fetchResult.cancelled) {
@@ -2660,6 +2747,7 @@ class AiToolRuntimeService {
       if (_isRedirectStatusCode(response.statusCode)) {
         final location = (response.headers['location'] ?? '').trim();
         if (location.isEmpty) {
+          _discardHttpResponseBody(response);
           return _WebFetchContentResult(
             errorMessage:
                 'Received redirect response without a location header from $currentUri.',
@@ -2667,20 +2755,29 @@ class AiToolRuntimeService {
         }
         final nextUri = normalizeValidHttpUri(currentUri.resolve(location));
         if (nextUri == null) {
+          _discardHttpResponseBody(response);
           return _WebFetchContentResult(
             errorMessage: 'Invalid redirect target: $location',
           );
         }
+        final blockedFetchReason = await _blockedWebFetchTargetReason(nextUri);
+        if (blockedFetchReason != null) {
+          _discardHttpResponseBody(response);
+          return _WebFetchContentResult(errorMessage: blockedFetchReason);
+        }
         if (currentUri.host.toLowerCase() != nextUri.host.toLowerCase()) {
+          _discardHttpResponseBody(response);
           return _WebFetchContentResult(
             crossHostRedirectUrl: nextUri.toString(),
             finalUrl: currentUri.toString(),
           );
         }
+        _discardHttpResponseBody(response);
         currentUri = nextUri;
         continue;
       }
       if (response.statusCode < 200 || response.statusCode >= 400) {
+        _discardHttpResponseBody(response);
         return _WebFetchContentResult(
           errorMessage:
               'WebFetch failed with HTTP ${response.statusCode} for $currentUri.',
@@ -2789,6 +2886,42 @@ class AiToolRuntimeService {
     );
 
     return completer.future;
+  }
+
+  Future<String?> _blockedWebFetchTargetReason(Uri uri) async {
+    final directReason = agentFetchBlockReasonForUri(uri);
+    if (directReason != null) {
+      return 'WebFetch blocks $directReason: ${uri.host}';
+    }
+    if (InternetAddress.tryParse(uri.host) != null) {
+      return null;
+    }
+    try {
+      final resolvedAddresses = await _hostLookup(
+        uri.host,
+      ).timeout(const Duration(seconds: 2));
+      for (final address in resolvedAddresses) {
+        final addressReason = agentFetchBlockReasonForAddress(address);
+        if (addressReason != null) {
+          return 'WebFetch blocked ${uri.host} because it resolved to $addressReason (${address.address}).';
+        }
+      }
+    } on SocketException {
+      return null;
+    } on TimeoutException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  void _discardHttpResponseBody(http.StreamedResponse response) {
+    unawaited(
+      response.stream.drain<void>().catchError(
+        (Object error, StackTrace stackTrace) {},
+      ),
+    );
   }
 
   bool _isRedirectStatusCode(int statusCode) {

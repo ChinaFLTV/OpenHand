@@ -194,10 +194,11 @@ class AiAttachmentService {
     required int promptCharacterLimit,
   }) async {
     final extension = p.extension(sourceName).toLowerCase();
+    final sourceBytes = await sourceFile.readAsBytes();
     final decodedImage = extension == '.svg'
         ? null
-        : img.decodeImage(await sourceFile.readAsBytes());
-    var outputBytes = await sourceFile.readAsBytes();
+        : img.decodeImage(sourceBytes);
+    var outputBytes = Uint8List.fromList(sourceBytes);
     var width = decodedImage?.width;
     var height = decodedImage?.height;
     var targetName = _targetFileName(sequence, sourceName);
