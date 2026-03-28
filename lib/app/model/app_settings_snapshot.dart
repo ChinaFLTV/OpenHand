@@ -20,6 +20,7 @@ class AppSettingsSnapshot {
     required this.userMemoryFilePath,
     required this.aiMessageCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
+    required this.aiSequentialToolRoundLimit,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
@@ -30,6 +31,7 @@ class AppSettingsSnapshot {
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int defaultAiSingleRoundToolCallLimit = 40;
+  static const int defaultAiSequentialToolRoundLimit = 24;
 
   factory AppSettingsSnapshot.defaults() {
     return AppSettingsSnapshot(
@@ -44,6 +46,7 @@ class AppSettingsSnapshot {
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
+      aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
@@ -63,6 +66,7 @@ class AppSettingsSnapshot {
   final String userMemoryFilePath;
   final int aiMessageCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
+  final int aiSequentialToolRoundLimit;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
@@ -81,6 +85,7 @@ class AppSettingsSnapshot {
     String? userMemoryFilePath,
     int? aiMessageCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
+    int? aiSequentialToolRoundLimit,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
@@ -103,6 +108,8 @@ class AppSettingsSnapshot {
           this.aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit:
           aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
+      aiSequentialToolRoundLimit:
+          aiSequentialToolRoundLimit ?? this.aiSequentialToolRoundLimit,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??
           this.aiWriteCommandConfirmationEnabled,

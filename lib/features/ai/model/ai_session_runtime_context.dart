@@ -91,6 +91,7 @@ class AiSessionRuntimeContext {
     required this.memoryEnabled,
     required this.memoryEntries,
     this.singleRoundToolCallLimit = 40,
+    this.sequentialToolRoundLimit = 24,
     this.writeCommandConfirmationEnabled = true,
     this.platformName = '',
     this.workingDirectory = '',
@@ -115,6 +116,7 @@ class AiSessionRuntimeContext {
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
   final int singleRoundToolCallLimit;
+  final int sequentialToolRoundLimit;
   final bool writeCommandConfirmationEnabled;
   final String platformName;
   final String workingDirectory;
@@ -140,6 +142,7 @@ class AiSessionRuntimeContext {
       'sessions_directory_path': OpenHandPaths.defaultSessionsDirectoryPath(),
       'compression_threshold_chars': compressionThresholdChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
+      'sequential_tool_round_limit': sequentialToolRoundLimit,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,
       'working_directory': workingDirectory,

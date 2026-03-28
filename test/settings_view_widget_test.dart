@@ -39,6 +39,12 @@ void main() {
   const toolCallLimitSaveButtonKey = ValueKey<String>(
     'settingsToolCallLimitSaveButton',
   );
+  const sequentialToolRoundLimitFieldKey = ValueKey<String>(
+    'settingsSequentialToolRoundLimitField',
+  );
+  const sequentialToolRoundLimitSaveButtonKey = ValueKey<String>(
+    'settingsSequentialToolRoundLimitSaveButton',
+  );
 
   testWidgets('SettingsView rolls back skills path when skills reload fails', (
     tester,
@@ -139,6 +145,32 @@ void main() {
     expect(harness.settingsController.aiSingleRoundToolCallLimit, 55);
     expect(
       find.text('The per-response tool call limit has been saved.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('SettingsView saves the sequential tool round limit', (
+    tester,
+  ) async {
+    final harness = await _createSettingsViewHarness();
+    addTearDown(harness.dispose);
+
+    await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await tester.ensureVisible(find.byKey(sequentialToolRoundLimitFieldKey));
+    await tester.enterText(find.byKey(sequentialToolRoundLimitFieldKey), '18');
+    await tester.ensureVisible(
+      find.byKey(sequentialToolRoundLimitSaveButtonKey),
+    );
+    await tester.tap(find.byKey(sequentialToolRoundLimitSaveButtonKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(harness.settingsController.aiSequentialToolRoundLimit, 18);
+    expect(
+      find.text('The sequential tool round limit has been saved.'),
       findsOneWidget,
     );
   });
@@ -339,6 +371,48 @@ void main() {
         findsOneWidget,
       );
       final field = tester.widget<TextField>(find.byKey(toolCallLimitFieldKey));
+      expect(field.controller!.text, '$initialValue');
+    },
+  );
+
+  testWidgets(
+    'SettingsView restores the sequential tool round limit field when settings persistence fails',
+    (tester) async {
+      final harness = await _createSettingsViewHarness();
+      addTearDown(harness.dispose);
+      final initialValue =
+          harness.settingsController.aiSequentialToolRoundLimit;
+      harness.settingsStore.failNextSave();
+
+      await tester.pumpWidget(_SettingsViewTestApp(harness: harness));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      await tester.ensureVisible(find.byKey(sequentialToolRoundLimitFieldKey));
+      await tester.enterText(
+        find.byKey(sequentialToolRoundLimitFieldKey),
+        '18',
+      );
+      await tester.ensureVisible(
+        find.byKey(sequentialToolRoundLimitSaveButtonKey),
+      );
+      await tester.tap(find.byKey(sequentialToolRoundLimitSaveButtonKey));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(
+        harness.settingsController.aiSequentialToolRoundLimit,
+        initialValue,
+      );
+      expect(
+        find.text(
+          'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.',
+        ),
+        findsOneWidget,
+      );
+      final field = tester.widget<TextField>(
+        find.byKey(sequentialToolRoundLimitFieldKey),
+      );
       expect(field.controller!.text, '$initialValue');
     },
   );

@@ -97,6 +97,25 @@ class AiPromptBuilder {
       session: session,
       latestUserMessage: latestUserMessage,
     );
+    final planModeReminder = _buildPlanModeReminder(
+      session: session,
+      latestUserMessage: latestUserMessage,
+    );
+    final failedTodos = session.todoItems
+        .where((item) {
+          final status = item.status.trim().toLowerCase();
+          return status == 'failed' ||
+              status == 'blocked' ||
+              status == 'cancelled';
+        })
+        .map((item) => item.toJson())
+        .toList(growable: false);
+    final planRecoveryRequired =
+        latestUserMessage != null &&
+        _shouldUsePlanRecoveryReminder(
+          session: session,
+          latestUserMessage: latestUserMessage,
+        );
     final metadata = <String, Object?>{
       'session_title': session.title,
       'session_created_at': session.createdAt.toUtc().toIso8601String(),
@@ -119,10 +138,16 @@ class AiPromptBuilder {
       },
       'current_model_id': model.modelId,
       'current_model_label': model.displayName,
+      'session_mode': session.mode.storageValue,
+      'plan_mode_active': session.mode == AiSessionMode.plan,
       'current_todo_count': session.todoItems.length,
       'current_todos': session.todoItems
           .map((item) => item.toJson())
           .toList(growable: false),
+      'failed_todo_count': failedTodos.length,
+      'failed_todos': failedTodos,
+      'recent_plan_tool_failure': _hasRecentPlanToolFailure(session),
+      'plan_recovery_required': planRecoveryRequired,
       'todo_write_recommended': todoReminder != null,
       'todo_write_reason': todoReminder,
       'awaiting_plan_approval': session.awaitingPlanApproval,
@@ -134,6 +159,8 @@ class AiPromptBuilder {
           .map((item) => item.path)
           .toList(growable: false),
       'working_directory': runtimeContext.workingDirectory,
+      'single_round_tool_call_limit': runtimeContext.singleRoundToolCallLimit,
+      'sequential_tool_round_limit': runtimeContext.sequentialToolRoundLimit,
       'platform_name': runtimeContext.platformName,
       'today_local_date': runtimeContext.todayLocalDate,
       'time_zone_name': runtimeContext.timeZoneName,
@@ -165,6 +192,11 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# System Reminder\n\n$todoReminder',
+        ),
+      if (planModeReminder != null)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# Plan Mode Reminder\n\n$planModeReminder',
         ),
       AiChatTurn(
         role: AiChatRole.system,
@@ -242,6 +274,12 @@ class AiPromptBuilder {
       ..writeln('Platform: ${runtimeContext.platformName}')
       ..writeln('Today local date: ${runtimeContext.todayLocalDate}')
       ..writeln('Time zone: ${runtimeContext.timeZoneName}')
+      ..writeln(
+        'Per-response tool call limit: ${runtimeContext.singleRoundToolCallLimit}',
+      )
+      ..writeln(
+        'Sequential tool round limit: ${runtimeContext.sequentialToolRoundLimit}',
+      )
       ..writeln(
         'Write command confirmation required: ${runtimeContext.writeCommandConfirmationEnabled ? 'Yes' : 'No'}',
       );
@@ -812,6 +850,164 @@ class AiPromptBuilder {
       return null;
     }
     return 'This looks like a non-trivial multi-step task. Use TodoWrite now to create or refresh a structured todo list before continuing, and keep it updated as steps complete.';
+  }
+
+  String? _buildPlanModeReminder({
+    required AiSession session,
+    required AiSessionMessage? latestUserMessage,
+  }) {
+    if (session.awaitingPlanApproval) {
+      final pendingPlan = (session.pendingPlan ?? '').trim();
+      if (pendingPlan.isEmpty) {
+        return 'A plan is pending user approval. Present the captured plan clearly, ask for explicit approval, and wait before implementation. Do not call editing or write-oriented tools until approval is granted.';
+      }
+      return 'A plan is pending user approval. Present the captured plan below, ask for explicit approval, and wait before implementation. Do not call editing or write-oriented tools until approval is granted.\n\n$pendingPlan';
+    }
+    if (session.mode != AiSessionMode.plan || latestUserMessage == null) {
+      return null;
+    }
+    if (_shouldUsePlanRecoveryReminder(
+      session: session,
+      latestUserMessage: latestUserMessage,
+    )) {
+      final completedButNeedsReview =
+          _hasCompletedTodoItemsOnly(session.todoItems) &&
+          _looksLikePlanRecoveryContinuation(latestUserMessage.content);
+      final failedSteps = session.todoItems
+          .where((item) {
+            final status = item.status.trim().toLowerCase();
+            return status == 'failed' ||
+                status == 'blocked' ||
+                status == 'cancelled';
+          })
+          .map((item) => item.content.trim())
+          .where((item) => item.isNotEmpty)
+          .take(3)
+          .toList(growable: false);
+      final failedStepSummary = failedSteps.isEmpty
+          ? ''
+          : '\n\nFailed todo steps to review first: ${failedSteps.join('; ')}.';
+      final completedTodoSummary = completedButNeedsReview
+          ? ' The current todo list is already marked completed, but the user is still asking to continue, so treat that completion state as potentially stale until you verify what actually ran.'
+          : '';
+      return 'The previous plan run stopped after a failed, timed-out, otherwise interrupted step, or a stale todo state. Before retrying, first review the current todo list and inspect the workspace, generated artifacts, and recent tool results to see what already succeeded.$completedTodoSummary Then decide whether to fully retry the failed step or only retry the unfinished portion. Use TodoWrite to refresh the relevant todo entries before resuming heavy execution. If a failed or stale-completed step should be retried now, set that step back to in_progress so the timeline reflects the retry, and keep the todo list current as the retry progresses.$failedStepSummary';
+    }
+    if (_looksLikePlanApproval(latestUserMessage.content)) {
+      return 'The user is approving the existing plan. Do not call ExitPlanMode again or restate the plan. Start executing it now, use TodoWrite to track concrete implementation steps, and keep the todo list current as work progresses.';
+    }
+    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable plan and wait for explicit user approval before making changes.';
+  }
+
+  bool _shouldUsePlanRecoveryReminder({
+    required AiSession session,
+    required AiSessionMessage latestUserMessage,
+  }) {
+    if (session.mode != AiSessionMode.plan || session.awaitingPlanApproval) {
+      return false;
+    }
+    if (!_looksLikePlanRecoveryContinuation(latestUserMessage.content)) {
+      return false;
+    }
+    if (_hasCompletedTodoItemsOnly(session.todoItems)) {
+      return true;
+    }
+    return session.todoItems.any((item) {
+          final status = item.status.trim().toLowerCase();
+          return status == 'failed' ||
+              status == 'blocked' ||
+              status == 'cancelled';
+        }) ||
+        _hasRecentPlanToolFailure(session);
+  }
+
+  bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
+    return todoItems.isNotEmpty &&
+        todoItems.every(
+          (item) => item.status.trim().toLowerCase() == 'completed',
+        );
+  }
+
+  bool _hasRecentPlanToolFailure(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      final status = '${message.metadata['tool_execution_status'] ?? ''}'
+          .trim()
+          .toLowerCase();
+      if (status.isEmpty || status == 'running') {
+        continue;
+      }
+      return status == 'failed' ||
+          status == 'cancelled' ||
+          status == 'denied' ||
+          status == 'rejected' ||
+          status == 'timed_out' ||
+          status == 'invalid_arguments';
+    }
+    return false;
+  }
+
+  bool _looksLikePlanApproval(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    const approvalPhrases = <String>[
+      'approve',
+      'approved',
+      'go ahead',
+      'proceed',
+      'start implementing',
+      'begin implementation',
+      'continue implementation',
+      'confirm execution',
+      '确认执行',
+      '确认开始',
+      '开始执行',
+      '继续实施',
+      '继续执行',
+      '开始吧',
+      '执行吧',
+      '可以执行',
+      '可以开始',
+    ];
+    return approvalPhrases.any((phrase) => normalized.contains(phrase));
+  }
+
+  bool _looksLikePlanRecoveryContinuation(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    const recoveryPhrases = <String>[
+      'continue',
+      'continue.',
+      'go on',
+      'keep going',
+      'continue implementation',
+      'finish it',
+      'retry',
+      'retry it',
+      'retry the step',
+      'retry the failed step',
+      'resume',
+      '继续',
+      '继续吧',
+      '继续做',
+      '继续完成',
+      '继续实施',
+      '继续执行',
+      '接着',
+      '接着做',
+      '重试',
+      '重试一下',
+      '重新执行',
+      '重新试',
+      '恢复执行',
+    ];
+    return recoveryPhrases.any((phrase) => normalized.contains(phrase));
   }
 
   bool _looksLikeNonTrivialTask(String content) {

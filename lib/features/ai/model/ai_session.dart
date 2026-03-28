@@ -1,6 +1,22 @@
 import 'ai_session_message.dart';
 import 'ai_token_usage.dart';
 
+enum AiSessionMode {
+  chat('chat'),
+  plan('plan');
+
+  const AiSessionMode(this.storageValue);
+
+  final String storageValue;
+
+  static AiSessionMode fromStorage(String value) {
+    return AiSessionMode.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => AiSessionMode.chat,
+    );
+  }
+}
+
 class AiSessionTodoItem {
   const AiSessionTodoItem({
     required this.id,
@@ -56,11 +72,12 @@ class AiSession {
     this.latestCompressionAt,
     this.lastPromptMetadata = const <String, Object?>{},
     this.todoItems = const <AiSessionTodoItem>[],
+    this.mode = AiSessionMode.chat,
     this.awaitingPlanApproval = false,
     this.pendingPlan,
   });
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
 
   final String id;
   final String title;
@@ -83,6 +100,7 @@ class AiSession {
   final DateTime? latestCompressionAt;
   final Map<String, Object?> lastPromptMetadata;
   final List<AiSessionTodoItem> todoItems;
+  final AiSessionMode mode;
   final bool awaitingPlanApproval;
   final String? pendingPlan;
   late final int? _latestCompressionPointIndexCache =
@@ -110,6 +128,7 @@ class AiSession {
     bool clearLatestCompressionAt = false,
     Map<String, Object?>? lastPromptMetadata,
     List<AiSessionTodoItem>? todoItems,
+    AiSessionMode? mode,
     bool? awaitingPlanApproval,
     String? pendingPlan,
     bool clearPendingPlan = false,
@@ -142,6 +161,7 @@ class AiSession {
           : latestCompressionAt ?? this.latestCompressionAt,
       lastPromptMetadata: lastPromptMetadata ?? this.lastPromptMetadata,
       todoItems: todoItems ?? this.todoItems,
+      mode: mode ?? this.mode,
       awaitingPlanApproval: awaitingPlanApproval ?? this.awaitingPlanApproval,
       pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
     );
@@ -229,6 +249,7 @@ class AiSession {
         'latest_compression_checkpoint_message_id':
             latestCompressionCheckpointMessageId,
         'latest_compression_at': latestCompressionAt?.toUtc().toIso8601String(),
+        'mode': mode.storageValue,
         'awaiting_plan_approval': awaitingPlanApproval,
         'pending_plan': pendingPlan,
       },
@@ -301,6 +322,7 @@ class AiSession {
           _readNullableString(sessionJson['latest_compression_at']) == null
           ? null
           : DateTime.parse('${sessionJson['latest_compression_at']}').toUtc(),
+      mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
       awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
           ? sessionJson['awaiting_plan_approval'] as bool
           : false,
@@ -371,6 +393,7 @@ class AiSessionEnvironment {
     required this.sessionsDirectoryPath,
     required this.compressionThresholdChars,
     this.singleRoundToolCallLimit = 40,
+    this.sequentialToolRoundLimit = 24,
   });
 
   final String localeTag;
@@ -386,6 +409,7 @@ class AiSessionEnvironment {
   final String sessionsDirectoryPath;
   final int compressionThresholdChars;
   final int singleRoundToolCallLimit;
+  final int sequentialToolRoundLimit;
 
   AiSessionEnvironment copyWith({
     String? localeTag,
@@ -401,6 +425,7 @@ class AiSessionEnvironment {
     String? sessionsDirectoryPath,
     int? compressionThresholdChars,
     int? singleRoundToolCallLimit,
+    int? sequentialToolRoundLimit,
   }) {
     return AiSessionEnvironment(
       localeTag: localeTag ?? this.localeTag,
@@ -419,6 +444,8 @@ class AiSessionEnvironment {
           compressionThresholdChars ?? this.compressionThresholdChars,
       singleRoundToolCallLimit:
           singleRoundToolCallLimit ?? this.singleRoundToolCallLimit,
+      sequentialToolRoundLimit:
+          sequentialToolRoundLimit ?? this.sequentialToolRoundLimit,
     );
   }
 
@@ -437,6 +464,7 @@ class AiSessionEnvironment {
       'sessions_directory_path': sessionsDirectoryPath,
       'compression_threshold_chars': compressionThresholdChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
+      'sequential_tool_round_limit': sequentialToolRoundLimit,
     };
   }
 
@@ -459,6 +487,9 @@ class AiSessionEnvironment {
       singleRoundToolCallLimit: json['single_round_tool_call_limit'] is int
           ? json['single_round_tool_call_limit'] as int
           : 40,
+      sequentialToolRoundLimit: json['sequential_tool_round_limit'] is int
+          ? json['sequential_tool_round_limit'] as int
+          : 24,
     );
   }
 }

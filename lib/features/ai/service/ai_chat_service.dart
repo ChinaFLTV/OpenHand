@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
+import 'ai_dsml_tool_call_parser.dart';
 import 'ai_protocol_adapter.dart';
 
 abstract class AiChatClient {
@@ -20,6 +21,7 @@ abstract class AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools,
     Duration timeout,
+    Future<void>? cancelSignal,
   });
 
   Future<String> testModel(AiModelConfig model);
@@ -152,11 +154,19 @@ class AiChatService implements AiChatClient {
         );
       }
       try {
+        final parsedReply = adapter.parseAssistantMessage(response.body);
+        final parsedToolCalls = adapter.parseToolCalls(response.body);
+        final dsmlExtraction = extractDsmlToolCalls(
+          parsedReply,
+          toolCallIdPrefix: 'dsml-tool-call',
+        );
         return AiChatCompletion(
-          reply: adapter.parseAssistantMessage(response.body),
+          reply: dsmlExtraction.sanitizedText,
           usage: adapter.parseUsage(response.body),
           rawResponse: response.body,
-          toolCalls: adapter.parseToolCalls(response.body),
+          toolCalls: parsedToolCalls.isNotEmpty
+              ? parsedToolCalls
+              : dsmlExtraction.toolCalls,
         );
       } on FormatException catch (error) {
         throw AiChatException(error.message);
@@ -174,6 +184,7 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     if (adapter is! OpenAiProtocolAdapter || !adapter.supportsServerStreaming) {
@@ -185,6 +196,7 @@ class AiChatService implements AiChatClient {
         messages: messages,
         tools: tools,
         timeout: timeout,
+        cancelSignal: cancelSignal,
       );
     }
 
@@ -197,9 +209,39 @@ class AiChatService implements AiChatClient {
     final request = http.Request('POST', Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
       ..body = jsonEncode(blueprint.body);
+    final streamedResponseFuture = _client.send(request).timeout(timeout);
     late final http.StreamedResponse streamedResponse;
     try {
-      streamedResponse = await _client.send(request).timeout(timeout);
+      if (cancelSignal == null) {
+        streamedResponse = await streamedResponseFuture;
+      } else {
+        final firstResult = await Future.any(<Future<Object?>>[
+          streamedResponseFuture,
+          cancelSignal.then((_) => _cancelledStreamSentinel),
+        ]);
+        if (identical(firstResult, _cancelledStreamSentinel)) {
+          _debugAiStreamLog(
+            'model=${model.modelId} stream_cancelled_before_connect',
+          );
+          unawaited(
+            streamedResponseFuture
+                .then((response) => response.stream.drain<void>())
+                .catchError((Object _, StackTrace stackTrace) {}),
+          );
+          return AiChatStreamingResponse(
+            events: Stream<AiChatStreamEvent>.empty(),
+            result: Future<AiChatStreamResult>.value(
+              const AiChatStreamResult(
+                reply: '',
+                reasoning: '',
+                toolCalls: <AiToolCall>[],
+                wasCancelled: true,
+              ),
+            ),
+          );
+        }
+        streamedResponse = firstResult as http.StreamedResponse;
+      }
     } on TimeoutException {
       throw const AiChatException('Request timed out.');
     } on http.ClientException catch (error) {
@@ -277,22 +319,30 @@ class AiChatService implements AiChatClient {
       idleWarningTimer = null;
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
+      final streamedReply = textBuffer.toString().trim();
+      final dsmlExtraction = extractDsmlToolCalls(
+        streamedReply,
+        toolCallIdPrefix: 'dsml-tool-call',
+      );
+      final resolvedParsedToolCalls = resolvedToolCalls
+          .map(
+            (entry) => AiToolCall(
+              id: entry.value.id.isEmpty
+                  ? 'tool-call-${entry.key}'
+                  : entry.value.id,
+              name: entry.value.name,
+              arguments: entry.value.argumentsBuffer.toString(),
+            ),
+          )
+          .where((item) => item.name.trim().isNotEmpty)
+          .toList(growable: false);
       resultCompleter.complete(
         AiChatStreamResult(
-          reply: textBuffer.toString().trim(),
+          reply: dsmlExtraction.sanitizedText,
           reasoning: reasoningBuffer.toString().trim(),
-          toolCalls: resolvedToolCalls
-              .map(
-                (entry) => AiToolCall(
-                  id: entry.value.id.isEmpty
-                      ? 'tool-call-${entry.key}'
-                      : entry.value.id,
-                  name: entry.value.name,
-                  arguments: entry.value.argumentsBuffer.toString(),
-                ),
-              )
-              .where((item) => item.name.trim().isNotEmpty)
-              .toList(growable: false),
+          toolCalls: resolvedParsedToolCalls.isNotEmpty
+              ? resolvedParsedToolCalls
+              : dsmlExtraction.toolCalls,
           wasCancelled: wasCancelled,
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
@@ -502,6 +552,7 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     required List<AiToolDefinition> tools,
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
@@ -526,12 +577,24 @@ class AiChatService implements AiChatClient {
 
     unawaited(() async {
       try {
-        final completion = await sendMessage(
+        final completionFuture = sendMessage(
           model: model,
           messages: messages,
           tools: tools,
           timeout: timeout,
         );
+        final completion = cancelSignal == null
+            ? await completionFuture
+            : await Future.any(<Future<Object?>>[
+                completionFuture,
+                cancelSignal.then((_) => _cancelledStreamSentinel),
+              ]).then((value) {
+                if (identical(value, _cancelledStreamSentinel)) {
+                  completeCancelled();
+                  throw _SyntheticStreamCancelledException();
+                }
+                return value! as AiChatCompletion;
+              });
         if (cancelled) {
           return;
         }
@@ -553,6 +616,9 @@ class AiChatService implements AiChatClient {
           );
         }
       } catch (error, stackTrace) {
+        if (error is _SyntheticStreamCancelledException) {
+          return;
+        }
         if (!cancelled && !completer.isCompleted) {
           completer.completeError(error, stackTrace);
         }
@@ -599,6 +665,10 @@ class AiChatService implements AiChatClient {
     _client.close();
   }
 }
+
+const Object _cancelledStreamSentinel = Object();
+
+class _SyntheticStreamCancelledException implements Exception {}
 
 void _debugAiStreamLog(String message) {
   return;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -179,6 +180,158 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage exposes an enabled stop action before the first stream payload arrives',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-stop-before-stream-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final chatClient = _PendingStartStreamingChatClient();
+      final sessionController = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Stop Before Stream'),
+          ],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-stop-before-first-stream',
+          'message-user-stop-before-first-stream',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 0, 5, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-stop-before-first-stream',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(await settingsController.saveAiModel(model), isTrue);
+      expect(await settingsController.updateSelectedAiModel(model.id), isTrue);
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final sendFuture = sessionController.sendMessage(
+        content: 'Stop before the first stream payload arrives.',
+        model: model,
+        runtimeContext: runtimeContext,
+      );
+      await _pumpUntil(
+        tester,
+        () =>
+            chatClient.requestStarted &&
+            sessionController.sendPhase == AiSendPhase.responding,
+      );
+      await tester.pump();
+
+      final stopButtonFinder = find.widgetWithText(
+        FilledButton,
+        'Stop Response',
+      );
+      expect(stopButtonFinder, findsOneWidget);
+      expect(sessionController.sendPhase, AiSendPhase.responding);
+
+      final stopButton = tester.widget<FilledButton>(stopButtonFinder);
+      expect(stopButton.onPressed, isNotNull);
+      await sessionController.stopResponding(
+        sessionController.currentSessionId!,
+      );
+      expect(await sendFuture, isTrue);
+      await tester.pump();
+      await _pumpUntil(
+        tester,
+        () => sessionController.sendPhase == AiSendPhase.idle,
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(chatClient.cancelSignalObserved, isTrue);
+      expect(sessionController.sendPhase, AiSendPhase.idle);
+      expect(find.text('Send'), findsOneWidget);
+      expect(
+        sessionController.currentSession!.messages
+            .where((message) => message.kind == AiSessionMessageKind.user)
+            .length,
+        1,
+      );
+      expect(
+        sessionController.currentSession!.messages
+            .where((message) => message.kind == AiSessionMessageKind.assistant)
+            .isEmpty,
+        isTrue,
+      );
     },
   );
 
@@ -485,6 +638,127 @@ void main() {
   );
 
   testWidgets(
+    'OpenHandHomePage shows a fallback plan timeline before todos exist',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-fallback-plan-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-fallback-plan',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 8, 0, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-fallback-plan',
+          content: 'Build the toolbar timeline in plan mode',
+          createdAt: DateTime.utc(2026, 3, 27, 8, 1, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 27, 8, 1, 30),
+          messages: messages,
+          mode: AiSessionMode.plan,
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 1024),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Analyze Task'), findsOneWidget);
+      expect(find.text('Create Todos'), findsOneWidget);
+      expect(find.text('Approve Plan'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'OpenHandHomePage keeps the token pill typography aligned with toolbar pills',
     (tester) async {
       tester.view.physicalSize = const Size(1600, 1200);
@@ -608,6 +882,1201 @@ void main() {
 
       expect(tokenCountText.style?.fontSize, metadataLabelText.style?.fontSize);
       expect(tokenLabelText.style?.fontSize, metadataLabelText.style?.fontSize);
+
+      await tester.tap(find.byIcon(Icons.data_object_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(find.text('Per-Response Tool Call Limit'), findsOneWidget);
+      expect(find.text('40'), findsOneWidget);
+      expect(find.text('Sequential Tool Round Limit'), findsOneWidget);
+      expect(find.text('24'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage toggles the composer mode and shows the plan timeline',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-mode-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-home-page-plan-mode']),
+        clock: () => DateTime.utc(2026, 3, 27, 8, 30, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-mode',
+          content: 'Plan the toolbar change',
+          createdAt: DateTime.utc(2026, 3, 27, 8, 31, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 27, 8, 32, 0),
+          messages: messages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-1',
+              content: 'Inspect the toolbar layout',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-2',
+              content: 'Patch the composer actions',
+              status: 'in_progress',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 2048),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final planModeButtonFinder = find.widgetWithText(
+        OutlinedButton,
+        'Plan Mode',
+      );
+      final planModeButton = tester.widget<OutlinedButton>(
+        planModeButtonFinder,
+      );
+      final pageColorScheme = Theme.of(
+        tester.element(planModeButtonFinder),
+      ).colorScheme;
+      expect(
+        planModeButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        pageColorScheme.primaryContainer,
+      );
+      expect(
+        planModeButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        pageColorScheme.onPrimaryContainer,
+      );
+
+      final navigationDrawerTheme = Theme.of(
+        tester.element(find.byType(NavigationDrawer)),
+      ).navigationDrawerTheme;
+      expect(
+        navigationDrawerTheme.indicatorColor,
+        pageColorScheme.primaryContainer,
+      );
+      expect(
+        navigationDrawerTheme.labelTextStyle?.resolve(<WidgetState>{
+          WidgetState.selected,
+        })?.color,
+        pageColorScheme.onPrimaryContainer,
+      );
+      expect(
+        navigationDrawerTheme.iconTheme?.resolve(<WidgetState>{
+          WidgetState.selected,
+        })?.color,
+        pageColorScheme.onPrimaryContainer,
+      );
+
+      expect(find.text('Plan Mode'), findsOneWidget);
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Inspect the toolbar layout'), findsOneWidget);
+      expect(find.text('Patch the composer actions'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Plan Mode'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(sessionController.currentSession!.mode, AiSessionMode.chat);
+      expect(find.text('Chat Mode'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage collapses and expands the plan timeline from the toolbar',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-collapse-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-collapse',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 8, 45, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-collapse',
+          content: 'Add a collapsible toolbar timeline',
+          createdAt: DateTime.utc(2026, 3, 27, 8, 46, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 27, 8, 47, 0),
+          messages: messages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-collapse-1',
+              content: 'Inspect the toolbar layout',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-collapse-2',
+              content: 'Add a collapse toggle',
+              status: 'in_progress',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 1024),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Inspect the toolbar layout'), findsOneWidget);
+      expect(find.text('Hide Plan'), findsOneWidget);
+
+      await tester.tap(find.text('Hide Plan'));
+      await tester.pump();
+
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Inspect the toolbar layout'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.text('Show Plan'), findsOneWidget);
+      expect(find.text('Plan In Progress'), findsNothing);
+      expect(find.text('Inspect the toolbar layout'), findsNothing);
+      expect(find.text('Add a collapse toggle'), findsNothing);
+
+      await tester.tap(find.text('Show Plan'));
+      await tester.pump();
+
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Inspect the toolbar layout'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.text('Hide Plan'), findsOneWidget);
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Inspect the toolbar layout'), findsOneWidget);
+      expect(find.text('Add a collapse toggle'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage reflects failed plan steps in the timeline summary',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-failure-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-failure',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 9, 0, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-failure',
+          content: 'Patch the plan failure state',
+          createdAt: DateTime.utc(2026, 3, 27, 9, 1, 0),
+        ),
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-plan-failure',
+          content: '**Write**',
+          createdAt: DateTime.utc(2026, 3, 27, 9, 1, 30),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-plan-failure',
+            'tool_name': 'Write',
+            'tool_execution_status': 'failed',
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 27, 9, 2, 0),
+          messages: messages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-failure-1',
+              content: 'Patch the failing step',
+              status: 'in_progress',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 512),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Plan Needs Attention'), findsOneWidget);
+      expect(find.text('Patch the failing step'), findsOneWidget);
+      expect(find.text('Hide Plan'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage reflects retried plan steps as in progress after TodoWrite refreshes the failed step',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-retry-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-retry',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 1, 54, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final failedMessages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-retry',
+          content: 'Retry the failed archive step',
+          createdAt: DateTime.utc(2026, 3, 28, 1, 50, 0),
+        ),
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-home-page-plan-retry-failed',
+          content: '**Bash**',
+          createdAt: DateTime.utc(2026, 3, 28, 1, 51, 0),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-home-page-plan-retry-failed',
+            'tool_name': 'Bash',
+            'tool_execution_status': 'failed',
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 1, 52, 0),
+          messages: failedMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-retry-1',
+              content: 'Create the archive',
+              status: 'failed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-retry-2',
+              content: 'Move the archive to Downloads',
+              status: 'pending',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            failedMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 768),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Plan Needs Attention'), findsOneWidget);
+      expect(find.text('Create the archive'), findsOneWidget);
+
+      final retriedMessages = <AiSessionMessage>[
+        ...failedMessages,
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-home-page-plan-retry-success',
+          content: '**TodoWrite**',
+          createdAt: DateTime.utc(2026, 3, 28, 1, 53, 0),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-home-page-plan-retry-success',
+            'tool_name': 'TodoWrite',
+            'tool_execution_status': 'success',
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 1, 53, 30),
+          messages: retriedMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-retry-1',
+              content: 'Create the archive',
+              status: 'in_progress',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-retry-2',
+              content: 'Move the archive to Downloads',
+              status: 'pending',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            retriedMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 896),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Plan Needs Attention'), findsNothing);
+      expect(find.text('Create the archive'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage keeps a completed todo list in review mode when the latest user message asks to continue',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath:
+            '/tmp/openhand-home-page-plan-completed-review-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-completed-review',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 3, 10, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-completed-review-old',
+          content: 'Package the earth page and open it.',
+          createdAt: DateTime.utc(2026, 3, 28, 3, 5, 0),
+        ),
+        AiSessionMessage.user(
+          id: 'message-user-home-page-plan-completed-review-continue',
+          content: 'Continue',
+          createdAt: DateTime.utc(2026, 3, 28, 3, 9, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 3, 9, 30),
+          messages: messages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-completed-review-1',
+              content: 'Inspect the existing earth.html file',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-completed-review-2',
+              content: 'Package earth.html into 鞠婧祎.tar',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-completed-review-3',
+              content: 'Move the archive to Downloads',
+              status: 'completed',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 640),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('Plan Completed'), findsNothing);
+      expect(find.text('Plan In Progress'), findsOneWidget);
+      expect(find.text('Package earth.html into 鞠婧祎.tar'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage replaces the previous plan timeline after a new task starts in the same session',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-new-task-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(
+              reply: '',
+              toolCalls: <AiToolCall>[
+                AiToolCall(
+                  id: 'tool-call-home-page-plan-new-task',
+                  name: 'TodoWrite',
+                  arguments:
+                      '{"todos":[{"id":"todo-home-page-plan-new-task-1","content":"Inspect the deployment checklist requirements","status":"in_progress"},{"id":"todo-home-page-plan-new-task-2","content":"Prepare the release package","status":"pending"}]}',
+                ),
+              ],
+            ),
+            AiChatCompletion(reply: 'I started a fresh plan for the new task.'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Plan New Task Session'),
+          ],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-new-task',
+          'message-user-home-page-plan-new-task',
+          'message-assistant-home-page-plan-new-task-preview',
+          'message-tool-call-home-page-plan-new-task',
+          'message-tool-result-home-page-plan-new-task',
+          'message-assistant-home-page-plan-new-task-final',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 3, 12, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-home-page-plan-new-task',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final oldMessages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-home-page-old-plan-task',
+          content: 'Package the earth page archive.',
+          createdAt: DateTime.utc(2026, 3, 28, 3, 5, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 3, 6, 0),
+          messages: oldMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-old-plan-1',
+              content: 'Create 鞠婧祎.tar',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-old-plan-2',
+              content: 'Move the archive to Downloads',
+              status: 'completed',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            oldMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 512),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      expect(
+        await sessionController.sendMessage(
+          content: 'Build a deployment checklist for the toolbar release.',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(
+        find.text('Inspect the deployment checklist requirements'),
+        findsOneWidget,
+      );
+      expect(find.text('Prepare the release package'), findsOneWidget);
+      expect(find.text('Create 鞠婧祎.tar'), findsNothing);
+      expect(find.text('Plan Completed'), findsNothing);
+      expect(find.text('Plan In Progress'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage does not render repeated intermediate narration when continuing a plan across tool rounds',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath: '/tmp/openhand-home-page-plan-continue-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[
+            AiChatCompletion(
+              reply: 'I will continue the remaining steps now.',
+              toolCalls: <AiToolCall>[
+                AiToolCall(
+                  id: 'tool-call-home-page-continue-refresh',
+                  name: 'TodoWrite',
+                  arguments:
+                      '{"todos":[{"id":"todo-home-page-continue-1","content":"Inspect the existing earth.html file","status":"completed"},{"id":"todo-home-page-continue-2","content":"Package earth.html into 鞠婧祎.tar","status":"in_progress"},{"id":"todo-home-page-continue-3","content":"Move the archive to Downloads","status":"pending"}]}',
+                ),
+              ],
+            ),
+            AiChatCompletion(
+              reply: 'I am packaging the file now.',
+              toolCalls: <AiToolCall>[
+                AiToolCall(
+                  id: 'tool-call-home-page-continue-progress',
+                  name: 'TodoWrite',
+                  arguments:
+                      '{"todos":[{"id":"todo-home-page-continue-1","content":"Inspect the existing earth.html file","status":"completed"},{"id":"todo-home-page-continue-2","content":"Package earth.html into 鞠婧祎.tar","status":"completed"},{"id":"todo-home-page-continue-3","content":"Move the archive to Downloads","status":"in_progress"}]}',
+                ),
+              ],
+            ),
+            AiChatCompletion(reply: 'I resumed the remaining plan steps.'),
+          ],
+        ),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Continue Plan Session'),
+          ],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-home-page-plan-continue',
+          'message-user-home-page-plan-continue',
+          'message-assistant-home-page-plan-continue-preview-1',
+          'message-tool-call-home-page-plan-continue-1',
+          'message-tool-result-home-page-plan-continue-1',
+          'message-assistant-home-page-plan-continue-preview-2',
+          'message-tool-call-home-page-plan-continue-2',
+          'message-tool-result-home-page-plan-continue-2',
+          'message-assistant-home-page-plan-continue-final',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 20, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-home-page-plan-continue',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 2, 18, 0),
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-home-page-continue-1',
+              content: 'Inspect the existing earth.html file',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-continue-2',
+              content: 'Package earth.html into 鞠婧祎.tar',
+              status: 'pending',
+            ),
+            AiSessionTodoItem(
+              id: 'todo-home-page-continue-3',
+              content: 'Move the archive to Downloads',
+              status: 'pending',
+            ),
+          ],
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      expect(
+        await sessionController.sendMessage(
+          content: 'Continue',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+      final transcriptFinder = find.byKey(
+        const ValueKey<String>('session-transcript-list'),
+      );
+      final transcriptController = tester
+          .widget<ListView>(transcriptFinder)
+          .controller!;
+      transcriptController.jumpTo(
+        transcriptController.position.maxScrollExtent,
+      );
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(
+        _findTextSpanWidgetContaining('I resumed the remaining plan steps.'),
+        findsOneWidget,
+      );
+      expect(
+        _findTextSpanWidgetContaining(
+          'I will continue the remaining steps now.',
+        ),
+        findsNothing,
+      );
+      expect(
+        _findTextSpanWidgetContaining('I am packaging the file now.'),
+        findsNothing,
+      );
+      expect(find.text('Package earth.html into 鞠婧祎.tar'), findsOneWidget);
     },
   );
 
@@ -2240,6 +3709,7 @@ void main() {
 
       expect(find.text('工具调用已安全停止'), findsOneWidget);
       expect(find.textContaining('本次会话连续触发了过多轮工具调用'), findsOneWidget);
+      expect(find.textContaining('当前连续工具轮次上限为 8'), findsOneWidget);
       expect(
         find.text(
           'The assistant requested too many sequential tool rounds and was stopped for safety.',
@@ -2394,6 +3864,260 @@ void main() {
       );
 
       expect(find.text('工具调用已安全停止'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage shows a localized continuation-request banner after tool progress is preserved',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath:
+            '/tmp/openhand-home-page-continuation-error-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final sessionController = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-continuation-error-banner',
+          'error-continuation-error-banner',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 55, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.simplifiedChinese);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = sessionController.currentSession!;
+      final messages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-continuation-error-banner',
+          content: '继续部署剩余步骤',
+          createdAt: DateTime.utc(2026, 3, 28, 2, 54, 0),
+        ),
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-continuation-error-banner',
+          content: '**Bash**',
+          createdAt: DateTime.utc(2026, 3, 28, 2, 54, 1),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-continuation-error-banner',
+            'tool_name': 'Bash',
+            'tool_execution_status': 'success',
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 2, 54, 2),
+          mode: AiSessionMode.plan,
+          messages: messages,
+          recentErrors: <AiSessionErrorRecord>[
+            AiSessionErrorRecord(
+              id: 'error-continuation-error-banner',
+              createdAt: DateTime.utc(2026, 3, 28, 2, 54, 2),
+              stage: 'chat_continuation_request',
+              message: 'Request timed out.',
+              detail: 'Request timed out.',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            messages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await sessionController.refresh();
+      await sessionController.selectSession(baseSession.id);
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      expect(find.text('后续请求失败'), findsOneWidget);
+      expect(find.textContaining('已完成的步骤与工具结果都已保留'), findsOneWidget);
+      expect(find.textContaining('当前会话未继续执行'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'OpenHandHomePage toggles the composer with Ctrl+P while the input stays focused',
+    (tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final settingsController = await SettingsController.create(
+        store: _InMemorySettingsStore(),
+      );
+      final memoryStore = _InMemoryMemoryStore();
+      final memoryController = await MemoryController.create(
+        initialFilePath: memoryStore.userMemoryFilePath,
+        store: memoryStore,
+      );
+      final skillsController = await SkillsController.create(
+        initialStoragePath:
+            '/tmp/openhand-home-page-composer-shortcut-test-skills',
+        repository: _InMemorySkillsRepository(),
+      );
+      final mcpStore = _InMemoryMcpStore();
+      final mcpController = await McpController.create(
+        initialFilePath: mcpStore.serversFilePath,
+        store: mcpStore,
+      );
+      final sessionController = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(responses: const <AiChatCompletion>[]),
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: AiPromptTemplateRepository(
+          loader: (assetPath) async {
+            return switch (assetPath) {
+              'assets/prompts/default/system_instructions.md' =>
+                'System instructions',
+              'assets/prompts/default/developer_instructions.md' =>
+                'Developer instructions',
+              'assets/prompts/default/compression_summary_instructions.md' =>
+                'Compression instructions',
+              _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+            };
+          },
+        ),
+        idGenerator: _fixedIdGenerator(<String>['session-composer-shortcut']),
+        clock: () => DateTime.utc(2026, 3, 28, 0, 12, 0),
+      );
+      addTearDown(settingsController.dispose);
+      addTearDown(memoryController.dispose);
+      addTearDown(skillsController.dispose);
+      addTearDown(mcpController.dispose);
+      addTearDown(sessionController.dispose);
+
+      await settingsController.updateLanguage(AppLanguage.english);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+
+      expect(
+        await sessionController.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      await _pumpHomePage(
+        tester,
+        settingsController: settingsController,
+        sessionController: sessionController,
+        memoryController: memoryController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+      );
+
+      final composerField = find.byType(TextField).first;
+      await tester.tap(composerField);
+      await tester.enterText(composerField, 'Toggle the composer with Ctrl+P');
+      await tester.pump();
+
+      expect(find.byTooltip('Collapse Composer'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.pump();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.byTooltip('Expand Composer'), findsOneWidget);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyP);
+      await tester.pump();
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyP);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump(const Duration(milliseconds: 320));
+
+      expect(find.byTooltip('Collapse Composer'), findsOneWidget);
     },
   );
 
@@ -3254,6 +4978,7 @@ class _QueuedChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final completion = await sendMessage(
       model: model,
@@ -3318,6 +5043,7 @@ class _StepStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final streamController = StreamController<AiChatStreamEvent>();
     unawaited(() async {
@@ -3339,6 +5065,53 @@ class _StepStreamingChatClient implements AiChatClient {
           rawResponse: null,
         );
       }(),
+    );
+  }
+
+  @override
+  Future<String> testModel(AiModelConfig model) async {
+    return 'OK';
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _PendingStartStreamingChatClient implements AiChatClient {
+  bool requestStarted = false;
+  bool cancelSignalObserved = false;
+
+  @override
+  Future<AiChatCompletion> sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return const AiChatCompletion(reply: '');
+  }
+
+  @override
+  Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
+  }) async {
+    requestStarted = true;
+    await (cancelSignal ?? Future<void>.value());
+    cancelSignalObserved = true;
+    return AiChatStreamingResponse(
+      events: Stream<AiChatStreamEvent>.empty(),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: '',
+          reasoning: '',
+          toolCalls: <AiToolCall>[],
+          wasCancelled: true,
+        ),
+      ),
     );
   }
 
@@ -3390,6 +5163,27 @@ Future<void> _pumpHomePage(
     ),
   );
   await tester.pump(const Duration(milliseconds: 300));
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() predicate, {
+  Duration timeout = const Duration(seconds: 2),
+  Duration step = const Duration(milliseconds: 24),
+}) async {
+  final maxIterations = math.max(
+    1,
+    (timeout.inMicroseconds / step.inMicroseconds).ceil(),
+  );
+  for (var iteration = 0; iteration < maxIterations; iteration++) {
+    if (predicate()) {
+      return;
+    }
+    await tester.pump(step);
+  }
+  if (!predicate()) {
+    throw TimeoutException('Widget state did not settle in time.');
+  }
 }
 
 void _collectRenderedTextSpanColors(

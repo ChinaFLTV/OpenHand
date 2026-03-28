@@ -31,6 +31,7 @@ class SettingsController extends ChangeNotifier {
        _aiMessageCompressionThresholdChars =
            snapshot.aiMessageCompressionThresholdChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
+       _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
        _aiAllowCommandRules = List<AiAllowCommandRule>.from(
@@ -65,6 +66,7 @@ class SettingsController extends ChangeNotifier {
   String _userMemoryFilePath;
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
+  int _aiSequentialToolRoundLimit;
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
@@ -99,6 +101,7 @@ class SettingsController extends ChangeNotifier {
   int get aiMessageCompressionThresholdChars =>
       _aiMessageCompressionThresholdChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
+  int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> get aiAllowCommandRules =>
@@ -253,6 +256,19 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiSingleRoundToolCallLimit = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiSequentialToolRoundLimit(int value) async {
+    final normalizedValue = value <= 0
+        ? AppSettingsSnapshot.defaultAiSequentialToolRoundLimit
+        : value;
+    return _commitMutation(() {
+      if (_aiSequentialToolRoundLimit == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiSequentialToolRoundLimit = normalizedValue;
       return _MutationDisposition.apply;
     });
   }
@@ -461,6 +477,7 @@ class SettingsController extends ChangeNotifier {
       userMemoryFilePath: _userMemoryFilePath,
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
+      aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
@@ -482,6 +499,7 @@ class SettingsController extends ChangeNotifier {
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
+    _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;
     _aiAllowCommandRules = List<AiAllowCommandRule>.from(

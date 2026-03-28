@@ -1720,10 +1720,11 @@ class AiToolRuntimeService {
       }
       if (status != 'pending' &&
           status != 'in_progress' &&
-          status != 'completed') {
+          status != 'completed' &&
+          status != 'failed') {
         return _invalidToolResult(
           'TodoWrite',
-          'Todo status must be pending, in_progress, or completed.',
+          'Todo status must be pending, in_progress, completed, or failed.',
         );
       }
       if (status == 'in_progress') {
@@ -1749,6 +1750,7 @@ class AiToolRuntimeService {
                 final marker = switch (status) {
                   'completed' => '[x]',
                   'in_progress' => '[-]',
+                  'failed' => '[!]',
                   _ => '[ ]',
                 };
                 return '$marker ${todo['id']}: ${todo['content']}';
@@ -3021,7 +3023,12 @@ class AiToolRuntimeService {
                 'content': <String, Object?>{'type': 'string'},
                 'status': <String, Object?>{
                   'type': 'string',
-                  'enum': <String>['pending', 'in_progress', 'completed'],
+                  'enum': <String>[
+                    'pending',
+                    'in_progress',
+                    'completed',
+                    'failed',
+                  ],
                 },
                 'id': <String, Object?>{'type': 'string'},
               },

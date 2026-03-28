@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -70,6 +69,9 @@ const Duration _transcriptMessageDeleteAnimationDuration = Duration(
 const Duration _sessionTitleRevealAnimationDuration = Duration(
   milliseconds: 420,
 );
+const Duration _planTimelineRevealAnimationDuration = Duration(
+  milliseconds: 260,
+);
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -85,6 +87,7 @@ class OpenHandHomePage extends StatefulWidget {
 class _OpenHandHomePageState extends State<OpenHandHomePage> {
   final TextEditingController _composerController = TextEditingController();
   final ScrollController _messageScrollController = ScrollController();
+  final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
   final AiWorkspaceInstructionService _workspaceInstructionService =
       AiWorkspaceInstructionService();
@@ -107,11 +110,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       const <_ComposerAttachmentDraft>[];
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
       <String, _ComposerDraftState>{};
+  final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
   AiSessionController? _observedSessionController;
+  AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   String? _activeComposerSessionId;
   String? _activeTranscriptSessionId;
   String? _preparingTranscriptSessionId;
   int _transcriptPreparationGeneration = 0;
+
+  AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
+    return sessionController.currentSession?.mode ?? _detachedComposerMode;
+  }
 
   AiSendPhase _displaySendPhaseForSession(
     AiSessionController sessionController,
@@ -136,6 +145,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     );
   }
 
+  bool _canStopCurrentSessionResponse(AiSessionController sessionController) {
+    return sessionController.canStopResponding(
+      sessionController.currentSessionId,
+    );
+  }
+
   Map<String, AiSendPhase> _navigationSendPhases(
     AiSessionController sessionController,
   ) {
@@ -143,6 +158,54 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       for (final session in sessionController.sessions)
         session.id: _displaySendPhaseForSession(sessionController, session.id),
     };
+  }
+
+  bool _isPlanTimelineCollapsed(String? sessionId) {
+    if (sessionId == null) {
+      return false;
+    }
+    return _collapsedPlanTimelinesBySessionId[sessionId] ?? false;
+  }
+
+  void _setPlanTimelineCollapsed(String sessionId, bool collapsed) {
+    if ((_collapsedPlanTimelinesBySessionId[sessionId] ?? false) == collapsed) {
+      return;
+    }
+    setState(() {
+      _collapsedPlanTimelinesBySessionId[sessionId] = collapsed;
+    });
+  }
+
+  void _setComposerCollapsedState(
+    bool collapsed, {
+    bool requestFocusWhenExpanded = false,
+  }) {
+    if (_composerCollapsed != collapsed) {
+      setState(() {
+        _composerCollapsed = collapsed;
+      });
+    }
+    if (collapsed) {
+      if (_composerFocusNode.hasFocus) {
+        _composerFocusNode.unfocus();
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _globalShortcutFocusNode.hasFocus) {
+          return;
+        }
+        _globalShortcutFocusNode.requestFocus();
+      });
+      return;
+    }
+    if (!requestFocusWhenExpanded) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _composerFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -170,6 +233,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   void dispose() {
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
+    _globalShortcutFocusNode.dispose();
     _composerFocusNode.dispose();
     _composerController.dispose();
     _messageScrollController.dispose();
@@ -487,10 +551,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     if (shortcutAction == null) {
       return false;
     }
-    if (isEditableFocused &&
-        (shortcutAction != OpenHandShortcutAction.sendMessage ||
-            !_composerFocusNode.hasFocus)) {
-      return false;
+    if (isEditableFocused) {
+      final composerShortcutAllowed =
+          _composerFocusNode.hasFocus &&
+          (shortcutAction == OpenHandShortcutAction.sendMessage ||
+              shortcutAction == OpenHandShortcutAction.toggleComposer);
+      if (!composerShortcutAllowed) {
+        return false;
+      }
     }
     unawaited(_performShortcutAction(shortcutAction));
     return true;
@@ -528,7 +596,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     }
     final sessionController = context.read<AiSessionController>();
     final sendPhase = _effectiveSendPhase(sessionController);
-    if (sendPhase == AiSendPhase.responding) {
+    if (_canStopCurrentSessionResponse(sessionController)) {
       unawaited(_stopResponding());
       return KeyEventResult.handled;
     }
@@ -572,17 +640,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     switch (action) {
       case OpenHandShortcutAction.sendMessage:
         final sessionController = context.read<AiSessionController>();
-        final sendPhase = _effectiveSendPhase(sessionController);
-        if (sendPhase == AiSendPhase.responding) {
+        if (_canStopCurrentSessionResponse(sessionController)) {
           await _stopResponding();
           return;
         }
         await _sendMessage();
         return;
       case OpenHandShortcutAction.toggleComposer:
-        setState(() {
-          _composerCollapsed = !_composerCollapsed;
-        });
+        _setComposerCollapsedState(
+          !_composerCollapsed,
+          requestFocusWhenExpanded: _composerCollapsed,
+        );
         return;
       case OpenHandShortcutAction.selectPreviousModel:
         _cycleSelectedModel(-1);
@@ -657,6 +725,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
   Future<bool> _createSession({
     required String templateId,
     AiSessionRuntimeContext? runtimeContext,
+    AiSessionMode initialMode = AiSessionMode.chat,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final resolvedRuntimeContext =
@@ -667,6 +736,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final created = await sessionController.createSession(
       templateId: templateId,
       runtimeContext: resolvedRuntimeContext,
+      mode: initialMode,
     );
     if (!mounted) {
       return false;
@@ -721,6 +791,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       compressionThresholdChars:
           settingsController.aiMessageCompressionThresholdChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
+      sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
@@ -740,6 +811,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         startDirectory: OpenHandPaths.applicationDirectoryPath(),
         homeDirectory: OpenHandPaths.homeDirectoryPath(),
       ),
+    );
+  }
+
+  Future<void> _setComposerMode(AiSessionMode mode) async {
+    final sessionController = context.read<AiSessionController>();
+    final currentSession = sessionController.currentSession;
+    if (currentSession == null) {
+      if (_detachedComposerMode == mode) {
+        return;
+      }
+      setState(() {
+        _detachedComposerMode = mode;
+      });
+      return;
+    }
+    if (currentSession.mode == mode) {
+      return;
+    }
+    final updated = await sessionController.updateSessionMode(
+      currentSession.id,
+      mode,
+    );
+    if (!mounted || updated) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final errorMessage = sessionController.lastErrorMessage;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
     );
   }
 
@@ -811,6 +911,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
       final created = await _createSession(
         templateId: templateId,
         runtimeContext: runtimeContext,
+        initialMode: _detachedComposerMode,
       );
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
@@ -1336,8 +1437,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
         final currentSessionId = sessionController.currentSessionId;
         final hasActiveResponse =
             currentSessionId != null &&
-            sessionController.sendPhaseForSession(currentSessionId) !=
-                AiSendPhase.idle;
+            sessionController.canStopResponding(currentSessionId);
         if (!hasActiveResponse) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1787,6 +1887,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
     final sessionController = context.watch<AiSessionController>();
 
     return Focus(
+      focusNode: _globalShortcutFocusNode,
       autofocus: true,
       onKeyEvent: _handleGlobalShortcutFocusEvent,
       child: Scaffold(
@@ -1891,17 +1992,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage> {
             _composerHeight = nextHeight;
           });
         },
-        onComposerCollapsedChanged: (collapsed) {
-          setState(() {
-            _composerCollapsed = collapsed;
-          });
-        },
+        onComposerCollapsedChanged: _setComposerCollapsedState,
         onComposerLayoutChanged: _handleComposerLayoutChanged,
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
         onRevealOlderMessages: _handleRevealOlderMessages,
         autoFollowEnabled: _autoFollowEnabled,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
+        canStopSending: _canStopCurrentSessionResponse(sessionController),
+        planTimelineCollapsed: _isPlanTimelineCollapsed(currentSession?.id),
+        onPlanTimelineCollapsedChanged: currentSession == null
+            ? null
+            : (collapsed) {
+                _setPlanTimelineCollapsed(currentSession.id, collapsed);
+              },
+        sessionMode: _effectiveComposerMode(sessionController),
+        onSessionModeChanged: _setComposerMode,
         pendingAttachments: _pendingAttachments,
         attachmentsEnabled: _selectedModelSupportsAttachments(
           settingsController.selectedAiModel,
@@ -1993,88 +2099,116 @@ class _NavigationPane extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final drawerTheme = theme.copyWith(
+      navigationDrawerTheme: theme.navigationDrawerTheme.copyWith(
+        indicatorColor: colorScheme.primaryContainer,
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
+          final selected = states.contains(WidgetState.selected);
+          return theme.textTheme.titleMedium?.copyWith(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurface,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected
+                ? colorScheme.onPrimaryContainer
+                : colorScheme.onSurfaceVariant,
+            size: 22,
+          );
+        }),
+      ),
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: NavigationDrawer(
-        selectedIndex: selectedSection.drawerIndex,
-        onDestinationSelected: (index) {
-          onSectionSelected(_sectionFromDrawerIndex(index));
-        },
-        children: [
-          const SizedBox(height: 18),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FilledButton.icon(
-              onPressed: onCreateThreadRequested,
-              icon: const Icon(Icons.add_comment_rounded),
-              label: Text(l10n.newThread),
-            ),
-          ),
-          const SizedBox(height: 12),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.history_toggle_off_outlined),
-            selectedIcon: const Icon(Icons.schedule_rounded),
-            label: Text(l10n.automations),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.extension_outlined),
-            selectedIcon: const Icon(Icons.extension_rounded),
-            label: Text(l10n.skills),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.psychology_alt_outlined),
-            selectedIcon: const Icon(Icons.psychology_alt_rounded),
-            label: Text(l10n.memory),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.hub_outlined),
-            selectedIcon: const Icon(Icons.hub_rounded),
-            label: Text(l10n.mcp),
-          ),
-          NavigationDrawerDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings_rounded),
-            label: Text(l10n.settings),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-            child: Text(l10n.threads, style: theme.textTheme.titleMedium),
-          ),
-          if (sessions.isEmpty)
+      child: Theme(
+        data: drawerTheme,
+        child: NavigationDrawer(
+          selectedIndex: selectedSection.drawerIndex,
+          onDestinationSelected: (index) {
+            onSectionSelected(_sectionFromDrawerIndex(index));
+          },
+          children: [
+            const SizedBox(height: 18),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Text(
-                l10n.threadsEmptyBody,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: FilledButton.icon(
+                onPressed: onCreateThreadRequested,
+                icon: const Icon(Icons.add_comment_rounded),
+                label: Text(l10n.newThread),
+              ),
+            ),
+            const SizedBox(height: 12),
+            NavigationDrawerDestination(
+              icon: const Icon(Icons.history_toggle_off_outlined),
+              selectedIcon: const Icon(Icons.schedule_rounded),
+              label: Text(l10n.automations),
+            ),
+            NavigationDrawerDestination(
+              icon: const Icon(Icons.extension_outlined),
+              selectedIcon: const Icon(Icons.extension_rounded),
+              label: Text(l10n.skills),
+            ),
+            NavigationDrawerDestination(
+              icon: const Icon(Icons.psychology_alt_outlined),
+              selectedIcon: const Icon(Icons.psychology_alt_rounded),
+              label: Text(l10n.memory),
+            ),
+            NavigationDrawerDestination(
+              icon: const Icon(Icons.hub_outlined),
+              selectedIcon: const Icon(Icons.hub_rounded),
+              label: Text(l10n.mcp),
+            ),
+            NavigationDrawerDestination(
+              icon: const Icon(Icons.settings_outlined),
+              selectedIcon: const Icon(Icons.settings_rounded),
+              label: Text(l10n.settings),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Text(l10n.threads, style: theme.textTheme.titleMedium),
+            ),
+            if (sessions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Text(
+                  l10n.threadsEmptyBody,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: sessions
+                      .map(
+                        (session) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ThreadTile(
+                            session: session,
+                            sendPhase:
+                                sessionSendPhases[session.id] ??
+                                AiSendPhase.idle,
+                            isSelected: currentSessionId == session.id,
+                            onTap: () => onSessionSelected(session.id),
+                            onRename: () => onRenameSession(session),
+                            onDelete: () => onDeleteSession(session),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
                 ),
               ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: sessions
-                    .map(
-                      (session) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _ThreadTile(
-                          session: session,
-                          sendPhase:
-                              sessionSendPhases[session.id] ?? AiSendPhase.idle,
-                          isSelected: currentSessionId == session.id,
-                          onTap: () => onSessionSelected(session.id),
-                          onRename: () => onRenameSession(session),
-                          onDelete: () => onDeleteSession(session),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2233,6 +2367,11 @@ class _WorkspaceView extends StatelessWidget {
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
+    required this.canStopSending,
+    required this.planTimelineCollapsed,
+    required this.onPlanTimelineCollapsedChanged,
+    required this.sessionMode,
+    required this.onSessionModeChanged,
     required this.pendingAttachments,
     required this.attachmentsEnabled,
     required this.onPickAttachments,
@@ -2269,6 +2408,11 @@ class _WorkspaceView extends StatelessWidget {
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
+  final bool canStopSending;
+  final bool planTimelineCollapsed;
+  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
+  final AiSessionMode sessionMode;
+  final ValueChanged<AiSessionMode> onSessionModeChanged;
   final List<_ComposerAttachmentDraft> pendingAttachments;
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
@@ -2314,6 +2458,10 @@ class _WorkspaceView extends StatelessWidget {
                         'session-transcript-loading-${currentSession!.id}',
                       ),
                       session: currentSession!,
+                      sendPhase: sendPhase,
+                      planTimelineCollapsed: planTimelineCollapsed,
+                      onPlanTimelineCollapsedChanged:
+                          onPlanTimelineCollapsedChanged,
                     )
                   : _SessionTranscript(
                       key: ValueKey<String>('messages-${currentSession!.id}'),
@@ -2321,6 +2469,9 @@ class _WorkspaceView extends StatelessWidget {
                       onScrollNotification: onMessageScrollNotification,
                       session: currentSession!,
                       sendPhase: sendPhase,
+                      planTimelineCollapsed: planTimelineCollapsed,
+                      onPlanTimelineCollapsedChanged:
+                          onPlanTimelineCollapsedChanged,
                       onLayoutChanged: onTranscriptLayoutChanged,
                       onRevealOlderMessages: onRevealOlderMessages,
                       onEditMessage: onEditMessage,
@@ -2349,6 +2500,9 @@ class _WorkspaceView extends StatelessWidget {
                   autoFollowEnabled: autoFollowEnabled,
                   onToggleAutoFollow: onToggleAutoFollow,
                   sendPhase: sendPhase,
+                  canStopSending: canStopSending,
+                  sessionMode: sessionMode,
+                  onSessionModeChanged: onSessionModeChanged,
                   pendingAttachments: pendingAttachments,
                   attachmentsEnabled: attachmentsEnabled,
                   onPickAttachments: onPickAttachments,
@@ -2437,9 +2591,15 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   const _SessionTranscriptLoadingPlaceholder({
     super.key,
     required this.session,
+    required this.sendPhase,
+    required this.planTimelineCollapsed,
+    required this.onPlanTimelineCollapsedChanged,
   });
 
   final AiSession session;
+  final AiSendPhase sendPhase;
+  final bool planTimelineCollapsed;
+  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2451,7 +2611,12 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SessionToolbar(session: session),
+        _SessionToolbar(
+          session: session,
+          sendPhase: sendPhase,
+          planTimelineCollapsed: planTimelineCollapsed,
+          onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
+        ),
         const SizedBox(height: 14),
         Expanded(
           child: Center(
@@ -2628,6 +2793,8 @@ class _SessionTranscript extends StatefulWidget {
     required this.onScrollNotification,
     required this.session,
     required this.sendPhase,
+    required this.planTimelineCollapsed,
+    required this.onPlanTimelineCollapsedChanged,
     required this.onLayoutChanged,
     required this.onRevealOlderMessages,
     required this.onEditMessage,
@@ -2641,6 +2808,8 @@ class _SessionTranscript extends StatefulWidget {
   final bool Function(ScrollNotification notification) onScrollNotification;
   final AiSession session;
   final AiSendPhase sendPhase;
+  final bool planTimelineCollapsed;
+  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final VoidCallback onLayoutChanged;
   final VoidCallback onRevealOlderMessages;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
@@ -2942,7 +3111,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SessionToolbar(session: session),
+        _SessionToolbar(
+          session: session,
+          sendPhase: widget.sendPhase,
+          planTimelineCollapsed: widget.planTimelineCollapsed,
+          onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
+        ),
         const SizedBox(height: 14),
         if (session.latestCompressionAt != null) ...[
           _CompressionNoticeCard(session: session),
@@ -3263,7 +3437,7 @@ class _AnimatedSessionTitleText extends StatelessWidget {
           alignment: Alignment.centerLeft,
           children: <Widget>[
             ...previousChildren,
-            if (currentChild != null) currentChild,
+            ...?(currentChild == null ? null : <Widget>[currentChild]),
           ],
         );
       },
@@ -3307,14 +3481,25 @@ class _AnimatedSessionTitleText extends StatelessWidget {
 }
 
 class _SessionToolbar extends StatelessWidget {
-  const _SessionToolbar({required this.session});
+  const _SessionToolbar({
+    required this.session,
+    this.sendPhase = AiSendPhase.idle,
+    this.planTimelineCollapsed = false,
+    this.onPlanTimelineCollapsedChanged,
+  });
 
   final AiSession session;
+  final AiSendPhase sendPhase;
+  final bool planTimelineCollapsed;
+  final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final planTimeline = _buildPlanTimelineData(context, session, sendPhase);
+    final showPlanTimelineToggle =
+        planTimeline != null && onPlanTimelineCollapsedChanged != null;
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 48),
@@ -3323,57 +3508,137 @@ class _SessionToolbar extends StatelessWidget {
         color: colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _AnimatedSessionTitleText(
-                    text: session.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _AnimatedSessionTitleText(
+                        text: session.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const ClampingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _ToolbarPill(
+                              icon: Icons.layers_rounded,
+                              label:
+                                  '${session.templateName} · v${session.templateInternalVersion}',
+                            ),
+                            const SizedBox(width: 8),
+                            _ToolbarPill(
+                              icon: Icons.data_object_rounded,
+                              label: _localizedText(
+                                context,
+                                zh: '会话元数据',
+                                en: 'Session Metadata',
+                              ),
+                              onTap: () {
+                                _showSessionMetadataDialog(context, session);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _ToolbarPill(
+                              icon: Icons.update_rounded,
+                              label: _formatDateTime(session.updatedAt),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              if (showPlanTimelineToggle && planTimelineCollapsed) ...[
                 const SizedBox(width: 10),
-                Flexible(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    child: Row(
-                      children: [
-                        _ToolbarPill(
-                          icon: Icons.layers_rounded,
-                          label:
-                              '${session.templateName} · v${session.templateInternalVersion}',
-                        ),
-                        const SizedBox(width: 8),
-                        _ToolbarPill(
-                          icon: Icons.data_object_rounded,
-                          label: _localizedText(
-                            context,
-                            zh: '会话元数据',
-                            en: 'Session Metadata',
-                          ),
-                          onTap: () {
-                            _showSessionMetadataDialog(context, session);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _ToolbarPill(
-                          icon: Icons.update_rounded,
-                          label: _formatDateTime(session.updatedAt),
-                        ),
-                      ],
-                    ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _ToolbarPill(
+                    key: ValueKey<bool>(planTimelineCollapsed),
+                    icon: planTimelineCollapsed
+                        ? Icons.unfold_more_rounded
+                        : Icons.unfold_less_rounded,
+                    label: planTimelineCollapsed
+                        ? _localizedText(context, zh: '展开计划', en: 'Show Plan')
+                        : _localizedText(context, zh: '收起计划', en: 'Hide Plan'),
+                    onTap: () {
+                      onPlanTimelineCollapsedChanged?.call(
+                        !planTimelineCollapsed,
+                      );
+                    },
                   ),
                 ),
               ],
-            ),
+              const SizedBox(width: 10),
+              _TokenDial(totalTokens: session.statistics.totalTokens ?? 0),
+            ],
           ),
-          const SizedBox(width: 10),
-          _TokenDial(totalTokens: session.statistics.totalTokens ?? 0),
+          AnimatedSwitcher(
+            duration: _planTimelineRevealAnimationDuration,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (currentChild, previousChildren) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...previousChildren,
+                  currentChild ?? const SizedBox.shrink(),
+                ],
+              );
+            },
+            transitionBuilder: (child, animation) {
+              final fade = CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              );
+              return ClipRect(
+                child: FadeTransition(
+                  opacity: fade,
+                  child: SizeTransition(
+                    sizeFactor: fade,
+                    axisAlignment: -1,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, -0.04),
+                        end: Offset.zero,
+                      ).animate(fade),
+                      child: child,
+                    ),
+                  ),
+                ),
+              );
+            },
+            child: planTimeline == null || planTimelineCollapsed
+                ? const SizedBox(key: ValueKey<String>('plan-timeline-hidden'))
+                : Padding(
+                    key: ValueKey<String>(
+                      'plan-timeline-visible-${planTimeline.awaitingApproval}-${planTimeline.steps.length}',
+                    ),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _SessionPlanTimelineBar(
+                      data: planTimeline,
+                      onVisibilityToggle: showPlanTimelineToggle
+                          ? () {
+                              onPlanTimelineCollapsedChanged?.call(true);
+                            }
+                          : null,
+                    ),
+                  ),
+          ),
         ],
       ),
     );
@@ -3381,7 +3646,12 @@ class _SessionToolbar extends StatelessWidget {
 }
 
 class _ToolbarPill extends StatelessWidget {
-  const _ToolbarPill({required this.icon, required this.label, this.onTap});
+  const _ToolbarPill({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -3430,6 +3700,606 @@ class _ToolbarPill extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _PlanTimelineStepState { completed, current, pending, failed }
+
+class _PlanTimelineStep {
+  const _PlanTimelineStep({
+    required this.id,
+    required this.label,
+    required this.state,
+  });
+
+  final String id;
+  final String label;
+  final _PlanTimelineStepState state;
+}
+
+class _PlanTimelineData {
+  const _PlanTimelineData({
+    required this.awaitingApproval,
+    required this.steps,
+  });
+
+  final bool awaitingApproval;
+  final List<_PlanTimelineStep> steps;
+
+  int get completedStepCount {
+    return steps
+        .where((item) => item.state == _PlanTimelineStepState.completed)
+        .length;
+  }
+
+  bool get isComplete {
+    return steps.isNotEmpty &&
+        steps.every((item) => item.state == _PlanTimelineStepState.completed);
+  }
+
+  bool get hasFailedStep {
+    return steps.any((item) => item.state == _PlanTimelineStepState.failed);
+  }
+}
+
+class _SessionPlanTimelineBar extends StatelessWidget {
+  const _SessionPlanTimelineBar({required this.data, this.onVisibilityToggle});
+
+  final _PlanTimelineData data;
+  final VoidCallback? onVisibilityToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final statusColor = data.awaitingApproval
+        ? colorScheme.secondary
+        : data.hasFailedStep
+        ? colorScheme.error
+        : data.isComplete
+        ? colorScheme.primary
+        : colorScheme.tertiary;
+    final headline = data.awaitingApproval
+        ? _localizedText(context, zh: '计划待确认', en: 'Plan Awaiting Approval')
+        : data.hasFailedStep
+        ? _localizedText(context, zh: '计划需要处理', en: 'Plan Needs Attention')
+        : data.isComplete
+        ? _localizedText(context, zh: '计划已完成', en: 'Plan Completed')
+        : _localizedText(context, zh: '计划推进中', en: 'Plan In Progress');
+    final subtitle = data.awaitingApproval
+        ? _localizedText(
+            context,
+            zh: '请确认后开始执行',
+            en: 'Confirm to begin execution',
+          )
+        : data.hasFailedStep
+        ? _localizedText(
+            context,
+            zh: '当前步骤执行失败，请检查后继续',
+            en: 'A step failed. Review it and continue.',
+          )
+        : _localizedText(
+            context,
+            zh: '已完成 ${data.completedStepCount}/${data.steps.length} 项',
+            en: '${data.completedStepCount}/${data.steps.length} steps completed',
+          );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[
+            statusColor.withValues(alpha: 0.08),
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.9),
+          ],
+        ),
+        border: Border.all(color: statusColor.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  data.awaitingApproval
+                      ? Icons.fact_check_outlined
+                      : data.isComplete
+                      ? Icons.task_alt_rounded
+                      : Icons.timeline_rounded,
+                  size: 16,
+                  color: statusColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      headline,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onVisibilityToggle != null) ...[
+                _PlanTimelineVisibilityButton(
+                  label: _localizedText(context, zh: '收起计划', en: 'Hide Plan'),
+                  icon: Icons.unfold_less_rounded,
+                  color: statusColor,
+                  onTap: onVisibilityToggle!,
+                ),
+                const SizedBox(width: 12),
+              ],
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  data.awaitingApproval
+                      ? _localizedText(context, zh: '等待确认', en: 'Pending')
+                      : '${data.completedStepCount}/${data.steps.length}',
+                  key: ValueKey<String>(
+                    '${data.awaitingApproval}-${data.completedStepCount}-${data.steps.length}',
+                  ),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            child: Row(
+              children: [
+                for (var index = 0; index < data.steps.length; index++)
+                  _SessionPlanTimelineStepChip(
+                    index: index,
+                    step: data.steps[index],
+                    isLast: index == data.steps.length - 1,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanTimelineVisibilityButton extends StatelessWidget {
+  const _PlanTimelineVisibilityButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        overlayColor: WidgetStatePropertyAll(color.withValues(alpha: 0.08)),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.20)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SessionPlanTimelineStepChip extends StatelessWidget {
+  const _SessionPlanTimelineStepChip({
+    required this.index,
+    required this.step,
+    required this.isLast,
+  });
+
+  final int index;
+  final _PlanTimelineStep step;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final state = step.state;
+    final accentColor = switch (state) {
+      _PlanTimelineStepState.completed => colorScheme.primary,
+      _PlanTimelineStepState.current => colorScheme.tertiary,
+      _PlanTimelineStepState.failed => colorScheme.error,
+      _PlanTimelineStepState.pending => colorScheme.outline,
+    };
+    final backgroundColor = switch (state) {
+      _PlanTimelineStepState.completed => colorScheme.primaryContainer,
+      _PlanTimelineStepState.current => colorScheme.tertiaryContainer,
+      _PlanTimelineStepState.failed => colorScheme.errorContainer,
+      _PlanTimelineStepState.pending => colorScheme.surface,
+    };
+    final foregroundColor = switch (state) {
+      _PlanTimelineStepState.completed => colorScheme.onPrimaryContainer,
+      _PlanTimelineStepState.current => colorScheme.onTertiaryContainer,
+      _PlanTimelineStepState.failed => colorScheme.onErrorContainer,
+      _PlanTimelineStepState.pending => colorScheme.onSurfaceVariant,
+    };
+    final marker = switch (state) {
+      _PlanTimelineStepState.completed => Icon(
+        Icons.check_rounded,
+        size: 13,
+        color: accentColor,
+      ),
+      _PlanTimelineStepState.current => Icon(
+        Icons.play_arrow_rounded,
+        size: 13,
+        color: accentColor,
+      ),
+      _PlanTimelineStepState.failed => Icon(
+        Icons.close_rounded,
+        size: 13,
+        color: accentColor,
+      ),
+      _PlanTimelineStepState.pending => Text(
+        '${index + 1}',
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: accentColor,
+        ),
+      ),
+    };
+    final chipContent = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          alignment: Alignment.center,
+          child: marker,
+        ),
+        const SizedBox(width: 8),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 220),
+          child: Text(
+            step.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: foregroundColor,
+            ),
+          ),
+        ),
+      ],
+    );
+    final chipDecoration = BoxDecoration(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+      boxShadow: state == _PlanTimelineStepState.current
+          ? <BoxShadow>[
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ]
+          : const <BoxShadow>[],
+    );
+    final chip = state == _PlanTimelineStepState.current
+        ? DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: chipDecoration.boxShadow,
+            ),
+            child: _SweepBadge(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              backgroundColor: backgroundColor,
+              borderColor: accentColor.withValues(alpha: 0.22),
+              sweepColor: Colors.white.withValues(alpha: 0.20),
+              child: chipContent,
+            ),
+          )
+        : AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: chipDecoration,
+            child: chipContent,
+          );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip,
+        if (!isLast)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Container(
+              width: 18,
+              height: 2,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+_PlanTimelineData? _buildPlanTimelineData(
+  BuildContext context,
+  AiSession session,
+  AiSendPhase sendPhase,
+) {
+  final todoSteps = <_PlanTimelineStep>[];
+  var hasInProgressStep = false;
+  var hasFailedStep = false;
+  final reflectRunningStepFailure = _shouldReflectCurrentPlanStepFailure(
+    session,
+  );
+  for (final item in session.todoItems) {
+    final label = item.content.trim();
+    if (label.isEmpty) {
+      continue;
+    }
+    final state = switch (item.status.trim().toLowerCase()) {
+      'completed' => _PlanTimelineStepState.completed,
+      'in_progress' when reflectRunningStepFailure =>
+        _PlanTimelineStepState.failed,
+      'in_progress' => _PlanTimelineStepState.current,
+      'failed' || 'blocked' || 'cancelled' => _PlanTimelineStepState.failed,
+      _ => _PlanTimelineStepState.pending,
+    };
+    if (state == _PlanTimelineStepState.current) {
+      hasInProgressStep = true;
+    }
+    if (state == _PlanTimelineStepState.failed) {
+      hasFailedStep = true;
+    }
+    todoSteps.add(
+      _PlanTimelineStep(id: item.id.trim(), label: label, state: state),
+    );
+  }
+  if (todoSteps.isNotEmpty) {
+    if (!hasInProgressStep && !hasFailedStep) {
+      final firstPendingIndex = todoSteps.indexWhere(
+        (item) => item.state == _PlanTimelineStepState.pending,
+      );
+      if (firstPendingIndex >= 0) {
+        todoSteps[firstPendingIndex] = _PlanTimelineStep(
+          id: todoSteps[firstPendingIndex].id,
+          label: todoSteps[firstPendingIndex].label,
+          state: _PlanTimelineStepState.current,
+        );
+      } else if (_shouldReviewCompletedPlan(session)) {
+        final lastCompletedIndex = todoSteps.lastIndexWhere(
+          (item) => item.state == _PlanTimelineStepState.completed,
+        );
+        if (lastCompletedIndex >= 0) {
+          todoSteps[lastCompletedIndex] = _PlanTimelineStep(
+            id: todoSteps[lastCompletedIndex].id,
+            label: todoSteps[lastCompletedIndex].label,
+            state: _PlanTimelineStepState.current,
+          );
+        }
+      }
+    }
+    return _PlanTimelineData(
+      awaitingApproval: session.awaitingPlanApproval,
+      steps: todoSteps,
+    );
+  }
+  final pendingPlanSteps = _planTimelineStepsFromPendingPlan(
+    session.pendingPlan,
+  );
+  if (session.awaitingPlanApproval || pendingPlanSteps.isNotEmpty) {
+    return _PlanTimelineData(
+      awaitingApproval: session.awaitingPlanApproval,
+      steps: <_PlanTimelineStep>[
+        _PlanTimelineStep(
+          id: 'plan-approval',
+          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
+          state: session.awaitingPlanApproval
+              ? _PlanTimelineStepState.current
+              : _PlanTimelineStepState.completed,
+        ),
+        ...pendingPlanSteps.asMap().entries.map(
+          (entry) => _PlanTimelineStep(
+            id: 'plan-step-${entry.key}',
+            label: entry.value,
+            state: _PlanTimelineStepState.pending,
+          ),
+        ),
+      ],
+    );
+  }
+  if (session.mode == AiSessionMode.plan) {
+    return _PlanTimelineData(
+      awaitingApproval: false,
+      steps: <_PlanTimelineStep>[
+        _PlanTimelineStep(
+          id: 'plan-stage-inspect',
+          label: _localizedText(context, zh: '分析需求', en: 'Analyze Task'),
+          state: sendPhase == AiSendPhase.idle
+              ? _PlanTimelineStepState.current
+              : _PlanTimelineStepState.completed,
+        ),
+        _PlanTimelineStep(
+          id: 'plan-stage-todos',
+          label: _localizedText(context, zh: '生成步骤清单', en: 'Create Todos'),
+          state: sendPhase == AiSendPhase.idle
+              ? _PlanTimelineStepState.pending
+              : _PlanTimelineStepState.current,
+        ),
+        _PlanTimelineStep(
+          id: 'plan-stage-approval',
+          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
+          state: _PlanTimelineStepState.pending,
+        ),
+      ],
+    );
+  }
+  return null;
+}
+
+bool _shouldReflectCurrentPlanStepFailure(AiSession session) {
+  for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+    final message = session.messages[index];
+    if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+      continue;
+    }
+    final status = _toolExecutionStatus(message);
+    if (status.isEmpty || status == 'running') {
+      continue;
+    }
+    return status == 'failed' ||
+        status == 'cancelled' ||
+        status == 'denied' ||
+        status == 'rejected' ||
+        status == 'timed_out' ||
+        status == 'invalid_arguments';
+  }
+  return false;
+}
+
+bool _shouldReviewCompletedPlan(AiSession session) {
+  if (session.mode != AiSessionMode.plan || session.awaitingPlanApproval) {
+    return false;
+  }
+  if (!_hasOnlyCompletedPlanTodoItems(session.todoItems)) {
+    return false;
+  }
+  final latestUserMessage = _latestActiveUserMessage(session);
+  if (latestUserMessage == null) {
+    return false;
+  }
+  return _looksLikePlanRecoveryTimelineMessage(latestUserMessage.content);
+}
+
+bool _hasOnlyCompletedPlanTodoItems(List<AiSessionTodoItem> todoItems) {
+  return todoItems.isNotEmpty &&
+      todoItems.every(
+        (item) => item.status.trim().toLowerCase() == 'completed',
+      );
+}
+
+AiSessionMessage? _latestActiveUserMessage(AiSession session) {
+  for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+    final message = session.messages[index];
+    if (!message.isDeleted && message.kind == AiSessionMessageKind.user) {
+      return message;
+    }
+  }
+  return null;
+}
+
+bool _looksLikePlanRecoveryTimelineMessage(String content) {
+  final normalized = content.trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return false;
+  }
+  const recoveryPhrases = <String>[
+    'continue',
+    'continue.',
+    'go on',
+    'keep going',
+    'continue implementation',
+    'finish it',
+    'retry',
+    'retry it',
+    'retry the step',
+    'retry the failed step',
+    'resume',
+    '继续',
+    '继续吧',
+    '继续做',
+    '继续完成',
+    '继续实施',
+    '继续执行',
+    '接着',
+    '接着做',
+    '重试',
+    '重试一下',
+    '重新执行',
+    '重新试',
+    '恢复执行',
+  ];
+  return recoveryPhrases.any((phrase) => normalized.contains(phrase));
+}
+
+List<String> _planTimelineStepsFromPendingPlan(String? pendingPlan) {
+  final normalizedPlan = (pendingPlan ?? '').trim();
+  if (normalizedPlan.isEmpty) {
+    return const <String>[];
+  }
+  return normalizedPlan
+      .split('\n')
+      .map((line) {
+        final normalizedLine = line.trim();
+        if (normalizedLine.isEmpty) {
+          return '';
+        }
+        return normalizedLine.replaceFirst(
+          RegExp(r'^(?:[-*+]\s+|\d+[\.\):]\s+)'),
+          '',
+        );
+      })
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
 }
 
 Future<void> _showSessionMetadataDialog(
@@ -3734,6 +4604,20 @@ class _SessionMetadataDialog extends StatelessWidget {
                               'compression_threshold_chars',
                             ),
                             value: '${environment.compressionThresholdChars}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedMetadataField(
+                              context,
+                              'single_round_tool_call_limit',
+                            ),
+                            value: '${environment.singleRoundToolCallLimit}',
+                          ),
+                          _MetadataEntryRow(
+                            label: _localizedMetadataField(
+                              context,
+                              'sequential_tool_round_limit',
+                            ),
+                            value: '${environment.sequentialToolRoundLimit}',
                           ),
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
@@ -4232,11 +5116,24 @@ _SessionErrorPresentation _presentSessionError(
         zh: '工具调用已安全停止',
         en: 'Tool Calls Stopped for Safety',
       ),
-      message: _localizedText(
-        context,
-        zh: '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。你可以继续让助手先总结当前进展，或给出更具体的下一步指令。',
-        en: 'OpenHand stopped this session for safety after too many sequential tool rounds. Ask the assistant to summarize the current progress or give a more specific next step.',
-      ),
+      message: () {
+        final configuredLimit = _extractConfiguredToolLoopLimit(
+          error.detail ?? '',
+        );
+        final limitSuffix = configuredLimit == null
+            ? ''
+            : _localizedText(
+                context,
+                zh: ' 当前连续工具轮次上限为 $configuredLimit。',
+                en: ' The current sequential tool round limit is $configuredLimit.',
+              );
+        return _localizedText(
+              context,
+              zh: '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。',
+              en: 'OpenHand stopped this session for safety after too many sequential tool rounds. This stop happened in the session controller before the next tool could run, not because one specific tool execution failed. Ask the assistant to summarize the current progress or give a more specific next step.',
+            ) +
+            limitSuffix;
+      }(),
     ),
     'chat_stream' => _SessionErrorPresentation(
       title: _localizedText(context, zh: '回答已中断', en: 'Response Interrupted'),
@@ -4254,6 +5151,14 @@ _SessionErrorPresentation _presentSessionError(
         en: 'The request failed before the assistant could continue. Check the configuration and retry, or send a new message.',
       ),
     ),
+    'chat_continuation_request' => _SessionErrorPresentation(
+      title: _localizedText(context, zh: '后续请求失败', en: 'Continuation Failed'),
+      message: _localizedText(
+        context,
+        zh: '本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。',
+        en: 'The session failed while requesting the next assistant round after continuing execution. Completed steps and tool results were preserved. Reply with continue/retry, or check the configuration and try again.',
+      ),
+    ),
     _ => _SessionErrorPresentation(
       title: fallbackTitle,
       message: fallbackMessage,
@@ -4261,11 +5166,24 @@ _SessionErrorPresentation _presentSessionError(
   };
 }
 
+int? _extractConfiguredToolLoopLimit(String detail) {
+  final match = RegExp(r'limit=(\d+)').firstMatch(detail);
+  if (match == null) {
+    return null;
+  }
+  return int.tryParse(match.group(1) ?? '');
+}
+
 String _sessionErrorStageLabel(BuildContext context, String stage) {
   return switch (stage) {
     'tool_loop' => _localizedText(context, zh: '安全停止', en: 'Safety Stop'),
     'chat_stream' => _localizedText(context, zh: '响应中断', en: 'Stream Error'),
     'chat_request' => _localizedText(context, zh: '请求失败', en: 'Request Error'),
+    'chat_continuation_request' => _localizedText(
+      context,
+      zh: '后续请求失败',
+      en: 'Continuation Error',
+    ),
     'tool_execution' => _localizedText(
       context,
       zh: '工具执行失败',
@@ -6918,6 +7836,9 @@ class _ComposerPanel extends StatefulWidget {
     required this.autoFollowEnabled,
     required this.onToggleAutoFollow,
     required this.sendPhase,
+    required this.canStopSending,
+    required this.sessionMode,
+    required this.onSessionModeChanged,
     required this.pendingAttachments,
     required this.attachmentsEnabled,
     required this.onPickAttachments,
@@ -6939,6 +7860,9 @@ class _ComposerPanel extends StatefulWidget {
   final bool autoFollowEnabled;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
+  final bool canStopSending;
+  final AiSessionMode sessionMode;
+  final ValueChanged<AiSessionMode> onSessionModeChanged;
   final List<_ComposerAttachmentDraft> pendingAttachments;
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
@@ -6962,20 +7886,25 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final isCompressing = widget.sendPhase == AiSendPhase.compressing;
     final isSendingMessage = widget.sendPhase == AiSendPhase.sendingMessage;
     final isResponding = widget.sendPhase == AiSendPhase.responding;
-    final sendButtonLabel = switch (widget.sendPhase) {
-      AiSendPhase.compressing => _localizedText(
-        context,
-        zh: '消息压缩中',
-        en: 'Compressing Messages',
-      ),
-      AiSendPhase.sendingMessage => l10n.chatSending,
-      AiSendPhase.responding => _localizedText(
-        context,
-        zh: '停止回答',
-        en: 'Stop Response',
-      ),
-      AiSendPhase.idle => l10n.composerSend,
-    };
+    final isBusy = widget.sendPhase != AiSendPhase.idle;
+    final canStopSending = widget.canStopSending;
+    final modeToggleEnabled = widget.sendPhase == AiSendPhase.idle;
+    final sendButtonLabel = canStopSending
+        ? _localizedText(context, zh: '停止回答', en: 'Stop Response')
+        : switch (widget.sendPhase) {
+            AiSendPhase.compressing => _localizedText(
+              context,
+              zh: '消息压缩中',
+              en: 'Compressing Messages',
+            ),
+            AiSendPhase.sendingMessage => l10n.chatSending,
+            AiSendPhase.responding => _localizedText(
+              context,
+              zh: '停止回答',
+              en: 'Stop Response',
+            ),
+            AiSendPhase.idle => l10n.composerSend,
+          };
 
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -7125,6 +8054,34 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
           ),
         ),
+        const SizedBox(width: 10),
+        Tooltip(
+          message: widget.sessionMode == AiSessionMode.plan
+              ? _localizedText(
+                  context,
+                  zh: '当前为计划模式，点击切换到聊天模式',
+                  en: 'Plan mode is active. Click to switch to chat mode.',
+                )
+              : _localizedText(
+                  context,
+                  zh: '当前为聊天模式，点击切换到计划模式',
+                  en: 'Chat mode is active. Click to switch to plan mode.',
+                ),
+          child: SizedBox(
+            height: 52,
+            child: _ComposerModeButton(
+              mode: widget.sessionMode,
+              enabled: modeToggleEnabled,
+              onPressed: () {
+                widget.onSessionModeChanged(
+                  widget.sessionMode == AiSessionMode.plan
+                      ? AiSessionMode.chat
+                      : AiSessionMode.plan,
+                );
+              },
+            ),
+          ),
+        ),
         const Spacer(),
         Tooltip(
           message: _localizedText(
@@ -7190,16 +8147,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         SizedBox(
           height: 52,
           child: FilledButton.icon(
-            onPressed: isCompressing || isSendingMessage
-                ? null
-                : isResponding
+            onPressed: canStopSending
                 ? () {
                     widget.onStop();
                   }
+                : isBusy
+                ? null
                 : () {
                     widget.onSend();
                   },
-            icon: isCompressing || isSendingMessage
+            icon: canStopSending
+                ? const Icon(Icons.stop_rounded)
+                : isCompressing || isSendingMessage
                 ? const SizedBox(
                     width: 18,
                     height: 18,
@@ -7257,6 +8216,109 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             actionRow,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ComposerModeButton extends StatelessWidget {
+  const _ComposerModeButton({
+    required this.mode,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final AiSessionMode mode;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isPlanMode = mode == AiSessionMode.plan;
+    final backgroundColor = !enabled
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
+        : isPlanMode
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHighest;
+    final foregroundColor = !enabled
+        ? colorScheme.onSurface.withValues(alpha: 0.38)
+        : isPlanMode
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
+    final accentColor = !enabled
+        ? colorScheme.onSurface.withValues(alpha: 0.28)
+        : colorScheme.primary.withValues(alpha: isPlanMode ? 1 : 0.9);
+    final borderColor = !enabled
+        ? colorScheme.outlineVariant.withValues(alpha: 0.48)
+        : isPlanMode
+        ? colorScheme.primary.withValues(alpha: 0.24)
+        : colorScheme.outlineVariant;
+    return OutlinedButton(
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: isPlanMode ? 0.16 : 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(scale: animation, child: child),
+                );
+              },
+              child: Icon(
+                isPlanMode ? Icons.alt_route_rounded : Icons.forum_outlined,
+                key: ValueKey<AiSessionMode>(mode),
+                size: 16,
+                color: accentColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.08, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              isPlanMode
+                  ? _localizedText(context, zh: '计划模式', en: 'Plan Mode')
+                  : _localizedText(context, zh: '聊天模式', en: 'Chat Mode'),
+              key: ValueKey<AiSessionMode>(mode),
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -8719,10 +9781,6 @@ String _formatDateTime(DateTime value) {
   return '$year-$month-$day $hour:$minute';
 }
 
-List<AiSessionMessage> _displayMessages(AiSession session) {
-  return session.displayMessages;
-}
-
 String _localizedText(
   BuildContext context, {
   required String zh,
@@ -8781,6 +9839,16 @@ String _localizedMetadataField(BuildContext context, String field) {
       context,
       zh: '压缩阈值字符数',
       en: 'Compression Threshold Characters',
+    ),
+    'single_round_tool_call_limit' => _localizedText(
+      context,
+      zh: '单轮工具调用上限',
+      en: 'Per-Response Tool Call Limit',
+    ),
+    'sequential_tool_round_limit' => _localizedText(
+      context,
+      zh: '连续工具轮次上限',
+      en: 'Sequential Tool Round Limit',
     ),
     'application_directory' => _localizedText(
       context,

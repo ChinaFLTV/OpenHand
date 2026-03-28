@@ -372,6 +372,17 @@ class SettingsStore {
         rawSingleRoundToolCallLimit <= 0) {
       didSanitize = true;
     }
+    final rawSequentialToolRoundLimit =
+        rootValues['ai_sequential_tool_round_limit'];
+    final aiSequentialToolRoundLimit =
+        rawSequentialToolRoundLimit is int && rawSequentialToolRoundLimit > 0
+        ? rawSequentialToolRoundLimit
+        : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
+    if (rawSequentialToolRoundLimit != null &&
+        (rawSequentialToolRoundLimit is! int ||
+            rawSequentialToolRoundLimit <= 0)) {
+      didSanitize = true;
+    }
     final rawWriteCommandConfirmationEnabled =
         rootValues['ai_write_command_confirmation_enabled'];
     final aiWriteCommandConfirmationEnabled =
@@ -546,6 +557,7 @@ class SettingsStore {
         userMemoryFilePath: userMemoryFilePath,
         aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
         aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
+        aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
         aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
         aiAllowCommandRules: aiAllowCommandRules,
         aiDenyCommandRules: aiDenyCommandRules,
@@ -580,6 +592,9 @@ class SettingsStore {
       )
       ..writeln(
         'ai_single_round_tool_call_limit = ${snapshot.aiSingleRoundToolCallLimit}',
+      )
+      ..writeln(
+        'ai_sequential_tool_round_limit = ${snapshot.aiSequentialToolRoundLimit}',
       )
       ..writeln(
         'ai_write_command_confirmation_enabled = ${snapshot.aiWriteCommandConfirmationEnabled}',

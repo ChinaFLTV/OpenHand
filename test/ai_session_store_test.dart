@@ -44,6 +44,7 @@ void main() {
             '/workspace/openhand/.openhand/memory/user-memory.json',
         sessionsDirectoryPath: '/Users/example/.openhand/sessions',
         compressionThresholdChars: 12000,
+        sequentialToolRoundLimit: 17,
       ),
       statistics: const AiSessionStatistics.initial(),
       recentErrors: const <AiSessionErrorRecord>[],
@@ -60,10 +61,55 @@ void main() {
       reloaded.sessions.single.messages.single.content,
       contains('deployment'),
     );
+    expect(reloaded.sessions.single.environment.sequentialToolRoundLimit, 17);
     expect(
       File(p.join(tempDirectory.path, 'session-session-1.json')).existsSync(),
       isTrue,
     );
+  });
+
+  test('AiSessionStore persists and reloads the session mode', () async {
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'openhand_ai_session_mode_store_test_',
+    );
+    addTearDown(() => tempDirectory.delete(recursive: true));
+    final store = AiSessionStore(sessionsDirectoryPath: tempDirectory.path);
+    final session = AiSession(
+      id: 'session-mode',
+      title: 'Plan session',
+      templateId: 'default',
+      templateName: 'Default Assistant',
+      templateIconName: 'auto_awesome_rounded',
+      templateInternalVersion: '1.0.0',
+      createdAt: DateTime.utc(2026, 3, 27, 9, 0, 0),
+      updatedAt: DateTime.utc(2026, 3, 27, 9, 5, 0),
+      messages: const <AiSessionMessage>[],
+      environment: const AiSessionEnvironment(
+        localeTag: 'en-US',
+        platform: 'macos',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        applicationDirectory: '/workspace/openhand',
+        homeDirectory: '/Users/example',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath:
+            '/workspace/openhand/.openhand/memory/user-memory.json',
+        sessionsDirectoryPath: '/Users/example/.openhand/sessions',
+        compressionThresholdChars: 12000,
+      ),
+      statistics: const AiSessionStatistics.initial(),
+      recentErrors: const <AiSessionErrorRecord>[],
+      mode: AiSessionMode.plan,
+    );
+
+    await store.save(session);
+
+    final reloaded = await store.loadAll();
+
+    expect(reloaded.sessions, hasLength(1));
+    expect(reloaded.sessions.single.mode, AiSessionMode.plan);
   });
 
   test('AiSessionStore preserves presented session errors', () async {

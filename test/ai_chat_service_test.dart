@@ -159,6 +159,59 @@ void main() {
   );
 
   test(
+    'AiChatService sendMessage recovers DSML tool calls when the provider returns tool markup in content',
+    () async {
+      final service = AiChatService(
+        client: MockClient((request) async {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'choices': [
+                  {
+                    'message': {
+                      'content':
+                          '<｜DSML｜function_calls><｜DSML｜invoke name="TodoWrite"><｜DSML｜parameter name="todos" string="false">[{"id":"1","content":"Create the HTML page","status":"in_progress"}]</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>',
+                    },
+                  },
+                ],
+              }),
+            ),
+            200,
+            headers: const <String, String>{
+              'content-type': 'application/json; charset=utf-8',
+            },
+          );
+        }),
+      );
+      const model = AiModelConfig(
+        id: 'model-dsml',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      addTearDown(service.dispose);
+
+      final completion = await service.sendMessage(
+        model: model,
+        messages: const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.user, content: 'Hello'),
+        ],
+      );
+
+      expect(completion.reply, isEmpty);
+      expect(completion.toolCalls, hasLength(1));
+      expect(completion.toolCalls.single.name, 'TodoWrite');
+      expect(
+        completion.toolCalls.single.arguments,
+        '{"todos":[{"id":"1","content":"Create the HTML page","status":"in_progress"}]}',
+      );
+    },
+  );
+
+  test(
     'AiChatService encodes OpenAI-compatible image attachments as content parts',
     () async {
       Map<String, Object?>? requestBody;
@@ -408,6 +461,53 @@ void main() {
       expect(result.reply, 'Ready');
       expect(events, hasLength(1));
       expect(events.single.textDelta, 'Ready');
+    },
+  );
+
+  test(
+    'AiChatService sendMessageStream recovers DSML tool calls from streamed text content',
+    () async {
+      final responseController = StreamController<List<int>>();
+      final service = AiChatService(
+        client: _StreamingMockClient(responseController),
+      );
+      const model = AiModelConfig(
+        id: 'model-stream-dsml',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      addTearDown(() async {
+        await responseController.close();
+        service.dispose();
+      });
+
+      final response = await service.sendMessageStream(
+        model: model,
+        messages: const <AiChatTurn>[
+          AiChatTurn(role: AiChatRole.user, content: 'Hello'),
+        ],
+      );
+
+      responseController.add(
+        utf8.encode(
+          'data: {"choices":[{"delta":{"content":"<｜DSML｜function_calls><｜DSML｜invoke name=\\"TodoWrite\\"><｜DSML｜parameter name=\\"todos\\" string=\\"false\\">[{\\"id\\":\\"1\\",\\"content\\":\\"Patch the timeline\\",\\"status\\":\\"in_progress\\"}]</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>"}}]}\n\n'
+          'data: [DONE]\n\n',
+        ),
+      );
+
+      final result = await response.result.timeout(const Duration(seconds: 1));
+
+      expect(result.reply, isEmpty);
+      expect(result.toolCalls, hasLength(1));
+      expect(result.toolCalls.single.name, 'TodoWrite');
+      expect(
+        result.toolCalls.single.arguments,
+        '{"todos":[{"id":"1","content":"Patch the timeline","status":"in_progress"}]}',
+      );
     },
   );
 

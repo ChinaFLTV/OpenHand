@@ -41,6 +41,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _compressionThresholdFocusNode;
   late final TextEditingController _toolCallLimitController;
   late final FocusNode _toolCallLimitFocusNode;
+  late final TextEditingController _sequentialToolRoundLimitController;
+  late final FocusNode _sequentialToolRoundLimitFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -54,6 +56,8 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode = FocusNode();
     _toolCallLimitController = TextEditingController();
     _toolCallLimitFocusNode = FocusNode();
+    _sequentialToolRoundLimitController = TextEditingController();
+    _sequentialToolRoundLimitFocusNode = FocusNode();
   }
 
   @override
@@ -66,6 +70,8 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode.dispose();
     _toolCallLimitController.dispose();
     _toolCallLimitFocusNode.dispose();
+    _sequentialToolRoundLimitController.dispose();
+    _sequentialToolRoundLimitFocusNode.dispose();
     super.dispose();
   }
 
@@ -94,6 +100,13 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_toolCallLimitFocusNode.hasFocus &&
         _toolCallLimitController.text != toolCallLimitText) {
       _toolCallLimitController.text = toolCallLimitText;
+    }
+    final sequentialToolRoundLimitText =
+        '${settingsController.aiSequentialToolRoundLimit}';
+    if (!_sequentialToolRoundLimitFocusNode.hasFocus &&
+        _sequentialToolRoundLimitController.text !=
+            sequentialToolRoundLimitText) {
+      _sequentialToolRoundLimitController.text = sequentialToolRoundLimitText;
     }
 
     return ScrollConfiguration(
@@ -386,6 +399,45 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
+    final sequentialToolRoundLimitControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsSequentialToolRoundLimitField'),
+          controller: _sequentialToolRoundLimitController,
+          focusNode: _sequentialToolRoundLimitFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '连续工具轮次上限',
+              en: 'Sequential Tool Round Limit',
+            ),
+            hintText:
+                '${AppSettingsSnapshot.defaultAiSequentialToolRoundLimit}',
+          ),
+          onSubmitted: (value) => _saveSequentialToolRoundLimit(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsSequentialToolRoundLimitSaveButton',
+            ),
+            onPressed: () => _saveSequentialToolRoundLimit(
+              context,
+              _sequentialToolRoundLimitController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
+          ),
+        ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -480,6 +532,21 @@ class _SettingsViewState extends State<SettingsView> {
                   en: 'Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.',
                 ),
                 control: toolCallLimitControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '连续工具轮次上限',
+                  en: 'Sequential Tool Round Limit',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。',
+                  en: 'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.',
+                ),
+                control: sequentialToolRoundLimitControl,
                 controlMaxWidth: 360,
               ),
             ],
@@ -1091,6 +1158,45 @@ class _SettingsViewState extends State<SettingsView> {
         context,
         zh: '单轮工具调用上限已保存。',
         en: 'The per-response tool call limit has been saved.',
+      ),
+    );
+  }
+
+  Future<void> _saveSequentialToolRoundLimit(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue <= 0) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入大于 0 的连续工具轮次上限。',
+          en: 'Enter a sequential tool round limit greater than 0.',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiSequentialToolRoundLimit(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _sequentialToolRoundLimitController.text =
+          '${context.read<SettingsController>().aiSequentialToolRoundLimit}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _sequentialToolRoundLimitController.text = '$parsedValue';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '连续工具轮次上限已保存。',
+        en: 'The sequential tool round limit has been saved.',
       ),
     );
   }

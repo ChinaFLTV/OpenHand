@@ -24,6 +24,7 @@ import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_attachment_service.dart';
 import 'service/ai_protocol_adapter.dart';
+import 'service/ai_dsml_tool_call_parser.dart';
 import 'service/ai_tool_runtime_service.dart';
 
 typedef WriteCommandConfirmationCallback =
@@ -161,7 +162,16 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 96,
   );
-  static const int _maxSequentialToolRounds = 8;
+  static const Set<String> _planModePlanningToolAllowlist = <String>{
+    'Task',
+    'Glob',
+    'Grep',
+    'LS',
+    'Read',
+    'WebFetch',
+    'WebSearch',
+    'TodoWrite',
+  };
   static const Set<String> _internalPromptLeakHeaders = <String>{
     '[[5] Current Session Messages]',
     '# [0] System Instructions',
@@ -267,7 +277,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   bool canStopResponding(String? sessionId) {
-    return sendPhaseForSession(sessionId) == AiSendPhase.responding;
+    return sendPhaseForSession(sessionId) != AiSendPhase.idle;
   }
 
   AiSession? get currentSession {
@@ -393,17 +403,20 @@ class AiSessionController extends ChangeNotifier {
   Future<bool> createSession({
     required String templateId,
     required AiSessionRuntimeContext runtimeContext,
+    AiSessionMode mode = AiSessionMode.chat,
   }) async {
     if (isSending) {
       return _createSessionUnlocked(
         templateId: templateId,
         runtimeContext: runtimeContext,
+        mode: mode,
       );
     }
     return _enqueueOperation(
       () => _createSessionUnlocked(
         templateId: templateId,
         runtimeContext: runtimeContext,
+        mode: mode,
       ),
     );
   }
@@ -431,6 +444,7 @@ class AiSessionController extends ChangeNotifier {
   Future<bool> _createSessionUnlocked({
     required String templateId,
     required AiSessionRuntimeContext runtimeContext,
+    required AiSessionMode mode,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     final now = _clock().toUtc();
@@ -448,6 +462,7 @@ class AiSessionController extends ChangeNotifier {
       environment: _environmentFromRuntime(runtimeContext),
       statistics: const AiSessionStatistics.initial(),
       recentErrors: const <AiSessionErrorRecord>[],
+      mode: mode,
     );
     _deletedSessionIds.remove(session.id);
     final committed = await _commitSessionLocked(session);
@@ -459,6 +474,22 @@ class AiSessionController extends ChangeNotifier {
     await _emitSessionStartHook(session: session, source: 'startup');
     notifyListeners();
     return true;
+  }
+
+  Future<bool> updateSessionMode(String sessionId, AiSessionMode mode) async {
+    return _enqueueOperation(() async {
+      final session = _sessionById(sessionId);
+      if (session == null) {
+        return false;
+      }
+      if (session.mode == mode) {
+        return true;
+      }
+      final updatedSession = _rebuildSession(
+        session.copyWith(mode: mode, updatedAt: _clock().toUtc()),
+      );
+      return _commitSessionLocked(updatedSession);
+    });
   }
 
   Future<bool> renameSession(String sessionId, String title) async {
@@ -1016,6 +1047,12 @@ class AiSessionController extends ChangeNotifier {
           userMessageMetadata[aiHookSystemRemindersMetadataKey] =
               userHookResult.systemReminders;
         }
+        if (_shouldResetPlanStateForNewTask(
+          session: session,
+          latestUserContent: normalizedContent,
+        )) {
+          session = _clearActivePlanState(session);
+        }
         if (session.awaitingPlanApproval &&
             _looksLikePlanApproval(normalizedContent)) {
           final statusMessage = AiSessionMessage.status(
@@ -1249,14 +1286,26 @@ class AiSessionController extends ChangeNotifier {
             definitions: <AiToolDefinition>[],
             toolsByName: <String, AiResolvedTool>{},
           );
-    final tools = toolCatalog.definitions;
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
+    var planModeRecoveryInspectionRequired =
+        _shouldRequirePlanModeRecoveryInspection(
+          session: workingSession,
+          latestUserMessageId: activeLatestUserMessageId,
+        );
+    var planModeExecutionApprovedForSend = _shouldAllowPlanModeExecutionTools(
+      session: workingSession,
+      latestUserMessageId: activeLatestUserMessageId,
+    );
     var toolRoundCount = 0;
     var toolCallCount = 0;
     final singleRoundToolCallLimit = math.max(
       1,
       runtimeContext.singleRoundToolCallLimit,
+    );
+    final sequentialToolRoundLimit = math.max(
+      1,
+      runtimeContext.sequentialToolRoundLimit,
     );
     final primedSession = await _maybePrefetchClaudeCodeDocs(
       session: workingSession,
@@ -1281,12 +1330,21 @@ class AiSessionController extends ChangeNotifier {
         _debugSessionLog(workingSession.id, 'assistant_conversation_stopped');
         return true;
       }
-      final toolsForRound = workingSession.awaitingPlanApproval
-          ? const <AiToolDefinition>[]
-          : tools;
+      final toolCatalogForRound = workingSession.awaitingPlanApproval
+          ? const AiResolvedToolCatalog(
+              definitions: <AiToolDefinition>[],
+              toolsByName: <String, AiResolvedTool>{},
+            )
+          : _toolCatalogForRound(
+              session: workingSession,
+              baseCatalog: toolCatalog,
+              executionApprovedForSend: planModeExecutionApprovedForSend,
+              recoveryInspectionRequired: planModeRecoveryInspectionRequired,
+            );
+      final toolsForRound = toolCatalogForRound.definitions;
       _debugSessionLog(
         workingSession.id,
-        'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} tools=${toolsForRound.length}',
+        'stream_round_start round=${toolRoundCount + 1} awaiting_plan_approval=${workingSession.awaitingPlanApproval} plan_mode=${workingSession.mode.storageValue} execution_approved=$planModeExecutionApprovedForSend recovery_inspection_required=$planModeRecoveryInspectionRequired tools=${toolsForRound.length}',
       );
       final promptResult = _promptBuilder.buildSessionPrompt(
         templateBundle: templateBundle,
@@ -1297,16 +1355,56 @@ class AiSessionController extends ChangeNotifier {
         sessionMessages: workingSession.activeConversationMessages,
         latestUserMessageId: activeLatestUserMessageId,
       );
-      final streamResponse = await _chatClient.sendMessageStream(
-        model: model,
-        messages: promptResult.messages,
-        tools: toolsForRound,
-      );
+      late final AiChatStreamingResponse streamResponse;
+      try {
+        streamResponse = await _chatClient.sendMessageStream(
+          model: model,
+          messages: promptResult.messages,
+          tools: toolsForRound,
+          cancelSignal: _stopSignalForSession(workingSession.id),
+        );
+      } catch (error) {
+        if (_isStopRequestedForSession(workingSession.id)) {
+          _debugSessionLog(
+            workingSession.id,
+            'stream_open_cancelled round=${toolRoundCount + 1}',
+          );
+          return true;
+        }
+        final errorStage = toolRoundCount > 0
+            ? 'chat_continuation_request'
+            : 'chat_request';
+        _debugSessionLog(
+          workingSession.id,
+          'stream_open_failed round=${toolRoundCount + 1} stage=$errorStage error=$error',
+        );
+        await _emitStopFailureHook(
+          sessionId: workingSession.id,
+          stage: errorStage,
+          detail: '$error',
+        );
+        final erroredSession = _appendError(
+          workingSession,
+          stage: errorStage,
+          message: '$error',
+          detail: '$error',
+        );
+        await _commitSessionLocked(_rebuildSession(erroredSession));
+        _setLastSendErrorMessage(workingSession.id, '$error');
+        notifyListeners();
+        return false;
+      }
       _debugSessionLog(
         workingSession.id,
         'stream_opened round=${toolRoundCount + 1} prompt_messages=${promptResult.messages.length}',
       );
       _setSessionCancelHandler(workingSession.id, streamResponse.cancel);
+      if (_isStopRequestedForSession(workingSession.id) &&
+          streamResponse.cancel != null) {
+        await streamResponse.cancel!().catchError(
+          (Object _, StackTrace stackTrace) {},
+        );
+      }
 
       var streamedSession = workingSession;
       String? assistantMessageId;
@@ -1673,14 +1771,32 @@ class AiSessionController extends ChangeNotifier {
       }
       _setSessionCancelHandler(workingSession.id, null);
       materializePendingReasoningPreview();
-      streamedSession = syncFinalAssistantMessage(
-        streamedSession,
-        result.reply,
-      );
-      streamedSession = syncFinalReasoningMessage(
-        streamedSession,
-        result.reasoning,
-      );
+      final didCancelStream =
+          result.wasCancelled || _isStopRequestedForSession(workingSession.id);
+      final shouldPersistIntermediateNarration =
+          result.toolCalls.isEmpty || didCancelStream;
+      if (shouldPersistIntermediateNarration) {
+        streamedSession = syncFinalAssistantMessage(
+          streamedSession,
+          result.reply,
+        );
+        streamedSession = syncFinalReasoningMessage(
+          streamedSession,
+          result.reasoning,
+        );
+      } else {
+        if (assistantMessageId != null || reasoningMessageId != null) {
+          streamedSession = _removeMessagesByIds(
+            streamedSession,
+            messageIds: <String>{
+              if (assistantMessageId != null) assistantMessageId!,
+              if (reasoningMessageId != null) reasoningMessageId!,
+            },
+          );
+        }
+        assistantMessageId = null;
+        reasoningMessageId = null;
+      }
       streamedSession = setReasoningStreamingState(streamedSession, false);
       flushPreview('stream_completed');
       _debugSessionLog(
@@ -1688,8 +1804,6 @@ class AiSessionController extends ChangeNotifier {
         'stream_completed cancelled=${result.wasCancelled} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
       );
 
-      final didCancelStream =
-          result.wasCancelled || _isStopRequestedForSession(workingSession.id);
       if (didCancelStream) {
         if (result.toolCalls.isNotEmpty) {
           streamedSession = _syncToolCallMessagesFromResult(
@@ -1813,21 +1927,21 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
       toolRoundCount += 1;
-      if (toolRoundCount > _maxSequentialToolRounds) {
+      if (toolRoundCount > sequentialToolRoundLimit) {
         _debugSessionLog(
           workingSession.id,
-          'tool_round_limit_exceeded count=$toolRoundCount',
+          'tool_round_limit_exceeded count=$toolRoundCount limit=$sequentialToolRoundLimit',
         );
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'tool_loop',
           detail:
-              'tool_round_count=$toolRoundCount limit=$_maxSequentialToolRounds',
+              'tool_round_count=$toolRoundCount limit=$sequentialToolRoundLimit',
         );
         final failedToolSession = _markPendingToolCallsFailed(
           workingSession,
           detail:
-              'The tool call was stopped because the assistant exceeded the sequential tool round safety limit.',
+              'The tool call was stopped before execution because the assistant exceeded the configured sequential tool round safety limit of $sequentialToolRoundLimit rounds.',
         );
         final limitedSession = _appendError(
           failedToolSession,
@@ -1835,7 +1949,7 @@ class AiSessionController extends ChangeNotifier {
           message:
               'The assistant requested too many sequential tool rounds and was stopped for safety.',
           detail:
-              'tool_round_count=$toolRoundCount limit=$_maxSequentialToolRounds',
+              'tool_round_count=$toolRoundCount limit=$sequentialToolRoundLimit',
         );
         await _commitSessionLocked(_rebuildSession(limitedSession));
         _setLastSendErrorMessage(
@@ -1848,7 +1962,7 @@ class AiSessionController extends ChangeNotifier {
       final executedSession = await _executeToolCalls(
         session: workingSession,
         model: model,
-        toolCatalog: toolCatalog,
+        toolCatalog: toolCatalogForRound,
         toolCalls: result.toolCalls,
         denyCommandRules: denyCommandRules,
         requireWriteCommandConfirmation: requireWriteCommandConfirmation,
@@ -1870,6 +1984,18 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       workingSession = executedSession;
+      if (planModeRecoveryInspectionRequired &&
+          _roundRequestedTodoWrite(result.toolCalls)) {
+        planModeRecoveryInspectionRequired =
+            _shouldRequirePlanModeRecoveryInspection(
+              session: workingSession,
+              latestUserMessageId: latestUserMessageId,
+            );
+        planModeExecutionApprovedForSend = _shouldAllowPlanModeExecutionTools(
+          session: workingSession,
+          latestUserMessageId: latestUserMessageId,
+        );
+      }
       activeLatestUserMessageId = null;
       if (_isStopRequestedForSession(workingSession.id)) {
         _debugSessionLog(
@@ -2828,6 +2954,244 @@ class AiSessionController extends ChangeNotifier {
     return todoListReplaced ? const <AiSessionTodoItem>[] : currentTodoItems;
   }
 
+  AiResolvedToolCatalog _toolCatalogForRound({
+    required AiSession session,
+    required AiResolvedToolCatalog baseCatalog,
+    required bool executionApprovedForSend,
+    required bool recoveryInspectionRequired,
+  }) {
+    if (session.mode != AiSessionMode.plan || executionApprovedForSend) {
+      return baseCatalog;
+    }
+    final allowExitPlanMode =
+        !recoveryInspectionRequired && session.todoItems.isNotEmpty;
+    final filteredEntries = baseCatalog.toolsByName.entries
+        .where(
+          (entry) => _isAllowedPlanModePlanningTool(
+            entry.key,
+            allowExitPlanMode: allowExitPlanMode,
+          ),
+        )
+        .toList(growable: false);
+    return AiResolvedToolCatalog(
+      definitions: filteredEntries
+          .map((entry) => entry.value.definition)
+          .toList(growable: false),
+      toolsByName: Map<String, AiResolvedTool>.fromEntries(filteredEntries),
+      notices: baseCatalog.notices,
+    );
+  }
+
+  bool _isAllowedPlanModePlanningTool(
+    String toolName, {
+    required bool allowExitPlanMode,
+  }) {
+    if (_planModePlanningToolAllowlist.contains(toolName)) {
+      return true;
+    }
+    return allowExitPlanMode && toolName == 'ExitPlanMode';
+  }
+
+  bool _shouldAllowPlanModeExecutionTools({
+    required AiSession session,
+    required String? latestUserMessageId,
+  }) {
+    if (session.mode != AiSessionMode.plan || session.awaitingPlanApproval) {
+      return session.mode != AiSessionMode.plan;
+    }
+    final latestUserMessage = _userMessageById(session, latestUserMessageId);
+    if (latestUserMessage == null) {
+      return false;
+    }
+    final content = latestUserMessage.content;
+    if (_shouldRequirePlanModeRecoveryInspection(
+      session: session,
+      latestUserMessageId: latestUserMessageId,
+    )) {
+      return false;
+    }
+    if (_looksLikePlanApproval(content)) {
+      return true;
+    }
+    return _hasIncompleteTodoItems(session.todoItems) &&
+        _looksLikePlanExecutionContinuation(content);
+  }
+
+  bool _shouldRequirePlanModeRecoveryInspection({
+    required AiSession session,
+    required String? latestUserMessageId,
+  }) {
+    if (session.mode != AiSessionMode.plan || session.awaitingPlanApproval) {
+      return false;
+    }
+    final latestUserMessage = _userMessageById(session, latestUserMessageId);
+    if (latestUserMessage == null) {
+      return false;
+    }
+    if (!_looksLikePlanRecoveryContinuation(latestUserMessage.content)) {
+      return false;
+    }
+    if (_hasCompletedTodoItemsOnly(session.todoItems)) {
+      return true;
+    }
+    return _hasFailedTodoItems(session.todoItems) ||
+        _hasRecentPlanToolFailure(session);
+  }
+
+  bool _shouldResetPlanStateForNewTask({
+    required AiSession session,
+    required String latestUserContent,
+  }) {
+    if (session.mode != AiSessionMode.plan) {
+      return false;
+    }
+    final hasActivePlanState =
+        session.todoItems.isNotEmpty ||
+        session.awaitingPlanApproval ||
+        (session.pendingPlan ?? '').trim().isNotEmpty;
+    if (!hasActivePlanState) {
+      return false;
+    }
+    final normalizedContent = latestUserContent.trim();
+    if (normalizedContent.isEmpty) {
+      return false;
+    }
+    return !_looksLikePlanApproval(normalizedContent) &&
+        !_looksLikePlanExecutionContinuation(normalizedContent) &&
+        !_looksLikePlanRecoveryContinuation(normalizedContent);
+  }
+
+  AiSession _clearActivePlanState(AiSession session) {
+    if (session.todoItems.isEmpty &&
+        !session.awaitingPlanApproval &&
+        (session.pendingPlan ?? '').trim().isEmpty) {
+      return session;
+    }
+    return session.copyWith(
+      updatedAt: _clock().toUtc(),
+      todoItems: const <AiSessionTodoItem>[],
+      awaitingPlanApproval: false,
+      clearPendingPlan: true,
+    );
+  }
+
+  AiSessionMessage? _userMessageById(AiSession session, String? messageId) {
+    final normalizedId = messageId?.trim() ?? '';
+    if (normalizedId.isEmpty) {
+      return null;
+    }
+    for (final message in session.messages) {
+      if (message.id == normalizedId &&
+          !message.isDeleted &&
+          message.kind == AiSessionMessageKind.user) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
+    return todoItems.any(
+      (item) => item.status.trim().toLowerCase() != 'completed',
+    );
+  }
+
+  bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
+    return todoItems.isNotEmpty &&
+        todoItems.every(
+          (item) => item.status.trim().toLowerCase() == 'completed',
+        );
+  }
+
+  bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
+    return todoItems.any((item) {
+      final status = item.status.trim().toLowerCase();
+      return status == 'failed' || status == 'blocked' || status == 'cancelled';
+    });
+  }
+
+  bool _hasRecentPlanToolFailure(AiSession session) {
+    for (var index = session.messages.length - 1; index >= 0; index -= 1) {
+      final message = session.messages[index];
+      if (message.isDeleted || message.kind != AiSessionMessageKind.toolCall) {
+        continue;
+      }
+      final status = '${message.metadata['tool_execution_status'] ?? ''}'
+          .trim()
+          .toLowerCase();
+      if (status.isEmpty || status == 'running') {
+        continue;
+      }
+      return status == 'failed' ||
+          status == 'cancelled' ||
+          status == 'denied' ||
+          status == 'rejected' ||
+          status == 'timed_out' ||
+          status == 'invalid_arguments';
+    }
+    return false;
+  }
+
+  bool _looksLikePlanExecutionContinuation(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    const continuationPhrases = <String>[
+      'continue',
+      'continue.',
+      'go on',
+      'keep going',
+      'continue implementation',
+      'finish it',
+      '继续',
+      '继续吧',
+      '继续做',
+      '继续完成',
+      '接着',
+      '接着做',
+    ];
+    return continuationPhrases.any((phrase) => normalized.contains(phrase));
+  }
+
+  bool _looksLikePlanRecoveryContinuation(String content) {
+    final normalized = content.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    const recoveryPhrases = <String>[
+      'continue',
+      'continue.',
+      'go on',
+      'keep going',
+      'continue implementation',
+      'finish it',
+      'retry',
+      'retry it',
+      'retry the step',
+      'retry the failed step',
+      'resume',
+      '继续',
+      '继续吧',
+      '继续做',
+      '继续完成',
+      '继续实施',
+      '继续执行',
+      '接着',
+      '接着做',
+      '重试',
+      '重试一下',
+      '重新执行',
+      '重新试',
+      '恢复执行',
+    ];
+    return recoveryPhrases.any((phrase) => normalized.contains(phrase));
+  }
+
+  bool _roundRequestedTodoWrite(List<AiToolCall> toolCalls) {
+    return toolCalls.any((toolCall) => toolCall.name.trim() == 'TodoWrite');
+  }
+
   bool _looksLikePlanApproval(String content) {
     final normalized = content.trim().toLowerCase();
     if (normalized.isEmpty) {
@@ -3474,6 +3838,25 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
+  AiSession _removeMessagesByIds(
+    AiSession session, {
+    required Set<String> messageIds,
+  }) {
+    if (messageIds.isEmpty) {
+      return session;
+    }
+    final updatedMessages = session.messages
+        .where((message) => !messageIds.contains(message.id))
+        .toList(growable: false);
+    if (updatedMessages.length == session.messages.length) {
+      return session;
+    }
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
+  }
+
   void _previewSession(AiSession session) {
     final replaced = _replaceSessionInMemory(session, sortSessions: false);
     if (replaced) {
@@ -3827,6 +4210,7 @@ class AiSessionController extends ChangeNotifier {
       sessionsDirectoryPath: OpenHandPaths.defaultSessionsDirectoryPath(),
       compressionThresholdChars: runtimeContext.compressionThresholdChars,
       singleRoundToolCallLimit: runtimeContext.singleRoundToolCallLimit,
+      sequentialToolRoundLimit: runtimeContext.sequentialToolRoundLimit,
     );
   }
 
@@ -4097,7 +4481,7 @@ class AiSessionController extends ChangeNotifier {
     }
     if (cursor >= lines.length ||
         !_internalPromptLeakHeaders.contains(lines[cursor].trim())) {
-      return normalized;
+      return sanitizeVisibleDsmlContent(normalized);
     }
     while (cursor < lines.length) {
       final trimmed = lines[cursor].trim();
@@ -4109,9 +4493,9 @@ class AiSessionController extends ChangeNotifier {
     }
     final sanitized = lines.skip(cursor).join('\n').trimLeft();
     if (sanitized.length == normalized.length) {
-      return normalized;
+      return sanitizeVisibleDsmlContent(normalized);
     }
-    return sanitized;
+    return sanitizeVisibleDsmlContent(sanitized);
   }
 
   bool _shouldCompressSessionHistory(

@@ -704,6 +704,7 @@ void main() {
         mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
         userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
         compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 8,
         memoryEnabled: true,
         memoryEntries: [],
       );
@@ -793,6 +794,7 @@ void main() {
         mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
         userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
         compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 8,
         memoryEnabled: true,
         memoryEntries: [],
       );
@@ -978,6 +980,7 @@ void main() {
         mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
         userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
         compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 8,
         memoryEnabled: true,
         memoryEntries: [],
       );
@@ -1081,6 +1084,7 @@ void main() {
         mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
         userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
         compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 8,
         memoryEnabled: true,
         memoryEntries: [],
       );
@@ -1468,6 +1472,85 @@ void main() {
         assistantMessage.content,
         isNot(contains('# [1] Developer Instructions')),
       );
+    },
+  );
+
+  test(
+    'AiSessionController strips leaked DSML tool markup from assistant replies',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply:
+                'Visible answer\n<｜DSML｜function_calls><｜DSML｜invoke name="TodoWrite"><｜DSML｜parameter name="todos" string="false">[{"id":"1","content":"Create earth.html","status":"in_progress"}]</｜DSML｜parameter></｜DSML｜invoke></｜DSML｜function_calls>',
+          ),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        idGenerator: () =>
+            'strip-dsml-${DateTime.now().microsecondsSinceEpoch}',
+        clock: () => DateTime.utc(2026, 3, 23, 6, 20, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-strip-dsml',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      expect(
+        await controller.sendMessage(
+          content: 'Say hi',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final assistantMessage = controller.currentSession!.messages.firstWhere(
+        (message) => message.kind == AiSessionMessageKind.assistant,
+      );
+      expect(assistantMessage.content, 'Visible answer');
+      expect(assistantMessage.content, isNot(contains('DSML')));
+      expect(assistantMessage.content, isNot(contains('TodoWrite')));
     },
   );
 
@@ -3270,6 +3353,216 @@ Use this skill when the task requires careful planning.
   );
 
   test(
+    'AiSessionController restricts write-oriented tools before a plan is approved in plan mode',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-plan-todos',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"plan-1","content":"Inspect the toolbar state","status":"in_progress"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-plan-exit',
+                name: 'ExitPlanMode',
+                arguments:
+                    '{"plan":"1. Inspect the toolbar state\\n2. Implement the timeline\\n3. Verify the interaction"}',
+              ),
+            ],
+          ),
+          AiChatCompletion(reply: 'Plan ready. Confirm before I implement it.'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Restricted Plan Mode'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-restricted',
+          'message-user-plan-restricted',
+          'message-tool-call-plan-todos',
+          'message-tool-result-plan-todos',
+          'message-tool-call-plan-exit',
+          'message-tool-result-plan-exit',
+          'message-assistant-plan-restricted',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 13, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-restricted',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Build a plan timeline for the toolbar',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstRoundTools = chatClient.requestedTools[0]
+          .map((item) => item.name)
+          .toSet();
+      expect(firstRoundTools, contains('TodoWrite'));
+      expect(firstRoundTools, isNot(contains('Write')));
+      expect(firstRoundTools, isNot(contains('Edit')));
+      expect(firstRoundTools, isNot(contains('MultiEdit')));
+      expect(firstRoundTools, isNot(contains('Bash')));
+      expect(firstRoundTools, isNot(contains('ExitPlanMode')));
+
+      final secondRoundTools = chatClient.requestedTools[1]
+          .map((item) => item.name)
+          .toSet();
+      expect(secondRoundTools, contains('TodoWrite'));
+      expect(secondRoundTools, contains('ExitPlanMode'));
+      expect(secondRoundTools, isNot(contains('Write')));
+      expect(secondRoundTools, isNot(contains('Bash')));
+
+      expect(controller.currentSession!.todoItems, hasLength(1));
+      expect(controller.currentSession!.awaitingPlanApproval, isTrue);
+    },
+  );
+
+  test(
+    'AiSessionController adds a plan mode reminder and session mode metadata when plan mode is active',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(reply: 'I will plan this first.'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Plan Mode Session'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-mode',
+          'message-user-plan-mode',
+          'message-assistant-plan-mode',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 27, 12, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en-US',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-mode',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+      expect(
+        await controller.sendMessage(
+          content: 'Implement a plan timeline for the toolbar',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final requestText = chatClient.requests.single
+          .map((turn) => turn.content)
+          .join('\n');
+      expect(requestText, contains('# Plan Mode Reminder'));
+      expect(requestText, contains('This session is in Plan mode.'));
+      expect(requestText, contains('"session_mode": "plan"'));
+    },
+  );
+
+  test(
     'AiSessionController gates implementation after ExitPlanMode until the user approves',
     () async {
       final promptRepository = AiPromptTemplateRepository(
@@ -3287,6 +3580,17 @@ Use this skill when the task requires careful planning.
       );
       final chatClient = _QueuedChatClient(
         responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-plan-todos',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"p0","content":"Inspect the current runtime","status":"in_progress"}]}',
+              ),
+            ],
+          ),
           AiChatCompletion(
             reply: '',
             toolCalls: <AiToolCall>[
@@ -3327,6 +3631,8 @@ Use this skill when the task requires careful planning.
         idGenerator: _fixedIdGenerator(<String>[
           'session-plan',
           'message-user-plan',
+          'message-tool-call-plan-todos',
+          'message-tool-result-plan-todos',
           'message-tool-call-plan',
           'message-tool-result-plan',
           'message-assistant-plan',
@@ -3363,6 +3669,7 @@ Use this skill when the task requires careful planning.
         await controller.createSession(
           templateId: 'default',
           runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
         ),
         isTrue,
       );
@@ -3380,7 +3687,7 @@ Use this skill when the task requires careful planning.
         controller.currentSession!.pendingPlan,
         contains('Inspect the current runtime'),
       );
-      expect(chatClient.requestedTools[1], isEmpty);
+      expect(chatClient.requestedTools[2], isEmpty);
 
       expect(
         await controller.sendMessage(
@@ -3397,7 +3704,676 @@ Use this skill when the task requires careful planning.
         chatClient.requestedTools.last.map((item) => item.name),
         contains('TodoWrite'),
       );
+      final followUpPrompt = chatClient.requests[3]
+          .map((turn) => turn.content)
+          .join('\n');
+      expect(followUpPrompt, contains('Do not call ExitPlanMode again'));
       expect(controller.currentSession!.todoItems, hasLength(1));
+    },
+  );
+
+  test(
+    'AiSessionController treats continue after a failed plan step as a recovery phase before retrying execution',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-recovery-refresh',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"retry-1","content":"Create the archive","status":"in_progress"},{"id":"retry-2","content":"Move the archive to Downloads","status":"pending"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(reply: 'Retrying the failed step now.'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-recovery',
+          'message-user-plan-recovery',
+          'message-tool-call-plan-recovery',
+          'message-tool-result-plan-recovery',
+          'message-assistant-plan-recovery',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 1, 50, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-recovery',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = controller.currentSession!;
+      final failedMessages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-plan-recovery-seeded',
+          content: 'Create the archive and move it to Downloads',
+          createdAt: DateTime.utc(2026, 3, 28, 1, 45, 0),
+        ),
+        AiSessionMessage.toolCall(
+          id: 'message-tool-call-plan-recovery-seeded',
+          content: '**Bash**',
+          createdAt: DateTime.utc(2026, 3, 28, 1, 46, 0),
+          metadata: <String, Object?>{
+            'tool_call_id': 'tool-call-plan-recovery-failed',
+            'tool_name': 'Bash',
+            'tool_execution_status': 'failed',
+          },
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 1, 47, 0),
+          messages: failedMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'retry-1',
+              content: 'Create the archive',
+              status: 'failed',
+            ),
+            AiSessionTodoItem(
+              id: 'retry-2',
+              content: 'Move the archive to Downloads',
+              status: 'pending',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            failedMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 256),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await controller.refresh();
+      await controller.selectSession(baseSession.id);
+
+      expect(
+        await controller.sendMessage(
+          content: '继续',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstRoundTools = chatClient.requestedTools[0]
+          .map((tool) => tool.name)
+          .toList(growable: false);
+      final secondRoundTools = chatClient.requestedTools[1]
+          .map((tool) => tool.name)
+          .toList(growable: false);
+      expect(firstRoundTools, contains('TodoWrite'));
+      expect(firstRoundTools, contains('Read'));
+      expect(firstRoundTools, contains('LS'));
+      expect(firstRoundTools, isNot(contains('Write')));
+      expect(firstRoundTools, isNot(contains('Bash')));
+      expect(firstRoundTools, isNot(contains('ExitPlanMode')));
+      expect(secondRoundTools, contains('TodoWrite'));
+      expect(secondRoundTools, contains('Write'));
+      expect(secondRoundTools, contains('Bash'));
+
+      final recoveryPrompt = chatClient.requests.first
+          .map((turn) => turn.content)
+          .join('\n');
+      expect(
+        recoveryPrompt,
+        contains('Before retrying, first review the current todo list'),
+      );
+      expect(
+        recoveryPrompt,
+        contains(
+          'set that step back to in_progress so the timeline reflects the retry',
+        ),
+      );
+      expect(recoveryPrompt, contains('"plan_recovery_required": true'));
+      expect(recoveryPrompt, contains('"failed_todo_count": 1'));
+      expect(recoveryPrompt, contains('"status": "failed"'));
+      expect(controller.currentSession!.todoItems.first.status, 'in_progress');
+    },
+  );
+
+  test(
+    'AiSessionController treats continue after a completed plan as a recovery inspection until TodoWrite reopens a step',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-completed-plan-refresh',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"completed-recovery-1","content":"Inspect the existing archive","status":"completed"},{"id":"completed-recovery-2","content":"Reopen the packaging step","status":"in_progress"},{"id":"completed-recovery-3","content":"Move the refreshed archive to Downloads","status":"pending"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(
+            reply: 'I refreshed the completed plan and resumed execution.',
+          ),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-completed-recovery',
+          'message-user-plan-completed-recovery',
+          'message-assistant-plan-completed-recovery-preview',
+          'message-tool-call-plan-completed-recovery',
+          'message-tool-result-plan-completed-recovery',
+          'message-assistant-plan-completed-recovery-final',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 40, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-completed-recovery',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = controller.currentSession!;
+      final completedMessages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-plan-completed-seeded',
+          content: 'Create the archive, move it, and open it.',
+          createdAt: DateTime.utc(2026, 3, 28, 2, 35, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 2, 36, 0),
+          messages: completedMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'completed-recovery-1',
+              content: 'Inspect the existing archive',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'completed-recovery-2',
+              content: 'Package earth.html into 鞠婧祎.tar',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'completed-recovery-3',
+              content: 'Move the archive to Downloads',
+              status: 'completed',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            completedMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 320),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await controller.refresh();
+      await controller.selectSession(baseSession.id);
+
+      expect(
+        await controller.sendMessage(
+          content: 'Continue',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstRoundTools = chatClient.requestedTools[0]
+          .map((tool) => tool.name)
+          .toList(growable: false);
+      final secondRoundTools = chatClient.requestedTools[1]
+          .map((tool) => tool.name)
+          .toList(growable: false);
+      expect(firstRoundTools, contains('TodoWrite'));
+      expect(firstRoundTools, contains('Read'));
+      expect(firstRoundTools, contains('LS'));
+      expect(firstRoundTools, isNot(contains('Write')));
+      expect(firstRoundTools, isNot(contains('Bash')));
+      expect(firstRoundTools, isNot(contains('ExitPlanMode')));
+      expect(secondRoundTools, contains('TodoWrite'));
+      expect(secondRoundTools, contains('Write'));
+      expect(secondRoundTools, contains('Bash'));
+
+      final recoveryPrompt = chatClient.requests.first
+          .map((turn) => turn.content)
+          .join('\n');
+      expect(recoveryPrompt, contains('potentially stale'));
+      expect(recoveryPrompt, contains('"plan_recovery_required": true'));
+      expect(recoveryPrompt, contains('"current_todo_count": 3'));
+      expect(recoveryPrompt, contains('"status": "completed"'));
+      expect(controller.currentSession!.todoItems[1].status, 'in_progress');
+      expect(controller.currentSession!.todoItems[2].status, 'pending');
+    },
+  );
+
+  test(
+    'AiSessionController clears the previous plan state before planning a new task in the same session',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-new-plan-todo',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"new-task-1","content":"Inspect the deployment requirements","status":"in_progress"},{"id":"new-task-2","content":"Package the site for deployment","status":"pending"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(
+            reply: 'I reset the old plan and started a new one.',
+          ),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-new-task-reset',
+          'message-user-plan-new-task-reset',
+          'message-assistant-plan-new-task-reset-preview',
+          'message-tool-call-plan-new-task-reset',
+          'message-tool-result-plan-new-task-reset',
+          'message-assistant-plan-new-task-reset-final',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 45, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'en',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-new-task-reset',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = controller.currentSession!;
+      final seededMessages = <AiSessionMessage>[
+        AiSessionMessage.user(
+          id: 'message-user-old-plan-seeded',
+          content: 'Package the earth page into an archive.',
+          createdAt: DateTime.utc(2026, 3, 28, 2, 39, 0),
+        ),
+      ];
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 2, 40, 0),
+          messages: seededMessages,
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'old-task-1',
+              content: 'Create 鞠婧祎.tar',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'old-task-2',
+              content: 'Move the archive to Downloads',
+              status: 'completed',
+            ),
+          ],
+          statistics: AiSessionStatistics.fromMessages(
+            seededMessages,
+            totalPromptCharacters: 0,
+            promptBuildCount: 0,
+            compressionRunCount: 0,
+            totalUsage: const AiTokenUsage(totalTokens: 400),
+            lastPromptSystemMessageCount: 0,
+            lastPromptHistoryMessageCount: 0,
+          ),
+        ),
+      );
+      await controller.refresh();
+      await controller.selectSession(baseSession.id);
+
+      expect(
+        await controller.sendMessage(
+          content: 'Build a deployment checklist for the toolbar release.',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final firstRoundTools = chatClient.requestedTools[0]
+          .map((tool) => tool.name)
+          .toSet();
+      expect(firstRoundTools, contains('TodoWrite'));
+      expect(firstRoundTools, isNot(contains('Write')));
+      expect(firstRoundTools, isNot(contains('Bash')));
+
+      final firstRoundMetadata = chatClient.requests.first.firstWhere(
+        (turn) =>
+            turn.role == AiChatRole.system &&
+            turn.content.contains('# [2] Session Metadata'),
+      );
+      expect(firstRoundMetadata.content, contains('"current_todo_count": 0'));
+      expect(firstRoundMetadata.content, isNot(contains('Create 鞠婧祎.tar')));
+
+      final currentTodos = controller.currentSession!.todoItems
+          .map((item) => item.content)
+          .toList(growable: false);
+      expect(
+        currentTodos,
+        equals(<String>[
+          'Inspect the deployment requirements',
+          'Package the site for deployment',
+        ]),
+      );
+      expect(currentTodos, isNot(contains('Create 鞠婧祎.tar')));
+      expect(controller.currentSession!.awaitingPlanApproval, isFalse);
+      expect(controller.currentSession!.pendingPlan, isNull);
+    },
+  );
+
+  test(
+    'AiSessionController does not persist repeated intermediate narration while continuing a plan across tool rounds',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final sessionStore = _InMemoryAiSessionStore();
+      final chatClient = _QueuedChatClient(
+        responses: const <AiChatCompletion>[
+          AiChatCompletion(
+            reply: 'I will continue the remaining steps now.',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-continue-refresh',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"step-1","content":"Inspect the existing earth.html file","status":"completed"},{"id":"step-2","content":"Package earth.html into 鞠婧祎.tar","status":"in_progress"},{"id":"step-3","content":"Move the archive to Downloads","status":"pending"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(
+            reply: 'I am packaging the file now.',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-call-continue-progress',
+                name: 'TodoWrite',
+                arguments:
+                    '{"todos":[{"id":"step-1","content":"Inspect the existing earth.html file","status":"completed"},{"id":"step-2","content":"Package earth.html into 鞠婧祎.tar","status":"completed"},{"id":"step-3","content":"Move the archive to Downloads","status":"in_progress"}]}',
+              ),
+            ],
+          ),
+          AiChatCompletion(reply: 'I resumed the remaining plan steps.'),
+        ],
+      );
+      final controller = await AiSessionController.create(
+        store: sessionStore,
+        chatClient: chatClient,
+        backgroundChatClient: _QueuedChatClient(
+          responses: const <AiChatCompletion>[],
+          autoTitleResponses: const <AiChatCompletion>[
+            AiChatCompletion(reply: 'Continue Plan Session'),
+          ],
+        ),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-plan-continue',
+          'message-user-plan-continue',
+          'message-assistant-plan-continue-preview-1',
+          'message-tool-call-plan-continue-1',
+          'message-tool-result-plan-continue-1',
+          'message-assistant-plan-continue-preview-2',
+          'message-tool-call-plan-continue-2',
+          'message-tool-result-plan-continue-2',
+          'message-assistant-plan-continue-final',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 20, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-plan-continue',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      final baseSession = controller.currentSession!;
+      await sessionStore.save(
+        baseSession.copyWith(
+          updatedAt: DateTime.utc(2026, 3, 28, 2, 18, 0),
+          mode: AiSessionMode.plan,
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'step-1',
+              content: 'Inspect the existing earth.html file',
+              status: 'completed',
+            ),
+            AiSessionTodoItem(
+              id: 'step-2',
+              content: 'Package earth.html into 鞠婧祎.tar',
+              status: 'pending',
+            ),
+            AiSessionTodoItem(
+              id: 'step-3',
+              content: 'Move the archive to Downloads',
+              status: 'pending',
+            ),
+          ],
+        ),
+      );
+      await controller.refresh();
+      await controller.selectSession(baseSession.id);
+
+      expect(
+        await controller.sendMessage(
+          content: '继续',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final assistantMessages = controller.currentSession!.messages
+          .where((message) => message.kind == AiSessionMessageKind.assistant)
+          .map((message) => message.content)
+          .toList(growable: false);
+      expect(
+        assistantMessages,
+        equals(<String>['I resumed the remaining plan steps.']),
+      );
+      expect(
+        controller.currentSession!.messages.any(
+          (message) =>
+              message.kind == AiSessionMessageKind.assistant &&
+              message.content.contains('I will continue the remaining steps'),
+        ),
+        isFalse,
+      );
+      expect(
+        controller.currentSession!.messages.any(
+          (message) =>
+              message.kind == AiSessionMessageKind.assistant &&
+              message.content.contains('I am packaging the file now'),
+        ),
+        isFalse,
+      );
+      expect(
+        controller.currentSession!.messages
+            .where((message) => message.kind == AiSessionMessageKind.toolCall)
+            .length,
+        2,
+      );
+      expect(controller.currentSession!.todoItems[1].status, 'completed');
+      expect(controller.currentSession!.todoItems[2].status, 'in_progress');
     },
   );
 
@@ -4430,7 +5406,7 @@ Use this skill when the task requires careful planning.
         },
       );
       final responses = List<AiChatCompletion>.generate(
-        9,
+        32,
         (index) => AiChatCompletion(
           reply: '',
           toolCalls: <AiToolCall>[
@@ -4443,7 +5419,7 @@ Use this skill when the task requires careful planning.
         ),
       );
       final generatedIds = List<String>.generate(
-        24,
+        128,
         (index) => 'tool-loop-id-$index',
       );
       final sessionId = generatedIds.first;
@@ -4480,6 +5456,7 @@ Use this skill when the task requires careful planning.
         mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
         userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
         compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 8,
         memoryEnabled: true,
         memoryEntries: [],
       );
@@ -4534,7 +5511,123 @@ Use this skill when the task requires careful planning.
       expect(toolCallMessages.last.metadata['tool_execution_status'], 'failed');
       expect(
         '${toolCallMessages.last.metadata['tool_execution_result'] ?? ''}',
-        contains('sequential tool round safety limit'),
+        contains('configured sequential tool round safety limit of 8 rounds'),
+      );
+    },
+  );
+
+  test(
+    'AiSessionController respects a configured sequential tool round limit above the default',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final responses = <AiChatCompletion>[
+        ...List<AiChatCompletion>.generate(
+          9,
+          (index) => AiChatCompletion(
+            reply: '',
+            toolCalls: <AiToolCall>[
+              AiToolCall(
+                id: 'tool-loop-${index + 1}',
+                name: 'bash',
+                arguments: '{"cmd":"pwd"}',
+              ),
+            ],
+          ),
+        ),
+        const AiChatCompletion(reply: 'Finished after the final tool round.'),
+      ];
+      final generatedIds = List<String>.generate(
+        128,
+        (index) => 'tool-loop-config-id-$index',
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _QueuedChatClient(responses: responses),
+        templateRepository: promptRepository,
+        bashToolService: _FakeBashToolService(
+          result: const BashToolExecutionResult(
+            status: BashToolExecutionStatus.success,
+            command: 'pwd',
+            workingDirectory: '/tmp',
+            stdout: '/tmp',
+            stderr: '',
+            durationMs: 25,
+            exitCode: 0,
+          ),
+        ),
+        idGenerator: () => generatedIds.removeAt(0),
+        clock: () => DateTime.utc(2026, 3, 27, 15, 0, 0),
+      );
+      addTearDown(controller.dispose);
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        sequentialToolRoundLimit: 9,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-tool-loop-configurable',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final sessionId = controller.currentSessionId!;
+      expect(
+        await controller.sendMessage(
+          sessionId: sessionId,
+          content: 'Keep checking until you can finish naturally.',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final currentSession = controller.currentSession;
+      expect(currentSession, isNotNull);
+      expect(controller.lastErrorMessage, isNull);
+      expect(
+        currentSession!.messages
+            .where((message) => message.kind == AiSessionMessageKind.tool)
+            .length,
+        9,
+      );
+      expect(
+        currentSession.messages.any(
+          (message) =>
+              message.kind == AiSessionMessageKind.assistant &&
+              message.content.contains('Finished after the final tool round.'),
+        ),
+        isTrue,
       );
     },
   );
@@ -4738,6 +5831,186 @@ Use this skill when the task requires careful planning.
       expect(
         '${toolCallMessage.metadata['tool_execution_result'] ?? ''}',
         contains('stream failed before the pending tool call completed'),
+      );
+    },
+  );
+
+  test(
+    'AiSessionController classifies a post-tool request failure as a continuation request error',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: _SecondRoundRequestFailingChatClient(),
+        templateRepository: promptRepository,
+        idGenerator: _fixedIdGenerator(<String>[
+          'session-continuation-request-error',
+          'message-user-continuation-request-error',
+          'message-tool-call-continuation-request-error',
+          'message-tool-result-continuation-request-error',
+          'error-record-continuation-request-error',
+        ]),
+        clock: () => DateTime.utc(2026, 3, 28, 2, 50, 0),
+      );
+      addTearDown(controller.dispose);
+
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/tmp/settings.toml',
+        skillsStoragePath: '/tmp/skills',
+        mcpServersFilePath: '/tmp/mcp_servers.json',
+        userMemoryFilePath: '/tmp/memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: <UserMemoryEntry>[],
+      );
+      const model = AiModelConfig(
+        id: 'model-continuation-request-error',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+          mode: AiSessionMode.plan,
+        ),
+        isTrue,
+      );
+
+      expect(
+        await controller.sendMessage(
+          content: '继续',
+          model: model,
+          runtimeContext: runtimeContext,
+        ),
+        isFalse,
+      );
+
+      final session = controller.currentSession;
+      expect(session, isNotNull);
+      expect(session!.recentErrors.first.stage, 'chat_continuation_request');
+      expect(
+        session.recentErrors.first.message,
+        contains('Request timed out.'),
+      );
+      final toolCallMessage = session.messages.singleWhere(
+        (message) => message.kind == AiSessionMessageKind.toolCall,
+      );
+      expect(toolCallMessage.metadata['tool_execution_status'], 'success');
+      expect(
+        session.messages
+            .where((message) => message.kind == AiSessionMessageKind.tool)
+            .length,
+        1,
+      );
+      expect(session.todoItems, hasLength(1));
+      expect(session.todoItems.first.status, 'in_progress');
+    },
+  );
+
+  test(
+    'AiSessionController stops cleanly before the streaming response opens',
+    () async {
+      final promptRepository = AiPromptTemplateRepository(
+        loader: (assetPath) async {
+          return switch (assetPath) {
+            'assets/prompts/default/system_instructions.md' =>
+              'System instructions',
+            'assets/prompts/default/developer_instructions.md' =>
+              'Developer instructions',
+            'assets/prompts/default/compression_summary_instructions.md' =>
+              'Compression instructions',
+            _ => throw ArgumentError('Unexpected asset path: $assetPath'),
+          };
+        },
+      );
+      final chatClient = _PendingStartStreamingChatClient();
+      final generatedIds = <String>[
+        'session-stop-before-stream-open',
+        'message-user-stop-before-stream-open',
+      ];
+      final controller = await AiSessionController.create(
+        store: _InMemoryAiSessionStore(),
+        chatClient: chatClient,
+        templateRepository: promptRepository,
+        idGenerator: () => generatedIds.removeAt(0),
+        clock: () => DateTime.utc(2026, 3, 28, 0, 0, 0),
+      );
+      const runtimeContext = AiSessionRuntimeContext(
+        localeTag: 'zh-CN',
+        appVersion: '0.1.0',
+        appBuildNumber: '1',
+        settingsFilePath: '/Users/example/.openhand/settings/SETTINGS.toml',
+        skillsStoragePath: '/Users/example/.openhand/skills',
+        mcpServersFilePath: '/Users/example/.openhand/mcp/mcp_servers.json',
+        userMemoryFilePath: '/Users/example/.openhand/memory/user-memory.json',
+        compressionThresholdChars: 5000,
+        memoryEnabled: true,
+        memoryEntries: [],
+      );
+      const model = AiModelConfig(
+        id: 'model-stop-before-stream-open',
+        baseUrl: 'https://api.example.com',
+        authScheme: AiAuthScheme.none,
+        token: '',
+        modelId: 'gpt-test',
+        protocolType: AiProtocolType.openai,
+      );
+
+      expect(
+        await controller.createSession(
+          templateId: 'default',
+          runtimeContext: runtimeContext,
+        ),
+        isTrue,
+      );
+
+      final sendFuture = controller.sendMessage(
+        content: 'Stop before the streaming response opens.',
+        model: model,
+        runtimeContext: runtimeContext,
+      );
+
+      await chatClient.waitForRequestStart();
+      expect(controller.sendPhase, AiSendPhase.responding);
+
+      await controller.stopResponding('session-stop-before-stream-open');
+      expect(await sendFuture, isTrue);
+
+      final session = controller.currentSession;
+      expect(session, isNotNull);
+      expect(controller.sendPhase, AiSendPhase.idle);
+      expect(chatClient.cancelSignalObserved, isTrue);
+      expect(
+        session!.messages
+            .where((message) => message.kind == AiSessionMessageKind.user)
+            .length,
+        1,
+      );
+      expect(
+        session.messages
+            .where((message) => message.kind == AiSessionMessageKind.assistant)
+            .isEmpty,
+        isTrue,
       );
     },
   );
@@ -6076,6 +7349,7 @@ class _QueuedChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final completion = await sendMessage(
       model: model,
@@ -6118,6 +7392,59 @@ class _QueuedChatClient implements AiChatClient {
     }
     return messages.first.content.contains('Generate a concise chat title.');
   }
+}
+
+class _SecondRoundRequestFailingChatClient implements AiChatClient {
+  int streamRequestCount = 0;
+
+  @override
+  Future<AiChatCompletion> sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return const AiChatCompletion(reply: '');
+  }
+
+  @override
+  Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
+  }) async {
+    streamRequestCount++;
+    if (streamRequestCount >= 2) {
+      throw const AiChatException('Request timed out.');
+    }
+    return AiChatStreamingResponse(
+      events: Stream<AiChatStreamEvent>.empty(),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: '',
+          reasoning: '',
+          toolCalls: <AiToolCall>[
+            AiToolCall(
+              id: 'tool-call-continuation-request-error',
+              name: 'TodoWrite',
+              arguments:
+                  '{"todos":[{"id":"continuation-step-1","content":"Create the archive","status":"in_progress"}]}',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<String> testModel(AiModelConfig model) async {
+    return 'OK';
+  }
+
+  @override
+  void dispose() {}
 }
 
 String Function() _fixedIdGenerator(List<String> ids) {
@@ -6188,6 +7515,7 @@ class _AutoTitleStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     Stream<AiChatStreamEvent> events() async* {
       await _streamCompleter.future;
@@ -6244,6 +7572,7 @@ class _DelayedAutoTitleChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw UnimplementedError('Streaming is not used for delayed auto titles.');
   }
@@ -6292,6 +7621,7 @@ class _DelayedFailingStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final prompt = messages.isEmpty ? '' : messages.last.content;
     if (prompt.contains(delayedPrompt)) {
@@ -6360,6 +7690,7 @@ class _RetryingAutoTitleChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw UnimplementedError('Streaming is not used for retrying auto titles.');
   }
@@ -6392,6 +7723,7 @@ class _ReasoningStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     Stream<AiChatStreamEvent> events() async* {
       yield AiChatStreamEvent.reasoningDelta('Step 1');
@@ -6444,6 +7776,7 @@ class _PartialDeltaStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     return AiChatStreamingResponse(
       events: Stream<AiChatStreamEvent>.fromIterable(const <AiChatStreamEvent>[
@@ -6503,6 +7836,7 @@ class _CompressionPhaseChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     final streamIndex = _streamRequestCount++;
     if (streamIndex == 0) {
@@ -6583,6 +7917,7 @@ class _FailingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw error;
   }
@@ -6968,8 +8303,62 @@ class _IdleChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<String> testModel(AiModelConfig model) async {
+    return 'OK';
+  }
+
+  @override
+  void dispose() {}
+}
+
+class _PendingStartStreamingChatClient implements AiChatClient {
+  final Completer<void> _requestStarted = Completer<void>();
+  bool cancelSignalObserved = false;
+
+  Future<void> waitForRequestStart() {
+    return _requestStarted.future.timeout(const Duration(milliseconds: 250));
+  }
+
+  @override
+  Future<AiChatCompletion> sendMessage({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+  }) async {
+    return const AiChatCompletion(reply: '');
+  }
+
+  @override
+  Future<AiChatStreamingResponse> sendMessageStream({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
+  }) async {
+    if (!_requestStarted.isCompleted) {
+      _requestStarted.complete();
+    }
+    await (cancelSignal ?? Future<void>.value());
+    cancelSignalObserved = true;
+    return AiChatStreamingResponse(
+      events: Stream<AiChatStreamEvent>.empty(),
+      result: Future<AiChatStreamResult>.value(
+        const AiChatStreamResult(
+          reply: '',
+          reasoning: '',
+          toolCalls: <AiToolCall>[],
+          wasCancelled: true,
+        ),
+      ),
+    );
   }
 
   @override
@@ -7005,6 +8394,7 @@ class _DisposableStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     return AiChatStreamingResponse(
       events: _events.stream,
@@ -7063,6 +8453,7 @@ class _ToolCallDeltaStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     if (!_started) {
       _started = true;
@@ -7128,6 +8519,7 @@ class _ToolCallDeltaErrorStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     return AiChatStreamingResponse(
       events: Stream<AiChatStreamEvent>.fromIterable(const <AiChatStreamEvent>[
@@ -7174,6 +8566,7 @@ class _ToolCallDeltaDroppedStreamingChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     return AiChatStreamingResponse(
       events: Stream<AiChatStreamEvent>.fromIterable(const <AiChatStreamEvent>[

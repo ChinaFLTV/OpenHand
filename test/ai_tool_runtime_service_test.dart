@@ -903,6 +903,39 @@ void main() {
     },
   );
 
+  test(
+    'AiToolRuntimeService accepts TodoWrite calls with failed todos',
+    () async {
+      final result = await service.execute(
+        sessionId: 'todo-failed',
+        catalog: await service.resolveCatalog(
+          runtimeContext: _runtimeContext(),
+        ),
+        toolCall: AiToolCall(
+          id: 'tool-2',
+          name: 'TodoWrite',
+          arguments: jsonEncode(<String, Object?>{
+            'todos': <Map<String, Object?>>[
+              <String, Object?>{
+                'id': 't1',
+                'content': 'Inspect runtime',
+                'status': 'failed',
+              },
+            ],
+          }),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.success);
+      expect(result.stdout, contains('[!] t1: Inspect runtime'));
+    },
+  );
+
   test('AiToolRuntimeService Task invocations stay stateless', () async {
     if (Platform.isWindows) {
       return;
@@ -1009,6 +1042,7 @@ class _FakeChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw UnimplementedError();
   }
@@ -1143,6 +1177,7 @@ class _TaskIsolationChatClient implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
+    Future<void>? cancelSignal,
   }) async {
     throw UnimplementedError();
   }
