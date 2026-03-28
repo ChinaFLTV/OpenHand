@@ -658,10 +658,24 @@ class AiBashToolService {
     final fallbackWorkingDirectory = requestedWorkingDirectory.isEmpty
         ? OpenHandPaths.applicationDirectoryPath()
         : requestedWorkingDirectory;
-    final session = await _ensurePersistentSession(
-      sessionId: sessionId,
-      initialWorkingDirectory: fallbackWorkingDirectory,
-    );
+    late final _PersistentBashSession session;
+    try {
+      session = await _ensurePersistentSession(
+        sessionId: sessionId,
+        initialWorkingDirectory: fallbackWorkingDirectory,
+      );
+    } on ProcessException catch (error) {
+      return BashToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: command,
+        workingDirectory: fallbackWorkingDirectory,
+        stdout: '',
+        stderr: error.message,
+        durationMs: 0,
+        isWriteCommand: isWriteCommand,
+        writeAnalysisReason: writeAnalysisReason,
+      );
+    }
     final effectiveWorkingDirectory = requestedWorkingDirectory.isEmpty
         ? session.currentWorkingDirectory
         : requestedWorkingDirectory;

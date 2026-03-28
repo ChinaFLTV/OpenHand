@@ -1791,6 +1791,24 @@ class AiToolRuntimeService {
     final response = await _httpClient
         .get(uri)
         .timeout(const Duration(seconds: 20));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final errorDetails = _truncateContent(
+        _htmlToText(response.body).trim(),
+        400,
+      );
+      final message = errorDetails.isEmpty
+          ? 'WebSearch failed with HTTP ${response.statusCode}.'
+          : 'WebSearch failed with HTTP ${response.statusCode}: $errorDetails';
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: 'WebSearch $query',
+        workingDirectory: _defaultWorkingDirectory(),
+        stdout: '',
+        stderr: message,
+        durationMs: startedAt.elapsedMilliseconds,
+        resultText: 'status: failed\nerror: $message',
+      );
+    }
     final html = response.body;
     final results = _parseDuckDuckGoResults(html)
         .where((item) {

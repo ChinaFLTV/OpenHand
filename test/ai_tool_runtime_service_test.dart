@@ -442,6 +442,50 @@ void main() {
     expect(requestCount, 1);
   });
 
+  test(
+    'AiToolRuntimeService WebSearch surfaces upstream HTTP failures',
+    () async {
+      final chatClient = _FakeChatClient();
+      final webSearchService = AiToolRuntimeService(
+        bashToolService: AiBashToolService(),
+        hookService: AiClaudeHookService(),
+        mcpToolService: _FakeMcpToolDiscoveryService(),
+        backgroundChatClient: chatClient,
+        httpClient: MockClient((request) async {
+          expect(request.url.host, 'duckduckgo.com');
+          return http.Response(
+            '<html><body>Rate limited by upstream</body></html>',
+            429,
+            headers: <String, String>{'content-type': 'text/html'},
+          );
+        }),
+      );
+      addTearDown(webSearchService.dispose);
+
+      final result = await webSearchService.execute(
+        sessionId: 'websearch-http-failure',
+        catalog: await webSearchService.resolveCatalog(
+          runtimeContext: _runtimeContext(),
+        ),
+        toolCall: AiToolCall(
+          id: 'tool-1',
+          name: 'WebSearch',
+          arguments: jsonEncode(<String, Object?>{'query': 'openhand'}),
+        ),
+        model: _model(),
+        previouslyReadFiles: const <String>{},
+        denyCommandRules: const <AiDenyCommandRule>[],
+        requireWriteCommandConfirmation: false,
+        confirmWriteCommand: null,
+      );
+
+      expect(result.status, BashToolExecutionStatus.failed);
+      expect(result.stderr, contains('HTTP 429'));
+      expect(result.stderr, contains('Rate limited by upstream'));
+      expect(chatClient.sendMessageCallCount, 0);
+    },
+  );
+
   test('AiToolRuntimeService Bash honors explicit timeout', () async {
     if (Platform.isWindows) {
       return;
@@ -1026,6 +1070,8 @@ AiModelConfig _model() {
 }
 
 class _FakeChatClient implements AiChatClient {
+  int sendMessageCallCount = 0;
+
   @override
   Future<AiChatCompletion> sendMessage({
     required AiModelConfig model,
@@ -1033,6 +1079,7 @@ class _FakeChatClient implements AiChatClient {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     Duration timeout = const Duration(seconds: 60),
   }) async {
+    sendMessageCallCount += 1;
     return const AiChatCompletion(reply: '');
   }
 

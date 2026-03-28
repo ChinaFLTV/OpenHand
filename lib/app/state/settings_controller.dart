@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../model/openhand_shortcut.dart';
 import '../../features/ai/model/ai_allow_command_rule.dart';
@@ -15,6 +16,8 @@ import 'settings_store.dart';
 enum _MutationDisposition { apply, successNoChange, reject }
 
 class SettingsController extends ChangeNotifier {
+  static const Uuid _uuid = Uuid();
+
   SettingsController._({
     required SettingsStore store,
     required AppSettingsSnapshot snapshot,
@@ -454,15 +457,15 @@ class SettingsController extends ChangeNotifier {
   }
 
   String createAiModelId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    return _uuid.v4();
   }
 
   String createAiDenyCommandRuleId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    return _uuid.v4();
   }
 
   String createAiAllowCommandRuleId() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
+    return _uuid.v4();
   }
 
   AppSettingsSnapshot _snapshot() {

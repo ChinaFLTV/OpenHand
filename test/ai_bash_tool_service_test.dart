@@ -198,6 +198,34 @@ void main() {
       );
     },
   );
+
+  test(
+    'AiBashToolService returns a failed result when a persistent session cannot start',
+    () async {
+      if (Platform.isWindows) {
+        return;
+      }
+      final service = AiBashToolService();
+      addTearDown(service.dispose);
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand-bash-missing-cwd-',
+      );
+      final missingDirectoryPath = tempDirectory.path;
+      await tempDirectory.delete(recursive: true);
+
+      final result = await service.execute(
+        command: 'pwd',
+        sessionId: 'persistent-missing-cwd',
+        workingDirectory: missingDirectoryPath,
+        denyRules: const <AiDenyCommandRule>[],
+        requireWriteConfirmation: false,
+      );
+
+      expect(result.status, BashToolExecutionStatus.failed);
+      expect(result.workingDirectory, p.normalize(missingDirectoryPath));
+      expect(result.stderr, isNotEmpty);
+    },
+  );
 }
 
 String _quoteForShell(String value) {

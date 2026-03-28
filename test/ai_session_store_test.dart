@@ -192,10 +192,52 @@ void main() {
     final backupFiles = tempDirectory
         .listSync()
         .whereType<File>()
-        .where((file) => p.basename(file.path).contains('.invalid-'))
+        .where(
+          (file) =>
+              p.basename(file.path).startsWith('invalid-session-') ||
+              p.basename(file.path).contains('.invalid-'),
+        )
         .toList();
     expect(backupFiles, isNotEmpty);
   });
+
+  test(
+    'AiSessionStore ignores invalid backup files on later loads instead of re-backing them up',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_ai_session_invalid_repeat_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final invalidFile = File(
+        p.join(tempDirectory.path, 'session-broken.json'),
+      );
+      await invalidFile.writeAsString('{broken', flush: true);
+      final store = AiSessionStore(sessionsDirectoryPath: tempDirectory.path);
+
+      final firstLoad = await store.loadAll();
+      final secondLoad = await store.loadAll();
+
+      expect(firstLoad.sessions, isEmpty);
+      expect(firstLoad.issues, hasLength(1));
+      expect(secondLoad.sessions, isEmpty);
+      expect(secondLoad.issues, isEmpty);
+
+      final backupFiles = tempDirectory
+          .listSync()
+          .whereType<File>()
+          .where(
+            (file) =>
+                p.basename(file.path).startsWith('invalid-session-') ||
+                p.basename(file.path).contains('.invalid-'),
+          )
+          .toList(growable: false);
+      expect(backupFiles, hasLength(1));
+      expect(
+        p.basename(backupFiles.single.path),
+        startsWith('invalid-session-session-broken-'),
+      );
+    },
+  );
 
   test(
     'AiSessionStore delete removes the session attachment subtree',

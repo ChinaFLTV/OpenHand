@@ -28,6 +28,10 @@ class AiSessionLoadResult {
 }
 
 class AiSessionStore {
+  static const String _sessionFilePrefix = 'session-';
+  static const String _sessionFileSuffix = '.json';
+  static const String _invalidSessionBackupPrefix = 'invalid-session-';
+
   AiSessionStore({String? sessionsDirectoryPath})
     : _sessionsDirectoryPath =
           sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
@@ -68,7 +72,7 @@ class AiSessionStore {
         continue;
       }
       final basename = p.basename(entity.path);
-      if (!basename.startsWith('session-') || !basename.endsWith('.json')) {
+      if (!_isPrimarySessionFileName(basename)) {
         continue;
       }
       try {
@@ -148,7 +152,7 @@ class AiSessionStore {
     final stamp = DateTime.now().microsecondsSinceEpoch;
     final backupPath = p.join(
       sourceFile.parent.path,
-      '${p.basenameWithoutExtension(sourceFile.path)}.invalid-$stamp.json',
+      '$_invalidSessionBackupPrefix${p.basenameWithoutExtension(sourceFile.path)}-$stamp.json',
     );
     final backupFile = File(backupPath);
     if (await backupFile.exists()) {
@@ -192,5 +196,17 @@ class AiSessionStore {
       }
       rethrow;
     }
+  }
+
+  bool _isPrimarySessionFileName(String basename) {
+    if (!basename.startsWith(_sessionFilePrefix) ||
+        !basename.endsWith(_sessionFileSuffix)) {
+      return false;
+    }
+    if (basename.startsWith(_invalidSessionBackupPrefix) ||
+        basename.contains('.invalid-')) {
+      return false;
+    }
+    return true;
   }
 }

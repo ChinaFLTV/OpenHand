@@ -140,4 +140,43 @@ void main() {
 
     expect(reloadedController.aiSequentialToolRoundLimit, 18);
   });
+
+  test(
+    'SettingsController generates distinct IDs for new models and rules',
+    () async {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_settings_id_generation_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final settingsFilePath = p.join(
+        tempDirectory.path,
+        '.openhand',
+        'settings',
+        'SETTINGS.toml',
+      );
+      final controller = await SettingsController.create(
+        store: SettingsStore(settingsFilePath: settingsFilePath),
+      );
+
+      final modelIds = <String>{
+        controller.createAiModelId(),
+        controller.createAiModelId(),
+      };
+      final denyRuleIds = <String>{
+        controller.createAiDenyCommandRuleId(),
+        controller.createAiDenyCommandRuleId(),
+      };
+      final allowRuleIds = <String>{
+        controller.createAiAllowCommandRuleId(),
+        controller.createAiAllowCommandRuleId(),
+      };
+
+      expect(modelIds, hasLength(2));
+      expect(denyRuleIds, hasLength(2));
+      expect(allowRuleIds, hasLength(2));
+      expect(modelIds.every((id) => id.trim().isNotEmpty), isTrue);
+      expect(denyRuleIds.every((id) => id.trim().isNotEmpty), isTrue);
+      expect(allowRuleIds.every((id) => id.trim().isNotEmpty), isTrue);
+    },
+  );
 }

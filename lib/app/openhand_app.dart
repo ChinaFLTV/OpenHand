@@ -186,7 +186,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
     }
   }
 
-  void _scheduleKeyboardStateResync(String _reason) {
+  void _scheduleKeyboardStateResync(String reason) {
     if (_keyboardStateSyncQueued) {
       return;
     }

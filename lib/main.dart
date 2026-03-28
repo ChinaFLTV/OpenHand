@@ -14,20 +14,27 @@ import 'features/skills/skills_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final settingsController = await SettingsController.create();
-  final appInfo = await _loadAppInfo();
-  final skillsController = await SkillsController.create(
-    initialStoragePath: settingsController.skillsStoragePath,
-  );
-  final mcpController = await McpController.create(
-    initialFilePath: settingsController.mcpServersFilePath,
-  );
-  final memoryController = await MemoryController.create(
-    initialFilePath: settingsController.userMemoryFilePath,
-  );
-  final aiSessionController = await AiSessionController.create(
+  final settingsControllerFuture = SettingsController.create();
+  final appInfoFuture = _loadAppInfo();
+  final aiSessionControllerFuture = AiSessionController.create(
     hookService: AiClaudeHookService(),
   );
+
+  final settingsController = await settingsControllerFuture;
+  final skillsControllerFuture = SkillsController.create(
+    initialStoragePath: settingsController.skillsStoragePath,
+  );
+  final mcpControllerFuture = McpController.create(
+    initialFilePath: settingsController.mcpServersFilePath,
+  );
+  final memoryControllerFuture = MemoryController.create(
+    initialFilePath: settingsController.userMemoryFilePath,
+  );
+  final appInfo = await appInfoFuture;
+  final skillsController = await skillsControllerFuture;
+  final mcpController = await mcpControllerFuture;
+  final memoryController = await memoryControllerFuture;
+  final aiSessionController = await aiSessionControllerFuture;
 
   runApp(
     MultiProvider(
