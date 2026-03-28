@@ -208,6 +208,7 @@ class McpController extends ChangeNotifier {
         changedServerName: updatedServers[index].name,
         shouldAutoRefreshTools: enabled,
         shouldAutoCheckHealth: enabled,
+        resetChangedServerToolCatalog: !enabled,
         resetChangedServerHealth: !enabled,
       );
     });
@@ -379,11 +380,11 @@ class McpController extends ChangeNotifier {
     }
     if (resetChangedServerToolCatalog && changedServerName != null) {
       _toolCatalogByServerName[changedServerName] = const McpToolCatalog();
-      _toolRefreshGenerationByServerName.remove(changedServerName);
+      _invalidateToolRefreshGeneration(changedServerName);
     }
     if (resetChangedServerHealth && changedServerName != null) {
       _healthByServerName[changedServerName] = const McpServerHealth();
-      _healthCheckGenerationByServerName.remove(changedServerName);
+      _invalidateHealthCheckGeneration(changedServerName);
     }
     _errorMessage = null;
     notifyListeners();
@@ -512,16 +513,14 @@ class McpController extends ChangeNotifier {
 
   void _invalidateHealthCheckGenerations() {
     for (final serverName in _healthByServerName.keys) {
-      _healthCheckGenerationByServerName[serverName] =
-          (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
+      _invalidateHealthCheckGeneration(serverName);
     }
   }
 
   void _invalidateToolRefreshGenerations() {
     for (final entry in _toolCatalogByServerName.entries) {
       final serverName = entry.key;
-      _toolRefreshGenerationByServerName[serverName] =
-          (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
+      _invalidateToolRefreshGeneration(serverName);
       final catalog = entry.value;
       if (!catalog.isLoading) {
         continue;
@@ -561,6 +560,16 @@ class McpController extends ChangeNotifier {
 
   String _normalizeServerName(String serverName) {
     return serverName.trim();
+  }
+
+  void _invalidateToolRefreshGeneration(String serverName) {
+    _toolRefreshGenerationByServerName[serverName] =
+        (_toolRefreshGenerationByServerName[serverName] ?? 0) + 1;
+  }
+
+  void _invalidateHealthCheckGeneration(String serverName) {
+    _healthCheckGenerationByServerName[serverName] =
+        (_healthCheckGenerationByServerName[serverName] ?? 0) + 1;
   }
 
   McpToolCatalog _resolvedRefreshCatalog({

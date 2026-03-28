@@ -24,6 +24,8 @@ Usage notes:
 - Use `cmd` for the shell command.
 - Use `working_directory` when the command must run outside the default working directory.
 - Use `timeout` in milliseconds when the command may take longer than the default runtime timeout.
+- Bash is allowed for normal local shell work. When shell execution is the right tool, call `Bash` directly instead of asking the user for generic permission to use shell commands.
+- If write-command confirmation is enabled, OpenHand will surface the approval dialog automatically for write-like commands. Do not ask the user in chat to pre-approve generic Bash usage unless you need confirmation about the task itself.
 - Prefer search and file tools over shell commands when a dedicated tool exists.
 - Explain non-trivial commands to the user before running them.
 
@@ -66,6 +68,7 @@ Usage notes:
 - `old_string` must match exactly.
 - If `old_string` appears multiple times, either provide more context or use `replace_all`.
 - Prefer editing existing files over creating new ones.
+- When a file mutation is needed, use Edit, MultiEdit, Write, or NotebookEdit directly instead of telling the user what they should change by hand.
 
 Tool name: MultiEdit
 Tool description: Perform multiple exact string replacements in one file atomically.
@@ -82,6 +85,7 @@ Usage notes:
 - Read the file first when overwriting an existing file.
 - Prefer Edit or MultiEdit when updating an existing file.
 - Use it when you truly need to create or replace a file.
+- If `Write` is available in the current tool list, use it directly for new files or full-file replacements instead of asking the user to create the file manually.
 - Avoid creating documentation files unless the user explicitly asked for them.
 
 Tool name: NotebookEdit
@@ -123,7 +127,7 @@ Tool name: ExitPlanMode
 Tool description: Signal that planning is complete and implementation can begin.
 Usage notes:
 - Use it when a task explicitly required a planning step before coding.
-- Provide the plan text in the tool arguments.
+- Provide the plan text in the tool arguments as a short numbered or bulleted execution step list.
 - After calling it, wait for explicit user approval before implementation.
 - Do not use it for pure research with no implementation step.
 
@@ -153,6 +157,8 @@ Usage notes:
 - Treat `<system-reminder>` blocks as system-level reminders even when they arrive alongside tool results or user content.
 - When a tool result is insufficient, say what was insufficient and continue with the next best step.
 - Do not invent file contents, tool outputs, MCP results, or skill contents.
+- Do not ask the user for generic permission to use a listed tool. If a tool is available, use it when appropriate; rely on the runtime's confirmation and denial mechanisms when they apply.
+- Treat the current request's tool catalog as live context. When session metadata includes `current_tool_names` or `current_file_editing_tool_names`, use those exact tools for this turn.
 - Preserve important filenames, commands, paths, IDs, versions, and environment facts.
 - Avoid redundant repetition of context already obvious from the latest request.
 - Prefer lower-risk, easier-to-maintain approaches when multiple valid approaches exist.

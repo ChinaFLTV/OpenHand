@@ -32,11 +32,24 @@ class MemoryLoadResult {
 }
 
 class MemoryStore {
-  MemoryStore({String? userMemoryFilePath})
-    : _userMemoryFilePath =
-          userMemoryFilePath ?? OpenHandPaths.defaultUserMemoryFilePath();
+  MemoryStore({
+    String? userMemoryFilePath,
+    String? defaultUserMemoryFilePath,
+    String? legacyUserMemoryFilePath,
+  }) : _defaultUserMemoryFilePath =
+           defaultUserMemoryFilePath ??
+           OpenHandPaths.defaultUserMemoryFilePath(),
+       _legacyUserMemoryFilePath =
+           legacyUserMemoryFilePath ??
+           OpenHandPaths.legacyDefaultUserMemoryFilePath(),
+       _userMemoryFilePath =
+           userMemoryFilePath ??
+           defaultUserMemoryFilePath ??
+           OpenHandPaths.defaultUserMemoryFilePath();
 
   final String _userMemoryFilePath;
+  final String _defaultUserMemoryFilePath;
+  final String _legacyUserMemoryFilePath;
 
   String get userMemoryFilePath => _userMemoryFilePath;
   String get storageDirectoryPath => p.dirname(_userMemoryFilePath);
@@ -44,6 +57,10 @@ class MemoryStore {
   Future<MemoryLoadResult> load() async {
     final targetFile = File(_userMemoryFilePath);
     if (!await targetFile.exists()) {
+      final migrated = await _migrateLegacyStorageFile(targetFile);
+      if (migrated) {
+        return load();
+      }
       final entries = const <UserMemoryEntry>[];
       try {
         await save(entries);
@@ -132,6 +149,33 @@ class MemoryStore {
     }
     final content = _encode(entries);
     await _writeAtomically(targetFile, content);
+  }
+
+  Future<bool> _migrateLegacyStorageFile(File targetFile) async {
+    if (!p.equals(targetFile.path, _defaultUserMemoryFilePath)) {
+      return false;
+    }
+    final legacyPath = _legacyUserMemoryFilePath;
+    if (p.equals(legacyPath, targetFile.path)) {
+      return false;
+    }
+    final legacyFile = File(legacyPath);
+    if (!await legacyFile.exists()) {
+      return false;
+    }
+    final targetDirectory = targetFile.parent;
+    if (!await targetDirectory.exists()) {
+      await targetDirectory.create(recursive: true);
+    }
+    try {
+      await legacyFile.rename(targetFile.path);
+    } on FileSystemException {
+      await legacyFile.copy(targetFile.path);
+      try {
+        await legacyFile.delete();
+      } catch (_) {}
+    }
+    return true;
   }
 
   _SanitizedMemoryResult _sanitize(Object? decoded) {

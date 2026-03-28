@@ -347,11 +347,26 @@ class SettingsStore {
       didSanitize = true;
     }
     final rawUserMemoryFilePath = '${rootValues['user_memory_file'] ?? ''}';
-    final userMemoryFilePath = OpenHandPaths.normalizePath(
-      rawUserMemoryFilePath,
-      defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-    );
-    if (rawUserMemoryFilePath.trim().isEmpty) {
+    final normalizedRawUserMemoryFilePath = rawUserMemoryFilePath.trim().isEmpty
+        ? ''
+        : OpenHandPaths.normalizePath(
+            rawUserMemoryFilePath,
+            defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
+          );
+    final shouldMigrateLegacyUserMemoryPath =
+        normalizedRawUserMemoryFilePath.isNotEmpty &&
+        p.equals(
+          normalizedRawUserMemoryFilePath,
+          OpenHandPaths.legacyDefaultUserMemoryFilePath(),
+        );
+    final userMemoryFilePath = shouldMigrateLegacyUserMemoryPath
+        ? OpenHandPaths.defaultUserMemoryFilePath()
+        : OpenHandPaths.normalizePath(
+            rawUserMemoryFilePath,
+            defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
+          );
+    if (rawUserMemoryFilePath.trim().isEmpty ||
+        shouldMigrateLegacyUserMemoryPath) {
       didSanitize = true;
     }
     final rawCompressionThreshold =
@@ -379,9 +394,8 @@ class SettingsStore {
         rawSequentialToolRoundLimit is int && rawSequentialToolRoundLimit > 0
         ? rawSequentialToolRoundLimit
         : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
-    if (rawSequentialToolRoundLimit != null &&
-        (rawSequentialToolRoundLimit is! int ||
-            rawSequentialToolRoundLimit <= 0)) {
+    if (rawSequentialToolRoundLimit is! int ||
+        rawSequentialToolRoundLimit <= 0) {
       didSanitize = true;
     }
     final rawWriteCommandConfirmationEnabled =

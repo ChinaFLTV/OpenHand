@@ -469,13 +469,22 @@ class AiToolRuntimeService {
             cancelSignal: cancelSignal,
             onBashUpdate: onBashUpdate,
           );
+          final bashMetadata = <String, Object?>{
+            if (bashResult.isWriteCommand) 'file_mutation_kind': 'bash_write',
+            if (bashResult.isWriteCommand)
+              'file_mutation_working_directory': bashResult.workingDirectory,
+            if (bashResult.isWriteCommand)
+              'file_mutation_command_char_count': bashResult.command.length,
+            if (bashResult.isWriteCommand)
+              'file_mutation_write_reason': bashResult.writeAnalysisReason,
+          };
           return AiToolExecutionResult.fromBash(
             bashResult,
-            metadata: permissionHookReminders.isEmpty
-                ? const <String, Object?>{}
-                : <String, Object?>{
-                    aiHookSystemRemindersMetadataKey: permissionHookReminders,
-                  },
+            metadata: <String, Object?>{
+              ...bashMetadata,
+              if (permissionHookReminders.isNotEmpty)
+                aiHookSystemRemindersMetadataKey: permissionHookReminders,
+            },
           );
         }(),
         AiBuiltinToolKind.glob => await _executeGlobTool(
@@ -1395,14 +1404,21 @@ class AiToolRuntimeService {
     if (!replacement.success) {
       return _invalidToolResult('Edit', replacement.errorMessage);
     }
-    await file.writeAsString(replacement.content, flush: true);
+    await _writeTextFileSafely(file, replacement.content);
     return _simpleSuccessResult(
       command: 'Edit $filePath',
       output: 'Updated $filePath',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
-      metadata: <String, Object?>{'tool_source': 'builtin'},
+      metadata: <String, Object?>{
+        'tool_source': 'builtin',
+        'file_mutation_kind': 'edit',
+        'file_mutation_path': filePath,
+        'file_mutation_old_string_char_count': oldString.length,
+        'file_mutation_new_string_char_count': newString.length,
+        'file_mutation_replace_all': replaceAll,
+      },
     );
   }
 
@@ -1463,14 +1479,19 @@ class AiToolRuntimeService {
       }
       content = replacement.content;
     }
-    await file.parent.create(recursive: true);
-    await file.writeAsString(content, flush: true);
+    await _writeTextFileSafely(file, content);
     return _simpleSuccessResult(
       command: 'MultiEdit $filePath',
       output: 'Updated $filePath',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
+      metadata: <String, Object?>{
+        'tool_source': 'builtin',
+        'file_mutation_kind': 'multi_edit',
+        'file_mutation_path': filePath,
+        'file_mutation_edit_count': edits.length,
+      },
     );
   }
 
@@ -1499,14 +1520,19 @@ class AiToolRuntimeService {
     if (readValidation != null) {
       return readValidation;
     }
-    await file.parent.create(recursive: true);
-    await file.writeAsString(content, flush: true);
+    await _writeTextFileSafely(file, content);
     return _simpleSuccessResult(
       command: 'Write $filePath',
       output: 'Wrote ${content.length} characters to $filePath',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
+      metadata: <String, Object?>{
+        'tool_source': 'builtin',
+        'file_mutation_kind': 'write',
+        'file_mutation_path': filePath,
+        'file_mutation_content_char_count': content.length,
+      },
     );
   }
 
@@ -1525,14 +1551,30 @@ class AiToolRuntimeService {
       );
     }
     final newSource = '${arguments['new_source'] ?? ''}';
-    final editMode = '${arguments['edit_mode'] ?? 'replace'}'.trim();
+    final editMode = _normalizeNotebookEditMode(
+      '${arguments['edit_mode'] ?? 'replace'}',
+    );
     final cellId = '${arguments['cell_id'] ?? ''}'.trim();
-    final cellType = '${arguments['cell_type'] ?? ''}'.trim();
+    final cellType = _normalizeNotebookCellType(
+      '${arguments['cell_type'] ?? ''}',
+    );
     final file = File(notebookPath);
     if (!await file.exists()) {
       return _invalidToolResult(
         'NotebookEdit',
         'Notebook does not exist: $notebookPath',
+      );
+    }
+    if (editMode == null) {
+      return _invalidToolResult(
+        'NotebookEdit',
+        'NotebookEdit edit_mode must be one of replace, insert, or delete.',
+      );
+    }
+    if (cellType == null) {
+      return _invalidToolResult(
+        'NotebookEdit',
+        'NotebookEdit cell_type must be code, markdown, or raw when provided.',
       );
     }
     final readValidation = await _validateReadBeforeMutation(
@@ -1543,7 +1585,12 @@ class AiToolRuntimeService {
     if (readValidation != null) {
       return readValidation;
     }
-    final decoded = jsonDecode(await file.readAsString());
+    late final Object? decoded;
+    try {
+      decoded = jsonDecode(await file.readAsString());
+    } on FormatException catch (error) {
+      return _invalidToolResult('NotebookEdit', error.message);
+    }
     if (decoded is! Map) {
       return _invalidToolResult(
         'NotebookEdit',
@@ -1597,7 +1644,6 @@ class AiToolRuntimeService {
         cells.removeAt(index);
         break;
       case 'replace':
-      default:
         if (index == -1) {
           return _invalidToolResult(
             'NotebookEdit',
@@ -1612,9 +1658,9 @@ class AiToolRuntimeService {
         cells[index] = updatedCell;
     }
     notebook['cells'] = cells;
-    await file.writeAsString(
+    await _writeTextFileSafely(
+      file,
       const JsonEncoder.withIndent('  ').convert(notebook),
-      flush: true,
     );
     return _simpleSuccessResult(
       command: 'NotebookEdit $notebookPath',
@@ -1622,6 +1668,15 @@ class AiToolRuntimeService {
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(notebookPath),
       isWriteCommand: true,
+      metadata: <String, Object?>{
+        'tool_source': 'builtin',
+        'file_mutation_kind': 'notebook_edit',
+        'file_mutation_path': notebookPath,
+        'file_mutation_new_source_char_count': newSource.length,
+        'file_mutation_edit_mode': editMode,
+        if (cellId.isNotEmpty) 'file_mutation_cell_id': cellId,
+        if (cellType.isNotEmpty) 'file_mutation_cell_type': cellType,
+      },
     );
   }
 
@@ -2082,6 +2137,105 @@ class AiToolRuntimeService {
       toolName,
       '$toolName requires reading the file with Read before mutating it: $filePath',
     );
+  }
+
+  Future<void> _writeTextFileSafely(File file, String content) async {
+    final entityType = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    );
+    await file.parent.create(recursive: true);
+    if (entityType == FileSystemEntityType.link) {
+      await file.writeAsString(content, flush: true);
+      return;
+    }
+    final tempFile = File(
+      p.join(
+        file.parent.path,
+        '.${p.basename(file.path)}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+      ),
+    );
+    final backupFile = File('${file.path}.bak');
+    if (await tempFile.exists()) {
+      await tempFile.delete();
+    }
+    await tempFile.writeAsString(content, flush: true);
+    if (await file.exists()) {
+      await _copyExistingFileMode(file, tempFile);
+    }
+
+    var movedExistingFile = false;
+    try {
+      if (await backupFile.exists()) {
+        await backupFile.delete();
+      }
+      if (await file.exists()) {
+        await file.rename(backupFile.path);
+        movedExistingFile = true;
+      }
+      await tempFile.rename(file.path);
+      if (await backupFile.exists()) {
+        await backupFile.delete();
+      }
+    } catch (_) {
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+      if (movedExistingFile && await backupFile.exists()) {
+        if (await file.exists()) {
+          await file.delete();
+        }
+        await backupFile.rename(file.path);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _copyExistingFileMode(File sourceFile, File targetFile) async {
+    if (Platform.isWindows) {
+      return;
+    }
+    final sourceStat = await FileStat.stat(sourceFile.path);
+    if (sourceStat.type == FileSystemEntityType.notFound) {
+      return;
+    }
+    final permissionBits = sourceStat.mode & 0x1FF;
+    final chmodResult = await Process.run('chmod', <String>[
+      permissionBits.toRadixString(8),
+      targetFile.path,
+    ]);
+    if (chmodResult.exitCode == 0) {
+      return;
+    }
+    final message = '${chmodResult.stderr}'.trim();
+    throw FileSystemException(
+      message.isEmpty
+          ? 'Unable to preserve existing file permissions.'
+          : message,
+      targetFile.path,
+    );
+  }
+
+  String? _normalizeNotebookEditMode(String rawMode) {
+    final normalizedMode = rawMode.trim().toLowerCase();
+    if (normalizedMode.isEmpty) {
+      return 'replace';
+    }
+    return switch (normalizedMode) {
+      'replace' || 'insert' || 'delete' => normalizedMode,
+      _ => null,
+    };
+  }
+
+  String? _normalizeNotebookCellType(String rawCellType) {
+    final normalizedCellType = rawCellType.trim().toLowerCase();
+    if (normalizedCellType.isEmpty) {
+      return '';
+    }
+    return switch (normalizedCellType) {
+      'code' || 'markdown' || 'raw' => normalizedCellType,
+      _ => null,
+    };
   }
 
   Future<String> _renderNotebookForRead(File file) async {
@@ -3198,7 +3352,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.bash,
       name: 'Bash',
       description:
-          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory.',
+          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Call this directly when shell work is needed. If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3272,7 +3426,7 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.exitPlanMode,
       name: 'ExitPlanMode',
       description:
-          'Signal that planning is complete and implementation can begin.',
+          'Signal that planning is complete and implementation can begin. The plan argument should be a short numbered or bulleted execution step list.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -3449,7 +3603,7 @@ class AiToolRuntimeService {
     kind: AiBuiltinToolKind.bash,
     name: 'bash',
     description:
-        'Legacy alias for Bash. Execute a shell command in a subprocess.',
+        'Legacy alias for Bash. Execute a shell command in a subprocess. If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
     parameters: const <String, Object?>{
       'type': 'object',
       'properties': <String, Object?>{

@@ -68,11 +68,19 @@ abstract final class OpenHandPaths {
   }
 
   static String defaultMemoryDirectoryPath() {
-    return p.join(applicationDirectoryPath(), '.openhand', 'memory');
+    return p.join(homeDirectoryPath(), '.openhand', 'memory');
   }
 
   static String defaultUserMemoryFilePath() {
     return p.join(defaultMemoryDirectoryPath(), 'user-memory.json');
+  }
+
+  static String legacyDefaultMemoryDirectoryPath() {
+    return p.join(applicationDirectoryPath(), '.openhand', 'memory');
+  }
+
+  static String legacyDefaultUserMemoryFilePath() {
+    return p.join(legacyDefaultMemoryDirectoryPath(), 'user-memory.json');
   }
 
   static String defaultUserMemoryFileLabel() {

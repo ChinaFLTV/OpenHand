@@ -177,14 +177,14 @@ class AiSessionController extends ChangeNotifier {
     milliseconds: 96,
   );
   static const Set<String> _planModePlanningToolAllowlist = <String>{
-    'Task',
-    'Glob',
-    'Grep',
-    'LS',
-    'Read',
-    'WebFetch',
-    'WebSearch',
-    'TodoWrite',
+    'task',
+    'glob',
+    'grep',
+    'ls',
+    'read',
+    'webfetch',
+    'websearch',
+    'todowrite',
   };
   static const Set<String> _internalPromptLeakHeaders = <String>{
     '[[5] Current Session Messages]',
@@ -383,7 +383,14 @@ class AiSessionController extends ChangeNotifier {
       notifyListeners();
       try {
         final loadResult = await _store.loadAll();
-        _sessions = loadResult.sessions;
+        _sessions = loadResult.sessions
+            .map(
+              (session) => _normalizeStaleCompletedPlanState(
+                session,
+                normalizedAt: session.updatedAt,
+              ),
+            )
+            .toList(growable: false);
         _pruneSessionScopedSendState();
         _persistenceIssues = loadResult.issues;
         final currentSessionId = _currentSessionId;
@@ -1388,6 +1395,7 @@ class AiSessionController extends ChangeNotifier {
         memoryEntries: runtimeContext.memoryEntries,
         sessionMessages: workingSession.activeConversationMessages,
         latestUserMessageId: activeLatestUserMessageId,
+        availableTools: toolsForRound,
       );
       late final AiChatStreamingResponse streamResponse;
       try {
@@ -1807,30 +1815,28 @@ class AiSessionController extends ChangeNotifier {
       materializePendingReasoningPreview();
       final didCancelStream =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
-      final shouldPersistIntermediateNarration =
+      final shouldPersistIntermediateAssistantNarration =
           result.toolCalls.isEmpty || didCancelStream;
-      if (shouldPersistIntermediateNarration) {
+      if (shouldPersistIntermediateAssistantNarration) {
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
           result.reply,
         );
-        streamedSession = syncFinalReasoningMessage(
-          streamedSession,
-          result.reasoning,
-        );
       } else {
-        if (assistantMessageId != null || reasoningMessageId != null) {
+        if (assistantMessageId != null) {
           streamedSession = _removeMessagesByIds(
             streamedSession,
             messageIds: <String>{
               if (assistantMessageId != null) assistantMessageId!,
-              if (reasoningMessageId != null) reasoningMessageId!,
             },
           );
         }
         assistantMessageId = null;
-        reasoningMessageId = null;
       }
+      streamedSession = syncFinalReasoningMessage(
+        streamedSession,
+        result.reasoning,
+      );
       streamedSession = setReasoningStreamingState(streamedSession, false);
       flushPreview('stream_completed');
       _debugSessionLog(
@@ -3057,8 +3063,20 @@ class AiSessionController extends ChangeNotifier {
     required bool executionApprovedForSend,
     required bool recoveryInspectionRequired,
   }) {
-    if (session.mode != AiSessionMode.plan || executionApprovedForSend) {
+    if (session.mode != AiSessionMode.plan) {
       return baseCatalog;
+    }
+    if (executionApprovedForSend) {
+      final filteredEntries = baseCatalog.toolsByName.entries
+          .where((entry) => _normalizeToolName(entry.key) != 'exitplanmode')
+          .toList(growable: false);
+      return AiResolvedToolCatalog(
+        definitions: filteredEntries
+            .map((entry) => entry.value.definition)
+            .toList(growable: false),
+        toolsByName: Map<String, AiResolvedTool>.fromEntries(filteredEntries),
+        notices: baseCatalog.notices,
+      );
     }
     final allowExitPlanMode =
         !recoveryInspectionRequired &&
@@ -3084,10 +3102,11 @@ class AiSessionController extends ChangeNotifier {
     String toolName, {
     required bool allowExitPlanMode,
   }) {
-    if (_planModePlanningToolAllowlist.contains(toolName)) {
+    final normalizedToolName = _normalizeToolName(toolName);
+    if (_planModePlanningToolAllowlist.contains(normalizedToolName)) {
       return true;
     }
-    return allowExitPlanMode && toolName == 'ExitPlanMode';
+    return allowExitPlanMode && normalizedToolName == 'exitplanmode';
   }
 
   bool _shouldAllowPlanModeExecutionTools({
@@ -3099,6 +3118,9 @@ class AiSessionController extends ChangeNotifier {
     }
     final latestUserMessage = _userMessageById(session, latestUserMessageId);
     if (latestUserMessage == null) {
+      return false;
+    }
+    if (!_hasPlanExecutionContext(session)) {
       return false;
     }
     final content = latestUserMessage.content;
@@ -3126,11 +3148,17 @@ class AiSessionController extends ChangeNotifier {
     if (latestUserMessage == null) {
       return false;
     }
-    if (!_looksLikePlanRecoveryContinuation(latestUserMessage.content)) {
-      return false;
-    }
+    final content = latestUserMessage.content;
+    final explicitRecoveryRequested = _looksLikePlanRecoveryContinuation(
+      content,
+    );
     if (_hasCompletedTodoItemsOnly(session.todoItems)) {
-      return true;
+      return explicitRecoveryRequested ||
+          _looksLikePlanExecutionContinuation(content) ||
+          _looksLikePlanApproval(content);
+    }
+    if (!explicitRecoveryRequested) {
+      return false;
     }
     return _hasFailedTodoItems(session.todoItems) ||
         _hasRecentPlanToolFailure(session);
@@ -3219,6 +3247,37 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
+  AiSession _normalizeStaleCompletedPlanState(
+    AiSession session, {
+    DateTime? normalizedAt,
+  }) {
+    final hasStaleApprovalState =
+        session.awaitingPlanApproval ||
+        (session.pendingPlan ?? '').trim().isNotEmpty;
+    if (session.mode != AiSessionMode.plan ||
+        !_hasCompletedTodoItemsOnly(session.todoItems) ||
+        !hasStaleApprovalState) {
+      return session;
+    }
+    final effectiveNormalizedAt = (normalizedAt ?? _clock()).toUtc();
+    final clearedSession = session.copyWith(
+      updatedAt: effectiveNormalizedAt,
+      awaitingPlanApproval: false,
+      clearPendingPlan: true,
+    );
+    final trackedSession = _syncPlanHistory(
+      clearedSession,
+      statusOverride: AiSessionPlanStatus.completed,
+      trackedAt: effectiveNormalizedAt,
+    );
+    return trackedSession.copyWith(
+      updatedAt: effectiveNormalizedAt,
+      todoItems: const <AiSessionTodoItem>[],
+      awaitingPlanApproval: false,
+      clearPendingPlan: true,
+    );
+  }
+
   AiSessionMessage? _userMessageById(AiSession session, String? messageId) {
     final normalizedId = messageId?.trim() ?? '';
     if (normalizedId.isEmpty) {
@@ -3238,6 +3297,16 @@ class AiSessionController extends ChangeNotifier {
     return todoItems.any(
       (item) => item.status.trim().toLowerCase() != 'completed',
     );
+  }
+
+  bool _hasPlanExecutionContext(AiSession session) {
+    return session.todoItems.isNotEmpty ||
+        (session.pendingPlan ?? '').trim().isNotEmpty ||
+        session.latestActivePlanRecord != null;
+  }
+
+  String _normalizeToolName(String toolName) {
+    return toolName.trim().toLowerCase();
   }
 
   bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
@@ -3542,12 +3611,28 @@ class AiSessionController extends ChangeNotifier {
       'continue.',
       'go on',
       'keep going',
+      'continue the work',
+      'continue working',
       'continue implementation',
+      'continue improving',
+      'continue optimizing',
+      'continue fixing',
+      'continue debugging',
       'finish it',
       '继续',
       '继续吧',
       '继续做',
+      '继续开展',
       '继续完成',
+      '继续处理',
+      '继续调整',
+      '继续排查',
+      '继续优化',
+      '继续完善',
+      '继续改进',
+      '继续修复',
+      '继续推进',
+      '继续跟进',
       '接着',
       '接着做',
     ];
@@ -3560,36 +3645,36 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     const recoveryPhrases = <String>[
-      'continue',
-      'continue.',
-      'go on',
-      'keep going',
-      'continue implementation',
-      'finish it',
       'retry',
       'retry it',
       'retry the step',
       'retry the failed step',
       'resume',
-      '继续',
-      '继续吧',
-      '继续做',
-      '继续完成',
-      '继续实施',
+      'resume execution',
+      'resume from the failed step',
+      'rerun',
+      'rerun the step',
+      'continue from the failed step',
+      'continue after the failure',
+      'continue after failure',
       '继续执行',
-      '接着',
-      '接着做',
+      '继续执行失败步骤',
+      '从失败步骤继续',
       '重试',
       '重试一下',
       '重新执行',
+      '重新尝试',
       '重新试',
       '恢复执行',
+      '恢复上次执行',
     ];
     return recoveryPhrases.any((phrase) => normalized.contains(phrase));
   }
 
   bool _roundRequestedTodoWrite(List<AiToolCall> toolCalls) {
-    return toolCalls.any((toolCall) => toolCall.name.trim() == 'TodoWrite');
+    return toolCalls.any(
+      (toolCall) => _normalizeToolName(toolCall.name) == 'todowrite',
+    );
   }
 
   bool _looksLikePlanApproval(String content) {
@@ -4322,8 +4407,12 @@ class AiSessionController extends ChangeNotifier {
     if (_deletedSessionIds.contains(session.id)) {
       return true;
     }
-    final previousSession = _sessionById(session.id);
-    final effectiveSession = _mergeLiveSessionState(session, previousSession);
+    final normalizedSession = _normalizeStaleCompletedPlanState(session);
+    final previousSession = _sessionById(normalizedSession.id);
+    final effectiveSession = _mergeLiveSessionState(
+      normalizedSession,
+      previousSession,
+    );
     final previousIssues = List<AiSessionPersistenceIssue>.from(
       _persistenceIssues,
     );

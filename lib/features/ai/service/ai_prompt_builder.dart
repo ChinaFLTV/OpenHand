@@ -8,6 +8,7 @@ import '../model/ai_session_runtime_context.dart';
 import '../model/ai_thread_template.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../model/ai_model_config.dart';
+import 'ai_bash_tool_service.dart';
 import 'ai_claude_hook_service.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_prompt_template_repository.dart';
@@ -31,6 +32,8 @@ class AiPromptBuildResult {
 class AiPromptBuilder {
   const AiPromptBuilder();
 
+  static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
+
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
     required AiSession session,
@@ -39,6 +42,7 @@ class AiPromptBuilder {
     required List<UserMemoryEntry> memoryEntries,
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage latestUserMessage,
+    List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
   }) {
     final sessionMessages = <AiSessionMessage>[
       ...historyMessages,
@@ -52,6 +56,7 @@ class AiPromptBuilder {
       memoryEntries: memoryEntries,
       sessionMessages: sessionMessages,
       latestUserMessageId: latestUserMessage.id,
+      availableTools: availableTools,
     );
   }
 
@@ -63,6 +68,7 @@ class AiPromptBuilder {
     required List<UserMemoryEntry> memoryEntries,
     required List<AiSessionMessage> sessionMessages,
     String? latestUserMessageId,
+    List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
   }) {
     final repositorySnapshot = _effectiveRepositorySnapshot(
       session: session,
@@ -110,6 +116,13 @@ class AiPromptBuilder {
         })
         .map((item) => item.toJson())
         .toList(growable: false);
+    final availableToolNames = availableTools
+        .map((tool) => tool.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final currentFileEditingToolNames = availableToolNames
+        .where(_isFileEditingToolName)
+        .toList(growable: false);
     final planRecoveryRequired =
         latestUserMessage != null &&
         _shouldUsePlanRecoveryReminder(
@@ -150,6 +163,10 @@ class AiPromptBuilder {
       'plan_recovery_required': planRecoveryRequired,
       'todo_write_recommended': todoReminder != null,
       'todo_write_reason': todoReminder,
+      'tool_catalog_authoritative': true,
+      'current_tool_count': availableToolNames.length,
+      'current_tool_names': availableToolNames,
+      'current_file_editing_tool_names': currentFileEditingToolNames,
       'awaiting_plan_approval': session.awaitingPlanApproval,
       'pending_plan': session.pendingPlan,
       'workspace_instruction_document_count':
@@ -281,7 +298,7 @@ class AiPromptBuilder {
         'Sequential tool round limit: ${runtimeContext.sequentialToolRoundLimit}',
       )
       ..writeln(
-        'Write command confirmation required: ${runtimeContext.writeCommandConfirmationEnabled ? 'Yes' : 'No'}',
+        'Write command confirmation for write-like bash commands: ${runtimeContext.writeCommandConfirmationEnabled ? 'Yes - OpenHand handles the approval dialog automatically; do not ask in chat for generic shell permission first.' : 'No'}',
       );
     if (runtimeContext.allowCommandRules.isEmpty) {
       buffer.writeln('Allowed command patterns: none');
@@ -515,7 +532,12 @@ class AiPromptBuilder {
         if (!expectedToolCallIds.add(toolCall.id)) {
           continue;
         }
-        groupedToolCalls.add(toolCall);
+        groupedToolCalls.add(
+          _sanitizeToolCallForPromptHistory(
+            toolCall,
+            metadata: toolCallMessage.metadata,
+          ),
+        );
       }
       cursor += 1;
     }
@@ -543,10 +565,9 @@ class AiPromptBuilder {
         nextIndex: cursor,
       );
     }
-    final groupedToolContent = groupedToolCallMessages
-        .map((message) => message.content.trim())
-        .where((content) => content.isNotEmpty)
-        .join('\n\n');
+    final groupedToolContent = _promptHistoryToolCallAssistantContent(
+      groupedToolCalls,
+    );
     final turns = <AiChatTurn>[
       ..._mapMessageContent(
         role: AiChatRole.assistant,
@@ -560,7 +581,7 @@ class AiPromptBuilder {
         _mapMessageContent(
           role: AiChatRole.tool,
           toolCallId: toolCall.id,
-          content: _promptContentForMessage(toolMessage),
+          content: _promptHistoryToolResultContent(toolMessage),
         ),
       );
     }
@@ -581,10 +602,14 @@ class AiPromptBuilder {
           content: promptContent,
         );
       case AiSessionMessageKind.toolCall:
+        return _mapMessageContent(
+          role: AiChatRole.assistant,
+          content: _promptHistoryStandaloneToolCallContent(message),
+        );
       case AiSessionMessageKind.tool:
         return _mapMessageContent(
           role: AiChatRole.assistant,
-          content: '[${message.kind.storageValue}] $promptContent',
+          content: _promptHistoryToolResultContent(message),
         );
       case AiSessionMessageKind.mcp:
       case AiSessionMessageKind.skill:
@@ -593,12 +618,13 @@ class AiPromptBuilder {
           content: '[${message.kind.storageValue}] $promptContent',
         );
       case AiSessionMessageKind.compressionPoint:
-      case AiSessionMessageKind.reasoning:
       case AiSessionMessageKind.status:
         return _mapMessageContent(
           role: AiChatRole.system,
           content: '[${message.kind.storageValue}] $promptContent',
         );
+      case AiSessionMessageKind.reasoning:
+        return const <AiChatTurn>[];
     }
   }
 
@@ -754,6 +780,310 @@ class AiPromptBuilder {
     return '### Thread\n- ${session.title}\n\n${latestCompressionPoint.content}';
   }
 
+  String _promptHistoryStandaloneToolCallContent(AiSessionMessage message) {
+    final toolCalls = _readToolCalls(message.metadata)
+        .map(
+          (toolCall) => _sanitizeToolCallForPromptHistory(
+            toolCall,
+            metadata: message.metadata,
+          ),
+        )
+        .toList(growable: false);
+    if (toolCalls.isEmpty) {
+      final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
+      return toolName.isEmpty ? '[tool_call]' : 'Tool call: $toolName';
+    }
+    return _promptHistoryToolCallAssistantContent(toolCalls);
+  }
+
+  String _promptHistoryToolCallAssistantContent(List<AiToolCall> toolCalls) {
+    final lines = toolCalls
+        .map(_toolCallLabelForPromptHistory)
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    if (lines.isEmpty) {
+      return '[tool_call]';
+    }
+    return lines.join('\n');
+  }
+
+  String _toolCallLabelForPromptHistory(AiToolCall toolCall) {
+    final normalizedName = toolCall.name.trim();
+    if (normalizedName.isEmpty) {
+      return '[tool_call]';
+    }
+    final arguments = _decodeToolArgumentsMap(toolCall.arguments);
+    final targetPath = _toolCallTargetPath(arguments);
+    final writeLike =
+        _isFileEditingToolName(normalizedName) ||
+        (normalizedName.toLowerCase() == 'bash' &&
+            _looksLikeWriteLikeBashArguments(arguments));
+    if (targetPath != null) {
+      return writeLike
+          ? 'Tool call: $normalizedName -> $targetPath (payload omitted from prompt history)'
+          : 'Tool call: $normalizedName -> $targetPath';
+    }
+    return writeLike
+        ? 'Tool call: $normalizedName (write payload omitted from prompt history)'
+        : 'Tool call: $normalizedName';
+  }
+
+  String _promptHistoryToolResultContent(AiSessionMessage message) {
+    if (!_isWriteLikeToolHistoryMessage(message)) {
+      return _promptContentForMessage(message);
+    }
+    final metadata = message.metadata;
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+    final status =
+        '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
+            .trim();
+    final mutationKind = '${metadata['file_mutation_kind'] ?? ''}'.trim();
+    final targetPath = _fileMutationTargetPath(metadata);
+    final workingDirectory =
+        '${metadata['working_directory'] ?? metadata['tool_execution_working_directory'] ?? ''}'
+            .trim();
+    final writeReason =
+        '${metadata['file_mutation_write_reason'] ?? metadata['write_analysis_reason'] ?? metadata['tool_execution_write_analysis_reason'] ?? ''}'
+            .trim();
+    final resultText =
+        '${metadata['result_text'] ?? metadata['tool_execution_result'] ?? ''}'
+            .trim();
+    final lines = <String>[
+      '[write_result] ${toolName.isEmpty ? 'Tool' : toolName}',
+      if (status.isNotEmpty) 'status: $status',
+      if (mutationKind.isNotEmpty) 'mutation: $mutationKind',
+      if (targetPath != null) 'target: $targetPath',
+      if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
+      if (writeReason.isNotEmpty) 'reason: $writeReason',
+      if (resultText.isNotEmpty && resultText.length <= 280)
+        'summary: $resultText',
+      'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
+    ];
+    return lines.join('\n');
+  }
+
+  AiToolCall _sanitizeToolCallForPromptHistory(
+    AiToolCall toolCall, {
+    required Map<String, Object?> metadata,
+  }) {
+    final sanitizedArguments = _summarizeToolCallArgumentsForHistory(
+      toolCall,
+      metadata: metadata,
+    );
+    return AiToolCall(
+      id: toolCall.id,
+      name: toolCall.name,
+      arguments: sanitizedArguments,
+    );
+  }
+
+  String _summarizeToolCallArgumentsForHistory(
+    AiToolCall toolCall, {
+    required Map<String, Object?> metadata,
+  }) {
+    final normalizedName = toolCall.name.trim();
+    final arguments = _decodeToolArgumentsMap(toolCall.arguments);
+    if (arguments.isEmpty) {
+      return toolCall.arguments;
+    }
+    final lowerName = normalizedName.toLowerCase();
+    switch (lowerName) {
+      case 'write':
+        final filePath = '${arguments['file_path'] ?? ''}'.trim();
+        final content = '${arguments['content'] ?? ''}';
+        return jsonEncode(<String, Object?>{
+          'file_path': filePath,
+          'content': _omittedPayloadSummary(
+            content.length,
+            targetPath: filePath,
+            action: 'write',
+          ),
+        });
+      case 'edit':
+        final filePath = '${arguments['file_path'] ?? ''}'.trim();
+        final oldString = '${arguments['old_string'] ?? ''}';
+        final newString = '${arguments['new_string'] ?? ''}';
+        return jsonEncode(<String, Object?>{
+          'file_path': filePath,
+          'old_string': _omittedPayloadSummary(
+            oldString.length,
+            targetPath: filePath,
+            action: 'replace_from',
+          ),
+          'new_string': _omittedPayloadSummary(
+            newString.length,
+            targetPath: filePath,
+            action: 'replace_to',
+          ),
+          if (arguments.containsKey('replace_all'))
+            'replace_all': arguments['replace_all'],
+        });
+      case 'multiedit':
+        final filePath = '${arguments['file_path'] ?? ''}'.trim();
+        final rawEdits = arguments['edits'];
+        final editsSummary = rawEdits is List
+            ? rawEdits
+                  .map((item) {
+                    if (item is! Map) {
+                      return const <String, Object?>{'summary': 'invalid edit'};
+                    }
+                    final edit = Map<String, Object?>.from(item);
+                    final oldString = '${edit['old_string'] ?? ''}';
+                    final newString = '${edit['new_string'] ?? ''}';
+                    return <String, Object?>{
+                      'old_string': _omittedPayloadSummary(
+                        oldString.length,
+                        targetPath: filePath,
+                        action: 'replace_from',
+                      ),
+                      'new_string': _omittedPayloadSummary(
+                        newString.length,
+                        targetPath: filePath,
+                        action: 'replace_to',
+                      ),
+                      if (edit.containsKey('replace_all'))
+                        'replace_all': edit['replace_all'],
+                    };
+                  })
+                  .toList(growable: false)
+            : const <Map<String, Object?>>[];
+        return jsonEncode(<String, Object?>{
+          'file_path': filePath,
+          'edit_count': editsSummary.length,
+          'edits_summary': editsSummary,
+        });
+      case 'notebookedit':
+        final notebookPath = '${arguments['notebook_path'] ?? ''}'.trim();
+        final newSource = '${arguments['new_source'] ?? ''}';
+        return jsonEncode(<String, Object?>{
+          'notebook_path': notebookPath,
+          if ('${arguments['cell_id'] ?? ''}'.trim().isNotEmpty)
+            'cell_id': '${arguments['cell_id'] ?? ''}'.trim(),
+          if ('${arguments['edit_mode'] ?? ''}'.trim().isNotEmpty)
+            'edit_mode': '${arguments['edit_mode'] ?? ''}'.trim(),
+          if ('${arguments['cell_type'] ?? ''}'.trim().isNotEmpty)
+            'cell_type': '${arguments['cell_type'] ?? ''}'.trim(),
+          'new_source': _omittedPayloadSummary(
+            newSource.length,
+            targetPath: notebookPath,
+            action: 'notebook_edit',
+          ),
+        });
+      case 'bash':
+        if (_looksLikeWriteLikeBashArguments(arguments) ||
+            _isWriteLikeToolMetadata(metadata)) {
+          final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}';
+          return jsonEncode(<String, Object?>{
+            'cmd': _omittedPayloadSummary(
+              command.length,
+              action: 'write_like_shell_command',
+            ),
+            if ('${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
+                .trim()
+                .isNotEmpty)
+              'working_directory':
+                  '${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
+                      .trim(),
+            if (metadata['tool_execution_write_analysis_reason'] != null)
+              'write_reason':
+                  '${metadata['tool_execution_write_analysis_reason'] ?? ''}'
+                      .trim(),
+          });
+        }
+        return toolCall.arguments;
+      default:
+        return toolCall.arguments;
+    }
+  }
+
+  Map<String, Object?> _decodeToolArgumentsMap(String arguments) {
+    final trimmed = arguments.trim();
+    if (trimmed.isEmpty) {
+      return const <String, Object?>{};
+    }
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map<String, Object?>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return Map<String, Object?>.from(decoded);
+      }
+    } catch (_) {
+      return const <String, Object?>{};
+    }
+    return const <String, Object?>{};
+  }
+
+  String _omittedPayloadSummary(
+    int characterCount, {
+    String? targetPath,
+    required String action,
+  }) {
+    final normalizedTarget = targetPath?.trim() ?? '';
+    final targetSuffix = normalizedTarget.isEmpty
+        ? ''
+        : ' -> $normalizedTarget';
+    return '[omitted $characterCount chars; $action payload stored locally$targetSuffix]';
+  }
+
+  String? _toolCallTargetPath(Map<String, Object?> arguments) {
+    const candidateKeys = <String>[
+      'file_path',
+      'notebook_path',
+      'path',
+      'working_directory',
+      'cwd',
+    ];
+    for (final key in candidateKeys) {
+      final value = '${arguments[key] ?? ''}'.trim();
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  bool _looksLikeWriteLikeBashArguments(Map<String, Object?> arguments) {
+    final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}'.trim();
+    if (command.isEmpty) {
+      return false;
+    }
+    return _bashWriteAnalyzer.analyzeWriteCommand(command).isWrite;
+  }
+
+  bool _isWriteLikeToolMetadata(Map<String, Object?> metadata) {
+    return metadata['tool_execution_is_write_command'] == true ||
+        metadata['is_write_command'] == true;
+  }
+
+  bool _isWriteLikeToolHistoryMessage(AiSessionMessage message) {
+    if (_isWriteLikeToolMetadata(message.metadata)) {
+      return true;
+    }
+    return switch ('${message.metadata['tool_name'] ?? ''}'
+        .trim()
+        .toLowerCase()) {
+      'write' || 'edit' || 'multiedit' || 'notebookedit' => true,
+      _ => false,
+    };
+  }
+
+  String? _fileMutationTargetPath(Map<String, Object?> metadata) {
+    final candidateValues = <Object?>[
+      metadata['file_mutation_path'],
+      metadata['file_path'],
+      metadata['notebook_path'],
+    ];
+    for (final value in candidateValues) {
+      final normalized = '$value'.trim();
+      if (normalized.isNotEmpty && normalized != 'null') {
+        return normalized;
+      }
+    }
+    return null;
+  }
+
   List<AiToolCall> _readToolCalls(Map<String, Object?> metadata) {
     final rawToolCalls = metadata['tool_calls'];
     if (rawToolCalls is! List) {
@@ -895,7 +1225,7 @@ class AiPromptBuilder {
     if (_looksLikePlanApproval(latestUserMessage.content)) {
       return 'The user is approving the existing plan. Do not call ExitPlanMode again or restate the plan. Start executing it now, use TodoWrite to track concrete implementation steps, and keep the todo list current as work progresses.';
     }
-    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable plan and wait for explicit user approval before making changes.';
+    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable numbered or bulleted execution step list and wait for explicit user approval before making changes.';
   }
 
   bool _shouldUsePlanRecoveryReminder({
@@ -918,6 +1248,13 @@ class AiPromptBuilder {
               status == 'cancelled';
         }) ||
         _hasRecentPlanToolFailure(session);
+  }
+
+  bool _isFileEditingToolName(String toolName) {
+    return switch (toolName.trim().toLowerCase()) {
+      'edit' || 'multiedit' || 'write' || 'notebookedit' => true,
+      _ => false,
+    };
   }
 
   bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {

@@ -50,6 +50,7 @@ Mark todos complete as soon as they are done.
 - If a tool call is denied, rejected, fails, or times out, incorporate that into the next step instead of fabricating success.
 - If you use `ExitPlanMode`, stop at the plan and wait for explicit user approval before implementation.
 - Read existing files before mutating them with file-editing tools.
+- When file-editing tools are available, use them directly instead of describing manual patch steps for the user.
 - When multiple independent tool calls are useful, batch them when the runtime supports it.
 - Treat `<system-reminder>` content from messages or tool results as system-level guidance, not user-authored text.
 

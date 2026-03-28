@@ -39,6 +39,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _scanTimeout = Duration(seconds: 8);
   static const Duration _healthCheckTimeout = Duration(seconds: 6);
   static const Duration _requestTimeout = Duration(seconds: 6);
+  static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
   static const int _maxStdioStdoutBufferBytes = 4 * 1024 * 1024;
@@ -128,19 +129,26 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     required String toolName,
     Map<String, Object?> arguments = const <String, Object?>{},
   }) async {
-    final result = await switch (server.type) {
-      McpServerType.streamableHttp => _callToolOverStreamableHttp(
-        server,
-        toolName,
-        arguments,
-      ),
-      McpServerType.sse => _callToolOverLegacySseWithFallback(
-        server,
-        toolName,
-        arguments,
-      ),
-      McpServerType.stdio => _callToolOverStdio(server, toolName, arguments),
-    }.timeout(_scanTimeout);
+    late final Map<String, Object?> result;
+    try {
+      result = await switch (server.type) {
+        McpServerType.streamableHttp => _callToolOverStreamableHttp(
+          server,
+          toolName,
+          arguments,
+        ),
+        McpServerType.sse => _callToolOverLegacySseWithFallback(
+          server,
+          toolName,
+          arguments,
+        ),
+        McpServerType.stdio => _callToolOverStdio(server, toolName, arguments),
+      }.timeout(_toolCallTimeout);
+    } on TimeoutException {
+      throw const McpToolDiscoveryException(
+        'Tool call timed out. The MCP server did not respond in time.',
+      );
+    }
     return McpToolCallResult(
       outputText: _renderToolCallResult(result),
       isError: result['isError'] == true,
@@ -226,6 +234,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         method: 'tools/call',
         params: <String, Object?>{'name': toolName, 'arguments': arguments},
       ),
+      requestTimeout: _toolCallTimeout,
       expectResponse: true,
     );
     return _extractResult(response.message);
@@ -245,6 +254,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/call',
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
+          timeout: _toolCallTimeout,
         ),
       );
     } finally {
@@ -279,6 +289,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/call',
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
+          timeout: _toolCallTimeout,
         ),
       );
     } finally {
@@ -551,6 +562,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     required String protocolVersion,
     required Map<String, Object?> payload,
     String? sessionId,
+    Duration? requestTimeout,
     required bool expectResponse,
   }) async {
     final headers = _mergeRequestHeaders(
@@ -579,7 +591,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       uri: uri,
       headers: headers,
       body: jsonEncode(payload),
-      requestTimeout: _requestTimeout,
+      requestTimeout: requestTimeout ?? _requestTimeout,
       maxRedirects: _maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames(server.headers),
     );
@@ -611,7 +623,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     final decoded = jsonDecode(body);
-    final message = _asMap(decoded);
+    final message = _firstJsonRpcMessageForRequestId(decoded, payload['id']);
     if (message == null) {
       throw const McpToolDiscoveryException(
         'Tool scan failed because the MCP server returned an invalid JSON-RPC response.',
@@ -738,23 +750,18 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Object? requestId,
   ) {
     final events = _parseSseEvents('$body');
-    final requestIdText = '$requestId';
     for (final event in events) {
       if (event.name.isNotEmpty && event.name != 'message') {
         continue;
       }
-      Map<String, Object?>? message;
       try {
         final decoded = jsonDecode(event.data);
-        message = _asMap(decoded);
+        final message = _firstJsonRpcMessageForRequestId(decoded, requestId);
+        if (message != null) {
+          return message;
+        }
       } catch (_) {
         continue;
-      }
-      if (message == null) {
-        continue;
-      }
-      if ('${message['id']}' == requestIdText) {
-        return message;
       }
     }
     return null;
@@ -1089,6 +1096,48 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 }
 
+Map<String, Object?>? _jsonRpcMessageAsMap(Object? value) {
+  if (value is Map<String, Object?>) {
+    return value;
+  }
+  if (value is Map) {
+    return Map<String, Object?>.from(value);
+  }
+  return null;
+}
+
+Iterable<Map<String, Object?>> _jsonRpcMessagesFromDecoded(
+  Object? value,
+) sync* {
+  final singleMessage = _jsonRpcMessageAsMap(value);
+  if (singleMessage != null) {
+    yield singleMessage;
+    return;
+  }
+  if (value is! List) {
+    return;
+  }
+  for (final item in value) {
+    final message = _jsonRpcMessageAsMap(item);
+    if (message != null) {
+      yield message;
+    }
+  }
+}
+
+Map<String, Object?>? _firstJsonRpcMessageForRequestId(
+  Object? value,
+  Object? requestId,
+) {
+  final requestIdText = '$requestId';
+  for (final message in _jsonRpcMessagesFromDecoded(value)) {
+    if ('${message['id']}' == requestIdText) {
+      return message;
+    }
+  }
+  return null;
+}
+
 Future<http.StreamedResponse> _sendRequestWithRedirects({
   required http.Client client,
   required String method,
@@ -1329,12 +1378,10 @@ class _LegacySseSession {
       } else if (eventName.isEmpty || eventName == 'message') {
         try {
           final decoded = jsonDecode(data);
-          final message = decoded is Map<String, Object?>
-              ? decoded
-              : decoded is Map
-              ? Map<String, Object?>.from(decoded)
-              : null;
-          if (message != null && !messages.isClosed) {
+          for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
+            if (messages.isClosed) {
+              break;
+            }
             messages.add(message);
           }
         } catch (_) {}
@@ -1407,13 +1454,14 @@ class _LegacySseSession {
   }
 
   Future<Map<String, Object?>?> sendRequest(
-    Map<String, Object?> payload,
-  ) async {
+    Map<String, Object?> payload, {
+    Duration? timeout,
+  }) async {
     final requestIdText = '${payload['id']}';
     final responseFuture = _messages.stream
         .firstWhere((message) => '${message['id']}' == requestIdText)
-        .timeout(_requestTimeout);
-    await _post(payload);
+        .timeout(timeout ?? _requestTimeout);
+    await _post(payload, timeout: timeout);
     return responseFuture;
   }
 
@@ -1421,7 +1469,7 @@ class _LegacySseSession {
     await _post(payload);
   }
 
-  Future<void> _post(Map<String, Object?> payload) async {
+  Future<void> _post(Map<String, Object?> payload, {Duration? timeout}) async {
     final response = await _sendRequestWithRedirects(
       client: _client,
       method: 'POST',
@@ -1432,7 +1480,7 @@ class _LegacySseSession {
         protectedHeaderNames: const <String>{'content-type'},
       ),
       body: jsonEncode(payload),
-      requestTimeout: _requestTimeout,
+      requestTimeout: timeout ?? _requestTimeout,
       maxRedirects: DefaultMcpToolDiscoveryService._maxRedirects,
       additionalSensitiveHeaderNames: _sensitiveHeaderNames,
     );
@@ -1498,8 +1546,9 @@ class _StdioSession {
   late final StreamSubscription<String> _stderrSubscription;
 
   Future<Map<String, Object?>?> sendRequest(
-    Map<String, Object?> payload,
-  ) async {
+    Map<String, Object?> payload, {
+    Duration? timeout,
+  }) async {
     final requestIdText = '${payload['id']}';
     final completer = Completer<Map<String, Object?>?>();
     _pendingResponses[requestIdText] = completer;
@@ -1514,7 +1563,7 @@ class _StdioSession {
       completer.complete(bufferedResponse);
     }
     try {
-      return await completer.future.timeout(_requestTimeout);
+      return await completer.future.timeout(timeout ?? _requestTimeout);
     } finally {
       _pendingResponses.remove(requestIdText);
     }
@@ -1545,12 +1594,7 @@ class _StdioSession {
         continue;
       }
       final decoded = jsonDecode(payload);
-      final message = decoded is Map<String, Object?>
-          ? decoded
-          : decoded is Map
-          ? Map<String, Object?>.from(decoded)
-          : null;
-      if (message != null) {
+      for (final message in _jsonRpcMessagesFromDecoded(decoded)) {
         final messageIdText = _messageIdText(message['id']);
         _appendTrace(
           'stdout:message:${messageIdText.isEmpty ? message['method'] ?? 'unknown' : messageIdText}',

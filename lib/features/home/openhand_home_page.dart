@@ -106,6 +106,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _scrollToBottomCallbackQueued = false;
   bool _pendingAnimatedScrollToBottom = false;
   bool _programmaticAutoFollowScrollInProgress = false;
+  bool _userScrollInProgress = false;
   int _pendingScrollToBottomSettlePasses = 0;
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
@@ -514,6 +515,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!nextValue) {
       return;
     }
+    if (!_autoFollowEnabled) {
+      return;
+    }
     if (!_shouldAutoFollowMessages) {
       _shouldAutoFollowMessages = true;
     }
@@ -526,31 +530,55 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return false;
     }
+    final explicitUserScrollStart =
+        notification is ScrollStartNotification &&
+        notification.dragDetails != null;
+    final explicitUserScrollUpdate =
+        notification is ScrollUpdateNotification &&
+        notification.dragDetails != null;
+    final explicitUserOverscroll =
+        notification is OverscrollNotification &&
+        notification.dragDetails != null;
+    final explicitUserDirectionChange =
+        notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle;
     final explicitUserScroll =
-        (notification is ScrollStartNotification &&
-            notification.dragDetails != null) ||
-        (notification is ScrollUpdateNotification &&
-            notification.dragDetails != null) ||
-        (notification is OverscrollNotification &&
-            notification.dragDetails != null) ||
+        explicitUserScrollStart ||
+        explicitUserScrollUpdate ||
+        explicitUserOverscroll ||
+        explicitUserDirectionChange;
+    final userScrollEnded =
+        notification is ScrollEndNotification ||
         (notification is UserScrollNotification &&
-            notification.direction != ScrollDirection.idle);
+            notification.direction == ScrollDirection.idle);
+    if (explicitUserScroll) {
+      _userScrollInProgress = true;
+    } else if (userScrollEnded) {
+      _userScrollInProgress = false;
+    }
     if (_programmaticAutoFollowScrollInProgress) {
       if (!explicitUserScroll) {
         return false;
       }
-      _programmaticAutoFollowScrollInProgress = false;
+      _cancelProgrammaticAutoFollowScroll(
+        keepPixels: notification.metrics.pixels,
+      );
     }
     final distanceToBottom =
         notification.metrics.maxScrollExtent - notification.metrics.pixels;
     final isNearBottom = distanceToBottom <= _autoFollowDistanceThreshold;
+    if (!_autoFollowEnabled && explicitUserScroll) {
+      _shouldAutoFollowMessages = false;
+      _clearPendingAutoFollowState();
+      return false;
+    }
     final userScrolledAwayFromBottom = !isNearBottom && explicitUserScroll;
     if (userScrolledAwayFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       return false;
     }
-    if (isNearBottom) {
+    if (isNearBottom && _autoFollowEnabled) {
       _shouldAutoFollowMessages = true;
     }
     return false;
@@ -1288,7 +1316,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     bool animated = false,
     bool allowSettlePasses = true,
   }) {
-    if (!force && !_shouldAutoFollowMessages) {
+    if (!force &&
+        (!_autoFollowEnabled ||
+            !_shouldAutoFollowMessages ||
+            _userScrollInProgress)) {
       return;
     }
     if (force) {
@@ -1301,6 +1332,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _pendingScrollToBottomSettlePasses,
         animated ? 4 : 3,
       );
+    }
+    if (_programmaticAutoFollowScrollInProgress) {
+      return;
     }
     if (_scrollToBottomCallbackQueued) {
       return;
@@ -1318,7 +1352,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final shouldAnimate = _pendingAnimatedScrollToBottom;
       _queuedForcedScrollToBottom = false;
       _pendingAnimatedScrollToBottom = false;
-      if (!shouldForce && (!_autoFollowEnabled || !_shouldAutoFollowMessages)) {
+      if (!shouldForce &&
+          (!_autoFollowEnabled ||
+              !_shouldAutoFollowMessages ||
+              _userScrollInProgress)) {
         _pendingScrollToBottomSettlePasses = 0;
         return;
       }
@@ -1335,6 +1372,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _programmaticAutoFollowScrollInProgress = false;
       }
 
+      void scheduleSettlePass() {
+        if (!mounted) {
+          return;
+        }
+        if (_pendingScrollToBottomSettlePasses <= 0) {
+          return;
+        }
+        _pendingScrollToBottomSettlePasses -= 1;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _userScrollInProgress) {
+            _pendingScrollToBottomSettlePasses = 0;
+            return;
+          }
+          _scheduleScrollToBottom(
+            force: false,
+            animated: false,
+            allowSettlePasses: false,
+          );
+        });
+      }
+
       if (distance >= 1 &&
           shouldAnimate &&
           distance > _autoFollowAnimatedDistanceThreshold) {
@@ -1346,21 +1404,36 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 duration: _scrollToBottomAnimationDuration(distance),
                 curve: Curves.easeOutCubic,
               )
-              .whenComplete(clearProgrammaticScrollFlag),
+              .whenComplete(() {
+                clearProgrammaticScrollFlag();
+                scheduleSettlePass();
+              }),
         );
-      } else if (distance >= 1) {
+        return;
+      }
+      if (distance >= 1) {
         _programmaticAutoFollowScrollInProgress = true;
         _messageScrollController.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
+          scheduleSettlePass();
         });
-      }
-      if (_pendingScrollToBottomSettlePasses <= 0) {
         return;
       }
-      _pendingScrollToBottomSettlePasses -= 1;
-      _scheduleScrollToBottom(force: false, allowSettlePasses: false);
+      scheduleSettlePass();
     });
+  }
+
+  void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
+    _programmaticAutoFollowScrollInProgress = false;
+    final activePosition = _activeMessageScrollPosition();
+    if (activePosition == null) {
+      return;
+    }
+    final targetPixels = (keepPixels ?? activePosition.pixels)
+        .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
+        .toDouble();
+    _messageScrollController.jumpTo(targetPixels);
   }
 
   Duration _scrollToBottomAnimationDuration(double distance) {
@@ -4210,7 +4283,6 @@ _PlanTimelineData? _buildPlanTimelineData(
   final activePlanRecord = _activePlanRecordForTimeline(session);
   if (activePlanRecord != null) {
     final planRecordTimeline = _buildPlanTimelineDataFromPlanRecord(
-      context,
       session,
       activePlanRecord,
       sendPhase,
@@ -4219,7 +4291,7 @@ _PlanTimelineData? _buildPlanTimelineData(
       return planRecordTimeline;
     }
   }
-  if (_shouldSuppressInactivePlanTimeline(session, sendPhase)) {
+  if (_shouldSuppressInactivePlanTimeline(session)) {
     return null;
   }
   final reflectRunningStepFailure = _shouldReflectCurrentPlanStepFailure(
@@ -4241,58 +4313,20 @@ _PlanTimelineData? _buildPlanTimelineData(
   final pendingPlanSteps = _planTimelineStepsFromPendingPlan(
     session.pendingPlan,
   );
-  if (session.awaitingPlanApproval || pendingPlanSteps.isNotEmpty) {
+  if (pendingPlanSteps.isNotEmpty) {
     return _PlanTimelineData(
       awaitingApproval: session.awaitingPlanApproval,
-      steps: <_PlanTimelineStep>[
-        _PlanTimelineStep(
-          id: 'plan-approval',
-          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
-          state: session.awaitingPlanApproval
-              ? _PlanTimelineStepState.current
-              : _PlanTimelineStepState.completed,
-        ),
-        ...pendingPlanSteps.asMap().entries.map(
-          (entry) => _PlanTimelineStep(
-            id: 'plan-step-${entry.key}',
-            label: entry.value,
-            state: _PlanTimelineStepState.pending,
-          ),
-        ),
-      ],
-    );
-  }
-  if (_shouldShowPlanModePlaceholderTimeline(session, sendPhase)) {
-    return _PlanTimelineData(
-      awaitingApproval: false,
-      steps: <_PlanTimelineStep>[
-        _PlanTimelineStep(
-          id: 'plan-stage-inspect',
-          label: _localizedText(context, zh: '分析需求', en: 'Analyze Task'),
-          state: sendPhase == AiSendPhase.idle
-              ? _PlanTimelineStepState.current
-              : _PlanTimelineStepState.completed,
-        ),
-        _PlanTimelineStep(
-          id: 'plan-stage-todos',
-          label: _localizedText(context, zh: '生成步骤清单', en: 'Create Todos'),
-          state: sendPhase == AiSendPhase.idle
-              ? _PlanTimelineStepState.pending
-              : _PlanTimelineStepState.current,
-        ),
-        _PlanTimelineStep(
-          id: 'plan-stage-approval',
-          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
-          state: _PlanTimelineStepState.pending,
-        ),
-      ],
+      steps: _planTimelinePendingSteps(
+        pendingPlanSteps,
+        awaitingApproval: session.awaitingPlanApproval,
+        idPrefix: 'plan-step',
+      ),
     );
   }
   return null;
 }
 
 _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
-  BuildContext context,
   AiSession session,
   AiSessionPlanRecord planRecord,
   AiSendPhase sendPhase,
@@ -4303,22 +4337,16 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
   }
   if (planRecord.status == AiSessionPlanStatus.pendingApproval) {
     final pendingPlanSteps = _planTimelineStepsFromPlanRecord(planRecord);
+    if (pendingPlanSteps.isEmpty) {
+      return null;
+    }
     return _PlanTimelineData(
       awaitingApproval: true,
-      steps: <_PlanTimelineStep>[
-        _PlanTimelineStep(
-          id: 'plan-approval-${planRecord.id}',
-          label: _localizedText(context, zh: '确认执行计划', en: 'Approve Plan'),
-          state: _PlanTimelineStepState.current,
-        ),
-        ...pendingPlanSteps.asMap().entries.map(
-          (entry) => _PlanTimelineStep(
-            id: 'plan-step-${planRecord.id}-${entry.key}',
-            label: entry.value,
-            state: _PlanTimelineStepState.pending,
-          ),
-        ),
-      ],
+      steps: _planTimelinePendingSteps(
+        pendingPlanSteps,
+        awaitingApproval: true,
+        idPrefix: 'plan-step-${planRecord.id}',
+      ),
     );
   }
   final todoSteps = _planTimelineTodoSteps(
@@ -4330,9 +4358,54 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
     allowTerminalFailureStates: sendPhase == AiSendPhase.idle,
   );
   if (todoSteps.isEmpty) {
-    return null;
+    final pendingPlanSteps = _planTimelineStepsFromPlanRecord(planRecord);
+    if (pendingPlanSteps.isEmpty) {
+      return null;
+    }
+    return _PlanTimelineData(
+      awaitingApproval: false,
+      steps: _planTimelinePendingSteps(
+        pendingPlanSteps,
+        awaitingApproval: false,
+        idPrefix: 'plan-step-${planRecord.id}',
+        markCurrentStepFailed: planRecord.status == AiSessionPlanStatus.failed,
+      ),
+    );
   }
   return _PlanTimelineData(awaitingApproval: false, steps: todoSteps);
+}
+
+List<_PlanTimelineStep> _planTimelinePendingSteps(
+  List<String> stepLabels, {
+  required bool awaitingApproval,
+  required String idPrefix,
+  bool markCurrentStepFailed = false,
+}) {
+  final normalizedLabels = stepLabels
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+  if (normalizedLabels.isEmpty) {
+    return const <_PlanTimelineStep>[];
+  }
+  return normalizedLabels
+      .asMap()
+      .entries
+      .map((entry) {
+        final isFirstStep = entry.key == 0;
+        return _PlanTimelineStep(
+          id: '$idPrefix-${entry.key}',
+          label: entry.value,
+          state: awaitingApproval
+              ? _PlanTimelineStepState.pending
+              : isFirstStep
+              ? markCurrentStepFailed
+                    ? _PlanTimelineStepState.failed
+                    : _PlanTimelineStepState.current
+              : _PlanTimelineStepState.pending,
+        );
+      })
+      .toList(growable: false);
 }
 
 List<_PlanTimelineStep> _planTimelineTodoSteps(
@@ -4400,39 +4473,12 @@ List<_PlanTimelineStep> _planTimelineTodoSteps(
   return todoSteps;
 }
 
-bool _shouldSuppressInactivePlanTimeline(
-  AiSession session,
-  AiSendPhase sendPhase,
-) {
+bool _shouldSuppressInactivePlanTimeline(AiSession session) {
   final latestPlanRecord = session.latestPlanRecord;
   if (latestPlanRecord == null || latestPlanRecord.status.isActive) {
     return false;
   }
-  return !_shouldShowPlanModePlaceholderTimeline(session, sendPhase);
-}
-
-bool _shouldShowPlanModePlaceholderTimeline(
-  AiSession session,
-  AiSendPhase sendPhase,
-) {
-  if (session.mode != AiSessionMode.plan ||
-      _activePlanRecordForTimeline(session) != null) {
-    return false;
-  }
-  final latestUserMessage = _latestActiveUserMessage(session);
-  if (sendPhase != AiSendPhase.idle) {
-    return latestUserMessage != null;
-  }
-  if (latestUserMessage == null) {
-    return false;
-  }
-  final latestPlanRecord = session.latestPlanRecord;
-  if (latestPlanRecord == null) {
-    return true;
-  }
-  return _planTimelineMessageActivityAt(
-    latestUserMessage,
-  ).isAfter(latestPlanRecord.updatedAt);
+  return true;
 }
 
 AiSessionPlanRecord? _activePlanRecordForTimeline(AiSession session) {
@@ -4657,18 +4703,26 @@ List<String> _planTimelineStepsFromPendingPlan(String? pendingPlan) {
   }
   return normalizedPlan
       .split('\n')
-      .map((line) {
-        final normalizedLine = line.trim();
-        if (normalizedLine.isEmpty) {
-          return '';
-        }
-        return normalizedLine.replaceFirst(
-          RegExp(r'^(?:[-*+]\s+|\d+[\.\):]\s+)'),
-          '',
-        );
-      })
+      .map(_structuredPlanTimelineStepLabel)
+      .whereType<String>()
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
+}
+
+String? _structuredPlanTimelineStepLabel(String rawLine) {
+  final normalizedLine = rawLine.trim();
+  if (normalizedLine.isEmpty) {
+    return null;
+  }
+  final prefixPattern = RegExp(
+    r'^(?:[-*+•]\s+(?:\[[ xX]\]\s*)?|\d+[\.\):、]\s+|步骤\s*\d+\s*[:：.\-、)]\s+)',
+  );
+  final match = prefixPattern.firstMatch(normalizedLine);
+  if (match == null) {
+    return null;
+  }
+  final label = normalizedLine.substring(match.end).trim();
+  return label.isEmpty ? null : label;
 }
 
 Future<void> _showSessionMetadataDialog(
