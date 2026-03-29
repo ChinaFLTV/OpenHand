@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import '../../shared/data/atomic_file_operations.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
@@ -177,40 +178,8 @@ class SettingsStore {
     return backupPath;
   }
 
-  Future<void> _writeAtomically(File targetFile, String content) async {
-    final tempFile = File('${targetFile.path}.tmp');
-    final backupFile = File('${targetFile.path}.bak');
-
-    if (await tempFile.exists()) {
-      await tempFile.delete();
-    }
-    await tempFile.writeAsString(content, flush: true);
-
-    var movedExistingFile = false;
-    try {
-      if (await backupFile.exists()) {
-        await backupFile.delete();
-      }
-      if (await targetFile.exists()) {
-        await targetFile.rename(backupFile.path);
-        movedExistingFile = true;
-      }
-      await tempFile.rename(targetFile.path);
-      if (await backupFile.exists()) {
-        await backupFile.delete();
-      }
-    } catch (_) {
-      if (await tempFile.exists()) {
-        await tempFile.delete();
-      }
-      if (movedExistingFile && await backupFile.exists()) {
-        if (await targetFile.exists()) {
-          await targetFile.delete();
-        }
-        await backupFile.rename(targetFile.path);
-      }
-      rethrow;
-    }
+  Future<void> _writeAtomically(File targetFile, String content) {
+    return writeFileAtomically(targetFile, content);
   }
 
   _ParsedSettingsDocument _parse(String rawContent) {

@@ -36,7 +36,7 @@ class AiAllowCommandRule {
     try {
       final regex = matchMode == AiDenyCommandMatchMode.regex
           ? RegExp(normalizedPattern, multiLine: true)
-          : RegExp(_simplePatternToRegex(normalizedPattern), multiLine: true);
+          : RegExp(simplePatternToRegex(normalizedPattern), multiLine: true);
       return regex.hasMatch(normalizedCommand);
     } catch (_) {
       return false;
@@ -61,10 +61,5 @@ class AiAllowCommandRule {
       ),
       note: '${json['note'] ?? ''}',
     );
-  }
-
-  static String _simplePatternToRegex(String pattern) {
-    final escaped = RegExp.escape(pattern).replaceAll(r'\*', '.*');
-    return '^$escaped\$';
   }
 }

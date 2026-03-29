@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/data/atomic_file_operations.dart';
 import '../model/local_skill.dart';
 
 class SkillsRepository {
@@ -385,24 +386,7 @@ class SkillsRepository {
     if (!await directory.exists()) {
       throw const FileSystemException('Directory does not exist.');
     }
-
-    late final ProcessResult result;
-    if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[path]);
-    } else if (Platform.isWindows) {
-      result = await Process.run('explorer', <String>[path]);
-    } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[path]);
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
-
-    if (result.exitCode != 0) {
-      final message = '${result.stderr}'.trim();
-      throw FileSystemException(
-        message.isEmpty ? 'Unable to open directory.' : message,
-      );
-    }
+    return openDirectoryInFileManager(directory);
   }
 
   Future<LocalSkill> _parseSkill(File manifestFile, String storagePath) async {

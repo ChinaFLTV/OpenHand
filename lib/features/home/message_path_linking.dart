@@ -11,7 +11,7 @@ const int _resolvedMessagePathCacheLimit = 512;
 final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =
     <String, MessageResolvedPath?>{};
 final RegExp _detectedFilePathTrailingPattern = RegExp(
-  r'''[),.;:!?\]\}'"]+$''',
+  r'''[),.;:!?\]\}'"”。，？！；：“”‘’]+$''',
 );
 final RegExp _detectedStandaloneFileNamePattern = RegExp(
   r'''^(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)$''',
@@ -80,8 +80,7 @@ MessageResolvedPath? resolveExistingMessagePath(
         defaultPath: OpenHandPaths.homeDirectoryPath(),
       ),
     );
-  }
-  if (looksLikeAbsoluteMessagePath(displayPath)) {
+  } else if (looksLikeAbsoluteMessagePath(displayPath)) {
     candidates.add(p.normalize(displayPath));
   } else {
     for (final root in candidateRoots) {
@@ -113,6 +112,9 @@ MessageResolvedPath? resolveExistingMessagePath(
 }
 
 void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
+  if (value == null) {
+    return;
+  }
   if (_resolvedMessagePathCache.length >= _resolvedMessagePathCacheLimit) {
     _resolvedMessagePathCache.remove(_resolvedMessagePathCache.keys.first);
   }
@@ -214,8 +216,7 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
         defaultPath: OpenHandPaths.homeDirectoryPath(),
       ),
     );
-  }
-  if (looksLikeAbsoluteMessagePath(displayPath)) {
+  } else if (looksLikeAbsoluteMessagePath(displayPath)) {
     candidates.add(p.normalize(displayPath));
   } else {
     for (final root in candidateRoots) {
@@ -299,7 +300,7 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
 class MessageFilePathSyntax extends md.InlineSyntax {
   MessageFilePathSyntax({required this.candidateRoots})
     : super(
-        r'''(^|[\s(>"'`])((?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[^\s<>()[\]{}'"*?:;|/`]+[\\/]))[^\s<>()[\]{}'"`]+|(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+))''',
+        r'''(^|[\s>"'`]|(?<!\])\()((?!https?:\/\/|mailto:)(?:(?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[^\s<>()[\]{}'"*?:;|/`]+[\\/]))[^\s<>()[\]{}'"`]+|(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)))''',
       );
 
   final List<String> candidateRoots;

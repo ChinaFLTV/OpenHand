@@ -7205,77 +7205,40 @@ class _StreamingReasoningBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveContent = content.isEmpty ? ' ' : content;
-    final renderMarkdown = _containsMarkdownCodeFence(effectiveContent);
     return ClipRect(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
-        child: renderMarkdown
-            ? expanded
-                  ? KeyedSubtree(
-                      key: const ValueKey<String>(
-                        'streaming-reasoning-markdown-expanded',
-                      ),
-                      child: _SafeMarkdownBody(
-                        data: effectiveContent,
-                        selectable: selectable,
-                        builders: builders,
-                        styleSheet: styleSheet,
-                        inlineSyntaxes: inlineSyntaxes,
-                        pathRoots: pathRoots,
-                        parseKey: '$parseKey|streaming-markdown',
-                      ),
-                    )
-                  : KeyedSubtree(
-                      key: const ValueKey<String>(
-                        'streaming-reasoning-markdown-preview',
-                      ),
-                      child: _MarkdownPreviewBody(
-                        data: effectiveContent,
-                        maxHeight: 142,
-                        styleSheet: styleSheet,
-                        builders: builders,
-                        inlineSyntaxes: inlineSyntaxes,
-                        pathRoots: pathRoots,
-                        parseKey: '$parseKey|streaming-markdown-preview',
-                        fadeColor: fadeColor,
-                      ),
-                    )
-            : expanded
-            ? selectable
-                  ? SelectableText(effectiveContent, style: textStyle)
-                  : Text(effectiveContent, style: textStyle)
-            : Stack(
-                children: [
-                  Text(
-                    effectiveContent,
-                    maxLines: 6,
-                    overflow: TextOverflow.fade,
-                    softWrap: true,
-                    style: textStyle,
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: IgnorePointer(
-                      child: Container(
-                        height: 26,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              fadeColor.withValues(alpha: 0),
-                              fadeColor.withValues(alpha: 0.96),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+        child: expanded
+            ? KeyedSubtree(
+                key: const ValueKey<String>(
+                  'streaming-reasoning-markdown-expanded',
+                ),
+                child: _SafeMarkdownBody(
+                  data: effectiveContent,
+                  selectable: selectable,
+                  builders: builders,
+                  styleSheet: styleSheet,
+                  inlineSyntaxes: inlineSyntaxes,
+                  pathRoots: pathRoots,
+                  parseKey: '$parseKey|streaming-markdown',
+                ),
+              )
+            : KeyedSubtree(
+                key: const ValueKey<String>(
+                  'streaming-reasoning-markdown-preview',
+                ),
+                child: _MarkdownPreviewBody(
+                  data: effectiveContent,
+                  maxHeight: 142,
+                  styleSheet: styleSheet,
+                  builders: builders,
+                  inlineSyntaxes: inlineSyntaxes,
+                  pathRoots: pathRoots,
+                  parseKey: '$parseKey|streaming-markdown-preview',
+                  fadeColor: fadeColor,
+                ),
               ),
       ),
     );
@@ -9071,35 +9034,14 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     return Text.rich(
       WidgetSpan(
         alignment: PlaceholderAlignment.middle,
-        child: FutureBuilder<MessageResolvedPath?>(
-          future: resolveExistingMessagePathAsync(normalizedPath, candidateRoots),
-          builder: (context, snapshot) {
-            final resolvedPath = snapshot.data;
-            if (resolvedPath == null) {
-              if (isCodeSpan) {
-                return _buildCodeSpan(context, fullMatch, parentStyle);
-              }
-              return Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Text(fullMatch, style: parentStyle),
-              );
-            }
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: _buildChip(
-                    context,
-                    displayPath: resolvedPath.displayPath,
-                    resolvedPath: resolvedPath.resolvedPath,
-                    isDirectory: resolvedPath.isDirectory,
-                  ),
-                ),
-                if (trailing.isNotEmpty) Text(trailing, style: parentStyle),
-              ],
-            );
-          },
+        child: _AsyncFilePathChip(
+          normalizedPath: normalizedPath,
+          candidateRoots: candidateRoots,
+          fullMatch: fullMatch,
+          trailing: trailing,
+          isCodeSpan: isCodeSpan,
+          parentStyle: parentStyle,
+          builder: this,
         ),
       ),
     );
@@ -9133,11 +9075,13 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     required String displayPath,
     required String resolvedPath,
     required bool isDirectory,
+    bool isUnresolved = false,
   }) {
     return _FilePathChip(
       displayPath: displayPath,
       resolvedPath: resolvedPath,
       isDirectory: isDirectory,
+      isUnresolved: isUnresolved,
       textColor: textColor,
       onOpenPath: () => onOpenPath(
         context,
@@ -9149,7 +9093,101 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
       ),
     );
   }
+}
 
+class _AsyncFilePathChip extends StatefulWidget {
+  const _AsyncFilePathChip({
+    required this.normalizedPath,
+    required this.candidateRoots,
+    required this.fullMatch,
+    required this.trailing,
+    required this.isCodeSpan,
+    required this.parentStyle,
+    required this.builder,
+  });
+
+  final String normalizedPath;
+  final List<String> candidateRoots;
+  final String fullMatch;
+  final String trailing;
+  final bool isCodeSpan;
+  final TextStyle? parentStyle;
+  final _FilePathMarkdownBuilder builder;
+
+  @override
+  State<_AsyncFilePathChip> createState() => _AsyncFilePathChipState();
+}
+
+class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
+  Future<MessageResolvedPath?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = resolveExistingMessagePathAsync(
+      widget.normalizedPath,
+      widget.candidateRoots,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_AsyncFilePathChip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.normalizedPath != widget.normalizedPath ||
+        oldWidget.candidateRoots.join('|') != widget.candidateRoots.join('|')) {
+      _future = resolveExistingMessagePathAsync(
+        widget.normalizedPath,
+        widget.candidateRoots,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<MessageResolvedPath?>(
+      future: _future,
+      builder: (context, snapshot) {
+        final resolvedPath = snapshot.data;
+        if (resolvedPath == null) {
+          if (widget.isCodeSpan) {
+            return widget.builder._buildCodeSpan(context, widget.fullMatch, widget.parentStyle);
+          }
+          final pathHasDir = widget.normalizedPath.contains('/') || widget.normalizedPath.contains(r'\');
+          if (pathHasDir || widget.normalizedPath.startsWith('~')) {
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: widget.builder._buildChip(
+                context,
+                displayPath: widget.normalizedPath,
+                resolvedPath: widget.normalizedPath,
+                isDirectory: false,
+                isUnresolved: true,
+              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Text(widget.fullMatch, style: widget.parentStyle),
+          );
+        }
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: widget.builder._buildChip(
+                context,
+                displayPath: resolvedPath.displayPath,
+                resolvedPath: resolvedPath.resolvedPath,
+                isDirectory: resolvedPath.isDirectory,
+              ),
+            ),
+            if (widget.trailing.isNotEmpty) Text(widget.trailing, style: widget.parentStyle),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _FilePathChip extends StatelessWidget {
@@ -9157,6 +9195,7 @@ class _FilePathChip extends StatelessWidget {
     required this.displayPath,
     required this.resolvedPath,
     required this.isDirectory,
+    this.isUnresolved = false,
     required this.textColor,
     required this.onOpenPath,
   });
@@ -9164,6 +9203,7 @@ class _FilePathChip extends StatelessWidget {
   final String displayPath;
   final String resolvedPath;
   final bool isDirectory;
+  final bool isUnresolved;
   final Color textColor;
   final VoidCallback onOpenPath;
 
@@ -9181,18 +9221,19 @@ class _FilePathChip extends StatelessWidget {
 
     return _FileHoverPopup(
       resolvedPath: resolvedPath,
+      isUnresolved: isUnresolved,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
-          onTap: onOpenPath,
+          onTap: isUnresolved ? null : onOpenPath,
           child: Ink(
             padding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 5,
             ),
             decoration: BoxDecoration(
-              color: chipColor,
+              color: isUnresolved ? chipColor.withValues(alpha: 0.3) : chipColor,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(color: borderColor),
             ),
@@ -9200,11 +9241,13 @@ class _FilePathChip extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isDirectory
-                      ? Icons.folder_outlined
-                      : Icons.insert_drive_file_outlined,
+                  isUnresolved
+                      ? Icons.help_outline
+                      : isDirectory
+                          ? Icons.folder_outlined
+                          : Icons.insert_drive_file_outlined,
                   size: 14,
-                  color: textColor.withValues(alpha: 0.9),
+                  color: isUnresolved ? textColor.withValues(alpha: 0.5) : textColor.withValues(alpha: 0.9),
                 ),
                 const SizedBox(width: 6),
                 ConstrainedBox(
@@ -9212,7 +9255,7 @@ class _FilePathChip extends StatelessWidget {
                   child: Text(
                     displayPath,
                     overflow: TextOverflow.ellipsis,
-                    style: labelStyle,
+                    style: isUnresolved ? labelStyle.copyWith(color: textColor.withValues(alpha: 0.5)) : labelStyle,
                   ),
                 ),
               ],
@@ -9225,9 +9268,10 @@ class _FilePathChip extends StatelessWidget {
 }
 
 class _FileHoverPopup extends StatefulWidget {
-  const _FileHoverPopup({required this.resolvedPath, required this.child});
+  const _FileHoverPopup({required this.resolvedPath, required this.child, this.isUnresolved = false});
   final String resolvedPath;
   final Widget child;
+  final bool isUnresolved;
 
   @override
   State<_FileHoverPopup> createState() => _FileHoverPopupState();
@@ -9318,12 +9362,11 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   @override
   void deactivate() {
     _hideOverlay();
-    HardwareKeyboard.instance.removeHandler(_handleKey);
     super.deactivate();
   }
 
   bool _handleKey(KeyEvent event) {
-    if (!mounted || !_isHovered) {
+    if (!mounted || !_isHovered || widget.isUnresolved) {
       return false;
     }
     final isModifierPressed = HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||

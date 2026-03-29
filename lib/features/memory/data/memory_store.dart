@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/data/atomic_file_operations.dart';
 import '../model/user_memory_entry.dart';
 
 enum MemoryPersistenceIssueKind {
@@ -280,65 +281,12 @@ class MemoryStore {
     return backupPath;
   }
 
-  Future<void> _writeAtomically(File targetFile, String content) async {
-    final tempFile = File('${targetFile.path}.tmp');
-    final backupFile = File('${targetFile.path}.bak');
-
-    if (await tempFile.exists()) {
-      await tempFile.delete();
-    }
-    await tempFile.writeAsString(content, flush: true);
-
-    var movedExistingFile = false;
-    try {
-      if (await backupFile.exists()) {
-        await backupFile.delete();
-      }
-      if (await targetFile.exists()) {
-        await targetFile.rename(backupFile.path);
-        movedExistingFile = true;
-      }
-      await tempFile.rename(targetFile.path);
-      if (await backupFile.exists()) {
-        await backupFile.delete();
-      }
-    } catch (_) {
-      if (await tempFile.exists()) {
-        await tempFile.delete();
-      }
-      if (movedExistingFile && await backupFile.exists()) {
-        if (await targetFile.exists()) {
-          await targetFile.delete();
-        }
-        await backupFile.rename(targetFile.path);
-      }
-      rethrow;
-    }
+  Future<void> _writeAtomically(File targetFile, String content) {
+    return writeFileAtomically(targetFile, content);
   }
 
-  Future<void> openStorageDirectory() async {
-    final directory = Directory(storageDirectoryPath);
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
-
-    late final ProcessResult result;
-    if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[directory.path]);
-    } else if (Platform.isWindows) {
-      result = await Process.run('explorer', <String>[directory.path]);
-    } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[directory.path]);
-    } else {
-      throw const FileSystemException('Unsupported platform.');
-    }
-
-    if (result.exitCode != 0) {
-      final message = '${result.stderr}'.trim();
-      throw FileSystemException(
-        message.isEmpty ? 'Unable to open directory.' : message,
-      );
-    }
+  Future<void> openStorageDirectory() {
+    return openDirectoryInFileManager(Directory(storageDirectoryPath));
   }
 }
 
