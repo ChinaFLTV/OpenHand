@@ -44,15 +44,26 @@ class AiSessionStore {
       p.join(_sessionsDirectoryPath, 'attachments');
 
   String sessionAttachmentsDirectoryPath(String sessionId) {
-    return p.join(attachmentsDirectoryPath, sessionId);
+    return p.join(
+      attachmentsDirectoryPath,
+      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+    );
   }
 
   String sessionFilePath(String sessionId) {
-    return p.join(_sessionsDirectoryPath, 'session-$sessionId.json');
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    return p.join(_sessionsDirectoryPath, 'session-$normalizedSessionId.json');
   }
 
   Future<bool> exists(String sessionId) async {
-    return File(sessionFilePath(sessionId)).exists();
+    final normalizedSessionId = sessionId.trim();
+    if (!_isSafeStorageIdentifier(normalizedSessionId)) {
+      return false;
+    }
+    return File(sessionFilePath(normalizedSessionId)).exists();
   }
 
   Future<AiSessionLoadResult> loadAll() async {
@@ -67,6 +78,7 @@ class AiSessionStore {
 
     final sessions = <AiSession>[];
     final issues = <AiSessionPersistenceIssue>[];
+    final seenSessionIds = <String>{};
     await for (final entity in directory.list()) {
       if (entity is! File) {
         continue;
@@ -81,7 +93,13 @@ class AiSessionStore {
         if (decoded is! Map) {
           throw const FormatException('Invalid session JSON root.');
         }
-        sessions.add(AiSession.fromJson(Map<String, Object?>.from(decoded)));
+        final session = AiSession.fromJson(Map<String, Object?>.from(decoded));
+        _validateSessionForStorage(
+          session,
+          seenSessionIds: seenSessionIds,
+          checkDuplicateSessionIds: true,
+        );
+        sessions.add(session);
       } catch (error) {
         final backupPath = await _backupInvalidFile(entity);
         issues.add(
@@ -99,6 +117,7 @@ class AiSessionStore {
   }
 
   Future<void> save(AiSession session) async {
+    _validateSessionForStorage(session);
     final directory = Directory(_sessionsDirectoryPath);
     if (!await directory.exists()) {
       await directory.create(recursive: true);
@@ -208,5 +227,54 @@ class AiSessionStore {
       return false;
     }
     return true;
+  }
+}
+
+final RegExp _unsafeStorageIdentifierPattern = RegExp(
+  r'[\u0000-\u001F\u007F/\\]',
+);
+
+String _requireSafeStorageIdentifier(String value, {required String label}) {
+  final normalizedValue = value.trim();
+  if (!_isSafeStorageIdentifier(normalizedValue)) {
+    throw FormatException('Invalid $label: $value');
+  }
+  return normalizedValue;
+}
+
+bool _isSafeStorageIdentifier(String value) {
+  final normalizedValue = value.trim();
+  return normalizedValue.isNotEmpty &&
+      normalizedValue != '.' &&
+      normalizedValue != '..' &&
+      !_unsafeStorageIdentifierPattern.hasMatch(normalizedValue);
+}
+
+void _validateSessionForStorage(
+  AiSession session, {
+  Set<String>? seenSessionIds,
+  bool checkDuplicateSessionIds = false,
+}) {
+  final sessionId = _requireSafeStorageIdentifier(
+    session.id,
+    label: 'session id',
+  );
+  if (checkDuplicateSessionIds &&
+      seenSessionIds != null &&
+      !seenSessionIds.add(sessionId)) {
+    throw FormatException('Duplicate session id detected: $sessionId');
+  }
+
+  final seenMessageIds = <String>{};
+  for (final message in session.messages) {
+    final messageId = _requireSafeStorageIdentifier(
+      message.id,
+      label: 'message id',
+    );
+    if (!seenMessageIds.add(messageId)) {
+      throw FormatException(
+        'Duplicate message id detected in session $sessionId: $messageId',
+      );
+    }
   }
 }

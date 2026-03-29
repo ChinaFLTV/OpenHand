@@ -704,20 +704,30 @@ class SkillsRepository {
       await metadataFile.parent.create(recursive: true);
     }
 
+    final generatedEmojiIconPath = p.join(
+      skillDirectoryPath,
+      _openAiAssetsRelativePath,
+      _generatedEmojiIconFileName,
+    );
+    final generatedImageIconPath = p.join(
+      skillDirectoryPath,
+      _openAiAssetsRelativePath,
+      _generatedImageIconFileName,
+    );
     String? iconRelativePath;
     if (imageIconBytes != null && imageIconBytes.isNotEmpty) {
+      await _deleteOptionalFileIfExists(generatedEmojiIconPath);
       final assetsDirectory = Directory(
         p.join(skillDirectoryPath, _openAiAssetsRelativePath),
       );
       if (!await assetsDirectory.exists()) {
         await assetsDirectory.create(recursive: true);
       }
-      final iconFile = File(
-        p.join(assetsDirectory.path, _generatedImageIconFileName),
-      );
+      final iconFile = File(generatedImageIconPath);
       await iconFile.writeAsBytes(imageIconBytes, flush: true);
       iconRelativePath = './assets/$_generatedImageIconFileName';
     } else {
+      await _deleteOptionalFileIfExists(generatedImageIconPath);
       final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
       if (normalizedEmojiIcon != null) {
         final assetsDirectory = Directory(
@@ -726,9 +736,7 @@ class SkillsRepository {
         if (!await assetsDirectory.exists()) {
           await assetsDirectory.create(recursive: true);
         }
-        final iconFile = File(
-          p.join(assetsDirectory.path, _generatedEmojiIconFileName),
-        );
+        final iconFile = File(generatedEmojiIconPath);
         await iconFile.writeAsString(
           _buildEmojiIconSvg(normalizedEmojiIcon),
           flush: true,
@@ -940,6 +948,13 @@ class SkillsRepository {
   Future<void> _deleteDirectoryIfExists(Directory directory) async {
     if (await directory.exists()) {
       await directory.delete(recursive: true);
+    }
+  }
+
+  Future<void> _deleteOptionalFileIfExists(String filePath) async {
+    final file = File(filePath);
+    if (await file.exists()) {
+      await file.delete();
     }
   }
 

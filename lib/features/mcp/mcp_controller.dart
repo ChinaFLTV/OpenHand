@@ -111,6 +111,7 @@ class McpController extends ChangeNotifier {
     await _enqueueOperation(() async {
       _isLoading = true;
       _errorMessage = null;
+      _persistenceIssue = null;
       notifyListeners();
 
       try {

@@ -41,8 +41,20 @@ class AiAttachmentService {
     required String sessionId,
     required String messageId,
   }) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    final normalizedMessageId = _requireSafeStorageIdentifier(
+      messageId,
+      label: 'message id',
+    );
     final directory = Directory(
-      p.join(_attachmentsDirectoryPath, sessionId, messageId),
+      p.join(
+        _attachmentsDirectoryPath,
+        normalizedSessionId,
+        normalizedMessageId,
+      ),
     );
     await _deleteDirectoryIfExists(directory);
   }
@@ -53,6 +65,14 @@ class AiAttachmentService {
     required List<String> filePaths,
     required String Function() idGenerator,
   }) async {
+    final normalizedSessionId = _requireSafeStorageIdentifier(
+      sessionId,
+      label: 'session id',
+    );
+    final normalizedMessageId = _requireSafeStorageIdentifier(
+      messageId,
+      label: 'message id',
+    );
     if (filePaths.isEmpty) {
       return const <AiMessageAttachment>[];
     }
@@ -62,7 +82,11 @@ class AiAttachmentService {
       );
     }
     final targetDirectory = Directory(
-      p.join(_attachmentsDirectoryPath, sessionId, messageId),
+      p.join(
+        _attachmentsDirectoryPath,
+        normalizedSessionId,
+        normalizedMessageId,
+      ),
     );
     if (!await targetDirectory.exists()) {
       await targetDirectory.create(recursive: true);
@@ -517,78 +541,84 @@ class AiAttachmentService {
   }
 
   Future<String> _readXlsxPreview(File file, int characterLimit) async {
-    final fileLength = await file.length();
-    if (fileLength > _maxSpreadsheetArchiveBytes) {
-      return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
-    }
-    final bytes = await file.readAsBytes();
-    final archive = _ZipArchiveReader(
-      Uint8List.fromList(bytes),
-      maxEntryBytes: _maxZipEntryBytes,
-    );
-    final workbookXml = archive.readUtf8('xl/workbook.xml');
-    final relationsXml = archive.readUtf8('xl/_rels/workbook.xml.rels');
-    if (workbookXml == null || relationsXml == null) {
+    try {
+      final fileLength = await file.length();
+      if (fileLength > _maxSpreadsheetArchiveBytes) {
+        return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
+      }
+      final bytes = await file.readAsBytes();
+      final archive = _ZipArchiveReader(
+        Uint8List.fromList(bytes),
+        maxEntryBytes: _maxZipEntryBytes,
+      );
+      final workbookXml = archive.readUtf8('xl/workbook.xml');
+      final relationsXml = archive.readUtf8('xl/_rels/workbook.xml.rels');
+      if (workbookXml == null || relationsXml == null) {
+        return 'Unable to read workbook structure from the XLSX file.';
+      }
+      final workbookDocument = xml.XmlDocument.parse(workbookXml);
+      final relationsDocument = xml.XmlDocument.parse(relationsXml);
+      final sharedStringsXml = archive.readUtf8('xl/sharedStrings.xml');
+      final sharedStrings = sharedStringsXml == null
+          ? const <String>[]
+          : _parseSharedStrings(xml.XmlDocument.parse(sharedStringsXml));
+      final relationTargets = <String, String>{};
+      for (final relation in relationsDocument.findAllElements(
+        'Relationship',
+      )) {
+        final relationId = _attributeByLocalName(relation, 'Id');
+        final target = _attributeByLocalName(relation, 'Target');
+        if (relationId == null || target == null) {
+          continue;
+        }
+        relationTargets[relationId] = p.posix.normalize(
+          p.posix.join('xl', target),
+        );
+      }
+      final buffer = StringBuffer();
+      var renderedSheets = 0;
+      for (final sheet in workbookDocument.findAllElements('sheet')) {
+        if (renderedSheets >= _maxSpreadsheetSheets ||
+            buffer.length >= characterLimit) {
+          break;
+        }
+        final sheetName = _attributeByLocalName(sheet, 'name') ?? 'Sheet';
+        final relationId = _attributeByLocalName(sheet, 'id');
+        if (relationId == null) {
+          continue;
+        }
+        final targetPath = relationTargets[relationId];
+        if (targetPath == null) {
+          continue;
+        }
+        final sheetXml = archive.readUtf8(targetPath);
+        if (sheetXml == null) {
+          continue;
+        }
+        final sheetPreview = _renderWorksheetPreview(
+          xml.XmlDocument.parse(sheetXml),
+          sharedStrings,
+          characterLimit - buffer.length,
+        );
+        if (sheetPreview.isEmpty) {
+          continue;
+        }
+        if (buffer.isNotEmpty) {
+          buffer.writeln();
+          buffer.writeln();
+        }
+        buffer
+          ..writeln('Sheet: $sheetName')
+          ..write(sheetPreview);
+        renderedSheets += 1;
+      }
+      if (buffer.isEmpty) {
+        return 'The XLSX workbook did not contain any readable cells in the preview range.';
+      }
+      return _truncateText(buffer.toString().trim(), characterLimit);
+    } catch (_) {
       return 'Unable to read workbook structure from the XLSX file.';
     }
-    final workbookDocument = xml.XmlDocument.parse(workbookXml);
-    final relationsDocument = xml.XmlDocument.parse(relationsXml);
-    final sharedStringsXml = archive.readUtf8('xl/sharedStrings.xml');
-    final sharedStrings = sharedStringsXml == null
-        ? const <String>[]
-        : _parseSharedStrings(xml.XmlDocument.parse(sharedStringsXml));
-    final relationTargets = <String, String>{};
-    for (final relation in relationsDocument.findAllElements('Relationship')) {
-      final relationId = _attributeByLocalName(relation, 'Id');
-      final target = _attributeByLocalName(relation, 'Target');
-      if (relationId == null || target == null) {
-        continue;
-      }
-      relationTargets[relationId] = p.posix.normalize(
-        p.posix.join('xl', target),
-      );
-    }
-    final buffer = StringBuffer();
-    var renderedSheets = 0;
-    for (final sheet in workbookDocument.findAllElements('sheet')) {
-      if (renderedSheets >= _maxSpreadsheetSheets ||
-          buffer.length >= characterLimit) {
-        break;
-      }
-      final sheetName = _attributeByLocalName(sheet, 'name') ?? 'Sheet';
-      final relationId = _attributeByLocalName(sheet, 'id');
-      if (relationId == null) {
-        continue;
-      }
-      final targetPath = relationTargets[relationId];
-      if (targetPath == null) {
-        continue;
-      }
-      final sheetXml = archive.readUtf8(targetPath);
-      if (sheetXml == null) {
-        continue;
-      }
-      final sheetPreview = _renderWorksheetPreview(
-        xml.XmlDocument.parse(sheetXml),
-        sharedStrings,
-        characterLimit - buffer.length,
-      );
-      if (sheetPreview.isEmpty) {
-        continue;
-      }
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
-        buffer.writeln();
-      }
-      buffer
-        ..writeln('Sheet: $sheetName')
-        ..write(sheetPreview);
-      renderedSheets += 1;
-    }
-    if (buffer.isEmpty) {
-      return 'The XLSX workbook did not contain any readable cells in the preview range.';
-    }
-    return _truncateText(buffer.toString().trim(), characterLimit);
   }
 
   List<String> _parseSharedStrings(xml.XmlDocument document) {
@@ -897,4 +927,19 @@ class _ZipEntry {
   final int compressedSize;
   final int uncompressedSize;
   final int localHeaderOffset;
+}
+
+final RegExp _unsafeAttachmentStorageIdentifierPattern = RegExp(
+  r'[\u0000-\u001F\u007F/\\]',
+);
+
+String _requireSafeStorageIdentifier(String value, {required String label}) {
+  final normalizedValue = value.trim();
+  if (normalizedValue.isEmpty ||
+      normalizedValue == '.' ||
+      normalizedValue == '..' ||
+      _unsafeAttachmentStorageIdentifierPattern.hasMatch(normalizedValue)) {
+    throw AiAttachmentException('Invalid $label: $value');
+  }
+  return normalizedValue;
 }

@@ -211,6 +211,7 @@ const Set<String> _imageExtensions = <String>{
   '.gif',
   '.webp',
   '.bmp',
+  '.svg',
 };
 
 const Set<String> _textExtensions = <String>{
@@ -256,7 +257,6 @@ const Set<String> _textExtensions = <String>{
   '.cfg',
   '.conf',
   '.log',
-  '.svg',
   '.vue',
 };
 

@@ -181,6 +181,7 @@ class MemoryController extends ChangeNotifier {
   Future<void> _loadLocked() async {
     _isLoading = true;
     _errorMessage = null;
+    _persistenceIssue = null;
     notifyListeners();
 
     try {

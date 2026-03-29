@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:convert';
 
+import 'package:path/path.dart' as p;
+
 import '../model/ai_session.dart';
 import '../model/ai_attachment.dart';
 import '../model/ai_session_message.dart';
@@ -89,12 +91,13 @@ class AiPromptBuilder {
       historyMessages.add(message);
     }
     final historyTurns = _sanitizeToolSequence(
-      _mapHistoryMessages(historyMessages, model),
+      _mapHistoryMessages(historyMessages, session, model),
     );
     final latestUserTurns = latestUserMessage == null
         ? const <AiChatTurn>[]
         : _mapUserMessage(
             latestUserMessage,
+            session: session,
             model: model,
             content:
                 '# [6] Your latest message\n\n${_promptContentForMessage(latestUserMessage)}',
@@ -530,6 +533,7 @@ class AiPromptBuilder {
 
   List<AiChatTurn> _mapHistoryMessages(
     List<AiSessionMessage> messages,
+    AiSession session,
     AiModelConfig model,
   ) {
     final turns = <AiChatTurn>[];
@@ -537,7 +541,7 @@ class AiPromptBuilder {
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.toolCall) {
-        final mappedGroup = _mapToolExchange(messages, index, model);
+        final mappedGroup = _mapToolExchange(messages, index, session, model);
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(mappedGroup.turns);
         }
@@ -548,7 +552,7 @@ class AiPromptBuilder {
         index += 1;
         continue;
       }
-      turns.addAll(_mapNonToolHistoryMessage(message, model));
+      turns.addAll(_mapNonToolHistoryMessage(message, session, model));
       index += 1;
     }
     return turns;
@@ -590,6 +594,7 @@ class AiPromptBuilder {
   _MappedToolExchange _mapToolExchange(
     List<AiSessionMessage> messages,
     int startIndex,
+    AiSession session,
     AiModelConfig model,
   ) {
     final firstMessage = messages[startIndex];
@@ -604,7 +609,7 @@ class AiPromptBuilder {
       if (toolCalls.isEmpty) {
         if (groupedToolCallMessages.isEmpty) {
           return _MappedToolExchange(
-            turns: _mapNonToolHistoryMessage(toolCallMessage, model),
+            turns: _mapNonToolHistoryMessage(toolCallMessage, session, model),
             nextIndex: cursor + 1,
           );
         }
@@ -626,7 +631,7 @@ class AiPromptBuilder {
     }
     if (groupedToolCalls.isEmpty) {
       return _MappedToolExchange(
-        turns: _mapNonToolHistoryMessage(firstMessage, model),
+        turns: _mapNonToolHistoryMessage(firstMessage, session, model),
         nextIndex: startIndex + 1,
       );
     }
@@ -673,12 +678,18 @@ class AiPromptBuilder {
 
   List<AiChatTurn> _mapNonToolHistoryMessage(
     AiSessionMessage message,
+    AiSession session,
     AiModelConfig model,
   ) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
       case AiSessionMessageKind.user:
-        return _mapUserMessage(message, model: model, content: promptContent);
+        return _mapUserMessage(
+          message,
+          session: session,
+          model: model,
+          content: promptContent,
+        );
       case AiSessionMessageKind.assistant:
         return _mapMessageContent(
           role: AiChatRole.assistant,
@@ -713,13 +724,14 @@ class AiPromptBuilder {
 
   List<AiChatTurn> _mapUserMessage(
     AiSessionMessage message, {
+    required AiSession session,
     required AiModelConfig model,
     required String content,
   }) {
     return _mapMessageContent(
       role: AiChatRole.user,
       content: content,
-      parts: _attachmentPartsForMessage(message, model),
+      parts: _attachmentPartsForMessage(message, session, model),
     );
   }
 
@@ -752,6 +764,7 @@ class AiPromptBuilder {
 
   List<AiChatContentPart> _attachmentPartsForMessage(
     AiSessionMessage message,
+    AiSession session,
     AiModelConfig model,
   ) {
     final attachments = _readAttachments(message.metadata);
@@ -769,9 +782,16 @@ class AiPromptBuilder {
         final promptText = attachment.promptText.trim();
         final storagePath = attachment.storagePath.trim();
         final mimeType = attachment.mimeType.trim();
+        final hasTrustedStoragePath = _isTrustedAttachmentStoragePath(
+          session,
+          attachment,
+        );
         final hasLocalImageFile =
+            hasTrustedStoragePath &&
             storagePath.isNotEmpty &&
             mimeType.isNotEmpty &&
+            FileSystemEntity.typeSync(storagePath, followLinks: false) ==
+                FileSystemEntityType.file &&
             File(storagePath).existsSync();
         final detailText = summaryText.isNotEmpty ? summaryText : promptText;
         if (detailText.isNotEmpty) {
@@ -802,6 +822,26 @@ class AiPromptBuilder {
       parts.add(AiChatContentPart.text(promptText));
     }
     return parts;
+  }
+
+  bool _isTrustedAttachmentStoragePath(
+    AiSession session,
+    AiMessageAttachment attachment,
+  ) {
+    final storagePath = attachment.storagePath.trim();
+    final sessionsDirectoryPath = session.environment.sessionsDirectoryPath
+        .trim();
+    final sessionId = session.id.trim();
+    if (storagePath.isEmpty ||
+        sessionsDirectoryPath.isEmpty ||
+        sessionId.isEmpty) {
+      return false;
+    }
+    final allowedRoot = p.normalize(
+      p.join(sessionsDirectoryPath, 'attachments', sessionId),
+    );
+    final normalizedStoragePath = p.normalize(storagePath);
+    return p.isWithin(allowedRoot, normalizedStoragePath);
   }
 
   String _renderMessageForCompression(AiSessionMessage message) {

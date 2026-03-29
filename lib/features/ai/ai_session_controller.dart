@@ -407,6 +407,7 @@ class AiSessionController extends ChangeNotifier {
     await _enqueueOperation(() async {
       _isLoading = true;
       _lastErrorMessage = null;
+      _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
       try {
         final loadResult = await _store.loadAll();

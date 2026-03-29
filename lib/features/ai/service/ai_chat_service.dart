@@ -140,13 +140,16 @@ class AiChatService implements AiChatClient {
         messages: messages,
         tools: tools,
       );
-      final response = await _client
-          .post(
-            Uri.parse(blueprint.url),
-            headers: blueprint.headers,
-            body: jsonEncode(blueprint.body),
-          )
-          .timeout(timeout);
+      final response = await http.Response.fromStream(
+        await _sendHttpRequestWithRedirects(
+          client: _client,
+          method: 'POST',
+          uri: Uri.parse(blueprint.url),
+          headers: blueprint.headers,
+          body: jsonEncode(blueprint.body),
+          timeout: timeout,
+        ),
+      );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorMessage = adapter.extractErrorMessage(response.body);
         throw AiChatException(
@@ -209,7 +212,14 @@ class AiChatService implements AiChatClient {
     final request = http.Request('POST', Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
       ..body = jsonEncode(blueprint.body);
-    final streamedResponseFuture = _client.send(request).timeout(timeout);
+    final streamedResponseFuture = _sendHttpRequestWithRedirects(
+      client: _client,
+      method: request.method,
+      uri: request.url,
+      headers: request.headers,
+      body: request.body,
+      timeout: timeout,
+    );
     late final http.StreamedResponse streamedResponse;
     try {
       if (cancelSignal == null) {
@@ -687,6 +697,108 @@ class _MutableToolCall {
   String id = '';
   String name = '';
   final StringBuffer argumentsBuffer = StringBuffer();
+}
+
+const int _maxAiChatRedirects = 4;
+
+Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
+  required http.Client client,
+  required String method,
+  required Uri uri,
+  required Map<String, String> headers,
+  String? body,
+  required Duration timeout,
+}) async {
+  var currentMethod = method;
+  var currentUri = uri;
+  var currentBody = body;
+  final currentHeaders = Map<String, String>.from(headers);
+
+  for (var redirectCount = 0; ; redirectCount++) {
+    final request = http.Request(currentMethod, currentUri)
+      ..followRedirects = false
+      ..headers.addAll(currentHeaders);
+    if (currentBody != null) {
+      request.body = currentBody;
+    }
+
+    final response = await client.send(request).timeout(timeout);
+    if (!_isRedirectStatusCode(response.statusCode)) {
+      return response;
+    }
+
+    final redirectLocation = _readResponseHeader(response.headers, 'location');
+    if (redirectLocation.isEmpty) {
+      return response;
+    }
+    if (redirectCount >= _maxAiChatRedirects) {
+      final responseBody = await response.stream.bytesToString();
+      throw AiChatException(
+        'Too many redirects (${_maxAiChatRedirects + 1})${responseBody.trim().isEmpty ? '' : ': ${responseBody.trim()}'}',
+      );
+    }
+
+    await response.stream.drain<void>();
+    final redirectedUri = currentUri.resolve(redirectLocation);
+    if (_isCrossOriginRedirect(currentUri, redirectedUri)) {
+      _stripSensitiveRedirectHeaders(currentHeaders);
+    }
+    currentUri = redirectedUri;
+    if (response.statusCode == 303 &&
+        currentMethod != 'GET' &&
+        currentMethod != 'HEAD') {
+      currentMethod = 'GET';
+      currentBody = null;
+    }
+  }
+}
+
+bool _isRedirectStatusCode(int statusCode) {
+  return statusCode == 301 ||
+      statusCode == 302 ||
+      statusCode == 303 ||
+      statusCode == 307 ||
+      statusCode == 308;
+}
+
+bool _isCrossOriginRedirect(Uri source, Uri target) {
+  return source.scheme != target.scheme ||
+      source.host != target.host ||
+      _effectivePort(source) != _effectivePort(target);
+}
+
+int _effectivePort(Uri uri) {
+  if (uri.hasPort) {
+    return uri.port;
+  }
+  return switch (uri.scheme.toLowerCase()) {
+    'http' => 80,
+    'https' => 443,
+    _ => -1,
+  };
+}
+
+void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
+  const sensitiveHeaderNames = <String>{
+    'authorization',
+    'cookie',
+    'proxy-authorization',
+    'x-api-key',
+    'api-key',
+  };
+  headers.removeWhere(
+    (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
+  );
+}
+
+String _readResponseHeader(Map<String, String> headers, String name) {
+  final target = name.toLowerCase();
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() == target) {
+      return entry.value.trim();
+    }
+  }
+  return '';
 }
 
 String _extractStreamText(Object? rawContent) {
