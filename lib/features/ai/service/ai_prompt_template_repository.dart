@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 
 import '../model/ai_thread_template.dart';
+import 'machine_expert_prompts.dart';
 
 class AiPromptTemplateBundle {
   const AiPromptTemplateBundle({
@@ -33,6 +34,14 @@ class AiPromptTemplateRepository {
       internalVersion: '3.0.0',
       promptAssetDirectory: 'assets/prompts/default',
     ),
+    AiThreadTemplate(
+      id: 'machine_expert',
+      name: '机器专家',
+      iconName: 'build_circle_rounded',
+      description: '主要是通过本地终端程序去与目标机器交互，完成用户提出的任务或需求。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/machine_expert',
+    ),
   ];
 
   List<AiThreadTemplate> get templates =>
@@ -52,15 +61,21 @@ class AiPromptTemplateRepository {
     final assetDirectory = template.promptAssetDirectory;
     final systemInstructions = await _loadTemplateSection(
       '$assetDirectory/system_instructions.md',
-      _defaultSystemInstructions,
+      templateId == 'machine_expert'
+          ? expertSystemInstructions
+          : _defaultSystemInstructions,
     );
     final developerInstructions = await _loadTemplateSection(
       '$assetDirectory/developer_instructions.md',
-      _defaultDeveloperInstructions,
+      templateId == 'machine_expert'
+          ? expertDeveloperInstructions
+          : _defaultDeveloperInstructions,
     );
     final compressionSummaryInstructions = await _loadTemplateSection(
       '$assetDirectory/compression_summary_instructions.md',
-      _defaultCompressionSummaryInstructions,
+      templateId == 'machine_expert'
+          ? expertCompressionSummaryInstructions
+          : _defaultCompressionSummaryInstructions,
     );
     return AiPromptTemplateBundle(
       template: template,

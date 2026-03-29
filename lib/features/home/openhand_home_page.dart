@@ -46,6 +46,7 @@ import '../skills/skills_view.dart';
 import 'message_path_linking.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
+import 'machine_expert_dialog.dart';
 
 enum AppSection { workspace, automations, skills, memory, mcp, settings }
 
@@ -696,8 +697,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (focusContext == null) {
       return false;
     }
-    return focusContext.widget is EditableText ||
-        focusContext.findAncestorWidgetOfExactType<EditableText>() != null;
+    if (focusContext.widget is EditableText ||
+        focusContext.widget is TextField ||
+        focusContext.widget is TextFormField) {
+      return true;
+    }
+    if (focusContext.findAncestorWidgetOfExactType<EditableText>() != null ||
+        focusContext.findAncestorWidgetOfExactType<TextField>() != null) {
+      return true;
+    }
+    bool found = false;
+    void visitor(Element element) {
+      if (found) return;
+      if (element.widget is EditableText ||
+          element.widget is TextField ||
+          element.widget is TextFormField) {
+        found = true;
+      } else {
+        element.visitChildren(visitor);
+      }
+    }
+
+    if (focusContext is Element) {
+      focusContext.visitChildren(visitor);
+    }
+    return found;
   }
 
   OpenHandShortcutAction? _matchShortcutAction(
@@ -849,6 +873,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final templateId = await _showThreadTemplateDialog();
     if (!mounted || templateId == null) {
       return false;
+    }
+    if (templateId == 'machine_expert') {
+      final result = await showDialog<MachineExpertDialogResult>(
+        context: context,
+        builder: (context) => const MachineExpertDialog(),
+      );
+      if (!mounted || result == null) {
+        return false;
+      }
+      final created = await _createSession(
+        templateId: templateId,
+        runtimeContext: runtimeContext,
+      );
+      if (created && mounted) {
+        _replaceComposerText(result.toPrompt());
+        await _sendMessage();
+      }
+      return created;
     }
     return _createSession(
       templateId: templateId,
@@ -1013,11 +1055,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final theme = Theme.of(context);
         return AlertDialog(
           title: Text(
-            _localizedText(
-              context,
-              zh: '启用完全访问权限？',
-              en: 'Enable Full Access?',
-            ),
+            _localizedText(context, zh: '启用完全访问权限？', en: 'Enable Full Access?'),
           ),
           content: Text(
             _localizedText(
@@ -1029,9 +1067,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                _localizedText(context, zh: '取消', en: 'Cancel'),
-              ),
+              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -1052,7 +1088,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _sendMessage() async {
     final l10n = AppLocalizations.of(context)!;
-    final prompt = _composerController.text.trim();
+    var prompt = _composerController.text.trim();
     final pendingAttachments = List<_ComposerAttachmentDraft>.from(
       _pendingAttachments,
     );
@@ -1111,6 +1147,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || templateId == null) {
         return;
       }
+      if (templateId == 'machine_expert') {
+        final result = await showDialog<MachineExpertDialogResult>(
+          context: context,
+          builder: (context) => MachineExpertDialog(initialTask: prompt),
+        );
+        if (!mounted || result == null) {
+          return;
+        }
+        prompt = result.toPrompt();
+        _replaceComposerText(prompt);
+      }
       runtimeContext = await _buildRuntimeContext();
       if (!mounted) {
         return;
@@ -1160,10 +1207,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             .map((item) => item.filePath)
             .toList(growable: false),
         denyCommandRules: settingsController.aiDenyCommandRules,
-        requireWriteCommandConfirmation: sessionController
-                    .currentSession
-                    ?.fullAccessPermission ==
-                true
+        requireWriteCommandConfirmation:
+            sessionController.currentSession?.fullAccessPermission == true
             ? false
             : settingsController.aiWriteCommandConfirmationEnabled,
         confirmWriteCommand: _confirmWriteCommand,
@@ -1555,14 +1600,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _cancelProgrammaticAutoFollowScroll({double? keepPixels}) {
     _programmaticAutoFollowScrollInProgress = false;
-    final activePosition = _activeMessageScrollPosition();
-    if (activePosition == null) {
-      return;
-    }
-    final targetPixels = (keepPixels ?? activePosition.pixels)
-        .clamp(activePosition.minScrollExtent, activePosition.maxScrollExtent)
-        .toDouble();
-    _messageScrollController.jumpTo(targetPixels);
   }
 
   Duration _scrollToBottomAnimationDuration(double distance) {
@@ -2294,7 +2331,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
         sessionMode: _effectiveComposerMode(sessionController),
         onSessionModeChanged: _setComposerMode,
-        fullAccessPermission: currentSession?.fullAccessPermission ??
+        fullAccessPermission:
+            currentSession?.fullAccessPermission ??
             _detachedFullAccessPermission,
         onToggleFullAccessPermission: _handleFullAccessPermissionToggle,
         pendingAttachments: _pendingAttachments,
@@ -2542,6 +2580,23 @@ class _WriteCommandConfirmationDialogState
     extends State<_WriteCommandConfirmationDialog> {
   final ScrollController _bodyScrollController = ScrollController();
   final FocusNode _shortcutFocusNode = FocusNode();
+  bool _isExpanded = false;
+
+  bool get _isLongCommand =>
+      widget.request.command.length > 150 ||
+      widget.request.command.contains('\n');
+
+  String get _shortenedCommand {
+    if (!_isLongCommand) {
+      return widget.request.command;
+    }
+    final command = widget.request.command.trim();
+    final firstLine = command.split('\n').first;
+    if (firstLine.length > 120) {
+      return '${firstLine.substring(0, 120)}... [omitted ${command.length - 120} chars]';
+    }
+    return '$firstLine\n... [omitted ${command.length - firstLine.length} chars]';
+  }
 
   void _closeWithResult(bool approved) {
     if (!mounted) {
@@ -2626,28 +2681,95 @@ class _WriteCommandConfirmationDialogState
                               en: 'This bash command may modify files or system state. OpenHand needs your approval before running it.',
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
+                          if (_isExpanded)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: SelectableText(
+                                  widget.request.command,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontFamily: 'monospace',
+                                        height: 1.45,
+                                      ),
+                                ),
+                              ),
+                            )
+                          else
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.outlineVariant,
+                                ),
+                              ),
                               child: SelectableText(
-                                widget.request.command,
+                                _shortenedCommand,
+                                maxLines: 3,
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       fontFamily: 'monospace',
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                       height: 1.45,
                                     ),
                               ),
                             ),
-                          ),
+                          if (_isLongCommand)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _isExpanded = !_isExpanded;
+                                  });
+                                },
+                                icon: Icon(
+                                  _isExpanded
+                                      ? Icons.unfold_less_rounded
+                                      : Icons.unfold_more_rounded,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  _isExpanded
+                                      ? _localizedText(
+                                          context,
+                                          zh: '收起命令',
+                                          en: 'Collapse',
+                                        )
+                                      : _localizedText(
+                                          context,
+                                          zh: '查看完整命令',
+                                          en: 'View Full Command',
+                                        ),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 12),
                           Text(
                             '${_localizedText(context, zh: '工作目录', en: 'Working Directory')}: ${widget.request.workingDirectory}',
@@ -2984,86 +3106,103 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: math.max(0, constraints.maxHeight - 32),
                   ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
-                  child: Column(
-                    key: const ValueKey<String>('session-transcript-loading'),
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: accentColor,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 760),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainer,
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant.withValues(
+                              alpha: 0.7,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _localizedText(
-                                context,
-                                zh: '正在载入会话消息...',
-                                en: 'Loading conversation messages...',
-                              ),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
+                          child: Column(
+                            key: const ValueKey<String>(
+                              'session-transcript-loading',
                             ),
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: accentColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _localizedText(
+                                        context,
+                                        zh: '正在载入会话消息...',
+                                        en: 'Loading conversation messages...',
+                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                _localizedText(
+                                  context,
+                                  zh: '正在准备较长的聊天记录并预热首屏渲染，请稍候。',
+                                  en: 'Preparing a longer transcript and warming up the first render.',
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: mutedTextColor,
+                                  height: 1.45,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              _TranscriptPlaceholderBubble(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: 0.78,
+                                color: cardColor,
+                              ),
+                              const SizedBox(height: 14),
+                              _TranscriptPlaceholderBubble(
+                                alignment: Alignment.centerRight,
+                                widthFactor: 0.58,
+                                color: colorScheme.primaryContainer.withValues(
+                                  alpha: 0.82,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _TranscriptPlaceholderBubble(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: 0.86,
+                                color: cardColor,
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _localizedText(
-                          context,
-                          zh: '正在准备较长的聊天记录并预热首屏渲染，请稍候。',
-                          en: 'Preparing a longer transcript and warming up the first render.',
-                        ),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: mutedTextColor,
-                          height: 1.45,
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      _TranscriptPlaceholderBubble(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: 0.78,
-                        color: cardColor,
-                      ),
-                      const SizedBox(height: 14),
-                      _TranscriptPlaceholderBubble(
-                        alignment: Alignment.centerRight,
-                        widthFactor: 0.58,
-                        color: colorScheme.primaryContainer.withValues(
-                          alpha: 0.82,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _TranscriptPlaceholderBubble(
-                        alignment: Alignment.centerLeft,
-                        widthFactor: 0.86,
-                        color: cardColor,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ],
@@ -8066,23 +8205,154 @@ class _ToolOutputPanel extends StatelessWidget {
   final bool selectable;
   final bool isError;
 
+  void _showFullContentDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 800,
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: Material(
+              color: theme.colorScheme.surface,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isError
+                              ? Icons.error_outline
+                              : Icons.terminal_outlined,
+                          color: isError
+                              ? theme.colorScheme.error
+                              : theme.colorScheme.onSurfaceVariant,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isError
+                                  ? theme.colorScheme.error
+                                  : theme.colorScheme.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                          splashRadius: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: _HighlightedCodePanel(
+                        content: content.text,
+                        theme: theme,
+                        language: content.language,
+                        selectable: true,
+                        baseColor: isError
+                            ? theme.colorScheme.onErrorContainer
+                            : theme.colorScheme.onSurface,
+                        accentColor: isError ? theme.colorScheme.error : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lines = const LineSplitter().convert(content.text);
+    final bool isLong = content.text.length > 800 || lines.length > 15;
+
+    final displayContent = isLong
+        ? '${lines.take(15).join('\n')}${lines.length > 15 || content.text.length > 800 ? '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]' : ''}'
+        : content.text;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: isError
-                ? theme.colorScheme.error
-                : theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w700,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: isError
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isLong)
+              TextButton.icon(
+                onPressed: () => _showFullContentDialog(context),
+                icon: const Icon(Icons.open_in_full_rounded, size: 14),
+                label: Text(
+                  _localizedText(
+                    context,
+                    zh: '查看完整内容',
+                    en: 'View Full Content',
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 0,
+                  ),
+                  minimumSize: const Size(0, 28),
+                  foregroundColor: theme.colorScheme.primary,
+                  textStyle: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         _HighlightedCodePanel(
-          content: content.text,
+          content: displayContent,
           theme: theme,
           language: content.language,
           selectable: selectable,
@@ -8199,10 +8469,15 @@ class _ToolCallViewData {
     final formattedResult = includeResultContent
         ? _formatToolContent(resultText)
         : const _FormattedToolContent(text: '');
+    final isStructuredWrapper =
+        resultText.startsWith('status: ') &&
+        resultText.contains('\ncommand: ') &&
+        resultText.contains('\nduration_ms: ');
     final showResultText =
         resultText.isNotEmpty &&
         resultText != stdout.trim() &&
-        resultText != stderr.trim();
+        resultText != stderr.trim() &&
+        !isStructuredWrapper;
     final hasResultContent =
         stdout.isNotEmpty ||
         stderr.isNotEmpty ||
@@ -8995,7 +9270,8 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
   final Future<void> Function(
     BuildContext context,
     MessageResolvedPath resolvedPath,
-  ) onOpenPath;
+  )
+  onOpenPath;
 
   @override
   Widget visitElementAfterWithContext(
@@ -9024,9 +9300,11 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
         ),
       );
     }
-  
+
     final normalizedPath = element.attributes['normalized_path'] ?? '';
-    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split('\r');
+    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split(
+      '\r',
+    );
     final fullMatch = element.textContent;
     final trailing = element.attributes['trailing'] ?? '';
     final isCodeSpan = element.attributes['is_code_span'] == 'true';
@@ -9047,7 +9325,11 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     );
   }
 
-  Widget _buildCodeSpan(BuildContext context, String text, TextStyle? parentStyle) {
+  Widget _buildCodeSpan(
+    BuildContext context,
+    String text,
+    TextStyle? parentStyle,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
@@ -9058,14 +9340,16 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
       ),
       child: Text(
         text,
-        style: parentStyle?.copyWith(
-          fontFamily: 'monospace',
-          fontSize: (parentStyle.fontSize ?? 14) * 0.9,
-          color: colorScheme.onSurface,
-        ) ?? theme.textTheme.bodyMedium?.copyWith(
-          fontFamily: 'monospace',
-          color: colorScheme.onSurface,
-        ),
+        style:
+            parentStyle?.copyWith(
+              fontFamily: 'monospace',
+              fontSize: (parentStyle.fontSize ?? 14) * 0.9,
+              color: colorScheme.onSurface,
+            ) ??
+            theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+              color: colorScheme.onSurface,
+            ),
       ),
     );
   }
@@ -9150,19 +9434,10 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
         final resolvedPath = snapshot.data;
         if (resolvedPath == null) {
           if (widget.isCodeSpan) {
-            return widget.builder._buildCodeSpan(context, widget.fullMatch, widget.parentStyle);
-          }
-          final pathHasDir = widget.normalizedPath.contains('/') || widget.normalizedPath.contains(r'\');
-          if (pathHasDir || widget.normalizedPath.startsWith('~')) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: widget.builder._buildChip(
-                context,
-                displayPath: widget.normalizedPath,
-                resolvedPath: widget.normalizedPath,
-                isDirectory: false,
-                isUnresolved: true,
-              ),
+            return widget.builder._buildCodeSpan(
+              context,
+              widget.fullMatch,
+              widget.parentStyle,
             );
           }
           return Padding(
@@ -9182,7 +9457,8 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
                 isDirectory: resolvedPath.isDirectory,
               ),
             ),
-            if (widget.trailing.isNotEmpty) Text(widget.trailing, style: widget.parentStyle),
+            if (widget.trailing.isNotEmpty)
+              Text(widget.trailing, style: widget.parentStyle),
           ],
         );
       },
@@ -9228,12 +9504,11 @@ class _FilePathChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: isUnresolved ? null : onOpenPath,
           child: Ink(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 5,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: isUnresolved ? chipColor.withValues(alpha: 0.3) : chipColor,
+              color: isUnresolved
+                  ? chipColor.withValues(alpha: 0.3)
+                  : chipColor,
               borderRadius: BorderRadius.circular(999),
               border: Border.all(color: borderColor),
             ),
@@ -9244,10 +9519,12 @@ class _FilePathChip extends StatelessWidget {
                   isUnresolved
                       ? Icons.help_outline
                       : isDirectory
-                          ? Icons.folder_outlined
-                          : Icons.insert_drive_file_outlined,
+                      ? Icons.folder_outlined
+                      : Icons.insert_drive_file_outlined,
                   size: 14,
-                  color: isUnresolved ? textColor.withValues(alpha: 0.5) : textColor.withValues(alpha: 0.9),
+                  color: isUnresolved
+                      ? textColor.withValues(alpha: 0.5)
+                      : textColor.withValues(alpha: 0.9),
                 ),
                 const SizedBox(width: 6),
                 ConstrainedBox(
@@ -9255,7 +9532,11 @@ class _FilePathChip extends StatelessWidget {
                   child: Text(
                     displayPath,
                     overflow: TextOverflow.ellipsis,
-                    style: isUnresolved ? labelStyle.copyWith(color: textColor.withValues(alpha: 0.5)) : labelStyle,
+                    style: isUnresolved
+                        ? labelStyle.copyWith(
+                            color: textColor.withValues(alpha: 0.5),
+                          )
+                        : labelStyle,
                   ),
                 ),
               ],
@@ -9268,7 +9549,11 @@ class _FilePathChip extends StatelessWidget {
 }
 
 class _FileHoverPopup extends StatefulWidget {
-  const _FileHoverPopup({required this.resolvedPath, required this.child, this.isUnresolved = false});
+  const _FileHoverPopup({
+    required this.resolvedPath,
+    required this.child,
+    this.isUnresolved = false,
+  });
   final String resolvedPath;
   final Widget child;
   final bool isUnresolved;
@@ -9294,7 +9579,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
       targetLeft = screenSize.width - 320 - 16;
       if (targetLeft < 8) targetLeft = 8;
     }
-    
+
     var targetTop = offset.dy + size.height + 6;
     const estimatedHeight = 140.0;
     if (targetTop + estimatedHeight > screenSize.height - 16) {
@@ -9322,7 +9607,9 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                 if (!snapshot.hasData) {
                   return const SizedBox(
                     height: 40,
-                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   );
                 }
                 final stat = snapshot.data!;
@@ -9340,9 +9627,18 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _StatRow(_localizedText(context, zh: '类型', en: 'Type'), stat.type.toString()),
-                    _StatRow(_localizedText(context, zh: '大小', en: 'Size'), '${stat.size} bytes'),
-                    _StatRow(_localizedText(context, zh: '修改于', en: 'Modified'), '${stat.modified}'),
+                    _StatRow(
+                      _localizedText(context, zh: '类型', en: 'Type'),
+                      stat.type.toString(),
+                    ),
+                    _StatRow(
+                      _localizedText(context, zh: '大小', en: 'Size'),
+                      '${stat.size} bytes',
+                    ),
+                    _StatRow(
+                      _localizedText(context, zh: '修改于', en: 'Modified'),
+                      '${stat.modified}',
+                    ),
                   ],
                 );
               },
@@ -9369,11 +9665,20 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     if (!mounted || !_isHovered || widget.isUnresolved) {
       return false;
     }
-    final isModifierPressed = HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlRight) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaLeft) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaRight);
-    
+    final isModifierPressed =
+        HardwareKeyboard.instance.logicalKeysPressed.contains(
+          LogicalKeyboardKey.controlLeft,
+        ) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(
+          LogicalKeyboardKey.controlRight,
+        ) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(
+          LogicalKeyboardKey.metaLeft,
+        ) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(
+          LogicalKeyboardKey.metaRight,
+        );
+
     if (isModifierPressed) {
       _showOverlay();
     } else {
@@ -9387,7 +9692,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     super.initState();
     HardwareKeyboard.instance.addHandler(_handleKey);
   }
-  
+
   @override
   void dispose() {
     _hideOverlay();
@@ -9400,10 +9705,19 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     return MouseRegion(
       onEnter: (_) {
         _isHovered = true;
-        final isModifierPressed = HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlRight) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaLeft) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaRight);
+        final isModifierPressed =
+            HardwareKeyboard.instance.logicalKeysPressed.contains(
+              LogicalKeyboardKey.controlLeft,
+            ) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(
+              LogicalKeyboardKey.controlRight,
+            ) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(
+              LogicalKeyboardKey.metaLeft,
+            ) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(
+              LogicalKeyboardKey.metaRight,
+            );
         if (isModifierPressed) {
           _showOverlay();
         }
@@ -9704,10 +10018,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           height: 52,
           child: _ComposerFullAccessModeButton(
             fullAccess: widget.fullAccessPermission,
-            enabled: modeToggleEnabled,
-            onPressed: () => widget.onToggleFullAccessPermission(
-              !widget.fullAccessPermission,
-            ),
+            enabled: true,
+            onChanged: (bool value) {
+              if (value != widget.fullAccessPermission) {
+                widget.onToggleFullAccessPermission(value);
+              }
+            },
           ),
         ),
         const SizedBox(width: 10),
@@ -9876,12 +10192,12 @@ class _ComposerFullAccessModeButton extends StatelessWidget {
   const _ComposerFullAccessModeButton({
     required this.fullAccess,
     required this.enabled,
-    required this.onPressed,
+    required this.onChanged,
   });
 
   final bool fullAccess;
   final bool enabled;
-  final VoidCallback onPressed;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -9906,34 +10222,77 @@ class _ComposerFullAccessModeButton extends StatelessWidget {
         ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
         : colorScheme.outlineVariant;
 
-    return OutlinedButton(
-      onPressed: enabled ? onPressed : null,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        backgroundColor: backgroundColor,
-        foregroundColor: foregroundColor,
-        side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            fullAccess
-                ? Icons.gpp_maybe_outlined
-                : Icons.admin_panel_settings_outlined,
-            size: 18,
-            color: foregroundColor,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            modeLabel,
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
+    return MenuAnchor(
+      builder: (context, controller, child) {
+        return OutlinedButton(
+          onPressed: enabled
+              ? () {
+                  if (controller.isOpen) {
+                    controller.close();
+                  } else {
+                    controller.open();
+                  }
+                }
+              : null,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            side: BorderSide(color: borderColor),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                fullAccess
+                    ? Icons.gpp_maybe_outlined
+                    : Icons.admin_panel_settings_outlined,
+                size: 18,
+                color: foregroundColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                modeLabel,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: foregroundColor,
+              ),
+            ],
+          ),
+        );
+      },
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: const Icon(
+            Icons.admin_panel_settings_outlined,
+            size: 20,
+          ),
+          trailingIcon: !fullAccess
+              ? const Icon(Icons.check_rounded, size: 20)
+              : const SizedBox(width: 20),
+          onPressed: () => onChanged(false),
+          child: Text(
+            _localizedText(context, zh: '默认权限', en: 'Default Access'),
+          ),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.gpp_maybe_outlined, size: 20),
+          trailingIcon: fullAccess
+              ? const Icon(Icons.check_rounded, size: 20)
+              : const SizedBox(width: 20),
+          onPressed: () => onChanged(true),
+          child: Text(_localizedText(context, zh: '完全访问权限', en: 'Full Access')),
+        ),
+      ],
     );
   }
 }
@@ -11394,31 +11753,33 @@ class _ThreadTemplateDialog extends StatelessWidget {
     return AlertDialog(
       title: Text(l10n.threadTemplateDialogTitle),
       content: SizedBox(
-        width: 620,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.threadTemplateDialogBody,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+        width: 1080,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.threadTemplateDialogBody,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: templates
-                  .map(
-                    (template) => _ThreadTemplateCard(
-                      template: template,
-                      onTap: () => Navigator.of(context).pop(template.id),
-                    ),
-                  )
-                  .toList(growable: false),
-            ),
-          ],
+              const SizedBox(height: 18),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: templates
+                    .map(
+                      (template) => _ThreadTemplateCard(
+                        template: template,
+                        onTap: () => Navigator.of(context).pop(template.id),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -11431,11 +11792,24 @@ class _ThreadTemplateDialog extends StatelessWidget {
   }
 }
 
-class _ThreadTemplateCard extends StatelessWidget {
+class _ThreadTemplateCard extends StatefulWidget {
   const _ThreadTemplateCard({required this.template, required this.onTap});
 
   final AiThreadTemplate template;
   final VoidCallback onTap;
+
+  @override
+  State<_ThreadTemplateCard> createState() => _ThreadTemplateCardState();
+}
+
+class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -11443,12 +11817,13 @@ class _ThreadTemplateCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return SizedBox(
       width: 260,
+      height: 240,
       child: Material(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
+          onTap: widget.onTap,
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
@@ -11463,22 +11838,30 @@ class _ThreadTemplateCard extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   child: Icon(
-                    template.iconData,
+                    widget.template.iconData,
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(template.name, style: theme.textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Text(
-                  template.description,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                Text(widget.template.name, style: theme.textTheme.titleMedium),
+                Expanded(
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      child: Text(
+                        widget.template.description,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'v${template.internalVersion}',
+                  'v${widget.template.internalVersion}',
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: colorScheme.primary,
                   ),

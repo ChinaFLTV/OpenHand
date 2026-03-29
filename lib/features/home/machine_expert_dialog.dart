@@ -1,0 +1,496 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+
+import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
+
+class MachineExpertDialog extends StatefulWidget {
+  const MachineExpertDialog({super.key, this.initialTask});
+
+  final String? initialTask;
+
+  @override
+  State<MachineExpertDialog> createState() => _MachineExpertDialogState();
+}
+
+class MachineExpertDialogResult {
+  const MachineExpertDialogResult({
+    required this.terminalApp,
+    required this.windowId,
+    required this.tabId,
+    required this.taskRequirement,
+  });
+
+  final String terminalApp;
+  final String windowId;
+  final String tabId;
+  final String taskRequirement;
+
+  String toPrompt() {
+    var rawTerminal = terminalApp;
+    if (rawTerminal == 'iTerm2') {
+      rawTerminal = '$terminalApp (AppleScript 进程名为 iTerm)';
+    } else if (rawTerminal == 'Terminal' && Platform.isMacOS) {
+      rawTerminal = '$terminalApp (macOS 系统自带终端)';
+    }
+
+    return '''- 终端应用：【$rawTerminal】
+- 打开的终端位置：【窗口：$windowId，会话：$tabId】
+- 需求内容（工作环境是：用户在【终端应用】与【打开的终端位置】输入参数中共同指定的目标终端会话环境）：【$taskRequirement】''';
+  }
+}
+
+class _MachineExpertDialogState extends State<MachineExpertDialog> {
+  final TextEditingController _taskController = TextEditingController();
+
+  String _loc(BuildContext context, {required String zh, required String en}) {
+    return Localizations.localeOf(context).languageCode == 'zh' ? zh : en;
+  }
+
+  String? _selectedTerminal;
+  String? _selectedWindow;
+  String? _selectedTab;
+
+  List<String> _windows = [];
+  List<String> _tabs = [];
+
+  bool _isLoading = false;
+  int _fetchSequence = 0;
+  List<String> _allTerminalsCached = [];
+
+  static const Map<String, List<String>> _terminalsByPlatform = {
+    'macOS': [
+      'iTerm2',
+      'Terminal.app',
+      'Warp',
+      'Ghostty',
+      'Alacritty',
+      'Kitty',
+      'WezTerm',
+      'Tabby',
+      'Hyper',
+    ],
+    'Windows': [
+      'PowerShell',
+      'Windows Terminal',
+      'Command Prompt',
+      'SecureCRT',
+      'Xshell',
+      'MobaXterm',
+      'Alacritty',
+      'WezTerm',
+      'Tabby',
+      'Hyper',
+    ],
+    'Linux': [
+      'GNOME Terminal',
+      'Konsole',
+      'xterm',
+      'Tilix',
+      'Alacritty',
+      'Kitty',
+      'WezTerm',
+      'Tabby',
+      'Hyper',
+    ],
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _allTerminalsCached =
+        _terminalsByPlatform.values
+            .expand((element) => element)
+            .toSet()
+            .toList()
+          ..sort();
+    _initDefaults();
+  }
+
+  void _initDefaults() {
+    final defaultOs = Platform.isMacOS
+        ? 'macOS'
+        : Platform.isWindows
+        ? 'Windows'
+        : 'Linux';
+    _selectedTerminal = _terminalsByPlatform[defaultOs]?.firstOrNull;
+    if (_selectedTerminal != null) {
+      _updateWindowsForTerminal(_selectedTerminal!);
+    }
+    if (widget.initialTask?.isNotEmpty == true) {
+      _taskController.text = widget.initialTask!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _taskController.dispose();
+    super.dispose();
+  }
+
+  Future<List<String>> _fetchMacOSAppleScript(String script) async {
+    if (!Platform.isMacOS) return const <String>[];
+    try {
+      final result = await Process.run('osascript', [
+        '-e',
+        script,
+      ]).timeout(const Duration(seconds: 2));
+      if (result.exitCode == 0) {
+        final raw = (result.stdout as String).trim();
+        if (raw.isEmpty || raw == 'missing value') return const <String>[];
+        return raw
+            .split(', ')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {}
+    return const <String>[];
+  }
+
+  Future<void> _updateWindowsForTerminal(String terminal) async {
+    final currentFetchId = ++_fetchSequence;
+
+    setState(() {
+      _isLoading = true;
+      _windows = [];
+      _selectedWindow = null;
+      _tabs = [];
+      _selectedTab = null;
+    });
+
+    List<String> windows = [];
+    if (Platform.isMacOS) {
+      final appName = terminal == 'iTerm2' ? 'iTerm' : terminal;
+      windows = await _fetchMacOSAppleScript(
+        'try\ntell application "$appName" to get name of every window\nend try',
+      );
+    }
+
+    if (!mounted || _fetchSequence != currentFetchId) return;
+
+    if (windows.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 150));
+      windows = List.generate(
+        10,
+        (index) => '${_loc(context, zh: '窗口', en: 'Window')} ${index + 1}',
+      );
+    }
+
+    final seen = <String, int>{};
+    for (var i = 0; i < windows.length; i++) {
+      final name = windows[i];
+      if (seen.containsKey(name)) {
+        final currentCount = seen[name]! + 1;
+        seen[name] = currentCount;
+        windows[i] = '$name ($currentCount)';
+      } else {
+        seen[name] = 1;
+      }
+    }
+
+    setState(() {
+      _windows = windows;
+      _selectedWindow = _windows.firstOrNull;
+    });
+
+    if (_selectedWindow != null) {
+      await _updateTabsForWindowInternal(_selectedWindow!, currentFetchId);
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateTabsForWindow(String window) async {
+    final currentFetchId = ++_fetchSequence;
+
+    setState(() {
+      _isLoading = true;
+      _tabs = [];
+      _selectedTab = null;
+    });
+
+    await _updateTabsForWindowInternal(window, currentFetchId);
+  }
+
+  Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
+    List<String> tabs = [];
+    if (Platform.isMacOS && _selectedTerminal != null) {
+      final appName = _selectedTerminal == 'iTerm2'
+          ? 'iTerm'
+          : _selectedTerminal!;
+      final escapedWindow = window.replaceAll('"', '\\"');
+      final windowIndex = _windows.indexOf(window) + 1;
+      final winIdxStr = windowIndex > 0 ? windowIndex.toString() : '1';
+
+      if (appName == 'iTerm') {
+        tabs = await _fetchMacOSAppleScript(
+          'try\ntell application "iTerm" to get name of every session of every tab of window $winIdxStr\nend try',
+        );
+      } else if (appName == 'Terminal') {
+        tabs = await _fetchMacOSAppleScript(
+          'try\ntell application "Terminal" to get custom title of every tab of window $winIdxStr\nend try',
+        );
+        if (tabs.isEmpty) {
+          tabs = await _fetchMacOSAppleScript(
+            'try\ntell application "Terminal" to get name of every tab of window $winIdxStr\nend try',
+          );
+        }
+      }
+
+      if (tabs.isEmpty) {
+        tabs = await _fetchMacOSAppleScript(
+          'try\ntell application "$appName" to get name of every tab of window "$escapedWindow"\nend try',
+        );
+      }
+
+      if (tabs.isEmpty) {
+        // Fallback to exactly the real count of tabs/sessions if possible, otherwise just 1.
+        int mockCount = 1;
+        final countSubject = appName == 'iTerm'
+            ? 'session of every tab'
+            : 'tab';
+        final countData = await _fetchMacOSAppleScript(
+          'try\ntell application "$appName" to get count of $countSubject of window $winIdxStr\nend try',
+        );
+        if (countData.isNotEmpty) {
+          final parsed = int.tryParse(countData.first.trim().split(' ').last);
+          if (parsed != null && parsed > 0) {
+            mockCount = parsed;
+          }
+        }
+        tabs = List.generate(
+          mockCount,
+          (index) => '${_loc(context, zh: '会话', en: 'Session')} ${index + 1}',
+        );
+      }
+    }
+
+    if (!mounted || _fetchSequence != fetchId) return;
+
+    if (tabs.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+      tabs = <String>['${_loc(context, zh: '会话', en: 'Session')} 1'];
+    }
+
+    final seen = <String, int>{};
+    for (var i = 0; i < tabs.length; i++) {
+      final name = tabs[i];
+      if (seen.containsKey(name)) {
+        final currentCount = seen[name]! + 1;
+        seen[name] = currentCount;
+        tabs[i] = '$name ($currentCount)';
+      } else {
+        seen[name] = 1;
+      }
+    }
+
+    setState(() {
+      _tabs = tabs;
+      _selectedTab = _tabs.firstOrNull;
+      _isLoading = false;
+    });
+  }
+
+  Widget _buildDropdownItem({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required void Function(String?)? onChanged,
+    String Function(String)? displayLabelBuilder,
+  }) {
+    return Expanded(
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            isDense: true,
+            isExpanded: true,
+            value: value,
+            items: items.map((val) {
+              return DropdownMenuItem(
+                value: val,
+                child: Text(displayLabelBuilder?.call(val) ?? val),
+              );
+            }).toList(),
+            onChanged: items.isEmpty ? null : onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_selectedTerminal == null ||
+        _selectedWindow == null ||
+        _selectedTab == null ||
+        _taskController.text.trim().isEmpty) {
+      return;
+    }
+
+    if (Platform.isMacOS) {
+      setState(() {
+        _isLoading = true;
+      });
+      try {
+        final appName = _selectedTerminal == 'iTerm2'
+            ? 'iTerm'
+            : _selectedTerminal!;
+        // Trigger accessibility / automation prompt by asking for a property
+        final result = await Process.run('osascript', [
+          '-e',
+          'try\ntell application "$appName" to get id\nend try',
+        ]).timeout(const Duration(seconds: 4));
+        if (result.exitCode != 0 && result.stderr.toString().isNotEmpty) {
+          debugPrint(
+            'Permission interaction failed or denied for $appName: ${result.stderr}',
+          );
+        }
+      } catch (e) {
+        debugPrint('Error triggering osascript permission: $e');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pop(
+      MachineExpertDialogResult(
+        terminalApp: _selectedTerminal!,
+        windowId: _selectedWindow!,
+        tabId: _selectedTab!,
+        taskRequirement: _taskController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: const Text('机器专家模板配置'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '请指定目标终端窗口与具体任务需求，机器专家将在此工作环境中自动为您执行命令。',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDropdownItem(
+                      label: '终端程序',
+                      value: _selectedTerminal,
+                      items: _allTerminalsCached,
+                      onChanged: (value) {
+                        if (value != null && value != _selectedTerminal) {
+                          setState(() {
+                            _selectedTerminal = value;
+                          });
+                          _updateWindowsForTerminal(value);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    _buildDropdownItem(
+                      label: _loc(context, zh: '窗口', en: 'Window'),
+                      value: _selectedWindow,
+                      items: _windows,
+                      displayLabelBuilder: (w) => w,
+                      onChanged: (value) {
+                        if (value != null && value != _selectedWindow) {
+                          setState(() {
+                            _selectedWindow = value;
+                          });
+                          _updateTabsForWindow(value);
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    _buildDropdownItem(
+                      label: _loc(context, zh: '会话', en: 'Session'),
+                      value: _selectedTab,
+                      items: _tabs,
+                      displayLabelBuilder: (t) => t,
+                      onChanged: (value) {
+                        if (value != null && value != _selectedTab) {
+                          setState(() {
+                            _selectedTab = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _taskController,
+                  maxLines: 8,
+                  minLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: '任务需求',
+                    hintText: '描述你想要执行的任务，例如：检查当前目录的文件列表，编译项目，部署到远程服务器等...',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
+                    helperText: '机器专家将根据该需求和终端现场进行交互式执行。',
+                  ),
+                ),
+                if (_isLoading) ...[
+                  const SizedBox(height: 16),
+                  const LinearProgressIndicator(),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          onPressed: () => Navigator.of(context).pop(),
+          label: AppLocalizations.of(context)?.commonCancel ?? '取消',
+        ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _taskController,
+          builder: (context, textValue, _) {
+            final isValid =
+                _selectedTerminal != null &&
+                _selectedWindow != null &&
+                _selectedTab != null &&
+                textValue.text.trim().isNotEmpty;
+            return OpenHandDialogActionButton.primary(
+              onPressed: (isValid && !_isLoading) ? _submit : null,
+              label: '开始执行',
+            );
+          },
+        ),
+      ],
+    );
+  }
+}

@@ -106,10 +106,7 @@ class AiChatTurn {
     if (normalizedContent.isEmpty) {
       return parts;
     }
-    return <AiChatContentPart>[
-      AiChatContentPart.text(content),
-      ...parts,
-    ];
+    return <AiChatContentPart>[AiChatContentPart.text(content), ...parts];
   }
 
   int get promptCharacterCount {
@@ -360,9 +357,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     }
     final contentParts = item.effectiveParts;
     if (contentParts.isNotEmpty &&
-        contentParts.any(
-          (part) => part.kind != AiChatContentPartKind.text,
-        )) {
+        contentParts.any((part) => part.kind != AiChatContentPartKind.text)) {
       payload['content'] = await _mapOpenAiContentParts(contentParts);
     } else {
       payload['content'] = contentParts.isEmpty
@@ -544,16 +539,13 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    return _containsAny(
-      model.modelId,
-      const <String>[
-        'claude-3',
-        'claude-4',
-        'claude-sonnet',
-        'claude-opus',
-        'claude-haiku',
-      ],
-    );
+    return _containsAny(model.modelId, const <String>[
+      'claude-3',
+      'claude-4',
+      'claude-sonnet',
+      'claude-opus',
+      'claude-haiku',
+    ]);
   }
 
   Future<Map<String, Object?>> _mapClaudeMessage(AiChatTurn item) async {
@@ -718,10 +710,12 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    return _containsAny(
-      model.modelId,
-      const <String>['gemini-1.5', 'gemini-2.0', 'gemini-2.5', 'gemini'],
-    );
+    return _containsAny(model.modelId, const <String>[
+      'gemini-1.5',
+      'gemini-2.0',
+      'gemini-2.5',
+      'gemini',
+    ]);
   }
 
   Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
@@ -927,37 +921,44 @@ bool _supportsOpenAiCompatibleAttachments(
     return false;
   }
   return switch (protocolType) {
-    AiProtocolType.openai => _containsAny(
-      normalized,
-      const <String>[
-        'gpt-4o',
-        'gpt-4.1',
-        'gpt-4.5',
-        'gpt-5',
-        'o1',
-        'o3',
-        'o4',
-        'vision',
-        'omni',
-      ],
-    ),
+    AiProtocolType.openai => _containsAny(normalized, const <String>[
+      'gpt-4o',
+      'gpt-4.1',
+      'gpt-4.5',
+      'gpt-5',
+      'o1',
+      'o3',
+      'o4',
+      'vision',
+      'omni',
+    ]),
     AiProtocolType.deepseek => false,
-    AiProtocolType.qwen => _containsAny(
-      normalized,
-      const <String>['vl', 'omni', 'vision', 'doc', 'long'],
-    ),
-    AiProtocolType.kimi => _containsAny(
-      normalized,
-      const <String>['vision', 'vl', 'k2v', 'k2vv', 'moonshot-v'],
-    ),
-    AiProtocolType.glm => _containsAny(
-      normalized,
-      const <String>['glm-4v', 'glm-4.5v', '4v', 'vision', 'vlm'],
-    ),
-    AiProtocolType.grok => _containsAny(
-      normalized,
-      const <String>['vision', 'grok-2-vision', 'grok-vision'],
-    ),
+    AiProtocolType.qwen => _containsAny(normalized, const <String>[
+      'vl',
+      'omni',
+      'vision',
+      'doc',
+      'long',
+    ]),
+    AiProtocolType.kimi => _containsAny(normalized, const <String>[
+      'vision',
+      'vl',
+      'k2v',
+      'k2vv',
+      'moonshot-v',
+    ]),
+    AiProtocolType.glm => _containsAny(normalized, const <String>[
+      'glm-4v',
+      'glm-4.5v',
+      '4v',
+      'vision',
+      'vlm',
+    ]),
+    AiProtocolType.grok => _containsAny(normalized, const <String>[
+      'vision',
+      'grok-2-vision',
+      'grok-vision',
+    ]),
     AiProtocolType.claude || AiProtocolType.gemini => true,
   };
 }

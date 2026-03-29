@@ -260,15 +260,16 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
       _detectedFilePathTrailingPattern,
       '',
     );
-    
-    if (normalizedPath.isEmpty || !looksLikeResolvableMessagePath(normalizedPath)) {
+
+    if (normalizedPath.isEmpty ||
+        !looksLikeResolvableMessagePath(normalizedPath)) {
       parser.addNode(codeElement);
       return true;
     }
 
     final trailing = text.substring(normalizedPath.length);
     final resolvedPathCacheKey = '${candidateRoots.join('|')}::$normalizedPath';
-    
+
     if (_resolvedMessagePathCache.containsKey(resolvedPathCacheKey)) {
       final resolvedPath = _resolvedMessagePathCache[resolvedPathCacheKey];
       if (resolvedPath == null) {
@@ -278,7 +279,9 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
       parser.addNode(
         md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
           ..attributes['resolved_path'] = resolvedPath.resolvedPath
-          ..attributes['entity_type'] = resolvedPath.isDirectory ? 'directory' : 'file',
+          ..attributes['entity_type'] = resolvedPath.isDirectory
+              ? 'directory'
+              : 'file',
       );
       if (trailing.isNotEmpty) {
         parser.addNode(md.Text(trailing));
@@ -334,7 +337,9 @@ class MessageFilePathSyntax extends md.InlineSyntax {
       parser.addNode(
         md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
           ..attributes['resolved_path'] = resolvedPath.resolvedPath
-          ..attributes['entity_type'] = resolvedPath.isDirectory ? 'directory' : 'file',
+          ..attributes['entity_type'] = resolvedPath.isDirectory
+              ? 'directory'
+              : 'file',
       );
       if (trailing.isNotEmpty) {
         parser.addNode(md.Text(trailing));

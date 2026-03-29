@@ -338,8 +338,7 @@ class AiBashToolService {
   }) async {
     final normalizedCommand = command.trim();
     final normalizedSessionId = (sessionId ?? '').trim();
-    final shouldUsePersistentSession =
-        normalizedSessionId.isNotEmpty && !Platform.isWindows;
+    final shouldUsePersistentSession = normalizedSessionId.isNotEmpty;
     final rawWorkingDirectory = (workingDirectory ?? '').trim();
     final normalizedWorkingDirectory = rawWorkingDirectory.isEmpty
         ? (shouldUsePersistentSession
@@ -460,7 +459,7 @@ class AiBashToolService {
     }
 
     if (shouldUsePersistentSession) {
-      return _executeWithPersistentSession(
+      final persistentResult = await _executeWithPersistentSession(
         sessionId: normalizedSessionId,
         command: normalizedCommand,
         requestedWorkingDirectory: normalizedWorkingDirectory,
@@ -470,6 +469,17 @@ class AiBashToolService {
         cancelSignal: cancelSignal,
         timeoutMs: timeoutMs,
       );
+      // If the persistent session died unexpectedly, retry with a one-shot
+      // subprocess so the user doesn't see a bare "bad state" error.
+      if (persistentResult.exitCode == -1 &&
+          persistentResult.status == BashToolExecutionStatus.failed &&
+          persistentResult.stderr.contains(
+            'persistent bash session exited unexpectedly',
+          )) {
+        // Fall through to the one-shot execution below.
+      } else {
+        return persistentResult;
+      }
     }
 
     final stopwatch = Stopwatch()..start();
@@ -552,7 +562,7 @@ class AiBashToolService {
         Duration(milliseconds: timeoutMs),
         onTimeout: () async {
           timedOut = true;
-          process.kill(ProcessSignal.sigkill);
+          _killProcess(process);
           try {
             await process.exitCode.timeout(const Duration(seconds: 2));
           } catch (_) {
@@ -566,7 +576,7 @@ class AiBashToolService {
           waitForExit,
           cancelSignal.then((_) async {
             cancelled = true;
-            process.kill(ProcessSignal.sigkill);
+            _killProcess(process);
             try {
               await process.exitCode.timeout(const Duration(seconds: 2));
             } catch (_) {
@@ -853,9 +863,15 @@ class AiBashToolService {
     if (existing != null) {
       return existing;
     }
+    final shellExecutable = Platform.isWindows
+        ? 'cmd'
+        : _resolveShellExecutable();
+    final shellArgs = Platform.isWindows
+        ? const <String>['/Q']
+        : const <String>[];
     final process = await Process.start(
-      _resolveShellExecutable(),
-      const <String>[],
+      shellExecutable,
+      shellArgs,
       workingDirectory: initialWorkingDirectory,
       runInShell: false,
     );
@@ -863,6 +879,12 @@ class AiBashToolService {
       process: process,
       currentWorkingDirectory: initialWorkingDirectory,
     );
+    // For Unix shells, disable glob expansion so that commands containing
+    // special characters (e.g. osascript with AppleScript strings that include
+    // brackets, asterisks, question marks) don't trigger "bad pattern" errors.
+    if (!Platform.isWindows) {
+      process.stdin.write('set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n');
+    }
     session.stdoutSubscription = process.stdout
         .transform(_shellOutputDecoder)
         .listen((chunk) {
@@ -898,30 +920,129 @@ class AiBashToolService {
     required String markerToken,
     required String workingDirectory,
   }) {
+    if (Platform.isWindows) {
+      return _buildWindowsPersistentCommandScript(
+        command: command,
+        markerToken: markerToken,
+        workingDirectory: workingDirectory,
+      );
+    }
     final startMarker = _quoteShellString('__OPENHAND_CMD_START__$markerToken');
     final exitMarker = _quoteShellString('__OPENHAND_EXIT__$markerToken');
     final pwdEndMarker = _quoteShellString('__OPENHAND_PWD_END__$markerToken');
+    // Determine if the command needs special wrapping to avoid shell
+    // mis-interpretation.  Commands that embed AppleScript, multi-line
+    // strings, or heavy quoting are routed through a temporary script file
+    // or eval-based wrapper so that zsh/bash doesn't choke on glob
+    // patterns, unmatched quotes, or nested shell expansions.
+    final needsSafeWrap = _commandNeedsSafeWrap(command);
     final buffer = StringBuffer()
       ..writeln("printf '%s\\n' $startMarker")
       ..writeln('__OPENHAND_EXIT_CODE=0');
     if (workingDirectory.trim().isNotEmpty) {
+      buffer.writeln('if cd ${_quoteShellString(workingDirectory)}; then');
+      if (needsSafeWrap) {
+        _writeSafeWrappedCommand(buffer, command, markerToken);
+      } else {
+        buffer.writeln(command);
+      }
       buffer
-        ..writeln('if cd ${_quoteShellString(workingDirectory)}; then')
-        ..writeln(command)
         ..writeln(r'  __OPENHAND_EXIT_CODE=$?')
         ..writeln('else')
         ..writeln(r'  __OPENHAND_EXIT_CODE=$?')
         ..writeln('fi');
     } else {
-      buffer
-        ..writeln(command)
-        ..writeln(r'__OPENHAND_EXIT_CODE=$?');
+      if (needsSafeWrap) {
+        _writeSafeWrappedCommand(buffer, command, markerToken);
+      } else {
+        buffer.writeln(command);
+      }
+      buffer.writeln(r'__OPENHAND_EXIT_CODE=$?');
     }
     buffer
       ..writeln("printf '\\n%s:%s\\n' $exitMarker \"\$__OPENHAND_EXIT_CODE\"")
       ..writeln('pwd')
       ..writeln("printf '%s\\n' $pwdEndMarker");
     return buffer.toString().trimRight();
+  }
+
+  /// Build the Windows-specific persistent command script using cmd markers.
+  String _buildWindowsPersistentCommandScript({
+    required String command,
+    required String markerToken,
+    required String workingDirectory,
+  }) {
+    final buffer = StringBuffer()
+      ..writeln('echo __OPENHAND_CMD_START__$markerToken');
+    if (workingDirectory.trim().isNotEmpty) {
+      buffer
+        ..writeln('cd /d "$workingDirectory" && (')
+        ..writeln(command)
+        ..writeln(')')
+        ..writeln('set __OPENHAND_EXIT_CODE=%errorlevel%');
+    } else {
+      buffer
+        ..writeln(command)
+        ..writeln('set __OPENHAND_EXIT_CODE=%errorlevel%');
+    }
+    buffer
+      ..writeln('echo __OPENHAND_EXIT__$markerToken:%__OPENHAND_EXIT_CODE%')
+      ..writeln('cd')
+      ..writeln('echo __OPENHAND_PWD_END__$markerToken');
+    return buffer.toString().trimRight();
+  }
+
+  /// Returns `true` if the command contains patterns that are likely to
+  /// confuse the shell when injected directly into a persistent session
+  /// stdin stream.  Such commands are routed through a temporary script
+  /// file so that the shell processes them atomically.
+  bool _commandNeedsSafeWrap(String command) {
+    // Multi-line commands (embedded newlines beyond trailing)
+    final trimmed = command.trimRight();
+    if (trimmed.contains('\n')) {
+      return true;
+    }
+    // Commands containing heavy quoting that is likely to interact badly
+    // with the outer shell wrapper.
+    if (command.contains("'\\'") ||
+        command.contains('\'') && command.contains('"')) {
+      // Nested quoting patterns common in osascript invocations.
+      return true;
+    }
+    // Commands starting with osascript, which commonly contain AppleScript
+    // strings with special characters ([, ], *, ?).
+    if (RegExp(r'^\s*(osascript|automator)\b').hasMatch(command)) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Writes a safely-wrapped version of [command] into [buffer].
+  /// Uses a temporary script file approach: writes the command to a temp
+  /// file, executes it with the appropriate shell, then removes the file.
+  void _writeSafeWrappedCommand(
+    StringBuffer buffer,
+    String command,
+    String markerToken,
+  ) {
+    // Use a heredoc with a single-quoted delimiter to write the command into
+    // a temp script file.  The single-quoted heredoc tag ensures the shell
+    // performs zero expansion on the script body, preserving all special
+    // characters, quotes, variables, and glob patterns literally.
+    final heredocTag = '__OPENHAND_SCRIPT_${markerToken}__';
+    final tmpScriptPath = '/tmp/.openhand_cmd_$markerToken.sh';
+    buffer
+      ..writeln('cat > ${_quoteShellString(tmpScriptPath)} << ${_quoteShellString(heredocTag)}')
+      ..writeln(command)
+      ..writeln(heredocTag)
+      ..writeln('chmod +x ${_quoteShellString(tmpScriptPath)}')
+      // Run the script and immediately capture its exit code before any
+      // cleanup commands can overwrite it.
+      ..writeln('${_resolveShellExecutable()} ${_quoteShellString(tmpScriptPath)}')
+      ..writeln(r'__OPENHAND_WRAP_RC=$?')
+      ..writeln('rm -f ${_quoteShellString(tmpScriptPath)}')
+      // Propagate the original exit code via a sub-shell exit.
+      ..writeln(r'(exit $__OPENHAND_WRAP_RC)');
   }
 
   String _quoteShellString(String value) {
@@ -933,7 +1054,7 @@ class AiBashToolService {
     if (session == null) {
       return;
     }
-    session.process.kill(ProcessSignal.sigkill);
+    _killProcess(session.process);
     await session.stdoutSubscription?.cancel();
     await session.stderrSubscription?.cancel();
   }
@@ -1021,9 +1142,20 @@ class AiBashToolService {
       if (session == null) {
         continue;
       }
-      session.process.kill(ProcessSignal.sigkill);
+      _killProcess(session.process);
       session.stdoutSubscription?.cancel();
       session.stderrSubscription?.cancel();
+    }
+  }
+
+  /// Kill a process in a platform-safe way.  On Windows, [ProcessSignal.sigkill]
+  /// is not supported, so we fall back to the default [Process.kill] which
+  /// calls `TerminateProcess`.
+  static void _killProcess(Process process) {
+    if (Platform.isWindows) {
+      process.kill();
+    } else {
+      process.kill(ProcessSignal.sigkill);
     }
   }
 }
@@ -1147,6 +1279,68 @@ class _ShellWriteCommandAnalyzer {
     'false',
     'sleep',
     'history',
+    // macOS terminal automation commands – these talk to terminal apps but
+    // don't mutate the local filesystem.  Machine-expert workflows rely on
+    // osascript heavily for sending keystrokes and reading screen buffers.
+    'osascript',
+    'pbpaste',
+    'say',
+    'afplay',
+    // System inspection utilities commonly used by machine-expert tasks.
+    'sysctl',
+    'sw_vers',
+    'system_profiler',
+    'hostinfo',
+    'ioreg',
+    'diskutil',
+    'vm_stat',
+    'top',
+    'ps',
+    'lsof',
+    'netstat',
+    'ifconfig',
+    'route',
+    'arp',
+    'nslookup',
+    'dig',
+    'host',
+    'ping',
+    'traceroute',
+    'uptime',
+    'last',
+    'w',
+    'finger',
+    'groups',
+    'env',
+    'locale',
+    'free',
+    'vmstat',
+    'iostat',
+    'mpstat',
+    'sar',
+    'nproc',
+    'lscpu',
+    'lsblk',
+    'lspci',
+    'lsusb',
+    'ip',
+    'ss',
+    'hostname',
+    'dmesg',
+    'journalctl',
+    // Windows system inspection commands (when run through cmd /c).
+    'systeminfo',
+    'wmic',
+    'ipconfig',
+    'tasklist',
+    'ver',
+    'set',
+    'vol',
+    'chcp',
+    'where',
+    'findstr',
+    'type',
+    'dir',
   };
 
   static const Set<String> _alwaysWriteCommands = <String>{
@@ -1442,6 +1636,24 @@ class _ShellWriteCommandAnalyzer {
     if (_readOnlyCommands.contains(commandName)) {
       return BashWriteAnalysis.readOnly('read-only command $commandName');
     }
+    // macOS clipboard write and screenshot are safe-side-effect commands
+    // (they write to clipboard/tmp, not to user files).
+    if (commandName == 'pbcopy' || commandName == 'screencapture') {
+      return BashWriteAnalysis.readOnly(
+        'safe side-effect command $commandName',
+      );
+    }
+    // `open` on macOS only launches apps / URLs — it doesn't mutate files
+    // by itself.
+    if (commandName == 'open' && Platform.isMacOS) {
+      return BashWriteAnalysis.readOnly(
+        'macOS open command $commandName',
+      );
+    }
+    // `defaults read` is read-only; `defaults write/delete` mutates.
+    if (commandName == 'defaults') {
+      return _analyzeDefaultsInvocation(invocation);
+    }
     if (_looksLikeScriptPath(invocation.first.text)) {
       return BashWriteAnalysis.write(
         'script or executable path ${invocation.first.text}',
@@ -1450,6 +1662,25 @@ class _ShellWriteCommandAnalyzer {
     return BashWriteAnalysis.write(
       'unclassified external command $commandName',
     );
+  }
+
+  BashWriteAnalysis _analyzeDefaultsInvocation(List<_ShellToken> invocation) {
+    for (final token in invocation.skip(1)) {
+      final value = token.text;
+      if (value == 'read' || value == 'read-type' || value == 'domains' ||
+          value == 'find' || value == 'help') {
+        return BashWriteAnalysis.readOnly('defaults $value is read-only');
+      }
+      if (value == 'write' || value == 'delete' || value == 'rename' ||
+          value == 'import') {
+        return BashWriteAnalysis.write('defaults $value mutates preferences');
+      }
+      // Skip options/flags
+      if (value.startsWith('-')) continue;
+      // First non-option non-subcommand argument – fall back to write.
+      break;
+    }
+    return const BashWriteAnalysis.write('defaults with unclear subcommand');
   }
 
   BashWriteAnalysis _analyzeWrapperCommand(

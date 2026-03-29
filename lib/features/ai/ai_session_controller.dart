@@ -424,7 +424,7 @@ class AiSessionController extends ChangeNotifier {
         final currentSessionId = _currentSessionId;
         if (currentSessionId == null ||
             !_sessions.any((session) => session.id == currentSessionId)) {
-          _currentSessionId = _sessions.isEmpty ? null : _sessions.first.id;
+          _currentSessionId = null;
         }
         final editingMessageId = _editingMessageId;
         if (editingMessageId != null &&
@@ -563,22 +563,52 @@ class AiSessionController extends ChangeNotifier {
     String sessionId,
     bool enabled,
   ) async {
-    return _enqueueSessionOperation(sessionId, () async {
-      final session = _sessionById(sessionId);
-      if (session == null) {
-        return false;
-      }
-      if (session.fullAccessPermission == enabled) {
-        return true;
-      }
-      final updatedSession = _rebuildSession(
-        session.copyWith(
-          fullAccessPermission: enabled,
-          updatedAt: _clock().toUtc(),
-        ),
-      );
-      return _commitSessionLocked(updatedSession);
-    });
+    // Bypass the session operation queue so the permission toggle stays
+    // responsive even while sendMessage occupies the queue during AI
+    // inference. Direct in-memory update is safe because:
+    //   1. _mergeLiveSessionState (called by every _commitSessionLocked)
+    //      always preserves the live session's fullAccessPermission, so
+    //      concurrent commits from sendMessage will not overwrite this
+    //      change.
+    //   2. _executeSingleToolCall reads the live session state dynamically,
+    //      so permission changes take effect on the next tool call.
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return false;
+    }
+    if (session.fullAccessPermission == enabled) {
+      return true;
+    }
+    final updatedSession = session.copyWith(
+      fullAccessPermission: enabled,
+      updatedAt: _clock().toUtc(),
+    );
+    // Directly replace in the _sessions list to bypass
+    // _mergeLiveSessionState which would otherwise revert the permission
+    // back to the previous (live) value.
+    final existingIndex = _sessions.indexWhere(
+      (item) => item.id == sessionId,
+    );
+    if (existingIndex == -1) {
+      return false;
+    }
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _sessions = updatedSessions;
+    notifyListeners();
+    // Persist to disk asynchronously. Even if this save races with a
+    // concurrent save from sendMessage, the final committed state will be
+    // correct: _mergeLiveSessionState always reads the live session's
+    // fullAccessPermission from _sessions (which we just updated).
+    try {
+      await _store.save(updatedSession);
+    } catch (_) {
+      // Disk persistence failure does not prevent the in-memory update
+      // from taking effect. The next successful _commitSessionLocked call
+      // (e.g. from sendMessage) will propagate the correct permission to
+      // disk via _mergeLiveSessionState.
+    }
+    return true;
   }
 
   Future<bool> renameSession(String sessionId, String title) async {
@@ -2580,6 +2610,8 @@ class AiSessionController extends ChangeNotifier {
     void Function(BashToolExecutionUpdate update)? onUpdate,
   }) async {
     try {
+      final currentSession = _sessionById(sessionId);
+      final isFullAccess = currentSession?.fullAccessPermission == true;
       return await _toolRuntimeService.execute(
         sessionId: executionSessionId ?? sessionId,
         catalog: toolCatalog,
@@ -2587,7 +2619,9 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         previouslyReadFiles: readFilePaths,
         denyCommandRules: denyCommandRules,
-        requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+        requireWriteCommandConfirmation: isFullAccess
+            ? false
+            : requireWriteCommandConfirmation,
         confirmWriteCommand: confirmWriteCommand,
         cancelSignal: _stopSignalForSession(sessionId),
         onBashUpdate: onUpdate,
@@ -3636,9 +3670,10 @@ class AiSessionController extends ChangeNotifier {
       final finishedAt =
           '${message.metadata['tool_execution_finished_at'] ?? ''}'.trim();
       if (finishedAt.isNotEmpty) {
-        try {
-          return DateTime.parse(finishedAt).toUtc();
-        } catch (_) {}
+        final parsed = DateTime.tryParse(finishedAt);
+        if (parsed != null) {
+          return parsed.toUtc();
+        }
       }
       return message.createdAt;
     }
@@ -4577,10 +4612,22 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionMessage Function() create,
     required AiSessionMessage Function(AiSessionMessage message) update,
   }) {
-    final messageIndex = session.messages.indexWhere(
+    final messages = session.messages;
+    final int messagesLength = messages.length;
+    
+    if (messagesLength > 0 && messages[messagesLength - 1].id == messageId) {
+      final updatedMessages = List<AiSessionMessage>.of(messages);
+      updatedMessages[messagesLength - 1] = update(updatedMessages[messagesLength - 1]);
+      return session.copyWith(
+        messages: updatedMessages,
+        updatedAt: _clock().toUtc(),
+      );
+    }
+
+    final messageIndex = messages.indexWhere(
       (message) => message.id == messageId,
     );
-    final updatedMessages = List<AiSessionMessage>.from(session.messages);
+    final updatedMessages = List<AiSessionMessage>.of(messages);
     if (messageIndex == -1) {
       updatedMessages.add(create());
     } else {
@@ -4906,6 +4953,13 @@ class AiSessionController extends ChangeNotifier {
     if (liveSession == null) {
       return nextSession;
     }
+
+    if (liveSession.fullAccessPermission != nextSession.fullAccessPermission) {
+      nextSession = nextSession.copyWith(
+        fullAccessPermission: liveSession.fullAccessPermission,
+      );
+    }
+
     if (liveSession.isTitleManuallyEdited) {
       return nextSession.copyWith(
         title: liveSession.title,

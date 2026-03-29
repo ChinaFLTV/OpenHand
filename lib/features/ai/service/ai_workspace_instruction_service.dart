@@ -114,9 +114,8 @@ class AiWorkspaceInstructionService {
     String cacheKey,
     List<AiWorkspaceInstructionDocument> documents,
   ) {
-    final immutableDocuments = List<AiWorkspaceInstructionDocument>.unmodifiable(
-      documents,
-    );
+    final immutableDocuments =
+        List<AiWorkspaceInstructionDocument>.unmodifiable(documents);
     if (_cacheTtl > Duration.zero) {
       _cache[cacheKey] = _CachedWorkspaceInstructions(
         documents: immutableDocuments,
