@@ -2961,43 +2961,45 @@ class _WorkspaceView extends StatelessWidget {
                       onDismissError: onDismissError,
                     ),
             ),
-            const SizedBox(height: 16),
-            NotificationListener<SizeChangedLayoutNotification>(
-              onNotification: (notification) {
-                onComposerLayoutChanged();
-                return false;
-              },
-              child: SizeChangedLayoutNotifier(
-                child: _ComposerPanel(
-                  currentSession: currentSession,
-                  liveRuntimeToolPreview: liveRuntimeToolPreview,
-                  controller: draftController,
-                  selectedModel: selectedModel,
-                  availableModels: availableModels,
-                  onModelSelected: onModelSelected,
-                  focusNode: composerFocusNode,
-                  composerHeight: effectiveComposerHeight,
-                  isCollapsed: composerCollapsed,
-                  onCollapsedChanged: onComposerCollapsedChanged,
-                  autoFollowEnabled: autoFollowEnabled,
-                  onToggleAutoFollow: onToggleAutoFollow,
-                  sendPhase: sendPhase,
-                  canStopSending: canStopSending,
-                  sessionMode: sessionMode,
-                  onSessionModeChanged: onSessionModeChanged,
-                  pendingAttachments: pendingAttachments,
-                  attachmentsEnabled: attachmentsEnabled,
-                  onPickAttachments: onPickAttachments,
-                  onRemoveAttachment: onRemoveAttachment,
-                  onSend: onSend,
-                  onStop: onStop,
-                  editingMessageId: editingMessageId,
-                  onCancelEditing: onCancelEditing,
-                  fullAccessPermission: fullAccessPermission,
-                  onToggleFullAccessPermission: onToggleFullAccessPermission,
+            if (currentSession != null) ...[
+              const SizedBox(height: 16),
+              NotificationListener<SizeChangedLayoutNotification>(
+                onNotification: (notification) {
+                  onComposerLayoutChanged();
+                  return false;
+                },
+                child: SizeChangedLayoutNotifier(
+                  child: _ComposerPanel(
+                    currentSession: currentSession,
+                    liveRuntimeToolPreview: liveRuntimeToolPreview,
+                    controller: draftController,
+                    selectedModel: selectedModel,
+                    availableModels: availableModels,
+                    onModelSelected: onModelSelected,
+                    focusNode: composerFocusNode,
+                    composerHeight: effectiveComposerHeight,
+                    isCollapsed: composerCollapsed,
+                    onCollapsedChanged: onComposerCollapsedChanged,
+                    autoFollowEnabled: autoFollowEnabled,
+                    onToggleAutoFollow: onToggleAutoFollow,
+                    sendPhase: sendPhase,
+                    canStopSending: canStopSending,
+                    sessionMode: sessionMode,
+                    onSessionModeChanged: onSessionModeChanged,
+                    pendingAttachments: pendingAttachments,
+                    attachmentsEnabled: attachmentsEnabled,
+                    onPickAttachments: onPickAttachments,
+                    onRemoveAttachment: onRemoveAttachment,
+                    onSend: onSend,
+                    onStop: onStop,
+                    editingMessageId: editingMessageId,
+                    onCancelEditing: onCancelEditing,
+                    fullAccessPermission: fullAccessPermission,
+                    onToggleFullAccessPermission: onToggleFullAccessPermission,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         );
       },
@@ -5270,41 +5272,45 @@ String _runtimeModeLabel(
   BuildContext context,
   _RuntimeToolCatalogStatus? status, {
   bool compact = false,
+  AiSessionMode? explicitMode,
 }) {
-  if (status == null || status.sessionMode != AiSessionMode.plan) {
+  final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
+  if (mode != AiSessionMode.plan) {
     return _localizedText(
       context,
       zh: '聊天模式',
       en: compact ? 'Chat Mode' : 'Chat Mode',
     );
   }
-  if (status.awaitingPlanApproval) {
-    return _localizedText(
-      context,
-      zh: '计划待确认',
-      en: compact ? 'Plan Awaiting' : 'Plan Awaiting Approval',
-    );
-  }
-  if (status.planRecoveryRequired) {
-    return _localizedText(
-      context,
-      zh: '计划待复核',
-      en: compact ? 'Plan Review' : 'Plan Needs Review',
-    );
-  }
-  if (status.planExecutionApproved) {
-    return _localizedText(
-      context,
-      zh: '执行计划',
-      en: compact ? 'Plan Execute' : 'Plan Execution',
-    );
-  }
-  if (status.hasActivePlanState) {
-    return _localizedText(
-      context,
-      zh: '计划规划中',
-      en: compact ? 'Plan Draft' : 'Plan Drafting',
-    );
+  if (status != null && status.sessionMode == AiSessionMode.plan) {
+    if (status.awaitingPlanApproval) {
+      return _localizedText(
+        context,
+        zh: '计划待确认',
+        en: compact ? 'Plan Awaiting' : 'Plan Awaiting Approval',
+      );
+    }
+    if (status.planRecoveryRequired) {
+      return _localizedText(
+        context,
+        zh: '计划待复核',
+        en: compact ? 'Plan Review' : 'Plan Needs Review',
+      );
+    }
+    if (status.planExecutionApproved) {
+      return _localizedText(
+        context,
+        zh: '执行计划',
+        en: compact ? 'Plan Execute' : 'Plan Execution',
+      );
+    }
+    if (status.hasActivePlanState) {
+      return _localizedText(
+        context,
+        zh: '计划规划中',
+        en: compact ? 'Plan Draft' : 'Plan Drafting',
+      );
+    }
   }
   return _localizedText(
     context,
@@ -5313,18 +5319,24 @@ String _runtimeModeLabel(
   );
 }
 
-IconData _runtimeModeIcon(_RuntimeToolCatalogStatus? status) {
-  if (status == null || status.sessionMode != AiSessionMode.plan) {
+IconData _runtimeModeIcon(
+  _RuntimeToolCatalogStatus? status, {
+  AiSessionMode? explicitMode,
+}) {
+  final mode = explicitMode ?? status?.sessionMode ?? AiSessionMode.chat;
+  if (mode != AiSessionMode.plan) {
     return Icons.forum_outlined;
   }
-  if (status.awaitingPlanApproval) {
-    return Icons.fact_check_outlined;
-  }
-  if (status.planRecoveryRequired) {
-    return Icons.manage_search_rounded;
-  }
-  if (status.planExecutionApproved) {
-    return Icons.playlist_play_rounded;
+  if (status != null && status.sessionMode == AiSessionMode.plan) {
+    if (status.awaitingPlanApproval) {
+      return Icons.fact_check_outlined;
+    }
+    if (status.planRecoveryRequired) {
+      return Icons.manage_search_rounded;
+    }
+    if (status.planExecutionApproved) {
+      return Icons.playlist_play_rounded;
+    }
   }
   return Icons.alt_route_rounded;
 }
@@ -10315,10 +10327,13 @@ class _ComposerModeButton extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isPlanMode = mode == AiSessionMode.plan;
-    final modeIcon = _runtimeModeIcon(runtimeStatus);
-    final modeLabel = isPlanMode
-        ? _runtimeModeLabel(context, runtimeStatus, compact: true)
-        : _localizedText(context, zh: '聊天模式', en: 'Chat Mode');
+    final modeIcon = _runtimeModeIcon(runtimeStatus, explicitMode: mode);
+    final modeLabel = _runtimeModeLabel(
+      context,
+      runtimeStatus,
+      compact: true,
+      explicitMode: mode,
+    );
     final backgroundColor = !enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : isPlanMode
