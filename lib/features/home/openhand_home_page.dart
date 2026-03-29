@@ -3638,6 +3638,7 @@ class _SessionErrorBanner extends StatelessWidget {
     final presentation = _presentSessionError(context, error);
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.78),
@@ -4493,10 +4494,13 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
       ),
     );
   }
+  final effectivePlanRecordFailed =
+      planRecord.status == AiSessionPlanStatus.failed &&
+      sendPhase == AiSendPhase.idle;
   final todoSteps = _planTimelineTodoSteps(
     planRecord.steps,
     reflectRunningStepFailure:
-        planRecord.status == AiSessionPlanStatus.failed ||
+        effectivePlanRecordFailed ||
         _shouldReflectCurrentPlanStepFailure(session, sendPhase),
     reviewCompletedPlan: false,
     allowTerminalFailureStates: sendPhase == AiSendPhase.idle,
@@ -4513,7 +4517,7 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
         pendingPlanSteps,
         awaitingApproval: false,
         idPrefix: 'plan-step-${planRecord.id}',
-        markCurrentStepFailed: planRecord.status == AiSessionPlanStatus.failed,
+        markCurrentStepFailed: effectivePlanRecordFailed,
       ),
     );
   }
@@ -4667,15 +4671,15 @@ bool _shouldReflectCurrentPlanStepFailure(
   AiSession session,
   AiSendPhase sendPhase,
 ) {
+  if (sendPhase != AiSendPhase.idle) {
+    return false;
+  }
   final latestRecoveryMessage = _latestPlanRecoveryTimelineMessage(session);
   if (_shouldReflectPlanTimelineFailureAfter(
     _latestPlanErrorFailureAt(session),
     latestRecoveryMessage,
   )) {
     return true;
-  }
-  if (sendPhase != AiSendPhase.idle) {
-    return false;
   }
   return _shouldReflectPlanTimelineFailureAfter(
     _latestPlanToolFailureAt(session),

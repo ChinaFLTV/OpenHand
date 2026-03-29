@@ -246,7 +246,7 @@ class AiSessionMessage {
   final AiTokenUsage? usage;
   final Map<String, Object?> metadata;
 
-  bool get isVisible => !isDeleted;
+  bool get isVisible => !isDeleted && kind != AiSessionMessageKind.status;
 
   bool get isConversationTurn {
     if (isDeleted) {

@@ -3558,6 +3558,9 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     final sendPhase = sendPhaseForSession(session.id);
+    if (sendPhase != AiSendPhase.idle) {
+      return false;
+    }
     final latestRecoveryMessage = _latestTrackedPlanRecoveryMessage(session);
     final latestErrorFailureAt = _latestTrackedPlanErrorFailureAt(session);
     if (_shouldReflectTrackedPlanFailureAfter(
@@ -3565,9 +3568,6 @@ class AiSessionController extends ChangeNotifier {
       latestRecoveryMessage,
     )) {
       return true;
-    }
-    if (sendPhase != AiSendPhase.idle) {
-      return false;
     }
     if (_hasFailedTodoItems(session.todoItems)) {
       return true;
