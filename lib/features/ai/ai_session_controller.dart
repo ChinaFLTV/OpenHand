@@ -453,12 +453,14 @@ class AiSessionController extends ChangeNotifier {
     required String templateId,
     required AiSessionRuntimeContext runtimeContext,
     AiSessionMode mode = AiSessionMode.chat,
+    bool fullAccessPermission = false,
   }) async {
     if (isSending) {
       return _createSessionUnlocked(
         templateId: templateId,
         runtimeContext: runtimeContext,
         mode: mode,
+        fullAccessPermission: fullAccessPermission,
       );
     }
     return _enqueueOperation(
@@ -466,6 +468,7 @@ class AiSessionController extends ChangeNotifier {
         templateId: templateId,
         runtimeContext: runtimeContext,
         mode: mode,
+        fullAccessPermission: fullAccessPermission,
       ),
     );
   }
@@ -494,6 +497,7 @@ class AiSessionController extends ChangeNotifier {
     required String templateId,
     required AiSessionRuntimeContext runtimeContext,
     required AiSessionMode mode,
+    required bool fullAccessPermission,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     final now = _clock().toUtc();
@@ -512,6 +516,7 @@ class AiSessionController extends ChangeNotifier {
       statistics: const AiSessionStatistics.initial(),
       recentErrors: const <AiSessionErrorRecord>[],
       mode: mode,
+      fullAccessPermission: fullAccessPermission,
     );
     _deletedSessionIds.remove(session.id);
     final committed = await _commitSessionLocked(session);
@@ -548,6 +553,28 @@ class AiSessionController extends ChangeNotifier {
           mode: mode,
           updatedAt: _clock().toUtc(),
           lastPromptMetadata: updatedPromptMetadata,
+        ),
+      );
+      return _commitSessionLocked(updatedSession);
+    });
+  }
+
+  Future<bool> updateSessionFullAccessPermission(
+    String sessionId,
+    bool enabled,
+  ) async {
+    return _enqueueSessionOperation(sessionId, () async {
+      final session = _sessionById(sessionId);
+      if (session == null) {
+        return false;
+      }
+      if (session.fullAccessPermission == enabled) {
+        return true;
+      }
+      final updatedSession = _rebuildSession(
+        session.copyWith(
+          fullAccessPermission: enabled,
+          updatedAt: _clock().toUtc(),
         ),
       );
       return _commitSessionLocked(updatedSession);

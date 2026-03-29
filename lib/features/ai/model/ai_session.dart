@@ -178,6 +178,7 @@ class AiSession {
     this.awaitingPlanApproval = false,
     this.pendingPlan,
     this.planHistory = const <AiSessionPlanRecord>[],
+    this.fullAccessPermission = false,
   });
 
   static const int schemaVersion = 5;
@@ -207,6 +208,7 @@ class AiSession {
   final bool awaitingPlanApproval;
   final String? pendingPlan;
   final List<AiSessionPlanRecord> planHistory;
+  final bool fullAccessPermission;
   late final int? _latestCompressionPointIndexCache =
       _computeLatestCompressionPointIndex();
   late final List<AiSessionMessage> _visibleMessagesCache = messages
@@ -237,6 +239,7 @@ class AiSession {
     String? pendingPlan,
     List<AiSessionPlanRecord>? planHistory,
     bool clearPendingPlan = false,
+    bool? fullAccessPermission,
   }) {
     return AiSession(
       id: id,
@@ -270,6 +273,7 @@ class AiSession {
       awaitingPlanApproval: awaitingPlanApproval ?? this.awaitingPlanApproval,
       pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
       planHistory: planHistory ?? this.planHistory,
+      fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
     );
   }
 
@@ -339,6 +343,9 @@ class AiSession {
         .toSet();
     return visibleMessages
         .where((message) {
+          if (message.metadata['plan_mode_approved'] == true) {
+            return false;
+          }
           if (message.kind != AiSessionMessageKind.tool &&
               message.kind != AiSessionMessageKind.mcp &&
               message.kind != AiSessionMessageKind.skill) {
@@ -375,6 +382,7 @@ class AiSession {
         'mode': mode.storageValue,
         'awaiting_plan_approval': awaitingPlanApproval,
         'pending_plan': pendingPlan,
+        'full_access_permission': fullAccessPermission,
       },
       'environment': environment.toJson(),
       'statistics': statistics.toJson(),
@@ -454,6 +462,9 @@ class AiSession {
           ? sessionJson['awaiting_plan_approval'] as bool
           : false,
       pendingPlan: _readNullableString(sessionJson['pending_plan']),
+      fullAccessPermission: sessionJson['full_access_permission'] is bool
+          ? sessionJson['full_access_permission'] as bool
+          : false,
       planHistory: planHistoryJson is List
           ? planHistoryJson
                 .map(

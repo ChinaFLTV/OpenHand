@@ -117,6 +117,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
   AiSessionController? _observedSessionController;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
+  bool _detachedFullAccessPermission = false;
   String? _activeComposerSessionId;
   String? _activeTranscriptSessionId;
   String? _preparingTranscriptSessionId;
@@ -810,6 +811,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required String templateId,
     AiSessionRuntimeContext? runtimeContext,
     AiSessionMode initialMode = AiSessionMode.chat,
+    bool initialFullAccessPermission = false,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final resolvedRuntimeContext =
@@ -821,6 +823,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       templateId: templateId,
       runtimeContext: resolvedRuntimeContext,
       mode: initialMode,
+      fullAccessPermission: initialFullAccessPermission,
     );
     if (!mounted) {
       return false;
@@ -962,6 +965,91 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  Future<void> _handleFullAccessPermissionToggle(bool enable) async {
+    final sessionController = context.read<AiSessionController>();
+    final currentSession = sessionController.currentSession;
+    if (currentSession == null) {
+      if (_detachedFullAccessPermission == enable) {
+        return;
+      }
+      if (enable) {
+        final confirmed = await _showFullAccessConfirmationDialog();
+        if (!confirmed || !mounted) {
+          return;
+        }
+      }
+      setState(() {
+        _detachedFullAccessPermission = enable;
+      });
+      return;
+    }
+    if (currentSession.fullAccessPermission == enable) {
+      return;
+    }
+    if (enable) {
+      final confirmed = await _showFullAccessConfirmationDialog();
+      if (!confirmed || !mounted) {
+        return;
+      }
+    }
+    final updated = await sessionController.updateSessionFullAccessPermission(
+      currentSession.id,
+      enable,
+    );
+    if (!mounted || updated) {
+      return;
+    }
+    final l10n = AppLocalizations.of(context)!;
+    final errorMessage = sessionController.lastErrorMessage;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
+    );
+  }
+
+  Future<bool> _showFullAccessConfirmationDialog() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        return AlertDialog(
+          title: Text(
+            _localizedText(
+              context,
+              zh: '启用完全访问权限？',
+              en: 'Enable Full Access?',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '在完全访问权限模式下，OpenHand 可无需审批直接编辑计算机上的任意文件并运行网络命令。\n\n启用完全访问权限前请谨慎评估。此操作将显著增加数据丢失、泄露或异常行为的风险。',
+              en: 'With Full Access enabled, OpenHand can edit any file and run commands without requiring your explicit approval.\n\nPlease evaluate carefully before enabling. This action significantly increases the risk of data loss, leakage, or unexpected behavior.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                _localizedText(context, zh: '取消', en: 'Cancel'),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
+              ),
+              child: Text(
+                _localizedText(context, zh: '是，仍然继续', en: 'Yes, Continue'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return confirmed == true;
+  }
+
   Future<void> _sendMessage() async {
     final l10n = AppLocalizations.of(context)!;
     final prompt = _composerController.text.trim();
@@ -1031,6 +1119,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         templateId: templateId,
         runtimeContext: runtimeContext,
         initialMode: _detachedComposerMode,
+        initialFullAccessPermission: _detachedFullAccessPermission,
       );
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
@@ -1071,8 +1160,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             .map((item) => item.filePath)
             .toList(growable: false),
         denyCommandRules: settingsController.aiDenyCommandRules,
-        requireWriteCommandConfirmation:
-            settingsController.aiWriteCommandConfirmationEnabled,
+        requireWriteCommandConfirmation: sessionController
+                    .currentSession
+                    ?.fullAccessPermission ==
+                true
+            ? false
+            : settingsController.aiWriteCommandConfirmationEnabled,
         confirmWriteCommand: _confirmWriteCommand,
       );
       if (!mounted) {
@@ -2201,6 +2294,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
         sessionMode: _effectiveComposerMode(sessionController),
         onSessionModeChanged: _setComposerMode,
+        fullAccessPermission: currentSession?.fullAccessPermission ??
+            _detachedFullAccessPermission,
+        onToggleFullAccessPermission: _handleFullAccessPermissionToggle,
         pendingAttachments: _pendingAttachments,
         attachmentsEnabled: _selectedModelSupportsAttachments(
           settingsController.selectedAiModel,
@@ -2641,6 +2737,8 @@ class _WorkspaceView extends StatelessWidget {
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
     required this.onDismissError,
+    required this.fullAccessPermission,
+    required this.onToggleFullAccessPermission,
   });
 
   final TextEditingController draftController;
@@ -2683,6 +2781,8 @@ class _WorkspaceView extends StatelessWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
+  final bool fullAccessPermission;
+  final ValueChanged<bool> onToggleFullAccessPermission;
 
   @override
   Widget build(BuildContext context) {
@@ -2771,6 +2871,8 @@ class _WorkspaceView extends StatelessWidget {
                   onStop: onStop,
                   editingMessageId: editingMessageId,
                   onCancelEditing: onCancelEditing,
+                  fullAccessPermission: fullAccessPermission,
+                  onToggleFullAccessPermission: onToggleFullAccessPermission,
                 ),
               ),
             ),
@@ -6576,12 +6678,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
         darkSurface: isReasoning || isToolCall,
         selectable: widget.isSelected,
       ),
-      'openhand-file': _FilePathMarkdownBuilder(
+      'openhand-file-resolved': _FilePathMarkdownBuilder(
+        textColor: textColor,
+        onOpenPath: _openResolvedMessagePath,
+      ),
+      'openhand-file-pending': _FilePathMarkdownBuilder(
         textColor: textColor,
         onOpenPath: _openResolvedMessagePath,
       ),
     };
     final inlineSyntaxes = <md.InlineSyntax>[
+      MessagePathCodeSyntax(candidateRoots: filePathRoots),
       MessageFilePathSyntax(candidateRoots: filePathRoots),
     ];
 
@@ -8925,8 +9032,7 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
   final Future<void> Function(
     BuildContext context,
     MessageResolvedPath resolvedPath,
-  )
-  onOpenPath;
+  ) onOpenPath;
 
   @override
   Widget visitElementAfterWithContext(
@@ -8935,10 +9041,134 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    final resolvedPath = (element.attributes['resolved_path'] ?? '').trim();
-    final displayPath = element.textContent.trim();
-    final isDirectory =
-        (element.attributes['entity_type'] ?? '').trim() == 'directory';
+    if (element.tag == 'openhand-file-resolved') {
+      final resolvedPath = (element.attributes['resolved_path'] ?? '').trim();
+      final displayPath = element.textContent.trim();
+      final isDirectory =
+          (element.attributes['entity_type'] ?? '').trim() == 'directory';
+      return Text.rich(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: _buildChip(
+              context,
+              displayPath: displayPath,
+              resolvedPath: resolvedPath,
+              isDirectory: isDirectory,
+            ),
+          ),
+        ),
+      );
+    }
+  
+    final normalizedPath = element.attributes['normalized_path'] ?? '';
+    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split('\r');
+    final fullMatch = element.textContent;
+    final trailing = element.attributes['trailing'] ?? '';
+    final isCodeSpan = element.attributes['is_code_span'] == 'true';
+
+    return Text.rich(
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: FutureBuilder<MessageResolvedPath?>(
+          future: resolveExistingMessagePathAsync(normalizedPath, candidateRoots),
+          builder: (context, snapshot) {
+            final resolvedPath = snapshot.data;
+            if (resolvedPath == null) {
+              if (isCodeSpan) {
+                return _buildCodeSpan(context, fullMatch, parentStyle);
+              }
+              return Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(fullMatch, style: parentStyle),
+              );
+            }
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: _buildChip(
+                    context,
+                    displayPath: resolvedPath.displayPath,
+                    resolvedPath: resolvedPath.resolvedPath,
+                    isDirectory: resolvedPath.isDirectory,
+                  ),
+                ),
+                if (trailing.isNotEmpty) Text(trailing, style: parentStyle),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeSpan(BuildContext context, String text, TextStyle? parentStyle) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: parentStyle?.copyWith(
+          fontFamily: 'monospace',
+          fontSize: (parentStyle.fontSize ?? 14) * 0.9,
+          color: colorScheme.onSurface,
+        ) ?? theme.textTheme.bodyMedium?.copyWith(
+          fontFamily: 'monospace',
+          color: colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(
+    BuildContext context, {
+    required String displayPath,
+    required String resolvedPath,
+    required bool isDirectory,
+  }) {
+    return _FilePathChip(
+      displayPath: displayPath,
+      resolvedPath: resolvedPath,
+      isDirectory: isDirectory,
+      textColor: textColor,
+      onOpenPath: () => onOpenPath(
+        context,
+        MessageResolvedPath(
+          displayPath: displayPath,
+          resolvedPath: resolvedPath,
+          isDirectory: isDirectory,
+        ),
+      ),
+    );
+  }
+
+}
+
+class _FilePathChip extends StatelessWidget {
+  const _FilePathChip({
+    required this.displayPath,
+    required this.resolvedPath,
+    required this.isDirectory,
+    required this.textColor,
+    required this.onOpenPath,
+  });
+
+  final String displayPath;
+  final String resolvedPath;
+  final bool isDirectory;
+  final Color textColor;
+  final VoidCallback onOpenPath;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
     final borderColor = textColor.withValues(alpha: 0.24);
@@ -8948,63 +9178,234 @@ class _FilePathMarkdownBuilder extends MarkdownElementBuilder {
           fontWeight: FontWeight.w700,
         ) ??
         TextStyle(color: textColor, fontWeight: FontWeight.w700);
-    return Text.rich(
-      WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        child: Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Tooltip(
-            message: resolvedPath,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: () {
-                  onOpenPath(
-                    context,
-                    MessageResolvedPath(
-                      displayPath: displayPath,
-                      resolvedPath: resolvedPath,
-                      isDirectory: isDirectory,
-                    ),
-                  );
-                },
-                child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chipColor,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isDirectory
-                            ? Icons.folder_outlined
-                            : Icons.insert_drive_file_outlined,
-                        size: 14,
-                        color: textColor.withValues(alpha: 0.9),
-                      ),
-                      const SizedBox(width: 6),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 340),
-                        child: Text(
-                          displayPath,
-                          overflow: TextOverflow.ellipsis,
-                          style: labelStyle,
-                        ),
-                      ),
-                    ],
+
+    return _FileHoverPopup(
+      resolvedPath: resolvedPath,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onOpenPath,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 5,
+            ),
+            decoration: BoxDecoration(
+              color: chipColor,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: borderColor),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isDirectory
+                      ? Icons.folder_outlined
+                      : Icons.insert_drive_file_outlined,
+                  size: 14,
+                  color: textColor.withValues(alpha: 0.9),
+                ),
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: Text(
+                    displayPath,
+                    overflow: TextOverflow.ellipsis,
+                    style: labelStyle,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FileHoverPopup extends StatefulWidget {
+  const _FileHoverPopup({required this.resolvedPath, required this.child});
+  final String resolvedPath;
+  final Widget child;
+
+  @override
+  State<_FileHoverPopup> createState() => _FileHoverPopupState();
+}
+
+class _FileHoverPopupState extends State<_FileHoverPopup> {
+  OverlayEntry? _overlayEntry;
+  bool _isHovered = false;
+
+  void _showOverlay() {
+    if (_overlayEntry != null) return;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final size = renderBox.size;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final screenSize = MediaQuery.sizeOf(context);
+
+    var targetLeft = offset.dx;
+    if (targetLeft + 320 > screenSize.width - 16) {
+      targetLeft = screenSize.width - 320 - 16;
+      if (targetLeft < 8) targetLeft = 8;
+    }
+    
+    var targetTop = offset.dy + size.height + 6;
+    const estimatedHeight = 140.0;
+    if (targetTop + estimatedHeight > screenSize.height - 16) {
+      targetTop = offset.dy - estimatedHeight - 6;
+    }
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        left: targetLeft,
+        top: targetTop,
+        child: Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            width: 320,
+            child: FutureBuilder<FileStat>(
+              future: FileStat.stat(widget.resolvedPath),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const SizedBox(
+                    height: 40,
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                }
+                final stat = snapshot.data!;
+                final theme = Theme.of(context);
+                final colorScheme = theme.colorScheme;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.resolvedPath,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _StatRow(_localizedText(context, zh: '类型', en: 'Type'), stat.type.toString()),
+                    _StatRow(_localizedText(context, zh: '大小', en: 'Size'), '${stat.size} bytes'),
+                    _StatRow(_localizedText(context, zh: '修改于', en: 'Modified'), '${stat.modified}'),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  @override
+  void deactivate() {
+    _hideOverlay();
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    super.deactivate();
+  }
+
+  bool _handleKey(KeyEvent event) {
+    if (!mounted || !_isHovered) {
+      return false;
+    }
+    final isModifierPressed = HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlRight) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaLeft) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaRight);
+    
+    if (isModifierPressed) {
+      _showOverlay();
+    } else {
+      _hideOverlay();
+    }
+    return false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKey);
+  }
+  
+  @override
+  void dispose() {
+    _hideOverlay();
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) {
+        _isHovered = true;
+        final isModifierPressed = HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlRight) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaLeft) ||
+            HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.metaRight);
+        if (isModifierPressed) {
+          _showOverlay();
+        }
+      },
+      onExit: (_) {
+        _isHovered = false;
+        _hideOverlay();
+      },
+      child: widget.child,
+    );
+  }
+}
+
+class _StatRow extends StatelessWidget {
+  const _StatRow(this.label, this.value);
+  final String label;
+  final String value;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -9034,6 +9435,8 @@ class _ComposerPanel extends StatefulWidget {
     required this.onRemoveAttachment,
     required this.onSend,
     required this.onStop,
+    required this.fullAccessPermission,
+    required this.onToggleFullAccessPermission,
     required this.editingMessageId,
     required this.onCancelEditing,
   });
@@ -9060,6 +9463,8 @@ class _ComposerPanel extends StatefulWidget {
   final ValueChanged<String> onRemoveAttachment;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final bool fullAccessPermission;
+  final ValueChanged<bool> onToggleFullAccessPermission;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
 
@@ -9252,6 +9657,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
         ),
         const SizedBox(width: 10),
+        SizedBox(
+          height: 52,
+          child: _ComposerFullAccessModeButton(
+            fullAccess: widget.fullAccessPermission,
+            enabled: modeToggleEnabled,
+            onPressed: () => widget.onToggleFullAccessPermission(
+              !widget.fullAccessPermission,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
         Tooltip(
           message: _composerModeTooltip(
             context,
@@ -9408,6 +9824,72 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             actionRow,
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ComposerFullAccessModeButton extends StatelessWidget {
+  const _ComposerFullAccessModeButton({
+    required this.fullAccess,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool fullAccess;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final modeLabel = fullAccess
+        ? _localizedText(context, zh: '完全访问权限', en: 'Full Access')
+        : _localizedText(context, zh: '默认权限', en: 'Default Access');
+    final backgroundColor = !enabled
+        ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
+        : fullAccess
+        ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
+        : colorScheme.surfaceContainerHighest;
+    final foregroundColor = !enabled
+        ? colorScheme.onSurface.withValues(alpha: 0.38)
+        : fullAccess
+        ? const Color(0xFFF59E0B)
+        : colorScheme.onSurfaceVariant;
+    final borderColor = !enabled
+        ? colorScheme.outlineVariant.withValues(alpha: 0.48)
+        : fullAccess
+        ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+        : colorScheme.outlineVariant;
+
+    return OutlinedButton(
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            fullAccess
+                ? Icons.gpp_maybe_outlined
+                : Icons.admin_panel_settings_outlined,
+            size: 18,
+            color: foregroundColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            modeLabel,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

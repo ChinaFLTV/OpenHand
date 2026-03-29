@@ -8,13 +8,13 @@ import '../ai/model/ai_session.dart';
 
 const int _resolvedMessagePathCacheLimit = 512;
 
-final Map<String, MessageResolvedPath> _resolvedMessagePathCache =
-    <String, MessageResolvedPath>{};
+final Map<String, MessageResolvedPath?> _resolvedMessagePathCache =
+    <String, MessageResolvedPath?>{};
 final RegExp _detectedFilePathTrailingPattern = RegExp(
   r'''[),.;:!?\]\}'"]+$''',
 );
 final RegExp _detectedStandaloneFileNamePattern = RegExp(
-  r'''^(?:\.[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9][A-Za-z0-9._-]*)$''',
+  r'''^(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)$''',
 );
 
 List<String> messageFilePathRoots(
@@ -66,16 +66,8 @@ MessageResolvedPath? resolveExistingMessagePath(
     return null;
   }
   final cacheKey = '${candidateRoots.join('|')}::$displayPath';
-  final cachedPath = _resolvedMessagePathCache[cacheKey];
-  if (cachedPath != null) {
-    final cachedEntityType = FileSystemEntity.typeSync(
-      cachedPath.resolvedPath,
-      followLinks: true,
-    );
-    if (cachedEntityType != FileSystemEntityType.notFound) {
-      return cachedPath;
-    }
-    _resolvedMessagePathCache.remove(cacheKey);
+  if (_resolvedMessagePathCache.containsKey(cacheKey)) {
+    return _resolvedMessagePathCache[cacheKey];
   }
 
   final candidates = <String>{};
@@ -116,13 +108,11 @@ MessageResolvedPath? resolveExistingMessagePath(
     );
     break;
   }
-  if (resolved != null) {
-    _rememberResolvedMessagePath(cacheKey, resolved);
-  }
+  _rememberResolvedMessagePath(cacheKey, resolved);
   return resolved;
 }
 
-void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath value) {
+void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
   if (_resolvedMessagePathCache.length >= _resolvedMessagePathCacheLimit) {
     _resolvedMessagePathCache.remove(_resolvedMessagePathCache.keys.first);
   }
@@ -201,10 +191,115 @@ class MessageResolvedPath {
   final bool isDirectory;
 }
 
+Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
+  String rawPath,
+  List<String> candidateRoots,
+) async {
+  final displayPath = rawPath.trim();
+  if (displayPath.isEmpty || !looksLikeResolvableMessagePath(displayPath)) {
+    return null;
+  }
+  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
+  if (_resolvedMessagePathCache.containsKey(cacheKey)) {
+    return _resolvedMessagePathCache[cacheKey];
+  }
+
+  final candidates = <String>{};
+  if (displayPath == '~' ||
+      displayPath.startsWith('~/') ||
+      displayPath.startsWith(r'~\')) {
+    candidates.add(
+      OpenHandPaths.normalizePath(
+        displayPath,
+        defaultPath: OpenHandPaths.homeDirectoryPath(),
+      ),
+    );
+  }
+  if (looksLikeAbsoluteMessagePath(displayPath)) {
+    candidates.add(p.normalize(displayPath));
+  } else {
+    for (final root in candidateRoots) {
+      if (root.trim().isEmpty) {
+        continue;
+      }
+      candidates.add(p.normalize(p.join(root, displayPath)));
+    }
+  }
+
+  MessageResolvedPath? resolved;
+  for (final candidate in candidates) {
+    final type = await FileSystemEntity.type(candidate, followLinks: true);
+    if (type == FileSystemEntityType.notFound) {
+      continue;
+    }
+    final isDirectory = await FileSystemEntity.isDirectory(candidate);
+    resolved = MessageResolvedPath(
+      displayPath: displayPath,
+      resolvedPath: p.normalize(candidate),
+      isDirectory: isDirectory,
+    );
+    break;
+  }
+  _rememberResolvedMessagePath(cacheKey, resolved);
+  return resolved;
+}
+
+class MessagePathCodeSyntax extends md.InlineSyntax {
+  MessagePathCodeSyntax({required this.candidateRoots})
+    : super(r'(`+(?!`))((?:.|\n)*?)(?<!`)\1(?!`)');
+
+  final List<String> candidateRoots;
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final text = match[2] ?? '';
+    final codeElement = md.Element.text('code', text);
+
+    final normalizedPath = text.replaceFirst(
+      _detectedFilePathTrailingPattern,
+      '',
+    );
+    
+    if (normalizedPath.isEmpty || !looksLikeResolvableMessagePath(normalizedPath)) {
+      parser.addNode(codeElement);
+      return true;
+    }
+
+    final trailing = text.substring(normalizedPath.length);
+    final resolvedPathCacheKey = '${candidateRoots.join('|')}::$normalizedPath';
+    
+    if (_resolvedMessagePathCache.containsKey(resolvedPathCacheKey)) {
+      final resolvedPath = _resolvedMessagePathCache[resolvedPathCacheKey];
+      if (resolvedPath == null) {
+        parser.addNode(codeElement);
+        return true;
+      }
+      parser.addNode(
+        md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
+          ..attributes['resolved_path'] = resolvedPath.resolvedPath
+          ..attributes['entity_type'] = resolvedPath.isDirectory ? 'directory' : 'file',
+      );
+      if (trailing.isNotEmpty) {
+        parser.addNode(md.Text(trailing));
+      }
+      return true;
+    }
+
+    parser.addNode(
+      md.Element.text('openhand-file-pending', text)
+        ..attributes['normalized_path'] = normalizedPath
+        ..attributes['candidate_roots'] = candidateRoots.join('\r')
+        ..attributes['trailing'] = trailing
+        ..attributes['is_code_span'] = 'true',
+    );
+    return true;
+  }
+}
+
 class MessageFilePathSyntax extends md.InlineSyntax {
   MessageFilePathSyntax({required this.candidateRoots})
     : super(
-        r'''(^|[\s(>"'])((?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[A-Za-z0-9_.-]+[\\/]))[^\s<>()\[\]{}]+|(?:\.[A-Za-z0-9][A-Za-z0-9._-]*|[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9][A-Za-z0-9._-]*))''',
+        r'''(^|[\s(>"'`])((?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[^\s<>()[\]{}'"*?:;|/`]+[\\/]))[^\s<>()[\]{}'"`]+|(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+))''',
       );
 
   final List<String> candidateRoots;
@@ -224,27 +319,38 @@ class MessageFilePathSyntax extends md.InlineSyntax {
       return true;
     }
     final trailing = matchedPath.substring(normalizedPath.length);
-    final resolvedPath = resolveExistingMessagePath(
-      normalizedPath,
-      candidateRoots,
-    );
-    if (resolvedPath == null) {
-      parser.addNode(md.Text(fullMatch));
+
+    final resolvedPathCacheKey = '${candidateRoots.join('|')}::$normalizedPath';
+    if (_resolvedMessagePathCache.containsKey(resolvedPathCacheKey)) {
+      final resolvedPath = _resolvedMessagePathCache[resolvedPathCacheKey];
+      if (resolvedPath == null) {
+        parser.addNode(md.Text(fullMatch));
+        return true;
+      }
+      if (prefix.isNotEmpty) {
+        parser.addNode(md.Text(prefix));
+      }
+      parser.addNode(
+        md.Element.text('openhand-file-resolved', resolvedPath.displayPath)
+          ..attributes['resolved_path'] = resolvedPath.resolvedPath
+          ..attributes['entity_type'] = resolvedPath.isDirectory ? 'directory' : 'file',
+      );
+      if (trailing.isNotEmpty) {
+        parser.addNode(md.Text(trailing));
+      }
       return true;
     }
+
     if (prefix.isNotEmpty) {
       parser.addNode(md.Text(prefix));
     }
     parser.addNode(
-      md.Element.text('openhand-file', resolvedPath.displayPath)
-        ..attributes['resolved_path'] = resolvedPath.resolvedPath
-        ..attributes['entity_type'] = resolvedPath.isDirectory
-            ? 'directory'
-            : 'file',
+      md.Element.text('openhand-file-pending', matchedPath)
+        ..attributes['normalized_path'] = normalizedPath
+        ..attributes['candidate_roots'] = candidateRoots.join('\r')
+        ..attributes['trailing'] = trailing
+        ..attributes['is_code_span'] = 'false',
     );
-    if (trailing.isNotEmpty) {
-      parser.addNode(md.Text(trailing));
-    }
     return true;
   }
 }
