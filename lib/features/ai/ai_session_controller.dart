@@ -199,9 +199,9 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
   );
-  static const Duration _streamPreviewThrottle = Duration(milliseconds: 48);
+  static const Duration _streamPreviewThrottle = Duration(milliseconds: 72);
   static const Duration _reasoningStreamPreviewThrottle = Duration(
-    milliseconds: 96,
+    milliseconds: 160,
   );
   static const Set<String> _planModePlanningToolAllowlist = <String>{
     'task',

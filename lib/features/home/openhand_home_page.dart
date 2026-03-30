@@ -61,11 +61,11 @@ const double _composerMaxHeight = 440;
 const double _autoFollowDistanceThreshold = 96;
 const double _autoFollowAnimatedDistanceThreshold = 8;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
-const int _transcriptInitialWindowSize = 80;
-const int _transcriptWindowIncrement = 80;
-const int _transcriptWindowingThreshold = 120;
+const int _transcriptInitialWindowSize = 30;
+const int _transcriptWindowIncrement = 25;
+const int _transcriptWindowingThreshold = 40;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
-const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 48);
+const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 120);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
 );
@@ -79,6 +79,13 @@ final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
 );
+final RegExp _trailingNewlineCodeBlockPattern = RegExp(r'\n$');
+
+// Shared BorderRadius constants — avoid allocating new instances on every build.
+const BorderRadius _borderRadius18 =
+    BorderRadius.all(Radius.circular(18));
+const BorderRadius _borderRadius999 =
+    BorderRadius.all(Radius.circular(999));
 
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
@@ -2618,7 +2625,7 @@ AppSection _sectionFromDrawerIndex(int index) {
   };
 }
 
-class _NavigationPane extends StatelessWidget {
+class _NavigationPane extends StatefulWidget {
   const _NavigationPane({
     required this.selectedSection,
     required this.sessions,
@@ -2642,11 +2649,25 @@ class _NavigationPane extends StatelessWidget {
   final ValueChanged<AppSection> onSectionSelected;
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+  State<_NavigationPane> createState() => _NavigationPaneState();
+}
+
+class _NavigationPaneState extends State<_NavigationPane> {
+  ThemeData? _cachedDrawerTheme;
+  int? _cachedThemeSignature;
+
+  ThemeData _ensureDrawerTheme(ThemeData theme) {
+    final signature = Object.hashAll(<Object?>[
+      theme.colorScheme.primary.toARGB32(),
+      theme.colorScheme.primaryContainer.toARGB32(),
+      theme.brightness.index,
+      theme.textTheme.titleMedium?.fontSize,
+    ]);
+    if (_cachedDrawerTheme != null && _cachedThemeSignature == signature) {
+      return _cachedDrawerTheme!;
+    }
     final colorScheme = theme.colorScheme;
-    final drawerTheme = theme.copyWith(
+    _cachedDrawerTheme = theme.copyWith(
       navigationDrawerTheme: theme.navigationDrawerTheme.copyWith(
         indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
@@ -2669,22 +2690,31 @@ class _NavigationPane extends StatelessWidget {
         }),
       ),
     );
+    _cachedThemeSignature = signature;
+    return _cachedDrawerTheme!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final drawerTheme = _ensureDrawerTheme(theme);
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Theme(
         data: drawerTheme,
         child: NavigationDrawer(
-          selectedIndex: selectedSection.drawerIndex,
+          selectedIndex: widget.selectedSection.drawerIndex,
           onDestinationSelected: (index) {
-            onSectionSelected(_sectionFromDrawerIndex(index));
+            widget.onSectionSelected(_sectionFromDrawerIndex(index));
           },
           children: [
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: FilledButton.icon(
-                onPressed: onCreateThreadRequested,
+                onPressed: widget.onCreateThreadRequested,
                 icon: const Icon(Icons.add_comment_rounded),
                 label: Text(l10n.newThread),
               ),
@@ -2719,7 +2749,7 @@ class _NavigationPane extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Text(l10n.threads, style: theme.textTheme.titleMedium),
             ),
-            if (sessions.isEmpty)
+            if (widget.sessions.isEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Text(
@@ -2734,19 +2764,19 @@ class _NavigationPane extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: sessions
+                  children: widget.sessions
                       .map(
                         (session) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _ThreadTile(
                             session: session,
                             sendPhase:
-                                sessionSendPhases[session.id] ??
+                                widget.sessionSendPhases[session.id] ??
                                 AiSendPhase.idle,
-                            isSelected: currentSessionId == session.id,
-                            onTap: () => onSessionSelected(session.id),
-                            onRename: () => onRenameSession(session),
-                            onDelete: () => onDeleteSession(session),
+                            isSelected: widget.currentSessionId == session.id,
+                            onTap: () => widget.onSessionSelected(session.id),
+                            onRename: () => widget.onRenameSession(session),
+                            onDelete: () => widget.onDeleteSession(session),
                           ),
                         ),
                       )
@@ -3499,7 +3529,7 @@ class _TranscriptPlaceholderLine extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: _borderRadius999,
         ),
         child: const SizedBox(height: 12),
       ),
@@ -3878,6 +3908,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               controller: widget.controller,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: false,
+              cacheExtent: 600,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               itemCount: listItemCount,
               itemBuilder: (context, index) {
                 if (hiddenLoadMoreCount > 0 && index == 0) {
@@ -4020,14 +4056,18 @@ class _TranscriptAnimatedMessageEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = exiting
-        ? _transcriptMessageDeleteAnimationDuration
-        : Duration.zero;
+    // Fast path: skip all animation wrappers for the common non-exiting case.
+    if (!exiting) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: bottomSpacing),
+        child: child,
+      );
+    }
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 1, end: exiting ? 0 : 1),
-      duration: duration,
+      tween: Tween<double>(begin: 1, end: 0),
+      duration: _transcriptMessageDeleteAnimationDuration,
       curve: Curves.easeInOutCubic,
-      onEnd: exiting ? onExitCompleted : null,
+      onEnd: onExitCompleted,
       builder: (context, value, child) {
         final clampedValue = value.clamp(0.0, 1.0);
         final exitProgress = 1 - clampedValue;
@@ -4456,7 +4496,7 @@ class _ToolbarPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4480,10 +4520,10 @@ class _ToolbarPill extends StatelessWidget {
     }
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: _borderRadius999,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
         overlayColor: WidgetStatePropertyAll(
           theme.colorScheme.primary.withValues(alpha: 0.08),
         ),
@@ -4589,7 +4629,7 @@ class _SessionPlanTimelineBar extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -4713,16 +4753,16 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: _borderRadius999,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
         overlayColor: WidgetStatePropertyAll(color.withValues(alpha: 0.08)),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: _borderRadius999,
             border: Border.all(color: color.withValues(alpha: 0.20)),
           ),
           child: Row(
@@ -4811,7 +4851,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
           height: 20,
           decoration: BoxDecoration(
             color: accentColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: _borderRadius999,
           ),
           alignment: Alignment.center,
           child: marker,
@@ -4878,7 +4918,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
               height: 2,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.28),
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: _borderRadius999,
               ),
             ),
           ),
@@ -6512,7 +6552,7 @@ class _MetadataSummaryTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -6580,7 +6620,7 @@ class _MetadataChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
       ),
       child: Text(
         label,
@@ -6689,7 +6729,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: _borderRadius999,
                 ),
                 child: Text(
                   _sessionPlanStatusLabel(context, planRecord.status),
@@ -6925,7 +6965,7 @@ class _MetadataJsonPanel extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF17181C),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
       ),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
@@ -6983,13 +7023,39 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
 
+  // Cached expensive objects to avoid re-allocation on every build.
+  List<md.InlineSyntax>? _cachedInlineSyntaxes;
+  Map<String, MarkdownElementBuilder>? _cachedBuilders;
+  _MessageMarkdownThemeData? _cachedMarkdownThemeData;
+  String? _cachedFilePathParseKey;
+  List<String>? _cachedFilePathRoots;
+  String? _lastCacheMessageId;
+  String? _lastCacheEnvironmentKey;
+  int? _lastCacheThemeBrightness;
+  bool? _lastCacheIsSelected;
+  bool? _lastCacheDarkCodeSurface;
+
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.message.id != widget.message.id) {
       _compressionExpanded = false;
       _reasoningExpandedOverride = null;
+      _invalidateCache();
     }
+  }
+
+  void _invalidateCache() {
+    _cachedInlineSyntaxes = null;
+    _cachedBuilders = null;
+    _cachedMarkdownThemeData = null;
+    _cachedFilePathParseKey = null;
+    _cachedFilePathRoots = null;
+    _lastCacheMessageId = null;
+    _lastCacheEnvironmentKey = null;
+    _lastCacheThemeBrightness = null;
+    _lastCacheIsSelected = null;
+    _lastCacheDarkCodeSurface = null;
   }
 
   @override
@@ -7042,37 +7108,58 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : isToolCall
         ? colorScheme.onSecondaryContainer
         : colorScheme.onSurface;
-    final markdownStyleSheet = _MessageMarkdownThemeData.fromMessageBubble(
-      theme: theme,
-      backgroundColor: backgroundColor,
-      textColor: textColor,
-      useDarkCodeSurface: isReasoning || isToolCall,
-    );
-    final filePathRoots = messageFilePathRoots(
-      widget.sessionEnvironment,
-      workingDirectory: _toolExecutionWorkingDirectory(message),
-    );
-    final filePathParseKey = filePathRoots.join('|');
-    final markdownBuilders = <String, MarkdownElementBuilder>{
-      'pre': _HighlightedCodeBlockBuilder(
+    final useDarkCodeSurface = isReasoning || isToolCall;
+    final environmentKey =
+        '${widget.sessionEnvironment.applicationDirectory}|${_toolExecutionWorkingDirectory(message)}';
+    final themeBrightness = theme.brightness.index;
+    final needsCacheRefresh = _lastCacheMessageId != message.id ||
+        _lastCacheEnvironmentKey != environmentKey ||
+        _lastCacheThemeBrightness != themeBrightness ||
+        _lastCacheIsSelected != widget.isSelected ||
+        _lastCacheDarkCodeSurface != useDarkCodeSurface;
+    if (needsCacheRefresh) {
+      _lastCacheMessageId = message.id;
+      _lastCacheEnvironmentKey = environmentKey;
+      _lastCacheThemeBrightness = themeBrightness;
+      _lastCacheIsSelected = widget.isSelected;
+      _lastCacheDarkCodeSurface = useDarkCodeSurface;
+      _cachedMarkdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
         theme: theme,
-        baseColor: textColor,
-        darkSurface: isReasoning || isToolCall,
-        selectable: widget.isSelected,
-      ),
-      'openhand-file-resolved': _FilePathMarkdownBuilder(
+        backgroundColor: backgroundColor,
         textColor: textColor,
-        onOpenPath: _openResolvedMessagePath,
-      ),
-      'openhand-file-pending': _FilePathMarkdownBuilder(
-        textColor: textColor,
-        onOpenPath: _openResolvedMessagePath,
-      ),
-    };
-    final inlineSyntaxes = <md.InlineSyntax>[
-      MessagePathCodeSyntax(candidateRoots: filePathRoots),
-      MessageFilePathSyntax(candidateRoots: filePathRoots),
-    ];
+        useDarkCodeSurface: useDarkCodeSurface,
+      );
+      _cachedFilePathRoots = messageFilePathRoots(
+        widget.sessionEnvironment,
+        workingDirectory: _toolExecutionWorkingDirectory(message),
+      );
+      _cachedFilePathParseKey = _cachedFilePathRoots!.join('|');
+      _cachedBuilders = <String, MarkdownElementBuilder>{
+        'pre': _HighlightedCodeBlockBuilder(
+          theme: theme,
+          baseColor: textColor,
+          darkSurface: useDarkCodeSurface,
+          selectable: widget.isSelected,
+        ),
+        'openhand-file-resolved': _FilePathMarkdownBuilder(
+          textColor: textColor,
+          onOpenPath: _openResolvedMessagePath,
+        ),
+        'openhand-file-pending': _FilePathMarkdownBuilder(
+          textColor: textColor,
+          onOpenPath: _openResolvedMessagePath,
+        ),
+      };
+      _cachedInlineSyntaxes = <md.InlineSyntax>[
+        MessagePathCodeSyntax(candidateRoots: _cachedFilePathRoots!),
+        MessageFilePathSyntax(candidateRoots: _cachedFilePathRoots!),
+      ];
+    }
+    final markdownStyleSheet = _cachedMarkdownThemeData!;
+    final filePathRoots = _cachedFilePathRoots!;
+    final filePathParseKey = _cachedFilePathParseKey!;
+    final markdownBuilders = _cachedBuilders!;
+    final inlineSyntaxes = _cachedInlineSyntaxes!;
 
     final bubbleBody = Column(
       crossAxisAlignment: isUser
@@ -7085,7 +7172,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
             borderRadius: borderRadius,
             border: isToolCall
                 ? Border.all(color: colorScheme.secondary, width: 1.2)
-                : null,
+                : widget.isSelected
+                ? Border.all(
+                    color: colorScheme.primary.withValues(alpha: 0.38),
+                    width: 1.5,
+                  )
+                : Border.all(
+                    color: colorScheme.outlineVariant.withValues(
+                      alpha: theme.brightness == Brightness.dark ? 0.18 : 0.10,
+                    ),
+                  ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.shadow.withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.06 : 0.04,
+                ),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -7408,7 +7513,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onToggle,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -7884,7 +7989,7 @@ class _MessageMarkdownThemeData {
         ),
         blockquoteDecoration: BoxDecoration(
           color: quoteSurface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: _borderRadius18,
           border: Border(left: BorderSide(color: accentColor, width: 3)),
         ),
         codeblockPadding: const EdgeInsets.all(12),
@@ -8043,11 +8148,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return keys.join('|');
   }
 
+  static final RegExp _setextEscapePattern =
+      RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
+
   String _sanitizeMarkdownSource(String source) {
     return _closeUnterminatedFencedCodeBlock(
       source.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
     ).replaceAllMapped(
-      RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)'),
+      _setextEscapePattern,
       (match) => '${match[1]}${match[2]}\\${match[3]}',
     );
   }
@@ -8101,9 +8209,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return recognizer;
   }
 
+  static final RegExp _trailingNewlinePattern = RegExp(r'\n$');
+
   @override
   TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
-    final normalizedCode = code.replaceAll(RegExp(r'\n$'), '');
+    final normalizedCode = code.replaceAll(_trailingNewlinePattern, '');
     final resolvedPath = resolveExistingMessagePath(
       normalizedCode,
       widget.pathRoots,
@@ -8381,10 +8491,10 @@ class _ExpandableToolSection extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: InkWell(
         onTap: onToggle,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -8455,6 +8565,8 @@ class _ToolOutputPanel extends StatefulWidget {
 class _ToolOutputPanelState extends State<_ToolOutputPanel> {
   bool _isExpanded = false;
   bool _isWrapped = false;
+  List<String>? _cachedLines;
+  String? _cachedLinesKey;
 
   void _toggleExpanded() {
     setState(() {
@@ -8470,7 +8582,12 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final lines = const LineSplitter().convert(widget.content.text);
+    // Cache line splitting to avoid re-splitting large tool output on every build.
+    if (_cachedLinesKey != widget.content.text) {
+      _cachedLinesKey = widget.content.text;
+      _cachedLines = const LineSplitter().convert(widget.content.text);
+    }
+    final lines = _cachedLines!;
     final bool isLong = widget.content.text.length > 800 || lines.length > 15;
 
     final displayContent = isLong && !_isExpanded
@@ -8592,7 +8709,7 @@ class _ToolExecutionChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -8843,7 +8960,7 @@ bool _shouldDefaultExpandReasoning(AiSessionMessage message) {
 }
 
 bool _shouldDefaultExpandToolStatus(String status) {
-  return status.isEmpty || status == 'running';
+  return status.isEmpty;
 }
 
 int _reasoningElapsedMs(AiSessionMessage message) {
@@ -9714,7 +9831,7 @@ class _FilePathChip extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: _borderRadius999,
           onTap: isUnresolved ? null : onOpenPath,
           child: Ink(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -9722,7 +9839,7 @@ class _FilePathChip extends StatelessWidget {
               color: isUnresolved
                   ? chipColor.withValues(alpha: 0.3)
                   : chipColor,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: _borderRadius999,
               border: Border.all(color: borderColor),
             ),
             child: Row(
@@ -10099,7 +10216,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: _borderRadius999,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -10973,9 +11090,9 @@ class _ThreadTile extends StatelessWidget {
       },
       child: Material(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: _borderRadius18,
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -11272,7 +11389,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: _borderRadius999,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: pillContent,
@@ -11281,7 +11398,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
         overlayColor: WidgetStatePropertyAll(
           Colors.white.withValues(alpha: 0.03),
         ),
@@ -11326,7 +11443,7 @@ class _ToolCallMetaRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
       ),
       child: row,
     );
@@ -11479,17 +11596,19 @@ class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
   ) {
     final codeElement = _findCodeElement(element);
     final rawCode = (codeElement?.textContent ?? element.textContent)
-        .replaceFirst(RegExp(r'\n$'), '');
+        .replaceFirst(_trailingNewlineCodeBlockPattern, '');
     final language = _extractCodeLanguage(codeElement);
     final content = rawCode.isEmpty ? ' ' : rawCode;
-    return _HighlightedCodePanel(
-      content: content,
-      theme: _theme,
-      language: language,
-      selectable: _selectable,
-      baseColor: _baseColor,
-      forceDarkSurface: _darkSurface,
-      allowAutoDetection: true,
+    return RepaintBoundary(
+      child: _HighlightedCodePanel(
+        content: content,
+        theme: _theme,
+        language: language,
+        selectable: _selectable,
+        baseColor: _baseColor,
+        forceDarkSurface: _darkSurface,
+        allowAutoDetection: true,
+      ),
     );
   }
 
@@ -11535,6 +11654,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   int? _highlightSignature;
   bool _copied = false;
   Timer? _copiedResetTimer;
+  _CodeBlockPalette? _cachedPalette;
+  int? _cachedPaletteSignature;
 
   @override
   void didChangeDependencies() {
@@ -11579,11 +11700,21 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     final effectiveLanguage = _normalizeCodeLanguage(widget.language);
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
-    final palette = _CodeBlockPalette.fromTheme(
-      widget.theme,
-      useDarkPalette: useDarkPalette,
-      accentColor: widget.accentColor,
-    );
+    final paletteSignature = Object.hashAll(<Object?>[
+      widget.theme.colorScheme.primary.toARGB32(),
+      widget.theme.brightness.index,
+      useDarkPalette,
+      widget.accentColor?.toARGB32(),
+    ]);
+    if (_cachedPalette == null || _cachedPaletteSignature != paletteSignature) {
+      _cachedPalette = _CodeBlockPalette.fromTheme(
+        widget.theme,
+        useDarkPalette: useDarkPalette,
+        accentColor: widget.accentColor,
+      );
+      _cachedPaletteSignature = paletteSignature;
+    }
+    final palette = _cachedPalette!;
     final copyLabel = _localizedText(
       context,
       zh: _copied ? '已复制' : '复制',
@@ -11593,7 +11724,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: palette.containerColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _borderRadius18,
         border: Border.all(color: palette.borderColor),
         boxShadow: [
           BoxShadow(
@@ -11741,7 +11872,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     final decoration = BoxDecoration(
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: _borderRadius999,
     );
     if (onTap == null) {
       return DecoratedBox(decoration: decoration, child: child);
@@ -11750,7 +11881,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
         child: Ink(decoration: decoration, child: child),
       ),
     );
@@ -11824,6 +11955,10 @@ class _CodeBlockPalette {
     required this.shadowColor,
   });
 
+  // Static cache for the expensive ColorScheme.fromSeed dark palette.
+  static ColorScheme? _cachedDarkScheme;
+  static int? _cachedDarkSchemeTintValue;
+
   factory _CodeBlockPalette.fromTheme(
     ThemeData theme, {
     required bool useDarkPalette,
@@ -11834,12 +11969,22 @@ class _CodeBlockPalette {
     if (useDarkPalette) {
       final darkScheme = theme.brightness == Brightness.dark
           ? colorScheme
-          : ColorScheme.fromSeed(
-              seedColor: tint,
-              brightness: Brightness.dark,
-              dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-              contrastLevel: 0.0,
-            );
+          : () {
+              final tintValue = tint.toARGB32();
+              if (_cachedDarkScheme != null &&
+                  _cachedDarkSchemeTintValue == tintValue) {
+                return _cachedDarkScheme!;
+              }
+              final scheme = ColorScheme.fromSeed(
+                seedColor: tint,
+                brightness: Brightness.dark,
+                dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+                contrastLevel: 0.0,
+              );
+              _cachedDarkScheme = scheme;
+              _cachedDarkSchemeTintValue = tintValue;
+              return scheme;
+            }();
       return _CodeBlockPalette(
         containerColor: Color.alphaBlend(
           tint.withValues(alpha: 0.05),
@@ -11912,8 +12057,11 @@ class _CodeBlockPalette {
   final Color shadowColor;
 }
 
+final RegExp _markdownCodeFencePattern =
+    RegExp(r'(^|\n)[ ]{0,3}(`{3,}|~{3,})');
+
 bool _containsMarkdownCodeFence(String source) {
-  return RegExp(r'(^|\n)[ ]{0,3}(`{3,}|~{3,})').hasMatch(source);
+  return _markdownCodeFencePattern.hasMatch(source);
 }
 
 bool _canRenderMarkdownAsPlainText(String source) {
@@ -11930,8 +12078,11 @@ bool _canRenderMarkdownAsPlainText(String source) {
   return !_markdownStructuralPattern.hasMatch(normalized);
 }
 
+final RegExp _fencedCodeBlockPattern =
+    RegExp(r'^[ ]{0,3}((`{3,}|~{3,}))[^\n]*$');
+
 String _closeUnterminatedFencedCodeBlock(String source) {
-  final fencePattern = RegExp(r'^[ ]{0,3}((`{3,}|~{3,}))[^\n]*$');
+  final fencePattern = _fencedCodeBlockPattern;
   String? openFence;
   String? openFenceMarker;
   for (final line in const LineSplitter().convert(source)) {
@@ -11959,14 +12110,74 @@ String _closeUnterminatedFencedCodeBlock(String source) {
 }
 
 class _CodeSyntaxHighlighter {
-  const _CodeSyntaxHighlighter({
+  _CodeSyntaxHighlighter({
     required TextStyle baseStyle,
     required bool darkSurface,
-  }) : _baseStyle = baseStyle,
-       _darkSurface = darkSurface;
+  }) : _baseStyle = baseStyle {
+    // Pre-compute all token styles once per highlighter instance.
+    _commentStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B7C68),
+      fontStyle: FontStyle.italic,
+    );
+    _keywordStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFFB42367),
+      fontWeight: FontWeight.w700,
+    );
+    _stringStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
+    );
+    _numberStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+    );
+    _titleStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF0F766E),
+      fontWeight: FontWeight.w700,
+    );
+    _typeStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
+      fontWeight: FontWeight.w600,
+    );
+    _metaStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+    );
+    _operatorStyle = baseStyle.copyWith(
+      color: darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+    );
+  }
 
   final TextStyle _baseStyle;
-  final bool _darkSurface;
+
+  // Pre-computed styles — avoids hundreds of copyWith() calls per code block.
+  late final TextStyle _commentStyle;
+  late final TextStyle _keywordStyle;
+  late final TextStyle _stringStyle;
+  late final TextStyle _numberStyle;
+  late final TextStyle _titleStyle;
+  late final TextStyle _typeStyle;
+  late final TextStyle _metaStyle;
+  late final TextStyle _operatorStyle;
+
+  // Class-name → style fast lookup.
+  static const Set<String> _commentClasses = {'comment', 'quote'};
+  static const Set<String> _keywordClasses = {
+    'keyword', 'selector-tag', 'meta-keyword', 'doctag',
+  };
+  static const Set<String> _stringClasses = {
+    'string', 'regexp', 'attribute', 'template-variable',
+  };
+  static const Set<String> _numberClasses = {
+    'number', 'literal', 'symbol', 'bullet',
+  };
+  static const Set<String> _titleClasses = {
+    'title', 'function', 'section', 'title.function_', 'title.class_',
+  };
+  static const Set<String> _typeClasses = {
+    'type', 'built_in', 'class', 'params', 'variable',
+    'selector-id', 'selector-class', 'selector-attr', 'selector-pseudo',
+    'property',
+  };
+  static const Set<String> _metaClasses = {'meta', 'attr', 'tag', 'name'};
+  static const Set<String> _operatorClasses = {'operator', 'punctuation'};
 
   TextSpan build(
     String source, {
@@ -12029,92 +12240,17 @@ class _CodeSyntaxHighlighter {
 
   TextStyle _styleForClass(String? className) {
     final classes = (className ?? '').split(' ');
-    var style = _baseStyle;
-    if (classes.any((item) => item == 'comment' || item == 'quote')) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B7C68),
-        fontStyle: FontStyle.italic,
-      );
+    for (final cls in classes) {
+      if (_commentClasses.contains(cls)) return _commentStyle;
+      if (_keywordClasses.contains(cls)) return _keywordStyle;
+      if (_stringClasses.contains(cls)) return _stringStyle;
+      if (_numberClasses.contains(cls)) return _numberStyle;
+      if (_titleClasses.contains(cls)) return _titleStyle;
+      if (_typeClasses.contains(cls)) return _typeStyle;
+      if (_metaClasses.contains(cls)) return _metaStyle;
+      if (_operatorClasses.contains(cls)) return _operatorStyle;
     }
-    if (classes.any(
-      (item) =>
-          item == 'keyword' ||
-          item == 'selector-tag' ||
-          item == 'meta-keyword' ||
-          item == 'doctag',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFFB42367),
-        fontWeight: FontWeight.w700,
-      );
-    }
-    if (classes.any(
-      (item) =>
-          item == 'string' ||
-          item == 'regexp' ||
-          item == 'attribute' ||
-          item == 'template-variable',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
-      );
-    }
-    if (classes.any(
-      (item) =>
-          item == 'number' ||
-          item == 'literal' ||
-          item == 'symbol' ||
-          item == 'bullet',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
-      );
-    }
-    if (classes.any(
-      (item) =>
-          item == 'title' ||
-          item == 'function' ||
-          item == 'section' ||
-          item == 'title.function_' ||
-          item == 'title.class_',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF0F766E),
-        fontWeight: FontWeight.w700,
-      );
-    }
-    if (classes.any(
-      (item) =>
-          item == 'type' ||
-          item == 'built_in' ||
-          item == 'class' ||
-          item == 'params' ||
-          item == 'variable' ||
-          item == 'selector-id' ||
-          item == 'selector-class' ||
-          item == 'selector-attr' ||
-          item == 'selector-pseudo' ||
-          item == 'property',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
-        fontWeight: FontWeight.w600,
-      );
-    }
-    if (classes.any(
-      (item) =>
-          item == 'meta' || item == 'attr' || item == 'tag' || item == 'name',
-    )) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
-      );
-    }
-    if (classes.any((item) => item == 'operator' || item == 'punctuation')) {
-      return style.copyWith(
-        color: _darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
-      );
-    }
-    return style;
+    return _baseStyle;
   }
 }
 
@@ -12190,7 +12326,7 @@ class _TokenDialState extends State<_TokenDial> {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: _borderRadius999,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.55),
         ),
@@ -12316,7 +12452,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                   height: 52,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: _borderRadius18,
                   ),
                   alignment: Alignment.center,
                   child: Icon(
