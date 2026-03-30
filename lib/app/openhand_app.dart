@@ -69,6 +69,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
   final Map<PhysicalKeyboardKey, LogicalKeyboardKey>
   _trackedRawLogicalKeysByPhysicalKey =
       <PhysicalKeyboardKey, LogicalKeyboardKey>{};
+  final Set<int> _stashedKeyDataPhysicalIds = <int>{};
 
   @override
   void initState() {
@@ -99,6 +100,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
           ServicesBinding.instance.keyEventManager.handleRawKeyMessage,
     );
     _trackedRawLogicalKeysByPhysicalKey.clear();
+    _stashedKeyDataPhysicalIds.clear();
   }
 
   bool _handleKeyDataSafely(ui.KeyData data) {
@@ -107,16 +109,22 @@ class _OpenHandAppState extends State<OpenHandApp> {
         PhysicalKeyboardKey(data.physical);
     final hardwareKeyboard = HardwareKeyboard.instance;
     final isPressed = hardwareKeyboard.physicalKeysPressed.contains(
-      physicalKey,
-    );
+          physicalKey,
+        ) ||
+        _stashedKeyDataPhysicalIds.contains(data.physical);
 
-    if (data.type == ui.KeyEventType.up && !isPressed) {
-      _scheduleKeyboardStateResync('orphan_key_up');
-      return false;
-    }
-    if (data.type == ui.KeyEventType.down && isPressed) {
-      _scheduleKeyboardStateResync('duplicate_key_down');
-      return false;
+    if (data.type == ui.KeyEventType.up) {
+      _stashedKeyDataPhysicalIds.remove(data.physical);
+      if (!isPressed) {
+        _scheduleKeyboardStateResync('orphan_key_up');
+        return false;
+      }
+    } else if (data.type == ui.KeyEventType.down) {
+      if (isPressed) {
+        _scheduleKeyboardStateResync('duplicate_key_down');
+        return false;
+      }
+      _stashedKeyDataPhysicalIds.add(data.physical);
     }
     return _forwardKeyData(data);
   }
@@ -225,6 +233,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
         );
       } finally {
         _trackedRawLogicalKeysByPhysicalKey.clear();
+        _stashedKeyDataPhysicalIds.clear();
         _keyboardStateSyncQueued = false;
       }
     }());
@@ -302,6 +311,10 @@ class _OpenHandAppState extends State<OpenHandApp> {
     required StackTrace stackTrace,
   }) {
     if (!kDebugMode) {
+      return;
+    }
+    final errorString = error.toString();
+    if (errorString.contains('is dispatched, but the state shows that the physical key is')) {
       return;
     }
     debugPrint('[OpenHand][Keyboard] guard_failure stage=$stage error=$error');

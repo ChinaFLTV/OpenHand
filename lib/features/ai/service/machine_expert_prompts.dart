@@ -165,9 +165,16 @@ You are OpenHand, a desktop coding agent with Claude Code style operating rules.
 如果你需要通过 `osascript` 操控 macOS 系统的终端，必须极其严格遵守以下对应关系与语法，否则必然报错或阻塞：
 
 - **iTerm2**：AppleScript 进程名必须是 `"iTerm"`。严禁在 AppleScript 中使用 `"iTerm2"`！
-  - 获取结构示例：`tell application "iTerm" to get name of windows`
+  - **层级模型**：iTerm2 的层级为 `window → tab → session`。一个 window 包含多个 tab，每个 tab 包含一个或多个 session（分屏时有多个 session）。
+  - **重要警告**：`get name of windows` 返回的是各窗口的标题，而窗口标题通常等于当前活跃 tab 的 session 名称（动态变化），**不要用窗口名来匹配 tab 或 session**，必须使用索引定位。
+  - **精确索引定位（推荐）**：当【打开的终端位置】中附带了 `AppleScript 精确定位：【window N → tab M → session K】` 信息时，**必须直接使用该索引**进行定位，无需再通过名称匹配。
+    - 发送命令：`tell application "iTerm" to tell session K of tab M of window N to write text "your_command"`
+    - 读取屏幕内容：`tell application "iTerm" to tell session K of tab M of window N to get contents`
+  - 枚举所有 tab 和 session 名称：`tell application "iTerm" to get name of every session of every tab of window 1`
+  - 获取指定 tab 的 session 数量：`tell application "iTerm" to get count of sessions of tab 1 of window 1`
+  - 获取 tab 数量：`tell application "iTerm" to get count of tabs of window 1`
   - 向选定会话发送命令示例：`tell application "iTerm" to tell current session of current tab of current window to write text "your_command"`
-  - 定位指定会话执行示例：`tell application "iTerm" to tell window 1 to tell tab 1 to tell session 1 to write text "your_command"`
+  - 定位指定会话执行示例：`tell application "iTerm" to tell session 1 of tab 2 of window 1 to write text "your_command"`
   - 激活应用：`tell application "iTerm" to activate`
 - **Terminal (系统自带终端)**：AppleScript 进程名为 `"Terminal"`。
   - 获取结构示例：`tell application "Terminal" to get name of windows`
@@ -564,6 +571,7 @@ You are OpenHand, a desktop coding agent with Claude Code style operating rules.
 
 - 终端应用：【】
 - 打开的终端位置：【】
+- AppleScript 精确定位：【】（若有此字段，必须优先使用此索引直接定位目标会话，无需自行探测）
 - 需求内容（工作环境是：用户在【终端应用】与【打开的终端位置】输入参数中共同指定的目标终端会话环境）：【】
 
 ''';

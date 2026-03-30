@@ -20,12 +20,24 @@ class MachineExpertDialogResult {
     required this.windowId,
     required this.tabId,
     required this.taskRequirement,
+    this.windowIndex,
+    this.tabIndex,
+    this.sessionIndex,
   });
 
   final String terminalApp;
   final String windowId;
   final String tabId;
   final String taskRequirement;
+
+  /// 1-based window index for precise AppleScript addressing.
+  final int? windowIndex;
+
+  /// 1-based tab index within the window.
+  final int? tabIndex;
+
+  /// 1-based session index within the tab.
+  final int? sessionIndex;
 
   String toPrompt() {
     var rawTerminal = terminalApp;
@@ -35,8 +47,26 @@ class MachineExpertDialogResult {
       rawTerminal = '$terminalApp (macOS 系统自带终端)';
     }
 
+    final positionParts = <String>[
+      '窗口：$windowId',
+      '会话：$tabId',
+    ];
+
+    // Append precise AppleScript addressing hint when indices are available.
+    String addressingHint = '';
+    if (windowIndex != null && tabIndex != null && sessionIndex != null) {
+      addressingHint =
+          '\n- AppleScript 精确定位：【window $windowIndex → tab $tabIndex → session $sessionIndex】';
+    } else if (windowIndex != null && tabIndex != null) {
+      addressingHint =
+          '\n- AppleScript 精确定位：【window $windowIndex → tab $tabIndex】';
+    } else if (windowIndex != null) {
+      addressingHint =
+          '\n- AppleScript 精确定位：【window $windowIndex】';
+    }
+
     return '''- 终端应用：【$rawTerminal】
-- 打开的终端位置：【窗口：$windowId，会话：$tabId】
+- 打开的终端位置：【${positionParts.join('，')}】$addressingHint
 - 需求内容（工作环境是：用户在【终端应用】与【打开的终端位置】输入参数中共同指定的目标终端会话环境）：【$taskRequirement】''';
   }
 }
@@ -54,6 +84,10 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
   List<String> _windows = [];
   List<String> _tabs = [];
+
+  /// Maps flat _tabs index → (1-based tabIndex, 1-based sessionIndex) for
+  /// iTerm2 precise addressing.  Populated only when the terminal is iTerm2.
+  List<(int tabIndex, int sessionIndex)> _tabSessionIndices = [];
 
   bool _isLoading = false;
   int _fetchSequence = 0;
@@ -157,6 +191,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       _windows = [];
       _selectedWindow = null;
       _tabs = [];
+      _tabSessionIndices = [];
       _selectedTab = null;
     });
 
@@ -210,6 +245,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     setState(() {
       _isLoading = true;
       _tabs = [];
+      _tabSessionIndices = [];
       _selectedTab = null;
     });
 
@@ -218,6 +254,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
   Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
     List<String> tabs = [];
+    List<(int, int)> indices = [];
     if (Platform.isMacOS && _selectedTerminal != null) {
       final appName = _selectedTerminal == 'iTerm2'
           ? 'iTerm'
@@ -227,9 +264,32 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       final winIdxStr = windowIndex > 0 ? windowIndex.toString() : '1';
 
       if (appName == 'iTerm') {
-        tabs = await _fetchMacOSAppleScript(
-          'try\ntell application "iTerm" to get name of every session of every tab of window $winIdxStr\nend try',
+        // iTerm2: enumerate each tab and its sessions individually so we
+        // preserve the precise (tab, session) indices.
+        final tabCountData = await _fetchMacOSAppleScript(
+          'try\ntell application "iTerm" to get count of tabs of window $winIdxStr\nend try',
         );
+        final tabCount = tabCountData.isNotEmpty
+            ? (int.tryParse(tabCountData.first.trim()) ?? 0)
+            : 0;
+        for (var t = 1; t <= tabCount; t++) {
+          final sessionNames = await _fetchMacOSAppleScript(
+            'try\ntell application "iTerm" to get name of every session of tab $t of window $winIdxStr\nend try',
+          );
+          if (sessionNames.isEmpty) {
+            // Tab exists but we couldn't get session names – use a placeholder.
+            tabs.add(
+              '${_loc(context, zh: '标签页', en: 'Tab')} $t / '
+              '${_loc(context, zh: '会话', en: 'Session')} 1',
+            );
+            indices.add((t, 1));
+          } else {
+            for (var s = 0; s < sessionNames.length; s++) {
+              tabs.add(sessionNames[s]);
+              indices.add((t, s + 1));
+            }
+          }
+        }
       } else if (appName == 'Terminal') {
         tabs = await _fetchMacOSAppleScript(
           'try\ntell application "Terminal" to get custom title of every tab of window $winIdxStr\nend try',
@@ -239,12 +299,19 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
             'try\ntell application "Terminal" to get name of every tab of window $winIdxStr\nend try',
           );
         }
+        // Terminal: each tab index maps 1:1.
+        for (var i = 0; i < tabs.length; i++) {
+          indices.add((i + 1, 1));
+        }
       }
 
       if (tabs.isEmpty) {
         tabs = await _fetchMacOSAppleScript(
           'try\ntell application "$appName" to get name of every tab of window "$escapedWindow"\nend try',
         );
+        for (var i = 0; i < tabs.length; i++) {
+          indices.add((i + 1, 1));
+        }
       }
 
       if (tabs.isEmpty) {
@@ -266,6 +333,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           mockCount,
           (index) => '${_loc(context, zh: '会话', en: 'Session')} ${index + 1}',
         );
+        for (var i = 0; i < mockCount; i++) {
+          indices.add((i + 1, 1));
+        }
       }
     }
 
@@ -291,6 +361,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
     setState(() {
       _tabs = tabs;
+      _tabSessionIndices = indices;
       _selectedTab = _tabs.firstOrNull;
       _isLoading = false;
     });
@@ -370,12 +441,26 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
     if (!mounted) return;
 
+    // Compute precise indices for AppleScript addressing.
+    final winIdx = (_windows.indexOf(_selectedWindow!) + 1);
+    int? tabIdx;
+    int? sessIdx;
+    final tabFlatIndex = _tabs.indexOf(_selectedTab!);
+    if (tabFlatIndex >= 0 && tabFlatIndex < _tabSessionIndices.length) {
+      final (t, s) = _tabSessionIndices[tabFlatIndex];
+      tabIdx = t;
+      sessIdx = s;
+    }
+
     Navigator.of(context).pop(
       MachineExpertDialogResult(
         terminalApp: _selectedTerminal!,
         windowId: _selectedWindow!,
         tabId: _selectedTab!,
         taskRequirement: _taskController.text.trim(),
+        windowIndex: winIdx > 0 ? winIdx : null,
+        tabIndex: tabIdx,
+        sessionIndex: sessIdx,
       ),
     );
   }
