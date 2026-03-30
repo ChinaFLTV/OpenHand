@@ -106,6 +106,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _pendingForcedScrollToBottom = false;
   bool _queuedForcedScrollToBottom = false;
   bool _scrollToBottomCallbackQueued = false;
+  bool _processingQueueInProgress = false;
   bool _pendingAnimatedScrollToBottom = false;
   bool _programmaticAutoFollowScrollInProgress = false;
   bool _userScrollInProgress = false;
@@ -113,6 +114,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _lastAutoScrollSignature;
   List<_ComposerAttachmentDraft> _pendingAttachments =
       const <_ComposerAttachmentDraft>[];
+  final Map<String, List<_QueuedMessage>> _queuedMessagesBySessionId =
+      <String, List<_QueuedMessage>>{};
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
       <String, _ComposerDraftState>{};
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
@@ -126,6 +129,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AppLifecycleState? _appLifecycleState;
   int _resumeAutoFollowSuppressionFrames = 0;
   bool _resumeAutoFollowSyncQueued = false;
+  final ValueNotifier<double> _navigationWidthNotifier = ValueNotifier<double>(
+    _desktopNavigationWidth,
+  );
 
   AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
     return sessionController.currentSession?.mode ?? _detachedComposerMode;
@@ -260,6 +266,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _composerFocusNode.dispose();
     _composerController.dispose();
     _messageScrollController.dispose();
+    _navigationWidthNotifier.dispose();
     super.dispose();
   }
 
@@ -277,6 +284,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = _observedSessionController;
     _syncComposerDraftForSession(sessionController?.currentSessionId);
     _syncTranscriptPreparation(sessionController?.currentSession);
+    _processMessageQueueIfNeeded(sessionController);
+  }
+
+  Future<void> _processMessageQueueIfNeeded(AiSessionController? sessionController) async {
+    if (sessionController == null || _submittingSessionId != null) return;
+    // Reentrancy guard: prevent overlapping async invocations caused by
+    // multiple rapid _handleSessionControllerChanged calls during the
+    // debounce window.
+    if (_processingQueueInProgress) return;
+    _processingQueueInProgress = true;
+    try {
+      // Add a small delay to debounce execution in case the AI phase is settling
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted || _submittingSessionId != null) return;
+
+      for (final session in sessionController.sessions) {
+        final sessionId = session.id;
+        final phase = _displaySendPhaseForSession(sessionController, sessionId);
+        if (phase == AiSendPhase.idle && _submittingSessionId != sessionId) {
+          final q = _queuedMessagesBySessionId[sessionId];
+          if (q != null && q.isNotEmpty) {
+            final nextMessage = q.removeAt(0);
+            if (q.isEmpty) {
+              _queuedMessagesBySessionId.remove(sessionId);
+            }
+            // Re-check guards after dequeue to avoid double-submit when
+            // another concurrent path has already started a submission.
+            if (_submittingSessionId != null) break;
+            final nextPhase =
+                _displaySendPhaseForSession(sessionController, sessionId);
+            if (nextPhase == AiSendPhase.idle) {
+              _submitTextToSession(
+                sessionId,
+                nextMessage.text,
+                nextMessage.attachments,
+              );
+            }
+            break; // Process one at a time across all sessions
+          }
+        }
+      }
+    } finally {
+      _processingQueueInProgress = false;
+    }
   }
 
   bool _shouldPrepareTranscript(AiSession? session) {
@@ -681,15 +732,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return KeyEventResult.ignored;
     }
     final sessionController = context.read<AiSessionController>();
-    final sendPhase = _effectiveSendPhase(sessionController);
-    if (_canStopCurrentSessionResponse(sessionController)) {
+    if (_canStopCurrentSessionResponse(sessionController) &&
+        _composerController.text.trim().isEmpty &&
+        _pendingAttachments.isEmpty) {
       unawaited(_stopResponding());
       return KeyEventResult.handled;
     }
-    if (sendPhase == AiSendPhase.idle) {
-      unawaited(_sendMessage());
-      return KeyEventResult.handled;
-    }
+    // Always delegate to _sendMessage() which handles both direct send
+    // (when idle) and queueing (when busy). Previously, the busy case
+    // would silently swallow the keypress without queueing.
+    unawaited(_sendMessage());
     return KeyEventResult.handled;
   }
 
@@ -1172,12 +1224,76 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
     }
-    final initialSession = sessionController.currentSession;
     final targetSessionId = sessionController.currentSessionId;
-    if (targetSessionId == null || _submittingSessionId == targetSessionId) {
+    if (targetSessionId == null) {
       return;
     }
-    final initialUserMessageCount = _visibleUserMessageCount(initialSession);
+    final isProcessing =
+        _displaySendPhaseForSession(sessionController, targetSessionId) !=
+        AiSendPhase.idle;
+    if (isProcessing) {
+      final queued = _QueuedMessage(
+        text: prompt,
+        attachments: pendingAttachments,
+      );
+      setState(() {
+        final q =
+            _queuedMessagesBySessionId[targetSessionId] ?? <_QueuedMessage>[];
+        q.add(queued);
+        _queuedMessagesBySessionId[targetSessionId] = q;
+        _replaceComposerText('');
+        _pendingAttachments = const <_ComposerAttachmentDraft>[];
+        if (!_composerCollapsed) {
+          _composerFocusNode.requestFocus();
+        }
+      });
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '消息已暂存，将在当前回答完成后自动发送。',
+              en: 'Message queued and will be sent automatically.',
+            ),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    _replaceComposerText('');
+    setState(() {
+      _pendingAttachments = const <_ComposerAttachmentDraft>[];
+    });
+
+    await _submitTextToSession(
+      targetSessionId,
+      prompt,
+      pendingAttachments,
+      runtimeContext,
+    );
+  }
+
+  Future<void> _submitTextToSession(
+    String targetSessionId,
+    String prompt,
+    List<_ComposerAttachmentDraft> pendingAttachments, [
+    AiSessionRuntimeContext? runtimeContext,
+  ]) async {
+    final sessionController = context.read<AiSessionController>();
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = settingsController.selectedAiModel;
+    if (selectedModel == null) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final initialSession = sessionController.sessions
+        .cast<AiSession?>()
+        .firstWhere((s) => s?.id == targetSessionId, orElse: () => null);
+    final initialUserMessageCount = initialSession != null
+        ? _visibleUserMessageCount(initialSession)
+        : 0;
     final editingMessageIdBeforeSend = sessionController.editingMessageId;
 
     _storeComposerDraftForSession(
@@ -1186,10 +1302,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       attachments: pendingAttachments,
     );
 
-    _replaceComposerText('');
     setState(() {
       _submittingSessionId = targetSessionId;
-      _pendingAttachments = const <_ComposerAttachmentDraft>[];
       _armAutoFollowToBottom();
     });
     _scheduleScrollToBottom(force: true, animated: false);
@@ -1208,7 +1322,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             .toList(growable: false),
         denyCommandRules: settingsController.aiDenyCommandRules,
         requireWriteCommandConfirmation:
-            sessionController.currentSession?.fullAccessPermission == true
+            sessionController.sessions
+                    .cast<AiSession?>()
+                    .firstWhere(
+                      (s) => s?.id == targetSessionId,
+                      orElse: () => null,
+                    )
+                    ?.fullAccessPermission ==
+                true
             ? false
             : settingsController.aiWriteCommandConfirmationEnabled,
         confirmWriteCommand: _confirmWriteCommand,
@@ -1291,6 +1412,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _submittingSessionId = null;
           }
         });
+        _processMessageQueueIfNeeded(sessionController);
       } else if (_submittingSessionId == targetSessionId) {
         _submittingSessionId = null;
       }
@@ -2243,15 +2365,40 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   );
                 }
 
-                return Row(
-                  children: [
-                    SizedBox(
-                      width: _desktopNavigationWidth,
-                      child: navigationPane,
-                    ),
-                    const SizedBox(width: _contentPaneGap),
-                    Expanded(child: contentPane),
-                  ],
+                return ValueListenableBuilder<double>(
+                  valueListenable: _navigationWidthNotifier,
+                  builder: (context, navWidth, _) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(width: navWidth, child: navigationPane),
+                        MouseRegion(
+                          cursor: SystemMouseCursors.resizeColumn,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onPanUpdate: (details) {
+                              var nextWidth = navWidth + details.delta.dx;
+                              final minWidth = 240.0;
+                              final maxWidth = constraints.maxWidth * 0.7;
+                              if (nextWidth < minWidth) {
+                                nextWidth = minWidth;
+                              } else if (nextWidth > maxWidth) {
+                                nextWidth = maxWidth;
+                              }
+                              if (nextWidth != navWidth) {
+                                _navigationWidthNotifier.value = nextWidth;
+                              }
+                            },
+                            child: const SizedBox(
+                              width: _contentPaneGap,
+                              height: double.infinity,
+                            ),
+                          ),
+                        ),
+                        Expanded(child: contentPane),
+                      ],
+                    );
+                  },
                 );
               },
             ),
@@ -2335,6 +2482,53 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSession?.fullAccessPermission ??
             _detachedFullAccessPermission,
         onToggleFullAccessPermission: _handleFullAccessPermissionToggle,
+        queuedMessages: currentSession != null
+            ? (_queuedMessagesBySessionId[currentSession.id] ?? const [])
+            : const [],
+        onRemoveQueuedMessage: (index) {
+          if (currentSession != null) {
+            setState(() {
+              final q = _queuedMessagesBySessionId[currentSession.id];
+              if (q != null && index >= 0 && index < q.length) {
+                q.removeAt(index);
+                if (q.isEmpty) {
+                  _queuedMessagesBySessionId.remove(currentSession.id);
+                }
+              }
+            });
+          }
+        },
+        onMoveQueuedMessage: (from, to) {
+          if (currentSession != null) {
+            setState(() {
+              final q = _queuedMessagesBySessionId[currentSession.id];
+              if (q != null &&
+                  from >= 0 &&
+                  from < q.length &&
+                  to >= 0 &&
+                  to < q.length &&
+                  from != to) {
+                final item = q.removeAt(from);
+                q.insert(to, item);
+              }
+            });
+          }
+        },
+        onEditQueuedMessage: (index, newText) {
+          if (currentSession != null) {
+            final trimmed = newText.trim();
+            if (trimmed.isEmpty) return;
+            setState(() {
+              final q = _queuedMessagesBySessionId[currentSession.id];
+              if (q != null && index >= 0 && index < q.length) {
+                q[index] = _QueuedMessage(
+                  text: trimmed,
+                  attachments: q[index].attachments,
+                );
+              }
+            });
+          }
+        },
         pendingAttachments: _pendingAttachments,
         attachmentsEnabled: _selectedModelSupportsAttachments(
           settingsController.selectedAiModel,
@@ -2370,6 +2564,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
 class _ComposerDraftState {
   const _ComposerDraftState({required this.text, required this.attachments});
+
+  final String text;
+  final List<_ComposerAttachmentDraft> attachments;
+}
+
+class _QueuedMessage {
+  const _QueuedMessage({required this.text, required this.attachments});
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
@@ -2861,6 +3062,10 @@ class _WorkspaceView extends StatelessWidget {
     required this.onDismissError,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
+    required this.queuedMessages,
+    required this.onRemoveQueuedMessage,
+    required this.onMoveQueuedMessage,
+    required this.onEditQueuedMessage,
   });
 
   final TextEditingController draftController;
@@ -2905,6 +3110,10 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
+  final List<_QueuedMessage> queuedMessages;
+  final ValueChanged<int> onRemoveQueuedMessage;
+  final void Function(int from, int to) onMoveQueuedMessage;
+  final void Function(int index, String newText) onEditQueuedMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2996,6 +3205,10 @@ class _WorkspaceView extends StatelessWidget {
                     onCancelEditing: onCancelEditing,
                     fullAccessPermission: fullAccessPermission,
                     onToggleFullAccessPermission: onToggleFullAccessPermission,
+                    queuedMessages: queuedMessages,
+                    onRemoveQueuedMessage: onRemoveQueuedMessage,
+                    onMoveQueuedMessage: onMoveQueuedMessage,
+                    onEditQueuedMessage: onEditQueuedMessage,
                   ),
                 ),
               ),
@@ -8202,7 +8415,7 @@ class _ExpandableToolSection extends StatelessWidget {
   }
 }
 
-class _ToolOutputPanel extends StatelessWidget {
+class _ToolOutputPanel extends StatefulWidget {
   const _ToolOutputPanel({
     required this.label,
     required this.content,
@@ -8217,106 +8430,34 @@ class _ToolOutputPanel extends StatelessWidget {
   final bool selectable;
   final bool isError;
 
-  void _showFullContentDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 800,
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
-            ),
-            child: Material(
-              color: theme.colorScheme.surface,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isError
-                              ? Icons.error_outline
-                              : Icons.terminal_outlined,
-                          color: isError
-                              ? theme.colorScheme.error
-                              : theme.colorScheme.onSurfaceVariant,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            label,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: isError
-                                  ? theme.colorScheme.error
-                                  : theme.colorScheme.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close),
-                          splashRadius: 24,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: _HighlightedCodePanel(
-                        content: content.text,
-                        theme: theme,
-                        language: content.language,
-                        selectable: true,
-                        baseColor: isError
-                            ? theme.colorScheme.onErrorContainer
-                            : theme.colorScheme.onSurface,
-                        accentColor: isError ? theme.colorScheme.error : null,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+  @override
+  State<_ToolOutputPanel> createState() => _ToolOutputPanelState();
+}
+
+class _ToolOutputPanelState extends State<_ToolOutputPanel> {
+  bool _isExpanded = false;
+  bool _isWrapped = false;
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  void _toggleWrapped() {
+    setState(() {
+      _isWrapped = !_isWrapped;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final lines = const LineSplitter().convert(content.text);
-    final bool isLong = content.text.length > 800 || lines.length > 15;
+    final lines = const LineSplitter().convert(widget.content.text);
+    final bool isLong = widget.content.text.length > 800 || lines.length > 15;
 
-    final displayContent = isLong
-        ? '${lines.take(15).join('\n')}${lines.length > 15 || content.text.length > 800 ? '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]' : ''}'
-        : content.text;
+    final displayContent = isLong && !_isExpanded
+        ? '${lines.take(15).join('\n')}${lines.length > 15 || widget.content.text.length > 800 ? '\n\n... [已折叠以优化显示体验，请点击“查看完整内容”]' : ''}'
+        : widget.content.text;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -8326,52 +8467,94 @@ class _ToolOutputPanel extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                label,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: isError
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.onSurfaceVariant,
+                widget.label,
+                style: widget.theme.textTheme.labelLarge?.copyWith(
+                  color: widget.isError
+                      ? widget.theme.colorScheme.error
+                      : widget.theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (isLong)
-              TextButton.icon(
-                onPressed: () => _showFullContentDialog(context),
-                icon: const Icon(Icons.open_in_full_rounded, size: 14),
-                label: Text(
-                  _localizedText(
-                    context,
-                    zh: '查看完整内容',
-                    en: 'View Full Content',
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton.icon(
+                  onPressed: _toggleWrapped,
+                  icon: Icon(
+                    _isWrapped
+                        ? Icons.wrap_text_rounded
+                        : Icons.segment_rounded,
+                    size: 14,
+                  ),
+                  label: Text(
+                    _localizedText(
+                      context,
+                      zh: _isWrapped ? '取消换行' : '自动换行',
+                      en: _isWrapped ? 'Unwrap' : 'Wrap Lines',
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 0,
+                    ),
+                    minimumSize: const Size(0, 28),
+                    foregroundColor: widget.theme.colorScheme.primary,
+                    textStyle: widget.theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 0,
+                if (isLong) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: _toggleExpanded,
+                    icon: Icon(
+                      _isExpanded
+                          ? Icons.close_fullscreen_rounded
+                          : Icons.open_in_full_rounded,
+                      size: 14,
+                    ),
+                    label: Text(
+                      _localizedText(
+                        context,
+                        zh: _isExpanded ? '查看压缩内容' : '查看完整内容',
+                        en: _isExpanded
+                            ? 'View Compressed Content'
+                            : 'View Full Content',
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 0,
+                      ),
+                      minimumSize: const Size(0, 28),
+                      foregroundColor: widget.theme.colorScheme.primary,
+                      textStyle: widget.theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                  minimumSize: const Size(0, 28),
-                  foregroundColor: theme.colorScheme.primary,
-                  textStyle: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
+                ],
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 8),
         _HighlightedCodePanel(
           content: displayContent,
-          theme: theme,
-          language: content.language,
-          selectable: selectable,
-          baseColor: isError
-              ? theme.colorScheme.onErrorContainer
-              : theme.colorScheme.onSurface,
-          accentColor: isError ? theme.colorScheme.error : null,
+          theme: widget.theme,
+          language: widget.content.language,
+          selectable: widget.selectable,
+          baseColor: widget.isError
+              ? widget.theme.colorScheme.onErrorContainer
+              : widget.theme.colorScheme.onSurface,
+          accentColor: widget.isError ? widget.theme.colorScheme.error : null,
+          wrapLines: _isWrapped,
         ),
       ],
     );
@@ -9808,6 +9991,10 @@ class _ComposerPanel extends StatefulWidget {
     required this.onToggleFullAccessPermission,
     required this.editingMessageId,
     required this.onCancelEditing,
+    required this.queuedMessages,
+    required this.onRemoveQueuedMessage,
+    required this.onMoveQueuedMessage,
+    required this.onEditQueuedMessage,
   });
 
   final AiSession? currentSession;
@@ -9836,6 +10023,10 @@ class _ComposerPanel extends StatefulWidget {
   final ValueChanged<bool> onToggleFullAccessPermission;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
+  final List<_QueuedMessage> queuedMessages;
+  final ValueChanged<int> onRemoveQueuedMessage;
+  final void Function(int from, int to) onMoveQueuedMessage;
+  final void Function(int index, String newText) onEditQueuedMessage;
 
   @override
   State<_ComposerPanel> createState() => _ComposerPanelState();
@@ -9922,6 +10113,164 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           const SizedBox(height: 10),
         ],
+        if (widget.queuedMessages.isNotEmpty) ...[
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.queuedMessages.length,
+            itemBuilder: (context, index) {
+              final msg = widget.queuedMessages[index];
+              final isFirst = index == 0;
+              final isLast = index == widget.queuedMessages.length - 1;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.hourglass_empty_rounded,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          msg.text.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                      ),
+                      if (msg.attachments.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.attach_file_rounded,
+                          size: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${msg.attachments.length}',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: isFirst
+                            ? null
+                            : () => widget.onMoveQueuedMessage(index, index - 1),
+                        icon: Icon(
+                          Icons.arrow_upward_rounded,
+                          size: 14,
+                          color: isFirst
+                              ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '上移',
+                          en: 'Move up',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: isLast
+                            ? null
+                            : () => widget.onMoveQueuedMessage(index, index + 1),
+                        icon: Icon(
+                          Icons.arrow_downward_rounded,
+                          size: 14,
+                          color: isLast
+                              ? Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '下移',
+                          en: 'Move down',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: () async {
+                          final edited = await _showEditQueuedMessageDialog(
+                            context,
+                            msg.text,
+                          );
+                          if (edited != null && edited.trim().isNotEmpty) {
+                            widget.onEditQueuedMessage(index, edited);
+                          }
+                        },
+                        icon: Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '编辑此等待消息',
+                          en: 'Edit this queued message',
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: () => widget.onRemoveQueuedMessage(index),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '删除此等待消息',
+                          en: 'Remove this queued message',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         if (widget.pendingAttachments.isNotEmpty) ...[
           Wrap(
             spacing: 8,
@@ -9960,108 +10309,117 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
     final actionRow = Row(
       children: [
-        MenuAnchor(
-          menuChildren: widget.availableModels
-              .map(
-                (model) => MenuItemButton(
-                  leadingIcon: Icon(
-                    model.id == widget.selectedModel?.id
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                  ),
-                  onPressed: () => widget.onModelSelected(model.id),
-                  child: Text(model.displayName),
-                ),
-              )
-              .toList(growable: false),
-          builder: (context, controller, child) {
-            return SizedBox(
-              height: 52,
-              child: OutlinedButton.icon(
-                onPressed: widget.availableModels.isEmpty
-                    ? null
-                    : () {
-                        if (controller.isOpen) {
-                          controller.close();
-                          return;
-                        }
-                        controller.open();
-                      },
-                icon: const Icon(Icons.hub_outlined),
-                label: Text(selectedModelLabel),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 10),
-        Tooltip(
-          message: widget.attachmentsEnabled
-              ? _localizedText(
-                  context,
-                  zh: '选择附件（最多 $aiMessageAttachmentLimit 个，支持图片、文本、代码、表格和 PDF）',
-                  en: 'Choose attachments (up to $aiMessageAttachmentLimit; images, text, code, spreadsheets, and PDF)',
-                )
-              : _localizedText(
-                  context,
-                  zh: '当前模型不支持附件',
-                  en: 'The selected model does not support attachments',
-                ),
-          child: SizedBox(
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: widget.attachmentsEnabled
-                  ? widget.onPickAttachments
-                  : null,
-              icon: const Icon(Icons.attach_file_rounded),
-              label: Text(
-                widget.pendingAttachments.isEmpty
-                    ? _localizedText(context, zh: '附件', en: 'Attach')
-                    : _localizedText(
-                        context,
-                        zh: '附件 ${widget.pendingAttachments.length}',
-                        en: 'Files ${widget.pendingAttachments.length}',
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                MenuAnchor(
+                  menuChildren: widget.availableModels
+                      .map(
+                        (model) => MenuItemButton(
+                          leadingIcon: Icon(
+                            model.id == widget.selectedModel?.id
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                          ),
+                          onPressed: () => widget.onModelSelected(model.id),
+                          child: Text(model.displayName),
+                        ),
+                      )
+                      .toList(growable: false),
+                  builder: (context, controller, child) {
+                    return SizedBox(
+                      height: 52,
+                      child: OutlinedButton.icon(
+                        onPressed: widget.availableModels.isEmpty
+                            ? null
+                            : () {
+                                if (controller.isOpen) {
+                                  controller.close();
+                                  return;
+                                }
+                                controller.open();
+                              },
+                        icon: const Icon(Icons.hub_outlined),
+                        label: Text(selectedModelLabel),
                       ),
-              ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 10),
+                Tooltip(
+                  message: widget.attachmentsEnabled
+                      ? _localizedText(
+                          context,
+                          zh: '选择附件（最多 $aiMessageAttachmentLimit 个，支持图片、文本、代码、表格和 PDF）',
+                          en: 'Choose attachments (up to $aiMessageAttachmentLimit; images, text, code, spreadsheets, and PDF)',
+                        )
+                      : _localizedText(
+                          context,
+                          zh: '当前模型不支持附件',
+                          en: 'The selected model does not support attachments',
+                        ),
+                  child: SizedBox(
+                    height: 52,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.attachmentsEnabled
+                          ? widget.onPickAttachments
+                          : null,
+                      icon: const Icon(Icons.attach_file_rounded),
+                      label: Text(
+                        widget.pendingAttachments.isEmpty
+                            ? _localizedText(context, zh: '附件', en: 'Attach')
+                            : _localizedText(
+                                context,
+                                zh: '附件 ${widget.pendingAttachments.length}',
+                                en: 'Files ${widget.pendingAttachments.length}',
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  height: 52,
+                  child: _ComposerFullAccessModeButton(
+                    fullAccess: widget.fullAccessPermission,
+                    enabled: true,
+                    onChanged: (bool value) {
+                      if (value != widget.fullAccessPermission) {
+                        widget.onToggleFullAccessPermission(value);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Tooltip(
+                  message: _composerModeTooltip(
+                    context,
+                    widget.sessionMode,
+                    runtimeStatus,
+                  ),
+                  child: SizedBox(
+                    height: 52,
+                    child: _ComposerModeButton(
+                      mode: widget.sessionMode,
+                      runtimeStatus: runtimeStatus,
+                      enabled: modeToggleEnabled,
+                      onPressed: () {
+                        widget.onSessionModeChanged(
+                          widget.sessionMode == AiSessionMode.plan
+                              ? AiSessionMode.chat
+                              : AiSessionMode.plan,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        SizedBox(
-          height: 52,
-          child: _ComposerFullAccessModeButton(
-            fullAccess: widget.fullAccessPermission,
-            enabled: true,
-            onChanged: (bool value) {
-              if (value != widget.fullAccessPermission) {
-                widget.onToggleFullAccessPermission(value);
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 10),
-        Tooltip(
-          message: _composerModeTooltip(
-            context,
-            widget.sessionMode,
-            runtimeStatus,
-          ),
-          child: SizedBox(
-            height: 52,
-            child: _ComposerModeButton(
-              mode: widget.sessionMode,
-              runtimeStatus: runtimeStatus,
-              enabled: modeToggleEnabled,
-              onPressed: () {
-                widget.onSessionModeChanged(
-                  widget.sessionMode == AiSessionMode.plan
-                      ? AiSessionMode.chat
-                      : AiSessionMode.plan,
-                );
-              },
-            ),
-          ),
-        ),
-        const Spacer(),
         Tooltip(
           message: _localizedText(
             context,
@@ -10123,33 +10481,48 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
         ),
         const SizedBox(width: 10),
-        SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: canStopSending
-                ? () {
-                    widget.onStop();
-                  }
-                : isBusy
-                ? null
-                : () {
-                    widget.onSend();
-                  },
-            icon: canStopSending
-                ? const Icon(Icons.stop_rounded)
-                : isCompressing || isSendingMessage
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.4),
-                  )
-                : Icon(
-                    isResponding
-                        ? Icons.stop_rounded
-                        : Icons.arrow_upward_rounded,
-                  ),
-            label: Text(sendButtonLabel),
-          ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: widget.controller,
+          builder: (context, textValue, _) {
+            final hasUserTextOrAttachments =
+                textValue.text.trim().isNotEmpty || widget.pendingAttachments.isNotEmpty;
+            final isQueueingAction = isBusy && hasUserTextOrAttachments;
+
+            return SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: isQueueingAction
+                    ? () => widget.onSend()
+                    : canStopSending && !hasUserTextOrAttachments
+                        ? () => widget.onStop()
+                        : isBusy
+                            ? null
+                            : () => widget.onSend(),
+                icon: isQueueingAction
+                    ? const Icon(Icons.queue_play_next_rounded)
+                    : canStopSending && !hasUserTextOrAttachments
+                        ? const Icon(Icons.stop_rounded)
+                        : isCompressing || isSendingMessage
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2.4),
+                              )
+                            : Icon(
+                                isResponding
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward_rounded,
+                              ),
+                label: Text(
+                  isQueueingAction
+                      ? _localizedText(context, zh: '提前发送', en: 'Queue Message')
+                      : canStopSending && !hasUserTextOrAttachments
+                          ? _localizedText(context, zh: '停止回答', en: 'Stop Responding')
+                          : sendButtonLabel,
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -11058,6 +11431,7 @@ class _HighlightedCodePanel extends StatefulWidget {
     this.forceDarkSurface = false,
     this.accentColor,
     this.allowAutoDetection = false,
+    this.wrapLines = false,
   });
 
   final String content;
@@ -11068,6 +11442,7 @@ class _HighlightedCodePanel extends StatefulWidget {
   final bool forceDarkSurface;
   final Color? accentColor;
   final bool allowAutoDetection;
+  final bool wrapLines;
 
   @override
   State<_HighlightedCodePanel> createState() => _HighlightedCodePanelState();
@@ -11192,14 +11567,24 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(14),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: widget.selectable
-                      ? SelectableText.rich(
-                          _highlightedSpan ?? const TextSpan(),
-                        )
-                      : RichText(text: _highlightedSpan ?? const TextSpan()),
-                ),
+                child: widget.wrapLines
+                    ? (widget.selectable
+                          ? SelectableText.rich(
+                              _highlightedSpan ?? const TextSpan(),
+                            )
+                          : RichText(
+                              text: _highlightedSpan ?? const TextSpan(),
+                            ))
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: widget.selectable
+                            ? SelectableText.rich(
+                                _highlightedSpan ?? const TextSpan(),
+                              )
+                            : RichText(
+                                text: _highlightedSpan ?? const TextSpan(),
+                              ),
+                      ),
               ),
             ),
           ),
@@ -11907,6 +12292,51 @@ String _localizedText(
 }) {
   final languageCode = Localizations.localeOf(context).languageCode;
   return languageCode.startsWith('zh') ? zh : en;
+}
+
+Future<String?> _showEditQueuedMessageDialog(
+  BuildContext context,
+  String currentText,
+) {
+  final controller = TextEditingController(text: currentText);
+  final languageCode = Localizations.localeOf(context).languageCode;
+  final isZh = languageCode.startsWith('zh');
+  return showDialog<String>(
+    context: context,
+    builder: (dialogContext) {
+      return AlertDialog(
+        title: Text(isZh ? '编辑等待消息' : 'Edit Queued Message'),
+        content: SizedBox(
+          width: 480,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 8,
+            minLines: 3,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              hintText: isZh ? '输入消息内容…' : 'Enter message…',
+            ),
+            onSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value);
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop(controller.text);
+            },
+            child: Text(isZh ? '保存' : 'Save'),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 String _localizedMetadataField(BuildContext context, String field) {
