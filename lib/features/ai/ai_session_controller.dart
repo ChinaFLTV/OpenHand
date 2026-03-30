@@ -31,7 +31,7 @@ import 'service/ai_tool_runtime_service.dart';
 typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
-enum AiSendPhase { idle, compressing, sendingMessage, responding }
+enum AiSendPhase { idle, compressing, sendingMessage, responding, awaitingApproval }
 
 class _CompressionWindowSelection {
   const _CompressionWindowSelection({
@@ -251,6 +251,8 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, Completer<void>> _sessionStopSignals =
       <String, Completer<void>>{};
   final Set<String> _deletedSessionIds = <String>{};
+  final Map<String, AiSendPhase> _approvalPreviousPhases =
+      <String, AiSendPhase>{};
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
   String? _currentSessionId;
   String? _editingMessageId;
@@ -320,6 +322,37 @@ class AiSessionController extends ChangeNotifier {
   bool canStopResponding(String? sessionId) {
     return sendPhaseForSession(sessionId) != AiSendPhase.idle;
   }
+
+  /// Temporarily transitions a session into [AiSendPhase.awaitingApproval].
+  ///
+  /// Call this when showing a write-command confirmation dialog so the sidebar
+  /// badge reflects the "waiting for approval" state.  The previous phase is
+  /// stored so [clearSessionAwaitingApproval] can restore it.
+  void setSessionAwaitingApproval(String sessionId) {
+    final current = _sessionSendPhases[sessionId];
+    if (current == AiSendPhase.awaitingApproval) {
+      return; // Already in the desired state.
+    }
+    _approvalPreviousPhases[sessionId] = current ?? AiSendPhase.responding;
+    _setSessionSendPhase(sessionId, AiSendPhase.awaitingApproval);
+    notifyListeners();
+  }
+
+  /// Restores the phase that was active before [setSessionAwaitingApproval].
+  void clearSessionAwaitingApproval(String sessionId) {
+    final previous = _approvalPreviousPhases.remove(sessionId);
+    if (_sessionSendPhases[sessionId] != AiSendPhase.awaitingApproval) {
+      return; // Phase was already changed by another code path.
+    }
+    if (previous != null && previous != AiSendPhase.idle) {
+      _setSessionSendPhase(sessionId, previous);
+    } else {
+      // Fallback: restore to responding since the session is still processing.
+      _setSessionSendPhase(sessionId, AiSendPhase.responding);
+    }
+    notifyListeners();
+  }
+
 
   AiSession? get currentSession {
     final currentSessionId = _currentSessionId;
@@ -391,6 +424,9 @@ class AiSessionController extends ChangeNotifier {
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
     _lastErrorMessagesBySession.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _approvalPreviousPhases.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
   }
@@ -1448,6 +1484,7 @@ class AiSessionController extends ChangeNotifier {
     _sessionCancelHandlers.clear();
     _sessionStopSignals.clear();
     _sessionSendPhases.clear();
+    _approvalPreviousPhases.clear();
     for (final cancelHandler in cancelHandlers) {
       unawaited(
         cancelHandler().catchError((Object _, StackTrace stackTrace) {}),
@@ -5932,6 +5969,7 @@ class AiSessionController extends ChangeNotifier {
   void _clearSessionExecutionState(String sessionId) {
     _debugSessionLog(sessionId, 'execution_state_cleared');
     _clearSessionSendPhase(sessionId);
+    _approvalPreviousPhases.remove(sessionId);
     _sessionCancelHandlers.remove(sessionId);
     _sessionStopSignals.remove(sessionId);
   }

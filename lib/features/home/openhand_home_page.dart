@@ -1332,7 +1332,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 true
             ? false
             : settingsController.aiWriteCommandConfirmationEnabled,
-        confirmWriteCommand: _confirmWriteCommand,
+        confirmWriteCommand: (request) =>
+            _confirmWriteCommand(request, sessionId: targetSessionId),
       );
       if (!mounted) {
         return;
@@ -1806,18 +1807,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return positions.last;
   }
 
-  Future<bool> _confirmWriteCommand(BashCommandApprovalRequest request) async {
+  Future<bool> _confirmWriteCommand(
+    BashCommandApprovalRequest request, {
+    String? sessionId,
+  }) async {
     final settingsController = context.read<SettingsController>();
     for (final rule in settingsController.aiAllowCommandRules) {
       if (rule.matches(request.command)) {
         return true;
       }
     }
-    final confirmed = await showWriteCommandConfirmationDialog(
-      context,
-      request: request,
-    );
-    return confirmed == true;
+    final sessionController = context.read<AiSessionController>();
+    // Use the explicitly provided sessionId so the correct session badge
+    // is updated even when the user has navigated to a different session.
+    final effectiveSessionId =
+        sessionId ?? sessionController.currentSessionId;
+    if (effectiveSessionId != null) {
+      sessionController.setSessionAwaitingApproval(effectiveSessionId);
+    }
+    try {
+      final confirmed = await showWriteCommandConfirmationDialog(
+        context,
+        request: request,
+      );
+      return confirmed == true;
+    } finally {
+      if (effectiveSessionId != null) {
+        sessionController.clearSessionAwaitingApproval(effectiveSessionId);
+      }
+    }
   }
 
   Future<void> _handleSlashCommand(OpenHandSlashCommand command) async {
@@ -10065,6 +10083,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               zh: '停止回答',
               en: 'Stop Response',
             ),
+            AiSendPhase.awaitingApproval => _localizedText(
+              context,
+              zh: '等待批准',
+              en: 'Awaiting Approval',
+            ),
             AiSendPhase.idle => l10n.composerSend,
           };
 
@@ -10997,12 +11020,19 @@ class _ActiveThreadBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final foregroundColor = isSelected
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.primary;
-    final backgroundColor = isSelected
-        ? colorScheme.onPrimaryContainer.withValues(alpha: 0.14)
-        : colorScheme.primary.withValues(alpha: 0.12);
+    final isApprovalPhase = sendPhase == AiSendPhase.awaitingApproval;
+    // Use an amber/warning palette for the approval state so it stands out
+    // from the regular "active" badge and draws the user's attention.
+    final foregroundColor = isApprovalPhase
+        ? const Color(0xFFE6A817)
+        : isSelected
+            ? colorScheme.onPrimaryContainer
+            : colorScheme.primary;
+    final backgroundColor = isApprovalPhase
+        ? const Color(0xFFE6A817).withValues(alpha: 0.14)
+        : isSelected
+            ? colorScheme.onPrimaryContainer.withValues(alpha: 0.14)
+            : colorScheme.primary.withValues(alpha: 0.12);
     final label = switch (sendPhase) {
       AiSendPhase.compressing => _localizedText(
         context,
@@ -11019,6 +11049,11 @@ class _ActiveThreadBadge extends StatelessWidget {
         zh: '进行中',
         en: 'Active',
       ),
+      AiSendPhase.awaitingApproval => _localizedText(
+        context,
+        zh: '等待批准',
+        en: 'Awaiting Approval',
+      ),
       AiSendPhase.idle => '',
     };
     return _SweepBadge(
@@ -11029,14 +11064,17 @@ class _ActiveThreadBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: foregroundColor,
-              shape: BoxShape.circle,
+          if (isApprovalPhase)
+            _PulsingDot(color: foregroundColor, size: 8)
+          else
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: foregroundColor,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
           const SizedBox(width: 8),
           Text(
             label,
@@ -11046,6 +11084,50 @@ class _ActiveThreadBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A small circle that pulses (fades in and out) to draw attention.
+class _PulsingDot extends StatefulWidget {
+  const _PulsingDot({required this.color, required this.size});
+
+  final Color color;
+  final double size;
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final opacity = 0.35 + _controller.value * 0.65;
+        return Opacity(opacity: opacity, child: child);
+      },
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          color: widget.color,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
