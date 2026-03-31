@@ -81,6 +81,18 @@ final RegExp _markdownStructuralPattern = RegExp(
 );
 final RegExp _trailingNewlineCodeBlockPattern = RegExp(r'\n$');
 
+// Pre-compiled RegExp patterns used in render-path utility functions.
+// Hoisted from inline allocations to avoid re-compilation per call.
+final RegExp _planTimelineStepPrefixPattern = RegExp(
+  r'^(?:[-*+•]\s+(?:\[[ xX]\]\s*)?|\d+[\.\):、]\s+|步骤\s*\d+\s*[:：.\-、)]\s+)',
+);
+final RegExp _toolLoopLimitPattern = RegExp(r'limit=(\d+)');
+final RegExp _xmlStartTagProbePattern = RegExp(r'^<[\w!?]');
+final RegExp _yamlKeyPrefixPattern = RegExp(r'^[\w./-]+:\s');
+final RegExp _tomlSectionPattern = RegExp(r'^\[[^\]]+\]$');
+final RegExp _tomlKeyValuePattern = RegExp(r'^[A-Za-z0-9_.-]+\s*=');
+final RegExp _tomlBareKeyPattern = RegExp(r'^[A-Za-z0-9_.-]+$');
+
 // Shared BorderRadius constants — avoid allocating new instances on every build.
 const BorderRadius _borderRadius18 =
     BorderRadius.all(Radius.circular(18));
@@ -2444,26 +2456,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final transcriptPreparing = _isPreparingTranscriptForSession(
       currentSession,
     );
-    final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
-      settingsController: settingsController,
-      skillsController: skillsController,
-      mcpController: mcpController,
-      appInfo: appInfo,
-    );
-    final liveRuntimeToolPreview =
-        currentSession == null || settingsController.selectedAiModel == null
-        ? null
-        : sessionController.previewRuntimeToolCatalog(
-            session: currentSession,
-            model: settingsController.selectedAiModel!,
-            runtimeContext: runtimeCatalogPreviewContext,
-            mcpToolCatalogsByServerName: <String, McpToolCatalog>{
-              for (final server in mcpController.servers)
-                server.name: mcpController.toolCatalogFor(server.name),
-            },
-          );
-    if (_selectedSection == AppSection.workspace && !transcriptPreparing) {
-      _maybeAutoFollowSession(currentSession);
+    // Defer runtime catalog preview work to the workspace section — these
+    // computations involve DateTime.now(), object allocation, and tool catalog
+    // resolution that are wasted when viewing other sections.
+    AiRuntimeToolPreview? liveRuntimeToolPreview;
+    if (_selectedSection == AppSection.workspace) {
+      final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
+        settingsController: settingsController,
+        skillsController: skillsController,
+        mcpController: mcpController,
+        appInfo: appInfo,
+      );
+      liveRuntimeToolPreview =
+          currentSession == null || settingsController.selectedAiModel == null
+          ? null
+          : sessionController.previewRuntimeToolCatalog(
+              session: currentSession,
+              model: settingsController.selectedAiModel!,
+              runtimeContext: runtimeCatalogPreviewContext,
+              mcpToolCatalogsByServerName: <String, McpToolCatalog>{
+                for (final server in mcpController.servers)
+                  server.name: mcpController.toolCatalogFor(server.name),
+              },
+            );
+      if (!transcriptPreparing) {
+        _maybeAutoFollowSession(currentSession);
+      }
     }
 
     return switch (_selectedSection) {
@@ -5381,10 +5399,7 @@ String? _structuredPlanTimelineStepLabel(String rawLine) {
   if (normalizedLine.isEmpty) {
     return null;
   }
-  final prefixPattern = RegExp(
-    r'^(?:[-*+•]\s+(?:\[[ xX]\]\s*)?|\d+[\.\):、]\s+|步骤\s*\d+\s*[:：.\-、)]\s+)',
-  );
-  final match = prefixPattern.firstMatch(normalizedLine);
+  final match = _planTimelineStepPrefixPattern.firstMatch(normalizedLine);
   if (match == null) {
     return null;
   }
@@ -6912,7 +6927,7 @@ _SessionErrorPresentation _presentSessionError(
 }
 
 int? _extractConfiguredToolLoopLimit(String detail) {
-  final match = RegExp(r'limit=(\d+)').firstMatch(detail);
+  final match = _toolLoopLimitPattern.firstMatch(detail);
   if (match == null) {
     return null;
   }
@@ -9185,7 +9200,7 @@ String? _tryFormatXmlContent(String content) {
 bool _looksLikeXmlContent(String content) {
   return content.startsWith('<') &&
       content.endsWith('>') &&
-      RegExp(r'^<[\w!?]').hasMatch(content);
+      _xmlStartTagProbePattern.hasMatch(content);
 }
 
 String? _tryFormatYamlContent(String content) {
@@ -9222,7 +9237,7 @@ bool _looksLikeYamlContent(String content) {
       structuredLineCount += 1;
       continue;
     }
-    if (line.startsWith('- ') || RegExp(r'^[\w./-]+:\s').hasMatch(line)) {
+    if (line.startsWith('- ') || _yamlKeyPrefixPattern.hasMatch(line)) {
       structuredLineCount += 1;
     }
   }
@@ -9241,8 +9256,8 @@ bool _looksLikeTomlContent(String content) {
   }
   return lines.every(
     (line) =>
-        RegExp(r'^\[[^\]]+\]$').hasMatch(line) ||
-        RegExp(r'^[A-Za-z0-9_.-]+\s*=').hasMatch(line),
+        _tomlSectionPattern.hasMatch(line) ||
+        _tomlKeyValuePattern.hasMatch(line),
   );
 }
 
@@ -9313,7 +9328,7 @@ bool _isYamlInlineValue(Object? value) {
 
 String _renderYamlKey(Object? value) {
   final key = '${value ?? ''}';
-  if (RegExp(r'^[A-Za-z0-9_.-]+$').hasMatch(key)) {
+  if (_tomlBareKeyPattern.hasMatch(key)) {
     return key;
   }
   return jsonEncode(key);

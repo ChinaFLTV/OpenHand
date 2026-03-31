@@ -81,10 +81,11 @@ String sanitizeVisibleDsmlContent(String value) {
   return sanitized
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .replaceAll(_excessiveNewlinePattern, '\n\n')
       .trim();
 }
 
+final RegExp _excessiveNewlinePattern = RegExp(r'\n{3,}');
 final RegExp _dsmlTagPrefixPattern = RegExp(
   r'<\s*(/?)\s*[|｜]\s*DSML\s*[|｜]\s*',
   caseSensitive: false,

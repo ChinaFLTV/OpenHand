@@ -61,7 +61,9 @@ Future<void> openDirectoryInFileManager(Directory directory) async {
     throw const FileSystemException('Unsupported platform.');
   }
 
-  if (result.exitCode != 0) {
+  // Windows explorer.exe always returns exit code 1 even on success,
+  // so skip the exit code check for it.
+  if (result.exitCode != 0 && !Platform.isWindows) {
     final message = '${result.stderr}'.trim();
     throw FileSystemException(
       message.isEmpty ? 'Unable to open directory.' : message,

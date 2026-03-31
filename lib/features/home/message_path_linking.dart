@@ -97,9 +97,7 @@ MessageResolvedPath? resolveExistingMessagePath(
     if (entityType == FileSystemEntityType.notFound) {
       continue;
     }
-    final isDirectory =
-        entityType == FileSystemEntityType.directory ||
-        Directory(candidate).existsSync();
+    final isDirectory = entityType == FileSystemEntityType.directory;
     resolved = MessageResolvedPath(
       displayPath: displayPath,
       resolvedPath: p.normalize(candidate),
@@ -112,9 +110,6 @@ MessageResolvedPath? resolveExistingMessagePath(
 }
 
 void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
-  if (value == null) {
-    return;
-  }
   if (_resolvedMessagePathCache.length >= _resolvedMessagePathCacheLimit) {
     _resolvedMessagePathCache.remove(_resolvedMessagePathCache.keys.first);
   }

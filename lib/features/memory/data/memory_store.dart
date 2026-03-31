@@ -227,9 +227,8 @@ class MemoryStore {
 
     var didSanitize = false;
     final rawType = '${rawEntry['type'] ?? ''}'.trim();
-    final type = rawType == UserMemoryEntry.userType
-        ? UserMemoryEntry.userType
-        : UserMemoryEntry.userType;
+    // Currently only 'user' type is supported; force-normalize any other value.
+    final type = UserMemoryEntry.userType;
     if (rawType != UserMemoryEntry.userType) {
       didSanitize = true;
     }

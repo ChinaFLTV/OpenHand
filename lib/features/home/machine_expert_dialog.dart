@@ -253,6 +253,11 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   }
 
   Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
+    // Capture locale-dependent labels before any async gap to avoid
+    // use_build_context_synchronously warnings.
+    final tabLabel = _loc(context, zh: '标签页', en: 'Tab');
+    final sessionLabel = _loc(context, zh: '会话', en: 'Session');
+
     List<String> tabs = [];
     List<(int, int)> indices = [];
     if (Platform.isMacOS && _selectedTerminal != null) {
@@ -278,10 +283,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           );
           if (sessionNames.isEmpty) {
             // Tab exists but we couldn't get session names – use a placeholder.
-            tabs.add(
-              '${_loc(context, zh: '标签页', en: 'Tab')} $t / '
-              '${_loc(context, zh: '会话', en: 'Session')} 1',
-            );
+            tabs.add('$tabLabel $t / $sessionLabel 1');
             indices.add((t, 1));
           } else {
             for (var s = 0; s < sessionNames.length; s++) {
@@ -331,7 +333,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         }
         tabs = List.generate(
           mockCount,
-          (index) => '${_loc(context, zh: '会话', en: 'Session')} ${index + 1}',
+          (index) => '$sessionLabel ${index + 1}',
         );
         for (var i = 0; i < mockCount; i++) {
           indices.add((i + 1, 1));
@@ -344,7 +346,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     if (tabs.isEmpty) {
       await Future.delayed(const Duration(milliseconds: 100));
       if (!mounted) return;
-      tabs = <String>['${_loc(context, zh: '会话', en: 'Session')} 1'];
+      tabs = <String>['$sessionLabel 1'];
     }
 
     final seen = <String, int>{};

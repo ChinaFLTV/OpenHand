@@ -38,6 +38,7 @@ class AiSessionStore {
           sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
 
   final String _sessionsDirectoryPath;
+  bool _directoryCreated = false;
 
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
 
@@ -71,11 +72,13 @@ class AiSessionStore {
     final directory = Directory(_sessionsDirectoryPath);
     if (!await directory.exists()) {
       await directory.create(recursive: true);
+      _directoryCreated = true;
       return const AiSessionLoadResult(
         sessions: <AiSession>[],
         issues: <AiSessionPersistenceIssue>[],
       );
     }
+    _directoryCreated = true;
 
     final sessions = <AiSession>[];
     final issues = <AiSessionPersistenceIssue>[];
@@ -119,10 +122,7 @@ class AiSessionStore {
 
   Future<void> save(AiSession session) async {
     _validateSessionForStorage(session);
-    final directory = Directory(_sessionsDirectoryPath);
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
+    await _ensureDirectoryCreated();
     final file = File(sessionFilePath(session.id));
     final content = const JsonEncoder.withIndent(
       '  ',
@@ -159,6 +159,19 @@ class AiSessionStore {
     }
     await sourceFile.rename(backupPath);
     return backupPath;
+  }
+
+  /// Ensures the sessions directory exists, using a cached flag to skip
+  /// redundant filesystem checks after the first successful creation.
+  Future<void> _ensureDirectoryCreated() async {
+    if (_directoryCreated) {
+      return;
+    }
+    final directory = Directory(_sessionsDirectoryPath);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    _directoryCreated = true;
   }
 
   Future<void> _writeAtomically(File targetFile, String content) {
