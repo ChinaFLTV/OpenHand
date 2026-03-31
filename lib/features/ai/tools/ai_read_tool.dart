@@ -1,3 +1,4 @@
+// 2026-04-01 02:02:39 从 AiToolRuntimeService._executeReadTool 完整迁移
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,13 +6,16 @@ import 'package:path/path.dart' as p;
 
 import '../service/ai_claude_hook_service.dart';
 import '../service/ai_tool_runtime_service.dart';
+import 'ai_file_read_renderer.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
-// 2026-04-01 01:21:38 从 AiToolRuntimeService._executeReadTool 提取
 class AiReadTool extends AiTool {
-  AiReadTool();
+  AiReadTool({AiFileReadRenderer? renderer})
+      : _renderer = renderer ?? const AiFileReadRenderer();
+
+  final AiFileReadRenderer _renderer;
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.read;
@@ -35,7 +39,7 @@ class AiReadTool extends AiTool {
     if (limit <= 0) {
       return AiToolUtils.invalidResult('Read', 'Read limit must be a positive integer.');
     }
-    final renderedRead = await _DefaultRenderedReadContentLoader().load(file, filePath);
+    final renderedRead = await _renderer.render(file, filePath);
     final rawContent = renderedRead.content;
     if (rawContent.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
@@ -104,23 +108,6 @@ class AiReadTool extends AiTool {
           ],
       },
     );
-  }
-}
-
-abstract class _RenderedReadContentLoader {
-  const _RenderedReadContentLoader();
-  Future<RenderedReadContent> load(File file, String filePath);
-}
-
-class _DefaultRenderedReadContentLoader extends _RenderedReadContentLoader {
-  const _DefaultRenderedReadContentLoader();
-
-  @override
-  Future<RenderedReadContent> load(File file, String filePath) async {
-    // Delegates to the service-level renderer; injected via AiToolRuntimeService
-    // when registered through AiToolRegistry.
-    throw UnimplementedError(
-        'Provide a concrete loader via AiReadTool(loader: ...) at registration time.');
   }
 }
 

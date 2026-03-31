@@ -31,6 +31,16 @@ class AiToolUtils {
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
   }
 
+  static Map<String, Object?> decodeArguments(String rawArguments) {
+    try {
+      final decoded = jsonDecode(rawArguments);
+      if (decoded is Map<String, Object?>) return decoded;
+      if (decoded is Map) return Map<String, Object?>.from(decoded);
+    } catch (_) {}
+    return const <String, Object?>{};
+  }
+
+
   static String? requireAbsoluteFilePath(String rawPath) {
     final normalizedInput = rawPath.trim();
     if (normalizedInput.isEmpty || !p.isAbsolute(normalizedInput)) return null;
