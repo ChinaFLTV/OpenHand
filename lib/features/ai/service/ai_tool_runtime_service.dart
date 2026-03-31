@@ -19,6 +19,7 @@ import 'ai_bash_tool_service.dart';
 import 'ai_chat_service.dart';
 import 'ai_claude_hook_service.dart';
 import 'ai_protocol_adapter.dart';
+import '../tools/ai_tool_registry.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
 
@@ -182,6 +183,9 @@ class AiToolRuntimeService {
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   final Map<String, _CachedWebFetchContent> _webFetchCache =
       <String, _CachedWebFetchContent>{};
+
+  // 2026-04-01 01:21:38 多态工具注册中心（Phase B 渐进迁移）
+  final AiToolRegistry _toolRegistry = AiToolRegistry.defaultRegistry();
 
   Future<AiResolvedToolCatalog> resolveCatalog({
     required AiSessionRuntimeContext runtimeContext,
@@ -464,6 +468,22 @@ class AiToolRuntimeService {
         'Missing builtin tool metadata.',
       );
     }
+    // 2026-04-01 优先通过多态 Registry 路由（轻量工具已迁移）
+    final registryContext = AiToolExecutionContext(
+      sessionId: sessionId,
+      catalog: catalog,
+      toolCall: toolCall,
+      decodedArguments: decodedArguments,
+      model: model,
+      previouslyReadFiles: previouslyReadFiles,
+      denyCommandRules: denyCommandRules,
+      requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+      confirmWriteCommand: confirmWriteCommand,
+      cancelSignal: cancelSignal,
+      onBashUpdate: onBashUpdate,
+    );
+    final registryResult = await _toolRegistry.tryExecute(registryContext, kind);
+    if (registryResult != null) return registryResult;
     final startedAt = Stopwatch()..start();
     try {
       return switch (kind) {
