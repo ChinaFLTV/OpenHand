@@ -298,7 +298,7 @@ class MessagePathCodeSyntax extends md.InlineSyntax {
 class MessageFilePathSyntax extends md.InlineSyntax {
   MessageFilePathSyntax({required this.candidateRoots})
     : super(
-        r'''(^|[\s>"'`]|(?<!\])\()((?!https?:\/\/|mailto:)(?:(?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[^\s<>()[\]{}'"*?:;|/`]+[\\/]))[^\s<>()[\]{}'"`]+|(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)))''',
+        r'''(^|[\s>"'`：，。、；！？（）【】《》…—]|[\u4E00-\u9FFF]|(?<!\])\()((?!https?:\/\/|mailto:)(?:(?:~\/|\.{1,2}\/|\/|[A-Za-z]:[\\/]|(?:[^\s<>()[\]{}'"*?:;|/`]+[\\/]))[^\s<>()[\]{}'"`]+|(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)))''',
       );
 
   final List<String> candidateRoots;

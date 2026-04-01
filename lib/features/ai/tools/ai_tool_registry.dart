@@ -19,6 +19,7 @@ import 'ai_exit_plan_mode_tool.dart';
 import 'ai_glob_tool.dart';
 import 'ai_grep_tool.dart';
 import 'ai_ls_tool.dart';
+import 'ai_lsp_tool.dart';
 import 'ai_multi_edit_tool.dart';
 import 'ai_notebook_edit_tool.dart';
 import 'ai_read_tool.dart';
@@ -50,7 +51,8 @@ class AiToolRegistry {
       ..register(AiExitPlanModeTool())
       ..register(AiTodoWriteTool())
       ..register(AiNotebookEditTool())
-      ..register(AiReadTool());
+      ..register(AiReadTool())
+      ..register(AiLspTool());
   }
 
   // ──────────────────────────────────────────────────────────────

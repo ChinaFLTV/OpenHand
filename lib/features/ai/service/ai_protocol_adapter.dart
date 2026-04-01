@@ -417,10 +417,15 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final usageMap = usage is Map<String, Object?>
         ? usage
         : Map<String, Object?>.from(usage as Map);
+    final promptTokensDetails = usageMap['prompt_tokens_details'];
+    final cachedTokens = promptTokensDetails is Map
+        ? _readInt(promptTokensDetails['cached_tokens'])
+        : null;
     return AiTokenUsage(
       promptTokens: _readInt(usageMap['prompt_tokens']),
       completionTokens: _readInt(usageMap['completion_tokens']),
       totalTokens: _readInt(usageMap['total_tokens']),
+      cacheReadTokens: cachedTokens,
     );
   }
 
@@ -619,6 +624,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       totalTokens:
           _readInt(usageMap['total_tokens']) ??
           ((promptTokens ?? 0) + (completionTokens ?? 0)),
+      cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
+      cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
     );
   }
 
@@ -772,6 +779,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       promptTokens: _readInt(usageMap['promptTokenCount']),
       completionTokens: _readInt(usageMap['candidatesTokenCount']),
       totalTokens: _readInt(usageMap['totalTokenCount']),
+      cacheReadTokens: _readInt(usageMap['cachedContentTokenCount']),
     );
   }
 

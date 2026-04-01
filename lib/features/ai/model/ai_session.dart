@@ -660,6 +660,8 @@ class AiSessionStatistics {
       totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
       totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
       totalTokens: _readNullableInt(json['total_tokens']),
+      cacheCreationTokens: _readNullableInt(json['cache_creation_tokens']),
+      cacheReadTokens: _readNullableInt(json['cache_read_tokens']),
       lastPromptSystemMessageCount: _readInt(
         json['last_prompt_system_message_count'],
       ),
@@ -684,6 +686,8 @@ class AiSessionStatistics {
     this.totalPromptTokens,
     this.totalCompletionTokens,
     this.totalTokens,
+    this.cacheCreationTokens,
+    this.cacheReadTokens,
     this.lastPromptSystemMessageCount = 0,
     this.lastPromptHistoryMessageCount = 0,
   });
@@ -704,6 +708,8 @@ class AiSessionStatistics {
       totalPromptTokens = null,
       totalCompletionTokens = null,
       totalTokens = null,
+      cacheCreationTokens = null,
+      cacheReadTokens = null,
       lastPromptSystemMessageCount = 0,
       lastPromptHistoryMessageCount = 0;
 
@@ -722,6 +728,8 @@ class AiSessionStatistics {
   final int? totalPromptTokens;
   final int? totalCompletionTokens;
   final int? totalTokens;
+  final int? cacheCreationTokens;
+  final int? cacheReadTokens;
   final int lastPromptSystemMessageCount;
   final int lastPromptHistoryMessageCount;
 
@@ -741,6 +749,8 @@ class AiSessionStatistics {
     int? totalPromptTokens,
     int? totalCompletionTokens,
     int? totalTokens,
+    int? cacheCreationTokens,
+    int? cacheReadTokens,
     int? lastPromptSystemMessageCount,
     int? lastPromptHistoryMessageCount,
   }) {
@@ -765,6 +775,8 @@ class AiSessionStatistics {
       totalCompletionTokens:
           totalCompletionTokens ?? this.totalCompletionTokens,
       totalTokens: totalTokens ?? this.totalTokens,
+      cacheCreationTokens: cacheCreationTokens ?? this.cacheCreationTokens,
+      cacheReadTokens: cacheReadTokens ?? this.cacheReadTokens,
       lastPromptSystemMessageCount:
           lastPromptSystemMessageCount ?? this.lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount:
@@ -789,6 +801,8 @@ class AiSessionStatistics {
       'total_prompt_tokens': totalPromptTokens,
       'total_completion_tokens': totalCompletionTokens,
       'total_tokens': totalTokens,
+      'cache_creation_tokens': cacheCreationTokens,
+      'cache_read_tokens': cacheReadTokens,
       'last_prompt_system_message_count': lastPromptSystemMessageCount,
       'last_prompt_history_message_count': lastPromptHistoryMessageCount,
     };
@@ -860,6 +874,8 @@ class AiSessionStatistics {
       totalPromptTokens: totalUsage.promptTokens,
       totalCompletionTokens: totalUsage.completionTokens,
       totalTokens: totalUsage.totalTokens,
+      cacheCreationTokens: totalUsage.cacheCreationTokens,
+      cacheReadTokens: totalUsage.cacheReadTokens,
       lastPromptSystemMessageCount: lastPromptSystemMessageCount,
       lastPromptHistoryMessageCount: lastPromptHistoryMessageCount,
     );

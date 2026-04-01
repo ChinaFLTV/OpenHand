@@ -2739,9 +2739,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.grep:
       case AiBuiltinToolKind.webFetch:
       case AiBuiltinToolKind.webSearch:
-        return true;
+      case AiBuiltinToolKind.lsp:
       case AiBuiltinToolKind.task:
-        return false;
+        return true;
       case AiBuiltinToolKind.bash:
         return !_bashToolService
             .analyzeWriteCommand(_toolCallCommand(toolCall))
@@ -5120,6 +5120,8 @@ class AiSessionController extends ChangeNotifier {
       promptTokens: statistics.totalPromptTokens,
       completionTokens: statistics.totalCompletionTokens,
       totalTokens: statistics.totalTokens,
+      cacheCreationTokens: statistics.cacheCreationTokens,
+      cacheReadTokens: statistics.cacheReadTokens,
     );
   }
 

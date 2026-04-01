@@ -3410,11 +3410,6 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final mutedTextColor = colorScheme.onSurfaceVariant;
-    final cardColor = colorScheme.surfaceContainerHigh;
-    final accentColor = colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4337,7 +4332,11 @@ class _SessionToolbar extends StatelessWidget {
                 ),
               ],
               const SizedBox(width: 10),
-              _TokenDial(totalTokens: session.statistics.totalTokens ?? 0),
+              _TokenDial(
+                totalTokens: session.statistics.totalTokens ?? 0,
+                cacheReadTokens: session.statistics.cacheReadTokens,
+                cacheCreationTokens: session.statistics.cacheCreationTokens,
+              ),
             ],
           ),
           AnimatedSwitcher(
@@ -4447,7 +4446,7 @@ class _ToolbarPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll(
+        overlayColor: WidgetStatePropertyAll<Color>(
           theme.colorScheme.primary.withValues(alpha: 0.08),
         ),
         child: child,
@@ -4680,7 +4679,7 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll(color.withValues(alpha: 0.08)),
+        overlayColor: WidgetStatePropertyAll<Color>(color.withValues(alpha: 0.08)),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
@@ -7433,7 +7432,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
       child: InkWell(
         onTap: onToggle,
         borderRadius: _borderRadius18,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Column(
@@ -7897,6 +7896,7 @@ class _MessageMarkdownThemeData {
         tableCellsDecoration: BoxDecoration(color: subtleSurface),
         tableHeadCellsPadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
+        tableColumnWidth: const IntrinsicColumnWidth(),
         blockquotePadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -9682,6 +9682,31 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
               widget.parentStyle,
             );
           }
+          final isExplicitPath = widget.normalizedPath.startsWith('~/') ||
+              widget.normalizedPath.startsWith('./') ||
+              widget.normalizedPath.startsWith('../') ||
+              looksLikeAbsoluteMessagePath(widget.normalizedPath);
+          if (isExplicitPath) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: widget.builder._buildChip(
+                      context,
+                      displayPath: widget.normalizedPath,
+                      resolvedPath: widget.normalizedPath,
+                      isDirectory: widget.trailing.contains('/'),
+                      isUnresolved: true,
+                    ),
+                  ),
+                ),
+                if (widget.trailing.isNotEmpty)
+                  Text(widget.trailing, style: widget.parentStyle),
+              ],
+            );
+          }
           return Padding(
             padding: const EdgeInsets.only(right: 4),
             child: Text(widget.fullMatch, style: widget.parentStyle),
@@ -9690,13 +9715,15 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: widget.builder._buildChip(
-                context,
-                displayPath: resolvedPath.displayPath,
-                resolvedPath: resolvedPath.resolvedPath,
-                isDirectory: resolvedPath.isDirectory,
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: widget.builder._buildChip(
+                  context,
+                  displayPath: resolvedPath.displayPath,
+                  resolvedPath: resolvedPath.resolvedPath,
+                  isDirectory: resolvedPath.isDirectory,
+                ),
               ),
             ),
             if (widget.trailing.isNotEmpty)
@@ -9769,16 +9796,18 @@ class _FilePathChip extends StatelessWidget {
                       : textColor.withValues(alpha: 0.9),
                 ),
                 const SizedBox(width: 6),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 340),
-                  child: Text(
-                    displayPath,
-                    overflow: TextOverflow.ellipsis,
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 340),
+                    child: Text(
+                      displayPath,
+                      overflow: TextOverflow.ellipsis,
                     style: isUnresolved
                         ? labelStyle.copyWith(
                             color: textColor.withValues(alpha: 0.5),
                           )
                         : labelStyle,
+                    ),
                   ),
                 ),
               ],
@@ -11318,7 +11347,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow> {
       child: InkWell(
         onTap: widget.onTap,
         borderRadius: _borderRadius999,
-        overlayColor: WidgetStatePropertyAll(
+        overlayColor: WidgetStatePropertyAll<Color>(
           Colors.white.withValues(alpha: 0.03),
         ),
         child: capsule,
@@ -12202,9 +12231,15 @@ String? _normalizeCodeLanguage(String? language) {
 }
 
 class _TokenDial extends StatefulWidget {
-  const _TokenDial({required this.totalTokens});
+  const _TokenDial({
+    required this.totalTokens,
+    this.cacheReadTokens,
+    this.cacheCreationTokens,
+  });
 
   final int totalTokens;
+  final int? cacheReadTokens;
+  final int? cacheCreationTokens;
 
   @override
   State<_TokenDial> createState() => _TokenDialState();
@@ -12212,11 +12247,13 @@ class _TokenDial extends StatefulWidget {
 
 class _TokenDialState extends State<_TokenDial> {
   late int _previousTokens;
+  late int _previousCacheRead;
 
   @override
   void initState() {
     super.initState();
     _previousTokens = widget.totalTokens;
+    _previousCacheRead = widget.cacheReadTokens ?? 0;
   }
 
   @override
@@ -12224,6 +12261,9 @@ class _TokenDialState extends State<_TokenDial> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.totalTokens != widget.totalTokens) {
       _previousTokens = oldWidget.totalTokens;
+    }
+    if (oldWidget.cacheReadTokens != widget.cacheReadTokens) {
+      _previousCacheRead = oldWidget.cacheReadTokens ?? 0;
     }
   }
 
@@ -12239,25 +12279,55 @@ class _TokenDialState extends State<_TokenDial> {
       fontWeight: FontWeight.w700,
       color: colorScheme.onSurfaceVariant,
     );
+    final cacheStyle = theme.textTheme.labelMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+      color: Colors.green.shade600,
+    );
+    final hasCache = (widget.cacheReadTokens ?? 0) > 0;
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
+        color: hasCache
+            ? Colors.green.withValues(alpha: 0.08)
+            : colorScheme.surfaceContainerHighest,
         borderRadius: _borderRadius999,
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
+          color: hasCache
+              ? Colors.green.withValues(alpha: 0.4)
+              : colorScheme.outlineVariant.withValues(alpha: 0.55),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.confirmation_number_rounded,
+            hasCache ? Icons.bolt_rounded : Icons.confirmation_number_rounded,
             size: 14,
-            color: colorScheme.primary,
+            color: hasCache ? Colors.green.shade600 : colorScheme.primary,
           ),
           const SizedBox(width: 6),
+          if (hasCache) ...[
+            TweenAnimationBuilder<int>(
+              tween: IntTween(
+                begin: _previousCacheRead,
+                end: widget.cacheReadTokens ?? 0,
+              ),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                return Text('$value', style: cacheStyle);
+              },
+            ),
+            const SizedBox(width: 4),
+            Text('Cached', style: cacheStyle),
+            Container(
+              width: 1,
+              height: 12,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: colorScheme.outlineVariant,
+            ),
+          ],
           TweenAnimationBuilder<int>(
             tween: IntTween(begin: _previousTokens, end: widget.totalTokens),
             duration: const Duration(milliseconds: 800),
@@ -12268,7 +12338,9 @@ class _TokenDialState extends State<_TokenDial> {
           ),
           const SizedBox(width: 6),
           Text(
-            _localizedText(context, zh: 'Token', en: 'Token'),
+            hasCache
+                ? _localizedText(context, zh: '总计', en: 'Total')
+                : _localizedText(context, zh: 'Token', en: 'Token'),
             style: labelStyle,
           ),
         ],

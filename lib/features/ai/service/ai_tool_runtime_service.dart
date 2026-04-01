@@ -86,6 +86,7 @@ enum AiBuiltinToolKind {
   webFetch,
   todoWrite,
   webSearch,
+  lsp,
 }
 
 class AiToolExecutionResult {
@@ -644,6 +645,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.webFetch => 'WebFetch',
       AiBuiltinToolKind.todoWrite => 'TodoWrite',
       AiBuiltinToolKind.webSearch => 'WebSearch',
+      AiBuiltinToolKind.lsp => 'Lsp',
       null => tool.name,
     };
   }
@@ -1043,6 +1045,45 @@ class AiToolRuntimeService {
           'path': <String, Object?>{'type': 'string'},
         },
         'required': <String>['pattern'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.lsp,
+      name: 'Lsp',
+      description: 'Code intelligence (definitions, references, symbols, hover) based on LSP.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'operation': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'goToDefinition',
+              'findReferences',
+              'hover',
+              'documentSymbol',
+              'workspaceSymbol',
+              'goToImplementation',
+              'prepareCallHierarchy',
+              'incomingCalls',
+              'outgoingCalls'
+            ],
+            'description': 'The LSP operation to perform',
+          },
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description': 'The absolute or relative path to the file',
+          },
+          'line': <String, Object?>{
+            'type': 'integer',
+            'description': 'The line number (1-based, as shown in editors)',
+          },
+          'character': <String, Object?>{
+            'type': 'integer',
+            'description': 'The character offset (1-based, as shown in editors)',
+          },
+        },
+        'required': <String>['operation', 'file_path', 'line', 'character'],
         'additionalProperties': false,
       },
     ),
