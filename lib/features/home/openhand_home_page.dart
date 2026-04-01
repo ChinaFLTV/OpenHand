@@ -45,6 +45,7 @@ import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
 import 'machine_expert_dialog.dart';
 import 'message_path_linking.dart';
+import 'openhand_loading_logo.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
 
@@ -65,7 +66,9 @@ const int _transcriptInitialWindowSize = 30;
 const int _transcriptWindowIncrement = 25;
 const int _transcriptWindowingThreshold = 40;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
-const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 120);
+// Reduced from 120 ms: the placeholder frame is now shorter so users spend
+// less time waiting before the real content appears.
+const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 750);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
 );
@@ -350,8 +353,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _shouldPrepareTranscript(AiSession? session) {
-    return session != null &&
-        session.messages.length >= _transcriptWindowingThreshold;
+    // Only trigger the elegant transition overlay for medium-to-large transcripts.
+    // For small chats (< 15 messages), the layout jump is non-existent to minimal,
+    // so we skip the overlay entirely to avoid "flash" (一闪而过) effects.
+    return session != null && session.messages.length >= 15;
   }
 
   bool _isPreparingTranscriptForSession(AiSession? session) {
@@ -1643,7 +1648,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (allowSettlePasses) {
       _pendingScrollToBottomSettlePasses = math.max(
         _pendingScrollToBottomSettlePasses,
-        animated ? 4 : 3,
+        force ? 30 : (animated ? 4 : 3),
       );
     }
     if (_programmaticAutoFollowScrollInProgress) {
@@ -2583,6 +2588,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onDeleteMessage: _deleteMessage,
         onDeleteMessageFromHere: _deleteMessageFromHere,
         onDismissError: _dismissSessionError,
+        // Signal the transcript list to jump to the bottom on its first frame
+        // whenever a forced-scroll-to-bottom is pending (i.e. a session was
+        // just activated). This eliminates the visible animate-from-top jank.
+        jumpToBottomOnInit: _pendingForcedScrollToBottom,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,
@@ -3127,6 +3136,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onRemoveQueuedMessage,
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
+    this.jumpToBottomOnInit = false,
   });
 
   final TextEditingController draftController;
@@ -3175,6 +3185,9 @@ class _WorkspaceView extends StatelessWidget {
   final ValueChanged<int> onRemoveQueuedMessage;
   final void Function(int from, int to) onMoveQueuedMessage;
   final void Function(int index, String newText) onEditQueuedMessage;
+  // When true, the message list widget will immediately jump to the bottom
+  // on its first frame instead of relying on the parent's scroll scheduler.
+  final bool jumpToBottomOnInit;
 
   @override
   Widget build(BuildContext context) {
@@ -3200,35 +3213,67 @@ class _WorkspaceView extends StatelessWidget {
                       key: ValueKey<String>(currentSession!.id),
                       session: currentSession,
                     )
-                  : transcriptPreparing
-                  ? _SessionTranscriptLoadingPlaceholder(
-                      key: ValueKey<String>(
-                        'session-transcript-loading-${currentSession!.id}',
-                      ),
-                      session: currentSession!,
-                      liveRuntimeToolPreview: liveRuntimeToolPreview,
-                      sendPhase: sendPhase,
-                      planTimelineCollapsed: planTimelineCollapsed,
-                      onPlanTimelineCollapsedChanged:
-                          onPlanTimelineCollapsedChanged,
-                    )
-                  : _SessionTranscript(
-                      key: ValueKey<String>('messages-${currentSession!.id}'),
-                      controller: messageScrollController,
-                      onScrollNotification: onMessageScrollNotification,
-                      session: currentSession!,
-                      liveRuntimeToolPreview: liveRuntimeToolPreview,
-                      sendPhase: sendPhase,
-                      planTimelineCollapsed: planTimelineCollapsed,
-                      onPlanTimelineCollapsedChanged:
-                          onPlanTimelineCollapsedChanged,
-                      onLayoutChanged: onTranscriptLayoutChanged,
-                      onRevealOlderMessages: onRevealOlderMessages,
-                      onEditMessage: onEditMessage,
-                      onCopyMessage: onCopyMessage,
-                      onDeleteMessage: onDeleteMessage,
-                      onDeleteMessageFromHere: onDeleteMessageFromHere,
-                      onDismissError: onDismissError,
+                  : Stack(
+                      children: [
+                        Positioned.fill(
+                          child: AnimatedOpacity(
+                            // 瞬间使其隐身以彻底遮盖背后的列表疯狂重排乱跳的现象
+                            opacity: transcriptPreparing ? 0.0 : 1.0,
+                            duration: transcriptPreparing 
+                                ? Duration.zero 
+                                : const Duration(milliseconds: 300),
+                            curve: Curves.easeInCubic,
+                            child: _SessionTranscript(
+                              key: ValueKey<String>('messages-${currentSession!.id}'),
+                              controller: messageScrollController,
+                              onScrollNotification: onMessageScrollNotification,
+                              session: currentSession!,
+                              liveRuntimeToolPreview: liveRuntimeToolPreview,
+                              sendPhase: sendPhase,
+                              planTimelineCollapsed: planTimelineCollapsed,
+                              onPlanTimelineCollapsedChanged:
+                                  onPlanTimelineCollapsedChanged,
+                              onLayoutChanged: onTranscriptLayoutChanged,
+                              onRevealOlderMessages: onRevealOlderMessages,
+                              onEditMessage: onEditMessage,
+                              onCopyMessage: onCopyMessage,
+                              onDeleteMessage: onDeleteMessage,
+                              onDeleteMessageFromHere: onDeleteMessageFromHere,
+                              onDismissError: onDismissError,
+                              // Jump to the very bottom on the first frame when the
+                              // session was just activated, so the user never sees a
+                              // flash from scroll-top to scroll-bottom.
+                              jumpToBottomOnInit: jumpToBottomOnInit,
+                            ),
+                          ),
+                        ),
+                        // Overlay mask that visually hides the initial rendering
+                        // and scroll-to-bottom operations of the transcript list.
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            ignoring: !transcriptPreparing,
+                            child: AnimatedOpacity(
+                              opacity: transcriptPreparing ? 1.0 : 0.0,
+                              // 进场需提前快过底部列表跳跃，退场再慢慢淡出
+                              duration: transcriptPreparing 
+                                  ? const Duration(milliseconds: 100) 
+                                  : const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              child: _SessionTranscriptLoadingPlaceholder(
+                                key: ValueKey<String>(
+                                  'session-transcript-loading-${currentSession!.id}',
+                                ),
+                                session: currentSession!,
+                                liveRuntimeToolPreview: liveRuntimeToolPreview,
+                                sendPhase: sendPhase,
+                                planTimelineCollapsed: planTimelineCollapsed,
+                                onPlanTimelineCollapsedChanged:
+                                    onPlanTimelineCollapsedChanged,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
             if (currentSession != null) ...[
@@ -3381,171 +3426,10 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
         ),
         const SizedBox(height: 14),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: math.max(0, constraints.maxHeight - 32),
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainer,
-                          borderRadius: BorderRadius.circular(28),
-                          border: Border.all(
-                            color: colorScheme.outlineVariant.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 22, 22, 24),
-                          child: Column(
-                            key: const ValueKey<String>(
-                              'session-transcript-loading',
-                            ),
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.4,
-                                      color: accentColor,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _localizedText(
-                                        context,
-                                        zh: '正在载入会话消息...',
-                                        en: 'Loading conversation messages...',
-                                      ),
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                _localizedText(
-                                  context,
-                                  zh: '正在准备较长的聊天记录并预热首屏渲染，请稍候。',
-                                  en: 'Preparing a longer transcript and warming up the first render.',
-                                ),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: mutedTextColor,
-                                  height: 1.45,
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              _TranscriptPlaceholderBubble(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: 0.78,
-                                color: cardColor,
-                              ),
-                              const SizedBox(height: 14),
-                              _TranscriptPlaceholderBubble(
-                                alignment: Alignment.centerRight,
-                                widthFactor: 0.58,
-                                color: colorScheme.primaryContainer.withValues(
-                                  alpha: 0.82,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              _TranscriptPlaceholderBubble(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: 0.86,
-                                color: cardColor,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
+        const Expanded(
+          child: OpenHandLoadingLogo(),
         ),
       ],
-    );
-  }
-}
-
-class _TranscriptPlaceholderBubble extends StatelessWidget {
-  const _TranscriptPlaceholderBubble({
-    required this.alignment,
-    required this.widthFactor,
-    required this.color,
-  });
-
-  final Alignment alignment;
-  final double widthFactor;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: FractionallySizedBox(
-        widthFactor: widthFactor,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: const Padding(
-            padding: EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _TranscriptPlaceholderLine(widthFactor: 0.88),
-                SizedBox(height: 10),
-                _TranscriptPlaceholderLine(widthFactor: 0.72),
-                SizedBox(height: 10),
-                _TranscriptPlaceholderLine(widthFactor: 0.54),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TranscriptPlaceholderLine extends StatelessWidget {
-  const _TranscriptPlaceholderLine({required this.widthFactor});
-
-  final double widthFactor;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(
-      context,
-    ).colorScheme.onSurface.withValues(alpha: 0.08);
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: _borderRadius999,
-        ),
-        child: const SizedBox(height: 12),
-      ),
     );
   }
 }
@@ -3583,6 +3467,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onDeleteMessage,
     required this.onDeleteMessageFromHere,
     required this.onDismissError,
+    this.jumpToBottomOnInit = false,
   });
 
   final ScrollController controller;
@@ -3599,6 +3484,10 @@ class _SessionTranscript extends StatefulWidget {
   final Future<bool> Function(AiSessionMessage message) onDeleteMessage;
   final Future<bool> Function(AiSessionMessage message) onDeleteMessageFromHere;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
+  // When true, the list will jump to the very bottom on its first frame.
+  // This eliminates the visible scroll-from-top animation that would otherwise
+  // appear when a session is loaded and the parent schedules a forced scroll.
+  final bool jumpToBottomOnInit;
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
@@ -3620,6 +3509,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _syncWindowStartIndex(forceReset: true);
     _replaceRenderEntries(_visibleMessagesForWindow());
     _syncVisibleError();
+    // Immediately jump to the bottom on the first rendered frame, before the
+    // parent's postFrameCallback chain fires. This prevents the user from ever
+    // seeing the list start at scroll-offset 0 while a forced scroll-to-bottom
+    // is pending, which manifests as a jarring flash/jump animation.
+    if (widget.jumpToBottomOnInit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final controller = widget.controller;
+        if (controller.hasClients) {
+          final position = controller.positions.isNotEmpty
+              ? controller.positions.last
+              : null;
+          if (position != null && position.maxScrollExtent > 0) {
+            controller.jumpTo(position.maxScrollExtent);
+          }
+        }
+      });
+    }
   }
 
   @override
@@ -3923,7 +3830,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               padding: const EdgeInsets.only(bottom: 12),
               addAutomaticKeepAlives: false,
               addRepaintBoundaries: false,
-              cacheExtent: 600,
+              // Keep a modest cache: large enough to avoid jank when
+              // scrolling slightly but small enough to limit the work done
+              // on the first layout pass (fewer off-screen items built).
+              cacheExtent: 400,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -9898,10 +9808,22 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
 
+  /// Returns true if any Ctrl or Meta (Cmd on macOS) modifier key is currently
+  /// held down. Uses [physicalKeysPressed] which reflects raw hardware state
+  /// and is unaffected by logical-key remapping or keyboard guard filtering.
+  bool get _isModifierPressed {
+    final pressed = HardwareKeyboard.instance.physicalKeysPressed;
+    return pressed.contains(PhysicalKeyboardKey.controlLeft) ||
+        pressed.contains(PhysicalKeyboardKey.controlRight) ||
+        pressed.contains(PhysicalKeyboardKey.metaLeft) ||
+        pressed.contains(PhysicalKeyboardKey.metaRight);
+  }
+
   void _showOverlay() {
-    if (_overlayEntry != null) return;
+    // Guard: skip for unresolved paths or if the overlay is already shown.
+    if (widget.isUnresolved || _overlayEntry != null) return;
     final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
+    if (renderBox == null || !renderBox.hasSize) return;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
     final screenSize = MediaQuery.sizeOf(context);
@@ -9918,62 +9840,72 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
       targetTop = offset.dy - estimatedHeight - 6;
     }
 
+    // Capture the path at the time of showing to avoid stale closure issues.
+    final resolvedPath = widget.resolvedPath;
+
     _overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
+      builder: (overlayContext) => Positioned(
         left: targetLeft,
         top: targetTop,
-        child: Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            width: 320,
-            child: FutureBuilder<FileStat>(
-              future: FileStat.stat(widget.resolvedPath),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const SizedBox(
-                    height: 40,
-                    child: Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
-                final stat = snapshot.data!;
-                final theme = Theme.of(context);
-                final colorScheme = theme.colorScheme;
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.resolvedPath,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
+        // IgnorePointer: the popup is read-only metadata; it must not consume
+        // pointer events so that the chip and underlying widgets remain
+        // interactive (e.g. clicking the chip still opens Finder).
+        child: IgnorePointer(
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(overlayContext).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Theme.of(overlayContext).dividerColor,
+                ),
+              ),
+              width: 320,
+              child: FutureBuilder<FileStat>(
+                future: FileStat.stat(resolvedPath),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const SizedBox(
+                      height: 40,
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _StatRow(
-                      _localizedText(context, zh: '类型', en: 'Type'),
-                      stat.type.toString(),
-                    ),
-                    _StatRow(
-                      _localizedText(context, zh: '大小', en: 'Size'),
-                      '${stat.size} bytes',
-                    ),
-                    _StatRow(
-                      _localizedText(context, zh: '修改于', en: 'Modified'),
-                      '${stat.modified}',
-                    ),
-                  ],
-                );
-              },
+                    );
+                  }
+                  final stat = snapshot.data!;
+                  final theme = Theme.of(context);
+                  final colorScheme = theme.colorScheme;
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        resolvedPath,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _StatRow(
+                        _localizedText(context, zh: '类型', en: 'Type'),
+                        stat.type.toString(),
+                      ),
+                      _StatRow(
+                        _localizedText(context, zh: '大小', en: 'Size'),
+                        '${stat.size} bytes',
+                      ),
+                      _StatRow(
+                        _localizedText(context, zh: '修改于', en: 'Modified'),
+                        '${stat.modified}',
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -9988,8 +9920,21 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   }
 
   @override
+  void didUpdateWidget(_FileHoverPopup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the resolved path changed while the overlay was visible, dismiss it
+    // so it doesn't show stale metadata from the previous path.
+    if (oldWidget.resolvedPath != widget.resolvedPath ||
+        oldWidget.isUnresolved != widget.isUnresolved) {
+      _hideOverlay();
+    }
+  }
+
+  @override
   void deactivate() {
+    // Hide and reset state when the widget leaves the tree (e.g. list scroll).
     _hideOverlay();
+    _isHovered = false;
     super.deactivate();
   }
 
@@ -9997,21 +9942,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     if (!mounted || !_isHovered || widget.isUnresolved) {
       return false;
     }
-    final isModifierPressed =
-        HardwareKeyboard.instance.logicalKeysPressed.contains(
-          LogicalKeyboardKey.controlLeft,
-        ) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(
-          LogicalKeyboardKey.controlRight,
-        ) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(
-          LogicalKeyboardKey.metaLeft,
-        ) ||
-        HardwareKeyboard.instance.logicalKeysPressed.contains(
-          LogicalKeyboardKey.metaRight,
-        );
-
-    if (isModifierPressed) {
+    if (_isModifierPressed) {
       _showOverlay();
     } else {
       _hideOverlay();
@@ -10037,20 +9968,7 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
     return MouseRegion(
       onEnter: (_) {
         _isHovered = true;
-        final isModifierPressed =
-            HardwareKeyboard.instance.logicalKeysPressed.contains(
-              LogicalKeyboardKey.controlLeft,
-            ) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(
-              LogicalKeyboardKey.controlRight,
-            ) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(
-              LogicalKeyboardKey.metaLeft,
-            ) ||
-            HardwareKeyboard.instance.logicalKeysPressed.contains(
-              LogicalKeyboardKey.metaRight,
-            );
-        if (isModifierPressed) {
+        if (!widget.isUnresolved && _isModifierPressed) {
           _showOverlay();
         }
       },
