@@ -1,4 +1,5 @@
 // 2026-04-01 02:02:39
+// 2026-04-01 02:29:02 register() 升级：自动处理 AiTool.aliases 别名，移除硬编码 _legacyBashAlias 依赖
 // AiToolRegistry — 多态工具调度中心（完整版，含服务依赖注册）
 // 用法：
 //   final registry = AiToolRegistry.withServiceDependencies(...)
@@ -36,6 +37,10 @@ class AiToolRegistry {
   AiToolRegistry._();
 
   final Map<AiBuiltinToolKind, AiTool> _tools = {};
+
+  /// 别名映射表：工具名称字符串 → AiBuiltinToolKind
+  /// 由 [register] 在注册时自动填充来自 [AiTool.aliases] 的别名。
+  final Map<String, AiBuiltinToolKind> _aliasToKind = {};
 
   // ──────────────────────────────────────────────────────────────
   // 工厂：仅注册无外部 IO 依赖的轻量工具（用于测试和内部组合）
@@ -129,13 +134,28 @@ class AiToolRegistry {
   // 核心操作
   // ──────────────────────────────────────────────────────────────
 
+  /// 注册工具。
+  /// 同时将 [AiTool.aliases] 中的每个别名映射到本工具的 [AiTool.kind]，
+  /// 以支持向后兼容旧工具名（如 'bash' → AiBuiltinToolKind.bash）。
   void register(AiTool tool) {
     _tools[tool.kind] = tool;
+    for (final alias in tool.aliases) {
+      final normalized = alias.trim();
+      if (normalized.isNotEmpty) {
+        _aliasToKind[normalized] = tool.kind;
+      }
+    }
   }
 
   AiTool? getTool(AiBuiltinToolKind kind) => _tools[kind];
 
   bool supports(AiBuiltinToolKind kind) => _tools.containsKey(kind);
+
+  /// 通过别名字符串查找对应的 [AiBuiltinToolKind]。
+  /// 若无匹配别名则返回 null。
+  AiBuiltinToolKind? kindFromAlias(String alias) {
+    return _aliasToKind[alias.trim()];
+  }
 
   /// 尝试通过 Registry 执行工具，若未注册则返回 null（由调用方回退到旧路径）。
   Future<AiToolExecutionResult?> tryExecute(

@@ -1,4 +1,5 @@
 // 2026-04-01 02:02:39 从 AiToolRuntimeService Bash 分支迁移
+// 2026-04-01 02:29:02 增加 isDestructive、interruptBehavior、aliases 覆盖
 // Bash 工具需要注入 AiBashToolService 和 AiClaudeHookService。
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_claude_hook_service.dart';
@@ -19,6 +20,18 @@ class AiBashTool extends AiTool {
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.bash;
+
+  /// 'bash' 是 Bash 工具的 legacy 别名，向后兼容旧会话记录。
+  @override
+  List<String> get aliases => const <String>['bash'];
+
+  /// Bash 可执行写入、删除、网络请求等不可逆操作，标记为破坏性工具。
+  @override
+  bool get isDestructive => true;
+
+  /// 用户发送新消息时取消正在运行的 Bash 命令（避免并发写冲突）。
+  @override
+  AiToolInterruptBehavior get interruptBehavior => AiToolInterruptBehavior.cancel;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {

@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+// 2026-04-01 02:29:02
+// 变更1：移除 _legacyBashAlias 硬编码（已由 AiBashTool.aliases + AiToolRegistry 接管）
+// 变更2：增加工具输出 budget 截断保护（_maxToolOutputChars = 200000 字符）
+
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -175,6 +179,10 @@ class AiToolRuntimeService {
 
   static const int _maxToolNameLength = 64;
 
+  /// 2026-04-01 工具输出单轮最大字符数限制。
+  /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
+  static const int _maxToolOutputChars = 200000;
+
   Future<AiResolvedToolCatalog> resolveCatalog({
 
     required AiSessionRuntimeContext runtimeContext,
@@ -194,7 +202,8 @@ class AiToolRuntimeService {
     for (final tool in _builtinTools) {
       register(tool);
     }
-    register(_legacyBashAlias);
+    // 2026-04-01 已移除 register(_legacyBashAlias)：
+    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
 
     for (final skill in runtimeContext.availableSkills) {
       final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
@@ -259,7 +268,8 @@ class AiToolRuntimeService {
     for (final tool in _builtinTools) {
       register(tool);
     }
-    register(_legacyBashAlias);
+    // 2026-04-01 已移除 register(_legacyBashAlias)：
+    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
 
     for (final skill in runtimeContext.availableSkills) {
       final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
@@ -428,10 +438,50 @@ class AiToolRuntimeService {
         },
       ),
     );
-    return _mergeHookResultIntoToolResult(
-      rawResult: rawResult,
-      preHookResult: preHookResult,
-      postHookResult: postHookResult,
+    return _applyOutputBudget(
+      _mergeHookResultIntoToolResult(
+        rawResult: rawResult,
+        preHookResult: preHookResult,
+        postHookResult: postHookResult,
+      ),
+    );
+  }
+
+  // 2026-04-01 工具输出 budget 截断。
+  // 对 resultText 进行字符数上限保护，超限时截断内容并附上提示。
+  // 这防止了单次工具调用将大量输出（如 WebFetch 、Bash cat 大文件）直接塑进 API 上下文。
+  AiToolExecutionResult _applyOutputBudget(AiToolExecutionResult result) {
+    final rawResult = result.resultText;
+    if (rawResult.length <= _maxToolOutputChars) {
+      return result;
+    }
+    final truncated = rawResult.substring(0, _maxToolOutputChars);
+    const notice =
+        '\n\n[Output truncated: result exceeded the 200,000-character tool output budget. '
+        'Only the first 200,000 characters are included. '
+        'Use more targeted commands or file offsets to read the remaining content.]';
+    final truncatedResult = '$truncated$notice';
+    return AiToolExecutionResult(
+      status: result.status,
+      command: result.command,
+      workingDirectory: result.workingDirectory,
+      stdout: result.stdout.length > _maxToolOutputChars
+          ? '${result.stdout.substring(0, _maxToolOutputChars)}$notice'
+          : result.stdout,
+      stderr: result.stderr,
+      durationMs: result.durationMs,
+      resultText: truncatedResult,
+      exitCode: result.exitCode,
+      matchedRuleId: result.matchedRuleId,
+      matchedRulePattern: result.matchedRulePattern,
+      isWriteCommand: result.isWriteCommand,
+      writeAnalysisReason: result.writeAnalysisReason,
+      metadata: <String, Object?>{
+        ...result.metadata,
+        'tool_output_truncated': true,
+        'tool_output_original_length': rawResult.length,
+        'tool_output_budget_chars': _maxToolOutputChars,
+      },
     );
   }
 
@@ -1216,21 +1266,8 @@ class AiToolRuntimeService {
     ),
   ];
 
-  static final AiResolvedTool _legacyBashAlias = _builtinTool(
-    kind: AiBuiltinToolKind.bash,
-    name: 'bash',
-    description:
-        'Legacy alias for Bash. Execute a shell command in a subprocess. If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
-    parameters: const <String, Object?>{
-      'type': 'object',
-      'properties': <String, Object?>{
-        'cmd': <String, Object?>{'type': 'string'},
-        'working_directory': <String, Object?>{'type': 'string'},
-      },
-      'required': <String>['cmd'],
-      'additionalProperties': false,
-    },
-  );
+  // 2026-04-01 _legacyBashAlias 已迁移至 AiBashTool.aliases = ['bash']
+  // AiToolRegistry.register() 会自动处理别名注册，此处无需保留。
 
   static AiResolvedTool _builtinTool({
     required AiBuiltinToolKind kind,
