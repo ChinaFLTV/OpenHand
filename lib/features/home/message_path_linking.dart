@@ -93,7 +93,7 @@ MessageResolvedPath? resolveExistingMessagePath(
 
   MessageResolvedPath? resolved;
   for (final candidate in candidates) {
-    final entityType = FileSystemEntity.typeSync(candidate, followLinks: true);
+    final entityType = FileSystemEntity.typeSync(candidate);
     if (entityType == FileSystemEntityType.notFound) {
       continue;
     }
@@ -224,7 +224,7 @@ Future<MessageResolvedPath?> resolveExistingMessagePathAsync(
 
   MessageResolvedPath? resolved;
   for (final candidate in candidates) {
-    final type = await FileSystemEntity.type(candidate, followLinks: true);
+    final type = await FileSystemEntity.type(candidate);
     if (type == FileSystemEntityType.notFound) {
       continue;
     }

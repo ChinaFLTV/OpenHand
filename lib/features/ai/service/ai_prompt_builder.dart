@@ -1,19 +1,19 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../model/ai_session.dart';
+import '../../memory/model/user_memory_entry.dart';
 import '../model/ai_attachment.dart';
+import '../model/ai_model_config.dart';
+import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
 import '../model/ai_session_runtime_context.dart';
 import '../model/ai_thread_template.dart';
-import '../../memory/model/user_memory_entry.dart';
-import '../model/ai_model_config.dart';
 import 'ai_bash_tool_service.dart';
 import 'ai_claude_hook_service.dart';
-import 'ai_protocol_adapter.dart';
 import 'ai_prompt_template_repository.dart';
+import 'ai_protocol_adapter.dart';
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({

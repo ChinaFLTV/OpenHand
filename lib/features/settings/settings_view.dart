@@ -19,8 +19,8 @@ import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
-import '../memory/memory_controller.dart';
 import '../mcp/mcp_controller.dart';
+import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);

@@ -258,8 +258,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     final tabLabel = _loc(context, zh: '标签页', en: 'Tab');
     final sessionLabel = _loc(context, zh: '会话', en: 'Session');
 
-    List<String> tabs = [];
-    List<(int, int)> indices = [];
+    var tabs = <String>[];
+    var indices = <(int, int)>[];
     if (Platform.isMacOS && _selectedTerminal != null) {
       final appName = _selectedTerminal == 'iTerm2'
           ? 'iTerm'

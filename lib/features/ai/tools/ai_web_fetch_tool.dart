@@ -25,7 +25,7 @@ class AiWebFetchTool extends AiTool {
         _httpClient = httpClient,
         _hostLookup = hostLookup ??
             ((host) =>
-                InternetAddress.lookup(host, type: InternetAddressType.any));
+                InternetAddress.lookup(host));
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
@@ -243,8 +243,7 @@ class AiWebFetchTool extends AiTool {
       return _FetchResult(
           body: entry.body,
           contentType: entry.contentType,
-          finalUrl: entry.finalUrl,
-          fromCache: false);
+          finalUrl: entry.finalUrl);
     }
     return const _FetchResult(errorMessage: 'WebFetch exceeded the maximum redirect limit.');
   }
@@ -262,7 +261,7 @@ class AiWebFetchTool extends AiTool {
     response.stream.listen(
       (chunk) {
         if (buffer.length + chunk.length > _maxResponseBytes) {
-          complete(_BodyReadResult(
+          complete(const _BodyReadResult(
               errorMessage:
                   'WebFetch refused to download the response because it exceeded the $_maxResponseBytes-byte safety limit.'));
           return;

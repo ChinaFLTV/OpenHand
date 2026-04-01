@@ -80,6 +80,20 @@ enum AiProtocolType {
 }
 
 class AiModelConfig {
+
+  factory AiModelConfig.fromJson(Map<String, Object?> json) {
+    return AiModelConfig(
+      id: '${json['id'] ?? ''}'.trim(),
+      baseUrl: _normalizeBaseUrl('${json['base_url'] ?? ''}'),
+      authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
+      token: '${json['token'] ?? ''}',
+      modelId: '${json['model_id'] ?? ''}'.trim(),
+      protocolType: AiProtocolType.fromStorage(
+        '${json['protocol_type'] ?? ''}',
+      ),
+      maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
+    );
+  }
   const AiModelConfig({
     required this.id,
     required this.baseUrl,
@@ -153,20 +167,6 @@ class AiModelConfig {
       'protocol_type': protocolType.storageValue,
       'max_context_tokens': maxContextTokens,
     };
-  }
-
-  factory AiModelConfig.fromJson(Map<String, Object?> json) {
-    return AiModelConfig(
-      id: '${json['id'] ?? ''}'.trim(),
-      baseUrl: _normalizeBaseUrl('${json['base_url'] ?? ''}'),
-      authScheme: AiAuthScheme.fromStorage('${json['auth_scheme'] ?? ''}'),
-      token: '${json['token'] ?? ''}',
-      modelId: '${json['model_id'] ?? ''}'.trim(),
-      protocolType: AiProtocolType.fromStorage(
-        '${json['protocol_type'] ?? ''}',
-      ),
-      maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
-    );
   }
 
   static String _normalizeBaseUrl(String value) {

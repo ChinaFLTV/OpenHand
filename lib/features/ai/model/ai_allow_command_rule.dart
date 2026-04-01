@@ -1,6 +1,17 @@
 import 'ai_deny_command_rule.dart';
 
 class AiAllowCommandRule {
+
+  factory AiAllowCommandRule.fromJson(Map<String, Object?> json) {
+    return AiAllowCommandRule(
+      id: '${json['id'] ?? ''}'.trim(),
+      pattern: '${json['pattern'] ?? ''}',
+      matchMode: AiDenyCommandMatchMode.fromStorage(
+        '${json['match_mode'] ?? ''}',
+      ),
+      note: '${json['note'] ?? ''}',
+    );
+  }
   const AiAllowCommandRule({
     required this.id,
     required this.pattern,
@@ -50,16 +61,5 @@ class AiAllowCommandRule {
       'match_mode': matchMode.storageValue,
       'note': note,
     };
-  }
-
-  factory AiAllowCommandRule.fromJson(Map<String, Object?> json) {
-    return AiAllowCommandRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      pattern: '${json['pattern'] ?? ''}',
-      matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
-      ),
-      note: '${json['note'] ?? ''}',
-    );
   }
 }

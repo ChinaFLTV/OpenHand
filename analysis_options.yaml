@@ -1,1 +1,37 @@
+# 2026-04-01 10:27:21
+# 升级为生产级 lint 规则配置。
+# 基础规则来自 flutter_lints，在此基础上追加更严格的质量检查。
 include: package:flutter_lints/flutter.yaml
+
+linter:
+  rules:
+    # — 代码风格 —
+    prefer_final_fields: true          # 不可变字段应声明为 final
+    prefer_final_locals: false         # 可变局部变量（如循环用 var）允许非 final
+    prefer_const_constructors: true    # 优先使用 const 构造函数
+    prefer_const_declarations: true    # const 字面量变量使用 const 声明
+    unnecessary_this: true             # 移除不必要的 this.
+
+    # — 安全性 —
+    avoid_print: true                  # 禁止生产代码使用 print()，改用日志框架
+    avoid_dynamic_calls: false         # 动态调用（工具参数解析场景允许）
+
+    # — Null 安全 —
+    unnecessary_null_checks: true      # 不必要的 null 检查
+
+    # — 性能 —
+    use_null_aware_elements: false     # ?'key' 仅在 nullable key 场景有效，字面量 key 会冲突
+    prefer_contains: true              # 优先使用 contains 而非 indexOf != -1
+    use_string_buffers: false          # 不强制 StringBuffer（有些场景 + 更可读）
+
+    # — 可维护性 —
+    avoid_redundant_argument_values: true  # 移除与默认值相同的参数
+    sort_constructors_first: true          # 构造函数排在其他成员前面
+    directives_ordering: true              # import 语句按规范排序
+
+analyzer:
+  errors:
+    # 将以下降级为 warning，避免过于严格影响开发效率
+    prefer_final_locals: info
+    sort_constructors_first: info
+    directives_ordering: info

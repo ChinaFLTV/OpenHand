@@ -1,10 +1,29 @@
 import '../../../app/support/openhand_paths.dart';
-import 'ai_allow_command_rule.dart';
 import '../../mcp/model/mcp_server.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
+import 'ai_allow_command_rule.dart';
 
 class AiRepositorySnapshot {
+
+  factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
+    final recentCommitsValue = json['recent_commits'];
+    return AiRepositorySnapshot(
+      workingDirectory: '${json['working_directory'] ?? ''}',
+      isGitRepository: json['is_git_repository'] == true,
+      repositoryRootPath: '${json['repository_root_path'] ?? ''}',
+      currentBranch: '${json['current_branch'] ?? ''}',
+      mainBranch: '${json['main_branch'] ?? ''}',
+      statusSnapshot: '${json['status_snapshot'] ?? ''}',
+      recentCommits: recentCommitsValue is List
+          ? recentCommitsValue
+                .map((item) => '$item'.trim())
+                .where((item) => item.isNotEmpty)
+                .toList(growable: false)
+          : const <String>[],
+      capturedAtIso8601: '${json['captured_at'] ?? ''}',
+    );
+  }
   const AiRepositorySnapshot({
     required this.workingDirectory,
     required this.isGitRepository,
@@ -36,25 +55,6 @@ class AiRepositorySnapshot {
       'recent_commits': recentCommits,
       'captured_at': capturedAtIso8601,
     };
-  }
-
-  factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
-    final recentCommitsValue = json['recent_commits'];
-    return AiRepositorySnapshot(
-      workingDirectory: '${json['working_directory'] ?? ''}',
-      isGitRepository: json['is_git_repository'] == true,
-      repositoryRootPath: '${json['repository_root_path'] ?? ''}',
-      currentBranch: '${json['current_branch'] ?? ''}',
-      mainBranch: '${json['main_branch'] ?? ''}',
-      statusSnapshot: '${json['status_snapshot'] ?? ''}',
-      recentCommits: recentCommitsValue is List
-          ? recentCommitsValue
-                .map((item) => '$item'.trim())
-                .where((item) => item.isNotEmpty)
-                .toList(growable: false)
-          : const <String>[],
-      capturedAtIso8601: '${json['captured_at'] ?? ''}',
-    );
   }
 }
 

@@ -4,15 +4,16 @@ import 'dart:async';
 import 'dart:ui' as ui show KeyData, KeyEventType;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
 import '../features/home/openhand_home_page.dart';
 import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
 import 'theme/openhand_theme.dart';
 import 'theme/openhand_theme_preset.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 
 class OpenHandApp extends StatefulWidget {
   const OpenHandApp({super.key, this.home = const OpenHandHomePage()});

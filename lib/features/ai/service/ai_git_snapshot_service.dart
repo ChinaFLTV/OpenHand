@@ -224,7 +224,6 @@ class AiGitSnapshotService {
       'git',
       arguments,
       workingDirectory: workingDirectory,
-      runInShell: false,
     );
     final stdoutFuture = process.stdout.transform(utf8.decoder).join();
     final stderrFuture = process.stderr.transform(utf8.decoder).join();

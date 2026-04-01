@@ -35,18 +35,18 @@ import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
+import '../mcp/mcp_controller.dart';
+import '../mcp/mcp_view.dart';
+import '../mcp/model/mcp_tool.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
-import '../mcp/mcp_controller.dart';
-import '../mcp/model/mcp_tool.dart';
-import '../mcp/mcp_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
+import 'machine_expert_dialog.dart';
 import 'message_path_linking.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
-import 'machine_expert_dialog.dart';
 
 enum AppSection { workspace, automations, skills, memory, mcp, settings }
 
@@ -553,7 +553,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       _scheduleScrollToBottom(
         force: _pendingForcedScrollToBottom,
-        animated: false,
         allowSettlePasses: false,
       );
     });
@@ -889,7 +888,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _clearPendingAutoFollowState();
       _armAutoFollowToBottom();
     });
-    _scheduleScrollToBottom(force: true, animated: false);
+    _scheduleScrollToBottom(force: true);
   }
 
   Future<String?> _showThreadTemplateDialog() async {
@@ -1045,7 +1044,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       allowCommandRules: settingsController.aiAllowCommandRules,
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
-      workspaceInstructionDocuments: const <AiWorkspaceInstructionDocument>[],
     );
   }
 
@@ -1325,7 +1323,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _submittingSessionId = targetSessionId;
       _armAutoFollowToBottom();
     });
-    _scheduleScrollToBottom(force: true, animated: false);
+    _scheduleScrollToBottom(force: true);
     try {
       runtimeContext ??= await _buildRuntimeContext();
       if (!mounted) {
@@ -1443,7 +1441,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _composerController.value = TextEditingValue(
       text: value,
       selection: TextSelection.collapsed(offset: value.length),
-      composing: TextRange.empty,
     );
   }
 
@@ -1702,8 +1699,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             return;
           }
           _scheduleScrollToBottom(
-            force: false,
-            animated: false,
             allowSettlePasses: false,
           );
         });
@@ -2415,7 +2410,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                             behavior: HitTestBehavior.opaque,
                             onPanUpdate: (details) {
                               var nextWidth = navWidth + details.delta.dx;
-                              final minWidth = 240.0;
+                              const minWidth = 240.0;
                               final maxWidth = constraints.maxWidth * 0.7;
                               if (nextWidth < minWidth) {
                                 nextWidth = minWidth;
@@ -3197,8 +3192,8 @@ class _WorkspaceView extends StatelessWidget {
           children: [
             Expanded(
               child: currentSession == null
-                  ? _WorkspaceEmptyState(
-                      key: const ValueKey<String>('no-session'),
+                  ? const _WorkspaceEmptyState(
+                      key: ValueKey<String>('no-session'),
                     )
                   : currentSession!.messages.isEmpty
                   ? _WorkspaceEmptyState(
@@ -3513,15 +3508,15 @@ class _TranscriptPlaceholderBubble extends StatelessWidget {
             color: color,
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+          child: const Padding(
+            padding: EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _TranscriptPlaceholderLine(widthFactor: 0.88),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _TranscriptPlaceholderLine(widthFactor: 0.72),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 _TranscriptPlaceholderLine(widthFactor: 0.54),
               ],
             ),
@@ -4910,7 +4905,6 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
               boxShadow: chipDecoration.boxShadow,
             ),
             child: _SweepBadge(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               backgroundColor: backgroundColor,
               borderColor: accentColor.withValues(alpha: 0.22),
               sweepColor: Colors.white.withValues(alpha: 0.20),
@@ -6978,8 +6972,8 @@ class _MetadataJsonPanel extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF17181C),
+      decoration: const BoxDecoration(
+        color: Color(0xFF17181C),
         borderRadius: _borderRadius18,
       ),
       padding: const EdgeInsets.all(14),
@@ -7824,10 +7818,8 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                         });
                       },
                       child: IgnorePointer(
-                        ignoring: true,
                         child: _SafeMarkdownBody(
                           data: widget.data,
-                          selectable: false,
                           builders: widget.builders,
                           styleSheet: widget.styleSheet,
                           inlineSyntaxes: widget.inlineSyntaxes,
@@ -7908,9 +7900,6 @@ class _RenderMeasureSize extends RenderProxyBox {
 }
 
 class _MessageMarkdownThemeData {
-  const _MessageMarkdownThemeData({required this.styleSheet});
-
-  final MarkdownStyleSheet styleSheet;
 
   factory _MessageMarkdownThemeData.fromMessageBubble({
     required ThemeData theme,
@@ -8019,6 +8008,9 @@ class _MessageMarkdownThemeData {
       ),
     );
   }
+  const _MessageMarkdownThemeData({required this.styleSheet});
+
+  final MarkdownStyleSheet styleSheet;
 }
 
 class _SafeMarkdownBody extends StatefulWidget {
@@ -8131,9 +8123,6 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         paddingBuilders: const <String, MarkdownPaddingBuilder>{},
         fitContent: true,
         listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
-        onSelectionChanged: null,
-        onTapText: null,
-        softLineBreak: false,
       );
       _children = builder.build(astNodes);
     } catch (_) {
@@ -8649,7 +8638,6 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 0,
                     ),
                     minimumSize: const Size(0, 28),
                     foregroundColor: widget.theme.colorScheme.primary,
@@ -8680,7 +8668,6 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 0,
                       ),
                       minimumSize: const Size(0, 28),
                       foregroundColor: widget.theme.colorScheme.primary,
@@ -10451,7 +10438,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               controller: widget.controller,
               focusNode: widget.focusNode,
               expands: true,
-              minLines: null,
               maxLines: null,
               textInputAction: TextInputAction.newline,
               textAlignVertical: TextAlignVertical.top,
@@ -11956,23 +11942,6 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
 }
 
 class _CodeBlockPalette {
-  const _CodeBlockPalette({
-    required this.containerColor,
-    required this.borderColor,
-    required this.headerColor,
-    required this.dividerColor,
-    required this.bodyColor,
-    required this.bodyBorderColor,
-    required this.badgeColor,
-    required this.badgeTextColor,
-    required this.actionColor,
-    required this.actionTextColor,
-    required this.shadowColor,
-  });
-
-  // Static cache for the expensive ColorScheme.fromSeed dark palette.
-  static ColorScheme? _cachedDarkScheme;
-  static int? _cachedDarkSchemeTintValue;
 
   factory _CodeBlockPalette.fromTheme(
     ThemeData theme, {
@@ -11994,7 +11963,6 @@ class _CodeBlockPalette {
                 seedColor: tint,
                 brightness: Brightness.dark,
                 dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-                contrastLevel: 0.0,
               );
               _cachedDarkScheme = scheme;
               _cachedDarkSchemeTintValue = tintValue;
@@ -12058,6 +12026,23 @@ class _CodeBlockPalette {
       shadowColor: colorScheme.shadow.withValues(alpha: 0.03),
     );
   }
+  const _CodeBlockPalette({
+    required this.containerColor,
+    required this.borderColor,
+    required this.headerColor,
+    required this.dividerColor,
+    required this.bodyColor,
+    required this.bodyBorderColor,
+    required this.badgeColor,
+    required this.badgeTextColor,
+    required this.actionColor,
+    required this.actionTextColor,
+    required this.shadowColor,
+  });
+
+  // Static cache for the expensive ColorScheme.fromSeed dark palette.
+  static ColorScheme? _cachedDarkScheme;
+  static int? _cachedDarkSchemeTintValue;
 
   final Color containerColor;
   final Color borderColor;

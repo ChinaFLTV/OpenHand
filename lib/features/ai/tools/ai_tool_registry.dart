@@ -1,5 +1,6 @@
 // 2026-04-01 02:02:39
 // 2026-04-01 02:29:02 register() 升级：自动处理 AiTool.aliases 别名，移除硬编码 _legacyBashAlias 依赖
+// 2026-04-01 10:31:10 P1-3: tryExecute 集成权限门，在 execute 前调用 checkPermissions
 // AiToolRegistry — 多态工具调度中心（完整版，含服务依赖注册）
 // 用法：
 //   final registry = AiToolRegistry.withServiceDependencies(...)
@@ -34,13 +35,6 @@ export 'ai_tool.dart';
 export 'ai_tool_execution_context.dart';
 
 class AiToolRegistry {
-  AiToolRegistry._();
-
-  final Map<AiBuiltinToolKind, AiTool> _tools = {};
-
-  /// 别名映射表：工具名称字符串 → AiBuiltinToolKind
-  /// 由 [register] 在注册时自动填充来自 [AiTool.aliases] 的别名。
-  final Map<String, AiBuiltinToolKind> _aliasToKind = {};
 
   // ──────────────────────────────────────────────────────────────
   // 工厂：仅注册无外部 IO 依赖的轻量工具（用于测试和内部组合）
@@ -129,6 +123,13 @@ class AiToolRegistry {
 
     return registry;
   }
+  AiToolRegistry._();
+
+  final Map<AiBuiltinToolKind, AiTool> _tools = {};
+
+  /// 别名映射表：工具名称字符串 → AiBuiltinToolKind
+  /// 由 [register] 在注册时自动填充来自 [AiTool.aliases] 的别名。
+  final Map<String, AiBuiltinToolKind> _aliasToKind = {};
 
   // ──────────────────────────────────────────────────────────────
   // 核心操作
@@ -153,17 +154,56 @@ class AiToolRegistry {
 
   /// 通过别名字符串查找对应的 [AiBuiltinToolKind]。
   /// 若无匹配别名则返回 null。
+  ///
+  /// 使用场景：
+  /// - [tryExecute] 内部将此方法作为全局 kind 查找失败后的备用路径。
+  /// - 外部调用方可用于工具名字串→kind 的类型安全转换。
   AiBuiltinToolKind? kindFromAlias(String alias) {
     return _aliasToKind[alias.trim()];
   }
 
-  /// 尝试通过 Registry 执行工具，若未注册则返回 null（由调用方回退到旧路径）。
+  // 2026-04-01 10:27:21 L1: 别名兼容层
+  // 2026-04-01 10:31:10 P1-3: 集成权限门 —— execute 前先调用 checkPermissions。
+  // AiToolPermissionAllowed → 继续执行。
+  // AiToolPermissionDenied  → 构造拒绝结果直接返回，不调用 execute()。
   Future<AiToolExecutionResult?> tryExecute(
     AiToolExecutionContext context,
     AiBuiltinToolKind kind,
   ) async {
-    final tool = _tools[kind];
+    final tool = _tools[kind] ?? _toolFromCallAlias(context.toolCall.name);
     if (tool == null) return null;
+    final permResult = await tool.checkPermissions(context);
+    if (permResult case final AiToolPermissionDenied denied) {
+      return _permissionDeniedResult(context.toolCall.name, denied.reason);
+    }
     return tool.execute(context);
   }
+
+  /// 构造权限拒绝的 [AiToolExecutionResult]。
+  AiToolExecutionResult _permissionDeniedResult(
+    String toolName,
+    String reason,
+  ) {
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.failed,
+      command: toolName,
+      workingDirectory: '',
+      stdout: '',
+      stderr: reason,
+      durationMs: 0,
+      resultText: 'status: permission_denied\nerror: $reason',
+      metadata: const <String, Object?>{
+        'tool_source': 'builtin',
+        'permission_denied': true,
+      },
+    );
+  }
+
+  /// 通过工具调用名称字符串查找工具实例（别名备用路径）。
+  AiTool? _toolFromCallAlias(String name) {
+    final aliasKind = kindFromAlias(name);
+    if (aliasKind == null) return null;
+    return _tools[aliasKind];
+  }
 }
+

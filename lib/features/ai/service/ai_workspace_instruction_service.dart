@@ -135,7 +135,7 @@ class AiWorkspaceInstructionService {
     }
     final ruleFiles =
         rulesDirectory
-            .listSync(recursive: false)
+            .listSync()
             .whereType<File>()
             .map((item) => p.normalize(item.path))
             .where((item) => item.toLowerCase().endsWith('.md'))

@@ -77,7 +77,7 @@ class AiAttachmentService {
       return const <AiMessageAttachment>[];
     }
     if (filePaths.length > aiMessageAttachmentLimit) {
-      throw AiAttachmentException(
+      throw const AiAttachmentException(
         'A single message supports at most $aiMessageAttachmentLimit attachments.',
       );
     }

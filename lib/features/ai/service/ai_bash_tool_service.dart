@@ -843,7 +843,6 @@ class AiBashToolService {
         'cmd',
         <String>['/c', command],
         workingDirectory: workingDirectory,
-        runInShell: false,
       );
     }
     final shellExecutable = _resolveShellExecutable();
@@ -851,7 +850,6 @@ class AiBashToolService {
       shellExecutable,
       <String>['-lc', command],
       workingDirectory: workingDirectory,
-      runInShell: false,
     );
   }
 
@@ -873,7 +871,6 @@ class AiBashToolService {
       shellExecutable,
       shellArgs,
       workingDirectory: initialWorkingDirectory,
-      runInShell: false,
     );
     final session = _PersistentBashSession(
       process: process,
@@ -1736,7 +1733,7 @@ class _ShellWriteCommandAnalyzer {
     List<_ShellToken> invocation,
   ) {
     if (commandName == 'awk') {
-      return BashWriteAnalysis.write('awk programs can write files and state');
+      return const BashWriteAnalysis.write('awk programs can write files and state');
     }
     final inlineScriptToken = _findInlineScriptToken(invocation, const <String>{
       '-c',

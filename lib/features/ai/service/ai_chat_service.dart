@@ -159,10 +159,7 @@ class AiChatService implements AiChatClient {
       try {
         final parsedReply = adapter.parseAssistantMessage(response.body);
         final parsedToolCalls = adapter.parseToolCalls(response.body);
-        final dsmlExtraction = extractDsmlToolCalls(
-          parsedReply,
-          toolCallIdPrefix: 'dsml-tool-call',
-        );
+        final dsmlExtraction = extractDsmlToolCalls(parsedReply);
         return AiChatCompletion(
           reply: dsmlExtraction.sanitizedText,
           usage: adapter.parseUsage(response.body),
@@ -239,7 +236,7 @@ class AiChatService implements AiChatClient {
                 .catchError((Object _, StackTrace stackTrace) {}),
           );
           return AiChatStreamingResponse(
-            events: Stream<AiChatStreamEvent>.empty(),
+            events: const Stream<AiChatStreamEvent>.empty(),
             result: Future<AiChatStreamResult>.value(
               const AiChatStreamResult(
                 reply: '',
@@ -330,10 +327,7 @@ class AiChatService implements AiChatClient {
       final resolvedToolCalls = toolCalls.entries.toList(growable: false)
         ..sort((left, right) => left.key.compareTo(right.key));
       final streamedReply = textBuffer.toString().trim();
-      final dsmlExtraction = extractDsmlToolCalls(
-        streamedReply,
-        toolCallIdPrefix: 'dsml-tool-call',
-      );
+      final dsmlExtraction = extractDsmlToolCalls(streamedReply);
       final resolvedParsedToolCalls = resolvedToolCalls
           .map(
             (entry) => AiToolCall(

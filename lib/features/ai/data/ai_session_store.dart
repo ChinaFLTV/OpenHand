@@ -29,13 +29,13 @@ class AiSessionLoadResult {
 }
 
 class AiSessionStore {
-  static const String _sessionFilePrefix = 'session-';
-  static const String _sessionFileSuffix = '.json';
-  static const String _invalidSessionBackupPrefix = 'invalid-session-';
 
   AiSessionStore({String? sessionsDirectoryPath})
     : _sessionsDirectoryPath =
           sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
+  static const String _sessionFilePrefix = 'session-';
+  static const String _sessionFileSuffix = '.json';
+  static const String _invalidSessionBackupPrefix = 'invalid-session-';
 
   final String _sessionsDirectoryPath;
   bool _directoryCreated = false;

@@ -152,6 +152,99 @@ class AiSessionPlanRecord {
 }
 
 class AiSession {
+
+  factory AiSession.fromJson(Map<String, Object?> json) {
+    final sessionJson = _requireMap(json['session'], 'session');
+    final messagesJson = _requireList(json['messages'], 'messages');
+    final errorsJson = json['recent_errors'];
+    final todoItemsJson = json['todo_items'];
+    final planHistoryJson = json['plan_history'];
+    final environmentJson = _requireMap(json['environment'], 'environment');
+    final statisticsJson = _requireMap(json['statistics'], 'statistics');
+    final createdAt = DateTime.parse('${sessionJson['created_at']}').toUtc();
+    final updatedAt = DateTime.parse('${sessionJson['updated_at']}').toUtc();
+    return AiSession(
+      id: '${sessionJson['id'] ?? ''}',
+      title: '${sessionJson['title'] ?? ''}',
+      templateId: '${sessionJson['template_id'] ?? ''}',
+      templateName: '${sessionJson['template_name'] ?? ''}',
+      templateIconName: '${sessionJson['template_icon_name'] ?? ''}',
+      templateInternalVersion:
+          '${sessionJson['template_internal_version'] ?? ''}',
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      messages: messagesJson
+          .map(
+            (item) => AiSessionMessage.fromJson(_requireMap(item, 'message')),
+          )
+          .toList(growable: false),
+      environment: AiSessionEnvironment.fromJson(environmentJson),
+      statistics: AiSessionStatistics.fromJson(statisticsJson),
+      recentErrors: errorsJson is List
+          ? errorsJson
+                .map(
+                  (item) => AiSessionErrorRecord.fromJson(
+                    _requireMap(item, 'recent_errors'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionErrorRecord>[],
+      lastUsedModelId: _readNullableString(sessionJson['last_used_model_id']),
+      lastUsedModelLabel: _readNullableString(
+        sessionJson['last_used_model_label'],
+      ),
+      isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
+          ? sessionJson['is_title_manually_edited'] as bool
+          : false,
+      autoTitleGeneratedAt:
+          _readNullableString(sessionJson['auto_title_generated_at']) == null
+          ? null
+          : DateTime.parse('${sessionJson['auto_title_generated_at']}').toUtc(),
+      autoTitleSourceMessageId: _readNullableString(
+        sessionJson['auto_title_source_message_id'],
+      ),
+      latestCompressionCheckpointMessageId: _readNullableString(
+        sessionJson['latest_compression_checkpoint_message_id'],
+      ),
+      latestCompressionAt:
+          _readNullableString(sessionJson['latest_compression_at']) == null
+          ? null
+          : DateTime.parse('${sessionJson['latest_compression_at']}').toUtc(),
+      mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
+      awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
+          ? sessionJson['awaiting_plan_approval'] as bool
+          : false,
+      pendingPlan: _readNullableString(sessionJson['pending_plan']),
+      fullAccessPermission: sessionJson['full_access_permission'] is bool
+          ? sessionJson['full_access_permission'] as bool
+          : false,
+      planHistory: planHistoryJson is List
+          ? planHistoryJson
+                .map(
+                  (item) => AiSessionPlanRecord.fromJson(
+                    _requireMap(item, 'plan_history'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionPlanRecord>[],
+      lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
+          ? Map<String, Object?>.from(
+              json['last_prompt_metadata'] as Map<String, Object?>,
+            )
+          : json['last_prompt_metadata'] is Map
+          ? Map<String, Object?>.from(json['last_prompt_metadata'] as Map)
+          : const <String, Object?>{},
+      todoItems: todoItemsJson is List
+          ? todoItemsJson
+                .map(
+                  (item) => AiSessionTodoItem.fromJson(
+                    _requireMap(item, 'todo_items'),
+                  ),
+                )
+                .toList(growable: false)
+          : const <AiSessionTodoItem>[],
+    );
+  }
   AiSession({
     required this.id,
     required this.title,
@@ -400,99 +493,6 @@ class AiSession {
     };
   }
 
-  factory AiSession.fromJson(Map<String, Object?> json) {
-    final sessionJson = _requireMap(json['session'], 'session');
-    final messagesJson = _requireList(json['messages'], 'messages');
-    final errorsJson = json['recent_errors'];
-    final todoItemsJson = json['todo_items'];
-    final planHistoryJson = json['plan_history'];
-    final environmentJson = _requireMap(json['environment'], 'environment');
-    final statisticsJson = _requireMap(json['statistics'], 'statistics');
-    final createdAt = DateTime.parse('${sessionJson['created_at']}').toUtc();
-    final updatedAt = DateTime.parse('${sessionJson['updated_at']}').toUtc();
-    return AiSession(
-      id: '${sessionJson['id'] ?? ''}',
-      title: '${sessionJson['title'] ?? ''}',
-      templateId: '${sessionJson['template_id'] ?? ''}',
-      templateName: '${sessionJson['template_name'] ?? ''}',
-      templateIconName: '${sessionJson['template_icon_name'] ?? ''}',
-      templateInternalVersion:
-          '${sessionJson['template_internal_version'] ?? ''}',
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      messages: messagesJson
-          .map(
-            (item) => AiSessionMessage.fromJson(_requireMap(item, 'message')),
-          )
-          .toList(growable: false),
-      environment: AiSessionEnvironment.fromJson(environmentJson),
-      statistics: AiSessionStatistics.fromJson(statisticsJson),
-      recentErrors: errorsJson is List
-          ? errorsJson
-                .map(
-                  (item) => AiSessionErrorRecord.fromJson(
-                    _requireMap(item, 'recent_errors'),
-                  ),
-                )
-                .toList(growable: false)
-          : const <AiSessionErrorRecord>[],
-      lastUsedModelId: _readNullableString(sessionJson['last_used_model_id']),
-      lastUsedModelLabel: _readNullableString(
-        sessionJson['last_used_model_label'],
-      ),
-      isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
-          ? sessionJson['is_title_manually_edited'] as bool
-          : false,
-      autoTitleGeneratedAt:
-          _readNullableString(sessionJson['auto_title_generated_at']) == null
-          ? null
-          : DateTime.parse('${sessionJson['auto_title_generated_at']}').toUtc(),
-      autoTitleSourceMessageId: _readNullableString(
-        sessionJson['auto_title_source_message_id'],
-      ),
-      latestCompressionCheckpointMessageId: _readNullableString(
-        sessionJson['latest_compression_checkpoint_message_id'],
-      ),
-      latestCompressionAt:
-          _readNullableString(sessionJson['latest_compression_at']) == null
-          ? null
-          : DateTime.parse('${sessionJson['latest_compression_at']}').toUtc(),
-      mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
-      awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
-          ? sessionJson['awaiting_plan_approval'] as bool
-          : false,
-      pendingPlan: _readNullableString(sessionJson['pending_plan']),
-      fullAccessPermission: sessionJson['full_access_permission'] is bool
-          ? sessionJson['full_access_permission'] as bool
-          : false,
-      planHistory: planHistoryJson is List
-          ? planHistoryJson
-                .map(
-                  (item) => AiSessionPlanRecord.fromJson(
-                    _requireMap(item, 'plan_history'),
-                  ),
-                )
-                .toList(growable: false)
-          : const <AiSessionPlanRecord>[],
-      lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
-          ? Map<String, Object?>.from(
-              json['last_prompt_metadata'] as Map<String, Object?>,
-            )
-          : json['last_prompt_metadata'] is Map
-          ? Map<String, Object?>.from(json['last_prompt_metadata'] as Map)
-          : const <String, Object?>{},
-      todoItems: todoItemsJson is List
-          ? todoItemsJson
-                .map(
-                  (item) => AiSessionTodoItem.fromJson(
-                    _requireMap(item, 'todo_items'),
-                  ),
-                )
-                .toList(growable: false)
-          : const <AiSessionTodoItem>[],
-    );
-  }
-
   static Map<String, Object?> _requireMap(Object? value, String label) {
     if (value is Map<String, Object?>) {
       return value;
@@ -526,6 +526,31 @@ class AiSession {
 }
 
 class AiSessionEnvironment {
+
+  factory AiSessionEnvironment.fromJson(Map<String, Object?> json) {
+    return AiSessionEnvironment(
+      localeTag: '${json['locale_tag'] ?? ''}',
+      platform: '${json['platform'] ?? ''}',
+      appVersion: '${json['app_version'] ?? ''}',
+      appBuildNumber: '${json['app_build_number'] ?? ''}',
+      applicationDirectory: '${json['application_directory'] ?? ''}',
+      homeDirectory: '${json['home_directory'] ?? ''}',
+      settingsFilePath: '${json['settings_file_path'] ?? ''}',
+      skillsStoragePath: '${json['skills_storage_path'] ?? ''}',
+      mcpServersFilePath: '${json['mcp_servers_file_path'] ?? ''}',
+      userMemoryFilePath: '${json['user_memory_file_path'] ?? ''}',
+      sessionsDirectoryPath: '${json['sessions_directory_path'] ?? ''}',
+      compressionThresholdChars: json['compression_threshold_chars'] is int
+          ? json['compression_threshold_chars'] as int
+          : 0,
+      singleRoundToolCallLimit: json['single_round_tool_call_limit'] is int
+          ? json['single_round_tool_call_limit'] as int
+          : 40,
+      sequentialToolRoundLimit: json['sequential_tool_round_limit'] is int
+          ? json['sequential_tool_round_limit'] as int
+          : 24,
+    );
+  }
   const AiSessionEnvironment({
     required this.localeTag,
     required this.platform,
@@ -614,34 +639,35 @@ class AiSessionEnvironment {
       'sequential_tool_round_limit': sequentialToolRoundLimit,
     };
   }
-
-  factory AiSessionEnvironment.fromJson(Map<String, Object?> json) {
-    return AiSessionEnvironment(
-      localeTag: '${json['locale_tag'] ?? ''}',
-      platform: '${json['platform'] ?? ''}',
-      appVersion: '${json['app_version'] ?? ''}',
-      appBuildNumber: '${json['app_build_number'] ?? ''}',
-      applicationDirectory: '${json['application_directory'] ?? ''}',
-      homeDirectory: '${json['home_directory'] ?? ''}',
-      settingsFilePath: '${json['settings_file_path'] ?? ''}',
-      skillsStoragePath: '${json['skills_storage_path'] ?? ''}',
-      mcpServersFilePath: '${json['mcp_servers_file_path'] ?? ''}',
-      userMemoryFilePath: '${json['user_memory_file_path'] ?? ''}',
-      sessionsDirectoryPath: '${json['sessions_directory_path'] ?? ''}',
-      compressionThresholdChars: json['compression_threshold_chars'] is int
-          ? json['compression_threshold_chars'] as int
-          : 0,
-      singleRoundToolCallLimit: json['single_round_tool_call_limit'] is int
-          ? json['single_round_tool_call_limit'] as int
-          : 40,
-      sequentialToolRoundLimit: json['sequential_tool_round_limit'] is int
-          ? json['sequential_tool_round_limit'] as int
-          : 24,
-    );
-  }
 }
 
 class AiSessionStatistics {
+
+  factory AiSessionStatistics.fromJson(Map<String, Object?> json) {
+    return AiSessionStatistics(
+      totalMessageCount: _readInt(json['total_message_count']),
+      userMessageCount: _readInt(json['user_message_count']),
+      assistantMessageCount: _readInt(json['assistant_message_count']),
+      toolMessageCount: _readInt(json['tool_message_count']),
+      mcpMessageCount: _readInt(json['mcp_message_count']),
+      skillMessageCount: _readInt(json['skill_message_count']),
+      compressionPointCount: _readInt(json['compression_point_count']),
+      totalInputCharacters: _readInt(json['total_input_characters']),
+      totalOutputCharacters: _readInt(json['total_output_characters']),
+      totalPromptCharacters: _readInt(json['total_prompt_characters']),
+      promptBuildCount: _readInt(json['prompt_build_count']),
+      compressionRunCount: _readInt(json['compression_run_count']),
+      totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
+      totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
+      totalTokens: _readNullableInt(json['total_tokens']),
+      lastPromptSystemMessageCount: _readInt(
+        json['last_prompt_system_message_count'],
+      ),
+      lastPromptHistoryMessageCount: _readInt(
+        json['last_prompt_history_message_count'],
+      ),
+    );
+  }
   const AiSessionStatistics({
     required this.totalMessageCount,
     required this.userMessageCount,
@@ -768,32 +794,6 @@ class AiSessionStatistics {
     };
   }
 
-  factory AiSessionStatistics.fromJson(Map<String, Object?> json) {
-    return AiSessionStatistics(
-      totalMessageCount: _readInt(json['total_message_count']),
-      userMessageCount: _readInt(json['user_message_count']),
-      assistantMessageCount: _readInt(json['assistant_message_count']),
-      toolMessageCount: _readInt(json['tool_message_count']),
-      mcpMessageCount: _readInt(json['mcp_message_count']),
-      skillMessageCount: _readInt(json['skill_message_count']),
-      compressionPointCount: _readInt(json['compression_point_count']),
-      totalInputCharacters: _readInt(json['total_input_characters']),
-      totalOutputCharacters: _readInt(json['total_output_characters']),
-      totalPromptCharacters: _readInt(json['total_prompt_characters']),
-      promptBuildCount: _readInt(json['prompt_build_count']),
-      compressionRunCount: _readInt(json['compression_run_count']),
-      totalPromptTokens: _readNullableInt(json['total_prompt_tokens']),
-      totalCompletionTokens: _readNullableInt(json['total_completion_tokens']),
-      totalTokens: _readNullableInt(json['total_tokens']),
-      lastPromptSystemMessageCount: _readInt(
-        json['last_prompt_system_message_count'],
-      ),
-      lastPromptHistoryMessageCount: _readInt(
-        json['last_prompt_history_message_count'],
-      ),
-    );
-  }
-
   static AiSessionStatistics fromMessages(
     List<AiSessionMessage> messages, {
     required int totalPromptCharacters,
@@ -875,6 +875,19 @@ class AiSessionStatistics {
 }
 
 class AiSessionErrorRecord {
+
+  factory AiSessionErrorRecord.fromJson(Map<String, Object?> json) {
+    return AiSessionErrorRecord(
+      id: '${json['id'] ?? ''}',
+      createdAt: DateTime.parse('${json['created_at']}').toUtc(),
+      stage: '${json['stage'] ?? ''}',
+      message: '${json['message'] ?? ''}',
+      detail: json['detail'] == null ? null : '${json['detail']}',
+      presentedAt: json['presented_at'] == null
+          ? null
+          : DateTime.parse('${json['presented_at']}').toUtc(),
+    );
+  }
   const AiSessionErrorRecord({
     required this.id,
     required this.createdAt,
@@ -918,18 +931,5 @@ class AiSessionErrorRecord {
       'detail': detail,
       'presented_at': presentedAt?.toUtc().toIso8601String(),
     };
-  }
-
-  factory AiSessionErrorRecord.fromJson(Map<String, Object?> json) {
-    return AiSessionErrorRecord(
-      id: '${json['id'] ?? ''}',
-      createdAt: DateTime.parse('${json['created_at']}').toUtc(),
-      stage: '${json['stage'] ?? ''}',
-      message: '${json['message'] ?? ''}',
-      detail: json['detail'] == null ? null : '${json['detail']}',
-      presentedAt: json['presented_at'] == null
-          ? null
-          : DateTime.parse('${json['presented_at']}').toUtc(),
-    );
   }
 }

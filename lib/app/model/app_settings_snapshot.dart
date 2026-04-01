@@ -3,35 +3,12 @@ import 'package:flutter/material.dart';
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
-import 'openhand_shortcut.dart';
 import '../model/app_language.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
+import 'openhand_shortcut.dart';
 
 class AppSettingsSnapshot {
-  const AppSettingsSnapshot({
-    required this.themeMode,
-    required this.themePreset,
-    required this.language,
-    required this.skillsStoragePath,
-    required this.mcpEnabled,
-    required this.mcpServersFilePath,
-    required this.memoryEnabled,
-    required this.userMemoryFilePath,
-    required this.aiMessageCompressionThresholdChars,
-    required this.aiSingleRoundToolCallLimit,
-    required this.aiSequentialToolRoundLimit,
-    required this.aiWriteCommandConfirmationEnabled,
-    required this.aiAllowCommandRules,
-    required this.aiDenyCommandRules,
-    required this.aiModels,
-    required this.selectedAiModelId,
-    required this.shortcutBindings,
-  });
-
-  static const int defaultAiMessageCompressionThresholdChars = 12000;
-  static const int defaultAiSingleRoundToolCallLimit = 40;
-  static const int defaultAiSequentialToolRoundLimit = 24;
 
   factory AppSettingsSnapshot.defaults() {
     return AppSettingsSnapshot(
@@ -55,6 +32,29 @@ class AppSettingsSnapshot {
       shortcutBindings: defaultOpenHandShortcutBindings(),
     );
   }
+  const AppSettingsSnapshot({
+    required this.themeMode,
+    required this.themePreset,
+    required this.language,
+    required this.skillsStoragePath,
+    required this.mcpEnabled,
+    required this.mcpServersFilePath,
+    required this.memoryEnabled,
+    required this.userMemoryFilePath,
+    required this.aiMessageCompressionThresholdChars,
+    required this.aiSingleRoundToolCallLimit,
+    required this.aiSequentialToolRoundLimit,
+    required this.aiWriteCommandConfirmationEnabled,
+    required this.aiAllowCommandRules,
+    required this.aiDenyCommandRules,
+    required this.aiModels,
+    required this.selectedAiModelId,
+    required this.shortcutBindings,
+  });
+
+  static const int defaultAiMessageCompressionThresholdChars = 12000;
+  static const int defaultAiSingleRoundToolCallLimit = 40;
+  static const int defaultAiSequentialToolRoundLimit = 24;
 
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;

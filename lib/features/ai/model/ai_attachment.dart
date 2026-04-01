@@ -35,6 +35,21 @@ List<String> aiAttachmentPickerExtensions() {
 }
 
 class AiMessageAttachment {
+
+  factory AiMessageAttachment.fromJson(Map<String, Object?> json) {
+    return AiMessageAttachment(
+      id: '${json['id'] ?? ''}'.trim(),
+      name: '${json['name'] ?? ''}'.trim(),
+      storagePath: '${json['storage_path'] ?? ''}'.trim(),
+      kind: AiAttachmentKind.fromStorage('${json['kind'] ?? ''}'),
+      mimeType: '${json['mime_type'] ?? ''}'.trim(),
+      sizeBytes: _readInt(json['size_bytes']),
+      promptText: '${json['prompt_text'] ?? ''}',
+      summaryText: '${json['summary_text'] ?? ''}',
+      width: _readNullableInt(json['width']),
+      height: _readNullableInt(json['height']),
+    );
+  }
   const AiMessageAttachment({
     required this.id,
     required this.name,
@@ -76,21 +91,6 @@ class AiMessageAttachment {
       'width': width,
       'height': height,
     };
-  }
-
-  factory AiMessageAttachment.fromJson(Map<String, Object?> json) {
-    return AiMessageAttachment(
-      id: '${json['id'] ?? ''}'.trim(),
-      name: '${json['name'] ?? ''}'.trim(),
-      storagePath: '${json['storage_path'] ?? ''}'.trim(),
-      kind: AiAttachmentKind.fromStorage('${json['kind'] ?? ''}'),
-      mimeType: '${json['mime_type'] ?? ''}'.trim(),
-      sizeBytes: _readInt(json['size_bytes']),
-      promptText: '${json['prompt_text'] ?? ''}',
-      summaryText: '${json['summary_text'] ?? ''}',
-      width: _readNullableInt(json['width']),
-      height: _readNullableInt(json['height']),
-    );
   }
 
   static List<AiMessageAttachment> listFromMetadata(Object? rawValue) {

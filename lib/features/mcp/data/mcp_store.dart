@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../../app/support/url_validation.dart';
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/url_validation.dart';
 import '../../../shared/data/atomic_file_operations.dart';
 import '../model/mcp_server.dart';
 
@@ -46,7 +46,7 @@ class McpStore {
   Future<McpLoadResult> load() async {
     final targetFile = File(_serversFilePath);
     if (!await targetFile.exists()) {
-      final servers = const <McpServer>[];
+      const servers = <McpServer>[];
       try {
         await save(servers);
         return const McpLoadResult(servers: <McpServer>[]);

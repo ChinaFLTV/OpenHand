@@ -7,8 +7,8 @@ import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
-import 'features/memory/memory_controller.dart';
 import 'features/mcp/mcp_controller.dart';
+import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
 
 Future<void> main() async {

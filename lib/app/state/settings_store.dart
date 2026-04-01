@@ -1,19 +1,19 @@
 import 'dart:convert';
 import 'dart:io';
 
-import '../../shared/data/atomic_file_operations.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
-import '../support/url_validation.dart';
+import '../../shared/data/atomic_file_operations.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
 import '../model/openhand_shortcut.dart';
-import '../theme/openhand_theme_preset.dart';
 import '../support/openhand_paths.dart';
+import '../support/url_validation.dart';
+import '../theme/openhand_theme_preset.dart';
 
 enum SettingsPersistenceIssueKind {
   recoveredInvalidFile,

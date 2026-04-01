@@ -46,6 +46,37 @@ enum AiSessionMessageRole {
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
 
 class AiSessionMessage {
+
+  factory AiSessionMessage.fromJson(Map<String, Object?> json) {
+    final createdAt = DateTime.parse('${json['created_at']}').toUtc();
+    final content = '${json['content'] ?? ''}';
+    final usageJson = json['usage'];
+    return AiSessionMessage(
+      id: '${json['id'] ?? ''}',
+      kind: AiSessionMessageKind.fromStorage('${json['kind'] ?? ''}'),
+      role: AiSessionMessageRole.fromStorage('${json['role'] ?? ''}'),
+      content: content,
+      createdAt: createdAt,
+      characterCount: json['character_count'] is int
+          ? json['character_count'] as int
+          : countCharacters(content),
+      isDeleted: json['is_deleted'] is bool
+          ? json['is_deleted'] as bool
+          : false,
+      modelId: _readNullableString(json['model_id']),
+      modelLabel: _readNullableString(json['model_label']),
+      usage: usageJson is Map<String, Object?>
+          ? AiTokenUsage.fromJson(usageJson)
+          : usageJson is Map
+          ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
+          : null,
+      metadata: json['metadata'] is Map<String, Object?>
+          ? Map<String, Object?>.from(json['metadata'] as Map<String, Object?>)
+          : json['metadata'] is Map
+          ? Map<String, Object?>.from(json['metadata'] as Map)
+          : const <String, Object?>{},
+    );
+  }
   const AiSessionMessage({
     required this.id,
     required this.kind,
@@ -226,7 +257,6 @@ class AiSessionMessage {
       content: content.trim(),
       createdAt: createdAt.toUtc(),
       characterCount: countCharacters(content),
-      isDeleted: false,
       metadata: metadata,
       modelId: modelId,
       modelLabel: modelLabel,
@@ -307,37 +337,6 @@ class AiSessionMessage {
       'usage': usage?.toJson(),
       'metadata': metadata,
     };
-  }
-
-  factory AiSessionMessage.fromJson(Map<String, Object?> json) {
-    final createdAt = DateTime.parse('${json['created_at']}').toUtc();
-    final content = '${json['content'] ?? ''}';
-    final usageJson = json['usage'];
-    return AiSessionMessage(
-      id: '${json['id'] ?? ''}',
-      kind: AiSessionMessageKind.fromStorage('${json['kind'] ?? ''}'),
-      role: AiSessionMessageRole.fromStorage('${json['role'] ?? ''}'),
-      content: content,
-      createdAt: createdAt,
-      characterCount: json['character_count'] is int
-          ? json['character_count'] as int
-          : countCharacters(content),
-      isDeleted: json['is_deleted'] is bool
-          ? json['is_deleted'] as bool
-          : false,
-      modelId: _readNullableString(json['model_id']),
-      modelLabel: _readNullableString(json['model_label']),
-      usage: usageJson is Map<String, Object?>
-          ? AiTokenUsage.fromJson(usageJson)
-          : usageJson is Map
-          ? AiTokenUsage.fromJson(Map<String, Object?>.from(usageJson))
-          : null,
-      metadata: json['metadata'] is Map<String, Object?>
-          ? Map<String, Object?>.from(json['metadata'] as Map<String, Object?>)
-          : json['metadata'] is Map
-          ? Map<String, Object?>.from(json['metadata'] as Map)
-          : const <String, Object?>{},
-    );
   }
 
   static int countCharacters(String input) {

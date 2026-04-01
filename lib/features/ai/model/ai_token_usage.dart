@@ -1,4 +1,12 @@
 class AiTokenUsage {
+
+  factory AiTokenUsage.fromJson(Map<String, Object?> json) {
+    return AiTokenUsage(
+      promptTokens: _readInt(json['prompt_tokens']),
+      completionTokens: _readInt(json['completion_tokens']),
+      totalTokens: _readInt(json['total_tokens']),
+    );
+  }
   const AiTokenUsage({
     this.promptTokens,
     this.completionTokens,
@@ -18,14 +26,6 @@ class AiTokenUsage {
       'completion_tokens': completionTokens,
       'total_tokens': totalTokens,
     };
-  }
-
-  factory AiTokenUsage.fromJson(Map<String, Object?> json) {
-    return AiTokenUsage(
-      promptTokens: _readInt(json['prompt_tokens']),
-      completionTokens: _readInt(json['completion_tokens']),
-      totalTokens: _readInt(json['total_tokens']),
-    );
   }
 
   AiTokenUsage merge(AiTokenUsage other) {

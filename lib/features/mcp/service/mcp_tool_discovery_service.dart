@@ -1706,7 +1706,7 @@ class _StdioSession {
   String _stdoutOverflowMessage() {
     final trace = _traceBuffer.toString().trim();
     final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
-    final maxMiB =
+    const maxMiB =
         DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes ~/
         (1024 * 1024);
     return 'Tool scan failed because the stdio MCP server wrote more than $maxMiB MiB to stdout without a complete protocol message.$traceSuffix';

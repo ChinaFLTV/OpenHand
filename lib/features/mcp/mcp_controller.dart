@@ -186,7 +186,6 @@ class McpController extends ChangeNotifier {
       return _commitSaveLocked(
         updatedServers,
         previousServerName: server.name,
-        changedServerName: null,
       );
     });
   }

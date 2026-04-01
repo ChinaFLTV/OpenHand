@@ -1,5 +1,6 @@
 // 2026-04-01 02:29:02
 // 参照 Claude Code Tool.ts 的 fail-closed 原则，为 AiTool 增加安全防护栏属性。
+// 2026-04-01 10:31:10 P1-3: 增加权限门 checkPermissions + AiToolPermissionResult。
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool_execution_context.dart';
 
@@ -10,6 +11,28 @@ enum AiToolInterruptBehavior {
 
   /// 取消工具执行并丢弃结果。
   cancel,
+}
+
+/// 工具权限校验结果。
+///
+/// 由 [AiTool.checkPermissions] 返回，[AiToolRegistry] 在 `execute()` 前检查。
+/// - [AiToolPermissionAllowed]：放行，继续执行工具。
+/// - [AiToolPermissionDenied]：拒绝，[AiToolRegistry] 返回错误结果，不调用 execute()。
+sealed class AiToolPermissionResult {
+  const AiToolPermissionResult();
+}
+
+/// 权限通过，允许继续执行工具。
+final class AiToolPermissionAllowed extends AiToolPermissionResult {
+  const AiToolPermissionAllowed();
+}
+
+/// 权限被拒绝，工具不执行。
+final class AiToolPermissionDenied extends AiToolPermissionResult {
+  const AiToolPermissionDenied(this.reason);
+
+  /// 拒绝原因，将展示给模型和用户。
+  final String reason;
 }
 
 abstract class AiTool {
@@ -27,6 +50,23 @@ abstract class AiTool {
   /// 用户发送新消息时工具的中断行为。
   /// 默认 [AiToolInterruptBehavior.block]（fail-closed，不丢弃进行中的操作）。
   AiToolInterruptBehavior get interruptBehavior => AiToolInterruptBehavior.block;
+
+  /// 工具执行前的权限校验钩子。
+  ///
+  /// 在 [execute] 被调用前由 [AiToolRegistry.tryExecute] 自动调用。
+  /// 返回 [AiToolPermissionAllowed] 放行，返回 [AiToolPermissionDenied] 则
+  /// Registry 返回拒绝结果，不调用 [execute]。
+  ///
+  /// 默认放行（fail-open for permissions）。
+  /// 高风险工具（如删除、网络写入）可覆盖此方法实现自定义校验逻辑。
+  ///
+  /// 注意：Bash 工具的写命令人工确认（[BashCommandApprovalRequest]）在
+  /// [execute] 内部处理，属于操作级确认，与此权限门不冲突。
+  Future<AiToolPermissionResult> checkPermissions(
+    AiToolExecutionContext context,
+  ) async {
+    return const AiToolPermissionAllowed();
+  }
 
   /// Executes the tool logic given the execution context.
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context);

@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
-import '../model/openhand_shortcut.dart';
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
 import 'settings_store.dart';
@@ -16,7 +16,6 @@ import 'settings_store.dart';
 enum _MutationDisposition { apply, successNoChange, reject }
 
 class SettingsController extends ChangeNotifier {
-  static const Uuid _uuid = Uuid();
 
   SettingsController._({
     required SettingsStore store,
@@ -47,6 +46,7 @@ class SettingsController extends ChangeNotifier {
        _selectedAiModelId = snapshot.selectedAiModelId,
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _persistenceIssue = persistenceIssue;
+  static const Uuid _uuid = Uuid();
 
   static Future<SettingsController> create({SettingsStore? store}) async {
     final effectiveStore = store ?? SettingsStore();

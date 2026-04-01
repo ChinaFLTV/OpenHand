@@ -18,14 +18,14 @@ import 'model/ai_session_message.dart';
 import 'model/ai_session_runtime_context.dart';
 import 'model/ai_thread_template.dart';
 import 'model/ai_token_usage.dart';
+import 'service/ai_attachment_service.dart';
 import 'service/ai_bash_tool_service.dart';
 import 'service/ai_chat_service.dart';
 import 'service/ai_claude_hook_service.dart';
+import 'service/ai_dsml_tool_call_parser.dart';
 import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
-import 'service/ai_attachment_service.dart';
 import 'service/ai_protocol_adapter.dart';
-import 'service/ai_dsml_tool_call_parser.dart';
 import 'service/ai_tool_runtime_service.dart';
 
 typedef WriteCommandConfirmationCallback =
@@ -70,6 +70,30 @@ class AiRuntimeToolPreview {
 }
 
 class AiSessionController extends ChangeNotifier {
+
+  AiSessionController._({
+    required AiSessionStore store,
+    required AiChatClient chatClient,
+    required AiChatClient backgroundChatClient,
+    required AiPromptTemplateRepository templateRepository,
+    required AiPromptBuilder promptBuilder,
+    required AiBashToolService bashToolService,
+    required AiClaudeHookService hookService,
+    required AiToolRuntimeService toolRuntimeService,
+    required AiAttachmentService attachmentService,
+    required String Function() idGenerator,
+    required DateTime Function() clock,
+  }) : _store = store,
+       _chatClient = chatClient,
+       _backgroundChatClient = backgroundChatClient,
+       _templateRepository = templateRepository,
+       _promptBuilder = promptBuilder,
+       _bashToolService = bashToolService,
+       _hookService = hookService,
+       _toolRuntimeService = toolRuntimeService,
+       _attachmentService = attachmentService,
+       _idGenerator = idGenerator,
+       _clock = clock;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _autoTitleSystemPrompt =
       'Generate a concise chat title. Return a single title only. Keep it within 20 characters. No quotes. No markdown.\n'
@@ -110,30 +134,6 @@ class AiSessionController extends ChangeNotifier {
   static const int _estimatedCharactersPerToken = 4;
   static const String _emptyPlanContinuationReplyError =
       'The assistant returned an empty follow-up response after tool execution.';
-
-  AiSessionController._({
-    required AiSessionStore store,
-    required AiChatClient chatClient,
-    required AiChatClient backgroundChatClient,
-    required AiPromptTemplateRepository templateRepository,
-    required AiPromptBuilder promptBuilder,
-    required AiBashToolService bashToolService,
-    required AiClaudeHookService hookService,
-    required AiToolRuntimeService toolRuntimeService,
-    required AiAttachmentService attachmentService,
-    required String Function() idGenerator,
-    required DateTime Function() clock,
-  }) : _store = store,
-       _chatClient = chatClient,
-       _backgroundChatClient = backgroundChatClient,
-       _templateRepository = templateRepository,
-       _promptBuilder = promptBuilder,
-       _bashToolService = bashToolService,
-       _hookService = hookService,
-       _toolRuntimeService = toolRuntimeService,
-       _attachmentService = attachmentService,
-       _idGenerator = idGenerator,
-       _clock = clock;
 
   static Future<AiSessionController> create({
     AiSessionStore? store,

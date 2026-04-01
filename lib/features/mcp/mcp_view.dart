@@ -2066,7 +2066,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog> {
                           ),
                           const SizedBox(height: 12),
                           if (_result!.rawResult != null)
-                            _ToolSchemaPanel(schema: _result!.rawResult!)
+                            _ToolSchemaPanel(schema: _result!.rawResult)
                           else
                             _ToolConsolePanel(content: _result!.outputText),
                         ] else if (_isRunning)
@@ -2245,7 +2245,7 @@ class _ToolSchemaSection extends StatelessWidget {
           ),
         if (schema != null) ...[
           const SizedBox(height: 12),
-          _ToolSchemaPanel(schema: schema!),
+          _ToolSchemaPanel(schema: schema),
         ],
       ],
     );

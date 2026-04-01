@@ -15,6 +15,17 @@ enum AiDenyCommandMatchMode {
 }
 
 class AiDenyCommandRule {
+
+  factory AiDenyCommandRule.fromJson(Map<String, Object?> json) {
+    return AiDenyCommandRule(
+      id: '${json['id'] ?? ''}'.trim(),
+      pattern: '${json['pattern'] ?? ''}',
+      matchMode: AiDenyCommandMatchMode.fromStorage(
+        '${json['match_mode'] ?? ''}',
+      ),
+      note: '${json['note'] ?? ''}',
+    );
+  }
   const AiDenyCommandRule({
     required this.id,
     required this.pattern,
@@ -64,17 +75,6 @@ class AiDenyCommandRule {
       'match_mode': matchMode.storageValue,
       'note': note,
     };
-  }
-
-  factory AiDenyCommandRule.fromJson(Map<String, Object?> json) {
-    return AiDenyCommandRule(
-      id: '${json['id'] ?? ''}'.trim(),
-      pattern: '${json['pattern'] ?? ''}',
-      matchMode: AiDenyCommandMatchMode.fromStorage(
-        '${json['match_mode'] ?? ''}',
-      ),
-      note: '${json['note'] ?? ''}',
-    );
   }
 }
 

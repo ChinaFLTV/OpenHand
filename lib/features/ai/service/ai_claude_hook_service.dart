@@ -153,7 +153,6 @@ class AiClaudeHookService {
       shellCommand.executable,
       shellCommand.arguments,
       workingDirectory: workingDirectory,
-      runInShell: false,
     );
     final stdoutFuture = _collectTruncatedText(process.stdout);
     final stderrFuture = _collectTruncatedText(process.stderr);

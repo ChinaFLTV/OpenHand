@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
+
 import '../../mcp/model/mcp_server.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../mcp/service/mcp_tool_discovery_service.dart';
@@ -15,12 +16,12 @@ import '../../skills/model/local_skill.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_session_runtime_context.dart';
+import '../tools/ai_tool_registry.dart';
+import '../tools/ai_tool_utils.dart';
 import 'ai_bash_tool_service.dart';
 import 'ai_chat_service.dart';
 import 'ai_claude_hook_service.dart';
 import 'ai_protocol_adapter.dart';
-import '../tools/ai_tool_registry.dart';
-import '../tools/ai_tool_utils.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
 
@@ -88,6 +89,27 @@ enum AiBuiltinToolKind {
 }
 
 class AiToolExecutionResult {
+
+  factory AiToolExecutionResult.fromBash(
+    BashToolExecutionResult result, {
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    return AiToolExecutionResult(
+      status: result.status,
+      command: result.command,
+      workingDirectory: result.workingDirectory,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      durationMs: result.durationMs,
+      exitCode: result.exitCode,
+      matchedRuleId: result.matchedRuleId,
+      matchedRulePattern: result.matchedRulePattern,
+      isWriteCommand: result.isWriteCommand,
+      writeAnalysisReason: result.writeAnalysisReason,
+      resultText: result.toToolOutput(),
+      metadata: metadata,
+    );
+  }
   const AiToolExecutionResult({
     required this.status,
     required this.command,
@@ -119,27 +141,6 @@ class AiToolExecutionResult {
   final Map<String, Object?> metadata;
 
   String toToolOutput() => resultText.trim();
-
-  factory AiToolExecutionResult.fromBash(
-    BashToolExecutionResult result, {
-    Map<String, Object?> metadata = const <String, Object?>{},
-  }) {
-    return AiToolExecutionResult(
-      status: result.status,
-      command: result.command,
-      workingDirectory: result.workingDirectory,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      durationMs: result.durationMs,
-      exitCode: result.exitCode,
-      matchedRuleId: result.matchedRuleId,
-      matchedRulePattern: result.matchedRulePattern,
-      isWriteCommand: result.isWriteCommand,
-      writeAnalysisReason: result.writeAnalysisReason,
-      resultText: result.toToolOutput(),
-      metadata: metadata,
-    );
-  }
 }
 
 class AiToolRuntimeService {
@@ -157,8 +158,7 @@ class AiToolRuntimeService {
        _httpClient = httpClient ?? http.Client(),
        _hostLookup =
            hostLookup ??
-           ((host) =>
-               InternetAddress.lookup(host, type: InternetAddressType.any)) {
+           ((host) => InternetAddress.lookup(host)) {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
@@ -357,6 +357,7 @@ class AiToolRuntimeService {
       payload: _toolHookPayload(
         eventName: 'PreToolUse',
         toolName: hookToolName,
+        toolSource: resolvedTool.source.name,
         sessionId: sessionId,
         toolInput: decodedArguments,
         cwd: hookWorkingDirectory,
@@ -421,6 +422,7 @@ class AiToolRuntimeService {
             ? 'PostToolUse'
             : 'PostToolUseFailure',
         toolName: hookToolName,
+        toolSource: resolvedTool.source.name,
         sessionId: sessionId,
         toolInput: decodedArguments,
         cwd: rawResult.workingDirectory.trim().isEmpty
@@ -655,9 +657,14 @@ class AiToolRuntimeService {
         : rawWorkingDirectory;
   }
 
+  // 2026-04-01 10:27:21
+  // H1: 移除 camelCase 双写字段（hookEventName / sessionId / toolName / toolInput / toolOutput）
+  //     外部 hook 脚本统一使用 snake_case 字段，序列化体积减少约 50%。
+  // M2: 新增 tool_source 字段，hook 脚本可按 builtin/mcp/skill 路由处理逻辑。
   Map<String, Object?> _toolHookPayload({
     required String eventName,
     required String toolName,
+    required String toolSource,
     required String sessionId,
     required Map<String, Object?> toolInput,
     required String cwd,
@@ -665,18 +672,12 @@ class AiToolRuntimeService {
   }) {
     return <String, Object?>{
       'hook_event_name': eventName,
-      'hookEventName': eventName,
       'session_id': sessionId,
-      'sessionId': sessionId,
       'cwd': cwd,
       'tool_name': toolName,
-      'toolName': toolName,
+      'tool_source': toolSource,
       'tool_input': toolInput,
-      'toolInput': toolInput,
-      if (toolOutput != null) ...<String, Object?>{
-        'tool_output': toolOutput,
-        'toolOutput': toolOutput,
-      },
+      if (toolOutput != null) 'tool_output': toolOutput,
     };
   }
 

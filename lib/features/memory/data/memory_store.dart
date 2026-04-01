@@ -62,7 +62,7 @@ class MemoryStore {
       if (migrated) {
         return load();
       }
-      final entries = const <UserMemoryEntry>[];
+      const entries = <UserMemoryEntry>[];
       try {
         await save(entries);
         return const MemoryLoadResult(entries: <UserMemoryEntry>[]);
@@ -228,7 +228,7 @@ class MemoryStore {
     var didSanitize = false;
     final rawType = '${rawEntry['type'] ?? ''}'.trim();
     // Currently only 'user' type is supported; force-normalize any other value.
-    final type = UserMemoryEntry.userType;
+    const type = UserMemoryEntry.userType;
     if (rawType != UserMemoryEntry.userType) {
       didSanitize = true;
     }
