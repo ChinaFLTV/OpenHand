@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,20 @@ import 'features/skills/skills_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  final originalOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    if (details.exceptionAsString().contains(
+      'is dispatched, but the state shows that the physical key is',
+    )) {
+      return;
+    }
+    if (originalOnError != null) {
+      originalOnError(details);
+    } else {
+      FlutterError.presentError(details);
+    }
+  };
 
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
