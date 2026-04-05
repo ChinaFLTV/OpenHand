@@ -42,6 +42,14 @@ class AiPromptTemplateRepository {
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/machine_expert',
     ),
+    AiThreadTemplate(
+      id: 'hardness_engineering',
+      name: 'Hardness Engineering',
+      iconName: 'hub_rounded',
+      description: '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调读者→规划者→实施者→验收者），并管理结构化持久化上下文。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/hardness_engineering',
+    ),
   ];
 
   List<AiThreadTemplate> get templates =>
@@ -59,23 +67,34 @@ class AiPromptTemplateRepository {
   Future<AiPromptTemplateBundle> loadBundle(String templateId) async {
     final template = resolveTemplate(templateId);
     final assetDirectory = template.promptAssetDirectory;
+    final String systemFallback;
+    final String developerFallback;
+    final String compressionFallback;
+    switch (templateId) {
+      case 'machine_expert':
+        systemFallback = expertSystemInstructions;
+        developerFallback = expertDeveloperInstructions;
+        compressionFallback = expertCompressionSummaryInstructions;
+      case 'hardness_engineering':
+        systemFallback = _hardnessSystemInstructions;
+        developerFallback = _hardnessDeveloperInstructions;
+        compressionFallback = _hardnessCompressionSummaryInstructions;
+      default:
+        systemFallback = _defaultSystemInstructions;
+        developerFallback = _defaultDeveloperInstructions;
+        compressionFallback = _defaultCompressionSummaryInstructions;
+    }
     final systemInstructions = await _loadTemplateSection(
       '$assetDirectory/system_instructions.md',
-      templateId == 'machine_expert'
-          ? expertSystemInstructions
-          : _defaultSystemInstructions,
+      systemFallback,
     );
     final developerInstructions = await _loadTemplateSection(
       '$assetDirectory/developer_instructions.md',
-      templateId == 'machine_expert'
-          ? expertDeveloperInstructions
-          : _defaultDeveloperInstructions,
+      developerFallback,
     );
     final compressionSummaryInstructions = await _loadTemplateSection(
       '$assetDirectory/compression_summary_instructions.md',
-      templateId == 'machine_expert'
-          ? expertCompressionSummaryInstructions
-          : _defaultCompressionSummaryInstructions,
+      compressionFallback,
     );
     return AiPromptTemplateBundle(
       template: template,
@@ -139,4 +158,25 @@ Summarize the compressed conversation history into a compact, high-value record.
 - Keep user goals, constraints, confirmed facts, decisions, active plans, todo state, relevant file paths, commands, failures, validation outcomes, open questions, and important generated artifacts.
 - Remove repetition and low-signal chatter.
 - Do not invent facts that were not present in the source messages.
+''';
+
+// ── Hardness Engineering fallback prompts ─────────────────────────────────────
+
+const String _hardnessSystemInstructions = '''
+You are OpenHand operating in Hardness Engineering mode — acting as an OS-level orchestrator.
+You do NOT write code yourself. Coordinate the reader, planner, implementer, and reviewer roles
+via the user-configured CLI tools. Tag every orchestrator message with [HE_PHASE:...] and [HE_AGENT:...|...].
+Read persistence files before each CLI invocation and follow the full HE protocol defined in the asset file.
+''';
+
+const String _hardnessDeveloperInstructions = '''
+Parse the [HARDNESS_CONFIG] block on session start. Verify directories, check for first-run conditions,
+load meta/architecture.md and meta/conventions.md, then orchestrate the phase sequence.
+Construct comprehensive prompts for each role CLI. Escalate failures. Maintain lesson and handoff documents.
+''';
+
+const String _hardnessCompressionSummaryInstructions = '''
+Preserve: session config (working dir, persistence dir, CLI assignments, task), current phase/agent state,
+persistence file paths created, outstanding failures, and the latest execution plan content.
+Format as a structured Hardness Engineering Session Summary.
 ''';

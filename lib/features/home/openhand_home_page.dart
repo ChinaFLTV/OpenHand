@@ -13,6 +13,7 @@ import 'package:highlight/highlight.dart' as highlight;
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
@@ -32,9 +33,18 @@ import '../ai/model/ai_session_message.dart';
 import '../ai/model/ai_session_runtime_context.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart';
+import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
+import '../hardness/hardness_engineering_dialog.dart';
+import '../hardness/hardness_orchestrator.dart';
+import '../hardness/hardness_session_dashboard.dart';
+import '../hardness/hardness_session_store.dart';
+import '../hardness/model/hardness_phase.dart';
+import '../hardness/model/hardness_role_config.dart';
+import '../hardness/model/hardness_session_config.dart';
+import '../hardness/model/hardness_session_record.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../mcp/model/mcp_tool.dart';
@@ -49,7 +59,7 @@ import 'openhand_loading_logo.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
 
-enum AppSection { workspace, automations, skills, memory, mcp, settings }
+enum AppSection { workspace, automations, skills, memory, mcp, settings, hardnessSession }
 
 const double _desktopNavigationWidth = 352;
 const double _contentPaneGap = 18;
@@ -78,6 +88,9 @@ const Duration _sessionTitleRevealAnimationDuration = Duration(
 const Duration _planTimelineRevealAnimationDuration = Duration(
   milliseconds: 260,
 );
+const Duration _hardnessSessionPersistenceDebounce = Duration(
+  milliseconds: 320,
+);
 final RegExp _markdownStructuralPattern = RegExp(
   r'[`*_#>\[\]|~]|(^|\n)\s{0,3}([-+*]|\d+\.)\s|(^|\n)\s{0,3}>|(^|\n)\s{0,3}#{1,6}\s|(^|\n)\s*([-*_]\s*){3,}(?=\n|$)|(^|\n)\s*\|.+\||!?\[[^\]]*\]\([^)]+\)|(^|\n)\s{4,}\S',
   multiLine: true,
@@ -101,6 +114,32 @@ const BorderRadius _borderRadius18 =
     BorderRadius.all(Radius.circular(18));
 const BorderRadius _borderRadius999 =
     BorderRadius.all(Radius.circular(999));
+
+void _disposeTextEditingControllerAfterCurrentFrame(
+  TextEditingController controller,
+) {
+  // The dialog route may still be in its exit animation when showDialog
+  // completes. Dispose the controller on the next frame so EditableText
+  // can detach cleanly before the controller goes away.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    controller.dispose();
+  });
+}
+
+void _scheduleOverlayActionAfterMenuDismissal(
+  BuildContext context,
+  VoidCallback action,
+) {
+  // showMenu resolves before the popup route is fully torn down. Defer the
+  // follow-up dialog to the next frame so two overlay routes do not overlap
+  // during teardown/build-scope transitions.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!context.mounted) {
+      return;
+    }
+    action();
+  });
+}
 
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
@@ -154,6 +193,21 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final ValueNotifier<double> _navigationWidthNotifier = ValueNotifier<double>(
     _desktopNavigationWidth,
   );
+
+  // Active Hardness Engineering session (null when no HE session is running).
+  HardnessOrchestrator? _activeHardnessOrchestrator;
+  HardnessSessionConfig? _activeHardnessConfig;
+  bool _heFullAccessPermission = false;
+
+  // Persisted record for the last HE session (survives app restarts).
+  final HardnessSessionStore _hardnessSessionStore = HardnessSessionStore();
+  HardnessSessionRecord? _persistedHardnessSession;
+  Timer? _hardnessSessionSaveTimer;
+  HardnessPhase? _lastHardnessAwaitingApprovalPhase;
+
+  void _cacheHardnessShellState(HardnessOrchestrator? orchestrator) {
+    _lastHardnessAwaitingApprovalPhase = orchestrator?.awaitingApprovalPhase;
+  }
 
   AiSessionMode _effectiveComposerMode(AiSessionController sessionController) {
     return sessionController.currentSession?.mode ?? _detachedComposerMode;
@@ -252,6 +306,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
     _messageScrollController.addListener(_handleMessageScroll);
+    _loadPersistedHardnessSession();
   }
 
   @override
@@ -281,6 +336,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   @override
   void dispose() {
+    _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
+    _activeHardnessOrchestrator?.cancel();
+    _activeHardnessOrchestrator?.dispose();
+    _hardnessSessionSaveTimer?.cancel();
+    final pendingHardnessRecord = _persistedHardnessSession;
+    if (pendingHardnessRecord != null) {
+      unawaited(_hardnessSessionStore.save(pendingHardnessRecord).catchError((_) {}));
+    }
     WidgetsBinding.instance.removeObserver(this);
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
@@ -655,6 +718,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _clearPendingAutoFollowState();
       return false;
     }
+    if (userScrollEnded &&
+        _autoFollowEnabled &&
+        (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
+      _scheduleScrollToBottom(force: true, animated: true);
+    }
     if (isNearBottom && _autoFollowEnabled) {
       _shouldAutoFollowMessages = true;
     }
@@ -967,10 +1035,297 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return created;
     }
+    if (templateId == 'hardness_engineering') {
+      final config = await showDialog<HardnessSessionConfig>(
+        context: context,
+        builder: (context) => const HardnessEngineeringDialog(),
+      );
+      if (!mounted || config == null) {
+        return false;
+      }
+      // Initialize persistence directory structure (non-blocking on error).
+      try {
+        await config.initializePersistenceDirectories();
+      } catch (_) {}
+      if (!mounted) return false;
+      // Launch the program-driven HE session inside the app's content pane
+      // instead of a full-screen modal, so the navigation sidebar stays
+      // visible and the user can switch between sections freely.
+      _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
+      _activeHardnessOrchestrator?.cancel();
+      _activeHardnessOrchestrator?.dispose();
+      final orchestrator = HardnessOrchestrator(config);
+      orchestrator.fullAccessPermission = _heFullAccessPermission;
+      orchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+      final now = DateTime.now().toUtc();
+      final record = HardnessSessionRecord(
+        id: const Uuid().v4(),
+        title: _hardnessTitleFromTask(config.task),
+        config: config,
+        statusValue: HardnessOrchestratorStatus.running.name,
+        createdAt: now,
+        updatedAt: now,
+      );
+      unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+      orchestrator.addListener(_onHardnessOrchestratorChanged);
+      _cacheHardnessShellState(orchestrator);
+      setState(() {
+        _activeHardnessOrchestrator = orchestrator;
+        _activeHardnessConfig = config;
+        _persistedHardnessSession = record;
+        _selectedSection = AppSection.hardnessSession;
+      });
+      unawaited(orchestrator.start());
+      unawaited(_generateHardnessAutoTitle(record.id, config.task));
+      return true;
+    }
     return _createSession(
       templateId: templateId,
       runtimeContext: runtimeContext,
     );
+  }
+
+  HardnessSessionRecord _snapshotHardnessRecord(
+    HardnessSessionRecord base,
+    HardnessOrchestrator orchestrator,
+  ) {
+    return base.copyWith(
+      config: orchestrator.config,
+      statusValue: orchestrator.status.name,
+      updatedAt: DateTime.now().toUtc(),
+      phaseLogs: orchestrator.phaseLogSnapshots,
+      errorMessage: orchestrator.errorMessage,
+      currentPhaseValue: orchestrator.currentPhase?.storageValue,
+    );
+  }
+
+  void _scheduleHardnessSessionSave(
+    HardnessSessionRecord record, {
+    bool immediate = false,
+  }) {
+    _hardnessSessionSaveTimer?.cancel();
+    if (immediate) {
+      unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+      return;
+    }
+    _hardnessSessionSaveTimer = Timer(
+      _hardnessSessionPersistenceDebounce,
+      () {
+        _hardnessSessionSaveTimer = null;
+        unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+      },
+    );
+  }
+
+  HardnessSessionRecord _normalizeRestoredHardnessRecord(
+    HardnessSessionRecord record,
+  ) {
+    final interruptedByAppClose =
+        record.status == HardnessOrchestratorStatus.running ||
+        (record.status == HardnessOrchestratorStatus.cancelled &&
+            record.errorMessage ==
+                'Session was interrupted because the app closed.');
+    if (!interruptedByAppClose) {
+      return record;
+    }
+
+    HardnessPhase? resumePhase;
+    final normalizedPhaseLogs = record.phaseLogs.map((entry) {
+      final isInterruptedPhase =
+          entry.status == HardnessPhaseStatus.running ||
+          entry.status == HardnessPhaseStatus.paused ||
+          (resumePhase == null && entry.status == HardnessPhaseStatus.pending);
+      if (!isInterruptedPhase) {
+        return entry;
+      }
+      final nextLines = List<String>.from(entry.lines);
+      final restoreMessage = entry.status == HardnessPhaseStatus.running
+          ? '⚠ 应用关闭后，该阶段已暂停；恢复执行前需要重新审批。'
+          : '⚠ 应用关闭后，会话已恢复；继续执行前需要重新审批。';
+      if (!nextLines.contains(restoreMessage)) {
+        if (nextLines.isNotEmpty && nextLines.last.isNotEmpty) {
+          nextLines.add('');
+        }
+        nextLines.add(restoreMessage);
+      }
+      resumePhase ??= entry.phase;
+      return entry.copyWith(
+        statusValue: HardnessPhaseStatus.paused.name,
+        lines: nextLines,
+      );
+    }).toList(growable: false);
+
+    return record.copyWith(
+      statusValue: HardnessOrchestratorStatus.idle.name,
+      updatedAt: DateTime.now().toUtc(),
+      phaseLogs: normalizedPhaseLogs,
+      errorMessage: null,
+      currentPhaseValue: resumePhase?.storageValue,
+    );
+  }
+
+  /// Loads the last-persisted Hardness Engineering session record from disk
+  /// and displays it in the navigation sidebar.
+  Future<void> _loadPersistedHardnessSession() async {
+    final record = await _hardnessSessionStore.load();
+    if (!mounted || record == null) return;
+    final effectiveRecord = _normalizeRestoredHardnessRecord(record);
+    if (effectiveRecord != record) {
+      _scheduleHardnessSessionSave(effectiveRecord, immediate: true);
+    }
+    _activeHardnessOrchestrator
+        ?.removeListener(_onHardnessOrchestratorChanged);
+    final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
+    restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
+    restoredOrchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+    restoredOrchestrator.restoreSnapshot(
+      status: effectiveRecord.status,
+      phaseLogs: effectiveRecord.phaseLogs,
+      errorMessage: effectiveRecord.errorMessage,
+      currentPhase: effectiveRecord.currentPhase,
+    );
+    restoredOrchestrator.addListener(_onHardnessOrchestratorChanged);
+    _cacheHardnessShellState(restoredOrchestrator);
+    setState(() {
+      _persistedHardnessSession = effectiveRecord;
+      _activeHardnessConfig = effectiveRecord.config;
+      _activeHardnessOrchestrator = restoredOrchestrator;
+    });
+  }
+
+  /// Called whenever the active [HardnessOrchestrator] notifies listeners.
+  /// Propagates status changes to the navigation tile and persisted record.
+  void _onHardnessOrchestratorChanged() {
+    if (!mounted) return;
+    final orchestrator = _activeHardnessOrchestrator;
+    final currentRecord = _persistedHardnessSession;
+    if (orchestrator == null || currentRecord == null) return;
+    final updatedRecord = _snapshotHardnessRecord(currentRecord, orchestrator);
+    final statusChanged = updatedRecord.statusValue != currentRecord.statusValue;
+    final awaitingApprovalChanged =
+        _lastHardnessAwaitingApprovalPhase != orchestrator.awaitingApprovalPhase;
+    _persistedHardnessSession = updatedRecord;
+    _lastHardnessAwaitingApprovalPhase = orchestrator.awaitingApprovalPhase;
+    _scheduleHardnessSessionSave(
+      updatedRecord,
+      immediate: orchestrator.status != HardnessOrchestratorStatus.running,
+    );
+    if (statusChanged || awaitingApprovalChanged) {
+      setState(() {});
+    }
+  }
+
+  void _handleHeFullAccessToggle(bool enabled) {
+    if (!mounted) return;
+    if (enabled) {
+      // Show confirmation dialog before enabling full access.
+      _showFullAccessConfirmationDialog().then((confirmed) {
+        if (confirmed && mounted) {
+          setState(() {
+            _heFullAccessPermission = true;
+            _activeHardnessOrchestrator?.fullAccessPermission = true;
+          });
+        }
+      });
+    } else {
+      setState(() {
+        _heFullAccessPermission = false;
+        _activeHardnessOrchestrator?.fullAccessPermission = false;
+      });
+    }
+  }
+
+  void _handleHeConfigChanged(HardnessSessionConfig newConfig) {
+    if (!mounted) return;
+    final currentRecord = _persistedHardnessSession;
+    final updatedRecord = currentRecord?.copyWith(
+      config: newConfig,
+      updatedAt: DateTime.now().toUtc(),
+    );
+    setState(() {
+      _activeHardnessConfig = newConfig;
+      if (updatedRecord != null) {
+        _persistedHardnessSession = updatedRecord;
+      }
+    });
+    _activeHardnessOrchestrator?.updateConfig(newConfig);
+    if (updatedRecord != null) {
+      _scheduleHardnessSessionSave(updatedRecord);
+    }
+    unawaited(newConfig.initializePersistenceDirectories().catchError((_) {}));
+  }
+
+  void _handlePhaseApprovalRequired(HardnessPhase nextPhase) {
+    // The orchestrator pauses, creates a completer, and sets awaitingApprovalPhase.
+    // The UI banner (_HePhaseApprovalBanner) handles user interaction.
+    // resolvePhaseApproval() is called from the banner's approve/reject buttons,
+    // which completes the orchestrator's internal completer and unblocks the
+    // pipeline. This callback only triggers a rebuild so the banner appears.
+    if (mounted) setState(() {});
+  }
+
+  /// Extracts a short display title from the raw task text.
+  static String _hardnessTitleFromTask(String task) {
+    final firstLine = task
+        .split('\n')
+        .map((l) => l.trim())
+        .firstWhere((l) => l.isNotEmpty, orElse: () => task.trim());
+    if (firstLine.length <= 45) return firstLine;
+    return '${firstLine.substring(0, 45)}…';
+  }
+
+  /// Asynchronously generates a concise AI title (≤20 chars) for the
+  /// Hardness Engineering session and refreshes the navigation tile.
+  static const String _hardnessAutoTitleSystemPrompt =
+      'Generate a concise title for a software engineering task. '
+      'Return a single title only. Keep it within 20 characters. '
+      'No quotes. No markdown. No punctuation at the end.\n'
+      'Summarize the task into a specific, human-friendly thread title.\n'
+      'Prefer concrete task names over vague summaries.\n'
+      'Avoid generic labels like "任务", "工程", "优化", "Task", "Engineering".';
+
+  Future<void> _generateHardnessAutoTitle(
+    String sessionId,
+    String task,
+  ) async {
+    final settingsController = context.read<SettingsController>();
+    final model = settingsController.selectedAiModel;
+    if (model == null) return;
+
+    final client = AiChatService();
+    try {
+      final completion = await client.sendMessage(
+        model: model,
+        messages: <AiChatTurn>[
+          const AiChatTurn(
+            role: AiChatRole.system,
+            content: _hardnessAutoTitleSystemPrompt,
+          ),
+          AiChatTurn(
+            role: AiChatRole.user,
+            content: 'Task:\n$task',
+          ),
+        ],
+        timeout: const Duration(seconds: 20),
+      );
+      if (!mounted) return;
+      final current = _persistedHardnessSession;
+      if (current == null || current.id != sessionId) return;
+
+      final rawTitle = completion.reply.trim();
+      if (rawTitle.isEmpty) return;
+      // Truncate to 20 characters maximum.
+      final sanitized = rawTitle.characters.take(20).toString();
+      final updated = current.copyWith(title: sanitized);
+      unawaited(_hardnessSessionStore.save(updated).catchError((_) {}));
+      setState(() {
+        _persistedHardnessSession = updated;
+      });
+    } catch (_) {
+      // Silent fail — title generation is non-critical.
+    } finally {
+      client.dispose();
+    }
   }
 
   Future<AiSessionRuntimeContext> _buildRuntimeContext() async {
@@ -1654,6 +2009,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_programmaticAutoFollowScrollInProgress) {
       return;
     }
+    if (_userScrollInProgress) {
+      return;
+    }
     if (_scrollToBottomCallbackQueued) {
       return;
     }
@@ -1664,6 +2022,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _queuedForcedScrollToBottom = false;
         _pendingAnimatedScrollToBottom = false;
         _pendingScrollToBottomSettlePasses = 0;
+        return;
+      }
+      if (_userScrollInProgress) {
         return;
       }
       final shouldForce = _queuedForcedScrollToBottom;
@@ -1768,6 +2129,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (nextSignature == null) {
       return;
     }
+    if (_autoFollowEnabled) {
+      _armAutoFollowToBottom();
+    }
     _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
   }
 
@@ -1786,6 +2150,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handleRevealOlderMessages() {
+    if (_autoFollowEnabled) {
+      return;
+    }
     _shouldAutoFollowMessages = false;
     _clearPendingAutoFollowState();
   }
@@ -1967,6 +2334,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
       AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
+      AppSection.hardnessSession =>
+          _localizedText(context, zh: 'HE 会话', en: 'HE Session'),
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2085,42 +2454,48 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _renameSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
     final titleController = TextEditingController(text: session.title);
-    final submitted = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(
-            _localizedText(dialogContext, zh: '重命名线程', en: 'Rename Thread'),
-          ),
-          content: TextField(
-            controller: titleController,
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: _localizedText(
-                dialogContext,
-                zh: '输入线程标题',
-                en: 'Enter a thread title',
+    String? submitted;
+    try {
+      submitted = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(
+              _localizedText(dialogContext, zh: '重命名线程', en: 'Rename Thread'),
+            ),
+            content: TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: _localizedText(
+                  dialogContext,
+                  zh: '输入线程标题',
+                  en: 'Enter a thread title',
+                ),
               ),
+              onSubmitted: (value) {
+                Navigator.of(dialogContext).pop(value.trim());
+              },
             ),
-            onSubmitted: (value) =>
-                Navigator.of(dialogContext).pop(value.trim()),
-          ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              label: AppLocalizations.of(context)!.commonCancel,
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(titleController.text.trim()),
-              label: AppLocalizations.of(context)!.commonSave,
-            ),
-          ],
-        );
-      },
-    );
-    titleController.dispose();
-    if (!mounted || submitted == null || submitted.trim().isEmpty) {
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                label: AppLocalizations.of(dialogContext)!.commonCancel,
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(titleController.text.trim());
+                },
+                label: AppLocalizations.of(dialogContext)!.commonSave,
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      _disposeTextEditingControllerAfterCurrentFrame(titleController);
+    }
+    if (!mounted || submitted == null || submitted.isEmpty) {
       return;
     }
     final renamed = await controller.renameSession(session.id, submitted);
@@ -2149,11 +2524,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           actions: [
             OpenHandDialogActionButton.secondary(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              label: AppLocalizations.of(context)!.commonCancel,
+              label: AppLocalizations.of(dialogContext)!.commonCancel,
             ),
             OpenHandDialogActionButton.primary(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              label: AppLocalizations.of(context)!.commonDelete,
+              label: AppLocalizations.of(dialogContext)!.commonDelete,
             ),
           ],
         );
@@ -2178,6 +2553,111 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
       ),
     );
+  }
+
+  Future<void> _renameHardnessSession() async {
+    final record = _persistedHardnessSession;
+    if (record == null) return;
+    final titleController = TextEditingController(text: record.title);
+    String? submitted;
+    try {
+      submitted = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(
+              _localizedText(
+                dialogContext,
+                zh: '重命名 Hardness Engineering 会话',
+                en: 'Rename HE Session',
+              ),
+            ),
+            content: TextField(
+              controller: titleController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: _localizedText(
+                  dialogContext,
+                  zh: '输入会话标题',
+                  en: 'Enter a session title',
+                ),
+              ),
+              onSubmitted: (value) {
+                Navigator.of(dialogContext).pop(value.trim());
+              },
+            ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                label: AppLocalizations.of(dialogContext)!.commonCancel,
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(titleController.text.trim());
+                },
+                label: AppLocalizations.of(dialogContext)!.commonSave,
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      _disposeTextEditingControllerAfterCurrentFrame(titleController);
+    }
+    if (!mounted || submitted == null || submitted.isEmpty) {
+      return;
+    }
+    final updated = record.copyWith(
+      title: submitted,
+      updatedAt: DateTime.now(),
+    );
+    setState(() => _persistedHardnessSession = updated);
+    unawaited(_hardnessSessionStore.save(updated).catchError((_) {}));
+  }
+
+  Future<void> _deleteHardnessSession() async {
+    final record = _persistedHardnessSession;
+    if (record == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _localizedText(
+              dialogContext,
+              zh: '删除 Hardness Engineering 会话',
+              en: 'Delete HE Session',
+            ),
+          ),
+          content: Text(record.title),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              label: AppLocalizations.of(dialogContext)!.commonCancel,
+            ),
+            OpenHandDialogActionButton.primary(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              label: AppLocalizations.of(dialogContext)!.commonDelete,
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
+    _activeHardnessOrchestrator?.dispose();
+    _hardnessSessionSaveTimer?.cancel();
+    setState(() {
+      _activeHardnessOrchestrator = null;
+      _activeHardnessConfig = null;
+      _persistedHardnessSession = null;
+      if (_selectedSection == AppSection.hardnessSession) {
+        _selectedSection = AppSection.workspace;
+      }
+    });
+    unawaited(_hardnessSessionStore.clear().catchError((_) {}));
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {
@@ -2384,6 +2864,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   onRenameSession: _renameSession,
                   onDeleteSession: _deleteSession,
                   onSectionSelected: _selectSection,
+                  activeHardnessOrchestrator: _activeHardnessOrchestrator,
+                  hardnessSessionRecord: _persistedHardnessSession,
+                  onHardnessSessionSelected:
+                      _persistedHardnessSession != null ||
+                              _activeHardnessOrchestrator != null
+                      ? () => _selectSection(AppSection.hardnessSession)
+                      : null,
+                  onRenameHardnessSession: _persistedHardnessSession != null
+                      ? _renameHardnessSession
+                      : null,
+                  onDeleteHardnessSession: _persistedHardnessSession != null
+                      ? _deleteHardnessSession
+                      : null,
                 );
                 final contentPane = _ContentPane(
                   child: _buildSectionContent(context),
@@ -2605,6 +3098,41 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.memory => const MemoryView(),
       AppSection.mcp => const McpView(),
       AppSection.settings => const SettingsView(),
+      AppSection.hardnessSession =>
+          _activeHardnessOrchestrator != null && _activeHardnessConfig != null
+          ? HardnessSessionPane(
+              config: _activeHardnessConfig!,
+              orchestrator: _activeHardnessOrchestrator!,
+              isZh: Localizations.localeOf(context)
+                  .languageCode
+                  .startsWith('zh'),
+              sessionTitle: _persistedHardnessSession?.title,
+              updatedAtLabel: _persistedHardnessSession == null
+                  ? null
+                  : _formatDateTime(_persistedHardnessSession!.updatedAt),
+              sessionId: _persistedHardnessSession?.id,
+              createdAtLabel: _persistedHardnessSession == null
+                  ? null
+                  : _formatDateTime(_persistedHardnessSession!.createdAt),
+              fullAccessPermission: _heFullAccessPermission,
+              onToggleFullAccessPermission: _handleHeFullAccessToggle,
+              onConfigChanged: _handleHeConfigChanged,
+              filePathRoots: _activeHardnessConfig?.workingDirectory != null
+                  ? [_activeHardnessConfig!.workingDirectory]
+                  : const [],
+              onRestart: () {
+                setState(() => _selectedSection = AppSection.hardnessSession);
+                _activeHardnessOrchestrator?.startOrResume();
+              },
+            )
+          : SectionPlaceholder(
+              icon: Icons.construction_rounded,
+              title: 'Hardness Engineering',
+              body: l10n.threadsEmptyBody,
+              footer: l10n.placeholderComingSoon,
+              actionLabel: l10n.newThread,
+              onAction: _createSessionFromDialog,
+            ),
     };
   }
 }
@@ -2627,6 +3155,7 @@ extension on AppSection {
   int? get drawerIndex {
     return switch (this) {
       AppSection.workspace => null,
+      AppSection.hardnessSession => null,
       AppSection.automations => 0,
       AppSection.skills => 1,
       AppSection.memory => 2,
@@ -2658,6 +3187,11 @@ class _NavigationPane extends StatefulWidget {
     required this.onRenameSession,
     required this.onDeleteSession,
     required this.onSectionSelected,
+    this.activeHardnessOrchestrator,
+    this.hardnessSessionRecord,
+    this.onHardnessSessionSelected,
+    this.onRenameHardnessSession,
+    this.onDeleteHardnessSession,
   });
 
   final AppSection selectedSection;
@@ -2669,6 +3203,11 @@ class _NavigationPane extends StatefulWidget {
   final Future<void> Function(AiSession session) onRenameSession;
   final Future<void> Function(AiSession session) onDeleteSession;
   final ValueChanged<AppSection> onSectionSelected;
+  final HardnessOrchestrator? activeHardnessOrchestrator;
+  final HardnessSessionRecord? hardnessSessionRecord;
+  final VoidCallback? onHardnessSessionSelected;
+  final VoidCallback? onRenameHardnessSession;
+  final VoidCallback? onDeleteHardnessSession;
 
   @override
   State<_NavigationPane> createState() => _NavigationPaneState();
@@ -2722,6 +3261,20 @@ class _NavigationPaneState extends State<_NavigationPane> {
     final theme = Theme.of(context);
     final drawerTheme = _ensureDrawerTheme(theme);
 
+    // HE tile status: prefer the live orchestrator status when it is actually
+    // running/completed/failed/cancelled; fall back to the persisted record
+    // status when the live orchestrator is idle (e.g. an orchestrator that
+    // was reconstructed from a persisted record on app restart).
+    final liveHeStatus = widget.activeHardnessOrchestrator?.status;
+    final heAwaitingApprovalForTile =
+      widget.activeHardnessOrchestrator?.awaitingApprovalPhase != null;
+    final heStatusForTile = widget.hardnessSessionRecord == null
+        ? null
+        : (liveHeStatus != null &&
+                  liveHeStatus != HardnessOrchestratorStatus.idle)
+              ? liveHeStatus
+              : widget.hardnessSessionRecord!.status;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Theme(
@@ -2771,7 +3324,26 @@ class _NavigationPaneState extends State<_NavigationPane> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Text(l10n.threads, style: theme.textTheme.titleMedium),
             ),
-            if (widget.sessions.isEmpty)
+            // HE session tile (shown above AI threads when a record exists).
+            // Driven by the live orchestrator when active, otherwise by the
+            // persisted record so the entry survives app restarts.
+            if (widget.hardnessSessionRecord != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: _HardnessSessionTile(
+                  title: widget.hardnessSessionRecord!.title,
+                  status: heStatusForTile!,
+                  awaitingApproval: heAwaitingApprovalForTile,
+                  isSelected:
+                      widget.selectedSection == AppSection.hardnessSession,
+                  onTap: widget.onHardnessSessionSelected ?? () {},
+                  onRename: widget.onRenameHardnessSession ?? () {},
+                  onDelete: widget.onDeleteHardnessSession ?? () {},
+                ),
+              ),
+            ],
+            if (widget.sessions.isEmpty &&
+                widget.hardnessSessionRecord == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Text(
@@ -2781,7 +3353,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                   ),
                 ),
               )
-            else
+            else if (widget.sessions.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                 child: Column(
@@ -2795,7 +3367,16 @@ class _NavigationPaneState extends State<_NavigationPane> {
                             sendPhase:
                                 widget.sessionSendPhases[session.id] ??
                                 AiSendPhase.idle,
-                            isSelected: widget.currentSessionId == session.id,
+                            // Only highlight an AI thread tile when the
+                            // workspace section is the active view.  When the
+                            // HE section (or any other section) is active the
+                            // AiSessionController's currentSessionId is still
+                            // set, which would otherwise create two
+                            // simultaneously highlighted navigation entries.
+                            isSelected:
+                                widget.selectedSection ==
+                                    AppSection.workspace &&
+                                widget.currentSessionId == session.id,
                             onTap: () => widget.onSessionSelected(session.id),
                             onRename: () => widget.onRenameSession(session),
                             onDelete: () => widget.onDeleteSession(session),
@@ -3430,17 +4011,27 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
 }
 
 class _TranscriptRenderEntry {
-  const _TranscriptRenderEntry({required this.message, this.exiting = false});
+  const _TranscriptRenderEntry({
+    required this.message,
+    this.exiting = false,
+    this.entering = false,
+  });
 
   final AiSessionMessage message;
   final bool exiting;
+  final bool entering;
 
   String get id => message.id;
 
-  _TranscriptRenderEntry copyWith({AiSessionMessage? message, bool? exiting}) {
+  _TranscriptRenderEntry copyWith({
+    AiSessionMessage? message,
+    bool? exiting,
+    bool? entering,
+  }) {
     return _TranscriptRenderEntry(
       message: message ?? this.message,
       exiting: exiting ?? this.exiting,
+      entering: entering ?? this.entering,
     );
   }
 }
@@ -3497,6 +4088,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   bool _loadingOlderMessages = false;
   List<_TranscriptRenderEntry> _renderEntries =
       const <_TranscriptRenderEntry>[];
+  bool _initialBuildDone = false;
 
   @override
   void initState() {
@@ -3566,17 +4158,31 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return displayMessages.sublist(clampedWindowStartIndex);
   }
 
-  void _replaceRenderEntries(List<AiSessionMessage> visibleMessages) {
+  void _replaceRenderEntries(
+    List<AiSessionMessage> visibleMessages, {
+    bool animate = true,
+  }) {
+    final previousIds = animate && _initialBuildDone
+        ? _renderEntries
+              .where((e) => !e.exiting)
+              .map((e) => e.id)
+              .toSet()
+        : null;
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
-        _TranscriptRenderEntry(message: message),
+        _TranscriptRenderEntry(
+          message: message,
+          entering:
+              previousIds != null && !previousIds.contains(message.id),
+        ),
     ];
+    _initialBuildDone = true;
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
     final visibleMessages = _visibleMessagesForWindow();
     if (forceReset || _renderEntries.isEmpty) {
-      _replaceRenderEntries(visibleMessages);
+      _replaceRenderEntries(visibleMessages, animate: false);
       return;
     }
     final visibleMessageIds = visibleMessages
@@ -3691,7 +4297,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         0,
         _windowStartIndex - _transcriptWindowIncrement,
       );
-      _replaceRenderEntries(_visibleMessagesForWindow());
+      _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
       _loadingOlderMessages = false;
     });
   }
@@ -3880,6 +4486,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     visibleMessageIndex < visibleMessages.length - 1;
                 return _TranscriptAnimatedMessageEntry(
                   key: ValueKey<String>('transcript-entry-${message.id}'),
+                  entering: entry.entering,
                   exiting: entry.exiting,
                   bottomSpacing: messageIndex == _renderEntries.length - 1
                       ? 0
@@ -3958,59 +4565,125 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 }
 
-class _TranscriptAnimatedMessageEntry extends StatelessWidget {
+class _TranscriptAnimatedMessageEntry extends StatefulWidget {
   const _TranscriptAnimatedMessageEntry({
     super.key,
+    required this.entering,
     required this.exiting,
     required this.bottomSpacing,
     required this.onExitCompleted,
     required this.child,
   });
 
+  final bool entering;
   final bool exiting;
   final double bottomSpacing;
   final VoidCallback onExitCompleted;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    // Fast path: skip all animation wrappers for the common non-exiting case.
-    if (!exiting) {
-      return Padding(
-        padding: EdgeInsets.only(bottom: bottomSpacing),
-        child: child,
+  State<_TranscriptAnimatedMessageEntry> createState() =>
+      _TranscriptAnimatedMessageEntryState();
+}
+
+class _TranscriptAnimatedMessageEntryState
+    extends State<_TranscriptAnimatedMessageEntry>
+    with SingleTickerProviderStateMixin {
+  static const _entranceDuration = Duration(milliseconds: 420);
+
+  AnimationController? _entranceCtrl;
+  Animation<double>? _opacity;
+  Animation<double>? _scale;
+  Animation<Offset>? _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.entering) {
+      _entranceCtrl = AnimationController(
+        duration: _entranceDuration,
+        vsync: this,
       );
+      _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _entranceCtrl!,
+          curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
+        ),
+      );
+      _scale = Tween<double>(begin: 0.94, end: 1.0).animate(
+        CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutBack),
+      );
+      _slide = Tween<Offset>(
+        begin: const Offset(0.0, 0.04),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutCubic),
+      );
+      _entranceCtrl!.forward();
     }
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 1, end: 0),
-      duration: _transcriptMessageDeleteAnimationDuration,
-      curve: Curves.easeInOutCubic,
-      onEnd: onExitCompleted,
-      builder: (context, value, child) {
-        final clampedValue = value.clamp(0.0, 1.0);
-        final exitProgress = 1 - clampedValue;
-        return ClipRect(
-          child: Align(
-            alignment: Alignment.topCenter,
-            heightFactor: clampedValue,
-            child: Opacity(
-              opacity: clampedValue,
-              child: Transform.translate(
-                offset: Offset(
-                  0,
-                  -8 * Curves.easeOutCubic.transform(exitProgress),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: bottomSpacing),
+  }
+
+  @override
+  void dispose() {
+    _entranceCtrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Padding(
+      padding: EdgeInsets.only(bottom: widget.bottomSpacing),
+      child: widget.child,
+    );
+
+    // Exit animation takes priority.
+    if (widget.exiting) {
+      return TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 1, end: 0),
+        duration: _transcriptMessageDeleteAnimationDuration,
+        curve: Curves.easeInOutCubic,
+        onEnd: widget.onExitCompleted,
+        builder: (context, value, child) {
+          final clampedValue = value.clamp(0.0, 1.0);
+          final exitProgress = 1 - clampedValue;
+          return ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: clampedValue,
+              child: Opacity(
+                opacity: clampedValue,
+                child: Transform.translate(
+                  offset: Offset(
+                    0,
+                    -8 * Curves.easeOutCubic.transform(exitProgress),
+                  ),
                   child: child,
                 ),
               ),
             ),
+          );
+        },
+        child: child,
+      );
+    }
+
+    // Entrance animation (plays once on mount for newly added messages).
+    if (_entranceCtrl != null) {
+      return FadeTransition(
+        opacity: _opacity!,
+        child: ScaleTransition(
+          scale: _scale!,
+          alignment: Alignment.topCenter,
+          child: SlideTransition(
+            position: _slide!,
+            child: child,
           ),
-        );
-      },
-      child: child,
-    );
+        ),
+      );
+    }
+
+    // Fast path: no animation.
+    return child;
   }
 }
 
@@ -5880,6 +6553,41 @@ class _SessionMetadataDialog extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (session.templateId == 'hardness_engineering') ...[
+                        const SizedBox(height: 16),
+                        _buildHardnessConfigSection(context, session),
+                      ],
+                      if (session.metadata.entries
+                          .where(
+                            (e) =>
+                                !(session.templateId ==
+                                    'hardness_engineering' &&
+                                e.key == 'hardness_config'),
+                          )
+                          .isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        _MetadataSection(
+                          title: _localizedText(
+                            context,
+                            zh: '扩展元数据',
+                            en: 'Extended Metadata',
+                          ),
+                          children: session.metadata.entries
+                              .where(
+                                (e) =>
+                                    !(session.templateId ==
+                                        'hardness_engineering' &&
+                                    e.key == 'hardness_config'),
+                              )
+                              .map((entry) {
+                                return _MetadataEntryRow(
+                                  label: entry.key,
+                                  value: '${entry.value}',
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       _MetadataSection(
                         title: _localizedText(
@@ -7079,11 +7787,20 @@ class _MessageBubbleState extends State<_MessageBubble> {
     final markdownBuilders = _cachedBuilders!;
     final inlineSyntaxes = _cachedInlineSyntaxes!;
 
+    // Parse Hardness Engineering agent/phase annotations from message content.
+    // Only assistant-role messages can carry these markers.
+    final heAnnotation = (!isUser && !isCompressionPoint && !isToolCall && !isToolResult && !isStatus)
+        ? _parseHeAnnotation(message.content)
+        : null;
+    final effectiveContent = heAnnotation?.strippedContent ?? message.content;
+
     final bubbleBody = Column(
       crossAxisAlignment: isUser
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
+        if (heAnnotation != null && heAnnotation.hasAnnotations)
+          _HardnessAnnotationCapsuleRow(annotation: heAnnotation),
         DecoratedBox(
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -7213,7 +7930,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         const SizedBox(height: 10),
                       ],
                       _SafeMarkdownBody(
-                        data: message.content.isEmpty ? ' ' : message.content,
+                        data: effectiveContent.isEmpty ? ' ' : effectiveContent,
                         selectable: widget.isSelected,
                         builders: markdownBuilders,
                         styleSheet: markdownStyleSheet.styleSheet,
@@ -8339,6 +9056,12 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
             ],
           ),
         ),
+        // ── File mutation indicator (mirrors HE changed-files row) ──
+        if (_fileMutationPath(message).isNotEmpty &&
+            _toolExecutionStatus(message) == 'success') ...[
+          const SizedBox(height: 10),
+          _FileMutationRow(message: message),
+        ],
       ],
     );
   }
@@ -8605,6 +9328,135 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
         ),
       ],
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
+// ─────────────────────────────────────────────────────────────────────────────
+
+String _fileMutationPath(AiSessionMessage message) =>
+    '${message.metadata['file_mutation_path'] ?? ''}'.trim();
+
+String _fileMutationKind(AiSessionMessage message) =>
+    '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
+
+class _FileMutationRow extends StatelessWidget {
+  const _FileMutationRow({required this.message});
+
+  final AiSessionMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final mutPath = _fileMutationPath(message);
+    final mutKind = _fileMutationKind(message);
+
+    final editCount = message.metadata['file_mutation_edit_count'];
+
+    // Determine icon & color based on mutation kind.
+    final (IconData icon, Color iconColor, String kindLabel) = switch (mutKind) {
+      'write' => (
+          Icons.add_circle_outline_rounded,
+          const Color(0xFF4CAF50),
+          _localizedText(context, zh: '写入', en: 'Write'),
+        ),
+      'edit' => (
+          Icons.edit_outlined,
+          colorScheme.primary,
+          _localizedText(context, zh: '编辑', en: 'Edit'),
+        ),
+      'multi_edit' => (
+          Icons.edit_note_outlined,
+          colorScheme.primary,
+          editCount is int && editCount > 1
+              ? _localizedText(
+                  context,
+                  zh: '多处编辑 ×$editCount',
+                  en: 'Multi-edit ×$editCount',
+                )
+              : _localizedText(context, zh: '多处编辑', en: 'Multi-edit'),
+        ),
+      'notebook_edit' => (
+          Icons.menu_book_outlined,
+          colorScheme.tertiary,
+          _localizedText(context, zh: 'Notebook 编辑', en: 'Notebook Edit'),
+        ),
+      'bash_write' => (
+          Icons.terminal_rounded,
+          const Color(0xFFF57F17),
+          _localizedText(context, zh: '命令写入', en: 'Bash Write'),
+        ),
+      _ => (
+          Icons.difference_rounded,
+          colorScheme.onSurfaceVariant,
+          _localizedText(context, zh: '文件变更', en: 'File Changed'),
+        ),
+    };
+
+    // Extract a shorter display path.
+    final displayPath = _shortenFilePath(mutPath);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.78),
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.difference_rounded,
+              size: 14, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            _localizedText(context, zh: '文件变动', en: 'Changed File'),
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              displayPath,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.12),
+              borderRadius: _borderRadius999,
+            ),
+            child: Text(
+              kindLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: iconColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shorten an absolute path to the last 3 segments for readability.
+  static String _shortenFilePath(String filePath) {
+    if (filePath.isEmpty) return filePath;
+    // Normalise to forward slashes for splitting (handles Windows paths too).
+    final normalised = filePath.replaceAll('\\', '/');
+    final parts = normalised.split('/');
+    if (parts.length <= 3) return normalised;
+    return '.../${parts.sublist(parts.length - 3).join('/')}';
   }
 }
 
@@ -10969,6 +11821,241 @@ IconData _iconForAttachmentKind(AiAttachmentKind kind) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HE session tile shown in the navigation pane threads list.
+// Mirrors the visual design of _ThreadTile for consistency.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _HardnessSessionTile extends StatelessWidget {
+  const _HardnessSessionTile({
+    required this.title,
+    required this.status,
+    required this.awaitingApproval,
+    required this.isSelected,
+    required this.onTap,
+    required this.onRename,
+    required this.onDelete,
+  });
+
+  final String title;
+  final HardnessOrchestratorStatus status;
+  final bool awaitingApproval;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final backgroundColor = isSelected
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerLow;
+    final titleColor = isSelected
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurface;
+    final showBadge =
+      awaitingApproval || status != HardnessOrchestratorStatus.idle;
+
+    return GestureDetector(
+      onSecondaryTapDown: (details) async {
+        final selected = await showMenu<String>(
+          context: context,
+          position: RelativeRect.fromLTRB(
+            details.globalPosition.dx,
+            details.globalPosition.dy,
+            details.globalPosition.dx,
+            details.globalPosition.dy,
+          ),
+          items: [
+            PopupMenuItem<String>(
+              value: 'rename',
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(AppLocalizations.of(context)!.commonEdit),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'delete',
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_outline_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Text(AppLocalizations.of(context)!.commonDelete),
+                ],
+              ),
+            ),
+          ],
+        );
+        if (!context.mounted || selected == null) {
+          return;
+        }
+        final VoidCallback? action = switch (selected) {
+          'rename' => onRename,
+          'delete' => onDelete,
+          _ => null,
+        };
+        if (action == null) {
+          return;
+        }
+        _scheduleOverlayActionAfterMenuDismissal(context, action);
+      },
+      child: Material(
+        color: backgroundColor,
+        borderRadius: _borderRadius18,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: _borderRadius18,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: titleColor,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ),
+                if (showBadge) ...[
+                  const SizedBox(width: 12),
+                  _HardnessStatusCapsule(
+                    status: status,
+                    awaitingApproval: awaitingApproval,
+                    isSelected: isSelected,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Status badge for Hardness Engineering sessions.
+/// Uses the same [_SweepBadge] animation for the running state and a static
+/// rounded capsule for terminal states — matching the [_ActiveThreadBadge]
+/// pattern used for AI thread sessions.
+class _HardnessStatusCapsule extends StatelessWidget {
+  const _HardnessStatusCapsule({
+    required this.status,
+    required this.awaitingApproval,
+    required this.isSelected,
+  });
+
+  final HardnessOrchestratorStatus status;
+  final bool awaitingApproval;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    if (awaitingApproval) {
+      const foregroundColor = Color(0xFFE6A817);
+      final backgroundColor = foregroundColor.withValues(alpha: 0.14);
+      final borderColor = foregroundColor.withValues(alpha: 0.22);
+      return _SweepBadge(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        sweepColor: foregroundColor.withValues(alpha: 0.18),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _PulsingDot(color: foregroundColor, size: 8),
+            const SizedBox(width: 8),
+            Text(
+              isZh ? '等待批准' : 'Awaiting Approval',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final (Color fg, String label) = switch (status) {
+      HardnessOrchestratorStatus.running => (
+        isSelected ? colorScheme.onPrimaryContainer : colorScheme.primary,
+        isZh ? '运行中' : 'Running',
+      ),
+      HardnessOrchestratorStatus.completed => (
+        const Color(0xFF5F7C53),
+        isZh ? '已完成' : 'Done',
+      ),
+      HardnessOrchestratorStatus.failed => (
+        const Color(0xFFC84B4B),
+        isZh ? '失败' : 'Failed',
+      ),
+      HardnessOrchestratorStatus.cancelled => (
+        const Color(0xFFD97A33),
+        isZh ? '已中止' : 'Cancelled',
+      ),
+      HardnessOrchestratorStatus.idle => (colorScheme.outline, ''),
+    };
+
+    if (status == HardnessOrchestratorStatus.idle) {
+      return const SizedBox.shrink();
+    }
+
+    final bg = fg.withValues(alpha: 0.12);
+    final border = fg.withValues(alpha: 0.22);
+    final labelWidget = Text(
+      label,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: fg,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+
+    if (status == HardnessOrchestratorStatus.running) {
+      return _SweepBadge(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        backgroundColor: bg,
+        borderColor: border,
+        sweepColor: fg.withValues(alpha: 0.18),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            labelWidget,
+          ],
+        ),
+      );
+    }
+
+    // Static capsule for terminal states.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: _borderRadius999,
+        border: Border.all(color: border),
+      ),
+      child: labelWidget,
+    );
+  }
+}
+
 class _ThreadTile extends StatelessWidget {
   const _ThreadTile({
     required this.session,
@@ -11030,11 +12117,18 @@ class _ThreadTile extends StatelessWidget {
             ),
           ],
         );
-        if (selected == 'rename') {
-          onRename();
-        } else if (selected == 'delete') {
-          onDelete();
+        if (!context.mounted || selected == null) {
+          return;
         }
+        final VoidCallback? action = switch (selected) {
+          'rename' => onRename,
+          'delete' => onDelete,
+          _ => null,
+        };
+        if (action == null) {
+          return;
+        }
+        _scheduleOverlayActionAfterMenuDismissal(context, action);
       },
       child: Material(
         color: backgroundColor,
@@ -12362,6 +13456,7 @@ class _ThreadTemplateDialog extends StatelessWidget {
       title: Text(l10n.threadTemplateDialogTitle),
       content: SizedBox(
         width: 1080,
+        height: 640,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -12424,8 +13519,8 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return SizedBox(
-      width: 260,
-      height: 240,
+      width: 280,
+      height: 300,
       child: Material(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(24),
@@ -12493,6 +13588,103 @@ String _formatDateTime(DateTime value) {
   return '$year-$month-$day $hour:$minute';
 }
 
+Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final sectionTitle = isZh ? 'Hardness Engineering 配置' : 'Hardness Engineering Config';
+  final rawConfig = session.metadata['hardness_config'];
+
+  final Map<String, Object?> configMap;
+  if (rawConfig is Map<String, Object?>) {
+    configMap = rawConfig;
+  } else if (rawConfig is Map) {
+    configMap = Map<String, Object?>.from(rawConfig);
+  } else {
+    return _MetadataSection(
+      title: sectionTitle,
+      children: [
+        Text(
+          isZh
+              ? '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。'
+              : 'Configuration data has not been stored in session metadata (session may predate this feature).',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  HardnessRoleConfig? parseRole(String key) {
+    final raw = configMap[key];
+    if (raw is Map<String, Object?>) return HardnessRoleConfig.fromJson(raw);
+    if (raw is Map) {
+      return HardnessRoleConfig.fromJson(Map<String, Object?>.from(raw));
+    }
+    return null;
+  }
+
+  final task = '${configMap['task'] ?? ''}'.trim();
+  final workingDirectory = '${configMap['working_directory'] ?? ''}'.trim();
+  final persistenceDirectory =
+      '${configMap['persistence_directory'] ?? ''}'.trim();
+  final firstRunRaw = configMap['first_run'];
+
+  final roleConfigs = <(String, HardnessRoleConfig?)>[
+    (isZh ? '探档者 (Profiler)' : 'Profiler', parseRole('profiler')),
+    (isZh ? '调读者 (Reader)' : 'Reader', parseRole('reader')),
+    (isZh ? '规划者 (Planner)' : 'Planner', parseRole('planner')),
+    (isZh ? '实施者 (Implementer)' : 'Implementer', parseRole('implementer')),
+    (isZh ? '验收者 (Reviewer)' : 'Reviewer', parseRole('reviewer')),
+  ];
+
+  return _MetadataSection(
+    title: sectionTitle,
+    children: [
+      if (task.isNotEmpty)
+        _MetadataEntryRow(
+          label: isZh ? '任务描述' : 'Task',
+          value: task,
+        ),
+      _MetadataEntryRow(
+        label: isZh ? '工作目录' : 'Working Directory',
+        value: workingDirectory.isEmpty ? '-' : workingDirectory,
+      ),
+      _MetadataEntryRow(
+        label: isZh ? '持久化目录' : 'Persistence Directory',
+        value: persistenceDirectory.isEmpty ? '-' : persistenceDirectory,
+      ),
+      if (firstRunRaw != null)
+        _MetadataEntryRow(
+          label: isZh ? '首次运行' : 'First Run',
+          value: firstRunRaw == true
+              ? (isZh ? '是（含探档阶段）' : 'Yes (profiler phase included)')
+              : (isZh ? '否（增量运行）' : 'No (incremental run)'),
+        ),
+      const SizedBox(height: 12),
+      Text(
+        isZh ? '角色配置' : 'Role Configs',
+        style: theme.textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 10),
+      for (final entry in roleConfigs)
+        _MetadataEntryRow(
+          label: entry.$1,
+          value: () {
+            final rc = entry.$2;
+            if (rc == null || !rc.isConfigured) {
+              return isZh ? '未配置' : 'Not configured';
+            }
+            return '${rc.cliName} · ${rc.modelId}';
+          }(),
+        ),
+    ],
+  );
+}
+
 String _localizedText(
   BuildContext context, {
   required String zh,
@@ -12505,46 +13697,50 @@ String _localizedText(
 Future<String?> _showEditQueuedMessageDialog(
   BuildContext context,
   String currentText,
-) {
+) async {
   final controller = TextEditingController(text: currentText);
   final languageCode = Localizations.localeOf(context).languageCode;
   final isZh = languageCode.startsWith('zh');
-  return showDialog<String>(
-    context: context,
-    builder: (dialogContext) {
-      return AlertDialog(
-        title: Text(isZh ? '编辑等待消息' : 'Edit Queued Message'),
-        content: SizedBox(
-          width: 480,
-          child: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLines: 8,
-            minLines: 3,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              hintText: isZh ? '输入消息内容…' : 'Enter message…',
+  try {
+    return await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(isZh ? '编辑等待消息' : 'Edit Queued Message'),
+          content: SizedBox(
+            width: 480,
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 8,
+              minLines: 3,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: isZh ? '输入消息内容…' : 'Enter message…',
+              ),
+              onSubmitted: (value) {
+                Navigator.of(dialogContext).pop(value);
+              },
             ),
-            onSubmitted: (value) {
-              Navigator.of(dialogContext).pop(value);
-            },
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(isZh ? '取消' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(controller.text);
-            },
-            child: Text(isZh ? '保存' : 'Save'),
-          ),
-        ],
-      );
-    },
-  );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(controller.text);
+              },
+              child: Text(isZh ? '保存' : 'Save'),
+            ),
+          ],
+        );
+      },
+    );
+  } finally {
+    _disposeTextEditingControllerAfterCurrentFrame(controller);
+  }
 }
 
 String _localizedMetadataField(BuildContext context, String field) {
@@ -12640,4 +13836,179 @@ String _localizedMetadataField(BuildContext context, String field) {
     ),
     _ => field,
   };
+}
+
+// ── Hardness Engineering annotation parsing ───────────────────────────────────
+
+final RegExp _heAgentPattern = RegExp(r'\[HE_AGENT:(\w+)\|([^\]]+)\]');
+final RegExp _hePhasePattern = RegExp(r'\[HE_PHASE:(\w+)\]');
+
+class _HeAnnotation {
+  const _HeAnnotation({
+    required this.agentRole,
+    required this.agentId,
+    required this.phase,
+    required this.strippedContent,
+  });
+
+  final String? agentRole;
+  final String? agentId;
+  final String? phase;
+  final String strippedContent;
+
+  bool get hasAnnotations => agentRole != null || phase != null;
+}
+
+_HeAnnotation? _parseHeAnnotation(String content) {
+  final agentMatch = _heAgentPattern.firstMatch(content);
+  final phaseMatch = _hePhasePattern.firstMatch(content);
+  if (agentMatch == null && phaseMatch == null) return null;
+  final stripped = content
+      .replaceAll(_heAgentPattern, '')
+      .replaceAll(_hePhasePattern, '')
+      .replaceAll(RegExp(r'^\s+'), '')
+      .trim();
+  return _HeAnnotation(
+    agentRole: agentMatch?.group(1),
+    agentId: agentMatch?.group(2),
+    phase: phaseMatch?.group(1),
+    strippedContent: stripped,
+  );
+}
+
+// ── Hardness Engineering capsule row widget ───────────────────────────────────
+
+class _HardnessAnnotationCapsuleRow extends StatelessWidget {
+  const _HardnessAnnotationCapsuleRow({required this.annotation});
+
+  final _HeAnnotation annotation;
+
+  static const Map<String, String> _roleDisplayZh = {
+    'reader': '调读者',
+    'planner': '规划者',
+    'implementer': '实施者',
+    'reviewer': '验收者',
+  };
+
+  static const Map<String, String> _roleDisplayEn = {
+    'reader': 'Reader',
+    'planner': 'Planner',
+    'implementer': 'Implementer',
+    'reviewer': 'Reviewer',
+  };
+
+  static const Map<String, String> _phaseDisplayZh = {
+    'meta_collection': '元数据采集',
+    'reading': '调读',
+    'planning': '规划',
+    'implementing': '实施',
+    'reviewing': '验收',
+  };
+
+  static const Map<String, String> _phaseDisplayEn = {
+    'meta_collection': 'Meta Collection',
+    'reading': 'Reading',
+    'planning': 'Planning',
+    'implementing': 'Implementing',
+    'reviewing': 'Reviewing',
+  };
+
+  static const Map<String, IconData> _phaseIcons = {
+    'meta_collection': Icons.manage_search_rounded,
+    'reading': Icons.menu_book_rounded,
+    'planning': Icons.route_rounded,
+    'implementing': Icons.code_rounded,
+    'reviewing': Icons.fact_check_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final capsules = <Widget>[];
+
+    if (annotation.agentRole != null) {
+      final roleName = isZh
+          ? (_roleDisplayZh[annotation.agentRole] ?? annotation.agentRole!)
+          : (_roleDisplayEn[annotation.agentRole] ?? annotation.agentRole!);
+      final label = annotation.agentId != null
+          ? '$roleName · ${annotation.agentId}'
+          : roleName;
+      capsules.add(
+        _Capsule(
+          icon: Icons.person_pin_rounded,
+          label: label,
+          color: colorScheme.secondary,
+          onColor: colorScheme.onSecondary,
+        ),
+      );
+    }
+
+    if (annotation.phase != null) {
+      final phaseName = isZh
+          ? (_phaseDisplayZh[annotation.phase] ?? annotation.phase!)
+          : (_phaseDisplayEn[annotation.phase] ?? annotation.phase!);
+      final icon = _phaseIcons[annotation.phase] ?? Icons.timelapse_rounded;
+      capsules.add(
+        _Capsule(
+          icon: icon,
+          label: phaseName,
+          color: colorScheme.tertiary,
+          onColor: colorScheme.onTertiary,
+        ),
+      );
+    }
+
+    if (capsules.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(spacing: 6, runSpacing: 6, children: capsules),
+    );
+  }
+}
+
+class _Capsule extends StatelessWidget {
+  const _Capsule({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color onColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

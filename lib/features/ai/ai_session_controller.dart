@@ -647,6 +647,47 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  Future<bool> updateSessionMetadata(
+    String sessionId,
+    Map<String, Object?> payload,
+  ) async {
+    // Bypass the session operation queue so UI data (e.g., config popups)
+    // stays responsive even while sendMessage occupies the queue.
+    final session = _sessionById(sessionId);
+    if (session == null || payload.isEmpty) {
+      return false;
+    }
+    final nextMetadata = Map<String, Object?>.from(session.metadata);
+    var hasChanges = false;
+    for (final entry in payload.entries) {
+      if (nextMetadata[entry.key] != entry.value) {
+        nextMetadata[entry.key] = entry.value;
+        hasChanges = true;
+      }
+    }
+    if (!hasChanges) {
+      return true;
+    }
+    final updatedSession = session.copyWith(
+      metadata: nextMetadata,
+      updatedAt: _clock().toUtc(),
+    );
+    final existingIndex = _sessions.indexWhere(
+      (item) => item.id == sessionId,
+    );
+    if (existingIndex == -1) {
+      return false;
+    }
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _sessions = updatedSessions;
+    notifyListeners();
+    try {
+      await _store.save(updatedSession);
+    } catch (_) {}
+    return true;
+  }
+
   Future<bool> renameSession(String sessionId, String title) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -1980,6 +2021,11 @@ class AiSessionController extends ChangeNotifier {
           flushPreview('event_drain_timeout');
         }
       } catch (error) {
+        // Cancel the preview timer on any error path to prevent a stale timer
+        // from firing after the stream has already failed and the surrounding
+        // state has been torn down.
+        previewTimer?.cancel();
+        previewTimer = null;
         await subscription.cancel();
         _setSessionCancelHandler(workingSession.id, null);
         materializePendingReasoningPreview();
@@ -4995,6 +5041,20 @@ class AiSessionController extends ChangeNotifier {
       nextSession = nextSession.copyWith(
         fullAccessPermission: liveSession.fullAccessPermission,
       );
+    }
+
+    if (!identical(liveSession.metadata, nextSession.metadata)) {
+      final mergedMetadata = Map<String, Object?>.from(nextSession.metadata);
+      var hasMetadataDifferences = false;
+      for (final entry in liveSession.metadata.entries) {
+        if (mergedMetadata[entry.key] != entry.value) {
+          mergedMetadata[entry.key] = entry.value;
+          hasMetadataDifferences = true;
+        }
+      }
+      if (hasMetadataDifferences) {
+        nextSession = nextSession.copyWith(metadata: mergedMetadata);
+      }
     }
 
     if (liveSession.isTitleManuallyEdited) {

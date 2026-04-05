@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -175,6 +176,10 @@ class AiChatService implements AiChatClient {
       throw const AiChatException('Request timed out.');
     } on http.ClientException catch (error) {
       throw AiChatException(error.message);
+    } on SocketException catch (error) {
+      throw AiChatException('Network error: ${error.message}');
+    } on TlsException catch (error) {
+      throw AiChatException('TLS error: ${error.message}');
     }
   }
 
@@ -489,6 +494,10 @@ class AiChatService implements AiChatClient {
       markStreamActivity('chunk');
       lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
       while (!resultCompleter.isCompleted) {
+        // Avoid calling toString() on every iteration – check length first.
+        if (lineBuffer.length < 2) {
+          break;
+        }
         final current = lineBuffer.toString();
         final separatorIndex = current.indexOf('\n\n');
         if (separatorIndex == -1) {
@@ -504,7 +513,7 @@ class AiChatService implements AiChatClient {
     }
 
     responseSubscription = streamedResponse.stream
-        .transform(utf8.decoder)
+        .transform(const Utf8Decoder(allowMalformed: true))
         .timeout(timeout)
         .listen(
           processChunk,

@@ -22,6 +22,7 @@ class AiThreadTemplate {
       'auto_awesome_rounded' => Icons.auto_awesome_rounded,
       'build_circle_rounded' => Icons.build_circle_rounded,
       'forum_rounded' => Icons.forum_rounded,
+      'hub_rounded' => Icons.hub_rounded,
       _ => Icons.auto_awesome_rounded,
     };
   }

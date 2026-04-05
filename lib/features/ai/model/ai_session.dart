@@ -227,6 +227,11 @@ class AiSession {
                 )
                 .toList(growable: false)
           : const <AiSessionPlanRecord>[],
+      metadata: json['metadata'] is Map<String, Object?>
+          ? Map<String, Object?>.from(json['metadata'] as Map<String, Object?>)
+          : json['metadata'] is Map
+          ? Map<String, Object?>.from(json['metadata'] as Map)
+          : const <String, Object?>{},
       lastPromptMetadata: json['last_prompt_metadata'] is Map<String, Object?>
           ? Map<String, Object?>.from(
               json['last_prompt_metadata'] as Map<String, Object?>,
@@ -272,6 +277,7 @@ class AiSession {
     this.pendingPlan,
     this.planHistory = const <AiSessionPlanRecord>[],
     this.fullAccessPermission = false,
+    this.metadata = const <String, Object?>{},
   });
 
   static const int schemaVersion = 5;
@@ -302,6 +308,7 @@ class AiSession {
   final String? pendingPlan;
   final List<AiSessionPlanRecord> planHistory;
   final bool fullAccessPermission;
+  final Map<String, Object?> metadata;
   late final int? _latestCompressionPointIndexCache =
       _computeLatestCompressionPointIndex();
   late final List<AiSessionMessage> _visibleMessagesCache = messages
@@ -333,6 +340,7 @@ class AiSession {
     List<AiSessionPlanRecord>? planHistory,
     bool clearPendingPlan = false,
     bool? fullAccessPermission,
+    Map<String, Object?>? metadata,
   }) {
     return AiSession(
       id: id,
@@ -367,6 +375,7 @@ class AiSession {
       pendingPlan: clearPendingPlan ? null : pendingPlan ?? this.pendingPlan,
       planHistory: planHistory ?? this.planHistory,
       fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -477,6 +486,7 @@ class AiSession {
         'pending_plan': pendingPlan,
         'full_access_permission': fullAccessPermission,
       },
+      'metadata': metadata,
       'environment': environment.toJson(),
       'statistics': statistics.toJson(),
       'last_prompt_metadata': lastPromptMetadata,

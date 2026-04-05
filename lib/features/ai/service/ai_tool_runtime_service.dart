@@ -453,6 +453,7 @@ class AiToolRuntimeService {
   // 2026-04-01 工具输出 budget 截断。
   // 对 resultText 进行字符数上限保护，超限时截断内容并附上提示。
   // 这防止了单次工具调用将大量输出（如 WebFetch 、Bash cat 大文件）直接塑进 API 上下文。
+  // FIX: stdout 截断边界与 resultText 保持一致，避免上下文看到不同片段。
   AiToolExecutionResult _applyOutputBudget(AiToolExecutionResult result) {
     final rawResult = result.resultText;
     if (rawResult.length <= _maxToolOutputChars) {
@@ -464,13 +465,15 @@ class AiToolRuntimeService {
         'Only the first 200,000 characters are included. '
         'Use more targeted commands or file offsets to read the remaining content.]';
     final truncatedResult = '$truncated$notice';
+    // Keep stdout consistent with resultText: both are capped at _maxToolOutputChars.
+    final truncatedStdout = result.stdout.length > _maxToolOutputChars
+        ? '${result.stdout.substring(0, _maxToolOutputChars)}$notice'
+        : result.stdout;
     return AiToolExecutionResult(
       status: result.status,
       command: result.command,
       workingDirectory: result.workingDirectory,
-      stdout: result.stdout.length > _maxToolOutputChars
-          ? '${result.stdout.substring(0, _maxToolOutputChars)}$notice'
-          : result.stdout,
+      stdout: truncatedStdout,
       stderr: result.stderr,
       durationMs: result.durationMs,
       resultText: truncatedResult,
@@ -586,7 +589,15 @@ class AiToolRuntimeService {
     final requestedTask =
         '${decodedArguments['task'] ?? decodedArguments['prompt'] ?? ''}'
             .trim();
-    final manifestContent = await File(skill.manifestPath).readAsString();
+    final String manifestContent;
+    try {
+      manifestContent = await File(skill.manifestPath).readAsString();
+    } on FileSystemException catch (error) {
+      return _invalidToolResult(
+        toolCall.name,
+        'Failed to read skill manifest at "${skill.manifestPath}": ${error.message}',
+      );
+    }
     final linkedResources = await _loadSkillLinkedResources(
       skill.directoryPath,
       manifestContent,

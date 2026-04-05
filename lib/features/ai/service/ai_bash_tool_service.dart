@@ -730,6 +730,10 @@ class AiBashToolService {
         ),
       );
       session.process.stdin.write('\n');
+      // Flush the IOSink so the shell receives the script immediately.
+      // Without an explicit flush the OS buffers may delay delivery under
+      // low-throughput conditions, causing spurious marker timeouts.
+      await session.process.stdin.flush();
       final waitForCompletion = execution.outcome.future.timeout(
         Duration(milliseconds: timeoutMs),
       );
@@ -881,6 +885,10 @@ class AiBashToolService {
     // brackets, asterisks, question marks) don't trigger "bad pattern" errors.
     if (!Platform.isWindows) {
       process.stdin.write('set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n');
+      // Flush so the shell processes the noglob setup before the first command.
+      try {
+        await process.stdin.flush();
+      } catch (_) {}
     }
     session.stdoutSubscription = process.stdout
         .transform(_shellOutputDecoder)
