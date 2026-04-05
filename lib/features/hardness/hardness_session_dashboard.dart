@@ -1024,7 +1024,7 @@ class _HePaneHeader extends StatelessWidget {
                           ),
                         ],
                         const SizedBox(width: 8),
-                        _HePill(
+                        const _HePill(
                           icon: Icons.layers_rounded,
                           label:
                               'Hardness Engineering · v$kHardnessOrchestratorDisplayVersion',
@@ -1852,12 +1852,16 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                       if (t.startsWith('✓ ') ||
                           t.startsWith('✗ ') ||
                           t.startsWith('▶ ') ||
-                          t.startsWith('⚠ ')) return false;
+                          t.startsWith('⚠ ')) {
+                        return false;
+                      }
                       return true;
                     },
                     orElse: () => '',
                   );
-                  if (previewLine.isEmpty) return const SizedBox.shrink();
+                  if (previewLine.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
@@ -2263,56 +2267,6 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
   }
 }
 
-// ── Live tail view (running) ───────────────────────────────────────────────
-// Shows the last N lines in monospace to avoid unbounded growth in a column.
-
-class _HeRawTailView extends StatelessWidget {
-  const _HeRawTailView({
-    required this.lines,
-    required this.colorScheme,
-  });
-
-  final List<String> lines;
-  final ColorScheme colorScheme;
-
-  static const int _tailSize = 50;
-
-  @override
-  Widget build(BuildContext context) {
-    final start = lines.length > _tailSize ? lines.length - _tailSize : 0;
-    final display = lines.length > _tailSize
-        ? lines.sublist(start)
-        : lines;
-    final hiddenAbove = start;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (hiddenAbove > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '… $hiddenAbove ${hiddenAbove == 1 ? 'line' : 'lines'} above',
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11,
-                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: display.length,
-          itemBuilder: (_, i) =>
-              _LogLine(line: display[i], colorScheme: colorScheme),
-        ),
-      ],
-    );
-  }
-}
-
 // ── Raw full view (manual toggle) ─────────────────────────────────────────
 
 class _HeRawFullView extends StatefulWidget {
@@ -2621,7 +2575,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: segments.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) => _HeSegmentMiniCard(
         segment: segments[index],
         isZh: widget.isZh,
@@ -2767,7 +2721,7 @@ class _HeStreamingSubConversationState
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: segments.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final card = _HeSegmentMiniCard(
           segment: segments[index],
@@ -3043,7 +2997,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: cardBorder, width: 1.0),
+        border: Border.all(color: cardBorder),
         boxShadow: [
           BoxShadow(
             color: colorScheme.shadow.withValues(
@@ -4999,53 +4953,6 @@ class _HePill extends StatelessWidget {
   }
 }
 
-class _HeUnavailableTokenDial extends StatelessWidget {
-  const _HeUnavailableTokenDial();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: _br999,
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.55),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.confirmation_number_rounded,
-            size: 14,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '--',
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'Token',
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // =============================================================================
 // _HeOutputLinesDial — mirrors _TokenDial but for CLI output lines
 // Displays total output lines from all phase logs as a proxy for activity.
@@ -5626,7 +5533,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final accent = _hePausedTone;
+    const accent = _hePausedTone;
     final backgroundColor = Color.alphaBlend(
       accent.withValues(
         alpha: theme.brightness == Brightness.dark ? 0.24 : 0.12,
@@ -5650,7 +5557,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.pause_circle_filled_rounded,
                 size: 20,
                 color: accent,
@@ -7544,7 +7451,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: _entries.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: 2),
                             itemBuilder: (ctx, i) {
                               final entry = _entries[i];
@@ -8080,7 +7987,7 @@ class _HeSteeringFileEditorDialogState
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         if (await _confirmDiscard()) {
-          if (mounted) Navigator.of(context).pop();
+          if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: Dialog(
@@ -8139,7 +8046,7 @@ class _HeSteeringFileEditorDialogState
                     IconButton(
                       onPressed: () async {
                         if (await _confirmDiscard()) {
-                          if (mounted) Navigator.of(context).pop();
+                          if (context.mounted) Navigator.of(context).pop();
                         }
                       },
                       icon: const Icon(Icons.close_rounded),
@@ -8198,7 +8105,7 @@ class _HeSteeringFileEditorDialogState
                     if (!_loading && _error == null)
                       ListenableBuilder(
                         listenable: _controller,
-                        builder: (_, __) {
+                        builder: (_, _) {
                           final t = _controller.text;
                           final words = t.trim().isEmpty
                               ? 0
@@ -8234,7 +8141,7 @@ class _HeSteeringFileEditorDialogState
                     OutlinedButton(
                       onPressed: () async {
                         if (await _confirmDiscard()) {
-                          if (mounted) Navigator.of(context).pop();
+                          if (context.mounted) Navigator.of(context).pop();
                         }
                       },
                       style: OutlinedButton.styleFrom(
@@ -8441,10 +8348,9 @@ class _HeSteeringFileEditorDialogState
               padding: const EdgeInsets.all(14),
               child: ListenableBuilder(
                 listenable: _controller,
-                builder: (_, __) => Markdown(
+                builder: (_, _) => Markdown(
                   data: _controller.text,
                   selectable: true,
-                  shrinkWrap: false,
                   padding: EdgeInsets.zero,
                 ),
               ),

@@ -57,6 +57,8 @@ class MemoryStore {
 
   Future<MemoryLoadResult> load() async {
     final targetFile = File(_userMemoryFilePath);
+    // Recover from an interrupted atomic write that left only a .bak file.
+    await recoverAtomicWriteBackupIfNeeded(targetFile);
     if (!await targetFile.exists()) {
       final migrated = await _migrateLegacyStorageFile(targetFile);
       if (migrated) {

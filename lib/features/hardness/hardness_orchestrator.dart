@@ -781,6 +781,7 @@ class HardnessOrchestrator extends ChangeNotifier {
   /// FAIL on the first non-empty line. We scan the first meaningful lines
   /// (skipping blanks, command echoes, and UI decoration) for a FAIL indicator.
   bool _reviewOutputIndicatesFailure(HardnessPhaseLog log) {
+    var meaningfulLineCount = 0;
     for (final line in log.lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
@@ -807,7 +808,8 @@ class HardnessOrchestrator extends ChangeNotifier {
         return false;
       }
       // Only inspect the first few meaningful lines.
-      if (normalized.length > 5) {
+      meaningfulLineCount++;
+      if (meaningfulLineCount >= 5) {
         return false;
       }
     }

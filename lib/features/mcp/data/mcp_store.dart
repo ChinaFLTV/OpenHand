@@ -45,6 +45,8 @@ class McpStore {
 
   Future<McpLoadResult> load() async {
     final targetFile = File(_serversFilePath);
+    // Recover from an interrupted atomic write that left only a .bak file.
+    await recoverAtomicWriteBackupIfNeeded(targetFile);
     if (!await targetFile.exists()) {
       const servers = <McpServer>[];
       try {

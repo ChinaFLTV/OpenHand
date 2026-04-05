@@ -1,5 +1,25 @@
 import 'dart:io';
 
+/// Recovers a file from its atomic-write backup if the target is missing.
+///
+/// If the application was terminated between the "rename original → .bak" and
+/// "rename .tmp → target" steps inside [writeFileAtomically], neither the
+/// target file nor the .tmp file will exist, but the .bak file that holds the
+/// previous content will still be present.  This function detects that state
+/// and renames the .bak back to the target so that subsequent reads succeed.
+///
+/// Call this once for each critical file **before** reading it at startup.
+/// It is safe to call even when no leftover artifacts exist.
+Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
+  if (await targetFile.exists()) {
+    return;
+  }
+  final backupFile = File('${targetFile.path}.bak');
+  if (await backupFile.exists()) {
+    await backupFile.rename(targetFile.path);
+  }
+}
+
 /// Writes [content] to [targetFile] atomically by first writing to a temporary
 /// file, then renaming. If renaming fails, the original file is restored from
 /// a backup.

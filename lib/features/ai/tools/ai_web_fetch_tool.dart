@@ -35,6 +35,7 @@ class AiWebFetchTool extends AiTool {
   static const Duration _cacheTtl = Duration(minutes: 15);
   static const int _maxRedirects = 5;
   static const int _maxResponseBytes = 1024 * 1024;
+  static const int _maxCacheEntries = 64;
   final Map<String, _CachedContent> _cache = {};
 
   @override
@@ -257,8 +258,7 @@ class AiWebFetchTool extends AiTool {
       if (!completer.isCompleted) completer.complete(result);
     }
 
-    cancelSignal?.then((_) => complete(const _BodyReadResult(cancelled: true)));
-    response.stream.listen(
+    final subscription = response.stream.listen(
       (chunk) {
         if (buffer.length + chunk.length > _maxResponseBytes) {
           complete(const _BodyReadResult(
@@ -276,6 +276,13 @@ class AiWebFetchTool extends AiTool {
       },
       cancelOnError: true,
     );
+    cancelSignal?.then((_) {
+      subscription.cancel().ignore();
+      complete(const _BodyReadResult(cancelled: true));
+    });
+    // Cancel the subscription once the completer has a result (e.g. size
+    // limit exceeded) so the underlying connection is released promptly.
+    completer.future.whenComplete(() => subscription.cancel().ignore());
     return completer.future;
   }
 
@@ -292,6 +299,15 @@ class AiWebFetchTool extends AiTool {
 
   void _pruneCache() {
     _cache.removeWhere((_, v) => _isCacheExpired(v));
+    // Evict oldest entries when the cache exceeds the size limit.
+    if (_cache.length > _maxCacheEntries) {
+      final sorted = _cache.entries.toList()
+        ..sort((a, b) => a.value.fetchedAt.compareTo(b.value.fetchedAt));
+      final excess = sorted.length - _maxCacheEntries;
+      for (var i = 0; i < excess; i++) {
+        _cache.remove(sorted[i].key);
+      }
+    }
   }
 
   bool _isCacheExpired(_CachedContent entry) =>

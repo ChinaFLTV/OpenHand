@@ -26,6 +26,8 @@ class HardnessSessionStore {
   /// Loads the persisted record, or returns `null` if none exists.
   Future<HardnessSessionRecord?> load() async {
     final file = File(_filePath);
+    // Recover from an interrupted atomic write that left only a .bak file.
+    await recoverAtomicWriteBackupIfNeeded(file);
     if (!await file.exists()) return null;
     try {
       final raw = await file.readAsString();

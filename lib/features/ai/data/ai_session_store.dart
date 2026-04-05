@@ -80,6 +80,26 @@ class AiSessionStore {
     }
     _directoryCreated = true;
 
+    // Recover any orphaned .bak files left by interrupted atomic writes.
+    await for (final entity in directory.list()) {
+      if (entity is! File) {
+        continue;
+      }
+      final basename = p.basename(entity.path);
+      if (basename.startsWith(_sessionFilePrefix) &&
+          basename.endsWith('.json.bak')) {
+        final targetPath =
+            entity.path.substring(0, entity.path.length - '.bak'.length);
+        if (!await File(targetPath).exists()) {
+          try {
+            await entity.rename(targetPath);
+          } catch (_) {
+            // Best-effort recovery; the file will be discovered on next load.
+          }
+        }
+      }
+    }
+
     final sessions = <AiSession>[];
     final issues = <AiSessionPersistenceIssue>[];
     final seenSessionIds = <String>{};

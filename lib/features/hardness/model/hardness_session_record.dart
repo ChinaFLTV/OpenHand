@@ -114,13 +114,14 @@ class HardnessSessionRecord {
         }
       }
     }
+    final now = DateTime.now().toUtc();
     return HardnessSessionRecord(
       id: '${json['id'] ?? ''}',
       title: '${json['title'] ?? ''}',
       config: HardnessSessionConfig.fromJson(configMap),
       statusValue: '${json['status'] ?? 'idle'}',
-      createdAt: DateTime.parse('${json['created_at']}').toUtc(),
-      updatedAt: DateTime.parse('${json['updated_at']}').toUtc(),
+      createdAt: DateTime.tryParse('${json['created_at']}')?.toUtc() ?? now,
+      updatedAt: DateTime.tryParse('${json['updated_at']}')?.toUtc() ?? now,
       phaseLogs: phaseLogs,
       errorMessage: json['error_message'] == null
           ? null

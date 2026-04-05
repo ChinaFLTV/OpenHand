@@ -48,7 +48,8 @@ const String aiSessionMessageMetadataStreamingKey = 'streaming';
 class AiSessionMessage {
 
   factory AiSessionMessage.fromJson(Map<String, Object?> json) {
-    final createdAt = DateTime.parse('${json['created_at']}').toUtc();
+    final createdAt = DateTime.tryParse('${json['created_at']}')?.toUtc() ??
+        DateTime.now().toUtc();
     final content = '${json['content'] ?? ''}';
     final usageJson = json['usage'];
     return AiSessionMessage(

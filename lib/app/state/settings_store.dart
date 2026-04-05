@@ -51,6 +51,8 @@ class SettingsStore {
 
   Future<SettingsLoadResult> load() async {
     final targetFile = File(_settingsFilePath);
+    // Recover from an interrupted atomic write that left only a .bak file.
+    await recoverAtomicWriteBackupIfNeeded(targetFile);
     if (!await targetFile.exists()) {
       final migrated = await _migrateLegacySandboxSettings(targetFile);
       if (migrated) {
