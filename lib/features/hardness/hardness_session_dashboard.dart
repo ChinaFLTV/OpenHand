@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 
+import '../../app/model/openhand_shortcut.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../home/message_path_linking.dart';
 import 'hardness_cli_catalog.dart';
@@ -28,9 +30,7 @@ final RegExp _heSeparatorLinePattern = RegExp(r'^[-=_]{3,}$');
 
 // Matches the setext-style == / ^^ underline that the md parser turns into
 // an H1/H2.  Both styles are escaped so they render as plain text.
-final RegExp _heSetextEscapePattern = RegExp(
-  r'(^|\n)(\s*)(=+|\^+)(?=\n|$)',
-);
+final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
 
 /// Pre-processes raw log lines into content ready for Markdown rendering.
 /// Returns a `(command, body)` record:
@@ -134,12 +134,15 @@ enum _HeSegmentKind {
 
   /// General output that doesn't match any role marker.
   output,
+
+  /// User-authored manual input (metaCollection / planning / reviewing).
+  userInput,
 }
 
 /// A parsed segment of CLI output, tagged with its kind.
 class _HeOutputSegment {
   _HeOutputSegment({required this.kind, this.roleLabel, List<String>? lines})
-      : lines = lines ?? [];
+    : lines = lines ?? [];
 
   final _HeSegmentKind kind;
   final String? roleLabel;
@@ -187,14 +190,14 @@ const Set<String> _heRoleMarkers = {
 
 /// Maps role marker strings to segment kinds.
 _HeSegmentKind _kindFromRoleMarker(String marker) => switch (marker) {
-      'assistant' => _HeSegmentKind.assistant,
-      'codex' => _HeSegmentKind.thinking,
-      'exec' => _HeSegmentKind.toolCall,
-      'function' => _HeSegmentKind.toolCall,
-      'tool' => _HeSegmentKind.toolResult,
-      'user' => _HeSegmentKind.output,
-      _ => _HeSegmentKind.output,
-    };
+  'assistant' => _HeSegmentKind.assistant,
+  'codex' => _HeSegmentKind.thinking,
+  'exec' => _HeSegmentKind.toolCall,
+  'function' => _HeSegmentKind.toolCall,
+  'tool' => _HeSegmentKind.toolResult,
+  'user' => _HeSegmentKind.output,
+  _ => _HeSegmentKind.output,
+};
 
 /// Parses CLI output lines into a list of typed segments.
 /// Each role marker (assistant, codex, exec, tool, etc.) starts a new segment.
@@ -203,6 +206,10 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   final segments = <_HeOutputSegment>[];
   _HeOutputSegment? current;
   String? commandLine;
+
+  /// Pattern matching manual-input headers like 【用户人工验收结果】.
+  final manualInputHeaderPattern = RegExp(r'^【用户人工.+】$');
+  bool inUserInputSection = false;
 
   void flushCurrent() {
     if (current != null && !current!.isEmpty) {
@@ -223,15 +230,41 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       continue;
     }
 
+    // Detect manual-input header — start a userInput segment.
+    if (manualInputHeaderPattern.hasMatch(trimmed)) {
+      flushCurrent();
+      // The header itself (e.g. 【用户人工验收结果】) becomes the roleLabel.
+      current = _HeOutputSegment(
+        kind: _HeSegmentKind.userInput,
+        roleLabel: trimmed.substring(1, trimmed.length - 1),
+      );
+      inUserInputSection = true;
+      continue;
+    }
+
+    // End of user input section: ℹ acknowledgment line.
+    if (inUserInputSection && trimmed.startsWith('ℹ ')) {
+      flushCurrent();
+      inUserInputSection = false;
+      continue;
+    }
+
     // Extract the CLI command (first `> …` line).
     if (commandLine == null && raw.startsWith('> ')) {
       commandLine = raw.substring(2);
+      // A command line also ends the user-input section.
+      if (inUserInputSection) {
+        flushCurrent();
+        inUserInputSection = false;
+      }
       continue;
     }
 
     // Detect role markers — start a new segment.
-    if (trimmed.length <= 12 && _heRoleMarkers.contains(trimmed.toLowerCase())) {
+    if (trimmed.length <= 12 &&
+        _heRoleMarkers.contains(trimmed.toLowerCase())) {
       flushCurrent();
+      inUserInputSection = false;
       current = _HeOutputSegment(
         kind: _kindFromRoleMarker(trimmed.toLowerCase()),
         roleLabel: trimmed,
@@ -250,10 +283,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   if (commandLine != null) {
     segments.insert(
       0,
-      _HeOutputSegment(
-        kind: _HeSegmentKind.command,
-        lines: [commandLine],
-      ),
+      _HeOutputSegment(kind: _HeSegmentKind.command, lines: [commandLine]),
     );
   }
 
@@ -284,7 +314,13 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
 
   // Post-processing: promote lone "output" segments with substantial content
   // to "assistant" for better visual treatment (AI response card styling).
-  final nonCommandSegments = segments.where((s) => s.kind != _HeSegmentKind.command);
+  // Exclude command and userInput segments from the count so a phase with
+  // one AI output + one user input still promotes the AI output correctly.
+  final nonCommandSegments = segments.where(
+    (s) =>
+        s.kind != _HeSegmentKind.command &&
+        s.kind != _HeSegmentKind.userInput,
+  );
   if (nonCommandSegments.length == 1 &&
       nonCommandSegments.first.kind == _HeSegmentKind.output &&
       nonCommandSegments.first.lines.length > 5) {
@@ -400,15 +436,17 @@ const Color _heFailedTone = Color(0xFFC84B4B);
 ({Color tone, Color background, Color border, Color text}) _hePhasePalette(
   ThemeData theme,
   ColorScheme colorScheme,
-  HardnessPhaseStatus status,
-) {
+  HardnessPhaseStatus status, {
+  bool reviewVerdictFail = false,
+}) {
   final tone = switch (status) {
-    HardnessPhaseStatus.pending || HardnessPhaseStatus.skipped =>
-      _hePendingTone,
-    HardnessPhaseStatus.paused || HardnessPhaseStatus.cancelled =>
-      _hePausedTone,
+    HardnessPhaseStatus.pending ||
+    HardnessPhaseStatus.skipped => _hePendingTone,
+    HardnessPhaseStatus.paused ||
+    HardnessPhaseStatus.cancelled => _hePausedTone,
     HardnessPhaseStatus.running => _heRunningTone,
-    HardnessPhaseStatus.completed => _heCompletedTone,
+    HardnessPhaseStatus.completed =>
+      reviewVerdictFail ? _hePausedTone : _heCompletedTone,
     HardnessPhaseStatus.failed => _heFailedTone,
   };
   final backgroundAlpha = switch (status) {
@@ -432,7 +470,8 @@ const Color _heFailedTone = Color(0xFFC84B4B);
     border: tone.withValues(
       alpha: theme.brightness == Brightness.dark ? 0.58 : 0.30,
     ),
-    text: Color.lerp(
+    text:
+        Color.lerp(
           tone,
           colorScheme.onSurface,
           theme.brightness == Brightness.dark ? 0.10 : 0.16,
@@ -450,6 +489,48 @@ const Color _heFailedTone = Color(0xFFC84B4B);
 //     (secondaryContainer bg when running, status-tinted for other states)
 // =============================================================================
 
+class HardnessSessionPaneController {
+  _HardnessSessionPaneState? _state;
+
+  void _attach(_HardnessSessionPaneState state) {
+    _state = state;
+  }
+
+  void _detach(_HardnessSessionPaneState state) {
+    if (identical(_state, state)) {
+      _state = null;
+    }
+  }
+
+  Future<bool> invokeShortcut(OpenHandShortcutAction action) async {
+    return await _state?._handleShortcutAction(action) ?? false;
+  }
+}
+
+class _HeManualPhaseCopy {
+  const _HeManualPhaseCopy({
+    required this.actionLabel,
+    required this.switchBackLabel,
+    required this.title,
+    required this.helperText,
+    required this.hintText,
+    required this.emptyMessage,
+    required this.activeBannerText,
+    required this.queuedBannerText,
+    required this.icon,
+  });
+
+  final String actionLabel;
+  final String switchBackLabel;
+  final String title;
+  final String helperText;
+  final String hintText;
+  final String emptyMessage;
+  final String activeBannerText;
+  final String queuedBannerText;
+  final IconData icon;
+}
+
 class HardnessSessionPane extends StatefulWidget {
   const HardnessSessionPane({
     super.key,
@@ -464,6 +545,7 @@ class HardnessSessionPane extends StatefulWidget {
     this.updatedAtLabel,
     this.sessionId,
     this.createdAtLabel,
+    this.controller,
     this.filePathRoots = const [],
   });
 
@@ -495,6 +577,8 @@ class HardnessSessionPane extends StatefulWidget {
   /// Called when user changes CLI/model config for a pending phase.
   final ValueChanged<HardnessSessionConfig> onConfigChanged;
 
+  final HardnessSessionPaneController? controller;
+
   /// Root directories for file path resolution in message content.
   final List<String> filePathRoots;
 
@@ -504,47 +588,153 @@ class HardnessSessionPane extends StatefulWidget {
 
 class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   final ScrollController _feedController = ScrollController();
+  final TextEditingController _manualPhaseController = TextEditingController();
+  final FocusNode _manualPhaseFocusNode = FocusNode();
 
   /// Per-phase expansion override: `null` = auto, non-null = user preference.
   final Map<HardnessPhaseLog, bool> _expandedOverrides = {};
   bool _composerCollapsed = false;
   bool _autoFollowEnabled = true;
+  bool _shouldAutoFollowFeed = true;
+  bool _manualPhaseSubmitting = false;
+  bool _lastAwaitingManualPhaseInput = false;
 
   // ── Auto-scroll state ───────────────────────────────────────────────────
   /// Guards against multiple addPostFrameCallback registrations per frame.
   bool _scrollCallbackQueued = false;
+
+  bool _queuedForcedFeedScrollToBottom = false;
+  bool _pendingAnimatedFeedScrollToBottom = false;
+  bool _programmaticFeedScrollInProgress = false;
+  bool _userFeedScrollInProgress = false;
 
   /// Number of extra settle passes to run after the current scroll.
   /// Settle passes re-invoke the scroll logic every frame until content
   /// stabilises (important when AnimatedSize is transitioning height).
   int _scrollSettlePasses = 0;
 
+  static const double _feedAutoFollowDistanceThreshold = 36;
+  static const double _feedAutoFollowAnimatedDistanceThreshold = 80;
+
   @override
   void initState() {
     super.initState();
+    widget.controller?._attach(this);
+    _manualPhaseController.addListener(_onManualPhaseDraftChanged);
+    _feedController.addListener(_handleFeedScroll);
     widget.orchestrator.addListener(_onOrchestratorUpdated);
+    _lastAwaitingManualPhaseInput =
+        widget.orchestrator.awaitingManualPhaseInput;
+    if (_lastAwaitingManualPhaseInput) {
+      _seedManualPhaseDraftFromQueuedInput();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !widget.orchestrator.awaitingManualPhaseInput) {
+          return;
+        }
+        _manualPhaseFocusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(HardnessSessionPane oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller?._detach(this);
+      widget.controller?._attach(this);
+    }
     if (!identical(oldWidget.orchestrator, widget.orchestrator)) {
       oldWidget.orchestrator.removeListener(_onOrchestratorUpdated);
       widget.orchestrator.addListener(_onOrchestratorUpdated);
       _expandedOverrides.clear();
+      _lastAwaitingManualPhaseInput =
+          widget.orchestrator.awaitingManualPhaseInput;
     }
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(this);
     widget.orchestrator.removeListener(_onOrchestratorUpdated);
+    _manualPhaseController.removeListener(_onManualPhaseDraftChanged);
+    _manualPhaseController.dispose();
+    _manualPhaseFocusNode.dispose();
+    _feedController.removeListener(_handleFeedScroll);
     _feedController.dispose();
     super.dispose();
   }
 
+  void _onManualPhaseDraftChanged() {
+    if (!mounted || !widget.orchestrator.awaitingManualPhaseInput) {
+      return;
+    }
+    setState(() {});
+  }
+
+  void _seedManualPhaseDraftFromQueuedInput({bool overrideExisting = false}) {
+    final awaitingPhase = widget.orchestrator.awaitingManualPhaseInputPhase;
+    if (awaitingPhase == null ||
+        !widget.orchestrator.hasQueuedManualPhaseInputFor(awaitingPhase)) {
+      return;
+    }
+    final queued = widget.orchestrator.queuedManualPhaseInput?.trim();
+    if (queued == null || queued.isEmpty) {
+      return;
+    }
+    if (!overrideExisting && _manualPhaseController.text.trim().isNotEmpty) {
+      return;
+    }
+    _manualPhaseController.value = TextEditingValue(
+      text: queued,
+      selection: TextSelection.collapsed(offset: queued.length),
+    );
+  }
+
   void _onOrchestratorUpdated() {
     if (!mounted) return;
-    setState(() {});
+    final awaitingManualPhaseInput =
+        widget.orchestrator.awaitingManualPhaseInput;
+    final shouldExpandComposer =
+        awaitingManualPhaseInput &&
+        !_lastAwaitingManualPhaseInput &&
+        _composerCollapsed;
+    final shouldFocusManualPhaseInput =
+        awaitingManualPhaseInput && !_lastAwaitingManualPhaseInput;
+    final shouldSeedManualPhaseDraft =
+        awaitingManualPhaseInput &&
+        (!_lastAwaitingManualPhaseInput ||
+            _manualPhaseController.text.trim().isEmpty);
+    final shouldClearManualPhaseDraft =
+        !awaitingManualPhaseInput &&
+        !widget.orchestrator.hasQueuedManualPhaseInput &&
+        _manualPhaseController.text.isNotEmpty;
+
+    setState(() {
+      if (shouldExpandComposer) {
+        _composerCollapsed = false;
+      }
+      if (!awaitingManualPhaseInput && _manualPhaseSubmitting) {
+        _manualPhaseSubmitting = false;
+      }
+    });
+
+    _lastAwaitingManualPhaseInput = awaitingManualPhaseInput;
+
+    if (shouldSeedManualPhaseDraft) {
+      _seedManualPhaseDraftFromQueuedInput();
+    }
+
+    if (shouldClearManualPhaseDraft) {
+      _manualPhaseController.clear();
+    }
+    if (shouldFocusManualPhaseInput) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !widget.orchestrator.awaitingManualPhaseInput) {
+          return;
+        }
+        _manualPhaseFocusNode.requestFocus();
+      });
+    }
     _scheduleFeedAutoScroll();
   }
 
@@ -555,12 +745,119 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       widget.orchestrator.status != HardnessOrchestratorStatus.idle &&
       widget.orchestrator.status != HardnessOrchestratorStatus.running;
 
+  bool get _canRetryFailedRun =>
+      widget.orchestrator.status == HardnessOrchestratorStatus.failed;
+
+  bool _isPhaseConfigEditable(HardnessPhaseLog log) {
+    return switch (log.status) {
+      HardnessPhaseStatus.pending ||
+      HardnessPhaseStatus.paused ||
+      HardnessPhaseStatus.failed ||
+      HardnessPhaseStatus.skipped => true,
+      HardnessPhaseStatus.running ||
+      HardnessPhaseStatus.completed ||
+      HardnessPhaseStatus.cancelled => false,
+    };
+  }
+
+  HardnessPhase? get _awaitingManualPhase =>
+      widget.orchestrator.awaitingManualPhaseInputPhase;
+
+  bool get _isAwaitingManualPhaseInput => _awaitingManualPhase != null;
+
+  bool get _canSubmitManualPhase =>
+      !_manualPhaseSubmitting && _manualPhaseController.text.trim().isNotEmpty;
+
+  HardnessPhase get _effectiveManualPhase =>
+      _awaitingManualPhase ?? HardnessPhase.reviewing;
+
+  _HeManualPhaseCopy _manualPhaseCopy(HardnessPhase phase) {
+    final isZh = widget.isZh;
+    return switch (phase) {
+      HardnessPhase.metaCollection => _HeManualPhaseCopy(
+        actionLabel: isZh ? '我来研究' : 'I Will Research',
+        switchBackLabel: isZh ? '改用 AI 研究' : 'Use AI Research',
+        title: isZh ? '人工研究结果' : 'Manual Research Notes',
+        helperText: isZh
+            ? '请填写你亲自研究得到的项目结构、模块职责、依赖、约定或其他关键观察。发送后，AI 会把这些内容整理为符合 architecture.md 与 conventions.md 规范的文档。'
+            : 'Enter the project structure, module responsibilities, dependencies, conventions, or other observations you researched yourself. AI will refine them into architecture.md and conventions.md.',
+        hintText: isZh
+            ? '例如：核心入口在 lib/main.dart；状态管理集中在 app/state；构建依赖 Flutter + Provider；README 缺少测试命令说明。'
+            : 'Example: the main entry is lib/main.dart; state lives under app/state; the project uses Flutter + Provider; README is missing test command details.',
+        emptyMessage: isZh
+            ? '请先填写研究结果，再发送给 AI 整理。'
+            : 'Enter your research notes before sending them for AI refinement.',
+        activeBannerText: isZh
+            ? '已切换为人工研究。下方输入框已解禁，请填写研究资料后点击发送，AI 会把它整理为符合规范的 architecture / conventions 文档。'
+            : 'Manual research is active. The composer below is unlocked. Send your research notes and AI will refine them into the required architecture / conventions documents.',
+        queuedBannerText: isZh
+            ? '已保留上一份人工研究结果。点击“继续”会直接用它进入 AI 研究；如果想修改，请再次点击“我来研究”。'
+            : 'The previous manual research notes are still queued. Continuing will reuse them for AI research; click “I Will Research” again to revise them.',
+        icon: Icons.search_rounded,
+      ),
+      HardnessPhase.planning => _HeManualPhaseCopy(
+        actionLabel: isZh ? '我来制定计划' : 'I Will Plan',
+        switchBackLabel: isZh ? '改用 AI 规划' : 'Use AI Planning',
+        title: isZh ? '人工计划草案' : 'Manual Plan Draft',
+        helperText: isZh
+            ? '请填写你亲自制定的执行计划草案。发送后，AI 会在此基础上补足步骤粒度、文件指向、验收标准和复杂度标签，并输出规范的 plan 文档。'
+            : 'Enter the execution plan draft you created. AI will refine it into the structured plan document with file targets, acceptance criteria, and complexity labels.',
+        hintText: isZh
+            ? '例如：1. 修改 lib/foo.dart 修复状态同步 [medium]；验收：切换页面后数据一致。'
+            : 'Example: 1. Update lib/foo.dart to fix state sync [medium]; acceptance: data stays consistent after navigation.',
+        emptyMessage: isZh
+            ? '请先填写计划草案，再发送给 AI 润色。'
+            : 'Enter your plan draft before sending it for AI refinement.',
+        activeBannerText: isZh
+            ? '已切换为人工规划。下方输入框已解禁，请填写计划草案后点击发送，AI 会补全并整理为规范的计划文档。'
+            : 'Manual planning is active. The composer below is unlocked. Send your draft and AI will refine it into the required plan document.',
+        queuedBannerText: isZh
+            ? '已保留上一份人工计划草案。点击“继续”会直接用它进入 AI 规划；如果想修改，请再次点击“我来制定计划”。'
+            : 'The previous manual plan draft is still queued. Continuing will reuse it for AI planning; click “I Will Plan” again to revise it.',
+        icon: Icons.route_rounded,
+      ),
+      HardnessPhase.reviewing => _HeManualPhaseCopy(
+        actionLabel: isZh ? '我来验收' : 'I Will Review',
+        switchBackLabel: isZh ? '改用 AI 验收' : 'Use AI Review',
+        title: isZh ? '人工验收结果' : 'Manual Acceptance Result',
+        helperText: isZh
+            ? '请填写你基于资产、页面、交互或其他真实结果完成的人工验收结论。填写后，点击下方的「验收通过」或「验收不通过」按钮提交判定。'
+            : 'Enter the acceptance result you derived from real assets, UI, behavior, or other observed outcomes. Then click "Pass" or "Fail" below to submit your verdict.',
+        hintText: isZh
+            ? '例如：桌面端布局符合预期，但导出图片边缘仍有白边；移动端卡片间距偏大。'
+            : 'Example: the desktop layout looks correct, but exported images still show white edges and mobile card spacing is too large.',
+        emptyMessage: isZh
+            ? '请先填写验收结果，再发送给 AI 分析。'
+            : 'Enter your acceptance result before sending it for AI review.',
+        activeBannerText: isZh
+            ? '已切换为人工验收。下方输入框已解禁，请填写验收结果后点击「验收通过」或「验收不通过」按钮，AI 会据此生成 feedback 并决定后续流程。'
+            : 'Manual review is active. The composer below is unlocked. Enter your review result, then click "Pass" or "Fail". AI will generate feedback accordingly.',
+        queuedBannerText: isZh
+            ? '已保留上一份人工验收结果。点击“继续”会直接用它进入 AI 验收；如果想修改，请再次点击“我来验收”。'
+            : 'The previous manual acceptance result is still queued. Continuing will reuse it for AI review; click “I Will Review” again to revise it.',
+        icon: Icons.fact_check_outlined,
+      ),
+      HardnessPhase.reading || HardnessPhase.implementing => _HeManualPhaseCopy(
+        actionLabel: isZh ? '我来处理' : 'I Will Handle It',
+        switchBackLabel: isZh ? '改用 AI 处理' : 'Use AI',
+        title: isZh ? '人工输入' : 'Manual Input',
+        helperText: isZh ? '请填写人工输入。' : 'Enter manual input.',
+        hintText: isZh ? '输入人工内容…' : 'Enter manual input…',
+        emptyMessage: isZh ? '请先填写内容。' : 'Enter the content first.',
+        activeBannerText: isZh ? '已切换为人工输入。' : 'Manual input is active.',
+        queuedBannerText: isZh
+            ? '已保留上一份人工输入。'
+            : 'The previous manual input is still queued.',
+        icon: Icons.edit_note_rounded,
+      ),
+    };
+  }
+
   bool _isPhaseExpanded(HardnessPhaseLog log) {
     final override = _expandedOverrides[log];
     if (override != null) return override;
-    // Auto: expand the active, paused, or failed phase; collapse everything else.
     return log.status == HardnessPhaseStatus.running ||
-      log.status == HardnessPhaseStatus.paused ||
+        log.status == HardnessPhaseStatus.paused ||
         log.status == HardnessPhaseStatus.failed;
   }
 
@@ -571,12 +868,14 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   String? _phaseApprovalIssue(HardnessPhase phase) {
     final blocker = widget.orchestrator.phaseExecutionBlocker(phase);
     return switch (blocker) {
-      HardnessPhaseExecutionBlocker.missingConfig => widget.isZh
-          ? '请先为该阶段配置 CLI 和模型，然后再继续执行。'
-          : 'Configure both the CLI and model for this phase before continuing.',
-      HardnessPhaseExecutionBlocker.unsupportedCli => widget.isZh
-          ? '当前 CLI 不支持无交互执行，请改为支持 headless 的 CLI。'
-          : 'The selected CLI does not support headless execution. Choose a supported CLI.',
+      HardnessPhaseExecutionBlocker.missingConfig =>
+        widget.isZh
+            ? '请先为该阶段配置 CLI 和模型，然后再继续执行。'
+            : 'Configure both the CLI and model for this phase before continuing.',
+      HardnessPhaseExecutionBlocker.unsupportedCli =>
+        widget.isZh
+            ? '当前 CLI 不支持无交互执行，请改为支持 headless 的 CLI。'
+            : 'The selected CLI does not support headless execution. Choose a supported CLI.',
       null => null,
     };
   }
@@ -586,67 +885,334 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     setState(() => _composerCollapsed = collapsed);
   }
 
-  void _toggleAutoFollow() {
-    setState(() => _autoFollowEnabled = !_autoFollowEnabled);
-    if (_autoFollowEnabled) {
-      _scheduleFeedAutoScroll(animated: false);
+  Future<bool> _handleShortcutAction(OpenHandShortcutAction action) async {
+    switch (action) {
+      case OpenHandShortcutAction.sendMessage:
+        await _handlePrimaryComposerAction();
+        return true;
+      case OpenHandShortcutAction.toggleComposer:
+        _setComposerCollapsed(!_composerCollapsed);
+        return true;
+      case OpenHandShortcutAction.toggleAutoFollow:
+        _toggleAutoFollow();
+        return true;
+      case OpenHandShortcutAction.selectPreviousModel:
+      case OpenHandShortcutAction.selectNextModel:
+      case OpenHandShortcutAction.selectPreviousSession:
+      case OpenHandShortcutAction.selectNextSession:
+        return false;
     }
   }
 
-  void _scheduleFeedAutoScroll({bool animated = true}) {
-    if (!_autoFollowEnabled) return;
-    // During active streaming, force-jump to avoid competing animations with
-    // AnimatedSize height transitions, which would make maxScrollExtent a
-    // moving target and cause the scroll to bounce up and down.
-    final shouldAnimate = animated && !_isRunning;
-    // Bump settle-pass budget: enough frames to outlast AnimatedSize (280 ms).
-    // Running phases need more passes since content updates are continuous.
-    final newPasses = _isRunning ? 22 : 4;
-    if (_scrollSettlePasses < newPasses) _scrollSettlePasses = newPasses;
-    // Debounce: only register one callback per frame.
-    if (_scrollCallbackQueued) return;
+  Future<void> _handlePrimaryComposerAction() async {
+    if (_isAwaitingManualPhaseInput) {
+      await _submitManualPhaseInput();
+      return;
+    }
+    if (_isRunning) {
+      await _requestCancel(context);
+      return;
+    }
+    widget.onRestart();
+  }
+
+  Future<void> _submitManualPhaseInput() async {
+    final awaitingPhase = _awaitingManualPhase;
+    if (awaitingPhase == null) {
+      _showComposerMessage(
+        widget.isZh
+            ? '当前没有等待中的人工输入阶段。'
+            : 'No manual phase input is currently expected.',
+      );
+      return;
+    }
+    final content = _manualPhaseController.text.trim();
+    if (content.isEmpty) {
+      _showComposerMessage(_manualPhaseCopy(awaitingPhase).emptyMessage);
+      return;
+    }
+    if (_manualPhaseSubmitting) {
+      return;
+    }
+
+    setState(() => _manualPhaseSubmitting = true);
+    final submitted = widget.orchestrator.submitManualPhaseInput(content);
+    if (!submitted && mounted) {
+      setState(() => _manualPhaseSubmitting = false);
+      _showComposerMessage(
+        widget.isZh
+            ? '人工输入提交失败，请重试。'
+            : 'Failed to submit the manual input. Try again.',
+      );
+    }
+  }
+
+  /// Submits manual review input with an explicit PASS or FAIL verdict.
+  Future<void> _submitManualReviewVerdict({required bool pass}) async {
+    final awaitingPhase = _awaitingManualPhase;
+    if (awaitingPhase != HardnessPhase.reviewing) {
+      return;
+    }
+    final content = _manualPhaseController.text.trim();
+    if (content.isEmpty) {
+      _showComposerMessage(
+        widget.isZh
+            ? '请先填写验收结果，再提交判定。'
+            : 'Enter your review result before submitting a verdict.',
+      );
+      return;
+    }
+    if (_manualPhaseSubmitting) {
+      return;
+    }
+
+    setState(() => _manualPhaseSubmitting = true);
+    final submitted = widget.orchestrator.submitManualPhaseInput(
+      content,
+      reviewVerdict: pass,
+    );
+    if (!submitted && mounted) {
+      setState(() => _manualPhaseSubmitting = false);
+      _showComposerMessage(
+        widget.isZh
+            ? '验收结果提交失败，请重试。'
+            : 'Failed to submit the review verdict. Try again.',
+      );
+    }
+  }
+
+  void _showComposerMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _clearPendingFeedAutoFollowState() {
+    _queuedForcedFeedScrollToBottom = false;
+    _pendingAnimatedFeedScrollToBottom = false;
+    _programmaticFeedScrollInProgress = false;
+    _scrollSettlePasses = 0;
+  }
+
+  void _handleFeedScroll() {
+    if (!_isNearFeedBottom()) {
+      return;
+    }
+    if (!_autoFollowEnabled) {
+      return;
+    }
+    if (!_shouldAutoFollowFeed) {
+      _shouldAutoFollowFeed = true;
+    }
+    if (_queuedForcedFeedScrollToBottom) {
+      _queuedForcedFeedScrollToBottom = false;
+    }
+  }
+
+  bool _handleFeedScrollNotification(ScrollNotification notification) {
+    final explicitUserScrollStart =
+        notification is ScrollStartNotification &&
+        notification.dragDetails != null;
+    final explicitUserScrollUpdate =
+        notification is ScrollUpdateNotification &&
+        notification.dragDetails != null;
+    final explicitUserOverscroll =
+        notification is OverscrollNotification &&
+        notification.dragDetails != null;
+    final explicitUserDirectionChange =
+        notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle;
+    final explicitUserScroll =
+        explicitUserScrollStart ||
+        explicitUserScrollUpdate ||
+        explicitUserOverscroll ||
+        explicitUserDirectionChange;
+    final userScrollEnded =
+        notification is ScrollEndNotification ||
+        (notification is UserScrollNotification &&
+            notification.direction == ScrollDirection.idle);
+
+    if (explicitUserScroll) {
+      _userFeedScrollInProgress = true;
+    } else if (userScrollEnded) {
+      _userFeedScrollInProgress = false;
+    }
+
+    if (_programmaticFeedScrollInProgress) {
+      if (!explicitUserScroll) {
+        return false;
+      }
+      _programmaticFeedScrollInProgress = false;
+    }
+
+    final distanceToBottom =
+        notification.metrics.maxScrollExtent - notification.metrics.pixels;
+    final isNearBottom = distanceToBottom <= _feedAutoFollowDistanceThreshold;
+
+    if (!_autoFollowEnabled && explicitUserScroll) {
+      _shouldAutoFollowFeed = false;
+      _clearPendingFeedAutoFollowState();
+      return false;
+    }
+
+    if (!isNearBottom && explicitUserScroll) {
+      _shouldAutoFollowFeed = false;
+      _clearPendingFeedAutoFollowState();
+      return false;
+    }
+
+    if (userScrollEnded &&
+        _autoFollowEnabled &&
+        _queuedForcedFeedScrollToBottom) {
+      _scheduleFeedAutoScroll(force: true);
+    }
+
+    if (isNearBottom && _autoFollowEnabled) {
+      _shouldAutoFollowFeed = true;
+    }
+    return false;
+  }
+
+  bool _isNearFeedBottom() {
+    if (!_feedController.hasClients) {
+      return true;
+    }
+    final position = _feedController.position;
+    return position.maxScrollExtent - position.pixels <=
+        _feedAutoFollowDistanceThreshold;
+  }
+
+  void _toggleAutoFollow() {
+    final nextValue = !_autoFollowEnabled;
+    setState(() {
+      _autoFollowEnabled = nextValue;
+      if (nextValue) {
+        _shouldAutoFollowFeed = true;
+      } else {
+        _shouldAutoFollowFeed = false;
+        _clearPendingFeedAutoFollowState();
+      }
+    });
+    if (nextValue) {
+      _scheduleFeedAutoScroll(force: true, animated: false);
+    }
+  }
+
+  void _scheduleFeedAutoScroll({
+    bool force = false,
+    bool animated = true,
+    bool allowSettlePasses = true,
+  }) {
+    if (!force &&
+        (!_autoFollowEnabled ||
+            !_shouldAutoFollowFeed ||
+            _userFeedScrollInProgress)) {
+      return;
+    }
+    if (force) {
+      _shouldAutoFollowFeed = true;
+      _queuedForcedFeedScrollToBottom = true;
+    }
+    _pendingAnimatedFeedScrollToBottom =
+        _pendingAnimatedFeedScrollToBottom || (animated && !_isRunning);
+    if (allowSettlePasses) {
+      final newPasses = _isRunning ? 22 : (animated ? 4 : 3);
+      if (_scrollSettlePasses < newPasses) {
+        _scrollSettlePasses = newPasses;
+      }
+    }
+    if (_programmaticFeedScrollInProgress || _userFeedScrollInProgress) {
+      return;
+    }
+    if (_scrollCallbackQueued) {
+      return;
+    }
+
     _scrollCallbackQueued = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollCallbackQueued = false;
-      if (!mounted || !_autoFollowEnabled || !_feedController.hasClients) {
-        _scrollSettlePasses = 0;
-        return;
-      }
-      final pos = _feedController.position;
-      final target = pos.maxScrollExtent;
-      final distance = target - pos.pixels;
-      if (distance > 0.5) {
-        if (shouldAnimate && distance > 80) {
-          final ms = (100 + distance * 0.12).clamp(100, 280).round();
-          _feedController.animateTo(
-            target,
-            duration: Duration(milliseconds: ms),
-            curve: Curves.easeOutCubic,
-          );
-        } else {
-          _feedController.jumpTo(target);
-        }
-      }
-      _maybeContinueSettlePasses();
-    });
-  }
-
-  /// Schedules one more settle pass (frame-by-frame follow while content
-  /// size is still animating). Called after each scroll action.
-  void _maybeContinueSettlePasses() {
-    if (_scrollSettlePasses <= 0) return;
-    _scrollSettlePasses--;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
+        _clearPendingFeedAutoFollowState();
+        return;
+      }
+      if (_userFeedScrollInProgress) {
+        return;
+      }
+
+      final shouldForce = _queuedForcedFeedScrollToBottom;
+      final shouldAnimate = _pendingAnimatedFeedScrollToBottom;
+      _queuedForcedFeedScrollToBottom = false;
+      _pendingAnimatedFeedScrollToBottom = false;
+      if (!shouldForce && (!_autoFollowEnabled || !_shouldAutoFollowFeed)) {
         _scrollSettlePasses = 0;
         return;
       }
-      _scheduleFeedAutoScroll(animated: false);
+      if (!_feedController.hasClients) {
+        _scrollSettlePasses = 0;
+        return;
+      }
+
+      final position = _feedController.position;
+      final target = position.maxScrollExtent
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      final distance = (target - position.pixels).abs();
+
+      void clearProgrammaticScrollFlag() {
+        _programmaticFeedScrollInProgress = false;
+      }
+
+      void scheduleSettlePass() {
+        if (!mounted || _scrollSettlePasses <= 0) {
+          return;
+        }
+        _scrollSettlePasses -= 1;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _userFeedScrollInProgress) {
+            _scrollSettlePasses = 0;
+            return;
+          }
+          _scheduleFeedAutoScroll(animated: false, allowSettlePasses: false);
+        });
+      }
+
+      if (distance >= 1 &&
+          shouldAnimate &&
+          distance > _feedAutoFollowAnimatedDistanceThreshold) {
+        _programmaticFeedScrollInProgress = true;
+        _feedController
+            .animateTo(
+              target,
+              duration: Duration(
+                milliseconds: (100 + distance * 0.12).clamp(100, 280).round(),
+              ),
+              curve: Curves.easeOutCubic,
+            )
+            .whenComplete(() {
+              clearProgrammaticScrollFlag();
+              scheduleSettlePass();
+            });
+        return;
+      }
+      if (distance >= 1) {
+        _programmaticFeedScrollInProgress = true;
+        _feedController.jumpTo(target);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          clearProgrammaticScrollFlag();
+          scheduleSettlePass();
+        });
+        return;
+      }
+      scheduleSettlePass();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final manualPhaseCopy = _manualPhaseCopy(_effectiveManualPhase);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -676,6 +1242,45 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           onToggleAutoFollow: _toggleAutoFollow,
           fullAccessPermission: widget.fullAccessPermission,
           onToggleFullAccessPermission: widget.onToggleFullAccessPermission,
+          manualPhaseEnabled: _isAwaitingManualPhaseInput,
+          manualPhaseTitle: manualPhaseCopy.title,
+          manualPhaseController: _manualPhaseController,
+          manualPhaseFocusNode: _manualPhaseFocusNode,
+          manualPhaseHelperText: manualPhaseCopy.helperText,
+          manualPhaseHintText: manualPhaseCopy.hintText,
+          primaryActionLabel: _isAwaitingManualPhaseInput
+              ? (widget.isZh
+                    ? (_manualPhaseSubmitting ? '发送中' : '发送')
+                    : (_manualPhaseSubmitting ? 'Sending' : 'Send'))
+              : _isRunning
+              ? (widget.isZh ? '中止' : 'Cancel')
+              : _canRetryFailedRun
+              ? (widget.isZh ? '重试失败阶段' : 'Retry Failed Phase')
+              : (_isDone
+                    ? (widget.isZh ? '重新执行' : 'Run Again')
+                    : (widget.isZh ? '开始执行' : 'Start')),
+          primaryActionIcon: _isAwaitingManualPhaseInput
+              ? (_manualPhaseSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.send_rounded)
+              : _isRunning
+              ? Icons.stop_rounded
+              : _canRetryFailedRun
+              ? Icons.replay_circle_filled_rounded
+              : (_isDone
+                    ? Icons.restart_alt_rounded
+                    : Icons.play_arrow_rounded),
+          primaryActionEnabled: _isAwaitingManualPhaseInput
+              ? _canSubmitManualPhase
+              : true,
+          onPrimaryAction: () {
+            _handlePrimaryComposerAction();
+          },
+          isManualReviewPhase: _isAwaitingManualPhaseInput &&
+              _awaitingManualPhase == HardnessPhase.reviewing,
+          onReviewPass: () => _submitManualReviewVerdict(pass: true),
+          onReviewFail: () => _submitManualReviewVerdict(pass: false),
+          reviewSubmitting: _manualPhaseSubmitting,
         ),
       ],
     );
@@ -707,81 +1312,107 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       );
     }
 
-    return Scrollbar(
-      controller: _feedController,
-      child: ListView.builder(
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleFeedScrollNotification,
+      child: Scrollbar(
         controller: _feedController,
-        padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-        // +1 for the terminal status banner after the last phase card.
-        // +1 if awaiting approval.
-        itemCount: logs.length + 1 +
-            (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index < logs.length) {
-            final log = logs[index];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _HePhaseCardEntrance(
-                child: _HePhaseCard(
-                  key: ObjectKey(log),
-                  log: log,
-                  config: widget.config,
-                  isZh: widget.isZh,
-                  expanded: _isPhaseExpanded(log),
-                  onToggleExpand: () =>
-                    _setPhaseExpanded(log, !_isPhaseExpanded(log)),
-                  onCopyLog: () => _copyLog(context, log),
-                  onRoleConfigChanged: (log.status == HardnessPhaseStatus.pending ||
-                      log.status == HardnessPhaseStatus.paused)
-                      ? (newRoleConfig) => _updatePendingPhaseConfig(
-                            log.phase, newRoleConfig)
-                      : null,
-                  filePathRoots: widget.filePathRoots,
+        child: ListView.builder(
+          controller: _feedController,
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+          // +1 for the terminal status banner after the last phase card.
+          // +1 if awaiting approval.
+          itemCount:
+              logs.length +
+              1 +
+              (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index < logs.length) {
+              final log = logs[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _HePhaseCardEntrance(
+                  child: _HePhaseCard(
+                    key: ObjectKey(log),
+                    log: log,
+                    config: widget.config,
+                    isZh: widget.isZh,
+                    expanded: _isPhaseExpanded(log),
+                    onToggleExpand: () =>
+                        _setPhaseExpanded(log, !_isPhaseExpanded(log)),
+                    onCopyLog: () => _copyLog(context, log),
+                    onRoleConfigChanged: _isPhaseConfigEditable(log)
+                        ? (newRoleConfig) =>
+                              _updatePhaseConfig(log.phase, newRoleConfig)
+                        : null,
+                    filePathRoots: widget.filePathRoots,
+                  ),
                 ),
-              ),
+              );
+            }
+            if (awaitingApprovalPhase != null && index == logs.length) {
+              final approvalPhaseCopy = _manualPhaseCopy(awaitingApprovalPhase);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _HePhaseApprovalBanner(
+                  isZh: widget.isZh,
+                  nextPhase: awaitingApprovalPhase,
+                  approvalIssue: approvalIssue,
+                  manualPhaseEnabled: widget.orchestrator
+                      .isManualPhaseInputActiveFor(awaitingApprovalPhase),
+                  hasQueuedManualPhaseInput: widget.orchestrator
+                      .hasQueuedManualPhaseInputFor(awaitingApprovalPhase),
+                  manualPhaseActionLabel: approvalPhaseCopy.actionLabel,
+                  manualPhaseSwitchBackLabel: approvalPhaseCopy.switchBackLabel,
+                  manualPhaseActiveDescription:
+                      approvalPhaseCopy.activeBannerText,
+                  manualPhaseQueuedDescription:
+                      approvalPhaseCopy.queuedBannerText,
+                  manualPhaseIcon: approvalPhaseCopy.icon,
+                  onManualPhaseToggle:
+                      widget.orchestrator.supportsManualPhaseInput(
+                            awaitingApprovalPhase,
+                          ) &&
+                          approvalIssue == null
+                      ? () => widget.orchestrator.setManualPhaseInputRequested(
+                          !widget.orchestrator.isManualPhaseInputActiveFor(
+                            awaitingApprovalPhase,
+                          ),
+                        )
+                      : null,
+                  onApprove: approvalIssue == null
+                      ? () => widget.orchestrator.resolvePhaseApproval(true)
+                      : null,
+                  onReject: () =>
+                      widget.orchestrator.resolvePhaseApproval(false),
+                ),
+              );
+            }
+            return _HeStatusBanner(
+              orchestrator: orchestrator,
+              isZh: widget.isZh,
+              onRestart: widget.onRestart,
             );
-          }
-          // Show approval banner if awaiting approval.
-          if (awaitingApprovalPhase != null &&
-              index == logs.length) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _HePhaseApprovalBanner(
-                isZh: widget.isZh,
-                nextPhase: awaitingApprovalPhase,
-                approvalIssue: approvalIssue,
-                onApprove: approvalIssue == null
-                    ? () => widget.orchestrator.resolvePhaseApproval(true)
-                    : null,
-                onReject: () =>
-                    widget.orchestrator.resolvePhaseApproval(false),
-              ),
-            );
-          }
-          return _HeStatusBanner(
-            orchestrator: orchestrator,
-            isZh: widget.isZh,
-            onRestart: widget.onRestart,
-          );
-        },
+          },
+        ),
       ),
     );
   }
 
-  void _updatePendingPhaseConfig(
+  void _updatePhaseConfig(
     HardnessPhase phase,
     HardnessRoleConfig newRoleConfig,
   ) {
     final config = widget.config;
     final updated = switch (phase) {
-      HardnessPhase.metaCollection =>
-        config.copyWith(profilerConfig: newRoleConfig),
+      HardnessPhase.metaCollection => config.copyWith(
+        profilerConfig: newRoleConfig,
+      ),
       HardnessPhase.reading => config.copyWith(readerConfig: newRoleConfig),
       HardnessPhase.planning => config.copyWith(plannerConfig: newRoleConfig),
-      HardnessPhase.implementing =>
-        config.copyWith(implementerConfig: newRoleConfig),
-      HardnessPhase.reviewing =>
-        config.copyWith(reviewerConfig: newRoleConfig),
+      HardnessPhase.implementing => config.copyWith(
+        implementerConfig: newRoleConfig,
+      ),
+      HardnessPhase.reviewing => config.copyWith(reviewerConfig: newRoleConfig),
     };
     widget.onConfigChanged(updated);
   }
@@ -790,9 +1421,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     Clipboard.setData(ClipboardData(text: log.lines.join('\n')));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          widget.isZh ? '日志已复制到剪贴板' : 'Log copied to clipboard',
-        ),
+        content: Text(widget.isZh ? '日志已复制到剪贴板' : 'Log copied to clipboard'),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -808,7 +1437,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           isZh
               ? '当前会话仍在运行中，确定要中止吗？\nCLI 进程将被终止，已生成的文件会保留。'
               : 'Session is still running. Cancel it?\n'
-                  'The active CLI process will be killed. Already-generated files are kept.',
+                    'The active CLI process will be killed. Already-generated files are kept.',
         ),
         actions: [
           TextButton(
@@ -868,10 +1497,9 @@ class _HePaneHeader extends StatelessWidget {
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccess;
 
-  String get _effectiveTitle =>
-      (sessionTitle?.trim().isNotEmpty == true)
-          ? sessionTitle!
-          : (isZh ? 'Hardness Engineering 会话' : 'Hardness Engineering Session');
+  String get _effectiveTitle => (sessionTitle?.trim().isNotEmpty == true)
+      ? sessionTitle!
+      : (isZh ? 'Hardness Engineering 会话' : 'Hardness Engineering Session');
 
   /// Returns a label like "元数据采集 1/3" describing current execution position.
   String _phaseProgressLabel() {
@@ -895,12 +1523,16 @@ class _HePaneHeader extends StatelessWidget {
       final name = isZh ? current.displayNameZh : current.displayNameEn;
       return '$name $pos/$total';
     }
-    final completed =
-        logs.where((l) => l.status == HardnessPhaseStatus.completed).length;
-    final failed =
-        logs.where((l) => l.status == HardnessPhaseStatus.failed).length;
+    final completed = logs
+        .where((l) => l.status == HardnessPhaseStatus.completed)
+        .length;
+    final failed = logs
+        .where((l) => l.status == HardnessPhaseStatus.failed)
+        .length;
     if (total == 0) return isZh ? '待开始' : 'Not started';
-    if (failed > 0) return isZh ? '阶段失败 $failed/$total' : '$failed/$total failed';
+    if (failed > 0) {
+      return isZh ? '阶段失败 $failed/$total' : '$failed/$total failed';
+    }
     if (completed == total) return isZh ? '全部完成 $total' : '$total done';
     return isZh ? '完成 $completed/$total' : '$completed/$total done';
   }
@@ -947,8 +1579,7 @@ class _HePaneHeader extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final logs = orchestrator.phaseLogs;
     final reviewRetries = orchestrator.reviewRetryCount;
-    final totalLines =
-        logs.fold<int>(0, (sum, l) => sum + l.lines.length);
+    final totalLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
 
     return Container(
       width: double.infinity,
@@ -984,11 +1615,11 @@ class _HePaneHeader extends StatelessWidget {
                         Tooltip(
                           message: fullAccessPermission
                               ? (isZh
-                                  ? '当前：全自动模式，阶段自动推进。点击切换到审批模式。'
-                                  : 'Full-auto: phases advance automatically. Tap to switch to approval mode.')
+                                    ? '当前：全自动模式，阶段自动推进。点击切换到审批模式。'
+                                    : 'Full-auto: phases advance automatically. Tap to switch to approval mode.')
                               : (isZh
-                                  ? '当前：审批模式，每个阶段需要手动批准。点击切换到全自动模式。'
-                                  : 'Approval mode: each phase requires manual approval. Tap to switch to full-auto.'),
+                                    ? '当前：审批模式，每个阶段需要手动批准。点击切换到全自动模式。'
+                                    : 'Approval mode: each phase requires manual approval. Tap to switch to full-auto.'),
                           waitDuration: const Duration(milliseconds: 300),
                           child: _HePill(
                             icon: fullAccessPermission
@@ -1019,8 +1650,7 @@ class _HePaneHeader extends StatelessWidget {
                             label: isZh
                                 ? '重试 $reviewRetries/3'
                                 : 'Retry $reviewRetries/3',
-                            foregroundColor:
-                                const Color(0xFFF57F17), // amber
+                            foregroundColor: const Color(0xFFF57F17), // amber
                           ),
                         ],
                         const SizedBox(width: 8),
@@ -1053,7 +1683,9 @@ class _HePaneHeader extends StatelessWidget {
                           _HePill(
                             icon: Icons.stop_circle_outlined,
                             label: isZh ? '中止' : 'Cancel',
-                            foregroundColor: Theme.of(context).colorScheme.error,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                             onTap: onCancel,
                           ),
                         ],
@@ -1063,7 +1695,11 @@ class _HePaneHeader extends StatelessWidget {
                           const SizedBox(width: 8),
                           _HePill(
                             icon: Icons.restart_alt_rounded,
-                            label: isZh ? '重新开始' : 'Restart',
+                            label:
+                                orchestrator.status ==
+                                    HardnessOrchestratorStatus.failed
+                                ? (isZh ? '重试失败阶段' : 'Retry Failed Phase')
+                                : (isZh ? '重新开始' : 'Restart'),
                             onTap: onRestart,
                           ),
                         ],
@@ -1100,10 +1736,8 @@ class _HePaneHeader extends StatelessWidget {
     final steeringRoot = p.join(config.persistenceDirectory, 'steering');
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => _HeSteeringAssetsDialog(
-        steeringRoot: steeringRoot,
-        isZh: isZh,
-      ),
+      builder: (dialogContext) =>
+          _HeSteeringAssetsDialog(steeringRoot: steeringRoot, isZh: isZh),
     );
   }
 }
@@ -1132,33 +1766,21 @@ class _HeSessionMetadataDialog extends StatelessWidget {
   final String? updatedAtLabel;
 
   String _statusLabel(HardnessOrchestratorStatus s) => switch (s) {
-    HardnessOrchestratorStatus.idle =>
-      isZh ? '准备中' : 'Idle',
-    HardnessOrchestratorStatus.running =>
-      isZh ? '运行中' : 'Running',
-    HardnessOrchestratorStatus.completed =>
-      isZh ? '已完成' : 'Completed',
-    HardnessOrchestratorStatus.failed =>
-      isZh ? '失败' : 'Failed',
-    HardnessOrchestratorStatus.cancelled =>
-      isZh ? '已中止' : 'Cancelled',
+    HardnessOrchestratorStatus.idle => isZh ? '准备中' : 'Idle',
+    HardnessOrchestratorStatus.running => isZh ? '运行中' : 'Running',
+    HardnessOrchestratorStatus.completed => isZh ? '已完成' : 'Completed',
+    HardnessOrchestratorStatus.failed => isZh ? '失败' : 'Failed',
+    HardnessOrchestratorStatus.cancelled => isZh ? '已中止' : 'Cancelled',
   };
 
   String _phaseStatusLabel(HardnessPhaseStatus s) => switch (s) {
-    HardnessPhaseStatus.pending =>
-      isZh ? '等待中' : 'Pending',
-    HardnessPhaseStatus.paused =>
-      isZh ? '暂停中' : 'Paused',
-    HardnessPhaseStatus.running =>
-      isZh ? '运行中' : 'Running',
-    HardnessPhaseStatus.completed =>
-      isZh ? '已完成' : 'Completed',
-    HardnessPhaseStatus.failed =>
-      isZh ? '失败' : 'Failed',
-    HardnessPhaseStatus.cancelled =>
-      isZh ? '已中止' : 'Cancelled',
-    HardnessPhaseStatus.skipped =>
-      isZh ? '已跳过' : 'Skipped',
+    HardnessPhaseStatus.pending => isZh ? '等待中' : 'Pending',
+    HardnessPhaseStatus.paused => isZh ? '暂停中' : 'Paused',
+    HardnessPhaseStatus.running => isZh ? '运行中' : 'Running',
+    HardnessPhaseStatus.completed => isZh ? '已完成' : 'Completed',
+    HardnessPhaseStatus.failed => isZh ? '失败' : 'Failed',
+    HardnessPhaseStatus.cancelled => isZh ? '已中止' : 'Cancelled',
+    HardnessPhaseStatus.skipped => isZh ? '已跳过' : 'Skipped',
   };
 
   @override
@@ -1168,12 +1790,13 @@ class _HeSessionMetadataDialog extends StatelessWidget {
     final logs = orchestrator.phaseLogs;
 
     final totalPhases = HardnessPhase.values.length;
-    final completedPhases =
-        logs.where((l) => l.status == HardnessPhaseStatus.completed).length;
-    final failedPhases =
-        logs.where((l) => l.status == HardnessPhaseStatus.failed).length;
-    final totalLogLines =
-        logs.fold<int>(0, (sum, l) => sum + l.lines.length);
+    final completedPhases = logs
+        .where((l) => l.status == HardnessPhaseStatus.completed)
+        .length;
+    final failedPhases = logs
+        .where((l) => l.status == HardnessPhaseStatus.failed)
+        .length;
+    final totalLogLines = logs.fold<int>(0, (sum, l) => sum + l.lines.length);
 
     final summaryBlocks = <Widget>[
       _HeSummaryTile(
@@ -1184,10 +1807,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         label: isZh ? '已完成阶段' : 'Completed',
         value: '$completedPhases',
       ),
-      _HeSummaryTile(
-        label: isZh ? '失败阶段' : 'Failed',
-        value: '$failedPhases',
-      ),
+      _HeSummaryTile(label: isZh ? '失败阶段' : 'Failed', value: '$failedPhases'),
       _HeSummaryTile(
         label: isZh ? '日志总行数' : 'Total Log Lines',
         value: '$totalLogLines',
@@ -1200,15 +1820,15 @@ class _HeSessionMetadataDialog extends StatelessWidget {
         label: isZh ? '当前阶段' : 'Current Phase',
         value: orchestrator.currentPhase != null
             ? (isZh
-                ? orchestrator.currentPhase!.displayNameZh
-                : orchestrator.currentPhase!.displayNameEn)
+                  ? orchestrator.currentPhase!.displayNameZh
+                  : orchestrator.currentPhase!.displayNameEn)
             : '--',
       ),
     ];
 
     final roleConfigs = <(String, HardnessRoleConfig)>[
       (isZh ? '探档者 (Profiler)' : 'Profiler', config.profilerConfig),
-      (isZh ? '调读者 (Reader)' : 'Reader', config.readerConfig),
+      (isZh ? '调查者 (Reader)' : 'Reader', config.readerConfig),
       (isZh ? '规划者 (Planner)' : 'Planner', config.plannerConfig),
       (isZh ? '实施者 (Implementer)' : 'Implementer', config.implementerConfig),
       (isZh ? '验收者 (Reviewer)' : 'Reviewer', config.reviewerConfig),
@@ -1235,9 +1855,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isZh
-                              ? '当前会话元数据'
-                              : 'Current Session Metadata',
+                          isZh ? '当前会话元数据' : 'Current Session Metadata',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -1294,8 +1912,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             label: isZh ? '执行状态' : 'Status',
                             value: _statusLabel(orchestrator.status),
                           ),
-                          if (orchestrator.errorMessage?.isNotEmpty ==
-                              true)
+                          if (orchestrator.errorMessage?.isNotEmpty == true)
                             _HeMetadataEntryRow(
                               label: isZh ? '错误信息' : 'Error',
                               value: orchestrator.errorMessage!,
@@ -1306,13 +1923,11 @@ class _HeSessionMetadataDialog extends StatelessWidget {
 
                       // ── Task config ──
                       _HeMetadataSection(
-                        title: isZh
-                            ? '任务配置'
-                            : 'Task Configuration',
+                        title: isZh ? '任务配置' : 'Task Config',
                         children: [
                           _HeMetadataEntryRow(
                             label: isZh ? '任务描述' : 'Task',
-                            value: config.task,
+                            value: config.task.isEmpty ? '-' : config.task,
                           ),
                           _HeMetadataEntryRow(
                             label: isZh ? '工作目录' : 'Working Directory',
@@ -1338,61 +1953,44 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             _HeMetadataEntryRow(
                               label: entry.$1,
                               value: entry.$2.isConfigured
-                                  ? '${entry.$2.cliName} · ${entry.$2.modelId}'
+                                  ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
                                   : (isZh ? '未配置' : 'Not configured'),
                             ),
                         ],
                       ),
+                      const SizedBox(height: 16),
 
-                      // ── Phase summary ──
-                      if (logs.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        _HeMetadataSection(
-                          title: isZh ? '阶段执行摘要' : 'Phase Execution Summary',
-                          children: [
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                for (final log in logs)
-                                  _HeMetadataChip(
-                                    label:
-                                        '${isZh ? log.phase.displayNameZh : log.phase.displayNameEn}'
-                                        ' · ${_phaseStatusLabel(log.status)}'
-                                        '${log.exitCode != null ? ' (exit ${log.exitCode})' : ''}',
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            for (final log in logs) ...[
-                              _HeMetadataEntryRow(
-                                label: isZh
-                                    ? log.phase.displayNameZh
-                                    : log.phase.displayNameEn,
-                                value: () {
-                                  final parts = <String>[
-                                    _phaseStatusLabel(log.status),
-                                  ];
-                                  if (log.exitCode != null) {
-                                    parts.add(
-                                      '${isZh ? '退出码' : 'Exit code'}: ${log.exitCode}',
-                                    );
-                                  }
+                      // ── Phase status ──
+                      _HeMetadataSection(
+                        title: isZh ? '阶段状态' : 'Phase Status',
+                        children: [
+                          for (final log in logs)
+                            _HeMetadataEntryRow(
+                              label: isZh
+                                  ? log.phase.displayNameZh
+                                  : log.phase.displayNameEn,
+                              value: () {
+                                final parts = <String>[
+                                  _phaseStatusLabel(log.status),
+                                ];
+                                if (log.exitCode != null) {
                                   parts.add(
-                                    '${isZh ? '日志行数' : 'Log lines'}: ${log.lines.length}',
+                                    '${isZh ? '退出码' : 'Exit code'}: ${log.exitCode}',
                                   );
-                                  if (log.savedLogPath?.isNotEmpty == true) {
-                                    parts.add(
-                                      '${isZh ? '日志文件' : 'Log file'}: ${log.savedLogPath}',
-                                    );
-                                  }
-                                  return parts.join(' · ');
-                                }(),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ],
+                                }
+                                parts.add(
+                                  '${isZh ? '日志行数' : 'Log lines'}: ${log.lines.length}',
+                                );
+                                if (log.savedLogPath?.isNotEmpty == true) {
+                                  parts.add(
+                                    '${isZh ? '日志文件' : 'Log file'}: ${log.savedLogPath}',
+                                  );
+                                }
+                                return parts.join(' · ');
+                              }(),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -1524,28 +2122,6 @@ class _HeMetadataEntryRow extends StatelessWidget {
   }
 }
 
-class _HeMetadataChip extends StatelessWidget {
-  const _HeMetadataChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: _br999,
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelMedium?.copyWith(height: 1.3),
-      ),
-    );
-  }
-}
-
 // =============================================================================
 // Q弹 entrance animation wrapper for phase cards.
 // Plays a single fade + vertical-slide + subtle scale pop when the card first
@@ -1584,9 +2160,10 @@ class _HePhaseCardEntranceState extends State<_HePhaseCardEntrance>
       ),
     );
     // Scale: 0.94→1.0 with an elastic overshoot — the Q弹 feel.
-    _scale = Tween<double>(begin: 0.94, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
-    );
+    _scale = Tween<double>(
+      begin: 0.94,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
     // Slide: starts 18 px below its final position and rises to 0.
     _slide = Tween<Offset>(
       begin: const Offset(0.0, 0.06),
@@ -1608,10 +2185,7 @@ class _HePhaseCardEntranceState extends State<_HePhaseCardEntrance>
       child: ScaleTransition(
         scale: _scale,
         alignment: Alignment.topCenter,
-        child: SlideTransition(
-          position: _slide,
-          child: widget.child,
-        ),
+        child: SlideTransition(position: _slide, child: widget.child),
       ),
     );
   }
@@ -1683,18 +2257,30 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     HardnessPhase.reviewing: Icons.fact_check_rounded,
   };
 
-  IconData get _statusIcon => switch (widget.log.status) {
-        HardnessPhaseStatus.pending => Icons.radio_button_unchecked_rounded,
+  IconData get _statusIcon {
+    // Completed reviewing phases with FAIL verdict use a warning icon.
+    if (widget.log.status == HardnessPhaseStatus.completed &&
+        widget.log.reviewVerdictFail) {
+      return Icons.unpublished_rounded;
+    }
+    return switch (widget.log.status) {
+      HardnessPhaseStatus.pending => Icons.radio_button_unchecked_rounded,
       HardnessPhaseStatus.paused => Icons.pause_circle_filled_rounded,
-        HardnessPhaseStatus.running => Icons.play_circle_outline_rounded,
-        HardnessPhaseStatus.completed => Icons.check_circle_rounded,
-        HardnessPhaseStatus.failed => Icons.error_rounded,
+      HardnessPhaseStatus.running => Icons.play_circle_outline_rounded,
+      HardnessPhaseStatus.completed => Icons.check_circle_rounded,
+      HardnessPhaseStatus.failed => Icons.error_rounded,
       HardnessPhaseStatus.cancelled => Icons.cancel_rounded,
-        HardnessPhaseStatus.skipped => Icons.remove_circle_outline_rounded,
-      };
+      HardnessPhaseStatus.skipped => Icons.remove_circle_outline_rounded,
+    };
+  }
 
   String _statusText() {
     final isZh = widget.isZh;
+    // Completed reviewing phases with FAIL verdict show distinct text.
+    if (widget.log.status == HardnessPhaseStatus.completed &&
+        widget.log.reviewVerdictFail) {
+      return isZh ? '验收未通过' : 'Review Failed';
+    }
     return switch (widget.log.status) {
       HardnessPhaseStatus.pending => isZh ? '等待中' : 'Pending',
       HardnessPhaseStatus.paused => isZh ? '暂停中' : 'Paused',
@@ -1717,16 +2303,18 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final isPaused = log.status == HardnessPhaseStatus.paused;
     final isFailed = log.status == HardnessPhaseStatus.failed;
     final isCancelled = log.status == HardnessPhaseStatus.cancelled;
-    final isPending = log.status == HardnessPhaseStatus.pending;
-
-    final palette = _hePhasePalette(theme, colorScheme, log.status);
+    final palette = _hePhasePalette(
+      theme,
+      colorScheme,
+      log.status,
+      reviewVerdictFail: log.reviewVerdictFail,
+    );
     final backgroundColor = palette.background;
     final borderColor = palette.border;
     final textColor = palette.text;
 
     final phaseIcon = _phaseIcons[log.phase] ?? Icons.timelapse_rounded;
-    final phaseName =
-        isZh ? log.phase.displayNameZh : log.phase.displayNameEn;
+    final phaseName = isZh ? log.phase.displayNameZh : log.phase.displayNameEn;
     final roleConfig = _roleConfig();
 
     // Animate color & border transitions when status changes (e.g. pending →
@@ -1787,15 +2375,18 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                   if (roleConfig.modelId.isNotEmpty)
                     _HeChip(
                       icon: Icons.layers_rounded,
-                      label: roleConfig.modelId,
+                      label: describeHardnessCliModel(
+                        findHardnessCliByName(roleConfig.cliName),
+                        roleConfig.modelId,
+                        isZh: isZh,
+                      ),
                     ),
                   if (log.exitCode != null)
                     _HeChip(
                       icon: log.exitCode == 0
                           ? Icons.check_circle_outline_rounded
                           : Icons.flag_outlined,
-                      label:
-                          '${isZh ? '退出码' : 'Exit'}: ${log.exitCode}',
+                      label: '${isZh ? '退出码' : 'Exit'}: ${log.exitCode}',
                     ),
                   if (log.savedLogPath != null)
                     _HeChip(
@@ -1812,8 +2403,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               ),
             ],
 
-            // ── Edit CLI/model for pending or paused phases ────────────────
-            if ((isPending || isPaused) && widget.onRoleConfigChanged != null) ...[
+            // ── Edit CLI/model for retryable and not-yet-executed phases ───
+            if (widget.onRoleConfigChanged != null) ...[
               const SizedBox(height: 10),
               _HePendingPhaseEditor(
                 roleConfig: roleConfig,
@@ -1834,31 +2425,28 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               // ── File changes list ─────────────────────────────────────
               if (log.changedFiles.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _HeChangedFilesList(
-                  files: log.changedFiles,
-                  isZh: isZh,
-                ),
+                _HeChangedFilesList(files: log.changedFiles, isZh: isZh),
               ],
             ] else if (log.lines.isNotEmpty) ...[
               // Collapsed preview: last meaningful log line.
-              // Skip UI-decoration lines (✓ ✗ ▶ ⚠ prefixes) so internal
-              // status markers like "✓ 阶段完成" never leak into the preview.
+              // Skip UI-decoration lines (✓ ✗ ▶ ⚠ ℹ prefixes) and manual
+              // input headers (【…】) so internal status markers never leak
+              // into the preview.
               Builder(
                 builder: (context) {
-                  final previewLine = log.lines.lastWhere(
-                    (l) {
-                      final t = l.trim();
-                      if (t.isEmpty) return false;
-                      if (t.startsWith('✓ ') ||
-                          t.startsWith('✗ ') ||
-                          t.startsWith('▶ ') ||
-                          t.startsWith('⚠ ')) {
-                        return false;
-                      }
-                      return true;
-                    },
-                    orElse: () => '',
-                  );
+                  final previewLine = log.lines.lastWhere((l) {
+                    final t = l.trim();
+                    if (t.isEmpty) return false;
+                    if (t.startsWith('✓ ') ||
+                        t.startsWith('✗ ') ||
+                        t.startsWith('▶ ') ||
+                        t.startsWith('⚠ ') ||
+                        t.startsWith('ℹ ')) {
+                      return false;
+                    }
+                    if (t.startsWith('【') && t.endsWith('】')) return false;
+                    return true;
+                  }, orElse: () => '');
                   if (previewLine.isEmpty) {
                     return const SizedBox.shrink();
                   }
@@ -2155,79 +2743,79 @@ class _HeLogSectionState extends State<_HeLogSection> {
     // in a SliverList (the size-change listener fires markNeedsLayout during
     // performLayout, causing a crash). Use a plain wrapper here.
     return Material(
-        color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: _br16,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Section header row ────────────────────────────────────────
-              Row(
-                children: [
-                  Icon(
-                    Icons.terminal_rounded,
-                    size: 14,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    isZh ? '执行输出' : 'Output',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Raw / rendered toggle (only shown when phase is done)
-                  if (!isRunning && lines.isNotEmpty) ...[
-                    _HeSmallPill(
-                      icon: _showRaw
-                          ? Icons.auto_awesome_rounded
-                          : Icons.code_rounded,
-                      label: _showRaw
-                          ? (isZh ? '渲染' : 'Rendered')
-                          : (isZh ? '原始' : 'Raw'),
-                      onTap: () => setState(() => _showRaw = !_showRaw),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  _HeSmallPill(
-                    icon: Icons.copy_rounded,
-                    label: isZh ? '复制' : 'Copy',
-                    onTap: widget.onCopy,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // ── Content area ──────────────────────────────────────────────
-              if (lines.isEmpty)
-                _HeEmptyOutputPlaceholder(isZh: isZh)
-              else if (isRunning)
-                _HeStreamingSubConversation(
-                  lines: lines,
-                  isZh: isZh,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  filePathRoots: widget.filePathRoots,
-                )
-              else if (_showRaw)
-                _HeRawFullView(
-                  lines: lines,
-                  colorScheme: colorScheme,
-                  onCopy: widget.onCopy,
-                  isZh: isZh,
-                )
-              else
-                _HeSubConversationView(
-                  lines: lines,
-                  isZh: isZh,
-                  theme: theme,
-                  colorScheme: colorScheme,
-                  filePathRoots: widget.filePathRoots,
+      color: colorScheme.surface.withValues(alpha: 0.78),
+      borderRadius: _br16,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Section header row ────────────────────────────────────────
+            Row(
+              children: [
+                Icon(
+                  Icons.terminal_rounded,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
                 ),
-            ],
-          ),
+                const SizedBox(width: 6),
+                Text(
+                  isZh ? '执行输出' : 'Output',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                // Raw / rendered toggle (only shown when phase is done)
+                if (!isRunning && lines.isNotEmpty) ...[
+                  _HeSmallPill(
+                    icon: _showRaw
+                        ? Icons.auto_awesome_rounded
+                        : Icons.code_rounded,
+                    label: _showRaw
+                        ? (isZh ? '渲染' : 'Rendered')
+                        : (isZh ? '原始' : 'Raw'),
+                    onTap: () => setState(() => _showRaw = !_showRaw),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                _HeSmallPill(
+                  icon: Icons.copy_rounded,
+                  label: isZh ? '复制' : 'Copy',
+                  onTap: widget.onCopy,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // ── Content area ──────────────────────────────────────────────
+            if (lines.isEmpty)
+              _HeEmptyOutputPlaceholder(isZh: isZh)
+            else if (isRunning)
+              _HeStreamingSubConversation(
+                lines: lines,
+                isZh: isZh,
+                theme: theme,
+                colorScheme: colorScheme,
+                filePathRoots: widget.filePathRoots,
+              )
+            else if (_showRaw)
+              _HeRawFullView(
+                lines: lines,
+                colorScheme: colorScheme,
+                onCopy: widget.onCopy,
+                isZh: isZh,
+              )
+            else
+              _HeSubConversationView(
+                lines: lines,
+                isZh: isZh,
+                theme: theme,
+                colorScheme: colorScheme,
+                filePathRoots: widget.filePathRoots,
+              ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -2256,10 +2844,7 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             isZh ? '等待输出…' : 'Waiting for output…',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ],
       ),
@@ -2365,7 +2950,7 @@ class _HeSmartView extends StatefulWidget {
     required this.isZh,
     required this.theme,
     required this.colorScheme,
-    this.filePathRoots = const [],
+    required this.filePathRoots,
   });
 
   final List<String> lines;
@@ -2384,8 +2969,8 @@ class _HeSmartView extends StatefulWidget {
 
 // Top-level function required by compute() — must not be a closure.
 ({String? command, String body}) _heSplitLogForMarkdownCompute(
-        List<String> lines) =>
-    _heSplitLogForMarkdown(lines);
+  List<String> lines,
+) => _heSplitLogForMarkdown(lines);
 
 class _HeSmartViewState extends State<_HeSmartView> {
   ({String? command, String body})? _parsed;
@@ -2684,7 +3269,9 @@ class _HeStreamingSubConversationState
     if (olderLines.length > 3000) {
       _olderSegmentsLoading = true;
       compute(_heParseOutputSegmentsIsolate, olderLines).then((result) {
-        if (!mounted || !_showEarlierSegments || _olderSegmentWindowStart != start) {
+        if (!mounted ||
+            !_showEarlierSegments ||
+            _olderSegmentWindowStart != start) {
           return;
         }
         setState(() {
@@ -2778,7 +3365,10 @@ class _HeStreamingSubConversationState
                 onTap: _toggleEarlierSegments,
                 borderRadius: _br16,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   child: Row(
                     children: [
                       Icon(
@@ -2793,11 +3383,11 @@ class _HeStreamingSubConversationState
                         child: Text(
                           widget.isZh
                               ? (_showEarlierSegments
-                                  ? '收起更早的子消息 · $_lastHiddenAbove 行'
-                                  : '展开更早的子消息 · $_lastHiddenAbove 行')
+                                    ? '收起更早的子消息 · $_lastHiddenAbove 行'
+                                    : '展开更早的子消息 · $_lastHiddenAbove 行')
                               : (_showEarlierSegments
-                                  ? 'Hide earlier sub-messages · $_lastHiddenAbove lines'
-                                  : 'Show earlier sub-messages · $_lastHiddenAbove lines'),
+                                    ? 'Hide earlier sub-messages · $_lastHiddenAbove lines'
+                                    : 'Show earlier sub-messages · $_lastHiddenAbove lines'),
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 11.5,
@@ -2828,10 +3418,14 @@ class _HeStreamingSubConversationState
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    widget.isZh ? '正在加载更早的子消息…' : 'Loading earlier sub-messages…',
+                    widget.isZh
+                        ? '正在加载更早的子消息…'
+                        : 'Loading earlier sub-messages…',
                     style: TextStyle(
                       fontSize: 11,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.72,
+                      ),
                     ),
                   ),
                 ],
@@ -2839,16 +3433,12 @@ class _HeStreamingSubConversationState
             )
           else if (olderSegments != null && olderSegments.isNotEmpty) ...[
             RepaintBoundary(
-              child: _buildSegmentList(
-                olderSegments,
-                animateLast: false,
-              ),
+              child: _buildSegmentList(olderSegments, animateLast: false),
             ),
             const SizedBox(height: 8),
           ],
         ],
-        if (segments.isNotEmpty)
-          _buildSegmentList(segments, animateLast: true),
+        if (segments.isNotEmpty) _buildSegmentList(segments, animateLast: true),
         // Streaming indicator.
         Padding(
           padding: const EdgeInsets.only(top: 6),
@@ -2938,51 +3528,58 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       double borderRadius,
     ) = switch (seg.kind) {
       _HeSegmentKind.command => (
-          Icons.terminal_rounded,
-          widget.isZh ? '执行命令' : 'Command',
-          colorScheme.surfaceContainerHighest,
-          colorScheme.outlineVariant.withValues(alpha: 0.30),
-          colorScheme.onSurface,
-          16.0,
-        ),
+        Icons.terminal_rounded,
+        widget.isZh ? '执行命令' : 'Command',
+        colorScheme.surfaceContainerHighest,
+        colorScheme.outlineVariant.withValues(alpha: 0.30),
+        colorScheme.onSurface,
+        16.0,
+      ),
       _HeSegmentKind.thinking => (
-          Icons.psychology_alt_outlined,
-          widget.isZh ? '思考' : 'Thinking',
-          isDark
-              ? const Color(0xFF18181B)
-              : colorScheme.surfaceContainerHighest,
-          isDark
-              ? Colors.white.withValues(alpha: 0.10)
-              : colorScheme.outlineVariant.withValues(alpha: 0.20),
-          isDark ? Colors.white.withValues(alpha: 0.87) : colorScheme.onSurface,
-          18.0,
-        ),
+        Icons.psychology_alt_outlined,
+        widget.isZh ? '思考' : 'Thinking',
+        isDark ? const Color(0xFF18181B) : colorScheme.surfaceContainerHighest,
+        isDark
+            ? Colors.white.withValues(alpha: 0.10)
+            : colorScheme.outlineVariant.withValues(alpha: 0.20),
+        isDark ? Colors.white.withValues(alpha: 0.87) : colorScheme.onSurface,
+        18.0,
+      ),
       _HeSegmentKind.toolCall || _HeSegmentKind.toolResult => (
-          Icons.build_circle_outlined,
-          widget.isZh ? '工具调用' : 'Tool Call',
-          colorScheme.secondaryContainer,
-          colorScheme.secondary.withValues(alpha: 0.35),
-          colorScheme.onSecondaryContainer,
-          26.0,
-        ),
+        Icons.build_circle_outlined,
+        widget.isZh ? '工具调用' : 'Tool Call',
+        colorScheme.secondaryContainer,
+        colorScheme.secondary.withValues(alpha: 0.35),
+        colorScheme.onSecondaryContainer,
+        26.0,
+      ),
       _HeSegmentKind.assistant => (
-          Icons.auto_awesome_rounded,
-          widget.isZh ? 'AI 回复' : 'AI Response',
-          colorScheme.surfaceContainerHigh,
-          colorScheme.outlineVariant.withValues(
-            alpha: isDark ? 0.18 : 0.10,
-          ),
-          colorScheme.onSurface,
-          26.0,
-        ),
+        Icons.auto_awesome_rounded,
+        widget.isZh ? 'AI 回复' : 'AI Response',
+        colorScheme.surfaceContainerHigh,
+        colorScheme.outlineVariant.withValues(alpha: isDark ? 0.18 : 0.10),
+        colorScheme.onSurface,
+        26.0,
+      ),
       _HeSegmentKind.output => (
-          Icons.info_outline_rounded,
-          widget.isZh ? '输出' : 'Output',
-          colorScheme.surfaceContainerLow,
-          colorScheme.outlineVariant.withValues(alpha: 0.15),
-          colorScheme.onSurface,
-          16.0,
+        Icons.info_outline_rounded,
+        widget.isZh ? '输出' : 'Output',
+        colorScheme.surfaceContainerLow,
+        colorScheme.outlineVariant.withValues(alpha: 0.15),
+        colorScheme.onSurface,
+        16.0,
+      ),
+      _HeSegmentKind.userInput => (
+        Icons.person_rounded,
+        seg.roleLabel ?? (widget.isZh ? '用户输入' : 'User Input'),
+        Color.alphaBlend(
+          colorScheme.tertiary.withValues(alpha: isDark ? 0.22 : 0.12),
+          colorScheme.surface,
         ),
+        colorScheme.tertiary.withValues(alpha: isDark ? 0.40 : 0.28),
+        colorScheme.onSurface,
+        18.0,
+      ),
     };
 
     // ── Special rendering for command segments ──────────────────────────
@@ -3000,9 +3597,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
         border: Border.all(color: cardBorder),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(
-              alpha: isDark ? 0.04 : 0.03,
-            ),
+            color: colorScheme.shadow.withValues(alpha: isDark ? 0.04 : 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -3015,14 +3610,20 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
           children: [
             // ── Header row ────────────────────────────────────────────
             InkWell(
-              onTap: needsCollapse ? () => setState(() => _expanded = !_expanded) : null,
+              onTap: needsCollapse
+                  ? () => setState(() => _expanded = !_expanded)
+                  : null,
               borderRadius: _br999,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 14, color: cardText.withValues(alpha: 0.72)),
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: cardText.withValues(alpha: 0.72),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       label,
@@ -3184,8 +3785,9 @@ class _HeStructuredToolTrace {
   }) {
     final lines = List<String>.from(segment.lines);
     final firstContentIndex = _heIndexOfFirstMeaningfulLine(lines);
-    final firstContentLine =
-        firstContentIndex >= 0 ? lines[firstContentIndex].trim() : '';
+    final firstContentLine = firstContentIndex >= 0
+        ? lines[firstContentIndex].trim()
+        : '';
     final parsedHeader = _HeParsedToolHeader.tryParse(
       firstContentLine,
       isStreaming: isStreaming,
@@ -3229,14 +3831,14 @@ class _HeStructuredToolTrace {
         status == 'denied' ||
         status == 'rejected';
     final stdout =
-      segment.kind != _HeSegmentKind.toolResult &&
-        outputText.isNotEmpty &&
-        !useErrorChannel
-      ? outputText
-      : '';
+        segment.kind != _HeSegmentKind.toolResult &&
+            outputText.isNotEmpty &&
+            !useErrorChannel
+        ? outputText
+        : '';
     final stderr = outputText.isNotEmpty && useErrorChannel ? outputText : '';
     final resultText =
-      segment.kind == _HeSegmentKind.toolResult && stderr.isEmpty
+        segment.kind == _HeSegmentKind.toolResult && stderr.isEmpty
         ? outputText
         : '';
 
@@ -3329,7 +3931,8 @@ class _HeStructuredToolTraceCard extends StatefulWidget {
       _HeStructuredToolTraceCardState();
 }
 
-class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> {
+class _HeStructuredToolTraceCardState
+    extends State<_HeStructuredToolTraceCard> {
   bool _inputExpanded = true;
   bool _outputExpanded = true;
 
@@ -3351,8 +3954,9 @@ class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> 
     final borderColor = isToolCall
         ? colorScheme.secondary.withValues(alpha: 0.28)
         : colorScheme.outlineVariant.withValues(alpha: 0.28);
-    final textColor =
-        isToolCall ? colorScheme.onSecondaryContainer : colorScheme.onSurface;
+    final textColor = isToolCall
+        ? colorScheme.onSecondaryContainer
+        : colorScheme.onSurface;
     final subtleSurface = Color.alphaBlend(
       Colors.white.withValues(
         alpha: widget.theme.brightness == Brightness.dark ? 0.05 : 0.55,
@@ -3385,9 +3989,7 @@ class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> 
               decoration: BoxDecoration(
                 color: subtleSurface,
                 borderRadius: _br999,
-                border: Border.all(
-                  color: borderColor.withValues(alpha: 0.7),
-                ),
+                border: Border.all(color: borderColor.withValues(alpha: 0.7)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -3424,10 +4026,7 @@ class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> 
                         '${widget.isZh ? '目录' : 'Dir'}: ${data.workingDirectory}',
                   ),
                 if (data.outcomeLabel.isNotEmpty)
-                  _HeChip(
-                    icon: data.statusIcon,
-                    label: data.outcomeLabel,
-                  ),
+                  _HeChip(icon: data.statusIcon, label: data.outcomeLabel),
                 if (data.durationMs > 0 || data.status == 'running')
                   _HeChip(
                     icon: Icons.timer_outlined,
@@ -3437,8 +4036,7 @@ class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> 
                 if (data.exitCode != null)
                   _HeChip(
                     icon: Icons.flag_outlined,
-                    label:
-                        '${widget.isZh ? '退出码' : 'Exit'}: ${data.exitCode}',
+                    label: '${widget.isZh ? '退出码' : 'Exit'}: ${data.exitCode}',
                   ),
               ],
             ),
@@ -3525,7 +4123,9 @@ class _HeStructuredToolTraceCardState extends State<_HeStructuredToolTraceCard> 
                         data.stderr.isEmpty &&
                         data.resultText.isEmpty)
                       Text(
-                        widget.isZh ? '当前还没有工具输出。' : 'There is no tool output yet.',
+                        widget.isZh
+                            ? '当前还没有工具输出。'
+                            : 'There is no tool output yet.',
                         style: widget.theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -3603,10 +4203,7 @@ class _HeStructuredToolSection extends StatelessWidget {
                   ),
                 ),
               ],
-              if (expanded) ...[
-                const SizedBox(height: 12),
-                child,
-              ],
+              if (expanded) ...[const SizedBox(height: 12), child],
             ],
           ),
         ),
@@ -3917,13 +4514,9 @@ String _heToolActionLabel({
 }) {
   switch (status) {
     case 'running':
-      return isZh
-          ? (isCommandLike ? '执行中' : '调用中')
-          : 'Running';
+      return isZh ? (isCommandLike ? '执行中' : '调用中') : 'Running';
     case 'success':
-      return isZh
-          ? (isCommandLike ? '执行完成' : '调用完成')
-          : 'Completed';
+      return isZh ? (isCommandLike ? '执行完成' : '调用完成') : 'Completed';
     case 'cancelled':
       return isZh ? '已停止' : 'Stopped';
     case 'denied':
@@ -3931,13 +4524,9 @@ String _heToolActionLabel({
     case 'rejected':
       return isZh ? '已拒绝' : 'Rejected';
     case 'timed_out':
-      return isZh
-          ? (isCommandLike ? '执行超时' : '调用超时')
-          : 'Timed Out';
+      return isZh ? (isCommandLike ? '执行超时' : '调用超时') : 'Timed Out';
     case 'failed':
-      return isZh
-          ? (isCommandLike ? '执行失败' : '调用失败')
-          : 'Failed';
+      return isZh ? (isCommandLike ? '执行失败' : '调用失败') : 'Failed';
     default:
       return isZh
           ? (isCommandLike ? '准备执行' : '工具调用')
@@ -4077,10 +4666,7 @@ String _heFormatStructuredToolContent(String rawContent) {
 }
 
 String _heNormalizeToolText(String rawContent) {
-  return rawContent
-      .replaceAll('\r\n', '\n')
-      .replaceAll('\r', '\n')
-      .trimRight();
+  return rawContent.replaceAll('\r\n', '\n').replaceAll('\r', '\n').trimRight();
 }
 
 String _heLastNonEmptyToolLine(String content) {
@@ -4090,6 +4676,56 @@ String _heLastNonEmptyToolLine(String content) {
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
   return lines.isEmpty ? '' : lines.last;
+}
+
+bool _heShouldRenderSegmentAsLogLines(String content) {
+  final lines = const LineSplitter().convert(content);
+  if (lines.isEmpty || lines.any((line) => line.contains('```'))) {
+    return false;
+  }
+
+  var matchedLines = 0;
+  var markdownishLines = 0;
+  for (final line in lines) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) {
+      continue;
+    }
+    if (_logLevelPattern.hasMatch(trimmed) ||
+        trimmed.startsWith('>') ||
+        trimmed.startsWith('✓ ') ||
+        trimmed.startsWith('✗ ') ||
+        trimmed.startsWith('⚠ ') ||
+        trimmed.startsWith('▶ ')) {
+      matchedLines += 1;
+      continue;
+    }
+    if (trimmed.startsWith('#') ||
+        trimmed.startsWith('- ') ||
+        trimmed.startsWith('* ') ||
+        trimmed.startsWith('|')) {
+      markdownishLines += 1;
+    }
+  }
+  return matchedLines > 0 && markdownishLines == 0;
+}
+
+class _HeStructuredLogLines extends StatelessWidget {
+  const _HeStructuredLogLines({required this.lines, required this.colorScheme});
+
+  final List<String> lines;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: lines.length,
+      itemBuilder: (context, index) =>
+          _LogLine(line: lines[index], colorScheme: colorScheme),
+    );
+  }
 }
 
 // =============================================================================
@@ -4128,7 +4764,8 @@ class _HeSegmentBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sanitised = _heCloseUnterminatedCodeBlock(_displayContent);
+    final displayContent = _displayContent;
+    final sanitised = _heCloseUnterminatedCodeBlock(displayContent);
     final styleSheet = _heBuildMarkdownStyleSheet(theme, colorScheme);
 
     final inlineSyntaxes = filePathRoots.isNotEmpty
@@ -4141,21 +4778,31 @@ class _HeSegmentBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MarkdownBody(
-          data: sanitised,
-          selectable: true,
-          styleSheet: styleSheet,
-          fitContent: false,
-          extensionSet: md.ExtensionSet.gitHubFlavored,
-          inlineSyntaxes: inlineSyntaxes,
-          builders: {
-            'pre': _HeDiffBuilder(colorScheme: colorScheme),
-            if (filePathRoots.isNotEmpty) ...{
-              'openhand-file-resolved': _HeFilePathBuilder(textColor: textColor),
-              'openhand-file-pending': _HeFilePathBuilder(textColor: textColor),
+        if (_heShouldRenderSegmentAsLogLines(displayContent))
+          _HeStructuredLogLines(
+            lines: const LineSplitter().convert(displayContent),
+            colorScheme: colorScheme,
+          )
+        else
+          MarkdownBody(
+            data: sanitised,
+            selectable: true,
+            styleSheet: styleSheet,
+            fitContent: false,
+            extensionSet: md.ExtensionSet.gitHubFlavored,
+            inlineSyntaxes: inlineSyntaxes,
+            builders: {
+              'pre': _HeDiffBuilder(colorScheme: colorScheme),
+              if (filePathRoots.isNotEmpty) ...{
+                'openhand-file-resolved': _HeFilePathBuilder(
+                  textColor: textColor,
+                ),
+                'openhand-file-pending': _HeFilePathBuilder(
+                  textColor: textColor,
+                ),
+              },
             },
-          },
-        ),
+          ),
         if (!expanded) ...[
           const SizedBox(height: 4),
           GestureDetector(
@@ -4170,7 +4817,11 @@ class _HeSegmentBody extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.expand_more_rounded, size: 14, color: colorScheme.primary),
+                  Icon(
+                    Icons.expand_more_rounded,
+                    size: 14,
+                    color: colorScheme.primary,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     isZh ? '展开全部' : 'Show full content',
@@ -4213,9 +4864,10 @@ class _HeCommandStripState extends State<_HeCommandStrip>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
-    _turn = Tween<double>(begin: 0, end: 0.5).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-    );
+    _turn = Tween<double>(
+      begin: 0,
+      end: 0.5,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -4254,11 +4906,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.terminal_rounded,
-              size: 14,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.terminal_rounded, size: 14, color: colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: AnimatedCrossFade(
@@ -4645,15 +5293,13 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
         node.children?.forEach(collect);
       }
     }
+
     codeEl.children?.forEach(collect);
 
     final rawText = buf.toString();
     if (rawText.isEmpty) return null;
 
-    return _HeDiffBlock(
-      rawDiff: rawText,
-      colorScheme: colorScheme,
-    );
+    return _HeDiffBlock(rawDiff: rawText, colorScheme: colorScheme);
   }
 }
 
@@ -4662,10 +5308,7 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
 // =============================================================================
 
 class _HeDiffBlock extends StatelessWidget {
-  const _HeDiffBlock({
-    required this.rawDiff,
-    required this.colorScheme,
-  });
+  const _HeDiffBlock({required this.rawDiff, required this.colorScheme});
 
   final String rawDiff;
   final ColorScheme colorScheme;
@@ -4714,11 +5357,7 @@ class _HeDiffBlock extends StatelessWidget {
 }
 
 class _DiffLine extends StatelessWidget {
-  const _DiffLine({
-    required this.line,
-    required this.isDark,
-    required this.cs,
-  });
+  const _DiffLine({required this.line, required this.isDark, required this.cs});
 
   final String line;
   final bool isDark;
@@ -4811,46 +5450,45 @@ class _HeStatusBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return switch (orchestrator.status) {
       HardnessOrchestratorStatus.completed => _buildBanner(
-          context,
-          icon: Icons.check_circle_rounded,
-          message:
-              isZh ? '\u2713 所有阶段已完成' : '\u2713 All phases completed successfully',
-          color: _heCompletedTone,
-        ),
+        context,
+        icon: Icons.check_circle_rounded,
+        message: isZh
+            ? '\u2713 所有阶段已完成'
+            : '\u2713 All phases completed successfully',
+        color: _heCompletedTone,
+      ),
       HardnessOrchestratorStatus.failed => _buildBanner(
-          context,
-          icon: Icons.error_rounded,
-          message: isZh
-              ? '\u2717 执行失败${orchestrator.errorMessage != null ? '\uff1a${orchestrator.errorMessage}' : ''}'
-              : '\u2717 Execution failed${orchestrator.errorMessage != null ? ': ${orchestrator.errorMessage}' : ''}',
-          color: colorScheme.error,
-          action: TextButton.icon(
-            onPressed: onRestart,
-            icon: const Icon(Icons.restart_alt_rounded, size: 16),
-            label: Text(isZh ? '重新开始' : 'Restart'),
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.error,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            ),
+        context,
+        icon: Icons.error_rounded,
+        message: isZh
+            ? '\u2717 执行失败${orchestrator.errorMessage != null ? '\uff1a${orchestrator.errorMessage}' : ''}'
+            : '\u2717 Execution failed${orchestrator.errorMessage != null ? ': ${orchestrator.errorMessage}' : ''}',
+        color: colorScheme.error,
+        action: TextButton.icon(
+          onPressed: onRestart,
+          icon: const Icon(Icons.replay_rounded, size: 16),
+          label: Text(isZh ? '重试失败阶段' : 'Retry Failed Phase'),
+          style: TextButton.styleFrom(
+            foregroundColor: colorScheme.error,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           ),
         ),
+      ),
       HardnessOrchestratorStatus.cancelled => _buildBanner(
-          context,
-          icon: Icons.cancel_rounded,
-          message: isZh ? '\u26a0 会话已中止' : '\u26a0 Session was cancelled',
-          color: _hePausedTone,
-          action: TextButton.icon(
-            onPressed: onRestart,
-            icon: const Icon(Icons.restart_alt_rounded, size: 16),
-            label: Text(isZh ? '重新开始' : 'Restart'),
-            style: TextButton.styleFrom(
-              foregroundColor: _hePausedTone,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            ),
+        context,
+        icon: Icons.cancel_rounded,
+        message: isZh ? '\u26a0 会话已中止' : '\u26a0 Session was cancelled',
+        color: _hePausedTone,
+        action: TextButton.icon(
+          onPressed: onRestart,
+          icon: const Icon(Icons.restart_alt_rounded, size: 16),
+          label: Text(isZh ? '重新开始' : 'Restart'),
+          style: TextButton.styleFrom(
+            foregroundColor: _hePausedTone,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           ),
         ),
+      ),
       _ => const SizedBox.shrink(),
     };
   }
@@ -4987,11 +5625,7 @@ class _HeOutputLinesDial extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.terminal_rounded,
-            size: 14,
-            color: colorScheme.primary,
-          ),
+          Icon(Icons.terminal_rounded, size: 14, color: colorScheme.primary),
           const SizedBox(width: 6),
           Text(
             _format(totalLines),
@@ -5072,10 +5706,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
             isZh
                 ? '就绪，点击下方按钮以启动本次会话'
                 : 'Ready \u2014 press Start to run the session',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -5116,10 +5747,7 @@ class _InitializingPlaceholder extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             isZh ? '初始化中...' : 'Initializing\u2026',
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ],
       ),
@@ -5143,21 +5771,21 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final (icon, title) = switch (status) {
       HardnessOrchestratorStatus.completed => (
-          Icons.check_circle_rounded,
-          isZh ? '历史会话已恢复' : 'Historical session restored',
-        ),
+        Icons.check_circle_rounded,
+        isZh ? '历史会话已恢复' : 'Historical session restored',
+      ),
       HardnessOrchestratorStatus.failed => (
-          Icons.error_rounded,
-          isZh ? '历史失败会话已恢复' : 'Failed session restored',
-        ),
+        Icons.error_rounded,
+        isZh ? '历史失败会话已恢复' : 'Failed session restored',
+      ),
       HardnessOrchestratorStatus.cancelled => (
-          Icons.cancel_rounded,
-          isZh ? '历史中止会话已恢复' : 'Cancelled session restored',
-        ),
+        Icons.cancel_rounded,
+        isZh ? '历史中止会话已恢复' : 'Cancelled session restored',
+      ),
       _ => (
-          Icons.history_rounded,
-          isZh ? '历史会话已恢复' : 'Historical session restored',
-        ),
+        Icons.history_rounded,
+        isZh ? '历史会话已恢复' : 'Historical session restored',
+      ),
     };
 
     return Center(
@@ -5174,9 +5802,9 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -5204,8 +5832,8 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
 }
 
 // =============================================================================
-// _HeComposer — HE composer with disabled inputs but active permission toggle,
-// expand/collapse, and auto-scroll buttons.
+// _HeComposer — HE composer with active permission toggle, collapse state,
+// auto-follow control, and a conditional manual-review input.
 // =============================================================================
 
 class _HeComposer extends StatelessWidget {
@@ -5217,6 +5845,20 @@ class _HeComposer extends StatelessWidget {
     required this.onToggleAutoFollow,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
+    required this.manualPhaseEnabled,
+    required this.manualPhaseTitle,
+    required this.manualPhaseController,
+    required this.manualPhaseFocusNode,
+    required this.manualPhaseHelperText,
+    required this.manualPhaseHintText,
+    required this.primaryActionLabel,
+    required this.primaryActionIcon,
+    required this.primaryActionEnabled,
+    required this.onPrimaryAction,
+    this.isManualReviewPhase = false,
+    this.onReviewPass,
+    this.onReviewFail,
+    this.reviewSubmitting = false,
   });
 
   final bool isZh;
@@ -5226,6 +5868,24 @@ class _HeComposer extends StatelessWidget {
   final VoidCallback onToggleAutoFollow;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
+  final bool manualPhaseEnabled;
+  final String manualPhaseTitle;
+  final TextEditingController manualPhaseController;
+  final FocusNode manualPhaseFocusNode;
+  final String manualPhaseHelperText;
+  final String manualPhaseHintText;
+  final String primaryActionLabel;
+  final IconData primaryActionIcon;
+  final bool primaryActionEnabled;
+  final VoidCallback onPrimaryAction;
+  /// Whether the manual input is for the reviewing phase.
+  final bool isManualReviewPhase;
+  /// Callback for explicit PASS verdict during manual review.
+  final VoidCallback? onReviewPass;
+  /// Callback for explicit FAIL verdict during manual review.
+  final VoidCallback? onReviewFail;
+  /// Whether a review verdict is currently being submitted.
+  final bool reviewSubmitting;
 
   @override
   Widget build(BuildContext context) {
@@ -5233,8 +5893,9 @@ class _HeComposer extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final disabledFg = colorScheme.onSurface.withValues(alpha: 0.38);
     final disabledBorder = colorScheme.outlineVariant.withValues(alpha: 0.48);
-    final disabledBg =
-        colorScheme.surfaceContainerHighest.withValues(alpha: 0.78);
+    final disabledBg = colorScheme.surfaceContainerHighest.withValues(
+      alpha: 0.78,
+    );
 
     Widget disabledOutlinedButton({
       required IconData icon,
@@ -5255,20 +5916,6 @@ class _HeComposer extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
-        ),
-      );
-    }
-
-    Widget disabledFilledButton({
-      required IconData icon,
-      required String label,
-    }) {
-      return SizedBox(
-        height: 52,
-        child: FilledButton.icon(
-          onPressed: null,
-          icon: Icon(icon, size: 18),
-          label: Text(label),
         ),
       );
     }
@@ -5358,25 +6005,128 @@ class _HeComposer extends StatelessWidget {
       ),
     );
 
-    // The expandable text area content.
-    final expandedContent = Container(
+    final manualPhaseTitleStyle = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: colorScheme.primary,
+    );
+    final manualPhaseHelperStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      height: 1.45,
+    );
+    final manualPhaseHintStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+    );
+    final manualPhaseInputStyle = theme.textTheme.bodyMedium?.copyWith(
+      height: 1.45,
+    );
+
+    double measureTextHeight(String text, TextStyle? style, double maxWidth) {
+      if (!maxWidth.isFinite || maxWidth <= 0) {
+        return 0;
+      }
+
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+      )..layout(maxWidth: maxWidth);
+
+      return painter.size.height;
+    }
+
+    final expandedContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubicEmphasized,
       width: double.infinity,
-      height: 80,
+      height: manualPhaseEnabled ? 176 : 80,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        color: manualPhaseEnabled
+            ? colorScheme.surfaceContainerLow
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
         borderRadius: _br16,
-        border: Border.all(color: disabledBorder),
-      ),
-      padding: const EdgeInsets.all(14),
-      alignment: Alignment.topLeft,
-      child: Text(
-        isZh
-            ? 'Hardness Engineering 使用自动化流水线，不支持手动输入'
-            : 'Hardness Engineering uses an automated pipeline; manual input is not available',
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: disabledFg,
+        border: Border.all(
+          color: manualPhaseEnabled
+              ? colorScheme.primary.withValues(alpha: 0.28)
+              : disabledBorder,
         ),
       ),
+      padding: const EdgeInsets.all(14),
+      child: manualPhaseEnabled
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                const titleGap = 6.0;
+                const editorGap = 10.0;
+                const minEditorHeight = 48.0;
+
+                final titleHeight = measureTextHeight(
+                  manualPhaseTitle,
+                  manualPhaseTitleStyle,
+                  constraints.maxWidth,
+                );
+                final helperHeight = measureTextHeight(
+                  manualPhaseHelperText,
+                  manualPhaseHelperStyle,
+                  constraints.maxWidth,
+                );
+                final canShowHelper =
+                    constraints.maxHeight >= titleHeight + titleGap + helperHeight;
+                final reservedHeight = titleHeight +
+                    (canShowHelper ? titleGap + helperHeight : 0);
+                final remainingHeight = constraints.maxHeight - reservedHeight;
+                final canShowEditor =
+                    remainingHeight >= editorGap + minEditorHeight;
+                final editorHeight = canShowEditor
+                    ? (remainingHeight - editorGap).clamp(0.0, double.infinity)
+                    : 0.0;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      manualPhaseTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: manualPhaseTitleStyle,
+                    ),
+                    if (canShowHelper) ...[
+                      const SizedBox(height: titleGap),
+                      Text(
+                        manualPhaseHelperText,
+                        style: manualPhaseHelperStyle,
+                      ),
+                    ],
+                    if (canShowEditor) ...[
+                      const SizedBox(height: editorGap),
+                      SizedBox(
+                        height: editorHeight,
+                        child: TextField(
+                          controller: manualPhaseController,
+                          focusNode: manualPhaseFocusNode,
+                          maxLines: null,
+                          expands: true,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            hintText: manualPhaseHintText,
+                            hintStyle: manualPhaseHintStyle,
+                          ),
+                          style: manualPhaseInputStyle,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            )
+          : Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                isZh
+                    ? 'Hardness Engineering 使用自动化流水线，不支持手动输入'
+                    : 'Hardness Engineering uses an automated pipeline; manual input is not available',
+                style: theme.textTheme.bodyMedium?.copyWith(color: disabledFg),
+              ),
+            ),
     );
 
     final actionRow = Row(
@@ -5386,10 +6136,7 @@ class _HeComposer extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                disabledOutlinedButton(
-                  icon: Icons.hub_outlined,
-                  label: '--',
-                ),
+                disabledOutlinedButton(icon: Icons.hub_outlined, label: '--'),
                 const SizedBox(width: 10),
                 disabledOutlinedButton(
                   icon: Icons.attach_file_rounded,
@@ -5457,10 +6204,67 @@ class _HeComposer extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        disabledFilledButton(
-          icon: Icons.arrow_upward_rounded,
-          label: isZh ? '发送' : 'Send',
-        ),
+        // When manual review is active for the reviewing phase, show
+        // explicit Pass / Fail verdict buttons instead of a single Send.
+        if (manualPhaseEnabled && isManualReviewPhase) ...[
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: (primaryActionEnabled && !reviewSubmitting)
+                  ? onReviewFail
+                  : null,
+              icon: Icon(
+                reviewSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.thumb_down_alt_rounded,
+                size: 18,
+              ),
+              label: Text(
+                reviewSubmitting
+                    ? (isZh ? '提交中' : 'Submitting')
+                    : (isZh ? '验收不通过' : 'Fail'),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.error,
+                side: BorderSide(
+                  color: colorScheme.error.withValues(alpha: 0.5),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: (primaryActionEnabled && !reviewSubmitting)
+                  ? onReviewPass
+                  : null,
+              icon: Icon(
+                reviewSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.thumb_up_alt_rounded,
+                size: 18,
+              ),
+              label: Text(
+                reviewSubmitting
+                    ? (isZh ? '提交中' : 'Submitting')
+                    : (isZh ? '验收通过' : 'Pass'),
+              ),
+            ),
+          ),
+        ] else
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: primaryActionEnabled ? onPrimaryAction : null,
+              icon: Icon(primaryActionIcon, size: 18),
+              label: Text(primaryActionLabel),
+            ),
+          ),
       ],
     );
 
@@ -5519,6 +6323,14 @@ class _HePhaseApprovalBanner extends StatelessWidget {
     required this.isZh,
     required this.nextPhase,
     this.approvalIssue,
+    required this.manualPhaseEnabled,
+    required this.hasQueuedManualPhaseInput,
+    required this.manualPhaseActionLabel,
+    required this.manualPhaseSwitchBackLabel,
+    required this.manualPhaseActiveDescription,
+    required this.manualPhaseQueuedDescription,
+    required this.manualPhaseIcon,
+    this.onManualPhaseToggle,
     required this.onApprove,
     required this.onReject,
   });
@@ -5526,6 +6338,14 @@ class _HePhaseApprovalBanner extends StatelessWidget {
   final bool isZh;
   final HardnessPhase nextPhase;
   final String? approvalIssue;
+  final bool manualPhaseEnabled;
+  final bool hasQueuedManualPhaseInput;
+  final String manualPhaseActionLabel;
+  final String manualPhaseSwitchBackLabel;
+  final String manualPhaseActiveDescription;
+  final String manualPhaseQueuedDescription;
+  final IconData manualPhaseIcon;
+  final VoidCallback? onManualPhaseToggle;
   final VoidCallback? onApprove;
   final VoidCallback onReject;
 
@@ -5540,17 +6360,14 @@ class _HePhaseApprovalBanner extends StatelessWidget {
       ),
       colorScheme.surface,
     );
-    final phaseName =
-        isZh ? nextPhase.displayNameZh : nextPhase.displayNameEn;
+    final phaseName = isZh ? nextPhase.displayNameZh : nextPhase.displayNameEn;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: _br16,
-        border: Border.all(
-          color: accent.withValues(alpha: 0.30),
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.30)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5585,6 +6402,79 @@ class _HePhaseApprovalBanner extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
+          if (onManualPhaseToggle != null && manualPhaseEnabled) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  accent.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.16 : 0.10,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: _br16,
+                border: Border.all(color: accent.withValues(alpha: 0.24)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(manualPhaseIcon, size: 16, color: accent),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      manualPhaseActiveDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (onManualPhaseToggle != null &&
+              hasQueuedManualPhaseInput) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  colorScheme.primary.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.14 : 0.08,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: _br16,
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.20),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.history_toggle_off_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      manualPhaseQueuedDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (approvalIssue != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -5630,11 +6520,34 @@ class _HePhaseApprovalBanner extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              if (onManualPhaseToggle != null) ...[
+                OutlinedButton.icon(
+                  onPressed: onManualPhaseToggle,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: accent,
+                    side: BorderSide(color: accent.withValues(alpha: 0.34)),
+                  ),
+                  icon: Icon(
+                    manualPhaseEnabled
+                        ? Icons.smart_toy_outlined
+                        : manualPhaseIcon,
+                    size: 18,
+                  ),
+                  label: Text(
+                    manualPhaseEnabled
+                        ? manualPhaseSwitchBackLabel
+                        : manualPhaseActionLabel,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               OutlinedButton(
                 onPressed: onReject,
                 style: OutlinedButton.styleFrom(
                   foregroundColor: colorScheme.error,
-                  side: BorderSide(color: colorScheme.error.withValues(alpha: 0.4)),
+                  side: BorderSide(
+                    color: colorScheme.error.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: Text(isZh ? '中止' : 'Abort'),
               ),
@@ -5675,17 +6588,16 @@ class _HePendingPhaseEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final cliNames =
-        kHardnessCliCatalog.where((c) => c.supportsHeadless).toList();
+    final cliNames = kHardnessCliCatalog
+        .where((c) => c.supportsHeadless)
+        .toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.65),
         borderRadius: _br16,
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5703,14 +6615,17 @@ class _HePendingPhaseEditor extends StatelessWidget {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   key: ValueKey<String>('he-cli-${roleConfig.cliName}'),
-                  initialValue: cliNames.any((c) => c.name == roleConfig.cliName)
+                  initialValue:
+                      cliNames.any((c) => c.name == roleConfig.cliName)
                       ? roleConfig.cliName
                       : null,
                   decoration: InputDecoration(
                     labelText: 'CLI',
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -5727,18 +6642,13 @@ class _HePendingPhaseEditor extends StatelessWidget {
                   }).toList(),
                   onChanged: (value) {
                     if (value == null) return;
-                    final cli = cliNames.firstWhere((c) => c.name == value);
-                    // Auto-select first model if current model is not in new CLI's list.
-                    final newModelId =
-                        cli.knownModels.contains(roleConfig.modelId)
-                            ? roleConfig.modelId
-                            : (cli.knownModels.isNotEmpty
-                                ? cli.knownModels.first
-                                : '');
-                    onChanged(roleConfig.copyWith(
-                      cliName: value,
-                      modelId: newModelId,
-                    ));
+                    final currentModelId = roleConfig.modelId.trim();
+                    onChanged(
+                      roleConfig.copyWith(
+                        cliName: value,
+                        modelId: currentModelId,
+                      ),
+                    );
                   },
                 ),
               ),
@@ -5776,6 +6686,7 @@ class _HeModelDropdown extends StatelessWidget {
         .where((c) => c.name == roleConfig.cliName)
         .firstOrNull;
     final models = cli?.knownModels ?? const [];
+    final configuredModelId = roleConfig.modelId.trim();
 
     if (models.isEmpty) {
       // Free-form text field for model ID.
@@ -5785,11 +6696,11 @@ class _HeModelDropdown extends StatelessWidget {
         decoration: InputDecoration(
           labelText: isZh ? '模型' : 'Model',
           isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
           ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
         style: theme.textTheme.bodySmall,
         onChanged: (value) =>
@@ -5797,30 +6708,47 @@ class _HeModelDropdown extends StatelessWidget {
       );
     }
 
-    return DropdownButtonFormField<String>(
-      key: ValueKey<String>('he-model-dd-${roleConfig.cliName}'),
-      initialValue: models.contains(roleConfig.modelId)
-          ? roleConfig.modelId
-          : null,
-      decoration: InputDecoration(
-        labelText: isZh ? '模型' : 'Model',
-        isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      items: models.map((m) {
-        return DropdownMenuItem(
-          value: m,
+    final items = <DropdownMenuItem<String>>[];
+    if (configuredModelId.isNotEmpty && !models.contains(configuredModelId)) {
+      items.add(
+        DropdownMenuItem<String>(
+          value: configuredModelId,
           child: Text(
-            m,
+            describeHardnessCliModel(cli, configuredModelId, isZh: isZh),
             style: theme.textTheme.bodySmall,
             overflow: TextOverflow.ellipsis,
           ),
-        );
-      }).toList(),
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey<String>('he-model-dd-${roleConfig.cliName}'),
+      initialValue: items.any((item) => item.value == configuredModelId)
+          ? configuredModelId
+          : (models.contains(configuredModelId) ? configuredModelId : null),
+      decoration: InputDecoration(
+        labelText: isZh ? '模型' : 'Model',
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      items: [
+        ...items,
+        ...models.map((m) {
+          return DropdownMenuItem(
+            value: m,
+            child: Text(
+              describeHardnessCliModel(cli, m, isZh: isZh),
+              style: theme.textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }),
+      ],
       onChanged: (value) {
         if (value == null) return;
         onChanged(roleConfig.copyWith(modelId: value));
@@ -5834,10 +6762,7 @@ class _HeModelDropdown extends StatelessWidget {
 // =============================================================================
 
 class _HeChangedFilesList extends StatelessWidget {
-  const _HeChangedFilesList({
-    required this.files,
-    required this.isZh,
-  });
+  const _HeChangedFilesList({required this.files, required this.isZh});
 
   final List<HardnessChangedFile> files;
   final bool isZh;
@@ -5858,8 +6783,11 @@ class _HeChangedFilesList extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.difference_rounded,
-                  size: 14, color: colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.difference_rounded,
+                size: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 6),
               Text(
                 isZh
@@ -5880,17 +6808,17 @@ class _HeChangedFilesList extends StatelessWidget {
               final file = files[index];
               final (icon, iconColor) = switch (file.changeType) {
                 HardnessFileChangeType.added => (
-                    Icons.add_circle_outline_rounded,
-                    const Color(0xFF4CAF50),
-                  ),
+                  Icons.add_circle_outline_rounded,
+                  const Color(0xFF4CAF50),
+                ),
                 HardnessFileChangeType.modified => (
-                    Icons.edit_outlined,
-                    colorScheme.primary,
-                  ),
+                  Icons.edit_outlined,
+                  colorScheme.primary,
+                ),
                 HardnessFileChangeType.deleted => (
-                    Icons.remove_circle_outline_rounded,
-                    colorScheme.error,
-                  ),
+                  Icons.remove_circle_outline_rounded,
+                  colorScheme.error,
+                ),
               };
               return Material(
                 color: Colors.transparent,
@@ -5899,7 +6827,9 @@ class _HeChangedFilesList extends StatelessWidget {
                   onTap: () => _showDiffDialog(context, file),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
-                        vertical: 4, horizontal: 4),
+                      vertical: 4,
+                      horizontal: 4,
+                    ),
                     child: Row(
                       children: [
                         Icon(icon, size: 14, color: iconColor),
@@ -5918,8 +6848,9 @@ class _HeChangedFilesList extends StatelessWidget {
                         Icon(
                           Icons.chevron_right_rounded,
                           size: 16,
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.45),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.45,
+                          ),
                         ),
                       ],
                     ),
@@ -5977,17 +6908,29 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
     final before = widget.file.beforeContent ?? '';
     final after = widget.file.afterContent ?? '';
     try {
-      final result = await compute(
-        _computeDiffIsolate,
-        <Object>[before, after],
-      );
-      if (mounted) setState(() { _diffLines = result; _computing = false; });
+      final result = await compute(_computeDiffIsolate, <Object>[
+        before,
+        after,
+      ]);
+      if (mounted) {
+        setState(() {
+          _diffLines = result;
+          _computing = false;
+        });
+      }
     } catch (_) {
       // Fallback: compute on main thread.
       if (!mounted) return;
       final result = _computeSimpleUnifiedDiff(
-        before.split('\n'), after.split('\n'));
-      if (mounted) setState(() { _diffLines = result; _computing = false; });
+        before.split('\n'),
+        after.split('\n'),
+      );
+      if (mounted) {
+        setState(() {
+          _diffLines = result;
+          _computing = false;
+        });
+      }
     }
   }
 
@@ -6034,8 +6977,9 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                             _DiffStatChip(
                               label: _changeTypeLabel(),
                               color: switch (file.changeType) {
-                                HardnessFileChangeType.added =>
-                                  const Color(0xFF4CAF50),
+                                HardnessFileChangeType.added => const Color(
+                                  0xFF4CAF50,
+                                ),
                                 HardnessFileChangeType.modified =>
                                   colorScheme.primary,
                                 HardnessFileChangeType.deleted =>
@@ -6069,12 +7013,12 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.6),
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.6,
+                    ),
                     borderRadius: _br16,
                     border: Border.all(
-                      color: colorScheme.outlineVariant
-                          .withValues(alpha: 0.40),
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.40),
                     ),
                   ),
                   child: ClipRRect(
@@ -6148,12 +7092,9 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
 
   String _changeTypeLabel() {
     return switch (widget.file.changeType) {
-      HardnessFileChangeType.added =>
-        widget.isZh ? '新增文件' : 'Added',
-      HardnessFileChangeType.modified =>
-        widget.isZh ? '已修改' : 'Modified',
-      HardnessFileChangeType.deleted =>
-        widget.isZh ? '已删除' : 'Deleted',
+      HardnessFileChangeType.added => widget.isZh ? '新增文件' : 'Added',
+      HardnessFileChangeType.modified => widget.isZh ? '已修改' : 'Modified',
+      HardnessFileChangeType.deleted => widget.isZh ? '已删除' : 'Deleted',
     };
   }
 }
@@ -6306,13 +7247,11 @@ List<String> _computeSimpleUnifiedDiff(
   // Group changes into hunks.
   final hunkRanges = <(int, int)>[];
   var hunkStart = (changeIndices.first - contextSize).clamp(0, edits.length);
-  var hunkEnd =
-      (changeIndices.first + contextSize + 1).clamp(0, edits.length);
+  var hunkEnd = (changeIndices.first + contextSize + 1).clamp(0, edits.length);
 
   for (var ci = 1; ci < changeIndices.length; ci++) {
     final s = (changeIndices[ci] - contextSize).clamp(0, edits.length);
-    final e =
-        (changeIndices[ci] + contextSize + 1).clamp(0, edits.length);
+    final e = (changeIndices[ci] + contextSize + 1).clamp(0, edits.length);
     if (s <= hunkEnd) {
       // Merge with current hunk.
       hunkEnd = e;
@@ -6397,7 +7336,7 @@ class _HeStreamingSmartView extends StatefulWidget {
     required this.isZh,
     required this.theme,
     required this.colorScheme,
-    this.filePathRoots = const [],
+    required this.filePathRoots,
   });
 
   final List<String> lines;
@@ -6486,8 +7425,9 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   }
 
   void _parseMarkdown(String source) {
-    final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(widget.theme)
-        .merge(_heBuildMarkdownStyleSheet(widget.theme, widget.colorScheme));
+    final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
+      widget.theme,
+    ).merge(_heBuildMarkdownStyleSheet(widget.theme, widget.colorScheme));
 
     final inlineSyntaxes = widget.filePathRoots.isNotEmpty
         ? <md.InlineSyntax>[
@@ -6527,19 +7467,20 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
         bulletBuilder: null,
         builders: builders,
         paddingBuilders: const <String, MarkdownPaddingBuilder>{},
-        fitContent: false,
-        listItemCrossAxisAlignment:
-            MarkdownListItemCrossAxisAlignment.baseline,
+        listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
       );
       _markdownChildren = builder.build(astNodes);
     } catch (_) {
       // Fallback to plain text on parse error.
       _markdownChildren = <Widget>[
-        Text(source, style: TextStyle(
-          fontFamily: 'monospace',
-          fontSize: 13,
-          color: widget.colorScheme.onSurface,
-        )),
+        Text(
+          source,
+          style: TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 13,
+            color: widget.colorScheme.onSurface,
+          ),
+        ),
       ];
     }
   }
@@ -6557,16 +7498,20 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
   GestureRecognizer createLink(String text, String? href, String title) {
     final recognizer = TapGestureRecognizer();
     _recognizers.add(recognizer);
-    final resolvedPath =
-        resolveMarkdownMessageLinkPath(href, widget.filePathRoots);
+    final resolvedPath = resolveMarkdownMessageLinkPath(
+      href,
+      widget.filePathRoots,
+    );
     if (resolvedPath != null) {
       recognizer.onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-            duration: const Duration(seconds: 2),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       };
     }
@@ -6587,10 +7532,12 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       ..onTap = () {
         Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Path copied: ${resolvedPath.resolvedPath}'),
-            duration: const Duration(seconds: 2),
-          ));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       };
     _recognizers.add(recognizer);
@@ -6744,8 +7691,9 @@ class _HeFilePathBuilder extends MarkdownElementBuilder {
 
     // Pending path — async resolve, then show chip or fallback.
     final normalizedPath = element.attributes['normalized_path'] ?? '';
-    final candidateRoots =
-        (element.attributes['candidate_roots'] ?? '').split('\r');
+    final candidateRoots = (element.attributes['candidate_roots'] ?? '').split(
+      '\r',
+    );
     final fullMatch = element.textContent;
     final trailing = element.attributes['trailing'] ?? '';
     final isCodeSpan = element.attributes['is_code_span'] == 'true';
@@ -6808,8 +7756,7 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
   void didUpdateWidget(_HeAsyncFilePathChip oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.normalizedPath != widget.normalizedPath ||
-        oldWidget.candidateRoots.join('|') !=
-            widget.candidateRoots.join('|')) {
+        oldWidget.candidateRoots.join('|') != widget.candidateRoots.join('|')) {
       _future = resolveExistingMessagePathAsync(
         widget.normalizedPath,
         widget.candidateRoots,
@@ -6844,6 +7791,7 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
                       displayPath: widget.normalizedPath,
                       resolvedPath: widget.normalizedPath,
                       isDirectory: widget.trailing.contains('/'),
+                      isUnresolved: true,
                       textColor: widget.textColor,
                     ),
                   ),
@@ -6919,7 +7867,8 @@ class _HeFilePathChipInline extends StatelessWidget {
     // Match _FilePathChip reference: surface-based background + textColor.
     final chipColor = theme.colorScheme.surface.withValues(alpha: 0.68);
     final borderColor = textColor.withValues(alpha: 0.24);
-    final labelStyle = theme.textTheme.labelMedium?.copyWith(
+    final labelStyle =
+        theme.textTheme.labelMedium?.copyWith(
           color: textColor,
           fontWeight: FontWeight.w700,
         ) ??
@@ -7049,7 +7998,9 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(overlayContext).colorScheme.surfaceContainerHigh,
+                color: Theme.of(
+                  overlayContext,
+                ).colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: Theme.of(overlayContext).dividerColor,
@@ -7315,10 +8266,9 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
     _scanDirectory();
   }
 
-  String get _currentAbsolutePath =>
-      _pathSegments.isEmpty
-          ? widget.steeringRoot
-          : p.joinAll([widget.steeringRoot, ..._pathSegments]);
+  String get _currentAbsolutePath => _pathSegments.isEmpty
+      ? widget.steeringRoot
+      : p.joinAll([widget.steeringRoot, ..._pathSegments]);
 
   void _navigateTo(List<String> segments) {
     setState(() {
@@ -7341,13 +8291,15 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
           try {
             stat = await entity.stat();
           } catch (_) {}
-          entries.add(_HeSteeringEntry(
-            name: name,
-            isDirectory: isDir,
-            absolutePath: entity.path,
-            size: stat?.size,
-            modified: stat?.modified,
-          ));
+          entries.add(
+            _HeSteeringEntry(
+              name: name,
+              isDirectory: isDir,
+              absolutePath: entity.path,
+              size: stat?.size,
+              modified: stat?.modified,
+            ),
+          );
         }
       }
     } catch (_) {
@@ -7407,8 +8359,11 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
               // ── Title row ──
               Row(
                 children: [
-                  Icon(Icons.folder_special_rounded,
-                      color: colorScheme.primary, size: 26),
+                  Icon(
+                    Icons.folder_special_rounded,
+                    color: colorScheme.primary,
+                    size: 26,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -7440,32 +8395,31 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _entries.isEmpty
-                        ? Center(
-                            child: Text(
-                              widget.isZh ? '此目录为空' : 'This directory is empty',
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: _entries.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 2),
-                            itemBuilder: (ctx, i) {
-                              final entry = _entries[i];
-                              return _HeSteeringEntryTile(
-                                entry: entry,
-                                isZh: widget.isZh,
-                                description: entry.isDirectory &&
-                                        _pathSegments.isEmpty
-                                    ? _directoryDescriptions[entry.name]
-                                    : null,
-                                onTap: () => _onEntryTap(entry),
-                              );
-                            },
+                    ? Center(
+                        child: Text(
+                          widget.isZh ? '此目录为空' : 'This directory is empty',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
                           ),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _entries.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 2),
+                        itemBuilder: (ctx, i) {
+                          final entry = _entries[i];
+                          return _HeSteeringEntryTile(
+                            entry: entry,
+                            isZh: widget.isZh,
+                            description:
+                                entry.isDirectory && _pathSegments.isEmpty
+                                ? _directoryDescriptions[entry.name]
+                                : null,
+                            onTap: () => _onEntryTap(entry),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -7520,19 +8474,26 @@ class _HeBreadcrumb extends StatelessWidget {
       ),
     ];
     for (var i = 0; i < segments.length; i++) {
-      items.add(Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Icon(Icons.chevron_right_rounded,
-            size: 18, color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5)),
-      ));
+      items.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      );
       final isLast = i == segments.length - 1;
-      items.add(_breadcrumbChip(
-        context,
-        label: segments[i],
-        icon: isLast ? Icons.folder_open_rounded : Icons.folder_rounded,
-        onTap: isLast ? null : () => onNavigate(segments.sublist(0, i + 1)),
-        isLast: isLast,
-      ));
+      items.add(
+        _breadcrumbChip(
+          context,
+          label: segments[i],
+          icon: isLast ? Icons.folder_open_rounded : Icons.folder_rounded,
+          onTap: isLast ? null : () => onNavigate(segments.sublist(0, i + 1)),
+          isLast: isLast,
+        ),
+      );
     }
 
     return SingleChildScrollView(
@@ -7563,11 +8524,13 @@ class _HeBreadcrumb extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 16,
-                  color: isLast
-                      ? colorScheme.onPrimaryContainer
-                      : colorScheme.onSurfaceVariant),
+              Icon(
+                icon,
+                size: 16,
+                color: isLast
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 4),
               Text(
                 label,
@@ -7738,6 +8701,7 @@ class _HeSteeringFileEditorDialogState
   bool _saving = false;
   String? _error;
   bool _showPreview = true;
+
   /// The text as last saved (or as loaded). Used to detect real changes
   /// vs cursor-only movements (which also fire the controller listener).
   String _savedText = '';
@@ -7792,16 +8756,18 @@ class _HeSteeringFileEditorDialogState
         _dirty = false;
         _saving = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(widget.isZh ? '文件已保存' : 'File saved'),
-        duration: const Duration(seconds: 1),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.isZh ? '文件已保存' : 'File saved'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(widget.isZh ? '保存失败：$e' : 'Save failed: $e'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(widget.isZh ? '保存失败：$e' : 'Save failed: $e')),
+      );
     }
   }
 
@@ -7811,9 +8777,11 @@ class _HeSteeringFileEditorDialogState
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(widget.isZh ? '放弃更改？' : 'Discard changes?'),
-        content: Text(widget.isZh
-            ? '你有未保存的更改，确定要放弃吗？'
-            : 'You have unsaved changes. Discard them?'),
+        content: Text(
+          widget.isZh
+              ? '你有未保存的更改，确定要放弃吗？'
+              : 'You have unsaved changes. Discard them?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -7855,7 +8823,8 @@ class _HeSteeringFileEditorDialogState
       newText = '$before$prefix$selected$suffix$after';
       newSel = TextSelection(
         baseOffset: sel.start,
-        extentOffset: sel.start + prefix.length + selected.length + suffix.length,
+        extentOffset:
+            sel.start + prefix.length + selected.length + suffix.length,
       );
     }
     _controller.value = v.copyWith(text: newText, selection: newSel);
@@ -7878,7 +8847,8 @@ class _HeSteeringFileEditorDialogState
     final prefixed = block.split('\n').map((l) => '$prefix$l').join('\n');
 
     _controller.value = v.copyWith(
-      text: '${text.substring(0, lineStart)}$prefixed${text.substring(lineEnd)}',
+      text:
+          '${text.substring(0, lineStart)}$prefixed${text.substring(lineEnd)}',
       selection: TextSelection(
         baseOffset: lineStart,
         extentOffset: lineStart + prefixed.length,
@@ -7915,8 +8885,7 @@ class _HeSteeringFileEditorDialogState
   void _applyBlockquote() => _prefixLines('> ');
   void _applyBulletList() => _prefixLines('- ');
 
-  void _applyCodeBlock() =>
-      _insertSnippet('```\n\n```\n', cursorOffset: 4);
+  void _applyCodeBlock() => _insertSnippet('```\n\n```\n', cursorOffset: 4);
 
   void _applyOrderedList() {
     final v = _controller.value;
@@ -8005,8 +8974,11 @@ class _HeSteeringFileEditorDialogState
                 // ── Title row ──
                 Row(
                   children: [
-                    Icon(Icons.edit_document,
-                        size: 22, color: colorScheme.primary),
+                    Icon(
+                      Icons.edit_document,
+                      size: 22,
+                      color: colorScheme.primary,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -8068,32 +9040,30 @@ class _HeSteeringFileEditorDialogState
                   child: _loading
                       ? const Center(child: CircularProgressIndicator())
                       : _error != null
-                          ? Center(
-                              child: SelectableText(
-                                _error!,
-                                style: TextStyle(color: colorScheme.error),
-                              ),
-                            )
-                          : isMarkdown && _showPreview
-                              ? Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildEditorPane(
-                                          theme, colorScheme),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    VerticalDivider(
-                                      width: 1,
-                                      color: colorScheme.outlineVariant,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: _buildPreviewPane(
-                                          theme, colorScheme),
-                                    ),
-                                  ],
-                                )
-                              : _buildEditorPane(theme, colorScheme),
+                      ? Center(
+                          child: SelectableText(
+                            _error!,
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        )
+                      : isMarkdown && _showPreview
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: _buildEditorPane(theme, colorScheme),
+                            ),
+                            const SizedBox(width: 10),
+                            VerticalDivider(
+                              width: 1,
+                              color: colorScheme.outlineVariant,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _buildPreviewPane(theme, colorScheme),
+                            ),
+                          ],
+                        )
+                      : _buildEditorPane(theme, colorScheme),
                 ),
                 const SizedBox(height: 8),
                 const Divider(height: 1),
@@ -8110,10 +9080,10 @@ class _HeSteeringFileEditorDialogState
                           final words = t.trim().isEmpty
                               ? 0
                               : t
-                                  .trim()
-                                  .split(RegExp(r'\s+'))
-                                  .where((w) => w.isNotEmpty)
-                                  .length;
+                                    .trim()
+                                    .split(RegExp(r'\s+'))
+                                    .where((w) => w.isNotEmpty)
+                                    .length;
                           return Text(
                             widget.isZh
                                 ? '${t.length} 字符  $words 词'
@@ -8147,7 +9117,9 @@ class _HeSteeringFileEditorDialogState
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(88, 40),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                       ),
                       child: Text(widget.isZh ? '关闭' : 'Close'),
                     ),
@@ -8157,7 +9129,9 @@ class _HeSteeringFileEditorDialogState
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(88, 40),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                       ),
                       child: _saving
                           ? SizedBox(
@@ -8192,10 +9166,7 @@ class _HeSteeringFileEditorDialogState
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: SizedBox(
         height: 18,
-        child: VerticalDivider(
-          width: 1,
-          color: colorScheme.outlineVariant,
-        ),
+        child: VerticalDivider(width: 1, color: colorScheme.outlineVariant),
       ),
     );
     final zh = widget.isZh;
@@ -8212,65 +9183,78 @@ class _HeSteeringFileEditorDialogState
           children: [
             // Headings
             _MdToolbarBtn(
-                label: 'H₁',
-                tooltip: zh ? '一级标题' : 'Heading 1',
-                onTap: () => _applyHeading(1)),
+              label: 'H₁',
+              tooltip: zh ? '一级标题' : 'Heading 1',
+              onTap: () => _applyHeading(1),
+            ),
             _MdToolbarBtn(
-                label: 'H₂',
-                tooltip: zh ? '二级标题' : 'Heading 2',
-                onTap: () => _applyHeading(2)),
+              label: 'H₂',
+              tooltip: zh ? '二级标题' : 'Heading 2',
+              onTap: () => _applyHeading(2),
+            ),
             _MdToolbarBtn(
-                label: 'H₃',
-                tooltip: zh ? '三级标题' : 'Heading 3',
-                onTap: () => _applyHeading(3)),
+              label: 'H₃',
+              tooltip: zh ? '三级标题' : 'Heading 3',
+              onTap: () => _applyHeading(3),
+            ),
             sep,
             // Inline styles
             _MdToolbarBtn(
-                icon: Icons.format_bold,
-                tooltip: zh ? '粗体 **text**' : 'Bold **text**',
-                onTap: _applyBold),
+              icon: Icons.format_bold,
+              tooltip: zh ? '粗体 **text**' : 'Bold **text**',
+              onTap: _applyBold,
+            ),
             _MdToolbarBtn(
-                icon: Icons.format_italic,
-                tooltip: zh ? '斜体 *text*' : 'Italic *text*',
-                onTap: _applyItalic),
+              icon: Icons.format_italic,
+              tooltip: zh ? '斜体 *text*' : 'Italic *text*',
+              onTap: _applyItalic,
+            ),
             _MdToolbarBtn(
-                icon: Icons.format_strikethrough,
-                tooltip: zh ? '删除线 ~~text~~' : 'Strikethrough ~~text~~',
-                onTap: _applyStrikethrough),
+              icon: Icons.format_strikethrough,
+              tooltip: zh ? '删除线 ~~text~~' : 'Strikethrough ~~text~~',
+              onTap: _applyStrikethrough,
+            ),
             _MdToolbarBtn(
-                icon: Icons.code,
-                tooltip: zh ? '内联代码 `code`' : 'Inline code `code`',
-                onTap: _applyInlineCode),
+              icon: Icons.code,
+              tooltip: zh ? '内联代码 `code`' : 'Inline code `code`',
+              onTap: _applyInlineCode,
+            ),
             sep,
             // Block
             _MdToolbarBtn(
-                icon: Icons.data_object_rounded,
-                tooltip: zh ? '代码块' : 'Code block',
-                onTap: _applyCodeBlock),
+              icon: Icons.data_object_rounded,
+              tooltip: zh ? '代码块' : 'Code block',
+              onTap: _applyCodeBlock,
+            ),
             _MdToolbarBtn(
-                icon: Icons.format_quote_rounded,
-                tooltip: zh ? '引用块 > text' : 'Blockquote > text',
-                onTap: _applyBlockquote),
+              icon: Icons.format_quote_rounded,
+              tooltip: zh ? '引用块 > text' : 'Blockquote > text',
+              onTap: _applyBlockquote,
+            ),
             sep,
             // Lists
             _MdToolbarBtn(
-                icon: Icons.format_list_bulleted,
-                tooltip: zh ? '无序列表 - item' : 'Bullet list - item',
-                onTap: _applyBulletList),
+              icon: Icons.format_list_bulleted,
+              tooltip: zh ? '无序列表 - item' : 'Bullet list - item',
+              onTap: _applyBulletList,
+            ),
             _MdToolbarBtn(
-                icon: Icons.format_list_numbered,
-                tooltip: zh ? '有序列表 1. item' : 'Ordered list 1. item',
-                onTap: _applyOrderedList),
+              icon: Icons.format_list_numbered,
+              tooltip: zh ? '有序列表 1. item' : 'Ordered list 1. item',
+              onTap: _applyOrderedList,
+            ),
             sep,
             // Misc
             _MdToolbarBtn(
-                icon: Icons.link_rounded,
-                tooltip: zh ? '插入链接 [text](url)' : 'Insert link [text](url)',
-                onTap: _insertLink),
+              icon: Icons.link_rounded,
+              tooltip: zh ? '插入链接 [text](url)' : 'Insert link [text](url)',
+              onTap: _insertLink,
+            ),
             _MdToolbarBtn(
-                icon: Icons.horizontal_rule_rounded,
-                tooltip: zh ? '分隔线 ---' : 'Horizontal rule ---',
-                onTap: _insertHR),
+              icon: Icons.horizontal_rule_rounded,
+              tooltip: zh ? '分隔线 ---' : 'Horizontal rule ---',
+              onTap: _insertHR,
+            ),
           ],
         ),
       ),
@@ -8310,8 +9294,7 @@ class _HeSteeringFileEditorDialogState
           filled: true,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.all(14),
-          hintText:
-              widget.isZh ? '在此编辑文件内容…' : 'Edit file content here…',
+          hintText: widget.isZh ? '在此编辑文件内容…' : 'Edit file content here…',
         ),
       ),
     );
@@ -8332,8 +9315,7 @@ class _HeSteeringFileEditorDialogState
         children: [
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             color: colorScheme.surfaceContainerHigh,
             child: Text(
               widget.isZh ? '预览' : 'Preview',
@@ -8412,4 +9394,3 @@ class _MdToolbarBtn extends StatelessWidget {
     );
   }
 }
-

@@ -41,7 +41,7 @@ The actual coding is delegated entirely to the user-configured CLI tools.
 | Role | Storage Value | Responsibility |
 |------|--------------|----------------|
 | 探档者 | `profiler` | **First-run only**: scans project structure, writes `architecture.md` & `conventions.md` |
-| 调读者 | `reader` | Reads the task, analyzes the codebase, produces a context report |
+| 调查者 | `reader` | Reads the task, analyzes the codebase, produces a context report |
 | 规划者 | `planner` | Reads the context report, produces a step-by-step execution plan |
 | 实施者 | `implementer` | Executes the plan step by step via CLI |
 | 验收者 | `reviewer` | Validates the implementation against the original requirements |

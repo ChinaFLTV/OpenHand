@@ -124,16 +124,19 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   }
 
   /// Spawns the install process.
-  /// On macOS/Linux: wraps command in a login shell so NVM/pyenv/conda paths are active.
+  /// On macOS/Linux: wraps command in an interactive login shell so user-managed
+  /// runtimes such as nvm / pyenv / conda match the orchestrator runtime.
   /// On Windows: runs directly with runInShell=true.
   Future<Process> _spawnProcess(List<String> cmd) async {
     if (Platform.isWindows) {
       return Process.start(cmd[0], cmd.sublist(1), runInShell: true);
     }
-    final shell = Platform.environment['SHELL'] ?? '/bin/bash';
     // Single-quote each arg to prevent word splitting.
     final cmdStr = cmd.map(_shellQuote).join(' ');
-    return Process.start(shell, ['-l', '-c', cmdStr]);
+    return Process.start(
+      resolveHardnessCliShellExecutable(),
+      buildHardnessCliShellArgs(cmdStr),
+    );
   }
 
   void _appendInstallHint(String installer, int? exitCode) {
@@ -214,14 +217,19 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     // ── Step 1: resolve full installer path via login shell ──────────────────
     String installerPath = cmd[0];
     try {
-      final shell = Platform.environment['SHELL'] ?? '/bin/bash';
-      final r = await Process.run(
-        shell,
-        ['-l', '-c', 'which ${_shellQuote(cmd[0])}'],
-      ).timeout(const Duration(seconds: 5));
+      final r = await runHardnessCliShellCommand(
+        'command -v ${_shellQuote(cmd[0])}',
+        timeout: const Duration(seconds: 5),
+      );
       if (r.exitCode == 0) {
-        final p = (r.stdout as String).trim().split('\n').first.trim();
-        if (p.isNotEmpty) installerPath = p;
+        final lines = '${r.stdout}'
+            .split('\n')
+            .map((line) => line.trim())
+            .where((line) => line.isNotEmpty)
+            .toList(growable: false);
+        if (lines.isNotEmpty) {
+          installerPath = lines.last;
+        }
       }
     } catch (_) {}
 

@@ -11,7 +11,7 @@ enum HardnessPhase {
 
   String get displayNameZh => switch (this) {
     HardnessPhase.metaCollection => '元数据采集',
-    HardnessPhase.reading => '调读',
+    HardnessPhase.reading => '调查',
     HardnessPhase.planning => '规划',
     HardnessPhase.implementing => '实施',
     HardnessPhase.reviewing => '验收',

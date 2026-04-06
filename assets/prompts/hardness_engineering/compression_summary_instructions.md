@@ -30,7 +30,7 @@
 ## 配置
 - 工作目录：{path}
 - 持久化目录：{path}
-- 调读者：{cli} / {model}
+- 调查者：{cli} / {model}
 - 规划者：{cli} / {model}
 - 实施者：{cli} / {model}
 - 验收者：{cli} / {model}

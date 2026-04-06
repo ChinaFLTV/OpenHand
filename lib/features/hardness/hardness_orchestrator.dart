@@ -50,6 +50,10 @@ class HardnessPhaseLog {
   int? exitCode;
   String? savedLogPath;
 
+  /// For reviewing phases: true if the review verdict was FAIL.
+  /// Used by the UI to show a distinct status for completed-but-failed reviews.
+  bool reviewVerdictFail = false;
+
   /// Files changed during this phase execution.
   /// Each entry: relative path → (before content hash, after content hash).
   List<HardnessChangedFile> changedFiles = [];
@@ -62,6 +66,7 @@ class HardnessPhaseLog {
       exitCode: exitCode,
       savedLogPath: savedLogPath,
       changedFiles: changedFiles.map((f) => f.toJson()).toList(),
+      reviewVerdictFail: reviewVerdictFail,
     );
   }
 
@@ -70,7 +75,8 @@ class HardnessPhaseLog {
       ..status = snapshot.status
       ..exitCode = snapshot.exitCode
       ..savedLogPath = snapshot.savedLogPath
-      ..changedFiles = snapshot.parsedChangedFiles;
+      ..changedFiles = snapshot.parsedChangedFiles
+      ..reviewVerdictFail = snapshot.reviewVerdictFail;
     log.lines.addAll(snapshot.lines);
     return log;
   }
@@ -84,6 +90,7 @@ class HardnessPhaseLogSnapshot {
     this.exitCode,
     this.savedLogPath,
     this.changedFiles = const [],
+    this.reviewVerdictFail = false,
   });
 
   final String phaseValue;
@@ -92,6 +99,7 @@ class HardnessPhaseLogSnapshot {
   final int? exitCode;
   final String? savedLogPath;
   final List<Map<String, Object?>> changedFiles;
+  final bool reviewVerdictFail;
 
   HardnessPhase get phase => HardnessPhase.fromStorageValue(phaseValue)!;
   HardnessPhaseStatus get status =>
@@ -107,6 +115,7 @@ class HardnessPhaseLogSnapshot {
     int? exitCode,
     Object? savedLogPath = _hardnessPhaseLogSnapshotUnset,
     List<Map<String, Object?>>? changedFiles,
+    bool? reviewVerdictFail,
   }) {
     return HardnessPhaseLogSnapshot(
       phaseValue: phaseValue ?? this.phaseValue,
@@ -117,6 +126,7 @@ class HardnessPhaseLogSnapshot {
           ? this.savedLogPath
           : savedLogPath as String?,
       changedFiles: changedFiles ?? this.changedFiles,
+      reviewVerdictFail: reviewVerdictFail ?? this.reviewVerdictFail,
     );
   }
 
@@ -127,6 +137,7 @@ class HardnessPhaseLogSnapshot {
     'exit_code': exitCode,
     'saved_log_path': savedLogPath,
     'changed_files': changedFiles,
+    'review_verdict_fail': reviewVerdictFail,
   };
 
   static HardnessPhaseLogSnapshot? fromJson(Map<String, Object?> json) {
@@ -148,10 +159,11 @@ class HardnessPhaseLogSnapshot {
           : '${json['saved_log_path']}',
       changedFiles: rawChangedFiles is List
           ? rawChangedFiles
-              .whereType<Map>()
-              .map((m) => Map<String, Object?>.from(m))
-              .toList()
+                .whereType<Map>()
+                .map((m) => Map<String, Object?>.from(m))
+                .toList()
           : const [],
+      reviewVerdictFail: json['review_verdict_fail'] == true,
     );
   }
 }
@@ -248,7 +260,10 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (_fullAccessPermission == value) return;
     _fullAccessPermission = value;
     // If full-access was just enabled while waiting for approval, auto-approve.
-    if (value && _phaseApprovalCompleter != null && !_phaseApprovalCompleter!.isCompleted) {
+    if (value &&
+        _phaseApprovalCompleter != null &&
+        !_phaseApprovalCompleter!.isCompleted) {
+      _manualPhaseInputRequested = false;
       resolvePhaseApproval(true);
     }
     notifyListeners();
@@ -266,16 +281,122 @@ class HardnessOrchestrator extends ChangeNotifier {
   HardnessPhase? _awaitingApprovalPhase;
   HardnessPhase? get awaitingApprovalPhase => _awaitingApprovalPhase;
 
+  /// When true, the paused phase is waiting for user-authored input from the
+  /// composer before continuing.
+  bool _manualPhaseInputRequested = false;
+  bool get manualPhaseInputRequested => _manualPhaseInputRequested;
+  HardnessPhase? get awaitingManualPhaseInputPhase =>
+      _manualPhaseInputRequested ? _awaitingApprovalPhase : null;
+  bool get awaitingManualPhaseInput => awaitingManualPhaseInputPhase != null;
+
+  /// User-authored content queued for the next execution of a specific phase.
+  /// This survives app restarts so an interrupted approval can continue with
+  /// the same human context.
+  HardnessPhase? _queuedManualPhaseInputPhase;
+  HardnessPhase? get queuedManualPhaseInputPhase =>
+      _queuedManualPhaseInputPhase;
+  String? _queuedManualPhaseInput;
+  String? get queuedManualPhaseInput => _queuedManualPhaseInput;
+  bool get hasQueuedManualPhaseInput =>
+      _queuedManualPhaseInput?.trim().isNotEmpty == true;
+  bool hasQueuedManualPhaseInputFor(HardnessPhase phase) =>
+      _queuedManualPhaseInputPhase == phase && hasQueuedManualPhaseInput;
+  bool isManualPhaseInputActiveFor(HardnessPhase phase) =>
+      awaitingManualPhaseInputPhase == phase;
+
+  /// Explicit review verdict set by the user through the pass/fail buttons.
+  /// true = PASS, false = FAIL, null = not set (AI-only review).
+  bool? _userReviewVerdict;
+
   bool _resumePendingApproval = false;
   int? _resumeStartIndex;
 
-  static const String _resumePausedPhaseNote =
-      '⚠ 应用关闭后，该阶段已暂停；恢复执行前需要重新审批。';
-  static const String _resumeSessionNote =
-      '⚠ 应用关闭后，会话已恢复；继续执行前需要重新审批。';
+  static const String _resumePausedPhaseNote = '⚠ 应用关闭后，该阶段已暂停；恢复执行前需要重新审批。';
+  static const String _resumeSessionNote = '⚠ 应用关闭后，会话已恢复；继续执行前需要重新审批。';
+
+  bool supportsManualPhaseInput(HardnessPhase phase) {
+    return switch (phase) {
+      HardnessPhase.metaCollection ||
+      HardnessPhase.planning ||
+      HardnessPhase.reviewing => true,
+      HardnessPhase.reading || HardnessPhase.implementing => false,
+    };
+  }
+
+  void setManualPhaseInputRequested(bool value) {
+    final awaitingPhase = _awaitingApprovalPhase;
+    if (_fullAccessPermission ||
+        awaitingPhase == null ||
+        !supportsManualPhaseInput(awaitingPhase)) {
+      return;
+    }
+    if (_manualPhaseInputRequested == value) {
+      return;
+    }
+    _manualPhaseInputRequested = value;
+    notifyListeners();
+  }
+
+  bool submitManualPhaseInput(String input, {bool? reviewVerdict}) {
+    final awaitingPhase = _awaitingApprovalPhase;
+    if (awaitingPhase == null || !supportsManualPhaseInput(awaitingPhase)) {
+      return false;
+    }
+    final normalized = input.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    _queuedManualPhaseInputPhase = awaitingPhase;
+    _queuedManualPhaseInput = normalized;
+    _manualPhaseInputRequested = false;
+
+    // Store explicit user review verdict when provided.
+    if (awaitingPhase == HardnessPhase.reviewing && reviewVerdict != null) {
+      _userReviewVerdict = reviewVerdict;
+    }
+
+    final awaitingLog = _currentAwaitingApprovalLog();
+    if (awaitingLog != null) {
+      if (awaitingLog.lines.isNotEmpty && awaitingLog.lines.last.isNotEmpty) {
+        _appendLine(awaitingLog, '');
+      }
+      _appendLine(
+        awaitingLog,
+        '【${_manualPhaseInputLogHeading(awaitingPhase)}】',
+      );
+      // Prepend explicit verdict marker for reviewing phase.
+      if (awaitingPhase == HardnessPhase.reviewing && reviewVerdict != null) {
+        _appendLine(awaitingLog, reviewVerdict ? 'PASS' : 'FAIL');
+        _appendLine(awaitingLog, '');
+      }
+      for (final line in normalized.split('\n')) {
+        _appendLine(awaitingLog, line);
+      }
+      _appendLine(awaitingLog, '');
+      // Show verdict-specific accepted-log for reviewing phase.
+      if (awaitingPhase == HardnessPhase.reviewing && reviewVerdict != null) {
+        _appendLine(
+          awaitingLog,
+          reviewVerdict
+              ? 'ℹ 已接收用户人工验收结果，用户判定为 PASS。本轮验收会结合该结果进行交叉核验并生成 feedback。'
+              : 'ℹ 已接收用户人工验收结果，用户判定为 FAIL。AI 会将审查意见做润色处理，持久化到 feedback 目录，随后推进到新一轮规划阶段。',
+        );
+      } else {
+        _appendLine(awaitingLog, _manualPhaseInputAcceptedLog(awaitingPhase));
+      }
+    }
+
+    _completePhaseApproval(true);
+    return true;
+  }
 
   /// Called by the UI to approve/reject advancing to the pending phase.
   void resolvePhaseApproval(bool approved) {
+    _manualPhaseInputRequested = false;
+    _completePhaseApproval(approved);
+  }
+
+  void _completePhaseApproval(bool approved) {
     final completer = _phaseApprovalCompleter;
     if (completer == null || completer.isCompleted) {
       if (!_resumePendingApproval || _resumeStartIndex == null) {
@@ -333,6 +454,14 @@ class HardnessOrchestrator extends ChangeNotifier {
       notifyListeners();
       return;
     }
+    final failedIndex = _failedPhaseIndex();
+    if (_status == HardnessOrchestratorStatus.failed &&
+        _phaseLogs.isNotEmpty &&
+        failedIndex != null) {
+      _resetPhaseLogsForRetryFrom(failedIndex);
+      await _resumeFromIndex(failedIndex);
+      return;
+    }
     final resumableIndex = _resumablePhaseIndex();
     if (_status == HardnessOrchestratorStatus.idle &&
         _phaseLogs.isNotEmpty &&
@@ -354,6 +483,10 @@ class HardnessOrchestrator extends ChangeNotifier {
     _resumeStartIndex = null;
     _awaitingApprovalPhase = null;
     _phaseApprovalCompleter = null;
+    _manualPhaseInputRequested = false;
+    _queuedManualPhaseInputPhase = null;
+    _queuedManualPhaseInput = null;
+    _userReviewVerdict = null;
 
     final firstRun = config.isFirstRun();
     final phases = firstRun
@@ -372,7 +505,7 @@ class HardnessOrchestrator extends ChangeNotifier {
           ];
 
     _phaseLogs = phases.map(HardnessPhaseLog.new).toList();
-    await _executePipeline(startIndex: 0, skipApprovalForStartIndex: true);
+    await _executePipeline(startIndex: 0, skipApprovalForStartIndex: !firstRun);
   }
 
   Future<void> _resumeFromIndex(int startIndex) async {
@@ -389,6 +522,8 @@ class HardnessOrchestrator extends ChangeNotifier {
     _resumeStartIndex = null;
     _phaseApprovalCompleter = null;
     _awaitingApprovalPhase = null;
+    _manualPhaseInputRequested = false;
+    _userReviewVerdict = null;
     _reviewRetryCount = _inferReviewRetryCount();
     await _executePipeline(
       startIndex: startIndex,
@@ -417,7 +552,9 @@ class HardnessOrchestrator extends ChangeNotifier {
         // ── Phase-gate: request user approval unless full-access ────────
         final shouldSkipApprovalForThisPhase =
             skipApprovalForStartIndex && i == startIndex;
-        if (i > 0 && !_fullAccessPermission && !shouldSkipApprovalForThisPhase) {
+        if (!_fullAccessPermission &&
+            !shouldSkipApprovalForThisPhase &&
+            _shouldGatePhaseEntry(i, log.phase)) {
           _currentPhase = log.phase;
           log.status = HardnessPhaseStatus.paused;
           _awaitingApprovalPhase = log.phase;
@@ -458,13 +595,18 @@ class HardnessOrchestrator extends ChangeNotifier {
           break;
         }
 
-        // ── Review failure → re-plan/re-implement loop ──────────────────
-        // When the reviewer outputs "FAIL" and the phase completed normally,
+        if (log.status == HardnessPhaseStatus.completed &&
+            _queuedManualPhaseInputPhase == log.phase) {
+          _queuedManualPhaseInputPhase = null;
+          _queuedManualPhaseInput = null;
+        }
+
         // insert additional planning + implementing + reviewing phases so
         // the issues can be addressed in a new iteration.
         if (log.phase == HardnessPhase.reviewing &&
             log.status == HardnessPhaseStatus.completed &&
-            _reviewOutputIndicatesFailure(log)) {
+            _reviewIndicatesFailure(log)) {
+          log.reviewVerdictFail = true;
           _reviewRetryCount++;
           if (_reviewRetryCount <= _maxReviewRetries) {
             final extraPhases = [
@@ -493,7 +635,9 @@ class HardnessOrchestrator extends ChangeNotifier {
 
       if (_stopRequested) {
         _status = HardnessOrchestratorStatus.cancelled;
-      } else if (_phaseLogs.any((l) => l.status == HardnessPhaseStatus.failed)) {
+      } else if (_phaseLogs.any(
+        (l) => l.status == HardnessPhaseStatus.failed,
+      )) {
         _status = HardnessOrchestratorStatus.failed;
         _errorMessage ??= '有阶段执行失败，请检查日志';
       } else {
@@ -515,6 +659,7 @@ class HardnessOrchestrator extends ChangeNotifier {
   void cancel() {
     if (_status != HardnessOrchestratorStatus.running) return;
     _stopRequested = true;
+    _manualPhaseInputRequested = false;
     // Resolve any pending approval completer so the pipeline loop can exit.
     final completer = _phaseApprovalCompleter;
     if (completer != null && !completer.isCompleted) {
@@ -533,6 +678,9 @@ class HardnessOrchestrator extends ChangeNotifier {
     required List<HardnessPhaseLogSnapshot> phaseLogs,
     String? errorMessage,
     HardnessPhase? currentPhase,
+    bool manualPhaseInputRequested = false,
+    String? queuedManualPhaseInput,
+    HardnessPhase? queuedManualPhaseInputPhase,
   }) {
     _stopRequested = false;
     _activeProcess = null;
@@ -546,6 +694,16 @@ class HardnessOrchestrator extends ChangeNotifier {
     _awaitingApprovalPhase = null;
     _resumePendingApproval = false;
     _resumeStartIndex = null;
+    _manualPhaseInputRequested = false;
+    final normalizedManualPhaseInput = queuedManualPhaseInput?.trim();
+    if (normalizedManualPhaseInput == null ||
+        normalizedManualPhaseInput.isEmpty) {
+      _queuedManualPhaseInputPhase = null;
+      _queuedManualPhaseInput = null;
+    } else {
+      _queuedManualPhaseInputPhase = queuedManualPhaseInputPhase;
+      _queuedManualPhaseInput = normalizedManualPhaseInput;
+    }
     _reviewRetryCount = _inferReviewRetryCount();
 
     if (_status == HardnessOrchestratorStatus.running) {
@@ -573,6 +731,9 @@ class HardnessOrchestrator extends ChangeNotifier {
       _resumePendingApproval = true;
       _resumeStartIndex = resumableIndex;
       _errorMessage = null;
+      _manualPhaseInputRequested =
+          manualPhaseInputRequested &&
+          supportsManualPhaseInput(resumableLog.phase);
     }
     notifyListeners();
   }
@@ -589,6 +750,28 @@ class HardnessOrchestrator extends ChangeNotifier {
     return null;
   }
 
+  int? _failedPhaseIndex() {
+    for (var index = 0; index < _phaseLogs.length; index += 1) {
+      if (_phaseLogs[index].status == HardnessPhaseStatus.failed) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  void _resetPhaseLogsForRetryFrom(int startIndex) {
+    if (startIndex < 0 || startIndex >= _phaseLogs.length) {
+      return;
+    }
+    final nextLogs = List<HardnessPhaseLog>.from(_phaseLogs);
+    for (var index = startIndex; index < nextLogs.length; index += 1) {
+      nextLogs[index] = HardnessPhaseLog(nextLogs[index].phase);
+    }
+    _phaseLogs = nextLogs;
+    _currentPhase = null;
+    _errorMessage = null;
+  }
+
   int _inferReviewRetryCount() {
     final reviewPhaseCount = _phaseLogs
         .where((log) => log.phase == HardnessPhase.reviewing)
@@ -599,6 +782,70 @@ class HardnessOrchestrator extends ChangeNotifier {
     return reviewPhaseCount - 1;
   }
 
+  bool _shouldGatePhaseEntry(int index, HardnessPhase phase) {
+    if (index > 0) {
+      return true;
+    }
+    return phase == HardnessPhase.metaCollection;
+  }
+
+  String _manualPhaseInputLogHeading(HardnessPhase phase) => switch (phase) {
+    HardnessPhase.metaCollection => '用户人工研究结果',
+    HardnessPhase.planning => '用户人工计划草案',
+    HardnessPhase.reviewing => '用户人工验收结果',
+    HardnessPhase.reading => '用户人工输入',
+    HardnessPhase.implementing => '用户人工输入',
+  };
+
+  String _manualPhaseInputAcceptedLog(HardnessPhase phase) => switch (phase) {
+    HardnessPhase.metaCollection =>
+      'ℹ 已接收用户人工研究结果，本轮 Profile 会结合这些资料产出符合规范的 architecture / conventions 文档。',
+    HardnessPhase.planning => 'ℹ 已接收用户人工计划草案，本轮 Plan 会在此基础上润色、补全并输出符合规范的计划文档。',
+    HardnessPhase.reviewing => 'ℹ 已接收用户人工验收结果，本轮验收会结合该结果输出 PASS / FAIL 与反馈。',
+    HardnessPhase.reading => 'ℹ 已接收用户人工输入。',
+    HardnessPhase.implementing => 'ℹ 已接收用户人工输入。',
+  };
+
+  String _manualPhaseInputSectionTitle(HardnessPhase phase) => switch (phase) {
+    HardnessPhase.metaCollection => '## 用户人工研究结果（高优先级输入）',
+    HardnessPhase.planning => '## 用户人工计划草案（高优先级输入）',
+    HardnessPhase.reviewing => '## 用户人工验收结果（高优先级输入）',
+    HardnessPhase.reading => '## 用户人工输入（高优先级输入）',
+    HardnessPhase.implementing => '## 用户人工输入（高优先级输入）',
+  };
+
+  String _manualPhaseMissionAddendum(HardnessPhase phase) {
+    if (!hasQueuedManualPhaseInputFor(phase)) {
+      return '';
+    }
+    return switch (phase) {
+      HardnessPhase.metaCollection =>
+        '''
+    **本轮存在用户亲自研究的资料或结论。**
+    - 你必须把“用户人工研究结果（高优先级输入）”视为高优先级素材，并优先吸收其中的事实、结构与观察结论
+    - 你的职责不是忽略这些内容重新来过，而是将其校正、补全、结构化，整理成符合要求的 architecture.md 与 conventions.md
+    - 若用户研究结果存在缺漏、格式不规范或信息颗粒度不一致，你需要基于真实项目状态补足并统一表达
+    ''',
+      HardnessPhase.planning =>
+        '''
+    **本轮存在用户亲自制定的计划草案。**
+    - 你必须把“用户人工计划草案（高优先级输入）”视为高优先级种子方案，在其基础上进行润色、优化、补全与规范化
+    - 你的职责不是抛开用户计划另起炉灶，而是将其整理成符合 plan 文档约束的结构化执行计划
+    - 若用户草案缺少步骤粒度、验收标准、复杂度标签或文件指向，你需要补足这些缺失项
+    ''',
+      HardnessPhase.reviewing =>
+        '''
+    **本轮存在真实用户提交的人工验收结果。**
+    - 你必须把"用户人工验收结果（高优先级输入）"视为真实外部观察，而不是可忽略的参考意见
+    - 用户已通过界面按钮明确指定了验收结论（PASS 或 FAIL），你必须尊重该结论作为最终判定
+    - 若用户判定为 FAIL：你必须输出 FAIL，并将用户的审查意见整理为结构化、可执行的 feedback，保存到指定路径
+    - 若用户判定为 PASS：你仍需结合计划、代码与实际实现交叉核验，但应优先尊重用户的通过结论
+    ''',
+      HardnessPhase.reading => '',
+      HardnessPhase.implementing => '',
+    };
+  }
+
   void _markRemainingPhasesCancelledFrom(int startIndex) {
     for (var index = startIndex; index < _phaseLogs.length; index += 1) {
       if (_phaseLogs[index].status == HardnessPhaseStatus.pending ||
@@ -606,6 +853,24 @@ class HardnessOrchestrator extends ChangeNotifier {
         _phaseLogs[index].status = HardnessPhaseStatus.cancelled;
       }
     }
+  }
+
+  HardnessPhaseLog? _currentAwaitingApprovalLog() {
+    final awaitingPhase = _awaitingApprovalPhase;
+    if (awaitingPhase == null) {
+      return null;
+    }
+    for (var index = _phaseLogs.length - 1; index >= 0; index -= 1) {
+      final log = _phaseLogs[index];
+      if (log.phase != awaitingPhase) {
+        continue;
+      }
+      if (log.status == HardnessPhaseStatus.paused ||
+          log.status == HardnessPhaseStatus.pending) {
+        return log;
+      }
+    }
+    return null;
   }
 
   void _appendResumeNotice(HardnessPhaseLog log, {required bool wasRunning}) {
@@ -656,6 +921,7 @@ class HardnessOrchestrator extends ChangeNotifier {
       _errorMessage = '存在未配置 CLI/模型的阶段，执行已停止。';
       log.status = HardnessPhaseStatus.failed;
       notifyListeners();
+      await _finalizePhaseArtifacts(log);
       return;
     }
 
@@ -664,16 +930,28 @@ class HardnessOrchestrator extends ChangeNotifier {
       _errorMessage = '存在不支持无交互执行的 CLI 配置，执行已停止。';
       log.status = HardnessPhaseStatus.failed;
       notifyListeners();
+      await _finalizePhaseArtifacts(log);
       return;
     }
 
     // Resolve CLI entry from catalog; fall back to a minimal entry if unknown.
     final cliEntry = _cliEntryForRoleConfig(roleConfig);
 
+    final configuredModelId = roleConfig.modelId.trim();
+    final displayModelLabel = describeHardnessCliModel(
+      cliEntry,
+      configuredModelId,
+      isZh: true,
+    );
+    final invocationModelId = resolveHardnessCliInvocationModelId(
+      cliEntry,
+      configuredModelId,
+    );
+
     _appendLine(
       log,
       '▶ 阶段：${log.phase.displayNameZh}  |  CLI: ${cliEntry.executable}'
-      '  |  模型: ${roleConfig.modelId.isNotEmpty ? roleConfig.modelId : '(默认)'}',
+      '  |  模型: $displayModelLabel',
     );
     notifyListeners();
 
@@ -686,10 +964,37 @@ class HardnessOrchestrator extends ChangeNotifier {
       promptFile = await _writePromptFile(log.phase, prompt);
       if (_isDisposed) return;
 
+      // 1b. Pre-execution auth re-validation for CLIs that support it.
+      //     Auth tokens may expire between session setup and phase execution.
+      if (cliEntry.hasLoginCheck) {
+        final scanEntry = (
+          cli: cliEntry,
+          installed: true,
+          resolvedPath: null as String?,
+          isLoggedIn: null as bool?,
+        );
+        final authOk = await probeCliAuth(scanEntry);
+        if (authOk == false) {
+          _appendLine(log, '');
+          _appendLine(
+            log,
+            '✗ ${cliEntry.name} 认证已失效，无法执行当前阶段。',
+          );
+          _appendLine(
+            log,
+            '  → 请先在"设置 → CLI 登录"中重新完成 ${cliEntry.name} 的登录认证，再重试。',
+          );
+          _errorMessage = '${cliEntry.name} 认证已失效，执行已停止。';
+          log.status = HardnessPhaseStatus.failed;
+          notifyListeners();
+          return;
+        }
+      }
+
       // 2. Construct the shell command string.
       final cliCmd = _buildCliCommandStr(
         cliEntry.executable,
-        roleConfig.modelId,
+        invocationModelId,
         promptFile.path,
       );
 
@@ -725,11 +1030,11 @@ class HardnessOrchestrator extends ChangeNotifier {
 
       if (_isDisposed) return;
 
-      log.exitCode = exitCode;
-
       // 3b. Snapshot after execution and compute diff.
       final postSnapshot = await _snapshotWorkingDirectory();
       log.changedFiles = _computeChangedFiles(preSnapshot, postSnapshot);
+
+      log.exitCode = exitCode;
 
       if (_stopRequested) {
         _appendLine(log, '');
@@ -739,9 +1044,38 @@ class HardnessOrchestrator extends ChangeNotifier {
         _appendLine(log, '');
         _appendLine(log, '✗ CLI 进程退出码：$exitCode');
         log.status = HardnessPhaseStatus.failed;
+        _appendCliModelFailureHints(log, cliEntry, configuredModelId);
+        _appendGeminiHeadlessRuntimeHints(log);
+        await _appendCliFailureDiagnostics(log, cliEntry.executable);
+      } else if (_looksLikeCliAuthInterrupt(log.lines)) {
+        // Exit code 0 but the CLI emitted an interactive auth prompt and
+        // exited without performing any work (stdin was closed → EOF).
+        _appendLine(log, '');
+        _appendLine(
+          log,
+          '✗ CLI 在未完成认证的情况下退出（退出码 0），本阶段未产生有效产出。',
+        );
+        _appendLine(
+          log,
+          '  → 请先在"设置 → CLI 登录"中完成 ${cliEntry.name} 的登录认证，再重试当前阶段。',
+        );
+        log.status = HardnessPhaseStatus.failed;
+      } else if (_looksLikeHollowCliSession(log.lines, cliEntry.executable)) {
+        // Exit code 0 but the CLI produced no substantive output, indicating
+        // it silently skipped execution (e.g. expired token, config error).
+        _appendLine(log, '');
+        _appendLine(
+          log,
+          '✗ CLI 以退出码 0 结束，但未产生有效输出，本阶段执行可能未真正生效。',
+        );
+        _appendLine(
+          log,
+          '  → 可能原因：认证已过期、配置异常或 CLI 静默跳过了任务。请检查 CLI 状态后重试。',
+        );
+        log.status = HardnessPhaseStatus.failed;
+        await _appendCliFailureDiagnostics(log, cliEntry.executable);
       } else {
         log.status = HardnessPhaseStatus.completed;
-        await _savePhasePersistence(log);
       }
     } on ProcessException catch (e) {
       if (_isDisposed) return;
@@ -754,34 +1088,48 @@ class HardnessOrchestrator extends ChangeNotifier {
         );
       }
       log.status = HardnessPhaseStatus.failed;
+      await _appendCliFailureDiagnostics(log, cliEntry.executable);
     } on TimeoutException catch (e) {
       if (_isDisposed) return;
       _appendLine(log, '');
       _appendLine(log, '✗ 超时：${e.message}');
       log.status = HardnessPhaseStatus.failed;
+      await _appendCliFailureDiagnostics(log, cliEntry.executable);
     } catch (e, st) {
       if (_isDisposed) return;
       _appendLine(log, '');
       _appendLine(log, '✗ 执行错误：$e');
       debugPrint('Phase ${log.phase} error: $e\n$st');
       log.status = HardnessPhaseStatus.failed;
+      await _appendCliFailureDiagnostics(log, cliEntry.executable);
     } finally {
-      try {
-        promptFile?.deleteSync();
-      } catch (_) {}
+      await _finalizePhaseArtifacts(log, promptFile: promptFile);
     }
-
-    notifyListeners();
   }
 
   // ── Review failure detection ─────────────────────────────────────────────
 
+  /// Returns true if the reviewing phase indicates a FAIL verdict,
+  /// considering both explicit user verdict and CLI output analysis.
+  bool _reviewIndicatesFailure(HardnessPhaseLog log) {
+    // Priority 1: explicit user verdict from pass/fail buttons.
+    final userVerdict = _userReviewVerdict;
+    if (userVerdict != null) {
+      _userReviewVerdict = null; // consume once
+      return !userVerdict;
+    }
+    // Priority 2: scan CLI output for verdict keywords.
+    return _reviewOutputIndicatesFailure(log);
+  }
+
   /// Scans the reviewer's output for a "FAIL" verdict.
   /// The reviewer mission template instructs the agent to begin with PASS or
-  /// FAIL on the first non-empty line. We scan the first meaningful lines
-  /// (skipping blanks, command echoes, and UI decoration) for a FAIL indicator.
+  /// FAIL on the first non-empty line. We scan meaningful lines (skipping
+  /// blanks, command echoes, UI decoration, and manual input headers) for a
+  /// FAIL indicator.
   bool _reviewOutputIndicatesFailure(HardnessPhaseLog log) {
     var meaningfulLineCount = 0;
+    var insideManualInput = false;
     for (final line in log.lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
@@ -793,6 +1141,25 @@ class HardnessOrchestrator extends ChangeNotifier {
           trimmed.startsWith('✗ ') ||
           trimmed.startsWith('⚠ ') ||
           trimmed.startsWith('> ')) {
+        // A command-echo line ("> ...") marks the end of any manual input
+        // section and the start of CLI output. Reset the skip flag.
+        if (trimmed.startsWith('> ')) {
+          insideManualInput = false;
+        }
+        continue;
+      }
+      // Skip manual input header and its content (they are user text,
+      // not the reviewer CLI's verdict).
+      if (trimmed.startsWith('【') && trimmed.endsWith('】')) {
+        insideManualInput = true;
+        continue;
+      }
+      if (trimmed.startsWith('ℹ ')) {
+        // Acknowledgment lines like "ℹ 已接收用户人工验收结果..."
+        insideManualInput = false;
+        continue;
+      }
+      if (insideManualInput) {
         continue;
       }
       // Check for FAIL verdict (case-insensitive, may be prefixed by ** markdown).
@@ -807,9 +1174,9 @@ class HardnessOrchestrator extends ChangeNotifier {
       if (normalized.startsWith('PASS')) {
         return false;
       }
-      // Only inspect the first few meaningful lines.
+      // Only inspect the first several meaningful lines of CLI output.
       meaningfulLineCount++;
-      if (meaningfulLineCount >= 5) {
+      if (meaningfulLineCount >= 20) {
         return false;
       }
     }
@@ -818,7 +1185,8 @@ class HardnessOrchestrator extends ChangeNotifier {
 
   // ── Role ↔ config mapping ────────────────────────────────────────────────
 
-  HardnessRoleConfig _roleConfigForPhase(HardnessPhase phase) => switch (phase) {
+  HardnessRoleConfig _roleConfigForPhase(HardnessPhase phase) =>
+      switch (phase) {
         HardnessPhase.metaCollection => config.profilerConfig,
         HardnessPhase.reading => config.readerConfig,
         HardnessPhase.planning => config.plannerConfig,
@@ -851,10 +1219,12 @@ class HardnessOrchestrator extends ChangeNotifier {
       }
     }
 
-    final archContent =
-        readIfExists(p.join(steeringDir, 'meta', 'architecture.md'));
-    final convContent =
-        readIfExists(p.join(steeringDir, 'meta', 'conventions.md'));
+    final archContent = readIfExists(
+      p.join(steeringDir, 'meta', 'architecture.md'),
+    );
+    final convContent = readIfExists(
+      p.join(steeringDir, 'meta', 'conventions.md'),
+    );
 
     // Latest handoff document.
     String handoffContent = '';
@@ -874,8 +1244,9 @@ class HardnessOrchestrator extends ChangeNotifier {
       if (lessonDir.existsSync()) {
         final files = lessonDir.listSync().whereType<File>().toList();
         if (files.isNotEmpty) {
-          lessonsContent =
-              files.map((f) => f.readAsStringSync()).join('\n\n---\n\n');
+          lessonsContent = files
+              .map((f) => f.readAsStringSync())
+              .join('\n\n---\n\n');
         }
       }
     } catch (_) {}
@@ -912,12 +1283,29 @@ class HardnessOrchestrator extends ChangeNotifier {
       } catch (_) {}
     }
 
+    var manualPhaseInputContent = _queuedManualPhaseInputPhase == phase
+        ? _queuedManualPhaseInput?.trim() ?? ''
+        : '';
+    // If the user provided an explicit review verdict, prepend it to the
+    // manual input so the reviewer CLI receives an unambiguous signal.
+    if (phase == HardnessPhase.reviewing &&
+        manualPhaseInputContent.isNotEmpty &&
+        _userReviewVerdict != null) {
+      final verdictLabel = _userReviewVerdict! ? 'PASS' : 'FAIL';
+      manualPhaseInputContent =
+          '用户判定：$verdictLabel\n\n$manualPhaseInputContent';
+    }
+
     final sb = StringBuffer()
       ..writeln('# Hardness Engineering - ${phase.displayNameZh}阶段')
       ..writeln()
       ..writeln('## 语言要求（强制）')
-      ..writeln('1. 你在本阶段的所有自然语言输出、分析结论、执行计划、评审报告，以及写入 steering 目录的全部 Markdown 文档，都必须使用简体中文。')
-      ..writeln('2. 禁止使用英文标题、英文小节、英文说明或英文总结，除非内容本身是代码、命令、路径、文件名、接口名、配置键名、日志原文或其他必须保留的技术标识。')
+      ..writeln(
+        '1. 你在本阶段的所有自然语言输出、分析结论、执行计划、评审报告，以及写入 steering 目录的全部 Markdown 文档，都必须使用简体中文。',
+      )
+      ..writeln(
+        '2. 禁止使用英文标题、英文小节、英文说明或英文总结，除非内容本身是代码、命令、路径、文件名、接口名、配置键名、日志原文或其他必须保留的技术标识。',
+      )
       ..writeln('3. PASS / FAIL、CLI 名称、模型名、代码片段、命令、路径、文件名等技术标识允许保留原文。')
       ..writeln('4. 若需要引用英文原文，请仅保留最小必要范围，并在上下文中使用简体中文解释。')
       ..writeln()
@@ -926,6 +1314,14 @@ class HardnessOrchestrator extends ChangeNotifier {
       ..writeln()
       ..writeln('## 工作目录')
       ..writeln(config.workingDirectory)
+      ..writeln()
+      ..writeln('## 运行时约束')
+      ..writeln('1. 你当前运行在无交互的 CLI 自动化会话中。OpenHand 已在阶段边界完成审批，本阶段内部不再逐条等待人工批准。')
+      ..writeln(_phaseDirectoryPermissionConstraint(phase))
+      ..writeln(
+        '3. 需要修改文件或执行命令时，请直接使用当前会话内可用的工具完成；不要把主任务转交给子代理，也不要反复尝试当前会话未注册的工具。',
+      )
+      ..writeln('4. 若某条路径或工具不可用，请立即输出具体阻塞原因与替代方案，不要空转重试。')
       ..writeln();
 
     if (archContent.isNotEmpty) {
@@ -970,6 +1366,13 @@ class HardnessOrchestrator extends ChangeNotifier {
         ..writeln();
     }
 
+    if (manualPhaseInputContent.isNotEmpty) {
+      sb
+        ..writeln(_manualPhaseInputSectionTitle(phase))
+        ..writeln(manualPhaseInputContent)
+        ..writeln();
+    }
+
     sb
       ..writeln('## 当前角色任务')
       ..writeln(_missionTemplate(phase));
@@ -977,18 +1380,40 @@ class HardnessOrchestrator extends ChangeNotifier {
     return sb.toString();
   }
 
+  /// Returns a phase-specific directory permission constraint. Reading and
+  /// planning phases are restricted to read-only access on the working
+  /// directory to prevent the AI from implementing changes prematurely.
+  String _phaseDirectoryPermissionConstraint(HardnessPhase phase) {
+    return switch (phase) {
+      HardnessPhase.reading || HardnessPhase.planning =>
+        '2. **工作目录仅供只读分析。** 严禁在本阶段修改、创建或删除工作目录下的任何源码、配置、资源或其他文件。严禁执行会改变项目状态的命令（构建、安装、测试等）。允许写入的唯一位置是持久化目录中的指定输出文件。',
+      HardnessPhase.metaCollection =>
+        '2. 工作目录仅供只读扫描；允许写入的唯一位置是持久化目录下的 meta/ 子目录。',
+      HardnessPhase.reviewing =>
+        '2. 工作目录仅供只读验证。允许写入的唯一位置是持久化目录下的 feedback/ 子目录。严禁在验收阶段修改项目代码或资源。',
+      HardnessPhase.implementing =>
+        '2. 允许读写的核心目录为工作目录与持久化目录；涉及产物、计划、反馈等文件时，请直接写入任务中指定的路径。',
+    };
+  }
+
   String _missionTemplate(HardnessPhase phase) {
     final meta = p.join(config.persistenceDirectory, 'steering', 'meta');
     final planDir = p.join(config.persistenceDirectory, 'steering', 'plan');
-    final feedbackDir =
-        p.join(config.persistenceDirectory, 'steering', 'feedback');
+    final feedbackDir = p.join(
+      config.persistenceDirectory,
+      'steering',
+      'feedback',
+    );
     final ts = DateTime.now()
         .toIso8601String()
         .replaceAll(':', '-')
         .substring(0, 19);
 
     return switch (phase) {
-      HardnessPhase.metaCollection => '''你是该项目的探档者（Profiler）。
+      HardnessPhase.metaCollection =>
+        '''你是该项目的探档者（Profiler）。
+
+    ${_manualPhaseMissionAddendum(HardnessPhase.metaCollection)}
 
     请仔细扫描 ${config.workingDirectory} 下的项目，并产出两个完整的 Markdown 文档。除代码、命令、路径、文件名等技术标识外，所有标题、说明、总结都必须使用简体中文。
 
@@ -1011,7 +1436,8 @@ class HardnessOrchestrator extends ChangeNotifier {
 
     要求准确、克制、基于事实。项目中不存在的信息不得臆测。''',
 
-      HardnessPhase.reading => '''你是本任务的调读者/分析者（Reader/Analyst）。
+      HardnessPhase.reading =>
+        '''你是本任务的调查者/分析者（Reader/Analyst）。
 
     请深入分析 ${config.workingDirectory} 下的项目，并产出一份结构化分析报告。除代码、命令、路径、文件名等技术标识外，报告全文必须使用简体中文。
 
@@ -1025,7 +1451,10 @@ class HardnessOrchestrator extends ChangeNotifier {
     请使用清晰、结构化的 Markdown 报告格式输出。
     这份报告会被规划者直接使用，因此必须充分、准确、可执行。''',
 
-      HardnessPhase.planning => '''你是本任务的规划者（Planner）。
+      HardnessPhase.planning =>
+        '''你是本任务的规划者（Planner）。
+
+    ${_manualPhaseMissionAddendum(HardnessPhase.planning)}
 
     请基于上方的任务与分析上下文，产出一份详细、按编号排列的执行计划。除代码、命令、路径、文件名等技术标识外，所有步骤说明和验收标准都必须使用简体中文。
 
@@ -1035,12 +1464,19 @@ class HardnessOrchestrator extends ChangeNotifier {
     - **可验证**：包含清晰的验收标准
     - **带复杂度标签**：使用 [simple | medium | complex]
 
+    **严禁事项（违反即为严重错误）：**
+    - 绝对不要修改、创建或删除工作目录下的任何项目源码、配置文件或资源文件
+    - 绝对不要执行构建、测试、安装或其他改变项目状态的命令
+    - 不要编写或生成任何代码到项目中——所有实施工作必须留给实施者（Implementer）在下一阶段完成
+    - 你的唯一输出产物是保存到持久化目录中的计划文件
+
     计划完成后，请将完整 Markdown 文件保存到：
     $planDir/plan-$ts.md
 
     计划文件必须以任务描述开头，并包含全部执行步骤。''',
 
-      HardnessPhase.implementing => '''你是本任务的实施者（Implementer）。
+      HardnessPhase.implementing =>
+        '''你是本任务的实施者（Implementer）。
 
     请按照上方“执行计划”中的步骤逐项实施。
     工作目录：${config.workingDirectory}
@@ -1057,13 +1493,15 @@ class HardnessOrchestrator extends ChangeNotifier {
     - 如果偏离了计划，说明偏离点及原因
     - 实施过程中发现的潜在问题''',
 
-      HardnessPhase.reviewing => '''你是本任务的验收者（Reviewer）。
+      HardnessPhase.reviewing =>
+        '''你是本任务的验收者（Reviewer）。
 
     **关键要求：你处于一个全新且独立的会话中。**
     你不知道实施者的推理过程，也不能假设任何步骤已经被正确完成。
     你必须仅基于原始需求、上方执行计划以及项目当前真实代码状态进行验收。
     不要默认实现正确，必须从零开始逐项核验。
     ${_reviewRetryCount > 0 ? '\n**注意：这是第 $_reviewRetryCount 次重试验收。上一轮或更早的验收已经发现问题，请重点检查这些问题是否已被真正修复。**\n' : ''}
+    ${_manualPhaseMissionAddendum(HardnessPhase.reviewing)}
     请将当前实现与原始需求及上方执行计划逐项对照。
 
     必须验证以下内容：
@@ -1087,7 +1525,8 @@ class HardnessOrchestrator extends ChangeNotifier {
 
   // ── CLI command construction ─────────────────────────────────────────────
 
-  /// Returns a shell command string suitable for `bash -l -c "..."`.
+  /// Returns a shell command string suitable for the Hardness POSIX shell
+  /// wrapper, which uses the same interactive login environment as CLI scan.
   /// Returns [null] for CLI executables with no known non-interactive mode.
   String? _buildCliCommandStr(
     String executable,
@@ -1099,12 +1538,15 @@ class HardnessOrchestrator extends ChangeNotifier {
     // shell expands the file contents as a CLI argument.
     // \$ escapes Dart interpolation; the resulting shell string is "$(cat '...')".
     final promptSubst = '"\$(cat $quotedPath)"';
-    final modelFlag =
-        modelId.isNotEmpty ? ' --model ${_shellSingleQuote(modelId)}' : '';
-    final modelFlagShort =
-        modelId.isNotEmpty ? ' -m ${_shellSingleQuote(modelId)}' : '';
+    final modelFlag = modelId.isNotEmpty
+        ? ' --model ${_shellSingleQuote(modelId)}'
+        : '';
+    final modelFlagShort = modelId.isNotEmpty
+        ? ' -m ${_shellSingleQuote(modelId)}'
+        : '';
     // Quoted working directory — used by CLIs that accept an explicit -C flag.
     final quotedWd = _shellSingleQuote(config.workingDirectory);
+    final geminiIncludeDirectoriesFlags = _buildGeminiIncludeDirectoriesFlags();
 
     return switch (executable) {
       'claude' => 'claude$modelFlag -p $promptSubst',
@@ -1118,7 +1560,12 @@ class HardnessOrchestrator extends ChangeNotifier {
         'codex exec$modelFlag --skip-git-repo-check --full-auto -C $quotedWd -- $promptSubst',
       'aider' =>
         'aider$modelFlag --message $promptSubst --yes --no-auto-commits',
-      'gemini' => 'gemini$modelFlagShort -p $promptSubst',
+      // Hardness approval already happens at the phase boundary. In Gemini
+      // headless mode, mutating tools are unavailable unless approval is
+      // auto-granted for the session, and paths outside the cwd must be added
+      // as extra workspace roots.
+      'gemini' =>
+        'gemini$modelFlagShort --approval-mode yolo$geminiIncludeDirectoriesFlags -p $promptSubst',
       'goose' => 'goose run$modelFlag --text $promptSubst',
       'q' => 'q chat --no-interactive $promptSubst',
       'amp' => 'amp$modelFlag $promptSubst',
@@ -1130,12 +1577,40 @@ class HardnessOrchestrator extends ChangeNotifier {
     };
   }
 
+  String _buildGeminiIncludeDirectoriesFlags() {
+    final persistenceDirRaw = config.persistenceDirectory.trim();
+    if (persistenceDirRaw.isEmpty) {
+      return '';
+    }
+
+    final normalizedWorkingDirectory = p.normalize(
+      p.absolute(config.workingDirectory.trim()),
+    );
+    final normalizedPersistenceDirectory = p.normalize(
+      p.absolute(persistenceDirRaw),
+    );
+
+    if (normalizedPersistenceDirectory == normalizedWorkingDirectory ||
+        p.isWithin(
+          normalizedWorkingDirectory,
+          normalizedPersistenceDirectory,
+        )) {
+      return '';
+    }
+
+    return ' --include-directories ${_shellSingleQuote(normalizedPersistenceDirectory)}';
+  }
+
   // ── I/O helpers ──────────────────────────────────────────────────────────
 
   Future<File> _writePromptFile(HardnessPhase phase, String content) async {
     final name =
         'he_${phase.storageValue}_${DateTime.now().millisecondsSinceEpoch}.md';
-    final file = File(p.join(Directory.systemTemp.path, name));
+    final promptDir = Directory(
+      p.join(config.persistenceDirectory, 'steering', 'log', 'prompts'),
+    );
+    await promptDir.create(recursive: true);
+    final file = File(p.join(promptDir.path, name));
     await file.writeAsString(content, flush: true);
     return file;
   }
@@ -1148,13 +1623,12 @@ class HardnessOrchestrator extends ChangeNotifier {
     // Two hours is generous; real AI coding tasks complete well within that.
     Duration timeout = const Duration(hours: 2),
   }) async {
-    final shell = Platform.environment['SHELL'] ?? '/bin/bash';
     final quotedWd = _shellSingleQuote(workingDirectory);
     final fullCmd = 'cd $quotedWd && $cmdStr';
 
     final process = await Process.start(
-      shell,
-      ['-l', '-c', fullCmd],
+      resolveHardnessCliShellExecutable(),
+      buildHardnessCliShellArgs(fullCmd),
     );
     _activeProcess = process;
 
@@ -1186,8 +1660,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         // Graceful escalation: SIGTERM first, then SIGKILL after 5 s.
         process.kill(); // SIGTERM (default)
         try {
-          exitCode = await process.exitCode
-              .timeout(const Duration(seconds: 5));
+          exitCode = await process.exitCode.timeout(const Duration(seconds: 5));
         } catch (_) {
           process.kill(ProcessSignal.sigkill);
           exitCode = await process.exitCode
@@ -1200,10 +1673,10 @@ class HardnessOrchestrator extends ChangeNotifier {
       // Drain remaining buffered output.  Time-box this so that a child
       // process that inherited our pipe FDs can never prevent us from
       // returning (e.g. a daemon launched by the CLI that doesn't exit).
-      await Future.wait([stdoutFuture, stderrFuture]).timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => [],
-      );
+      await Future.wait([
+        stdoutFuture,
+        stderrFuture,
+      ]).timeout(const Duration(seconds: 5), onTimeout: () => []);
       return exitCode;
     } finally {
       _activeProcess = null;
@@ -1230,6 +1703,218 @@ class HardnessOrchestrator extends ChangeNotifier {
     }
   }
 
+  Future<void> _appendCliFailureDiagnostics(
+    HardnessPhaseLog log,
+    String executable,
+  ) async {
+    if (log.lines.any((line) => line == 'ℹ 运行环境诊断：')) {
+      return;
+    }
+
+    final diagnostics = await collectHardnessCliFailureDiagnostics(executable);
+    if (diagnostics.isEmpty) {
+      return;
+    }
+
+    if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+      _appendLine(log, '');
+    }
+    _appendLine(log, 'ℹ 运行环境诊断：');
+    for (final line in diagnostics) {
+      _appendLine(log, '  $line');
+    }
+  }
+
+  bool _looksLikeGeminiModelNotFound(List<String> lines) {
+    final joinedOutput = lines.join('\n').toLowerCase();
+    return joinedOutput.contains('modelnotfounderror') ||
+        joinedOutput.contains('requested entity was not found');
+  }
+
+  bool _looksLikeGeminiHeadlessToolingFailure(List<String> lines) {
+    final joinedOutput = lines.join('\n').toLowerCase();
+    return joinedOutput.contains('tool "write_file" not found') ||
+        joinedOutput.contains('tool "run_shell_command" not found') ||
+        joinedOutput.contains('unauthorized tool call') ||
+        joinedOutput.contains('outside the allowed workspace directories') ||
+        joinedOutput.contains('path not in workspace');
+  }
+
+  bool _looksLikeGeminiUnsupportedHeadlessFlags(List<String> lines) {
+    final joinedOutput = lines.join('\n').toLowerCase();
+    return joinedOutput.contains('unknown option') &&
+        (joinedOutput.contains('approval-mode') ||
+            joinedOutput.contains('include-directories'));
+  }
+
+  // ── Auth-interrupt & hollow-session detection ───────────────────────────
+
+  /// Detects whether the CLI emitted an interactive authentication prompt
+  /// and exited without performing any work.  This happens when the CLI's
+  /// auth token has expired (or was never granted) and stdin was closed
+  /// (EOF), causing it to exit cleanly (code 0) without doing anything.
+  bool _looksLikeCliAuthInterrupt(List<String> lines) {
+    final joined = lines.join('\n').toLowerCase();
+    // Gemini CLI auth prompts
+    if (joined.contains('opening authentication page') ||
+        joined.contains('authenticate with google') ||
+        joined.contains('please authenticate') ||
+        joined.contains('authorization required')) {
+      return true;
+    }
+    // Claude Code auth prompts
+    if (joined.contains('please sign in') ||
+        joined.contains('you need to authenticate') ||
+        joined.contains('login required')) {
+      return true;
+    }
+    // Codex / OpenAI auth prompts
+    if (joined.contains('not logged in') ||
+        joined.contains('authentication is required') ||
+        (joined.contains('log in') && joined.contains('continue'))) {
+      return true;
+    }
+    // Generic patterns across CLIs
+    if (joined.contains('do you want to continue? [y/n]') &&
+        joined.contains('authentication')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Detects a "hollow" CLI session: the process exited with code 0 but
+  /// produced no substantive output, strongly suggesting it silently skipped
+  /// execution (expired credentials, silent config error, etc.).
+  ///
+  /// Ignores: blank lines, our own `▶ > ✓ ✗ ⚠ ℹ` decoration, and the
+  /// leading command-echo line.
+  bool _looksLikeHollowCliSession(List<String> lines, String executable) {
+    var substantiveLineCount = 0;
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      // Skip our own UI decoration lines.
+      if (trimmed.startsWith('▶ ') ||
+          trimmed.startsWith('> ') ||
+          trimmed.startsWith('✓ ') ||
+          trimmed.startsWith('✗ ') ||
+          trimmed.startsWith('⚠ ') ||
+          trimmed.startsWith('ℹ ')) {
+        continue;
+      }
+      substantiveLineCount++;
+    }
+    // A healthy phase always produces meaningful output from the AI agent.
+    // Fewer than 3 substantive lines (after stripping decorations and
+    // command echoes) is highly suspicious.
+    return substantiveLineCount < 3;
+  }
+
+  void _appendCliModelFailureHints(
+    HardnessPhaseLog log,
+    HardnessCli cliEntry,
+    String modelId,
+  ) {
+    if (cliEntry.executable != 'gemini') {
+      return;
+    }
+    if (!_looksLikeGeminiModelNotFound(log.lines)) {
+      return;
+    }
+    if (log.lines.any((line) => line.contains('Gemini CLI 返回 ModelNotFound'))) {
+      return;
+    }
+
+    final suggestedModels = suggestedHardnessCliModels(cliEntry, max: 4)
+        .map(
+          (candidate) =>
+              describeHardnessCliModel(cliEntry, candidate, isZh: true),
+        )
+        .join('、');
+    if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+      _appendLine(log, '');
+    }
+    _appendLine(
+      log,
+      'ℹ Gemini CLI 返回 ModelNotFound，通常表示模型 ID 已失效、已下线，或当前账号无权限访问。',
+    );
+    _appendLine(
+      log,
+      '  当前请求模型：${describeHardnessCliModel(cliEntry, modelId, isZh: true)}',
+    );
+    if (suggestedModels.isNotEmpty) {
+      _appendLine(log, '  可优先尝试：$suggestedModels');
+    }
+    _appendLine(log, '  建议在当前阶段卡片中手动更换 CLI / 模型后，再点击“重试失败阶段”。');
+    _appendLine(log, '  模型列表文档：$kHardnessGeminiModelsDocUrl');
+  }
+
+  void _appendGeminiHeadlessRuntimeHints(HardnessPhaseLog log) {
+    if (_looksLikeGeminiUnsupportedHeadlessFlags(log.lines)) {
+      if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+        _appendLine(log, '');
+      }
+      _appendLine(
+        log,
+        'ℹ 当前 Gemini CLI 版本过旧，无法识别 OpenHand 所需的 headless 参数（如 --approval-mode / --include-directories）。',
+      );
+      _appendLine(log, '  请先升级 Gemini CLI 到较新的稳定版本，再重试当前失败阶段。');
+      _appendLine(log, '  推荐命令：npm install -g @google/gemini-cli@latest');
+      return;
+    }
+
+    if (!_looksLikeGeminiHeadlessToolingFailure(log.lines)) {
+      return;
+    }
+
+    if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+      _appendLine(log, '');
+    }
+    _appendLine(
+      log,
+      'ℹ 这类错误通常不是模型本身不可用，而是 Gemini CLI 的 headless 会话没有拿到可写工具或目标目录未被纳入工作区。',
+    );
+    _appendLine(
+      log,
+      '  OpenHand 会以阶段级审批替代 Gemini 的逐工具审批，并将持久化目录加入 Gemini 工作区，以便当前阶段直接写文件/执行命令。',
+    );
+    _appendLine(
+      log,
+      '  若仍重复出现，请检查本机 Gemini 配置中是否强制禁用了 YOLO / 编辑工具，或存在企业安全策略拦截。',
+    );
+  }
+
+  Future<void> _finalizePhaseArtifacts(
+    HardnessPhaseLog log, {
+    File? promptFile,
+  }) async {
+    if (_isDisposed) {
+      return;
+    }
+
+    final shouldRetainPrompt =
+        promptFile != null && log.status != HardnessPhaseStatus.completed;
+    if (shouldRetainPrompt) {
+      final promptRetentionLine = 'ℹ 调试 Prompt 文件：${promptFile.path}';
+      if (!log.lines.contains(promptRetentionLine)) {
+        if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+          _appendLine(log, '');
+        }
+        _appendLine(log, promptRetentionLine);
+      }
+    }
+
+    await _savePhasePersistence(log);
+
+    if (!shouldRetainPrompt) {
+      try {
+        promptFile?.deleteSync();
+      } catch (_) {}
+    }
+
+    notifyListeners();
+  }
+
   void _appendLine(HardnessPhaseLog log, String line) {
     log.lines.add(line);
   }
@@ -1242,8 +1927,18 @@ class HardnessOrchestrator extends ChangeNotifier {
 
   /// Ignored directory names for snapshot (common build artifacts / VCS).
   static const Set<String> _snapshotIgnoredDirs = {
-    '.git', '.svn', '.hg', 'node_modules', '.dart_tool', 'build', '.build',
-    '__pycache__', '.idea', '.vscode', '.gradle', '.DS_Store',
+    '.git',
+    '.svn',
+    '.hg',
+    'node_modules',
+    '.dart_tool',
+    'build',
+    '.build',
+    '__pycache__',
+    '.idea',
+    '.vscode',
+    '.gradle',
+    '.DS_Store',
   };
 
   /// Max file size to capture content for diff (1 MB).
@@ -1257,7 +1952,10 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (!workDir.existsSync()) return result;
 
     try {
-      await for (final entity in workDir.list(recursive: true, followLinks: false)) {
+      await for (final entity in workDir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is! File) continue;
         final rel = p.relative(entity.path, from: _config.workingDirectory);
         // Skip ignored directories
@@ -1302,32 +2000,38 @@ class HardnessOrchestrator extends ChangeNotifier {
       final pre = before[rel];
 
       if (pre == null) {
-        changes.add(HardnessChangedFile(
-          relativePath: rel,
-          absolutePath: p.join(_config.workingDirectory, rel),
-          changeType: HardnessFileChangeType.added,
-          afterContent: post.content,
-        ));
+        changes.add(
+          HardnessChangedFile(
+            relativePath: rel,
+            absolutePath: p.join(_config.workingDirectory, rel),
+            changeType: HardnessFileChangeType.added,
+            afterContent: post.content,
+          ),
+        );
       } else if (pre.modified != post.modified || pre.size != post.size) {
-        changes.add(HardnessChangedFile(
-          relativePath: rel,
-          absolutePath: p.join(_config.workingDirectory, rel),
-          changeType: HardnessFileChangeType.modified,
-          beforeContent: pre.content,
-          afterContent: post.content,
-        ));
+        changes.add(
+          HardnessChangedFile(
+            relativePath: rel,
+            absolutePath: p.join(_config.workingDirectory, rel),
+            changeType: HardnessFileChangeType.modified,
+            beforeContent: pre.content,
+            afterContent: post.content,
+          ),
+        );
       }
     }
 
     // Deleted files
     for (final rel in before.keys) {
       if (!after.containsKey(rel)) {
-        changes.add(HardnessChangedFile(
-          relativePath: rel,
-          absolutePath: p.join(_config.workingDirectory, rel),
-          changeType: HardnessFileChangeType.deleted,
-          beforeContent: before[rel]!.content,
-        ));
+        changes.add(
+          HardnessChangedFile(
+            relativePath: rel,
+            absolutePath: p.join(_config.workingDirectory, rel),
+            changeType: HardnessFileChangeType.deleted,
+            beforeContent: before[rel]!.content,
+          ),
+        );
       }
     }
 

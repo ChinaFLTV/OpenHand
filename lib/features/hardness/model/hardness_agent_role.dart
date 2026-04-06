@@ -12,7 +12,7 @@ enum HardnessAgentRole {
 
   String get displayNameZh => switch (this) {
     HardnessAgentRole.profiler => '探档者',
-    HardnessAgentRole.reader => '调读者',
+    HardnessAgentRole.reader => '调查者',
     HardnessAgentRole.planner => '规划者',
     HardnessAgentRole.implementer => '实施者',
     HardnessAgentRole.reviewer => '验收者',

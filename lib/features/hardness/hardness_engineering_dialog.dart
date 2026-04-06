@@ -3,16 +3,15 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';
+import 'hardness_cli_login_dialog.dart';
 import 'model/hardness_agent_role.dart';
 import 'model/hardness_role_config.dart';
 import 'model/hardness_session_config.dart';
-
-// POSIX single-quote an executable / arg for embedding in shell -c strings.
-String _posixQuote(String s) => "'${s.replaceAll("'", "'\\''")}'";
 
 class HardnessEngineeringDialog extends StatefulWidget {
   const HardnessEngineeringDialog({super.key});
@@ -25,7 +24,9 @@ class HardnessEngineeringDialog extends StatefulWidget {
 class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   final TextEditingController _taskController = TextEditingController();
   final TextEditingController _workingDirController = TextEditingController();
-  final TextEditingController _persistenceDirController = TextEditingController();
+  final TextEditingController _persistenceDirController =
+      TextEditingController();
+  String? _lastSuggestedPersistenceDir;
 
   final Map<HardnessAgentRole, String?> _selectedCli = {};
   final Map<HardnessAgentRole, String?> _selectedModel = {};
@@ -97,12 +98,49 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       _workingDirController.text.trim().isNotEmpty &&
       _persistenceDirController.text.trim().isNotEmpty;
 
+  String _defaultPersistenceDirectoryFor(String workingDirectory) {
+    final trimmedWorkingDirectory = workingDirectory.trim();
+    if (trimmedWorkingDirectory.isEmpty) {
+      return '';
+    }
+    return p.join(trimmedWorkingDirectory, 'harness');
+  }
+
+  void _applyWorkingDirectorySelection(String workingDirectory) {
+    final trimmedWorkingDirectory = workingDirectory.trim();
+    final previousSuggestedPersistenceDir = _lastSuggestedPersistenceDir;
+    _workingDirController.text = trimmedWorkingDirectory;
+
+    if (trimmedWorkingDirectory.isEmpty) {
+      _lastSuggestedPersistenceDir = null;
+      return;
+    }
+
+    final nextSuggestedPersistenceDir = _defaultPersistenceDirectoryFor(
+      trimmedWorkingDirectory,
+    );
+    final currentPersistenceDir = _persistenceDirController.text.trim();
+    final shouldAutofillPersistenceDir =
+        currentPersistenceDir.isEmpty ||
+        (previousSuggestedPersistenceDir != null &&
+            currentPersistenceDir == previousSuggestedPersistenceDir);
+
+    if (shouldAutofillPersistenceDir) {
+      _persistenceDirController.text = nextSuggestedPersistenceDir;
+    }
+    _lastSuggestedPersistenceDir = nextSuggestedPersistenceDir;
+  }
+
   Future<void> _pickDirectory(TextEditingController controller) async {
     final current = controller.text.trim();
     final result = await getDirectoryPath(
       initialDirectory: current.isNotEmpty ? current : null,
     );
     if (result != null && mounted) {
+      if (identical(controller, _workingDirController)) {
+        _applyWorkingDirectorySelection(result);
+        return;
+      }
       controller.text = result;
     }
   }
@@ -117,13 +155,139 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
         const [];
   }
 
-  HardnessRoleConfig _roleConfig(HardnessAgentRole role) => HardnessRoleConfig(
-        cliName: _selectedCli[role] ?? '',
-        modelId: _selectedModel[role] ?? '',
-      );
+  String? _preferredModelForCli(String? cliName, {String? currentModel}) {
+    if (cliName == null) {
+      return null;
+    }
+    final trimmedCurrentModel = currentModel?.trim();
+    return trimmedCurrentModel == null || trimmedCurrentModel.isEmpty
+        ? null
+        : trimmedCurrentModel;
+  }
 
-  CliScanEntry? _entryForCli(String? name) =>
-      name == null ? null : _scanResults.where((r) => r.cli.name == name).firstOrNull;
+  HardnessRoleConfig _roleConfig(HardnessAgentRole role) => HardnessRoleConfig(
+    cliName: _selectedCli[role] ?? '',
+    modelId: (() {
+      final cliName = _selectedCli[role] ?? '';
+      final rawModelId = _selectedModel[role] ?? '';
+      final cli = _entryForCli(cliName)?.cli ?? findHardnessCliByName(cliName);
+      if (cli == null) {
+        return rawModelId;
+      }
+      return normalizeHardnessCliModelId(cli, rawModelId);
+    })(),
+  );
+
+  List<String> _configurationIssues(bool isZh) {
+    final issues = <String>[];
+    for (final role in HardnessAgentRole.values) {
+      final roleLabel = isZh ? role.displayNameZh : role.displayNameEn;
+      final roleConfig = _roleConfig(role);
+      final cliName = roleConfig.cliName.trim();
+      final modelId = roleConfig.modelId.trim();
+
+      if (cliName.isEmpty) {
+        issues.add(isZh ? '$roleLabel：请选择 CLI。' : '$roleLabel: choose a CLI.');
+        continue;
+      }
+
+      final entry = _entryForCli(cliName);
+      if (entry == null) {
+        issues.add(
+          isZh
+              ? '$roleLabel：无法识别所选 CLI，请重新选择。'
+              : '$roleLabel: the selected CLI is no longer available. Re-select it.',
+        );
+        continue;
+      }
+
+      if (!entry.installed) {
+        issues.add(
+          isZh
+              ? '$roleLabel：所选 CLI 尚未安装。'
+              : '$roleLabel: the selected CLI is not installed.',
+        );
+        continue;
+      }
+
+      if (modelId.isEmpty) {
+        issues.add(isZh ? '$roleLabel：请选择模型。' : '$roleLabel: choose a model.');
+        continue;
+      }
+    }
+    return issues;
+  }
+
+  List<String> _geminiAccessAdvisories(bool isZh) {
+    final geminiRoleLabels = <String>[];
+    var hasLoggedInGemini = false;
+    var hasPinnedGeminiModel = false;
+    final geminiCli = findHardnessCliByName('Gemini CLI');
+
+    for (final role in HardnessAgentRole.values) {
+      final roleLabel = isZh ? role.displayNameZh : role.displayNameEn;
+      final roleConfig = _roleConfig(role);
+      final cliName = roleConfig.cliName.trim();
+      final modelId = roleConfig.modelId.trim();
+
+      if (cliName.isEmpty || modelId.isEmpty) {
+        continue;
+      }
+
+      final entry = _entryForCli(cliName);
+      if (entry == null ||
+          !entry.installed ||
+          entry.cli.executable != 'gemini') {
+        continue;
+      }
+
+      geminiRoleLabels.add(roleLabel);
+      hasLoggedInGemini = hasLoggedInGemini || entry.isLoggedIn == true;
+      hasPinnedGeminiModel =
+          hasPinnedGeminiModel ||
+          !isHardnessCliDefaultModel(entry.cli, modelId);
+    }
+
+    if (geminiRoleLabels.isEmpty) {
+      return const [];
+    }
+
+    final roleSummary = geminiRoleLabels.join(isZh ? '、' : ', ');
+    final defaultModelLabel = describeHardnessCliModel(
+      geminiCli,
+      kHardnessGeminiDefaultModelId,
+      isZh: isZh,
+    );
+    final flashModelLabel = describeHardnessCliModel(
+      geminiCli,
+      'gemini-2.5-flash',
+      isZh: isZh,
+    );
+
+    return [
+      isZh
+          ? '当前使用 Gemini 的角色：$roleSummary。OpenHand 不会在 setup 阶段根据本地模型列表预先判定你填写的 Gemini 模型是否“受支持”，真正可用性要以 CLI 实际运行结果为准。'
+          : 'Roles currently using Gemini: $roleSummary. OpenHand does not pre-judge whether a Gemini model is “supported” from the local catalog during setup; actual availability is determined by the real CLI/runtime result.',
+      hasLoggedInGemini
+          ? (isZh
+                ? '即使状态显示“已登录”，免费版或受限账号在运行时仍可能对部分 Pro / Preview 模型返回无权限或 model not found 类错误。'
+                : 'Even when the CLI shows as logged in, free-tier or restricted accounts can still return permission or model-not-found style errors for some Pro / Preview models at runtime.')
+          : (isZh
+                ? 'OpenHand 在 setup 阶段只能校验模型 ID 和登录状态，无法预先确认你随后使用的 Google 账号是否具备该模型权限。'
+                : 'During setup, OpenHand can only validate the model ID and login state; it cannot pre-verify whether the Google account you use will actually be entitled to that model.'),
+      hasPinnedGeminiModel
+          ? (isZh
+                ? '如果你不确定账号额度或权限，优先改用 $defaultModelLabel 或 $flashModelLabel；若运行后仍失败，可在 dashboard 中修改模型后从失败阶段手动重试。'
+                : 'If you are unsure about quota or account entitlements, prefer $defaultModelLabel or $flashModelLabel. If runtime still fails, change the model in the dashboard and manually retry from the failed phase.')
+          : (isZh
+                ? '即使使用 $defaultModelLabel，也仍会受当前账号权限影响；若运行后失败，可在 dashboard 中改模型后从失败阶段手动重试。'
+                : 'Even with $defaultModelLabel, runtime access still depends on the current account. If execution fails, change the model in the dashboard and manually retry from the failed phase.'),
+    ];
+  }
+
+  CliScanEntry? _entryForCli(String? name) => name == null
+      ? null
+      : _scanResults.where((r) => r.cli.name == name).firstOrNull;
 
   Future<void> _showInstallDialog(HardnessCli cli) async {
     final result = await showDialog<bool>(
@@ -152,68 +316,82 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     }
   }
 
-  /// Opens a new terminal window running the CLI's interactive login command.
-  /// Falls back to copying the command to clipboard if no terminal can be found.
-  Future<void> _launchCliLogin(CliScanEntry entry, {required bool isZh}) async {
+  /// Opens an in-app interactive login dialog for the selected CLI.
+  Future<void> _launchCliLogin(CliScanEntry entry) async {
     final cli = entry.cli;
-    if (cli.loginArgs == null) return;
-    final exe = entry.resolvedPath ?? cli.executable;
-    final cmdParts = [exe, ...cli.loginArgs!];
-    final shellCmd = cmdParts.map(_posixQuote).join(' ');
+    if (!cli.hasLoginTrigger) return;
 
-    bool launched = false;
-    try {
-      if (Platform.isMacOS) {
-        // Escape backslashes and double-quotes for the AppleScript string literal.
-        final escaped =
-            shellCmd.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
-        await Process.run('osascript', [
-          '-e', 'tell application "Terminal" to activate',
-          '-e', 'tell application "Terminal" to do script "$escaped"',
-        ]);
-        launched = true;
-      } else if (Platform.isLinux) {
-        // Try common terminal emulators in priority order.
-        for (final candidate in [
-          ['gnome-terminal', '--', 'bash', '-lc', shellCmd],
-          ['xterm', '-e', shellCmd],
-          ['konsole', '-e', shellCmd],
-          ['xfce4-terminal', '-x', shellCmd],
-        ]) {
-          try {
-            final r = await Process.run(candidate.first, candidate.sublist(1));
-            if (r.exitCode == 0 || r.exitCode == -1) {
-              launched = true;
-              break;
-            }
-          } catch (_) {}
-        }
-      } else if (Platform.isWindows) {
-        await Process.run(
-          'cmd',
-          ['/c', 'start', 'cmd', '/k', cmdParts.join(' ')],
-          runInShell: true,
-        );
-        launched = true;
-      }
-    } catch (_) {}
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => HardnessCliLoginDialog(entry: entry),
+    );
 
-    if (!launched && mounted) {
-      // Fallback: copy the command to clipboard and notify the user.
-      await Clipboard.setData(ClipboardData(text: cmdParts.join(' ')));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isZh
-                  ? '\u65e0\u6cd5\u6253\u5f00\u7ec8\u7aef\uff0c\u767b\u5f55\u547d\u4ee4\u5df2\u590d\u5236\u5230\u526a\u8d34\u677f\uff1a${cmdParts.join(' ')}'
-                  : 'Could not open a terminal \u2014 login command copied to clipboard: ${cmdParts.join(' ')}',
-            ),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
+    if (mounted) {
+      await _scanClis();
     }
+  }
+
+  /// Performs a CLI logout after user confirmation.
+  Future<void> _launchCliLogout(CliScanEntry entry) async {
+    final cli = entry.cli;
+    if (!cli.hasLogoutTrigger) return;
+
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    // Confirmation dialog.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isZh ? '确认登出' : 'Confirm Logout'),
+        content: Text(
+          isZh
+              ? '确定要登出 ${cli.name} 吗？登出后需要重新登录才能使用该 CLI。'
+              : 'Are you sure you want to log out of ${cli.name}? You will need to log in again to use this CLI.',
+        ),
+        actions: [
+          OpenHandDialogActionButton.secondary(
+            onPressed: () => Navigator.of(context).pop(false),
+            label: isZh ? '取消' : 'Cancel',
+          ),
+          OpenHandDialogActionButton.primary(
+            onPressed: () => Navigator.of(context).pop(true),
+            label: isZh ? '登出' : 'Logout',
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Show a loading indicator while performing logout.
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    setState(() => _isCheckingAuth = true);
+
+    final result = await performCliLogout(entry);
+
+    if (!mounted) return;
+
+    if (scaffoldMessenger != null) {
+      final strippedMessage = stripHardnessCliTerminalSequences(result.message);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            result.success
+                ? (isZh
+                    ? '${cli.name} 已登出。$strippedMessage'
+                    : '${cli.name} logged out. $strippedMessage')
+                : (isZh
+                    ? '${cli.name} 登出失败：$strippedMessage'
+                    : '${cli.name} logout failed: $strippedMessage'),
+          ),
+          backgroundColor: result.success ? null : Colors.red.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+
+    await _scanClis();
   }
 
   void _submit() {
@@ -235,12 +413,13 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   void _applyQuickConfig() {
     if (_quickCli == null) return;
     setState(() {
+      final preferredModel = _preferredModelForCli(
+        _quickCli,
+        currentModel: _quickModel,
+      );
       for (final role in HardnessAgentRole.values) {
         _selectedCli[role] = _quickCli;
-        // Only apply model if it is valid for the chosen CLI.
-        final models = _modelsForCli(_quickCli);
-        _selectedModel[role] =
-            (_quickModel != null && models.contains(_quickModel)) ? _quickModel : null;
+        _selectedModel[role] = preferredModel;
       }
     });
   }
@@ -250,6 +429,9 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final configurationIssues = _configurationIssues(isZh);
+    final geminiAccessAdvisories = _geminiAccessAdvisories(isZh);
+    final canSubmit = _isValid && !_isScanning && configurationIssues.isEmpty;
 
     return AlertDialog(
       title: Text(
@@ -258,237 +440,462 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       content: SizedBox(
         width: 860,
         child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isZh
-                      ? 'OpenHand 将作为编排协调层，通过下方配置的各角色 CLI 工具执行具体编码任务。'
-                      : 'OpenHand acts as orchestrator and delegates coding to the configured CLI tools for each agent role.',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isZh
+                    ? 'OpenHand 将作为编排协调层，通过下方配置的各角色 CLI 工具执行具体编码任务。'
+                    : 'OpenHand acts as orchestrator and delegates coding to the configured CLI tools for each agent role.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 24),
 
-                // ── Task input ─────────────────────────────────────────
-                TextField(
-                  controller: _taskController,
-                  autofocus: true,
-                  maxLines: 5,
-                  minLines: 3,
-                  decoration: InputDecoration(
-                    labelText: isZh ? '任务 / 需求' : 'Task / Requirement',
-                    hintText: isZh
-                        ? '描述你的开发任务或需求...'
-                        : 'Describe your development task or requirement...',
-                    alignLabelWithHint: true,
-                    border: const OutlineInputBorder(),
-                  ),
+              // ── Task input ─────────────────────────────────────────
+              TextField(
+                controller: _taskController,
+                autofocus: true,
+                maxLines: 5,
+                minLines: 3,
+                decoration: InputDecoration(
+                  labelText: isZh ? '任务 / 需求' : 'Task / Requirement',
+                  hintText: isZh
+                      ? '描述你的开发任务或需求...'
+                      : 'Describe your development task or requirement...',
+                  alignLabelWithHint: true,
+                  border: const OutlineInputBorder(),
                 ),
-                const SizedBox(height: 20),
+              ),
+              const SizedBox(height: 20),
 
-                // ── Working directory ──────────────────────────────────
-                _DirectoryField(
-                  controller: _workingDirController,
-                  label: isZh ? '工作目录（项目根目录）' : 'Working Directory',
-                  hint: isZh ? '输入或选择项目根目录路径' : 'Enter or browse project root path',
-                  browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
-                  onBrowse: () => _pickDirectory(_workingDirController),
-                ),
-                const SizedBox(height: 14),
+              // ── Working directory ──────────────────────────────────
+              _DirectoryField(
+                controller: _workingDirController,
+                label: isZh ? '工作目录（项目根目录）' : 'Working Directory',
+                hint: isZh
+                    ? '输入或选择项目根目录路径'
+                    : 'Enter or browse project root path',
+                browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                onBrowse: () => _pickDirectory(_workingDirController),
+              ),
+              const SizedBox(height: 14),
 
-                // ── Persistence directory ──────────────────────────────
-                _DirectoryField(
-                  controller: _persistenceDirController,
-                  label: isZh
-                      ? '持久化根目录（steering 数据目录）'
-                      : 'Persistence Root (steering dir)',
-                  hint: isZh
-                      ? '输入或选择持久化根目录路径'
-                      : 'Enter or browse persistence root path',
-                  browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
-                  onBrowse: () => _pickDirectory(_persistenceDirController),
-                ),
-                const SizedBox(height: 28),
+              // ── Persistence directory ──────────────────────────────
+              _DirectoryField(
+                controller: _persistenceDirController,
+                label: isZh
+                    ? '持久化根目录（steering 数据目录）'
+                    : 'Persistence Root (steering dir)',
+                hint: isZh
+                    ? '输入或选择持久化根目录路径'
+                    : 'Enter or browse persistence root path',
+                browseTooltip: isZh ? '浏览文件夹' : 'Browse folder',
+                onBrowse: () => _pickDirectory(_persistenceDirController),
+              ),
+              const SizedBox(height: 28),
 
-                // ── Role CLI config header ─────────────────────────────
-                Row(
-                  children: [
-                    Text(
-                      isZh ? '角色 CLI 配置' : 'Role CLI Configuration',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(color: colorScheme.onSurface),
+              // ── Role CLI config header ─────────────────────────────
+              Row(
+                children: [
+                  Text(
+                    isZh ? '角色 CLI 配置' : 'Role CLI Configuration',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurface,
                     ),
-                    const Spacer(),
-                    if (_isScanning || _isCheckingAuth)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else
-                      IconButton(
-                        onPressed: _scanClis,
-                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                        tooltip: isZh ? '重新扫描 CLI' : 'Re-scan CLIs',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
+                  ),
+                  const Spacer(),
+                  if (_isScanning || _isCheckingAuth)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  isZh
-                      ? '为每个角色指定 CLI 客户端及模型。● 已安装，○ 未安装，✓ 已登录，✗ 未登录。'
-                      : 'Assign a CLI and model to each role. ● installed, ○ not installed, ✓ logged in, ✗ not logged in.',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 16),
-
-                // ── Install & auth status panels ───────────────────────
-                if (!_isScanning) ...[
-                  _CliStatusPanel(
-                    scanResults: _scanResults,
-                    isZh: isZh,
-                    onInstall: _showInstallDialog,
-                    onOpenDoc: _openDocUrl,
-                  ),
-                  _CliAuthStatusPanel(
-                    scanResults: _scanResults,
-                    isCheckingAuth: _isCheckingAuth,
-                    isZh: isZh,
-                    onLogin: (entry) => _launchCliLogin(entry, isZh: isZh),
-                  ),
-                  const SizedBox(height: 12),
+                    )
+                  else
+                    IconButton(
+                      onPressed: _scanClis,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      tooltip: isZh ? '重新扫描 CLI' : 'Re-scan CLIs',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                    ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isZh
+                    ? '为每个角色指定 CLI 客户端及模型。● 已安装，○ 未安装，✓ 已登录，✗ 未登录。'
+                    : 'Assign a CLI and model to each role. ● installed, ○ not installed, ✓ logged in, ✗ not logged in.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
 
-                // ── Quick-apply bar ────────────────────────────────────
-                _QuickApplyBar(
-                  isZh: isZh,
+              // ── Install & auth status panels ───────────────────────
+              if (!_isScanning) ...[
+                _CliStatusPanel(
                   scanResults: _scanResults,
-                  isScanning: _isScanning,
+                  isZh: isZh,
+                  onInstall: _showInstallDialog,
+                  onOpenDoc: _openDocUrl,
+                ),
+                _CliAuthStatusPanel(
+                  scanResults: _scanResults,
                   isCheckingAuth: _isCheckingAuth,
-                  selectedCli: _quickCli,
-                  selectedModel: _quickModel,
-                  onCliChanged: (v) => setState(() {
-                    _quickCli = v;
-                    _quickModel = null;
-                  }),
-                  onModelChanged: (v) => setState(() => _quickModel = v),
-                  onApply: _applyQuickConfig,
-                  modelsForCli: _modelsForCli,
+                  isZh: isZh,
+                  onLogin: (entry) => _launchCliLogin(entry),
+                  onLogout: (entry) => _launchCliLogout(entry),
                 ),
                 const SizedBox(height: 12),
+              ],
 
-                if (_isScanning && _scanResults.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(strokeWidth: 2),
-                          const SizedBox(height: 12),
+              // ── Quick-apply bar ────────────────────────────────────
+              _QuickApplyBar(
+                isZh: isZh,
+                scanResults: _scanResults,
+                isScanning: _isScanning,
+                isCheckingAuth: _isCheckingAuth,
+                selectedCli: _quickCli,
+                selectedModel: _quickModel,
+                onCliChanged: (v) => setState(() {
+                  _quickCli = v;
+                  _quickModel = _preferredModelForCli(
+                    v,
+                    currentModel: _quickModel,
+                  );
+                }),
+                onModelChanged: (v) => setState(() => _quickModel = v),
+                onApply: _applyQuickConfig,
+                modelsForCli: _modelsForCli,
+              ),
+              const SizedBox(height: 12),
+
+              if (_isScanning && _scanResults.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(strokeWidth: 2),
+                        const SizedBox(height: 12),
+                        Text(
+                          isZh ? '扫描已安装的 CLI...' : 'Scanning installed CLIs...',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...HardnessAgentRole.values.map((role) {
+                  final selectedCliName = _selectedCli[role];
+                  final entry = _entryForCli(selectedCliName);
+                  final cli = entry?.cli;
+                  final notInstalled =
+                      selectedCliName != null && !(entry?.installed ?? true);
+                  final showInstall =
+                      notInstalled && (cli?.isAutoInstallable ?? false);
+                  final showViewDocs =
+                      notInstalled &&
+                      !(cli?.isAutoInstallable ?? false) &&
+                      (cli?.installDocUrl?.isNotEmpty ?? false);
+                  // Show login button only when we have confirmed not-logged-in state.
+                  final showLogin =
+                      selectedCliName != null &&
+                      (entry?.installed ?? false) &&
+                      entry?.isLoggedIn == false &&
+                      (cli?.hasLoginTrigger ?? false);
+                  // Show logout button when confirmed logged-in and CLI supports logout.
+                  final showLogout =
+                      selectedCliName != null &&
+                      (entry?.installed ?? false) &&
+                      entry?.isLoggedIn == true &&
+                      (cli?.hasLogoutTrigger ?? false);
+                  return _RoleConfigRow(
+                    role: role,
+                    isZh: isZh,
+                    scanResults: _scanResults,
+                    selectedCli: selectedCliName,
+                    availableModels: _modelsForCli(selectedCliName),
+                    selectedModel: _selectedModel[role],
+                    showInstallButton: showInstall,
+                    showViewDocsButton: showViewDocs,
+                    showLoginButton: showLogin,
+                    showLogoutButton: showLogout,
+                    isCheckingAuth: _isCheckingAuth,
+                    onCliChanged: (v) => setState(() {
+                      _selectedCli[role] = v;
+                      _selectedModel[role] = _preferredModelForCli(
+                        v,
+                        currentModel: _selectedModel[role],
+                      );
+                    }),
+                    onModelChanged: (v) => setState(() {
+                      _selectedModel[role] = v;
+                    }),
+                    onInstall: cli != null
+                        ? () => _showInstallDialog(cli)
+                        : null,
+                    onViewDocs: (cli?.installDocUrl != null)
+                        ? () => _openDocUrl(cli!.installDocUrl!)
+                        : null,
+                    onLogin: (entry != null && (cli?.hasLoginTrigger ?? false))
+                        ? () => _launchCliLogin(entry)
+                        : null,
+                    onLogout: (entry != null && (cli?.hasLogoutTrigger ?? false))
+                        ? () => _launchCliLogout(entry)
+                        : null,
+                  );
+                }),
+
+              if (!_isScanning && configurationIssues.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.error.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              size: 16,
+                              color: colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isZh
+                                    ? '开始前请先修正以下配置问题'
+                                    : 'Resolve these configuration issues before starting',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        for (final issue in configurationIssues.take(4))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '• $issue',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        if (configurationIssues.length > 4)
                           Text(
                             isZh
-                                ? '扫描已安装的 CLI...'
-                                : 'Scanning installed CLIs...',
-                            style: const TextStyle(fontSize: 13),
+                                ? '还有 ${configurationIssues.length - 4} 项待处理。'
+                                : '${configurationIssues.length - 4} more issue(s) need attention.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                  )
-                else
-                  ...HardnessAgentRole.values.map((role) {
-                    final selectedCliName = _selectedCli[role];
-                    final entry = _entryForCli(selectedCliName);
-                    final cli = entry?.cli;
-                    final notInstalled =
-                        selectedCliName != null && !(entry?.installed ?? true);
-                    final showInstall =
-                        notInstalled && (cli?.isAutoInstallable ?? false);
-                    final showViewDocs = notInstalled &&
-                        !(cli?.isAutoInstallable ?? false) &&
-                        (cli?.installDocUrl?.isNotEmpty ?? false);
-                    // Show login button only when we have confirmed not-logged-in state.
-                    final showLogin = selectedCliName != null &&
-                        (entry?.installed ?? false) &&
-                        entry?.isLoggedIn == false &&
-                        (cli?.hasLoginTrigger ?? false);
-                    return _RoleConfigRow(
-                      role: role,
-                      isZh: isZh,
-                      scanResults: _scanResults,
-                      selectedCli: selectedCliName,
-                      availableModels: _modelsForCli(selectedCliName),
-                      selectedModel: _selectedModel[role],
-                      showInstallButton: showInstall,
-                      showViewDocsButton: showViewDocs,
-                      showLoginButton: showLogin,
-                      isCheckingAuth: _isCheckingAuth,
-                      onCliChanged: (v) => setState(() {
-                        _selectedCli[role] = v;
-                        _selectedModel[role] = null;
-                      }),
-                      onModelChanged: (v) => setState(() {
-                        _selectedModel[role] = v;
-                      }),
-                      onInstall:
-                          cli != null ? () => _showInstallDialog(cli) : null,
-                      onViewDocs: (cli?.installDocUrl != null)
-                          ? () => _openDocUrl(cli!.installDocUrl!)
-                          : null,
-                      onLogin: (entry != null && (cli?.hasLoginTrigger ?? false))
-                          ? () => _launchCliLogin(entry, isZh: isZh)
-                          : null,
-                    );
-                  }),
-
-                // Env hint
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline_rounded,
-                          size: 13, color: colorScheme.outline),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          isZh
-                              ? '若 CLI 未被检测到但实际已安装，可能因 App 启动方式导致环境变量未完全加载，可点击刷新图标重新扫描，或从终端启动 OpenHand。'
-                              : 'If a CLI is not detected but is installed, the launch environment may not include your shell PATH. Try refreshing, or launch OpenHand from a terminal.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
-            ),
+
+              if (!_isScanning && geminiAccessAdvisories.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colorScheme.secondaryContainer.withValues(
+                      alpha: 0.28,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.secondary.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 16,
+                              color: colorScheme.secondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isZh
+                                    ? 'Gemini 模型访问说明'
+                                    : 'Gemini model access note',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: colorScheme.secondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        for (final advisory in geminiAccessAdvisories)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '• $advisory',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurface,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          onPressed: () =>
+                              _openDocUrl(kHardnessGeminiModelsDocUrl),
+                          icon: const Icon(Icons.open_in_new_rounded, size: 15),
+                          label: Text(
+                            isZh
+                                ? '查看 Gemini 官方模型文档'
+                                : 'View Gemini model docs',
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: colorScheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              // Env hint
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 13,
+                      color: colorScheme.outline,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        isZh
+                            ? '若 CLI 未被检测到但实际已安装，可能因 App 启动方式导致环境变量未完全加载，可点击刷新图标重新扫描，或从终端启动 OpenHand。'
+                            : 'If a CLI is not detected but is installed, the launch environment may not include your shell PATH. Try refreshing, or launch OpenHand from a terminal.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.outline,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
+      ),
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
           label: isZh ? '取消' : 'Cancel',
         ),
         OpenHandDialogActionButton.primary(
-          onPressed: (_isValid && !_isScanning) ? _submit : null,
+          onPressed: canSubmit ? _submit : null,
           label: isZh ? '开始会话' : 'Start Session',
         ),
       ],
     );
   }
+}
+
+String _hardnessConfiguredModelLabel(
+  HardnessCli? cli,
+  String modelId, {
+  required bool isZh,
+}) {
+  return describeHardnessCliModel(cli, modelId, isZh: isZh);
+}
+
+List<DropdownMenuItem<String>> _hardnessModelDropdownItems({
+  required HardnessCli? cli,
+  required List<String> availableModels,
+  required String? configuredModel,
+  required bool isZh,
+}) {
+  final items = <DropdownMenuItem<String>>[];
+  final trimmedConfiguredModel = configuredModel?.trim();
+  if (trimmedConfiguredModel != null &&
+      trimmedConfiguredModel.isNotEmpty &&
+      !availableModels.contains(trimmedConfiguredModel)) {
+    items.add(
+      DropdownMenuItem<String>(
+        value: trimmedConfiguredModel,
+        child: Text(
+          _hardnessConfiguredModelLabel(
+            cli,
+            trimmedConfiguredModel,
+            isZh: isZh,
+          ),
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
+        ),
+      ),
+    );
+  }
+  items.addAll(
+    availableModels.map(
+      (modelId) => DropdownMenuItem<String>(
+        value: modelId,
+        child: Text(
+          describeHardnessCliModel(cli, modelId, isZh: isZh),
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13),
+        ),
+      ),
+    ),
+  );
+  return items;
+}
+
+String? _hardnessResolvedDropdownModelValue(
+  List<DropdownMenuItem<String>> items,
+  String? configuredModel,
+) {
+  final trimmedConfiguredModel = configuredModel?.trim();
+  if (trimmedConfiguredModel == null || trimmedConfiguredModel.isEmpty) {
+    return null;
+  }
+  return items.any((item) => item.value == trimmedConfiguredModel)
+      ? trimmedConfiguredModel
+      : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -567,12 +974,14 @@ class _RoleConfigRow extends StatelessWidget {
     required this.showInstallButton,
     this.showViewDocsButton = false,
     this.showLoginButton = false,
+    this.showLogoutButton = false,
     this.isCheckingAuth = false,
     required this.onCliChanged,
     required this.onModelChanged,
     this.onInstall,
     this.onViewDocs,
     this.onLogin,
+    this.onLogout,
   });
 
   final HardnessAgentRole role;
@@ -584,63 +993,75 @@ class _RoleConfigRow extends StatelessWidget {
   final bool showInstallButton;
   final bool showViewDocsButton;
   final bool showLoginButton;
+  final bool showLogoutButton;
   final bool isCheckingAuth;
   final ValueChanged<String?> onCliChanged;
   final ValueChanged<String?> onModelChanged;
   final VoidCallback? onInstall;
   final VoidCallback? onViewDocs;
   final VoidCallback? onLogin;
+  final VoidCallback? onLogout;
 
   // Returns the CliScanEntry for the currently selected CLI (if any).
-  CliScanEntry? get _selectedEntry =>
-      selectedCli == null
-          ? null
-          : scanResults.where((r) => r.cli.name == selectedCli).firstOrNull;
+  CliScanEntry? get _selectedEntry => selectedCli == null
+      ? null
+      : scanResults.where((r) => r.cli.name == selectedCli).firstOrNull;
 
   List<DropdownMenuItem<String>> _buildCliItems(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return scanResults.where((e) => e.cli.supportsHeadless).map((entry) {
-      // Build trailing login-state indicator for installed CLIs.
-      Widget? loginIcon;
-      if (entry.installed && entry.cli.hasLoginCheck) {
-        if (isCheckingAuth) {
-          loginIcon = const SizedBox(
-            width: 10,
-            height: 10,
-            child: CircularProgressIndicator(strokeWidth: 1.5),
+    return scanResults
+        .where((e) => e.cli.supportsHeadless)
+        .map((entry) {
+          // Build trailing login-state indicator for installed CLIs.
+          Widget? loginIcon;
+          if (entry.installed && entry.cli.hasLoginCheck) {
+            if (isCheckingAuth) {
+              loginIcon = const SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              );
+            } else if (entry.isLoggedIn == true) {
+              loginIcon = Icon(
+                Icons.check_circle_rounded,
+                size: 11,
+                color: Colors.green.shade600,
+              );
+            } else if (entry.isLoggedIn == false) {
+              loginIcon = Icon(
+                Icons.cancel_rounded,
+                size: 11,
+                color: Colors.orange.shade700,
+              );
+            }
+          }
+          return DropdownMenuItem<String>(
+            value: entry.cli.name,
+            child: Row(
+              children: [
+                Icon(
+                  entry.installed
+                      ? Icons.circle_rounded
+                      : Icons.circle_outlined,
+                  size: 10,
+                  color: entry.installed
+                      ? colorScheme.primary
+                      : colorScheme.outline,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    entry.cli.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
+              ],
+            ),
           );
-        } else if (entry.isLoggedIn == true) {
-          loginIcon = Icon(Icons.check_circle_rounded,
-              size: 11, color: Colors.green.shade600);
-        } else if (entry.isLoggedIn == false) {
-          loginIcon = Icon(Icons.cancel_rounded,
-              size: 11, color: Colors.orange.shade700);
-        }
-      }
-      return DropdownMenuItem<String>(
-        value: entry.cli.name,
-        child: Row(
-          children: [
-            Icon(
-              entry.installed ? Icons.circle_rounded : Icons.circle_outlined,
-              size: 10,
-              color: entry.installed
-                  ? colorScheme.primary
-                  : colorScheme.outline,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                entry.cli.name,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-            if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
-          ],
-        ),
-      );
-    }).toList(growable: false);
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -648,8 +1069,17 @@ class _RoleConfigRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final roleName = isZh ? role.displayNameZh : role.displayNameEn;
-    final effectiveModel =
-        availableModels.contains(selectedModel) ? selectedModel : null;
+    final selectedCliEntry = _selectedEntry;
+    final modelItems = _hardnessModelDropdownItems(
+      cli: selectedCliEntry?.cli,
+      availableModels: availableModels,
+      configuredModel: selectedModel,
+      isZh: isZh,
+    );
+    final effectiveModel = _hardnessResolvedDropdownModelValue(
+      modelItems,
+      selectedModel,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -669,8 +1099,9 @@ class _RoleConfigRow extends StatelessWidget {
                 width: 68,
                 child: Text(
                   roleName,
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(color: colorScheme.onSurface),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -687,19 +1118,8 @@ class _RoleConfigRow extends StatelessWidget {
                 child: _CompactDropdown<String>(
                   label: isZh ? '模型' : 'Model',
                   value: effectiveModel,
-                  items: availableModels
-                      .map(
-                        (m) => DropdownMenuItem<String>(
-                          value: m,
-                          child: Text(
-                            m,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: availableModels.isNotEmpty ? onModelChanged : null,
+                  items: modelItems,
+                  onChanged: modelItems.isNotEmpty ? onModelChanged : null,
                   enabled: selectedCli != null && availableModels.isNotEmpty,
                 ),
               ),
@@ -790,7 +1210,9 @@ class _RoleConfigRow extends StatelessWidget {
               if (showLoginButton) ...[
                 const SizedBox(width: 8),
                 Tooltip(
-                  message: isZh ? '此 CLI 尚未登录，点击引导登录' : 'This CLI is not logged in — click to start login',
+                  message: isZh
+                      ? '此 CLI 尚未登录，点击引导登录'
+                      : 'This CLI is not logged in — click to start login',
                   child: OutlinedButton.icon(
                     onPressed: onLogin,
                     icon: const Icon(Icons.login_rounded, size: 15),
@@ -808,6 +1230,34 @@ class _RoleConfigRow extends StatelessWidget {
                         color: Colors.orange.shade600.withValues(alpha: 0.8),
                       ),
                       foregroundColor: Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+              ],
+              // Logout button for confirmed-logged-in state
+              if (showLogoutButton) ...[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: isZh
+                      ? '此 CLI 已登录，点击可登出以切换账号'
+                      : 'This CLI is logged in — click to log out and switch accounts',
+                  child: OutlinedButton.icon(
+                    onPressed: onLogout,
+                    icon: const Icon(Icons.logout_rounded, size: 15),
+                    label: Text(
+                      isZh ? '登出' : 'Logout',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      side: BorderSide(
+                        color: colorScheme.outline.withValues(alpha: 0.6),
+                      ),
+                      foregroundColor: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -914,15 +1364,25 @@ class _QuickApplyBar extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final models = modelsForCli(selectedCli);
-    final effectiveModel = models.contains(selectedModel) ? selectedModel : null;
+    final selectedCliEntry = scanResults
+        .where((entry) => entry.cli.name == selectedCli)
+        .firstOrNull;
+    final modelItems = _hardnessModelDropdownItems(
+      cli: selectedCliEntry?.cli,
+      availableModels: models,
+      configuredModel: selectedModel,
+      isZh: isZh,
+    );
+    final effectiveModel = _hardnessResolvedDropdownModelValue(
+      modelItems,
+      selectedModel,
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -932,56 +1392,70 @@ class _QuickApplyBar extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               isZh ? '一键统一配置' : 'Apply to all',
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(color: colorScheme.primary, fontWeight: FontWeight.w600),
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _CompactDropdown<String>(
                 label: isZh ? 'CLI 客户端' : 'CLI Client',
                 value: selectedCli,
-                items: scanResults.where((e) => e.cli.supportsHeadless).map((entry) {
-                  final cs = Theme.of(context).colorScheme;
-                  Widget? loginIcon;
-                  if (entry.installed && entry.cli.hasLoginCheck) {
-                    if (isCheckingAuth) {
-                      loginIcon = const SizedBox(
-                        width: 10,
-                        height: 10,
-                        child: CircularProgressIndicator(strokeWidth: 1.5),
+                items: scanResults
+                    .where((e) => e.cli.supportsHeadless)
+                    .map((entry) {
+                      final cs = Theme.of(context).colorScheme;
+                      Widget? loginIcon;
+                      if (entry.installed && entry.cli.hasLoginCheck) {
+                        if (isCheckingAuth) {
+                          loginIcon = const SizedBox(
+                            width: 10,
+                            height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 1.5),
+                          );
+                        } else if (entry.isLoggedIn == true) {
+                          loginIcon = Icon(
+                            Icons.check_circle_rounded,
+                            size: 11,
+                            color: Colors.green.shade600,
+                          );
+                        } else if (entry.isLoggedIn == false) {
+                          loginIcon = Icon(
+                            Icons.cancel_rounded,
+                            size: 11,
+                            color: Colors.orange.shade700,
+                          );
+                        }
+                      }
+                      return DropdownMenuItem<String>(
+                        value: entry.cli.name,
+                        child: Row(
+                          children: [
+                            Icon(
+                              entry.installed
+                                  ? Icons.circle_rounded
+                                  : Icons.circle_outlined,
+                              size: 10,
+                              color: entry.installed ? cs.primary : cs.outline,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                entry.cli.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                            if (loginIcon != null) ...[
+                              const SizedBox(width: 4),
+                              loginIcon,
+                            ],
+                          ],
+                        ),
                       );
-                    } else if (entry.isLoggedIn == true) {
-                      loginIcon = Icon(Icons.check_circle_rounded,
-                          size: 11, color: Colors.green.shade600);
-                    } else if (entry.isLoggedIn == false) {
-                      loginIcon = Icon(Icons.cancel_rounded,
-                          size: 11, color: Colors.orange.shade700);
-                    }
-                  }
-                  return DropdownMenuItem<String>(
-                    value: entry.cli.name,
-                    child: Row(
-                      children: [
-                        Icon(
-                          entry.installed
-                              ? Icons.circle_rounded
-                              : Icons.circle_outlined,
-                          size: 10,
-                          color: entry.installed ? cs.primary : cs.outline,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            entry.cli.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        ),
-                        if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
-                      ],
-                    ),
-                  );
-                }).toList(growable: false),
+                    })
+                    .toList(growable: false),
                 onChanged: isScanning ? null : onCliChanged,
                 enabled: !isScanning && scanResults.isNotEmpty,
               ),
@@ -991,19 +1465,8 @@ class _QuickApplyBar extends StatelessWidget {
               child: _CompactDropdown<String>(
                 label: isZh ? '模型' : 'Model',
                 value: effectiveModel,
-                items: models
-                    .map(
-                      (m) => DropdownMenuItem<String>(
-                        value: m,
-                        child: Text(
-                          m,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: models.isNotEmpty ? onModelChanged : null,
+                items: modelItems,
+                onChanged: modelItems.isNotEmpty ? onModelChanged : null,
                 enabled: selectedCli != null && models.isNotEmpty,
               ),
             ),
@@ -1012,8 +1475,10 @@ class _QuickApplyBar extends StatelessWidget {
               onPressed: selectedCli != null ? onApply : null,
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 textStyle: const TextStyle(fontSize: 12),
               ),
               child: Text(isZh ? '应用至所有角色' : 'Apply to all roles'),
@@ -1047,20 +1512,20 @@ class _CliStatusPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final notInstalled =
-        scanResults.where((r) => !r.installed && r.cli.supportsHeadless).toList();
+    final notInstalled = scanResults
+        .where((r) => !r.installed && r.cli.supportsHeadless)
+        .toList();
     if (notInstalled.isEmpty) return const SizedBox.shrink();
 
-    final autoInstallable =
-        notInstalled.where((r) => r.cli.isAutoInstallable).length;
+    final autoInstallable = notInstalled
+        .where((r) => r.cli.isAutoInstallable)
+        .length;
 
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colorScheme.error.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.25)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
@@ -1069,16 +1534,19 @@ class _CliStatusPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.warning_amber_rounded,
-                    size: 16, color: colorScheme.error),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: colorScheme.error,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     isZh
                         ? '以下 ${notInstalled.length} 个 CLI 未安装'
-                            '${autoInstallable > 0 ? "，其中 $autoInstallable 个可一键安装" : "，请安装后点击刷新"}'
+                              '${autoInstallable > 0 ? "，其中 $autoInstallable 个可一键安装" : "，请安装后点击刷新"}'
                         : '${notInstalled.length} CLI(s) not installed'
-                            '${autoInstallable > 0 ? " — $autoInstallable auto-installable" : " — install then refresh"}',
+                              '${autoInstallable > 0 ? " — $autoInstallable auto-installable" : " — install then refresh"}',
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: colorScheme.error,
                       fontWeight: FontWeight.w600,
@@ -1139,17 +1607,22 @@ class _CliInstallRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(Icons.circle_outlined,
-                size: 10, color: colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.circle_outlined,
+              size: 10,
+              color: colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(cli.name,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                      )),
+                  Text(
+                    cli.name,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
                   if (cli.installCommand != null)
                     Text(
                       cli.installCommand!.join(' '),
@@ -1173,10 +1646,13 @@ class _CliInstallRow extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side:
-                      BorderSide(color: colorScheme.primary.withValues(alpha: 0.7)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  side: BorderSide(
+                    color: colorScheme.primary.withValues(alpha: 0.7),
+                  ),
                   foregroundColor: colorScheme.primary,
                 ),
               ),
@@ -1190,10 +1666,13 @@ class _CliInstallRow extends StatelessWidget {
                 ),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   side: BorderSide(
-                      color: colorScheme.secondary.withValues(alpha: 0.7)),
+                    color: colorScheme.secondary.withValues(alpha: 0.7),
+                  ),
                   foregroundColor: colorScheme.secondary,
                 ),
               ),
@@ -1204,8 +1683,11 @@ class _CliInstallRow extends StatelessWidget {
                 message: isZh
                     ? '此工具为 GUI 应用，不支持无交互 CLI 调用，无法用于 Hardness Engineering'
                     : 'GUI-only app, does not support non-interactive CLI invocation',
-                child: Icon(Icons.monitor_rounded,
-                    size: 16, color: colorScheme.onSurfaceVariant),
+                child: Icon(
+                  Icons.monitor_rounded,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ],
@@ -1225,12 +1707,14 @@ class _CliAuthStatusPanel extends StatelessWidget {
     required this.isCheckingAuth,
     required this.isZh,
     required this.onLogin,
+    required this.onLogout,
   });
 
   final List<CliScanEntry> scanResults;
   final bool isCheckingAuth;
   final bool isZh;
   final Future<void> Function(CliScanEntry entry) onLogin;
+  final Future<void> Function(CliScanEntry entry) onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -1254,84 +1738,175 @@ class _CliAuthStatusPanel extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               isZh ? '正在检测 CLI 登录状态...' : 'Checking CLI login states...',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
       );
     }
 
-    // Only show CLIs that are installed, have a login check, and are confirmed NOT logged in.
+    // CLIs that are installed, have a login check, and are confirmed NOT logged in.
     final notLoggedIn = scanResults
-        .where((r) => r.installed && r.cli.hasLoginCheck && r.isLoggedIn == false)
+        .where(
+          (r) =>
+              r.installed &&
+              r.cli.hasLoginCheck &&
+              r.cli.hasLoginTrigger &&
+              r.isLoggedIn == false,
+        )
         .toList(growable: false);
 
-    if (notLoggedIn.isEmpty) return const SizedBox.shrink();
+    // CLIs that are installed, confirmed logged in, and support logout.
+    final loggedIn = scanResults
+        .where(
+          (r) =>
+              r.installed &&
+              r.cli.hasLoginCheck &&
+              r.cli.hasLogoutTrigger &&
+              r.isLoggedIn == true,
+        )
+        .toList(growable: false);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.login_rounded, size: 16, color: Colors.orange.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isZh
-                          ? '以下 ${notLoggedIn.length} 个 CLI 已安装但尚未登录，需要登录才能正常使用'
-                          : '${notLoggedIn.length} installed CLI(s) are not logged in and may fail at runtime',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: Colors.orange.shade800,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ...notLoggedIn.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: _CliLoginRow(
-                    entry: entry,
-                    isZh: isZh,
-                    onLogin: () => onLogin(entry),
-                  ),
+    if (notLoggedIn.isEmpty && loggedIn.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        // Not-logged-in panel (orange warning)
+        if (notLoggedIn.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.35),
                 ),
               ),
-            ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.login_rounded,
+                          size: 16,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isZh
+                                ? '以下 ${notLoggedIn.length} 个 CLI 已安装但尚未登录，需要登录才能正常使用'
+                                : '${notLoggedIn.length} installed CLI(s) are not logged in and may fail at runtime',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ...notLoggedIn.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _CliAuthRow(
+                          entry: entry,
+                          isZh: isZh,
+                          isLoggedIn: false,
+                          onLogin: () => onLogin(entry),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+
+        // Logged-in panel (green info, with logout buttons)
+        if (loggedIn.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.green.withValues(alpha: 0.30),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 16,
+                          color: Colors.green.shade600,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isZh
+                                ? '以下 ${loggedIn.length} 个 CLI 已安装并已登录，需要切换账号可点击登出'
+                                : '${loggedIn.length} installed CLI(s) are logged in — logout to switch accounts',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ...loggedIn.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _CliAuthRow(
+                          entry: entry,
+                          isZh: isZh,
+                          isLoggedIn: true,
+                          onLogout: () => onLogout(entry),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Single row in the auth-status panel
+// Single row in the auth-status panel (supports both login and logout)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _CliLoginRow extends StatelessWidget {
-  const _CliLoginRow({
+class _CliAuthRow extends StatelessWidget {
+  const _CliAuthRow({
     required this.entry,
     required this.isZh,
-    required this.onLogin,
+    required this.isLoggedIn,
+    this.onLogin,
+    this.onLogout,
   });
 
   final CliScanEntry entry;
   final bool isZh;
-  final VoidCallback onLogin;
+  final bool isLoggedIn;
+  final VoidCallback? onLogin;
+  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -1351,8 +1926,15 @@ class _CliLoginRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(Icons.cancel_rounded,
-                size: 12, color: Colors.orange.shade600),
+            Icon(
+              isLoggedIn
+                  ? Icons.check_circle_rounded
+                  : Icons.cancel_rounded,
+              size: 12,
+              color: isLoggedIn
+                  ? Colors.green.shade600
+                  : Colors.orange.shade600,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -1360,13 +1942,18 @@ class _CliLoginRow extends StatelessWidget {
                 children: [
                   Text(
                     cli.name,
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: colorScheme.onSurface),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
                   ),
                   Text(
-                    isZh ? '已安装，但未登录' : 'Installed, but not logged in',
+                    isLoggedIn
+                        ? (isZh ? '已安装，已登录' : 'Installed, logged in')
+                        : (isZh ? '已安装，但未登录' : 'Installed, but not logged in'),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.orange.shade700,
+                      color: isLoggedIn
+                          ? Colors.green.shade700
+                          : Colors.orange.shade700,
                       fontSize: 11,
                     ),
                   ),
@@ -1374,20 +1961,46 @@ class _CliLoginRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            OutlinedButton.icon(
-              onPressed: onLogin,
-              icon: const Icon(Icons.login_rounded, size: 14),
-              label: Text(
-                isZh ? '登录' : 'Login',
-                style: const TextStyle(fontSize: 12),
+            if (!isLoggedIn && onLogin != null)
+              OutlinedButton.icon(
+                onPressed: onLogin,
+                icon: const Icon(Icons.login_rounded, size: 14),
+                label: Text(
+                  isZh ? '登录' : 'Login',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  side: BorderSide(
+                    color: Colors.orange.shade600.withValues(alpha: 0.8),
+                  ),
+                  foregroundColor: Colors.orange.shade700,
+                ),
               ),
-              style: OutlinedButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                side: BorderSide(color: Colors.orange.shade600.withValues(alpha: 0.8)),
-                foregroundColor: Colors.orange.shade700,
+            if (isLoggedIn && onLogout != null)
+              OutlinedButton.icon(
+                onPressed: onLogout,
+                icon: const Icon(Icons.logout_rounded, size: 14),
+                label: Text(
+                  isZh ? '登出' : 'Logout',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  side: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.6),
+                  ),
+                  foregroundColor: colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
           ],
         ),
       ),

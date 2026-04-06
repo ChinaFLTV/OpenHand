@@ -65,11 +65,17 @@ class HardnessSessionConfig {
       task: '${json['task'] ?? ''}',
       workingDirectory: '${json['working_directory'] ?? ''}',
       persistenceDirectory: '${json['persistence_directory'] ?? ''}',
-      profilerConfig: HardnessRoleConfig.fromJson(_requireMap(json['profiler'])),
+      profilerConfig: HardnessRoleConfig.fromJson(
+        _requireMap(json['profiler']),
+      ),
       readerConfig: HardnessRoleConfig.fromJson(_requireMap(json['reader'])),
       plannerConfig: HardnessRoleConfig.fromJson(_requireMap(json['planner'])),
-      implementerConfig: HardnessRoleConfig.fromJson(_requireMap(json['implementer'])),
-      reviewerConfig: HardnessRoleConfig.fromJson(_requireMap(json['reviewer'])),
+      implementerConfig: HardnessRoleConfig.fromJson(
+        _requireMap(json['implementer']),
+      ),
+      reviewerConfig: HardnessRoleConfig.fromJson(
+        _requireMap(json['reviewer']),
+      ),
     );
   }
 
@@ -95,12 +101,14 @@ class HardnessSessionConfig {
   String toInitialPrompt() {
     String fmt(HardnessRoleConfig cfg, String roleZh, String roleEn) {
       final exe = _executableFor(cfg.cliName);
-      return '- $roleZh($roleEn)：CLI名称=${cfg.cliName}, 可执行文件=$exe, 模型=${cfg.modelId}';
+      final cli = findHardnessCliByName(cfg.cliName);
+      final modelLabel = describeHardnessCliModel(cli, cfg.modelId, isZh: true);
+      return '- $roleZh($roleEn)：CLI名称=${cfg.cliName}, 可执行文件=$exe, 模型=$modelLabel';
     }
 
     final roleLines = <String>[
       fmt(profilerConfig, '探档者', 'profiler'),
-      fmt(readerConfig, '调读者', 'reader'),
+      fmt(readerConfig, '调查者', 'reader'),
       fmt(plannerConfig, '规划者', 'planner'),
       fmt(implementerConfig, '实施者', 'implementer'),
       fmt(reviewerConfig, '验收者', 'reviewer'),
@@ -133,15 +141,23 @@ $task
       await Directory(dirPath).create(recursive: true);
     }
     // Persist config itself for future reference
-    final configFile = File(p.join(persistenceDirectory, 'steering', 'meta', 'hardness_config.json'));
-    await configFile.writeAsString(const JsonEncoder.withIndent('  ').convert(toJson()));
+    final configFile = File(
+      p.join(persistenceDirectory, 'steering', 'meta', 'hardness_config.json'),
+    );
+    await configFile.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(toJson()),
+    );
   }
 
   /// Returns true if meta files (architecture.md / conventions.md) are missing,
   /// indicating a first-run in this context (profiler phase required).
   bool isFirstRun() {
-    final archFile = File(p.join(persistenceDirectory, 'steering', 'meta', 'architecture.md'));
-    final convFile = File(p.join(persistenceDirectory, 'steering', 'meta', 'conventions.md'));
+    final archFile = File(
+      p.join(persistenceDirectory, 'steering', 'meta', 'architecture.md'),
+    );
+    final convFile = File(
+      p.join(persistenceDirectory, 'steering', 'meta', 'conventions.md'),
+    );
     return !archFile.existsSync() || !convFile.existsSync();
   }
 }

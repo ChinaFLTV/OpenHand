@@ -92,7 +92,7 @@ When invoking a role CLI, construct the prompt to include:
 
 ### Planner Mission Template
 ```
-请基于调读者的分析结果和任务需求，产出一份详细的分步执行计划。
+请基于调查者的分析结果和任务需求，产出一份详细的分步执行计划。
 除代码、命令、路径、文件名等技术标识外，所有步骤说明与验收标准必须使用简体中文。
 每个步骤都必须满足：原子化、可验证，并明确对应执行角色（通常为 implementer）。
 格式：带清晰验收标准的编号列表。
