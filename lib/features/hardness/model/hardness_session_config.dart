@@ -100,6 +100,9 @@ class HardnessSessionConfig {
   /// Includes the CLI executable explicitly so the orchestrator never guesses.
   String toInitialPrompt() {
     String fmt(HardnessRoleConfig cfg, String roleZh, String roleEn) {
+      if (cfg.isUrlMode) {
+        return '- $roleZh($roleEn)：模式=URL/API, 模型配置ID=${cfg.aiModelConfigId ?? '(未配置)'}';
+      }
       final exe = _executableFor(cfg.cliName);
       final cli = findHardnessCliByName(cfg.cliName);
       final modelLabel = describeHardnessCliModel(cli, cfg.modelId, isZh: true);

@@ -37,6 +37,7 @@ import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
+import '../hardness/hardness_api_phase_runner.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../hardness/hardness_engineering_dialog.dart';
 import '../hardness/hardness_orchestrator.dart';
@@ -800,7 +801,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _composerFocusNode.hasFocus &&
           (shortcutAction == OpenHandShortcutAction.sendMessage ||
               shortcutAction == OpenHandShortcutAction.toggleComposer);
-      if (!composerShortcutAllowed) {
+      final hardnessComposerShortcutAllowed =
+          _selectedSection == AppSection.hardnessSession &&
+          _hardnessSessionPaneController.shouldAllowEditableShortcut(
+            shortcutAction,
+          );
+      if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
         return false;
       }
     }
@@ -1071,9 +1077,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return created;
     }
     if (templateId == 'hardness_engineering') {
+      final settingsCtrl = context.read<SettingsController>();
       final config = await showDialog<HardnessSessionConfig>(
         context: context,
-        builder: (context) => const HardnessEngineeringDialog(),
+        builder: (context) =>
+            HardnessEngineeringDialog(settingsController: settingsCtrl),
       );
       if (!mounted || config == null) {
         return false;
@@ -1094,6 +1102,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final orchestrator = HardnessOrchestrator(config);
       orchestrator.fullAccessPermission = _heFullAccessPermission;
       orchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+      _wireHardnessApiMode(orchestrator);
       final now = DateTime.now().toUtc();
       final record = HardnessSessionRecord(
         id: const Uuid().v4(),
@@ -1205,6 +1214,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  /// Wires API-mode (URL) support on a [HardnessOrchestrator] so that phases
+  /// configured with [HardnessExecutionMode.url] can run through the AI
+  /// chat infrastructure instead of a CLI tool.
+  void _wireHardnessApiMode(HardnessOrchestrator orchestrator) {
+    final aiCtrl = context.read<AiSessionController>();
+    orchestrator.apiPhaseRunner = HardnessApiPhaseRunner(
+      chatClient: aiCtrl.chatClient,
+      toolRuntimeService: aiCtrl.toolRuntimeService,
+      templateRepository: aiCtrl.templateRepository,
+    );
+    orchestrator.resolveAiModelConfig = (String configId) {
+      final settingsCtrl = context.read<SettingsController>();
+      try {
+        return settingsCtrl.aiModels.firstWhere((m) => m.id == configId);
+      } catch (_) {
+        return null;
+      }
+    };
+    orchestrator.buildApiRuntimeContext = (String workingDirectory) {
+      return _buildRuntimeContext();
+    };
+  }
+
   /// Loads the last-persisted Hardness Engineering session record from disk
   /// and displays it in the navigation sidebar.
   Future<void> _loadPersistedHardnessSession() async {
@@ -1219,6 +1251,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
     restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
     restoredOrchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+    _wireHardnessApiMode(restoredOrchestrator);
     restoredOrchestrator.restoreSnapshot(
       status: effectiveRecord.status,
       phaseLogs: effectiveRecord.phaseLogs,
@@ -12068,13 +12101,11 @@ class _HardnessSessionTile extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: _AnimatedSessionTitleText(
+                    text: title,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: titleColor,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
                   ),
                 ),
                 if (showBadge) ...[

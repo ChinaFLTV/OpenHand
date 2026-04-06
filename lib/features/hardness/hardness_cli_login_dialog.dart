@@ -114,6 +114,20 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         }
       }
 
+      // If the output contains typical "no stdin" warnings, hint the user
+      // to try the external terminal approach instead.
+      if (_output.contains('no stdin data received') ||
+          _output.contains('Not logged in') ||
+          (_output.contains('Please run /login') && exitCode != 0)) {
+        _appendOutput('\n');
+        _appendOutput(
+          '[提示] 该 CLI 可能需要真实终端 (TTY) 才能完成交互式登录。\n'
+          '请点击下方「在终端中打开」按钮，在系统终端中完成登录流程。\n'
+          '[Hint] This CLI may require a real terminal (TTY) for interactive login.\n'
+          'Use the "Open in Terminal" button below to complete login in the system terminal.\n',
+        );
+      }
+
       if (!mounted) return;
       setState(() {
         _finished = true;
@@ -203,6 +217,45 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
 
   Future<void> _copyCommand() async {
     await Clipboard.setData(ClipboardData(text: _commandPreview));
+  }
+
+  /// Opens the system terminal with the login command pre-injected.
+  /// This is more reliable for CLIs requiring a real TTY (e.g. Claude Code).
+  Future<void> _openInTerminal() async {
+    try {
+      if (Platform.isMacOS) {
+        // Use osascript to open Terminal.app and run the login command.
+        final escapedCmd = _commandPreview
+            .replaceAll('\\', '\\\\')
+            .replaceAll('"', '\\"');
+        await Process.run('osascript', [
+          '-e',
+          'tell application "Terminal"',
+          '-e',
+          'activate',
+          '-e',
+          'do script "$escapedCmd"',
+          '-e',
+          'end tell',
+        ]);
+      } else if (Platform.isLinux) {
+        // Try common terminal emulators.
+        final terminals = ['gnome-terminal', 'xterm', 'konsole'];
+        for (final term in terminals) {
+          try {
+            await Process.start(term, ['--', 'bash', '-c', '$_commandPreview; exec bash']);
+            break;
+          } catch (_) {
+            continue;
+          }
+        }
+      } else if (Platform.isWindows) {
+        await Process.start('cmd', ['/c', 'start', 'cmd', '/k', _commandPreview], runInShell: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _appendOutput('[Error opening terminal: $e]\n');
+    }
   }
 
   Future<void> _closeDialog() async {
@@ -392,6 +445,11 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                       : null,
                   icon: const Icon(Icons.cancel_rounded, size: 16),
                   label: const Text('Ctrl+C'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _openInTerminal,
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: Text(isZh ? '在终端中打开' : 'Open in Terminal'),
                 ),
               ],
             ),

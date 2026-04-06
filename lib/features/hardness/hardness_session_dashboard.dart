@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,9 +10,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
 import '../../app/model/openhand_shortcut.dart';
+import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_orchestrator.dart';
@@ -105,6 +109,124 @@ final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
       );
 
   return (command: command, body: joined);
+}
+
+String _heAiModelConfigLabel(AiModelConfig config) {
+  final displayName = config.displayName.trim();
+  final protocolLabel = config.protocolType.storageValue;
+  if (displayName.isNotEmpty) {
+    return '$displayName ($protocolLabel)';
+  }
+
+  final baseUrl = config.baseUrl.trim();
+  if (baseUrl.isNotEmpty) {
+    return '$protocolLabel — $baseUrl';
+  }
+  return protocolLabel;
+}
+
+String _heDescribeAiModelConfig(
+  List<AiModelConfig> settingsModels,
+  String? configId, {
+  required bool isZh,
+}) {
+  final trimmedConfigId = configId?.trim() ?? '';
+  if (trimmedConfigId.isEmpty) {
+    return isZh ? '未配置' : 'Not configured';
+  }
+
+  final matchedConfig = settingsModels
+      .where((item) => item.id == trimmedConfigId)
+      .firstOrNull;
+  if (matchedConfig != null) {
+    return _heAiModelConfigLabel(matchedConfig);
+  }
+
+  return isZh
+      ? '已删除配置 · $trimmedConfigId'
+      : 'Deleted config · $trimmedConfigId';
+}
+
+String? _hePreferredAiModelConfigId({
+  required List<AiModelConfig> settingsModels,
+  required String? configuredId,
+  String? fallbackId,
+}) {
+  final trimmedConfiguredId = configuredId?.trim();
+  if (trimmedConfiguredId != null &&
+      trimmedConfiguredId.isNotEmpty &&
+      settingsModels.any((item) => item.id == trimmedConfiguredId)) {
+    return trimmedConfiguredId;
+  }
+
+  final trimmedFallbackId = fallbackId?.trim();
+  if (trimmedFallbackId != null &&
+      trimmedFallbackId.isNotEmpty &&
+      settingsModels.any((item) => item.id == trimmedFallbackId)) {
+    return trimmedFallbackId;
+  }
+
+  return settingsModels.isEmpty ? null : settingsModels.first.id;
+}
+
+List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
+  BuildContext context, {
+  required List<AiModelConfig> settingsModels,
+  required String? configuredId,
+  required bool isZh,
+}) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final items = <DropdownMenuItem<String>>[];
+  final trimmedConfiguredId = configuredId?.trim();
+  final hasConfiguredId =
+      trimmedConfiguredId != null && trimmedConfiguredId.isNotEmpty;
+  final hasMatchingConfig =
+      hasConfiguredId &&
+      settingsModels.any((item) => item.id == trimmedConfiguredId);
+
+  if (hasConfiguredId && !hasMatchingConfig) {
+    items.add(
+      DropdownMenuItem<String>(
+        value: trimmedConfiguredId,
+        child: Text(
+          isZh
+              ? '已删除配置 · $trimmedConfiguredId'
+              : 'Deleted config · $trimmedConfiguredId',
+          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.error),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  items.addAll(
+    settingsModels.map(
+      (config) => DropdownMenuItem<String>(
+        value: config.id,
+        child: Text(
+          _heAiModelConfigLabel(config),
+          style: theme.textTheme.bodySmall,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    ),
+  );
+
+  return items;
+}
+
+String? _heResolvedAiModelConfigDropdownValue(
+  List<DropdownMenuItem<String>> items,
+  String? configuredId,
+) {
+  final trimmedConfiguredId = configuredId?.trim();
+  if (trimmedConfiguredId == null || trimmedConfiguredId.isEmpty) {
+    return null;
+  }
+  return items.any((item) => item.value == trimmedConfiguredId)
+      ? trimmedConfiguredId
+      : null;
 }
 
 // =============================================================================
@@ -318,8 +440,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   // one AI output + one user input still promotes the AI output correctly.
   final nonCommandSegments = segments.where(
     (s) =>
-        s.kind != _HeSegmentKind.command &&
-        s.kind != _HeSegmentKind.userInput,
+        s.kind != _HeSegmentKind.command && s.kind != _HeSegmentKind.userInput,
   );
   if (nonCommandSegments.length == 1 &&
       nonCommandSegments.first.kind == _HeSegmentKind.output &&
@@ -424,7 +545,9 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
 
 // Shared border-radius constants matching the home-page conversation UI.
 const _br26 = BorderRadius.all(Radius.circular(26));
+const _br18 = BorderRadius.all(Radius.circular(18));
 const _br16 = BorderRadius.all(Radius.circular(16));
+const _br12 = BorderRadius.all(Radius.circular(12));
 const _br999 = BorderRadius.all(Radius.circular(999));
 
 const Color _hePendingTone = Color(0xFF818A98);
@@ -446,7 +569,7 @@ const Color _heFailedTone = Color(0xFFC84B4B);
     HardnessPhaseStatus.cancelled => _hePausedTone,
     HardnessPhaseStatus.running => _heRunningTone,
     HardnessPhaseStatus.completed =>
-      reviewVerdictFail ? _hePausedTone : _heCompletedTone,
+      reviewVerdictFail ? _heFailedTone : _heCompletedTone,
     HardnessPhaseStatus.failed => _heFailedTone,
   };
   final backgroundAlpha = switch (status) {
@@ -504,6 +627,10 @@ class HardnessSessionPaneController {
 
   Future<bool> invokeShortcut(OpenHandShortcutAction action) async {
     return await _state?._handleShortcutAction(action) ?? false;
+  }
+
+  bool shouldAllowEditableShortcut(OpenHandShortcutAction action) {
+    return _state?._shouldAllowEditableShortcut(action) ?? false;
   }
 }
 
@@ -599,6 +726,9 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   bool _manualPhaseSubmitting = false;
   bool _lastAwaitingManualPhaseInput = false;
 
+  /// The phase log currently selected (for showing action buttons below card).
+  HardnessPhaseLog? _selectedPhaseLog;
+
   // ── Auto-scroll state ───────────────────────────────────────────────────
   /// Guards against multiple addPostFrameCallback registrations per frame.
   bool _scrollCallbackQueued = false;
@@ -620,6 +750,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
   void initState() {
     super.initState();
     widget.controller?._attach(this);
+    _manualPhaseFocusNode.onKeyEvent = _handleManualPhaseFocusNodeKeyEvent;
     _manualPhaseController.addListener(_onManualPhaseDraftChanged);
     _feedController.addListener(_handleFeedScroll);
     widget.orchestrator.addListener(_onOrchestratorUpdated);
@@ -870,19 +1001,89 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     return switch (blocker) {
       HardnessPhaseExecutionBlocker.missingConfig =>
         widget.isZh
-            ? '请先为该阶段配置 CLI 和模型，然后再继续执行。'
-            : 'Configure both the CLI and model for this phase before continuing.',
+            ? '请先为该阶段配置 CLI/模型 或 API 模型，然后再继续执行。'
+            : 'Configure the CLI/model or API model for this phase before continuing.',
       HardnessPhaseExecutionBlocker.unsupportedCli =>
         widget.isZh
             ? '当前 CLI 不支持无交互执行，请改为支持 headless 的 CLI。'
             : 'The selected CLI does not support headless execution. Choose a supported CLI.',
+      HardnessPhaseExecutionBlocker.missingApiModel =>
+        widget.isZh
+            ? '所选 API 模型配置无效或已被删除，请在设置中检查。'
+            : 'The selected API model configuration is invalid or deleted. Check settings.',
+      HardnessPhaseExecutionBlocker.missingApiRunner =>
+        widget.isZh
+            ? 'API 运行时未初始化，请重启应用。'
+            : 'API runtime not initialized. Restart the application.',
       null => null,
     };
   }
 
-  void _setComposerCollapsed(bool collapsed) {
-    if (_composerCollapsed == collapsed) return;
-    setState(() => _composerCollapsed = collapsed);
+  void _setComposerCollapsedState(
+    bool collapsed, {
+    bool requestFocusWhenExpanded = false,
+  }) {
+    final wasCollapsed = _composerCollapsed;
+    if (wasCollapsed != collapsed) {
+      setState(() => _composerCollapsed = collapsed);
+    }
+    if (collapsed) {
+      if (_manualPhaseFocusNode.hasFocus) {
+        _manualPhaseFocusNode.unfocus();
+      }
+      return;
+    }
+    if (!requestFocusWhenExpanded || !_isAwaitingManualPhaseInput) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _composerCollapsed || !_isAwaitingManualPhaseInput) {
+        return;
+      }
+      if (_manualPhaseFocusNode.canRequestFocus) {
+        _manualPhaseFocusNode.requestFocus();
+      }
+    });
+  }
+
+  bool _shouldAllowEditableShortcut(OpenHandShortcutAction action) {
+    if (_composerCollapsed || !_manualPhaseFocusNode.hasFocus) {
+      return false;
+    }
+    return action == OpenHandShortcutAction.sendMessage ||
+        action == OpenHandShortcutAction.toggleComposer;
+  }
+
+  KeyEventResult _handleManualPhaseFocusNodeKeyEvent(
+    FocusNode node,
+    KeyEvent event,
+  ) {
+    if (!mounted ||
+        !_isAwaitingManualPhaseInput ||
+        _composerCollapsed ||
+        (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
+      return KeyEventResult.ignored;
+    }
+    final bindings = context.read<SettingsController>().shortcutBindings;
+    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+    for (final action in const <OpenHandShortcutAction>[
+      OpenHandShortcutAction.sendMessage,
+      OpenHandShortcutAction.toggleComposer,
+    ]) {
+      final shortcutKeyIds = normalizeShortcutKeyIds(
+        bindings[action] ?? const <int>[],
+      );
+      if (shortcutKeyIds.length != pressedKeyIds.length ||
+          !pressedKeyIds.containsAll(shortcutKeyIds)) {
+        continue;
+      }
+      unawaited(_handleShortcutAction(action));
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<bool> _handleShortcutAction(OpenHandShortcutAction action) async {
@@ -891,7 +1092,10 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         await _handlePrimaryComposerAction();
         return true;
       case OpenHandShortcutAction.toggleComposer:
-        _setComposerCollapsed(!_composerCollapsed);
+        _setComposerCollapsedState(
+          !_composerCollapsed,
+          requestFocusWhenExpanded: _composerCollapsed,
+        );
         return true;
       case OpenHandShortcutAction.toggleAutoFollow:
         _toggleAutoFollow();
@@ -936,13 +1140,26 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     }
 
     setState(() => _manualPhaseSubmitting = true);
-    final submitted = widget.orchestrator.submitManualPhaseInput(content);
-    if (!submitted && mounted) {
+    try {
+      final submitted = widget.orchestrator.submitManualPhaseInput(content);
+      if (!submitted && mounted) {
+        setState(() => _manualPhaseSubmitting = false);
+        _showComposerMessage(
+          widget.isZh
+              ? '人工输入提交失败，请重试。'
+              : 'Failed to submit the manual input. Try again.',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('Manual phase input submission failed: $error\n$stackTrace');
+      if (!mounted) {
+        return;
+      }
       setState(() => _manualPhaseSubmitting = false);
       _showComposerMessage(
         widget.isZh
-            ? '人工输入提交失败，请重试。'
-            : 'Failed to submit the manual input. Try again.',
+            ? '人工输入提交异常，请重试。'
+            : 'The manual input submission failed unexpectedly. Try again.',
       );
     }
   }
@@ -967,16 +1184,31 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     }
 
     setState(() => _manualPhaseSubmitting = true);
-    final submitted = widget.orchestrator.submitManualPhaseInput(
-      content,
-      reviewVerdict: pass,
-    );
-    if (!submitted && mounted) {
+    try {
+      final submitted = widget.orchestrator.submitManualPhaseInput(
+        content,
+        reviewVerdict: pass,
+      );
+      if (!submitted && mounted) {
+        setState(() => _manualPhaseSubmitting = false);
+        _showComposerMessage(
+          widget.isZh
+              ? '验收结果提交失败，请重试。'
+              : 'Failed to submit the review verdict. Try again.',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Manual review verdict submission failed: $error\n$stackTrace',
+      );
+      if (!mounted) {
+        return;
+      }
       setState(() => _manualPhaseSubmitting = false);
       _showComposerMessage(
         widget.isZh
-            ? '验收结果提交失败，请重试。'
-            : 'Failed to submit the review verdict. Try again.',
+            ? '验收结果提交异常，请重试。'
+            : 'The review verdict submission failed unexpectedly. Try again.',
       );
     }
   }
@@ -1237,7 +1469,10 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         _HeComposer(
           isZh: widget.isZh,
           isCollapsed: _composerCollapsed,
-          onCollapsedChanged: _setComposerCollapsed,
+          onCollapsedChanged: (collapsed) => _setComposerCollapsedState(
+            collapsed,
+            requestFocusWhenExpanded: !collapsed,
+          ),
           autoFollowEnabled: _autoFollowEnabled,
           onToggleAutoFollow: _toggleAutoFollow,
           fullAccessPermission: widget.fullAccessPermission,
@@ -1276,7 +1511,8 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
           onPrimaryAction: () {
             _handlePrimaryComposerAction();
           },
-          isManualReviewPhase: _isAwaitingManualPhaseInput &&
+          isManualReviewPhase:
+              _isAwaitingManualPhaseInput &&
               _awaitingManualPhase == HardnessPhase.reviewing,
           onReviewPass: () => _submitManualReviewVerdict(pass: true),
           onReviewFail: () => _submitManualReviewVerdict(pass: false),
@@ -1319,37 +1555,73 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         child: ListView.builder(
           controller: _feedController,
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-          // +1 for the terminal status banner after the last phase card.
-          // +1 if awaiting approval.
+          // +1 if awaiting approval (for the approval banner).
           itemCount:
               logs.length +
-              1 +
               (widget.orchestrator.awaitingApprovalPhase != null ? 1 : 0),
           itemBuilder: (context, index) {
             if (index < logs.length) {
               final log = logs[index];
+              final phaseIndex = index;
+              final isNotRunning =
+                  widget.orchestrator.status !=
+                  HardnessOrchestratorStatus.running;
+              final isSelected = _selectedPhaseLog == log;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _HePhaseCardEntrance(
-                  child: _HePhaseCard(
-                    key: ObjectKey(log),
-                    log: log,
-                    config: widget.config,
-                    isZh: widget.isZh,
-                    expanded: _isPhaseExpanded(log),
-                    onToggleExpand: () =>
-                        _setPhaseExpanded(log, !_isPhaseExpanded(log)),
-                    onCopyLog: () => _copyLog(context, log),
-                    onRoleConfigChanged: _isPhaseConfigEditable(log)
-                        ? (newRoleConfig) =>
-                              _updatePhaseConfig(log.phase, newRoleConfig)
-                        : null,
-                    filePathRoots: widget.filePathRoots,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () {
+                      if (_selectedPhaseLog == log) return;
+                      setState(() => _selectedPhaseLog = log);
+                    },
+                    child: TapRegion(
+                      enabled: isSelected,
+                      onTapOutside: (_) {
+                        if (_selectedPhaseLog != log) return;
+                        setState(() => _selectedPhaseLog = null);
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _HePhaseCard(
+                            key: ObjectKey(log),
+                            log: log,
+                            config: widget.config,
+                            isZh: widget.isZh,
+                            expanded: _isPhaseExpanded(log),
+                            onToggleExpand: () =>
+                                _setPhaseExpanded(log, !_isPhaseExpanded(log)),
+                            onCopyLog: () => _copyLog(context, log),
+                            onRoleConfigChanged: _isPhaseConfigEditable(log)
+                                ? (newRoleConfig) => _updatePhaseConfig(
+                                    log.phase,
+                                    newRoleConfig,
+                                  )
+                                : null,
+                            filePathRoots: widget.filePathRoots,
+                          ),
+                          if (isSelected && isNotRunning)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: _HePhaseActionBar(
+                                isZh: widget.isZh,
+                                onCopyLog: () => _copyLog(context, log),
+                                onReExecute: () => _reExecutePhase(phaseIndex),
+                                onDelete: () =>
+                                    _deletePhaseLog(context, phaseIndex),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );
             }
-            if (awaitingApprovalPhase != null && index == logs.length) {
+            // Approval banner (last item when awaiting approval).
+            if (awaitingApprovalPhase != null) {
               final approvalPhaseCopy = _manualPhaseCopy(awaitingApprovalPhase);
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -1387,11 +1659,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
                 ),
               );
             }
-            return _HeStatusBanner(
-              orchestrator: orchestrator,
-              isZh: widget.isZh,
-              onRestart: widget.onRestart,
-            );
+            return const SizedBox.shrink();
           },
         ),
       ),
@@ -1425,6 +1693,40 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _reExecutePhase(int phaseIndex) {
+    widget.orchestrator.reExecutePhase(phaseIndex);
+  }
+
+  Future<void> _deletePhaseLog(BuildContext context, int phaseIndex) async {
+    final isZh = widget.isZh;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(isZh ? '删除阶段' : 'Delete Phase'),
+        content: Text(
+          isZh
+              ? '确定删除这个阶段吗？删除后该阶段的执行日志将被移除。'
+              : 'Are you sure you want to delete this phase? The execution log will be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(isZh ? '取消' : 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              isZh ? '删除' : 'Delete',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    widget.orchestrator.deletePhaseLog(phaseIndex);
   }
 
   Future<void> _requestCancel(BuildContext context) async {
@@ -1595,13 +1897,54 @@ class _HePaneHeader extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _effectiveTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 380),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.centerLeft,
+                        children: <Widget>[
+                          ...previousChildren,
+                          ...?(currentChild == null
+                              ? null
+                              : <Widget>[currentChild]),
+                        ],
+                      );
+                    },
+                    transitionBuilder: (child, animation) {
+                      final curved = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                        reverseCurve: Curves.easeInCubic,
+                      );
+                      final slide = Tween<Offset>(
+                        begin: const Offset(0, 0.35),
+                        end: Offset.zero,
+                      ).animate(curved);
+                      final scale = Tween<double>(
+                        begin: 0.96,
+                        end: 1,
+                      ).animate(curved);
+                      return ClipRect(
+                        child: FadeTransition(
+                          opacity: curved,
+                          child: SlideTransition(
+                            position: slide,
+                            child: ScaleTransition(scale: scale, child: child),
+                          ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      _effectiveTitle,
+                      key: ValueKey<String>(_effectiveTitle),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1611,31 +1954,6 @@ class _HePaneHeader extends StatelessWidget {
                     physics: const ClampingScrollPhysics(),
                     child: Row(
                       children: [
-                        // ── Access-mode toggle (mirrors chat/plan-mode pill) ──
-                        Tooltip(
-                          message: fullAccessPermission
-                              ? (isZh
-                                    ? '当前：全自动模式，阶段自动推进。点击切换到审批模式。'
-                                    : 'Full-auto: phases advance automatically. Tap to switch to approval mode.')
-                              : (isZh
-                                    ? '当前：审批模式，每个阶段需要手动批准。点击切换到全自动模式。'
-                                    : 'Approval mode: each phase requires manual approval. Tap to switch to full-auto.'),
-                          waitDuration: const Duration(milliseconds: 300),
-                          child: _HePill(
-                            icon: fullAccessPermission
-                                ? Icons.bolt_rounded
-                                : Icons.approval_rounded,
-                            label: fullAccessPermission
-                                ? (isZh ? '全自动' : 'Full Auto')
-                                : (isZh ? '审批模式' : 'Approval'),
-                            foregroundColor: fullAccessPermission
-                                ? const Color(0xFF2E7D32)
-                                : colorScheme.tertiary,
-                            onTap: () =>
-                                onToggleFullAccess(!fullAccessPermission),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         // ── Phase progress (mirrors runtime mode / template pill) ──
                         _HePill(
                           icon: _phaseProgressIcon(),
@@ -1788,6 +2106,8 @@ class _HeSessionMetadataDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final logs = orchestrator.phaseLogs;
+    final settingsController = Provider.of<SettingsController?>(context);
+    final aiModels = settingsController?.aiModels ?? const <AiModelConfig>[];
 
     final totalPhases = HardnessPhase.values.length;
     final completedPhases = logs
@@ -1952,7 +2272,9 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           for (final entry in roleConfigs)
                             _HeMetadataEntryRow(
                               label: entry.$1,
-                              value: entry.$2.isConfigured
+                              value: entry.$2.isUrlMode
+                                  ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh)}'
+                                  : entry.$2.isConfigured
                                   ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
                                   : (isZh ? '未配置' : 'Not configured'),
                             ),
@@ -2298,6 +2620,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final colorScheme = theme.colorScheme;
     final log = widget.log;
     final isZh = widget.isZh;
+    final settingsController = Provider.of<SettingsController?>(context);
+    final aiModels = settingsController?.aiModels ?? const <AiModelConfig>[];
 
     final isRunning = log.status == HardnessPhaseStatus.running;
     final isPaused = log.status == HardnessPhaseStatus.paused;
@@ -2358,7 +2682,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
             ),
 
             // ── Info chips (mirrors _ToolCallBody chip Wrap) ──────────────
-            if (roleConfig.cliName.isNotEmpty ||
+            if (roleConfig.isUrlMode ||
+                roleConfig.cliName.isNotEmpty ||
                 roleConfig.modelId.isNotEmpty ||
                 log.exitCode != null ||
                 log.savedLogPath != null) ...[
@@ -2367,12 +2692,24 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (roleConfig.cliName.isNotEmpty)
+                  if (roleConfig.isUrlMode)
+                    const _HeChip(icon: Icons.cloud_rounded, label: 'URL/API'),
+                  if (!roleConfig.isUrlMode && roleConfig.cliName.isNotEmpty)
                     _HeChip(
                       icon: Icons.terminal_rounded,
                       label: roleConfig.cliName,
                     ),
-                  if (roleConfig.modelId.isNotEmpty)
+                  if (roleConfig.isUrlMode &&
+                      (roleConfig.aiModelConfigId?.trim().isNotEmpty ?? false))
+                    _HeChip(
+                      icon: Icons.layers_rounded,
+                      label: _heDescribeAiModelConfig(
+                        aiModels,
+                        roleConfig.aiModelConfigId,
+                        isZh: isZh,
+                      ),
+                    ),
+                  if (!roleConfig.isUrlMode && roleConfig.modelId.isNotEmpty)
                     _HeChip(
                       icon: Icons.layers_rounded,
                       label: describeHardnessCliModel(
@@ -2493,6 +2830,62 @@ class _HePhaseCardState extends State<_HePhaseCard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// =============================================================================
+// _HePhaseActionBar — action buttons shown below a selected phase card,
+// matching the _MessageActionButton pattern from AI thread messages.
+// =============================================================================
+
+class _HePhaseActionBar extends StatelessWidget {
+  const _HePhaseActionBar({
+    required this.isZh,
+    required this.onCopyLog,
+    required this.onReExecute,
+    required this.onDelete,
+  });
+
+  final bool isZh;
+  final VoidCallback onCopyLog;
+  final VoidCallback onReExecute;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final buttonStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 34),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      textStyle: theme.textTheme.labelMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    return Wrap(
+      spacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onCopyLog,
+          style: buttonStyle,
+          icon: const Icon(Icons.content_copy_outlined, size: 16),
+          label: Text(isZh ? '复制' : 'Copy'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onReExecute,
+          style: buttonStyle,
+          icon: const Icon(Icons.replay_rounded, size: 16),
+          label: Text(isZh ? '重新执行' : 'Re-execute'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDelete,
+          style: buttonStyle,
+          icon: const Icon(Icons.delete_outline_rounded, size: 16),
+          label: Text(isZh ? '删除' : 'Delete'),
+        ),
+      ],
     );
   }
 }
@@ -3516,6 +3909,22 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
         colorScheme: colorScheme,
         isStreaming: widget.isStreaming,
       );
+    }
+
+    // ── Special rendering for manual review verdict segments ─────────
+    if (seg.kind == _HeSegmentKind.userInput) {
+      final verdictInfo = _parseReviewVerdict(seg);
+      if (verdictInfo != null) {
+        return _HeReviewVerdictCard(
+          isPass: verdictInfo.isPass,
+          comment: verdictInfo.comment,
+          roleLabel:
+              seg.roleLabel ?? (widget.isZh ? '用户人工验收结果' : 'Manual Review'),
+          isZh: widget.isZh,
+          theme: widget.theme,
+          colorScheme: colorScheme,
+        );
+      }
     }
 
     // ── Determine card style by segment kind ────────────────────────────
@@ -4729,6 +5138,170 @@ class _HeStructuredLogLines extends StatelessWidget {
 }
 
 // =============================================================================
+// _HeReviewVerdictInfo — parsed review verdict from a userInput segment
+// =============================================================================
+
+class _HeReviewVerdictInfo {
+  const _HeReviewVerdictInfo({required this.isPass, required this.comment});
+  final bool isPass;
+  final String comment;
+}
+
+/// Parses a userInput segment to detect PASS/FAIL verdict lines.
+_HeReviewVerdictInfo? _parseReviewVerdict(_HeOutputSegment seg) {
+  if (seg.kind != _HeSegmentKind.userInput) return null;
+  final lines = seg.lines;
+  if (lines.isEmpty) return null;
+
+  // Look at the first non-empty line for PASS/FAIL.
+  bool? isPass;
+  int verdictLineIndex = -1;
+  for (var i = 0; i < lines.length; i++) {
+    final trimmed = lines[i].trim();
+    if (trimmed.isEmpty) continue;
+    if (trimmed == 'PASS') {
+      isPass = true;
+      verdictLineIndex = i;
+      break;
+    }
+    if (trimmed == 'FAIL') {
+      isPass = false;
+      verdictLineIndex = i;
+      break;
+    }
+    // First non-empty line is not PASS/FAIL — not a verdict segment.
+    break;
+  }
+  if (isPass == null) return null;
+
+  // Collect remaining content as comment.
+  final commentLines = <String>[];
+  for (var i = verdictLineIndex + 1; i < lines.length; i++) {
+    commentLines.add(lines[i]);
+  }
+  final comment = commentLines.join('\n').trim();
+  return _HeReviewVerdictInfo(isPass: isPass, comment: comment);
+}
+
+// =============================================================================
+// _HeReviewVerdictCard — styled card for manual review verdict
+// =============================================================================
+
+class _HeReviewVerdictCard extends StatelessWidget {
+  const _HeReviewVerdictCard({
+    required this.isPass,
+    required this.comment,
+    required this.roleLabel,
+    required this.isZh,
+    required this.theme,
+    required this.colorScheme,
+  });
+
+  final bool isPass;
+  final String comment;
+  final String roleLabel;
+  final bool isZh;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    final verdictColor = isPass ? _heCompletedTone : _heFailedTone;
+    final bgAlpha = isDark ? 0.22 : 0.10;
+    final borderAlpha = isDark ? 0.45 : 0.32;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          verdictColor.withValues(alpha: bgAlpha),
+          colorScheme.surface,
+        ),
+        borderRadius: _br18,
+        border: Border.all(
+          color: verdictColor.withValues(alpha: borderAlpha),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withValues(alpha: isDark ? 0.06 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header with role label ──────────────────────────────
+            Row(
+              children: [
+                Icon(
+                  Icons.person_rounded,
+                  size: 14,
+                  color: colorScheme.onSurface.withValues(alpha: 0.60),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  roleLabel,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.60),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // ── Verdict banner ──────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: verdictColor.withValues(alpha: isDark ? 0.20 : 0.12),
+                borderRadius: _br12,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isPass ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                    size: 22,
+                    color: verdictColor,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    isPass
+                        ? (isZh ? '验收通过' : 'Review Passed')
+                        : (isZh ? '验收未通过' : 'Review Failed'),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: verdictColor,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── Comment body ────────────────────────────────────────
+            if (comment.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                comment,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface.withValues(alpha: 0.85),
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
 // _HeSegmentBody — renders markdown content within a segment card
 // =============================================================================
 
@@ -4765,15 +5338,6 @@ class _HeSegmentBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayContent = _displayContent;
-    final sanitised = _heCloseUnterminatedCodeBlock(displayContent);
-    final styleSheet = _heBuildMarkdownStyleSheet(theme, colorScheme);
-
-    final inlineSyntaxes = filePathRoots.isNotEmpty
-        ? <md.InlineSyntax>[
-            MessagePathCodeSyntax(candidateRoots: filePathRoots),
-            MessageFilePathSyntax(candidateRoots: filePathRoots),
-          ]
-        : const <md.InlineSyntax>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4784,24 +5348,12 @@ class _HeSegmentBody extends StatelessWidget {
             colorScheme: colorScheme,
           )
         else
-          MarkdownBody(
-            data: sanitised,
-            selectable: true,
-            styleSheet: styleSheet,
-            fitContent: false,
-            extensionSet: md.ExtensionSet.gitHubFlavored,
-            inlineSyntaxes: inlineSyntaxes,
-            builders: {
-              'pre': _HeDiffBuilder(colorScheme: colorScheme),
-              if (filePathRoots.isNotEmpty) ...{
-                'openhand-file-resolved': _HeFilePathBuilder(
-                  textColor: textColor,
-                ),
-                'openhand-file-pending': _HeFilePathBuilder(
-                  textColor: textColor,
-                ),
-              },
-            },
+          _HeSafeMarkdownBody(
+            content: displayContent,
+            theme: theme,
+            colorScheme: colorScheme,
+            filePathRoots: filePathRoots,
+            textColor: textColor,
           ),
         if (!expanded) ...[
           const SizedBox(height: 4),
@@ -4954,6 +5506,214 @@ class _HeCommandStripState extends State<_HeCommandStrip>
 
 // ── Markdown content with collapse/expand ─────────────────────────────────
 
+class _HeSafeMarkdownBody extends StatefulWidget {
+  const _HeSafeMarkdownBody({
+    required this.content,
+    required this.theme,
+    required this.colorScheme,
+    this.filePathRoots = const [],
+    this.textColor,
+  });
+
+  final String content;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+  final List<String> filePathRoots;
+  final Color? textColor;
+
+  @override
+  State<_HeSafeMarkdownBody> createState() => _HeSafeMarkdownBodyState();
+}
+
+class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
+    implements MarkdownBuilderDelegate {
+  List<Widget>? _children;
+  String? _lastSanitised;
+  int? _lastThemeHash;
+  final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rebuildIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeSafeMarkdownBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _rebuildIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _rebuildIfNeeded() {
+    final sanitised = _heSanitizeMarkdownSource(widget.content);
+    final themeHash = Object.hashAll(<Object?>[
+      widget.theme.brightness,
+      widget.colorScheme.surface.toARGB32(),
+      widget.colorScheme.primary.toARGB32(),
+      widget.textColor?.toARGB32(),
+      widget.filePathRoots.join('\u0000'),
+    ]);
+
+    if (sanitised == _lastSanitised && themeHash == _lastThemeHash) {
+      return;
+    }
+
+    _lastSanitised = sanitised;
+    _lastThemeHash = themeHash;
+    if (sanitised.isEmpty) {
+      _children = const <Widget>[];
+      return;
+    }
+
+    _disposeRecognizers();
+    _parseMarkdown(sanitised);
+  }
+
+  void _parseMarkdown(String source) {
+    final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
+      widget.theme,
+    ).merge(_heBuildMarkdownStyleSheet(widget.theme, widget.colorScheme));
+
+    final inlineSyntaxes = widget.filePathRoots.isNotEmpty
+        ? <md.InlineSyntax>[
+            MessagePathCodeSyntax(candidateRoots: widget.filePathRoots),
+            MessageFilePathSyntax(candidateRoots: widget.filePathRoots),
+          ]
+        : const <md.InlineSyntax>[];
+
+    final builders = <String, MarkdownElementBuilder>{
+      'pre': _HeDiffBuilder(colorScheme: widget.colorScheme),
+      if (widget.filePathRoots.isNotEmpty) ...{
+        'openhand-file-resolved': _HeFilePathBuilder(
+          textColor: widget.textColor ?? widget.colorScheme.onSurface,
+        ),
+        'openhand-file-pending': _HeFilePathBuilder(
+          textColor: widget.textColor ?? widget.colorScheme.onSurface,
+        ),
+      },
+    };
+
+    try {
+      final document = md.Document(
+        extensionSet: md.ExtensionSet.gitHubFlavored,
+        inlineSyntaxes: inlineSyntaxes,
+        encodeHtml: false,
+      );
+      final astNodes = document.parseLines(
+        const LineSplitter().convert(source),
+      );
+      final builder = MarkdownBuilder(
+        delegate: this,
+        selectable: true,
+        styleSheet: effectiveStyleSheet,
+        imageDirectory: null,
+        imageBuilder: null,
+        checkboxBuilder: null,
+        bulletBuilder: null,
+        builders: builders,
+        paddingBuilders: const <String, MarkdownPaddingBuilder>{},
+        listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
+      );
+      _children = builder.build(astNodes);
+    } catch (_) {
+      final fallbackStyle = TextStyle(
+        fontFamily: 'monospace',
+        fontSize: 13,
+        color: widget.textColor ?? widget.colorScheme.onSurface,
+      );
+      _children = <Widget>[SelectableText(source, style: fallbackStyle)];
+    }
+  }
+
+  void _disposeRecognizers() {
+    if (_recognizers.isEmpty) {
+      return;
+    }
+    final local = List<GestureRecognizer>.from(_recognizers);
+    _recognizers.clear();
+    for (final recognizer in local) {
+      recognizer.dispose();
+    }
+  }
+
+  @override
+  GestureRecognizer createLink(String text, String? href, String title) {
+    final recognizer = TapGestureRecognizer();
+    _recognizers.add(recognizer);
+    final resolvedPath = resolveMarkdownMessageLinkPath(
+      href,
+      widget.filePathRoots,
+    );
+    if (resolvedPath != null) {
+      recognizer.onTap = () {
+        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      };
+    }
+    return recognizer;
+  }
+
+  @override
+  TextSpan formatText(MarkdownStyleSheet styleSheet, String code) {
+    final normalizedCode = code.replaceAll(RegExp(r'\n$'), '');
+    final resolvedPath = resolveExistingMessagePath(
+      normalizedCode,
+      widget.filePathRoots,
+    );
+    if (resolvedPath == null) {
+      return TextSpan(text: normalizedCode, style: styleSheet.code);
+    }
+    final recognizer = TapGestureRecognizer()
+      ..onTap = () {
+        Clipboard.setData(ClipboardData(text: resolvedPath.resolvedPath));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Path copied: ${resolvedPath.resolvedPath}'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      };
+    _recognizers.add(recognizer);
+    final linkColor = widget.colorScheme.primary;
+    return TextSpan(
+      text: normalizedCode,
+      recognizer: recognizer,
+      style: styleSheet.code?.copyWith(
+        color: linkColor,
+        decoration: TextDecoration.underline,
+        decorationColor: linkColor,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final children = _children;
+    if (children == null || children.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+}
+
 class _HeMarkdownContent extends StatefulWidget {
   const _HeMarkdownContent({
     required this.content,
@@ -4982,18 +5742,6 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
   bool _expanded = false;
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
-
-  // Cached style sheet — rebuilt only when theme identity changes.
-  MarkdownStyleSheet? _cachedStyleSheet;
-  ThemeData? _lastTheme;
-
-  MarkdownStyleSheet _styleSheet(ThemeData theme, ColorScheme cs) {
-    if (_lastTheme != theme) {
-      _cachedStyleSheet = _heBuildMarkdownStyleSheet(theme, cs);
-      _lastTheme = theme;
-    }
-    return _cachedStyleSheet!;
-  }
 
   bool get _needsCollapse =>
       widget.content.length > _HeMarkdownContent._collapseCharThreshold;
@@ -5033,46 +5781,19 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
 
   @override
   Widget build(BuildContext context) {
-    final styleSheet = _styleSheet(widget.theme, widget.colorScheme);
     final isZh = widget.isZh;
     final colorScheme = widget.colorScheme;
-
-    // Sanitise the source before passing to MarkdownBody.
-    final sanitised = _heCloseUnterminatedCodeBlock(_displayContent);
-
-    // Build inline syntaxes for file path detection.
-    final inlineSyntaxes = widget.filePathRoots.isNotEmpty
-        ? <md.InlineSyntax>[
-            MessagePathCodeSyntax(candidateRoots: widget.filePathRoots),
-            MessageFilePathSyntax(candidateRoots: widget.filePathRoots),
-          ]
-        : const <md.InlineSyntax>[];
-
-    final pathTextColor = colorScheme.onSurface;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FadeTransition(
           opacity: _fadeAnim,
-          child: MarkdownBody(
-            data: sanitised,
-            selectable: true,
-            styleSheet: styleSheet,
-            fitContent: false,
-            extensionSet: md.ExtensionSet.gitHubFlavored,
-            inlineSyntaxes: inlineSyntaxes,
-            builders: {
-              'pre': _HeDiffBuilder(colorScheme: colorScheme),
-              if (widget.filePathRoots.isNotEmpty) ...{
-                'openhand-file-resolved': _HeFilePathBuilder(
-                  textColor: pathTextColor,
-                ),
-                'openhand-file-pending': _HeFilePathBuilder(
-                  textColor: pathTextColor,
-                ),
-              },
-            },
+          child: _HeSafeMarkdownBody(
+            content: _displayContent,
+            theme: widget.theme,
+            colorScheme: colorScheme,
+            filePathRoots: widget.filePathRoots,
           ),
         ),
         if (_needsCollapse && !_expanded) ...[
@@ -5430,103 +6151,15 @@ String _heCloseUnterminatedCodeBlock(String source) {
   return '$source\n$openFence';
 }
 
-// =============================================================================
-// Terminal state banner shown after the last phase card
-// =============================================================================
-
-class _HeStatusBanner extends StatelessWidget {
-  const _HeStatusBanner({
-    required this.orchestrator,
-    required this.isZh,
-    required this.onRestart,
-  });
-
-  final HardnessOrchestrator orchestrator;
-  final bool isZh;
-  final VoidCallback onRestart;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return switch (orchestrator.status) {
-      HardnessOrchestratorStatus.completed => _buildBanner(
-        context,
-        icon: Icons.check_circle_rounded,
-        message: isZh
-            ? '\u2713 所有阶段已完成'
-            : '\u2713 All phases completed successfully',
-        color: _heCompletedTone,
-      ),
-      HardnessOrchestratorStatus.failed => _buildBanner(
-        context,
-        icon: Icons.error_rounded,
-        message: isZh
-            ? '\u2717 执行失败${orchestrator.errorMessage != null ? '\uff1a${orchestrator.errorMessage}' : ''}'
-            : '\u2717 Execution failed${orchestrator.errorMessage != null ? ': ${orchestrator.errorMessage}' : ''}',
-        color: colorScheme.error,
-        action: TextButton.icon(
-          onPressed: onRestart,
-          icon: const Icon(Icons.replay_rounded, size: 16),
-          label: Text(isZh ? '重试失败阶段' : 'Retry Failed Phase'),
-          style: TextButton.styleFrom(
-            foregroundColor: colorScheme.error,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          ),
-        ),
-      ),
-      HardnessOrchestratorStatus.cancelled => _buildBanner(
-        context,
-        icon: Icons.cancel_rounded,
-        message: isZh ? '\u26a0 会话已中止' : '\u26a0 Session was cancelled',
-        color: _hePausedTone,
-        action: TextButton.icon(
-          onPressed: onRestart,
-          icon: const Icon(Icons.restart_alt_rounded, size: 16),
-          label: Text(isZh ? '重新开始' : 'Restart'),
-          style: TextButton.styleFrom(
-            foregroundColor: _hePausedTone,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          ),
-        ),
-      ),
-      _ => const SizedBox.shrink(),
-    };
+String _heSanitizeMarkdownSource(String source) {
+  if (source.isEmpty) {
+    return source;
   }
-
-  Widget _buildBanner(
-    BuildContext context, {
-    required IconData icon,
-    required String message,
-    required Color color,
-    Widget? action,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(top: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: _br16,
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                fontSize: 13,
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (action != null) action,
-        ],
-      ),
-    );
-  }
+  final escapedSetext = source.replaceAllMapped(
+    _heSetextEscapePattern,
+    (m) => '${m[1]}${m[2]}\\${m[3]}',
+  );
+  return _heCloseUnterminatedCodeBlock(escapedSetext);
 }
 
 // =============================================================================
@@ -5878,12 +6511,16 @@ class _HeComposer extends StatelessWidget {
   final IconData primaryActionIcon;
   final bool primaryActionEnabled;
   final VoidCallback onPrimaryAction;
+
   /// Whether the manual input is for the reviewing phase.
   final bool isManualReviewPhase;
+
   /// Callback for explicit PASS verdict during manual review.
   final VoidCallback? onReviewPass;
+
   /// Callback for explicit FAIL verdict during manual review.
   final VoidCallback? onReviewFail;
+
   /// Whether a review verdict is currently being submitted.
   final bool reviewSubmitting;
 
@@ -6068,9 +6705,10 @@ class _HeComposer extends StatelessWidget {
                   constraints.maxWidth,
                 );
                 final canShowHelper =
-                    constraints.maxHeight >= titleHeight + titleGap + helperHeight;
-                final reservedHeight = titleHeight +
-                    (canShowHelper ? titleGap + helperHeight : 0);
+                    constraints.maxHeight >=
+                    titleHeight + titleGap + helperHeight;
+                final reservedHeight =
+                    titleHeight + (canShowHelper ? titleGap + helperHeight : 0);
                 final remainingHeight = constraints.maxHeight - reservedHeight;
                 final canShowEditor =
                     remainingHeight >= editorGap + minEditorHeight;
@@ -6591,6 +7229,34 @@ class _HePendingPhaseEditor extends StatelessWidget {
     final cliNames = kHardnessCliCatalog
         .where((c) => c.supportsHeadless)
         .toList();
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
+    final settingsModels =
+        settingsController?.aiModels ?? const <AiModelConfig>[];
+    final configuredAiModelConfigId = roleConfig.aiModelConfigId?.trim();
+    final hasConfiguredAiModelConfig =
+        configuredAiModelConfigId != null &&
+        configuredAiModelConfigId.isNotEmpty;
+    final hasMatchingAiModelConfig =
+        hasConfiguredAiModelConfig &&
+        settingsModels.any((item) => item.id == configuredAiModelConfigId);
+    final effectiveAiModelConfigId = _hePreferredAiModelConfigId(
+      settingsModels: settingsModels,
+      configuredId: roleConfig.aiModelConfigId,
+      fallbackId: settingsController?.selectedAiModelId,
+    );
+    final aiModelConfigItems = _heAiModelConfigDropdownItems(
+      context,
+      settingsModels: settingsModels,
+      configuredId: roleConfig.aiModelConfigId,
+      isZh: isZh,
+    );
+    final selectedAiModelConfigId = _heResolvedAiModelConfigDropdownValue(
+      aiModelConfigItems,
+      roleConfig.aiModelConfigId,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -6603,65 +7269,138 @@ class _HePendingPhaseEditor extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isZh ? '更改 CLI / 模型' : 'Change CLI / Model',
+            isZh ? '更改执行配置' : 'Change Execution Config',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: colorScheme.primary,
             ),
           ),
           const SizedBox(height: 8),
+          // Execution mode toggle row.
           Row(
             children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey<String>('he-cli-${roleConfig.cliName}'),
-                  initialValue:
-                      cliNames.any((c) => c.name == roleConfig.cliName)
-                      ? roleConfig.cliName
-                      : null,
-                  decoration: InputDecoration(
-                    labelText: 'CLI',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: cliNames.map((cli) {
-                    return DropdownMenuItem(
-                      value: cli.name,
-                      child: Text(
-                        cli.name,
-                        style: theme.textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    final currentModelId = roleConfig.modelId.trim();
+              ChoiceChip(
+                label: Text('CLI', style: theme.textTheme.bodySmall),
+                selected: roleConfig.isCliMode,
+                onSelected: (selected) {
+                  if (selected) {
                     onChanged(
                       roleConfig.copyWith(
-                        cliName: value,
-                        modelId: currentModelId,
+                        executionMode: HardnessExecutionMode.cli,
                       ),
                     );
-                  },
-                ),
+                  }
+                },
+                visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _HeModelDropdown(
-                  roleConfig: roleConfig,
-                  isZh: isZh,
-                  onChanged: onChanged,
-                ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text('URL/API', style: theme.textTheme.bodySmall),
+                selected: roleConfig.isUrlMode,
+                onSelected: (selected) {
+                  if (selected) {
+                    onChanged(
+                      roleConfig.copyWith(
+                        executionMode: HardnessExecutionMode.url,
+                        aiModelConfigId: effectiveAiModelConfigId,
+                        clearAiModelConfigId:
+                            effectiveAiModelConfigId == null &&
+                            !hasConfiguredAiModelConfig,
+                      ),
+                    );
+                  }
+                },
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
+          const SizedBox(height: 8),
+          if (roleConfig.isUrlMode)
+            DropdownButtonFormField<String>(
+              key: const ValueKey<String>('he-api-model-config-dropdown'),
+              initialValue: selectedAiModelConfigId,
+              decoration: InputDecoration(
+                labelText: isZh ? 'API 模型' : 'API Model',
+                helperText: settingsModels.isEmpty
+                    ? (isZh
+                          ? '请先在设置中配置 API 模型，然后在这里选择。'
+                          : 'Configure API models in Settings first, then choose one here.')
+                    : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
+                    ? (isZh
+                          ? '当前配置已在设置中删除，请重新选择有效模型。'
+                          : 'The current config was deleted from Settings. Choose a valid model.')
+                    : null,
+                helperMaxLines: 2,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              style: theme.textTheme.bodySmall,
+              items: aiModelConfigItems,
+              onChanged: settingsModels.isEmpty
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      onChanged(roleConfig.copyWith(aiModelConfigId: value));
+                    },
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue:
+                        cliNames.any((c) => c.name == roleConfig.cliName)
+                        ? roleConfig.cliName
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: 'CLI',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: cliNames.map((cli) {
+                      return DropdownMenuItem(
+                        value: cli.name,
+                        child: Text(
+                          cli.name,
+                          style: theme.textTheme.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      final currentModelId = roleConfig.modelId.trim();
+                      onChanged(
+                        roleConfig.copyWith(
+                          cliName: value,
+                          modelId: currentModelId,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _HeModelDropdown(
+                    roleConfig: roleConfig,
+                    isZh: isZh,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -6723,7 +7462,6 @@ class _HeModelDropdown extends StatelessWidget {
     }
 
     return DropdownButtonFormField<String>(
-      key: ValueKey<String>('he-model-dd-${roleConfig.cliName}'),
       initialValue: items.any((item) => item.value == configuredModelId)
           ? configuredModelId
           : (models.contains(configuredModelId) ? configuredModelId : null),
@@ -7395,7 +8133,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
     final body = parsed.body;
     _lastCommand = parsed.command;
 
-    final sanitised = _heCloseUnterminatedCodeBlock(body);
+    final sanitised = _heSanitizeMarkdownSource(body);
     final themeHash = Object.hashAll(<Object?>[
       widget.theme.brightness,
       widget.colorScheme.surface.toARGB32(),
@@ -7956,6 +8694,8 @@ class _HeFileHoverPopup extends StatefulWidget {
 class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
+  bool _showScheduled = false;
+  bool _hideScheduled = false;
 
   bool get _isModifierPressed {
     final pressed = HardwareKeyboard.instance.physicalKeysPressed;
@@ -7966,6 +8706,19 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   }
 
   void _showOverlay() {
+    if (widget.isUnresolved || _overlayEntry != null || _showScheduled) return;
+    // Defer overlay insertion to avoid mutating the widget tree during
+    // MouseTracker._deviceUpdatePhase, which triggers the
+    // !_debugDuringDeviceUpdate re-entrancy assertion.
+    _showScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showScheduled = false;
+      if (!mounted || !_isHovered || _overlayEntry != null) return;
+      _showOverlayNow();
+    });
+  }
+
+  void _showOverlayNow() {
     if (widget.isUnresolved || _overlayEntry != null) return;
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
@@ -8066,8 +8819,19 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
   }
 
   void _hideOverlay() {
-    _overlayEntry?.remove();
+    if (_overlayEntry == null && !_showScheduled) return;
+    _showScheduled = false;
+    final entry = _overlayEntry;
     _overlayEntry = null;
+    if (entry == null) return;
+    // Defer overlay removal to avoid mutating the widget tree during
+    // MouseTracker._deviceUpdatePhase.
+    if (_hideScheduled) return;
+    _hideScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hideScheduled = false;
+      entry.remove();
+    });
   }
 
   @override
@@ -8081,7 +8845,11 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
 
   @override
   void deactivate() {
-    _hideOverlay();
+    // Synchronous removal since the widget is leaving the tree.
+    _showScheduled = false;
+    _hideScheduled = false;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _isHovered = false;
     super.deactivate();
   }
@@ -9330,10 +10098,10 @@ class _HeSteeringFileEditorDialogState
               padding: const EdgeInsets.all(14),
               child: ListenableBuilder(
                 listenable: _controller,
-                builder: (_, _) => Markdown(
-                  data: _controller.text,
-                  selectable: true,
-                  padding: EdgeInsets.zero,
+                builder: (_, _) => _HeSafeMarkdownBody(
+                  content: _controller.text,
+                  theme: theme,
+                  colorScheme: colorScheme,
                 ),
               ),
             ),

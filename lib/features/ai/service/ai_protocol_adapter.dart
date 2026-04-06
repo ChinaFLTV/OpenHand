@@ -827,6 +827,114 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 }
 
+/// Adapter for Ollama's OpenAI-compatible endpoint.
+///
+/// Ollama exposes `/v1/chat/completions` but has several behavioural
+/// differences compared to the upstream OpenAI API:
+///   * Authentication is typically unnecessary for local deployments.
+///   * Older Ollama versions may ignore `stream_options`.
+///   * The usage object in streaming responses may use
+///     `eval_count` / `prompt_eval_count` instead of the standard
+///     OpenAI field names.
+///   * Multimodal support depends on the loaded model (e.g. llava,
+///     llama3.2-vision, moondream).
+class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
+  const OllamaProtocolAdapter() : super(AiProtocolType.ollama);
+
+  @override
+  Map<String, String> buildHeaders(AiModelConfig model) {
+    // Ollama is commonly deployed locally without authentication.
+    // When the user has not set a token we can skip the auth header
+    // entirely to avoid confusing the server with an empty value.
+    final headers = <String, String>{'content-type': 'application/json'};
+    final rawToken = model.token.trim();
+    if (rawToken.isEmpty || model.authScheme == AiAuthScheme.none) {
+      return headers;
+    }
+    if (model.authScheme == AiAuthScheme.apiKey) {
+      headers['x-api-key'] = model.authScheme.apply(rawToken);
+      return headers;
+    }
+    headers['authorization'] = model.authScheme.apply(rawToken);
+    return headers;
+  }
+
+  @override
+  Future<Map<String, Object?>> buildBody(
+    AiModelConfig model,
+    List<AiChatTurn> messages, {
+    List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    bool stream = false,
+  }) async {
+    final body = await super.buildBody(
+      model,
+      messages,
+      tools: tools,
+      stream: stream,
+    );
+    // Older Ollama releases do not recognise `stream_options` and may
+    // reject the request or ignore it silently.  Remove it to maximise
+    // compatibility across versions.
+    body.remove('stream_options');
+    return body;
+  }
+
+  @override
+  AiTokenUsage? parseUsage(String rawResponse) {
+    // Try the standard OpenAI format first.
+    final standardUsage = super.parseUsage(rawResponse);
+    if (standardUsage != null && !standardUsage.isEmpty) {
+      return standardUsage;
+    }
+    // Fall back to Ollama-native field names that some versions emit.
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is! Map<String, Object?>) return null;
+      final promptEval = _readInt(decoded['prompt_eval_count']);
+      final evalCount = _readInt(decoded['eval_count']);
+      if (promptEval == null && evalCount == null) return null;
+      return AiTokenUsage(
+        promptTokens: promptEval,
+        completionTokens: evalCount,
+        totalTokens: (promptEval ?? 0) + (evalCount ?? 0),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  String extractErrorMessage(String rawResponse) {
+    // Ollama sometimes returns a plain-text error or an `{"error":"..."}` JSON.
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is Map<String, Object?>) {
+        final error = decoded['error'];
+        if (error is String && error.trim().isNotEmpty) {
+          return error.trim();
+        }
+      }
+    } catch (_) {
+      // Fall through – treat the whole body as a message.
+    }
+    return rawResponse.trim();
+  }
+
+  @override
+  bool supportsAttachmentsForModel(AiModelConfig model) {
+    return _containsAny(model.modelId, const <String>[
+      'llava',
+      'llama3.2-vision',
+      'moondream',
+      'bakllava',
+      'minicpm-v',
+      'cogvlm',
+      'internvl',
+      'vision',
+    ]);
+  }
+}
+
 abstract final class AiProtocolRegistry {
   static final Map<AiProtocolType, AiProtocolAdapter> _adapters =
       <AiProtocolType, AiProtocolAdapter>{
@@ -840,6 +948,11 @@ abstract final class AiProtocolRegistry {
         AiProtocolType.kimi: const OpenAiProtocolAdapter(AiProtocolType.kimi),
         AiProtocolType.glm: const OpenAiProtocolAdapter(AiProtocolType.glm),
         AiProtocolType.grok: const OpenAiProtocolAdapter(AiProtocolType.grok),
+        AiProtocolType.ollama: const OllamaProtocolAdapter(),
+        AiProtocolType.vllm: const OpenAiProtocolAdapter(AiProtocolType.vllm),
+        AiProtocolType.sglang: const OpenAiProtocolAdapter(
+          AiProtocolType.sglang,
+        ),
         AiProtocolType.claude: const ClaudeProtocolAdapter(),
         AiProtocolType.gemini: const GeminiProtocolAdapter(),
       };
@@ -966,6 +1079,34 @@ bool _supportsOpenAiCompatibleAttachments(
       'vision',
       'grok-2-vision',
       'grok-vision',
+    ]),
+    AiProtocolType.ollama => _containsAny(normalized, const <String>[
+      'llava',
+      'llama3.2-vision',
+      'moondream',
+      'bakllava',
+      'minicpm-v',
+      'cogvlm',
+      'internvl',
+      'vision',
+    ]),
+    AiProtocolType.vllm => _containsAny(normalized, const <String>[
+      'llava',
+      'pixtral',
+      'internvl',
+      'qwen-vl',
+      'qwen2-vl',
+      'minicpm-v',
+      'cogvlm',
+      'vision',
+    ]),
+    AiProtocolType.sglang => _containsAny(normalized, const <String>[
+      'llava',
+      'pixtral',
+      'internvl',
+      'qwen-vl',
+      'qwen2-vl',
+      'vision',
     ]),
     AiProtocolType.claude || AiProtocolType.gemini => true,
   };

@@ -470,6 +470,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolGrok => 'Grok';
 
   @override
+  String get aiProtocolOllama => 'Ollama';
+
+  @override
+  String get aiProtocolVllm => 'vLLM';
+
+  @override
+  String get aiProtocolSglang => 'SGLang';
+
+  @override
   String get skillsPageTitle => 'Compétences';
 
   @override

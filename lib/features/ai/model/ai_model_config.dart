@@ -48,7 +48,10 @@ enum AiProtocolType {
   qwen('qwen'),
   kimi('kimi'),
   glm('glm'),
-  grok('grok');
+  grok('grok'),
+  ollama('ollama'),
+  vllm('vllm'),
+  sglang('sglang');
 
   const AiProtocolType(this.storageValue);
 
@@ -75,6 +78,9 @@ enum AiProtocolType {
       AiProtocolType.kimi => l10n.aiProtocolKimi,
       AiProtocolType.glm => l10n.aiProtocolGlm,
       AiProtocolType.grok => l10n.aiProtocolGrok,
+      AiProtocolType.ollama => l10n.aiProtocolOllama,
+      AiProtocolType.vllm => l10n.aiProtocolVllm,
+      AiProtocolType.sglang => l10n.aiProtocolSglang,
     };
   }
 }

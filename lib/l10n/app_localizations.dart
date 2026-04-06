@@ -982,6 +982,24 @@ abstract class AppLocalizations {
   /// **'Grok'**
   String get aiProtocolGrok;
 
+  /// No description provided for @aiProtocolOllama.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Ollama'**
+  String get aiProtocolOllama;
+
+  /// No description provided for @aiProtocolVllm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'vLLM'**
+  String get aiProtocolVllm;
+
+  /// No description provided for @aiProtocolSglang.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'SGLang'**
+  String get aiProtocolSglang;
+
   /// No description provided for @skillsPageTitle.
   ///
   /// In zh_Hans, this message translates to:

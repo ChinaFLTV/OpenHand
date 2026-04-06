@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../ai/model/ai_model_config.dart';
+import '../ai/model/ai_session_runtime_context.dart';
+import 'hardness_api_phase_runner.dart';
 import 'hardness_cli_catalog.dart';
 import 'model/hardness_phase.dart';
 import 'model/hardness_role_config.dart';
@@ -30,7 +33,12 @@ enum HardnessPhaseStatus {
   skipped,
 }
 
-enum HardnessPhaseExecutionBlocker { missingConfig, unsupportedCli }
+enum HardnessPhaseExecutionBlocker {
+  missingConfig,
+  unsupportedCli,
+  missingApiModel,
+  missingApiRunner,
+}
 
 HardnessPhaseStatus _hardnessPhaseStatusFromStorageValue(String value) {
   for (final status in HardnessPhaseStatus.values) {
@@ -229,10 +237,23 @@ class HardnessOrchestrator extends ChangeNotifier {
   HardnessSessionConfig _config;
   HardnessSessionConfig get config => _config;
 
+  /// Optional API phase runner for URL mode execution. Must be set before
+  /// starting a session that contains URL-mode role configs.
+  HardnessApiPhaseRunner? apiPhaseRunner;
+
+  /// Callback to resolve an AiModelConfig by its ID from settings.
+  /// Must be set before starting a session that contains URL-mode role configs.
+  AiModelConfig? Function(String configId)? resolveAiModelConfig;
+
+  /// Callback to build the runtime context for API-based phase execution.
+  /// Provides memory entries, MCP servers, skills, etc.
+  Future<AiSessionRuntimeContext> Function(String workingDirectory)?
+  buildApiRuntimeContext;
+
   HardnessOrchestratorStatus _status = HardnessOrchestratorStatus.idle;
   HardnessOrchestratorStatus get status => _status;
 
-  List<HardnessPhaseLog> _phaseLogs = const [];
+  List<HardnessPhaseLog> _phaseLogs = <HardnessPhaseLog>[];
   List<HardnessPhaseLog> get phaseLogs => _phaseLogs;
   List<HardnessPhaseLogSnapshot> get phaseLogSnapshots =>
       _phaseLogs.map((log) => log.toSnapshot()).toList(growable: false);
@@ -246,6 +267,7 @@ class HardnessOrchestrator extends ChangeNotifier {
   bool _stopRequested = false;
   bool _isDisposed = false;
   Process? _activeProcess;
+  Completer<void>? _apiCancelCompleter;
 
   /// Tracks how many review→re-plan→re-implement cycles have been executed
   /// to prevent infinite loops.
@@ -437,6 +459,22 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (!roleConfig.isConfigured) {
       return HardnessPhaseExecutionBlocker.missingConfig;
     }
+    if (roleConfig.isUrlMode) {
+      // URL mode: check API infrastructure and model config availability.
+      if (apiPhaseRunner == null || buildApiRuntimeContext == null) {
+        return HardnessPhaseExecutionBlocker.missingApiRunner;
+      }
+      final configId = roleConfig.aiModelConfigId;
+      if (configId == null || configId.trim().isEmpty) {
+        return HardnessPhaseExecutionBlocker.missingApiModel;
+      }
+      final modelConfig = resolveAiModelConfig?.call(configId);
+      if (modelConfig == null) {
+        return HardnessPhaseExecutionBlocker.missingApiModel;
+      }
+      return null;
+    }
+    // CLI mode: check headless support.
     final cliEntry = _cliEntryForRoleConfig(roleConfig);
     if (!cliEntry.supportsHeadless) {
       return HardnessPhaseExecutionBlocker.unsupportedCli;
@@ -461,6 +499,27 @@ class HardnessOrchestrator extends ChangeNotifier {
       _resetPhaseLogsForRetryFrom(failedIndex);
       await _resumeFromIndex(failedIndex);
       return;
+    }
+    // Handle the case where the overall status is "failed" due to an
+    // unhandled exception (e.g. the old fixed-length list bug) but no
+    // individual phase is actually "failed".  Recompute the true status
+    // and try to resume from the last non-completed phase instead of
+    // restarting the entire pipeline.
+    if (_status == HardnessOrchestratorStatus.failed &&
+        _phaseLogs.isNotEmpty &&
+        failedIndex == null) {
+      _status = _computeOverallStatus();
+      _errorMessage = null;
+      notifyListeners();
+      final resumable = _resumablePhaseIndex();
+      if (resumable != null) {
+        await _resumeFromIndex(resumable);
+        return;
+      }
+      // All phases completed — nothing more to do.
+      if (_status == HardnessOrchestratorStatus.completed) {
+        return;
+      }
     }
     final resumableIndex = _resumablePhaseIndex();
     if (_status == HardnessOrchestratorStatus.idle &&
@@ -504,7 +563,7 @@ class HardnessOrchestrator extends ChangeNotifier {
             HardnessPhase.reviewing,
           ];
 
-    _phaseLogs = phases.map(HardnessPhaseLog.new).toList();
+    _phaseLogs = List<HardnessPhaseLog>.from(phases.map(HardnessPhaseLog.new));
     await _executePipeline(startIndex: 0, skipApprovalForStartIndex: !firstRun);
   }
 
@@ -538,9 +597,11 @@ class HardnessOrchestrator extends ChangeNotifier {
     _status = HardnessOrchestratorStatus.running;
     notifyListeners();
 
+    HardnessPhaseLog? activeLog;
     try {
       for (var i = startIndex; i < _phaseLogs.length; i++) {
         final log = _phaseLogs[i];
+        activeLog = log;
         if (_isDisposed || _stopRequested) {
           if (log.status == HardnessPhaseStatus.pending ||
               log.status == HardnessPhaseStatus.paused) {
@@ -590,6 +651,43 @@ class HardnessOrchestrator extends ChangeNotifier {
         }
 
         await _runPhase(log);
+
+        // ── Review verdict handling ────────────────────────────────────
+        // Check for review verdict BEFORE the generic failed/cancelled
+        // break so that a reviewing phase whose CLI/API execution happened
+        // to fail can still enter the feedback loop when the user already
+        // submitted a FAIL verdict.  "Review not passed" is a *result*,
+        // not an execution failure — the orchestrator should continue to
+        // the plan→implement→review retry cycle.
+        if (log.phase == HardnessPhase.reviewing &&
+            _reviewIndicatesFailure(log)) {
+          // The reviewing phase detected a FAIL verdict (either from the
+          // user button or from the CLI output).  Override a potential
+          // execution failure status to "completed" because the phase did
+          // produce the expected semantics (a verdict), and mark it as
+          // review-verdict-fail.
+          if (log.status == HardnessPhaseStatus.failed) {
+            _appendLine(log, '');
+            _appendLine(log, 'ℹ 验收判定为 FAIL，执行异常已降级处理，进入反馈迭代流程。');
+            log.status = HardnessPhaseStatus.completed;
+            _errorMessage = null;
+          }
+          log.reviewVerdictFail = true;
+          _reviewRetryCount++;
+          if (_reviewRetryCount <= _maxReviewRetries) {
+            _insertReviewRetryPhasesAfter(i);
+            notifyListeners();
+          }
+          // Do NOT break — continue to the next iteration which processes
+          // the freshly-inserted planning phase.
+          if (log.status == HardnessPhaseStatus.completed &&
+              _queuedManualPhaseInputPhase == log.phase) {
+            _queuedManualPhaseInputPhase = null;
+            _queuedManualPhaseInput = null;
+          }
+          continue;
+        }
+
         if (log.status == HardnessPhaseStatus.failed ||
             log.status == HardnessPhaseStatus.cancelled) {
           break;
@@ -599,25 +697,6 @@ class HardnessOrchestrator extends ChangeNotifier {
             _queuedManualPhaseInputPhase == log.phase) {
           _queuedManualPhaseInputPhase = null;
           _queuedManualPhaseInput = null;
-        }
-
-        // insert additional planning + implementing + reviewing phases so
-        // the issues can be addressed in a new iteration.
-        if (log.phase == HardnessPhase.reviewing &&
-            log.status == HardnessPhaseStatus.completed &&
-            _reviewIndicatesFailure(log)) {
-          log.reviewVerdictFail = true;
-          _reviewRetryCount++;
-          if (_reviewRetryCount <= _maxReviewRetries) {
-            final extraPhases = [
-              HardnessPhaseLog(HardnessPhase.planning),
-              HardnessPhaseLog(HardnessPhase.implementing),
-              HardnessPhaseLog(HardnessPhase.reviewing),
-            ];
-            // Insert after current position.
-            _phaseLogs.insertAll(i + 1, extraPhases);
-            notifyListeners();
-          }
         }
       }
 
@@ -645,6 +724,7 @@ class HardnessOrchestrator extends ChangeNotifier {
       }
     } catch (e, st) {
       if (_isDisposed) return;
+      _recordUnhandledPhaseError(activeLog, e);
       _status = HardnessOrchestratorStatus.failed;
       _errorMessage = e.toString();
       debugPrint('HardnessOrchestrator unhandled error: $e\n$st');
@@ -655,7 +735,7 @@ class HardnessOrchestrator extends ChangeNotifier {
   }
 
   /// Requests cancellation of the currently running phase.
-  /// Sends SIGTERM to the active CLI process if any.
+  /// Sends SIGTERM followed by SIGKILL after a short grace period.
   void cancel() {
     if (_status != HardnessOrchestratorStatus.running) return;
     _stopRequested = true;
@@ -667,10 +747,38 @@ class HardnessOrchestrator extends ChangeNotifier {
       _phaseApprovalCompleter = null;
       _awaitingApprovalPhase = null;
     }
-    try {
-      _activeProcess?.kill();
-    } catch (_) {}
+    // Signal cancellation to any running API phase.
+    final apiCancel = _apiCancelCompleter;
+    if (apiCancel != null && !apiCancel.isCompleted) {
+      apiCancel.complete();
+      _apiCancelCompleter = null;
+    }
+    // Immediately mark any running phase as cancelled for instant UI feedback.
+    for (final log in _phaseLogs) {
+      if (log.status == HardnessPhaseStatus.running) {
+        log.status = HardnessPhaseStatus.cancelled;
+      }
+    }
+    _killActiveProcess();
     notifyListeners();
+  }
+
+  /// Gracefully kills the active CLI process: SIGTERM first, then SIGKILL
+  /// after 3 seconds if still alive.
+  void _killActiveProcess() {
+    final process = _activeProcess;
+    if (process == null) return;
+    try {
+      process.kill(); // SIGTERM
+    } catch (_) {}
+    // Escalate to SIGKILL after 3 seconds if the process hasn't exited.
+    Future.delayed(const Duration(seconds: 3), () {
+      if (_activeProcess == process) {
+        try {
+          process.kill(ProcessSignal.sigkill);
+        } catch (_) {}
+      }
+    });
   }
 
   void restoreSnapshot({
@@ -685,9 +793,9 @@ class HardnessOrchestrator extends ChangeNotifier {
     _stopRequested = false;
     _activeProcess = null;
     _status = status;
-    _phaseLogs = phaseLogs
-        .map(HardnessPhaseLog.fromSnapshot)
-        .toList(growable: false);
+    _phaseLogs = List<HardnessPhaseLog>.from(
+      phaseLogs.map(HardnessPhaseLog.fromSnapshot),
+    );
     _currentPhase = currentPhase;
     _errorMessage = errorMessage;
     _phaseApprovalCompleter = null;
@@ -772,6 +880,138 @@ class HardnessOrchestrator extends ChangeNotifier {
     _errorMessage = null;
   }
 
+  /// Re-executes a single phase at the given index.
+  /// Resets the phase log, runs it, and does NOT auto-advance.
+  /// If [fullAccessPermission] is false, the phase will first pause for
+  /// approval before executing.
+  Future<void> reExecutePhase(int phaseIndex) async {
+    if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) return;
+    if (_status == HardnessOrchestratorStatus.running) return;
+
+    final oldLog = _phaseLogs[phaseIndex];
+    final freshLog = HardnessPhaseLog(oldLog.phase);
+    _phaseLogs = List<HardnessPhaseLog>.from(_phaseLogs);
+    _phaseLogs[phaseIndex] = freshLog;
+
+    _status = HardnessOrchestratorStatus.running;
+    _errorMessage = null;
+    _stopRequested = false;
+    _userReviewVerdict = null;
+    notifyListeners();
+
+    try {
+      // ── Phase-gate: request user approval if not full-access ──────
+      if (!_fullAccessPermission) {
+        _currentPhase = freshLog.phase;
+        freshLog.status = HardnessPhaseStatus.paused;
+        _awaitingApprovalPhase = freshLog.phase;
+        _phaseApprovalCompleter = Completer<bool>();
+        notifyListeners();
+
+        onPhaseApprovalRequired?.call(freshLog.phase);
+
+        final approved = await _phaseApprovalCompleter!.future;
+        _phaseApprovalCompleter = null;
+        _awaitingApprovalPhase = null;
+        notifyListeners();
+
+        if (!approved || _isDisposed) {
+          freshLog.status = HardnessPhaseStatus.cancelled;
+          _status = HardnessOrchestratorStatus.idle;
+          _currentPhase = null;
+          notifyListeners();
+          return;
+        }
+      }
+
+      if (_isDisposed || _stopRequested) {
+        freshLog.status = HardnessPhaseStatus.cancelled;
+        _status = HardnessOrchestratorStatus.idle;
+        _currentPhase = null;
+        notifyListeners();
+        return;
+      }
+
+      await _runPhase(freshLog);
+
+      if (freshLog.status == HardnessPhaseStatus.completed &&
+          _queuedManualPhaseInputPhase == freshLog.phase) {
+        _queuedManualPhaseInputPhase = null;
+        _queuedManualPhaseInput = null;
+      }
+
+      // Handle review verdict fail for single-phase re-execution.
+      // When a FAIL verdict is detected, insert retry phases (plan→impl→
+      // review) after the current position and continue as a pipeline
+      // instead of ending the single-phase re-execution here.
+      if (freshLog.phase == HardnessPhase.reviewing &&
+          _reviewIndicatesFailure(freshLog)) {
+        if (freshLog.status == HardnessPhaseStatus.failed) {
+          _appendLine(freshLog, '');
+          _appendLine(freshLog, 'ℹ 验收判定为 FAIL，执行异常已降级处理，进入反馈迭代流程。');
+          freshLog.status = HardnessPhaseStatus.completed;
+          _errorMessage = null;
+        }
+        freshLog.reviewVerdictFail = true;
+        _reviewRetryCount++;
+        if (_reviewRetryCount <= _maxReviewRetries) {
+          _insertReviewRetryPhasesAfter(phaseIndex);
+          notifyListeners();
+          // Continue as a pipeline from the newly inserted planning phase.
+          await _executePipeline(
+            startIndex: phaseIndex + 1,
+            skipApprovalForStartIndex: false,
+          );
+          return;
+        }
+      }
+    } catch (e, st) {
+      if (_isDisposed) return;
+      _recordUnhandledPhaseError(freshLog, e);
+      _errorMessage = e.toString();
+      debugPrint('HardnessOrchestrator reExecutePhase error: $e\n$st');
+    }
+
+    // Determine overall status from all phase logs.
+    _status = _computeOverallStatus();
+    _currentPhase = null;
+    notifyListeners();
+  }
+
+  /// Deletes the phase log at the given index and refreshes state.
+  void deletePhaseLog(int phaseIndex) {
+    if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) return;
+    if (_status == HardnessOrchestratorStatus.running) return;
+
+    _phaseLogs = List<HardnessPhaseLog>.from(_phaseLogs)..removeAt(phaseIndex);
+
+    // Recompute overall status.
+    _status = _computeOverallStatus();
+    _reviewRetryCount = _inferReviewRetryCount();
+    notifyListeners();
+  }
+
+  HardnessOrchestratorStatus _computeOverallStatus() {
+    if (_phaseLogs.isEmpty) return HardnessOrchestratorStatus.idle;
+    if (_phaseLogs.any((l) => l.status == HardnessPhaseStatus.running)) {
+      return HardnessOrchestratorStatus.running;
+    }
+    if (_phaseLogs.any((l) => l.status == HardnessPhaseStatus.failed)) {
+      return HardnessOrchestratorStatus.failed;
+    }
+    if (_phaseLogs.every(
+      (l) =>
+          l.status == HardnessPhaseStatus.completed ||
+          l.status == HardnessPhaseStatus.skipped,
+    )) {
+      return HardnessOrchestratorStatus.completed;
+    }
+    if (_phaseLogs.any((l) => l.status == HardnessPhaseStatus.cancelled)) {
+      return HardnessOrchestratorStatus.cancelled;
+    }
+    return HardnessOrchestratorStatus.idle;
+  }
+
   int _inferReviewRetryCount() {
     final reviewPhaseCount = _phaseLogs
         .where((log) => log.phase == HardnessPhase.reviewing)
@@ -780,6 +1020,38 @@ class HardnessOrchestrator extends ChangeNotifier {
       return 0;
     }
     return reviewPhaseCount - 1;
+  }
+
+  List<HardnessPhaseLog> _buildReviewRetryPhaseLogs() {
+    return <HardnessPhaseLog>[
+      HardnessPhaseLog(HardnessPhase.planning),
+      HardnessPhaseLog(HardnessPhase.implementing),
+      HardnessPhaseLog(HardnessPhase.reviewing),
+    ];
+  }
+
+  void _insertReviewRetryPhasesAfter(int phaseIndex) {
+    if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) {
+      return;
+    }
+    final nextLogs = List<HardnessPhaseLog>.from(_phaseLogs);
+    nextLogs.insertAll(phaseIndex + 1, _buildReviewRetryPhaseLogs());
+    _phaseLogs = nextLogs;
+  }
+
+  void _recordUnhandledPhaseError(HardnessPhaseLog? log, Object error) {
+    if (log == null) {
+      return;
+    }
+    if (log.lines.isNotEmpty && log.lines.last.isNotEmpty) {
+      _appendLine(log, '');
+    }
+    _appendLine(log, '✗ HardnessOrchestrator 内部异常：$error');
+    if (log.status == HardnessPhaseStatus.running ||
+        log.status == HardnessPhaseStatus.pending ||
+        log.status == HardnessPhaseStatus.paused) {
+      log.status = HardnessPhaseStatus.failed;
+    }
   }
 
   bool _shouldGatePhaseEntry(int index, HardnessPhase phase) {
@@ -899,6 +1171,12 @@ class HardnessOrchestrator extends ChangeNotifier {
       completer.complete(false);
       _phaseApprovalCompleter = null;
     }
+    // Signal cancellation to any running API phase.
+    final apiCancel = _apiCancelCompleter;
+    if (apiCancel != null && !apiCancel.isCompleted) {
+      apiCancel.complete();
+      _apiCancelCompleter = null;
+    }
     // Kill any running process so it doesn't become an orphan.
     try {
       _activeProcess?.kill();
@@ -917,8 +1195,8 @@ class HardnessOrchestrator extends ChangeNotifier {
     final executionBlocker = phaseExecutionBlocker(log.phase);
 
     if (executionBlocker == HardnessPhaseExecutionBlocker.missingConfig) {
-      _appendLine(log, '✗ 阶段无法执行：请先为该阶段配置 CLI 和模型。');
-      _errorMessage = '存在未配置 CLI/模型的阶段，执行已停止。';
+      _appendLine(log, '✗ 阶段无法执行：请先为该阶段配置 CLI/模型 或 API 模型。');
+      _errorMessage = '存在未配置的阶段，执行已停止。';
       log.status = HardnessPhaseStatus.failed;
       notifyListeners();
       await _finalizePhaseArtifacts(log);
@@ -934,6 +1212,183 @@ class HardnessOrchestrator extends ChangeNotifier {
       return;
     }
 
+    if (executionBlocker == HardnessPhaseExecutionBlocker.missingApiModel) {
+      _appendLine(log, '✗ 阶段无法执行：所选 API 模型配置无效或已被删除。请在设置中检查模型配置。');
+      _errorMessage = 'API 模型配置无效，执行已停止。';
+      log.status = HardnessPhaseStatus.failed;
+      notifyListeners();
+      await _finalizePhaseArtifacts(log);
+      return;
+    }
+
+    if (executionBlocker == HardnessPhaseExecutionBlocker.missingApiRunner) {
+      _appendLine(log, '✗ 阶段无法执行：API 运行时未初始化。请重启应用后重试。');
+      _errorMessage = 'API 运行时未就绪，执行已停止。';
+      log.status = HardnessPhaseStatus.failed;
+      notifyListeners();
+      await _finalizePhaseArtifacts(log);
+      return;
+    }
+
+    // Dispatch to the appropriate execution path.
+    if (roleConfig.isUrlMode) {
+      await _runPhaseViaApi(log, roleConfig);
+    } else {
+      await _runPhaseViaCli(log, roleConfig);
+    }
+  }
+
+  // ── URL/API-based phase execution ─────────────────────────────────────────
+
+  Future<void> _runPhaseViaApi(
+    HardnessPhaseLog log,
+    HardnessRoleConfig roleConfig,
+  ) async {
+    final runner = apiPhaseRunner;
+    final contextBuilder = buildApiRuntimeContext;
+    final configId = roleConfig.aiModelConfigId;
+    if (runner == null || contextBuilder == null || configId == null) {
+      _appendLine(log, '✗ API 运行时配置不完整。');
+      log.status = HardnessPhaseStatus.failed;
+      notifyListeners();
+      await _finalizePhaseArtifacts(log);
+      return;
+    }
+
+    final modelConfig = resolveAiModelConfig?.call(configId);
+    if (modelConfig == null) {
+      _appendLine(log, '✗ 找不到 ID 为 "$configId" 的模型配置。请检查设置。');
+      log.status = HardnessPhaseStatus.failed;
+      notifyListeners();
+      await _finalizePhaseArtifacts(log);
+      return;
+    }
+
+    _appendLine(
+      log,
+      '▶ 阶段：${log.phase.displayNameZh}  |  模式: URL/API'
+      '  |  模型: ${modelConfig.displayName}'
+      '  |  协议: ${modelConfig.protocolType.storageValue}',
+    );
+    notifyListeners();
+
+    File? promptFile;
+    try {
+      // 1. Build the phase prompt (same as CLI path).
+      final prompt = await _buildPhasePrompt(log.phase);
+      if (_isDisposed) return;
+
+      promptFile = await _writePromptFile(log.phase, prompt);
+      if (_isDisposed) return;
+
+      // 2. Build runtime context (memory, MCP, skills, etc.).
+      final runtimeContext = await contextBuilder(config.workingDirectory);
+      if (_isDisposed) return;
+
+      _appendLine(log, '');
+      _appendLine(
+        log,
+        'ℹ API 模式启动 | 工具: ${runtimeContext.availableSkills.length} 技能, '
+        '${runtimeContext.availableMcpServers.where((s) => s.enabled).length} MCP 服务, '
+        '${runtimeContext.memoryEntries.length} 记忆条目',
+      );
+      _appendLine(log, '');
+      notifyListeners();
+
+      // 2b. Snapshot working directory before execution.
+      Map<String, _FileSnapshot> preSnapshot;
+      if (_stopRequested) {
+        preSnapshot = <String, _FileSnapshot>{};
+      } else {
+        try {
+          preSnapshot = await _snapshotWorkingDirectory();
+        } catch (_) {
+          preSnapshot = <String, _FileSnapshot>{};
+        }
+      }
+      if (_isDisposed || _stopRequested) {
+        if (log.status != HardnessPhaseStatus.cancelled) {
+          log.status = HardnessPhaseStatus.cancelled;
+        }
+        notifyListeners();
+        return;
+      }
+
+      // 3. Run the phase via API with tool loop.
+      final cancelCompleter = Completer<void>();
+      _apiCancelCompleter = cancelCompleter;
+
+      final result = await runner.runPhase(
+        model: modelConfig,
+        phase: log.phase,
+        phasePrompt: prompt,
+        runtimeContext: runtimeContext,
+        onLine: (line) {
+          _appendLine(log, line);
+          notifyListeners();
+        },
+        cancelSignal: cancelCompleter.future,
+      );
+
+      _apiCancelCompleter = null;
+
+      if (_isDisposed) return;
+
+      // 3b. Skip post-snapshot if cancelled.
+      if (_stopRequested) {
+        log.exitCode = result.success ? 0 : 1;
+        if (log.status != HardnessPhaseStatus.cancelled) {
+          _appendLine(log, '');
+          _appendLine(log, '⚠ 已中止');
+          log.status = HardnessPhaseStatus.cancelled;
+        }
+        notifyListeners();
+        await _finalizePhaseArtifacts(log, promptFile: promptFile);
+        return;
+      }
+
+      final postSnapshot = await _snapshotWorkingDirectory();
+      log.changedFiles = _computeChangedFiles(preSnapshot, postSnapshot);
+
+      if (result.success) {
+        log.exitCode = 0;
+        log.status = HardnessPhaseStatus.completed;
+      } else {
+        log.exitCode = 1;
+        _appendLine(log, '');
+        _appendLine(
+          log,
+          '✗ API 阶段执行失败${result.errorMessage != null ? "：${result.errorMessage}" : ""}',
+        );
+        log.status = HardnessPhaseStatus.failed;
+        _errorMessage = result.errorMessage ?? 'API 阶段执行失败';
+      }
+    } catch (e, st) {
+      if (_isDisposed) return;
+      // Sanitize error to avoid leaking auth tokens from model config.
+      var safeError = '$e';
+      final token = modelConfig.token;
+      if (token.length >= 8) {
+        safeError = safeError.replaceAll(token, '****');
+      }
+      _appendLine(log, '');
+      _appendLine(log, '✗ API 执行错误：$safeError');
+      debugPrint('Phase ${log.phase} API error: $safeError');
+      debugPrint('Stack trace: $st');
+      log.status = HardnessPhaseStatus.failed;
+      _errorMessage = safeError;
+    } finally {
+      _apiCancelCompleter = null;
+      await _finalizePhaseArtifacts(log, promptFile: promptFile);
+    }
+  }
+
+  // ── CLI-based phase execution ─────────────────────────────────────────────
+
+  Future<void> _runPhaseViaCli(
+    HardnessPhaseLog log,
+    HardnessRoleConfig roleConfig,
+  ) async {
     // Resolve CLI entry from catalog; fall back to a minimal entry if unknown.
     final cliEntry = _cliEntryForRoleConfig(roleConfig);
 
@@ -976,10 +1431,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         final authOk = await probeCliAuth(scanEntry);
         if (authOk == false) {
           _appendLine(log, '');
-          _appendLine(
-            log,
-            '✗ ${cliEntry.name} 认证已失效，无法执行当前阶段。',
-          );
+          _appendLine(log, '✗ ${cliEntry.name} 认证已失效，无法执行当前阶段。');
           _appendLine(
             log,
             '  → 请先在"设置 → CLI 登录"中重新完成 ${cliEntry.name} 的登录认证，再重试。',
@@ -1016,7 +1468,16 @@ class HardnessOrchestrator extends ChangeNotifier {
       notifyListeners();
 
       // 2b. Snapshot working directory files before execution.
-      final preSnapshot = await _snapshotWorkingDirectory();
+      final preSnapshot = _stopRequested
+          ? <String, _FileSnapshot>{}
+          : await _snapshotWorkingDirectory();
+      if (_isDisposed || _stopRequested) {
+        if (log.status != HardnessPhaseStatus.cancelled) {
+          log.status = HardnessPhaseStatus.cancelled;
+        }
+        notifyListeners();
+        return;
+      }
 
       // 3. Run the CLI and stream output.
       final exitCode = await _spawnAndCollect(
@@ -1030,17 +1491,25 @@ class HardnessOrchestrator extends ChangeNotifier {
 
       if (_isDisposed) return;
 
-      // 3b. Snapshot after execution and compute diff.
+      // 3b. Skip post-snapshot if cancelled for immediate feedback.
+      if (_stopRequested) {
+        log.exitCode = exitCode;
+        if (log.status != HardnessPhaseStatus.cancelled) {
+          _appendLine(log, '');
+          _appendLine(log, '⚠ 已中止');
+          log.status = HardnessPhaseStatus.cancelled;
+        }
+        notifyListeners();
+        await _finalizePhaseArtifacts(log);
+        return;
+      }
+
       final postSnapshot = await _snapshotWorkingDirectory();
       log.changedFiles = _computeChangedFiles(preSnapshot, postSnapshot);
 
       log.exitCode = exitCode;
 
-      if (_stopRequested) {
-        _appendLine(log, '');
-        _appendLine(log, '⚠ 已中止');
-        log.status = HardnessPhaseStatus.cancelled;
-      } else if (exitCode != 0) {
+      if (exitCode != 0) {
         _appendLine(log, '');
         _appendLine(log, '✗ CLI 进程退出码：$exitCode');
         log.status = HardnessPhaseStatus.failed;
@@ -1051,10 +1520,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         // Exit code 0 but the CLI emitted an interactive auth prompt and
         // exited without performing any work (stdin was closed → EOF).
         _appendLine(log, '');
-        _appendLine(
-          log,
-          '✗ CLI 在未完成认证的情况下退出（退出码 0），本阶段未产生有效产出。',
-        );
+        _appendLine(log, '✗ CLI 在未完成认证的情况下退出（退出码 0），本阶段未产生有效产出。');
         _appendLine(
           log,
           '  → 请先在"设置 → CLI 登录"中完成 ${cliEntry.name} 的登录认证，再重试当前阶段。',
@@ -1064,14 +1530,8 @@ class HardnessOrchestrator extends ChangeNotifier {
         // Exit code 0 but the CLI produced no substantive output, indicating
         // it silently skipped execution (e.g. expired token, config error).
         _appendLine(log, '');
-        _appendLine(
-          log,
-          '✗ CLI 以退出码 0 结束，但未产生有效输出，本阶段执行可能未真正生效。',
-        );
-        _appendLine(
-          log,
-          '  → 可能原因：认证已过期、配置异常或 CLI 静默跳过了任务。请检查 CLI 状态后重试。',
-        );
+        _appendLine(log, '✗ CLI 以退出码 0 结束，但未产生有效输出，本阶段执行可能未真正生效。');
+        _appendLine(log, '  → 可能原因：认证已过期、配置异常或 CLI 静默跳过了任务。请检查 CLI 状态后重试。');
         log.status = HardnessPhaseStatus.failed;
         await _appendCliFailureDiagnostics(log, cliEntry.executable);
       } else {

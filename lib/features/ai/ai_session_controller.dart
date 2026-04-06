@@ -241,6 +241,18 @@ class AiSessionController extends ChangeNotifier {
   final String Function() _idGenerator;
   final DateTime Function() _clock;
 
+  /// Exposes the chat client for subsystems (e.g. Hardness API phase runner)
+  /// that need to perform API calls independently of the session loop.
+  AiChatClient get chatClient => _chatClient;
+
+  /// Exposes the tool runtime service for subsystems that run their own
+  /// agentic tool loops outside the standard session controller.
+  AiToolRuntimeService get toolRuntimeService => _toolRuntimeService;
+
+  /// Exposes the prompt template repository for subsystems that need to
+  /// load template bundles (system instructions, developer instructions, etc.).
+  AiPromptTemplateRepository get templateRepository => _templateRepository;
+
   bool _isDisposed = false;
   bool _isLoading = false;
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
