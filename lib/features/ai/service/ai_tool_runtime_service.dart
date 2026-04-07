@@ -200,17 +200,18 @@ class AiToolRuntimeService {
       definitions.add(tool.definition);
     }
 
-    for (final tool in _builtinTools) {
-      register(tool);
-    }
-    // 2026-04-01 已移除 register(_legacyBashAlias)：
-    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
+    // 2026-04-08 能力调用优先级：Skill > MCP > Builtin
+    // 按优先级从高到低注册，同名时高优先级工具胜出。
+    // 工具目录（definitions 列表）的呈现顺序也遵循此优先级，
+    // 让模型在工具列表中首先看到 Skill、其次 MCP、最后 Builtin。
 
+    // ── 第一优先级：Skill 工具 ─────────────────────────────────────
     for (final skill in runtimeContext.availableSkills) {
       final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
       register(tool);
     }
 
+    // ── 第二优先级：MCP 工具 ──────────────────────────────────────
     final enabledServers = runtimeContext.availableMcpServers
         .where((item) => item.enabled)
         .toList(growable: false);
@@ -242,6 +243,13 @@ class AiToolRuntimeService {
       }
     }
 
+    // ── 第三优先级：Builtin 工具 ──────────────────────────────────
+    for (final tool in _builtinTools) {
+      register(tool);
+    }
+    // 2026-04-01 已移除 register(_legacyBashAlias)：
+    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
+
     return AiResolvedToolCatalog(
       definitions: definitions,
       toolsByName: toolsByName,
@@ -266,17 +274,15 @@ class AiToolRuntimeService {
       definitions.add(tool.definition);
     }
 
-    for (final tool in _builtinTools) {
-      register(tool);
-    }
-    // 2026-04-01 已移除 register(_legacyBashAlias)：
-    // 'bash' 别名现由 AiBashTool.aliases + AiToolRegistry._aliasToKind 统一管理。
+    // 2026-04-08 能力调用优先级：Skill > MCP > Builtin（与 resolveCatalog 保持一致）
 
+    // ── 第一优先级：Skill 工具 ─────────────────────────────────────
     for (final skill in runtimeContext.availableSkills) {
       final tool = _buildSkillTool(skill, toolsByName.keys.toSet());
       register(tool);
     }
 
+    // ── 第二优先级：MCP 工具 ──────────────────────────────────────
     final enabledServers = runtimeContext.availableMcpServers
         .where((item) => item.enabled)
         .toList(growable: false);
@@ -312,6 +318,11 @@ class AiToolRuntimeService {
         takenNames.add(tool.name);
         register(tool);
       }
+    }
+
+    // ── 第三优先级：Builtin 工具 ──────────────────────────────────
+    for (final tool in _builtinTools) {
+      register(tool);
     }
 
     return AiResolvedToolCatalog(

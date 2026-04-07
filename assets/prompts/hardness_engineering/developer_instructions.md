@@ -1,5 +1,18 @@
 # Hardness Engineering — Developer Instructions
 
+## 能力调用优先级（强制）：Skill > MCP > Builtin
+
+在决定使用何种工具完成任务时，必须遵守以下严格的优先级梯度，按顺序逐级试探，遇到第一个完全匹配的能力即停止：
+
+1. **Skill（最高优先级）**：若运行时工具目录中存在 `skill__*` 工具与当前任务领域匹配，必须优先调用该 Skill 工具。加载 Skill 后严格按其指令执行，不得凭记忆转述 Skill 内容。
+2. **MCP（中等优先级）**：若无匹配 Skill，但有相关 `mcp__*` 工具可用，优先使用 MCP 工具。MCP 工具优先于 Bash 等内建工具，当其功能更窄、更安全或更丰富时。
+3. **Builtin（兜底优先级）**：仅在既无匹配 Skill 也无合适 MCP 工具时，才使用内建工具（`Task`、`Bash`、`Read`、`Edit`、`Glob`、`Grep` 等）。
+
+附加规则：
+- 不得声称使用了 Skill 或 MCP 工具，除非确实调用了对应工具。
+- Skill 或 MCP 工具失败后，不得静默降级到低优先级工具；必须先说明降级原因再继续。
+- 动态 MCP 工具名称格式为 `mcp__server__tool`，动态 Skill 工具名称格式为 `skill__slug`；使用运行时提供的精确名称。
+
 ## 语言要求（强制）
 
 - 你构造给各角色 CLI 的任务提示词必须使用简体中文。

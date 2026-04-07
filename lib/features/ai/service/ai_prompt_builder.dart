@@ -366,32 +366,81 @@ class AiPromptBuilder {
     if (visibleTools.isEmpty) {
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
+    // 2026-04-08 工具目录按能力优先级分组呈现：Skill > MCP > Builtin
+    // resolveCatalog 已按此顺序注册，definitions 列表天然有序。
+    // 此处进一步添加分组标题，让模型在阅读时明确优先级语义。
+    final skillTools = visibleTools
+        .where((tool) => tool.name.startsWith('skill__'))
+        .toList(growable: false);
+    final mcpTools = visibleTools
+        .where((tool) => tool.name.startsWith('mcp__'))
+        .toList(growable: false);
+    final builtinTools = visibleTools
+        .where(
+          (tool) =>
+              !tool.name.startsWith('skill__') &&
+              !tool.name.startsWith('mcp__'),
+        )
+        .toList(growable: false);
+
     final buffer = StringBuffer()
       ..writeln(
         'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
+      )
+      ..writeln()
+      ..writeln(
+        'Capability invocation priority: Skill > MCP > Builtin. '
+        'When a task matches an available skill, use the skill tool first. '
+        'If no skill matches but a relevant MCP tool exists, prefer the MCP tool. '
+        'Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.',
       );
-    for (final tool in visibleTools) {
-      final description = _truncateToolDescription(tool.description);
-      final requiredArguments = _toolArgumentNames(
-        tool.parameters,
-        requiredOnly: true,
-      );
-      final optionalArguments = _toolArgumentNames(
-        tool.parameters,
-        requiredOnly: false,
-      );
+    if (skillTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..write('- ${tool.name}: $description');
-      if (requiredArguments.isNotEmpty) {
-        buffer.write(' Required args: ${requiredArguments.join(', ')}.');
+        ..writeln('## Skill Tools (highest priority)');
+      for (final tool in skillTools) {
+        _renderToolEntry(buffer, tool);
       }
-      if (optionalArguments.isNotEmpty) {
-        buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
+    }
+    if (mcpTools.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## MCP Tools (medium priority)');
+      for (final tool in mcpTools) {
+        _renderToolEntry(buffer, tool);
       }
-      buffer.writeln();
+    }
+    if (builtinTools.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Builtin Tools (baseline)');
+      for (final tool in builtinTools) {
+        _renderToolEntry(buffer, tool);
+      }
     }
     return buffer.toString().trimRight();
+  }
+
+  void _renderToolEntry(StringBuffer buffer, AiToolDefinition tool) {
+    final description = _truncateToolDescription(tool.description);
+    final requiredArguments = _toolArgumentNames(
+      tool.parameters,
+      requiredOnly: true,
+    );
+    final optionalArguments = _toolArgumentNames(
+      tool.parameters,
+      requiredOnly: false,
+    );
+    buffer
+      ..writeln()
+      ..write('- ${tool.name}: $description');
+    if (requiredArguments.isNotEmpty) {
+      buffer.write(' Required args: ${requiredArguments.join(', ')}.');
+    }
+    if (optionalArguments.isNotEmpty) {
+      buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
+    }
+    buffer.writeln();
   }
 
   String _truncateToolDescription(

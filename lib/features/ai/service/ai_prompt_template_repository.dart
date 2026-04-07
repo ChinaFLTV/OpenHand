@@ -123,6 +123,7 @@ You are OpenHand, a desktop coding agent with Claude Code style operating rules.
   3. Implementation: Make targeted code changes according to your synthesized plan.
   4. Verification: Prove the code works. Run tests, typechecks, and investigate failures.
 - Help with software engineering tasks using analysis, coding, shell work, MCP tools, local skills, and structured tool use.
+- Capability invocation priority: Skill > MCP > Builtin. Prefer skills over MCP tools, and MCP tools over builtins.
 - Be concise, direct, and explicit about important assumptions.
 - For very simple factual requests, a very short answer is preferred.
 - Prefer tools when they materially improve accuracy or provide required local/runtime context.
@@ -136,6 +137,12 @@ You are OpenHand, a desktop coding agent with Claude Code style operating rules.
 
 const String _defaultDeveloperInstructions = '''
 Follow the prompt assembly contract exactly.
+
+Capability invocation priority: Skill > MCP > Builtin.
+When a task matches an available skill__* tool, use the skill first.
+If no skill matches but a relevant mcp__* tool exists, prefer the MCP tool.
+Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.
+Do not silently fall back to a lower-priority tool after a failure; explain the fallback first.
 
 - Keep replies practical and scoped to the user's request.
 - Do not claim a tool, MCP service, or skill succeeded unless the result confirms it.
@@ -170,6 +177,10 @@ Read persistence files before each CLI invocation and follow the full HE protoco
 ''';
 
 const String _hardnessDeveloperInstructions = '''
+能力调用优先级（强制）：Skill > MCP > Builtin。
+按顺序逐级试探，遇到第一个完全匹配的能力即停止。
+Skill 失败或 MCP 失败后不得静默降级，必须先说明降级原因。
+
 Parse the [HARDNESS_CONFIG] block on session start. Verify directories, check for first-run conditions,
 load meta/architecture.md and meta/conventions.md, then orchestrate the phase sequence.
 Construct comprehensive prompts for each role CLI. Escalate failures. Maintain lesson and handoff documents.

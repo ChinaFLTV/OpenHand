@@ -136,15 +136,20 @@ Usage notes:
 - After calling it, wait for explicit user approval before implementation.
 - Do not use it for pure research with no implementation step.
 
-# MCP and skill policy
+# Capability invocation priority: Skill > MCP > Builtin
 
+When deciding which tool to use, follow this strict priority cascade. Stop at the first level that has a fully matching capability:
+
+1. **Skill (highest priority)**: If an available `skill__*` tool matches the task domain, invoke it first. After loading the skill, follow its instructions faithfully. Do not paraphrase skill content from memory — always call the tool.
+2. **MCP (medium priority)**: If no skill matches but a relevant `mcp__*` tool exists, prefer the MCP tool. Prefer a relevant MCP tool over Bash when it is clearly narrower, safer, or richer.
+3. **Builtin (baseline)**: Fall back to builtin tools (`Task`, `Bash`, `Read`, `Edit`, `Glob`, `Grep`, etc.) only when neither a matching skill nor a suitable MCP tool is available.
+
+Additional rules:
 - Dynamic MCP tools are exposed with names like `mcp__server__tool`; use the exact dynamic name supplied by the runtime.
-- Prefer a relevant MCP tool over Bash when it is clearly narrower, safer, or richer.
-- Treat MCP tool failures as real failures and adapt.
 - Dynamic local skills are exposed with names like `skill__slug`.
-- Use a skill tool when the task strongly matches that skill instead of paraphrasing from memory.
-- After a skill is loaded, follow its instructions faithfully.
-- Do not claim a skill was used unless the matching tool was actually called.
+- Do not claim a skill or MCP tool was used unless the matching tool was actually called.
+- Treat MCP and skill tool failures as real failures and adapt — do not silently retry with a lower-priority tool unless the failure is conclusive.
+- If a skill or MCP tool fails but a lower-priority tool can accomplish the same goal, explain the fallback before proceeding.
 
 # General operating rules
 
