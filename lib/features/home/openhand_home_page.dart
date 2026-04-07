@@ -316,6 +316,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
     _messageScrollController.addListener(_handleMessageScroll);
+    // Register a platform-level keyboard handler so shortcuts fire regardless
+    // of which widget currently holds keyboard focus (Focus.onKeyEvent bubbling
+    // is unreliable when the focus tree is not rooted at _globalShortcutFocusNode).
+    HardwareKeyboard.instance.addHandler(_handleGlobalShortcutKeyEvent);
     _loadPersistedHardnessSession();
   }
 
@@ -359,6 +363,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     WidgetsBinding.instance.removeObserver(this);
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
+    HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
     _globalShortcutFocusNode.dispose();
     _composerFocusNode.dispose();
     _composerController.dispose();
@@ -809,18 +814,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
         return false;
       }
+      // The workspace composer and hardness manual-phase composer each have
+      // a dedicated FocusNode.onKeyEvent handler that performs the actual
+      // send / toggle action.  HardwareKeyboard fires on a separate dispatch
+      // pipeline, so both would execute for the same key event — causing
+      // toggleComposer to collapse then immediately re-expand (net no-op)
+      // and sendMessage to attempt a redundant second send.
+      // Return true here to claim the event at the platform level without
+      // performing the action; the FocusNode handler takes care of it.
+      return true;
     }
     unawaited(_performShortcutAction(shortcutAction));
     return true;
-  }
-
-  KeyEventResult _handleGlobalShortcutFocusEvent(
-    FocusNode node,
-    KeyEvent event,
-  ) {
-    return _handleGlobalShortcutKeyEvent(event)
-        ? KeyEventResult.handled
-        : KeyEventResult.ignored;
   }
 
   KeyEventResult _handleComposerFocusNodeKeyEvent(
@@ -833,60 +838,75 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return KeyEventResult.ignored;
     }
     final bindings = context.read<SettingsController>().shortcutBindings;
-    final sendShortcutKeyIds = normalizeShortcutKeyIds(
-      bindings[OpenHandShortcutAction.sendMessage] ?? const <int>[],
-    );
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
       ...HardwareKeyboard.instance.logicalKeysPressed,
       event.logicalKey,
     });
-    if (pressedKeyIds.length != sendShortcutKeyIds.length ||
-        !pressedKeyIds.containsAll(sendShortcutKeyIds)) {
-      return KeyEventResult.ignored;
-    }
-    final sessionController = context.read<AiSessionController>();
-    if (_canStopCurrentSessionResponse(sessionController) &&
-        _composerController.text.trim().isEmpty &&
-        _pendingAttachments.isEmpty) {
-      unawaited(_stopResponding());
+    // Handle send and toggle-composer directly on the focus node so that
+    // user-configured shortcut bindings always fire, regardless of whether
+    // the key event reaches the global shortcut focus node via bubbling.
+    for (final action in const <OpenHandShortcutAction>[
+      OpenHandShortcutAction.sendMessage,
+      OpenHandShortcutAction.toggleComposer,
+    ]) {
+      final shortcutKeyIds = normalizeShortcutKeyIds(
+        bindings[action] ?? const <int>[],
+      );
+      if (shortcutKeyIds.isEmpty) {
+        continue;
+      }
+      if (shortcutKeyIds.length != pressedKeyIds.length ||
+          !pressedKeyIds.containsAll(shortcutKeyIds)) {
+        continue;
+      }
+      switch (action) {
+        case OpenHandShortcutAction.sendMessage:
+          final sessionController = context.read<AiSessionController>();
+          if (_canStopCurrentSessionResponse(sessionController) &&
+              _composerController.text.trim().isEmpty &&
+              _pendingAttachments.isEmpty) {
+            unawaited(_stopResponding());
+          } else {
+            // Always delegate to _sendMessage() which handles both direct
+            // send (when idle) and queueing (when busy).
+            unawaited(_sendMessage());
+          }
+        case OpenHandShortcutAction.toggleComposer:
+          _setComposerCollapsedState(
+            !_composerCollapsed,
+            requestFocusWhenExpanded: _composerCollapsed,
+          );
+        default:
+          continue;
+      }
       return KeyEventResult.handled;
     }
-    // Always delegate to _sendMessage() which handles both direct send
-    // (when idle) and queueing (when busy). Previously, the busy case
-    // would silently swallow the keypress without queueing.
-    unawaited(_sendMessage());
-    return KeyEventResult.handled;
+    return KeyEventResult.ignored;
   }
 
   bool _isEditableTextFocused(BuildContext? focusContext) {
     if (focusContext == null) {
       return false;
     }
+    // Check the focused widget itself.
     if (focusContext.widget is EditableText ||
         focusContext.widget is TextField ||
         focusContext.widget is TextFormField) {
       return true;
     }
+    // Check whether the focused widget lives inside an editable text widget
+    // (e.g. the internal Focus node created by EditableText).
     if (focusContext.findAncestorWidgetOfExactType<EditableText>() != null ||
         focusContext.findAncestorWidgetOfExactType<TextField>() != null) {
       return true;
     }
-    bool found = false;
-    void visitor(Element element) {
-      if (found) return;
-      if (element.widget is EditableText ||
-          element.widget is TextField ||
-          element.widget is TextFormField) {
-        found = true;
-      } else {
-        element.visitChildren(visitor);
-      }
-    }
-
-    if (focusContext is Element) {
-      focusContext.visitChildren(visitor);
-    }
-    return found;
+    // NOTE: Do NOT walk child elements here.  The previous recursive visitor
+    // found TextField / EditableText widgets that merely *exist* in the
+    // subtree (e.g. the composer sitting inside the Scaffold) even when they
+    // do not hold focus, causing false positives that silently block all
+    // shortcuts when focus is on the global shortcut node or any other
+    // non-editable widget.
+    return false;
   }
 
   OpenHandShortcutAction? _matchShortcutAction(
@@ -900,6 +920,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final shortcutKeyIds = normalizeShortcutKeyIds(
         bindings[action] ?? const <int>[],
       );
+      if (shortcutKeyIds.isEmpty) {
+        continue;
+      }
       if (shortcutKeyIds.length != pressedKeyIds.length) {
         continue;
       }
@@ -2988,7 +3011,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return Focus(
       focusNode: _globalShortcutFocusNode,
       autofocus: true,
-      onKeyEvent: _handleGlobalShortcutFocusEvent,
       child: Scaffold(
         body: DecoratedBox(
           decoration: BoxDecoration(

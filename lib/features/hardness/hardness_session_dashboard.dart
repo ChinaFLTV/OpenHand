@@ -1099,6 +1099,9 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       final shortcutKeyIds = normalizeShortcutKeyIds(
         bindings[action] ?? const <int>[],
       );
+      if (shortcutKeyIds.isEmpty) {
+        continue;
+      }
       if (shortcutKeyIds.length != pressedKeyIds.length ||
           !pressedKeyIds.containsAll(shortcutKeyIds)) {
         continue;
