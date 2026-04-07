@@ -1233,7 +1233,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     };
     orchestrator.buildApiRuntimeContext = (String workingDirectory) {
-      return _buildRuntimeContext();
+      return _buildRuntimeContext(workingDirectory: workingDirectory);
     };
   }
 
@@ -1484,15 +1484,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  Future<AiSessionRuntimeContext> _buildRuntimeContext() async {
+  Future<AiSessionRuntimeContext> _buildRuntimeContext({
+    String? workingDirectory,
+  }) async {
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
     final skillsController = context.read<SkillsController>();
     final mcpController = context.read<McpController>();
     final appInfo = context.read<AppInfo>();
-    final workingDirectory = OpenHandPaths.applicationDirectoryPath();
+    final effectiveWorkingDirectory =
+        workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
     final gitSnapshot = await _gitSnapshotService.loadSnapshot(
-      workingDirectory: workingDirectory,
+      workingDirectory: effectiveWorkingDirectory,
     );
     final now = DateTime.now().toLocal();
     return AiSessionRuntimeContext(
@@ -1511,7 +1514,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
       platformName: Platform.operatingSystem,
-      workingDirectory: workingDirectory,
+      workingDirectory: effectiveWorkingDirectory,
       todayLocalDate:
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
       timeZoneName: now.timeZoneName,

@@ -259,6 +259,9 @@ enum _HeSegmentKind {
 
   /// User-authored manual input (metaCollection / planning / reviewing).
   userInput,
+
+  /// Handoff document generation / context relay activity.
+  handoff,
 }
 
 /// A parsed segment of CLI output, tagged with its kind.
@@ -380,6 +383,26 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
         inUserInputSection = false;
       }
       continue;
+    }
+
+    // Detect handoff markers (📋) — group consecutive handoff lines into a
+    // single handoff segment for structured UI treatment.
+    if (trimmed.startsWith('📋 ')) {
+      if (current?.kind != _HeSegmentKind.handoff) {
+        flushCurrent();
+        current = _HeOutputSegment(
+          kind: _HeSegmentKind.handoff,
+          roleLabel: '交接文档',
+        );
+      }
+      current!.lines.add(raw);
+      continue;
+    }
+    // If we were in a handoff segment and hit a non-handoff, non-empty line,
+    // close the handoff segment.
+    if (current?.kind == _HeSegmentKind.handoff && trimmed.isNotEmpty &&
+        !trimmed.startsWith('📋 ')) {
+      flushCurrent();
     }
 
     // Detect role markers — start a new segment.
@@ -3986,6 +4009,17 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
           colorScheme.surface,
         ),
         colorScheme.tertiary.withValues(alpha: isDark ? 0.40 : 0.28),
+        colorScheme.onSurface,
+        18.0,
+      ),
+      _HeSegmentKind.handoff => (
+        Icons.swap_horiz_rounded,
+        seg.roleLabel ?? (widget.isZh ? '交接文档' : 'Handoff'),
+        Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.10),
+          colorScheme.surface,
+        ),
+        colorScheme.primary.withValues(alpha: isDark ? 0.45 : 0.30),
         colorScheme.onSurface,
         18.0,
       ),

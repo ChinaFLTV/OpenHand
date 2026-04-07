@@ -1323,6 +1323,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         phase: log.phase,
         phasePrompt: prompt,
         runtimeContext: runtimeContext,
+        persistenceDirectory: config.persistenceDirectory,
         onLine: (line) {
           _appendLine(log, line);
           notifyListeners();
@@ -1956,10 +1957,17 @@ class HardnessOrchestrator extends ChangeNotifier {
       HardnessPhase.reviewing =>
         '''你是本任务的验收者（Reviewer）。
 
-    **关键要求：你处于一个全新且独立的会话中。**
+    **关键要求：你处于一个全新且独立的会话中，与实施者完全隔离。**
     你不知道实施者的推理过程，也不能假设任何步骤已经被正确完成。
     你必须仅基于原始需求、上方执行计划以及项目当前真实代码状态进行验收。
     不要默认实现正确，必须从零开始逐项核验。
+
+    **评审独立性声明：**
+    - 你与实施者是完全不同的独立 Agent，即使底层使用的是同一个模型
+    - 你不拥有实施者的对话历史、内部推理或记忆
+    - 你在评判时必须保持客观中立，不得因为"自己可能做过这些改动"而倾向于给出高分
+    - 如果代码存在问题，你必须如实指出并判定 FAIL，无论改动看起来多么"合理"
+    - 判定标准唯一且客观：是否忠实地完成了计划中的每一个步骤及其验收标准
     ${_reviewRetryCount > 0 ? '\n**注意：这是第 $_reviewRetryCount 次重试验收。上一轮或更早的验收已经发现问题，请重点检查这些问题是否已被真正修复。**\n' : ''}
     ${_manualPhaseMissionAddendum(HardnessPhase.reviewing)}
     请将当前实现与原始需求及上方执行计划逐项对照。
