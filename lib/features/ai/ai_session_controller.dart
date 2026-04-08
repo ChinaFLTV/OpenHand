@@ -700,6 +700,43 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  /// Persists the model selection to the given session without going through
+  /// the session operation queue (keeps the UI responsive while AI inference
+  /// may be occupying the queue).
+  Future<bool> updateSessionLastUsedModel(
+    String sessionId, {
+    required String providerConfigId,
+    required String modelId,
+  }) async {
+    final session = _sessionById(sessionId);
+    if (session == null) {
+      return false;
+    }
+    if (session.lastUsedModelId == providerConfigId &&
+        session.lastUsedModelLabel == modelId) {
+      return true;
+    }
+    final updatedSession = session.copyWith(
+      lastUsedModelId: providerConfigId,
+      lastUsedModelLabel: modelId,
+      updatedAt: _clock().toUtc(),
+    );
+    final existingIndex = _sessions.indexWhere(
+      (item) => item.id == sessionId,
+    );
+    if (existingIndex == -1) {
+      return false;
+    }
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _sessions = updatedSessions;
+    notifyListeners();
+    try {
+      await _store.save(updatedSession);
+    } catch (_) {}
+    return true;
+  }
+
   Future<bool> renameSession(String sessionId, String title) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
@@ -1243,6 +1280,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     List<String> attachmentFilePaths = const <String>[],
+    List<String> responseModalities = const <String>[],
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
     bool requireWriteCommandConfirmation = true,
     WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -1444,6 +1482,7 @@ class AiSessionController extends ChangeNotifier {
           session: session,
           model: model,
           runtimeContext: runtimeContext,
+          responseModalities: responseModalities,
           latestUserMessageId: preparedUserTurn.userMessage.id,
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
@@ -1560,6 +1599,7 @@ class AiSessionController extends ChangeNotifier {
     required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required String? latestUserMessageId,
+    List<String> responseModalities = const <String>[],
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -1656,6 +1696,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           messages: promptResult.messages,
           tools: toolsForRound,
+          responseModalities: responseModalities,
           cancelSignal: _stopSignalForSession(workingSession.id),
         );
       } catch (error) {

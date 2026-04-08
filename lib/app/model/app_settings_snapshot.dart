@@ -32,6 +32,7 @@ class AppSettingsSnapshot {
       selectedAiModelId: null,
       shortcutBindings: defaultOpenHandShortcutBindings(),
       dialogAnimationSettings: const DialogAnimationSettings(),
+      menuAnimationSettings: const DialogAnimationSettings(),
     );
   }
   const AppSettingsSnapshot({
@@ -53,6 +54,7 @@ class AppSettingsSnapshot {
     required this.selectedAiModelId,
     required this.shortcutBindings,
     required this.dialogAnimationSettings,
+    required this.menuAnimationSettings,
   });
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
@@ -77,6 +79,7 @@ class AppSettingsSnapshot {
   final String? selectedAiModelId;
   final Map<OpenHandShortcutAction, List<int>> shortcutBindings;
   final DialogAnimationSettings dialogAnimationSettings;
+  final DialogAnimationSettings menuAnimationSettings;
 
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
@@ -97,6 +100,7 @@ class AppSettingsSnapshot {
     String? selectedAiModelId,
     Map<OpenHandShortcutAction, List<int>>? shortcutBindings,
     DialogAnimationSettings? dialogAnimationSettings,
+    DialogAnimationSettings? menuAnimationSettings,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -127,6 +131,8 @@ class AppSettingsSnapshot {
       shortcutBindings: shortcutBindings ?? this.shortcutBindings,
       dialogAnimationSettings:
           dialogAnimationSettings ?? this.dialogAnimationSettings,
+      menuAnimationSettings:
+          menuAnimationSettings ?? this.menuAnimationSettings,
     );
   }
 }

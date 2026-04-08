@@ -6,6 +6,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
 import 'model/user_memory_entry.dart';
@@ -660,7 +661,7 @@ class _MemoryEntryCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  PopupMenuButton<_MemoryCardAction>(
+                  AnimatedPopupMenuButton<_MemoryCardAction>(
                     onSelected: onActionSelected,
                     itemBuilder: (context) {
                       return [

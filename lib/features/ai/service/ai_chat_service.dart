@@ -14,6 +14,7 @@ abstract class AiChatClient {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools,
+    List<String> responseModalities,
     Duration timeout,
   });
 
@@ -21,6 +22,7 @@ abstract class AiChatClient {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools,
+    List<String> responseModalities,
     Duration timeout,
     Future<void>? cancelSignal,
   });
@@ -132,6 +134,7 @@ class AiChatService implements AiChatClient {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     Duration timeout = const Duration(seconds: 60),
   }) async {
     try {
@@ -140,6 +143,7 @@ class AiChatService implements AiChatClient {
         model: model,
         messages: messages,
         tools: tools,
+        responseModalities: responseModalities,
       );
       final response = await http.Response.fromStream(
         await _sendHttpRequestWithRedirects(
@@ -158,7 +162,7 @@ class AiChatService implements AiChatClient {
         );
       }
       try {
-        final parsedReply = adapter.parseAssistantMessage(response.body);
+        final parsedReply = await adapter.parseAssistantMessage(response.body);
         final parsedToolCalls = adapter.parseToolCalls(response.body);
         final dsmlExtraction = extractDsmlToolCalls(parsedReply);
         return AiChatCompletion(
@@ -188,6 +192,7 @@ class AiChatService implements AiChatClient {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     Duration timeout = const Duration(seconds: 60),
     Future<void>? cancelSignal,
   }) async {
@@ -200,6 +205,7 @@ class AiChatService implements AiChatClient {
         model: model,
         messages: messages,
         tools: tools,
+        responseModalities: responseModalities,
         timeout: timeout,
         cancelSignal: cancelSignal,
       );
@@ -209,6 +215,7 @@ class AiChatService implements AiChatClient {
       model: model,
       messages: messages,
       tools: tools,
+      responseModalities: responseModalities,
       stream: true,
     );
     final request = http.Request('POST', Uri.parse(blueprint.url))
@@ -564,6 +571,7 @@ class AiChatService implements AiChatClient {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     required List<AiToolDefinition> tools,
+    required List<String> responseModalities,
     required Duration timeout,
     Future<void>? cancelSignal,
   }) async {
@@ -594,6 +602,7 @@ class AiChatService implements AiChatClient {
           model: model,
           messages: messages,
           tools: tools,
+          responseModalities: responseModalities,
           timeout: timeout,
         );
         final completion = cancelSignal == null

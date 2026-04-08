@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:path/path.dart' as p;
 
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
@@ -154,6 +157,7 @@ abstract class AiProtocolAdapter {
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   }) async {
     return AiRequestBlueprint(
@@ -163,7 +167,13 @@ abstract class AiProtocolAdapter {
         model.modelId,
       ),
       headers: buildHeaders(model),
-      body: await buildBody(model, messages, tools: tools, stream: stream),
+      body: await buildBody(
+        model,
+        messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        stream: stream,
+      ),
     );
   }
 
@@ -185,6 +195,7 @@ abstract class AiProtocolAdapter {
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   });
 
@@ -208,7 +219,7 @@ abstract class AiProtocolAdapter {
     return 'data:$mimeType;base64,${base64Encode(bytes)}';
   }
 
-  String parseAssistantMessage(String rawResponse) {
+  Future<String> parseAssistantMessage(String rawResponse) {
     throw UnimplementedError(
       'parseAssistantMessage must be implemented by subclasses.',
     );
@@ -325,6 +336,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   }) async {
     final requestMessages = await Future.wait<Map<String, Object?>>(
@@ -431,7 +443,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  String parseAssistantMessage(String rawResponse) {
+  @override
+  Future<String> parseAssistantMessage(String rawResponse) async {
     final decoded = jsonDecode(rawResponse);
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
@@ -448,7 +461,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     if (message is! Map<String, Object?>) {
       throw const FormatException('Missing response message.');
     }
-    return _extractOpenAiContent(message['content']);
+    return _extractOpenAiContentWithMedia(message['content']);
   }
 
   @override
@@ -521,6 +534,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   }) async {
     final systemContent = messages
@@ -631,7 +645,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  String parseAssistantMessage(String rawResponse) {
+  Future<String> parseAssistantMessage(String rawResponse) async {
     final decoded = jsonDecode(rawResponse);
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
@@ -645,14 +659,37 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       if (item is! Map<String, Object?>) {
         continue;
       }
-      final text = '${item['text'] ?? ''}'.trim();
-      if (text.isEmpty) {
+      final type = '${item['type'] ?? ''}'.trim();
+      // Text block.
+      if (type == 'text' || type.isEmpty) {
+        final text = '${item['text'] ?? ''}'.trim();
+        if (text.isEmpty) continue;
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.write(text);
         continue;
       }
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
+      // Image block (Claude may return base64 images in the future).
+      if (type == 'image') {
+        final source = item['source'];
+        if (source is Map<String, Object?>) {
+          final sourceType = '${source['type'] ?? ''}'.trim();
+          final mediaType = '${source['media_type'] ?? ''}'.trim();
+          final data = '${source['data'] ?? ''}'.trim();
+          if (sourceType == 'base64' &&
+              mediaType.isNotEmpty &&
+              data.isNotEmpty) {
+            final md = await saveInlineMediaToMarkdown(
+              AiInlineMedia(mimeType: mediaType, base64Data: data),
+            );
+            if (md.isNotEmpty) {
+              if (buffer.isNotEmpty) buffer.writeln();
+              buffer.writeln();
+              buffer.write(md);
+            }
+          }
+        }
+        continue;
       }
-      buffer.write(text);
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
@@ -692,6 +729,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   }) async {
     final systemContent = messages
@@ -705,6 +743,16 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           .where((item) => item.role != AiChatRole.tool)
           .map(_mapGeminiMessage),
     );
+    /// Determine effective response modalities:
+    /// 1. If the caller explicitly requests modalities (e.g. from creation mode),
+    ///    use those directly.
+    /// 2. Otherwise, detect from the model name (image-capable models).
+    final effectiveModalities = responseModalities.isNotEmpty
+        ? responseModalities
+        : model.modelId.toLowerCase().contains('image')
+            ? const <String>['Text', 'Image']
+            : const <String>[];
+
     return <String, Object?>{
       if (systemContent.isNotEmpty)
         'systemInstruction': <String, Object?>{
@@ -715,6 +763,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       'contents': requestContents,
       'generationConfig': <String, Object?>{
         'maxOutputTokens': 8192,
+        if (effectiveModalities.isNotEmpty)
+          'responseModalities': effectiveModalities,
       },
     };
   }
@@ -793,7 +843,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  String parseAssistantMessage(String rawResponse) {
+  Future<String> parseAssistantMessage(String rawResponse) async {
     final decoded = jsonDecode(rawResponse);
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
@@ -819,14 +869,55 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       if (item is! Map<String, Object?>) {
         continue;
       }
+      // Text part.
       final text = '${item['text'] ?? ''}'.trim();
-      if (text.isEmpty) {
+      if (text.isNotEmpty) {
+        if (buffer.isNotEmpty) buffer.writeln();
+        buffer.write(text);
         continue;
       }
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
+      // Inline media part (image, audio, video).
+      final inlineData = item['inline_data'] ?? item['inlineData'];
+      if (inlineData is Map<String, Object?>) {
+        final mimeType =
+            '${inlineData['mime_type'] ?? inlineData['mimeType'] ?? ''}'
+                .trim();
+        final data = '${inlineData['data'] ?? ''}'.trim();
+        if (mimeType.isNotEmpty && data.isNotEmpty) {
+          final md = await saveInlineMediaToMarkdown(
+            AiInlineMedia(mimeType: mimeType, base64Data: data),
+          );
+          if (md.isNotEmpty) {
+            if (buffer.isNotEmpty) buffer.writeln();
+            buffer.writeln();
+            buffer.write(md);
+          }
+        }
+        continue;
       }
-      buffer.write(text);
+      // File data part (Gemini API can return file URIs).
+      final fileData = item['file_data'] ?? item['fileData'];
+      if (fileData is Map<String, Object?>) {
+        final mimeType =
+            '${fileData['mime_type'] ?? fileData['mimeType'] ?? ''}'.trim();
+        final fileUri =
+            '${fileData['file_uri'] ?? fileData['fileUri'] ?? ''}'.trim();
+        if (fileUri.isNotEmpty) {
+          final label = mimeType.startsWith('image/')
+              ? 'AI Generated Image'
+              : mimeType.startsWith('audio/')
+                  ? 'AI Generated Audio'
+                  : 'AI Generated File';
+          if (buffer.isNotEmpty) buffer.writeln();
+          buffer.writeln();
+          if (mimeType.startsWith('image/')) {
+            buffer.write('![$label]($fileUri)');
+          } else {
+            buffer.write('[$label]($fileUri)');
+          }
+        }
+        continue;
+      }
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
@@ -873,12 +964,14 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     AiModelConfig model,
     List<AiChatTurn> messages, {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
+    List<String> responseModalities = const <String>[],
     bool stream = false,
   }) async {
     final body = await super.buildBody(
       model,
       messages,
       tools: tools,
+      responseModalities: responseModalities,
       stream: stream,
     );
     // Older Ollama releases do not recognise `stream_options` and may
@@ -971,7 +1064,9 @@ abstract final class AiProtocolRegistry {
   }
 }
 
-String _extractOpenAiContent(Object? rawContent) {
+/// Extracts text and non-text content parts (images, audio) from OpenAI-compatible
+/// (images, audio) that some OpenAI-compatible APIs return in assistants.
+Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
   if (rawContent is String && rawContent.trim().isNotEmpty) {
     return rawContent.trim();
   }
@@ -979,23 +1074,77 @@ String _extractOpenAiContent(Object? rawContent) {
     final buffer = StringBuffer();
     for (final item in rawContent) {
       if (item is String && item.trim().isNotEmpty) {
-        if (buffer.isNotEmpty) {
-          buffer.writeln();
-        }
+        if (buffer.isNotEmpty) buffer.writeln();
         buffer.write(item.trim());
         continue;
       }
-      if (item is! Map<String, Object?>) {
+      if (item is! Map<String, Object?>) continue;
+      final type = '${item['type'] ?? ''}'.trim();
+      // Text block.
+      if (type == 'text' || type.isEmpty) {
+        final text = '${item['text'] ?? item['content'] ?? ''}'.trim();
+        if (text.isNotEmpty) {
+          if (buffer.isNotEmpty) buffer.writeln();
+          buffer.write(text);
+        }
         continue;
       }
-      final text = '${item['text'] ?? item['content'] ?? ''}'.trim();
-      if (text.isEmpty) {
+      // Image URL block (base64 data URI or remote URL).
+      if (type == 'image_url') {
+        final imageUrl = item['image_url'];
+        if (imageUrl is Map<String, Object?>) {
+          final url = '${imageUrl['url'] ?? ''}'.trim();
+          if (url.startsWith('data:')) {
+            // data:image/png;base64,...
+            final commaIndex = url.indexOf(',');
+            if (commaIndex > 0) {
+              final header = url.substring(0, commaIndex);
+              final mimeMatch = RegExp(r'data:([^;]+)').firstMatch(header);
+              final mimeType = mimeMatch?.group(1) ?? 'image/png';
+              final base64Data = url.substring(commaIndex + 1);
+              final md = await saveInlineMediaToMarkdown(
+                AiInlineMedia(mimeType: mimeType, base64Data: base64Data),
+              );
+              if (md.isNotEmpty) {
+                if (buffer.isNotEmpty) buffer.writeln();
+                buffer.writeln();
+                buffer.write(md);
+              }
+            }
+          } else if (url.isNotEmpty) {
+            // Remote URL — render directly as markdown image.
+            if (buffer.isNotEmpty) buffer.writeln();
+            buffer.writeln();
+            buffer.write('![AI Generated Image]($url)');
+          }
+        }
         continue;
       }
-      if (buffer.isNotEmpty) {
-        buffer.writeln();
+      // Audio block (OpenAI gpt-4o-audio responses).
+      if (type == 'audio') {
+        final audioData = item['audio'];
+        if (audioData is Map<String, Object?>) {
+          final data = '${audioData['data'] ?? ''}'.trim();
+          if (data.isNotEmpty) {
+            final md = await saveInlineMediaToMarkdown(
+              AiInlineMedia(mimeType: 'audio/mp3', base64Data: data),
+              label: '${audioData['transcript'] ?? 'AI Audio Response'}',
+            );
+            if (md.isNotEmpty) {
+              if (buffer.isNotEmpty) buffer.writeln();
+              buffer.writeln();
+              buffer.write(md);
+            }
+          }
+          // Include transcript as text if present.
+          final transcript = '${audioData['transcript'] ?? ''}'.trim();
+          if (transcript.isNotEmpty) {
+            if (buffer.isNotEmpty) buffer.writeln();
+            buffer.write(transcript);
+          }
+        }
+        continue;
       }
-      buffer.write(text);
     }
     final output = buffer.toString().trim();
     if (output.isNotEmpty) {
@@ -1137,4 +1286,78 @@ bool _supportsOpenAiCompatibleAttachments(
     ]),
     AiProtocolType.claude || AiProtocolType.gemini => true,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline media extraction helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Decoded inline media block from an AI response.
+class AiInlineMedia {
+  const AiInlineMedia({
+    required this.mimeType,
+    required this.base64Data,
+  });
+
+  final String mimeType;
+  final String base64Data;
+
+  /// Returns a short human-readable media type label.
+  String get mediaKind {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    if (mimeType.startsWith('video/')) return 'video';
+    return 'file';
+  }
+
+  /// File extension inferred from the MIME type.
+  String get fileExtension {
+    return switch (mimeType) {
+      'image/png' => '.png',
+      'image/jpeg' || 'image/jpg' => '.jpg',
+      'image/gif' => '.gif',
+      'image/webp' => '.webp',
+      'image/svg+xml' => '.svg',
+      'audio/mp3' || 'audio/mpeg' => '.mp3',
+      'audio/wav' || 'audio/x-wav' => '.wav',
+      'audio/ogg' => '.ogg',
+      'audio/aac' => '.aac',
+      'video/mp4' => '.mp4',
+      'video/webm' => '.webm',
+      _ => '',
+    };
+  }
+}
+
+/// Saves an [AiInlineMedia] to a temp file and returns a markdown reference.
+///
+/// Images are rendered as `![...](file_path)` so the markdown renderer can
+/// display them inline. Audio/video use a link `[🔊 ...](file_path)`.
+Future<String> saveInlineMediaToMarkdown(
+  AiInlineMedia media, {
+  String? label,
+}) async {
+  try {
+    final bytes = base64Decode(media.base64Data);
+    if (bytes.isEmpty) return '';
+    final tempDir = await Directory.systemTemp.createTemp('openhand_media_');
+    final id = math.Random().nextInt(999999).toString().padLeft(6, '0');
+    final fileName = '${media.mediaKind}_$id${media.fileExtension}';
+    final file = File(p.join(tempDir.path, fileName));
+    await file.writeAsBytes(bytes);
+    final filePath = file.path;
+    final displayLabel = label ?? 'AI Generated ${media.mediaKind}';
+    if (media.mimeType.startsWith('image/')) {
+      return '![$displayLabel]($filePath)';
+    }
+    if (media.mimeType.startsWith('audio/')) {
+      return '[🔊 $displayLabel]($filePath)';
+    }
+    if (media.mimeType.startsWith('video/')) {
+      return '[🎬 $displayLabel]($filePath)';
+    }
+    return '[📎 $displayLabel]($filePath)';
+  } catch (_) {
+    return '';
+  }
 }

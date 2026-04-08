@@ -25,6 +25,7 @@ import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_attachment.dart';
@@ -150,6 +151,18 @@ void _scheduleOverlayActionAfterMenuDismissal(
   });
 }
 
+Future<void> _awaitEndOfFrame() async {
+  await WidgetsBinding.instance.endOfFrame;
+  // One extra event-loop turn is required to fully escape the handleDrawFrame
+  // call stack on desktop.  Flutter's endOfFrame future uses a sync Completer,
+  // so its continuations execute synchronously inside the post-frame callback
+  // chain — still within MouseTracker._deviceUpdatePhase — and any setState /
+  // notifyListeners triggered there causes a !_debugDuringDeviceUpdate
+  // assertion.  The delayed(Duration.zero) hop pushes us past the end of
+  // handleDrawFrame into the next microtask-free event-loop cycle.
+  await Future<void>.delayed(Duration.zero);
+}
+
 class OpenHandHomePage extends StatefulWidget {
   const OpenHandHomePage({super.key});
 
@@ -168,6 +181,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
 
   AppSection _selectedSection = AppSection.workspace;
+  _CreationMode _creationMode = _CreationMode.none;
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
   bool _autoFollowEnabled = true;
@@ -196,6 +210,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _activeTranscriptSessionId;
   String? _preparingTranscriptSessionId;
   int _transcriptPreparationGeneration = 0;
+  bool _sessionControllerUiSyncQueued = false;
+  int _sessionActivationGeneration = 0;
   AppLifecycleState? _appLifecycleState;
   int _resumeAutoFollowSuppressionFrames = 0;
   bool _resumeAutoFollowSyncQueued = false;
@@ -385,9 +401,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     final sessionController = _observedSessionController;
-    _syncComposerDraftForSession(sessionController?.currentSessionId);
-    _syncTranscriptPreparation(sessionController?.currentSession);
+    _scheduleSessionControllerUiSync();
     _processMessageQueueIfNeeded(sessionController);
+  }
+
+  void _scheduleSessionControllerUiSync() {
+    if (_sessionControllerUiSyncQueued) {
+      return;
+    }
+    _sessionControllerUiSyncQueued = true;
+    unawaited(
+      _awaitEndOfFrame().then((_) {
+        _sessionControllerUiSyncQueued = false;
+        if (!mounted) {
+          return;
+        }
+        final sessionController = _observedSessionController;
+        _syncComposerDraftForSession(sessionController?.currentSessionId);
+        _syncTranscriptPreparation(sessionController?.currentSession);
+      }),
+    );
   }
 
   Future<void> _processMessageQueueIfNeeded(
@@ -1032,16 +1065,75 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _activateSession(String sessionId) async {
     final sessionController = context.read<AiSessionController>();
-    await sessionController.selectSession(sessionId);
-    if (!mounted) {
+    if (sessionController.currentSessionId == sessionId &&
+        _selectedSection == AppSection.workspace) {
       return;
     }
-    setState(() {
-      _selectedSection = AppSection.workspace;
-      _clearPendingAutoFollowState();
-      _armAutoFollowToBottom();
-    });
+    final activationGeneration = ++_sessionActivationGeneration;
+    await _awaitEndOfFrame();
+    if (!mounted || activationGeneration != _sessionActivationGeneration) {
+      return;
+    }
+    await sessionController.selectSession(sessionId);
+    if (!mounted || activationGeneration != _sessionActivationGeneration) {
+      return;
+    }
+    await _awaitEndOfFrame();
+    if (!mounted || activationGeneration != _sessionActivationGeneration) {
+      return;
+    }
+    if (sessionController.currentSessionId != sessionId) {
+      return;
+    }
+    final session = sessionController.currentSession;
+    if (session != null) {
+      _tryRestoreSessionModel(session);
+    }
+    if (_selectedSection != AppSection.workspace) {
+      setState(() {
+        _selectedSection = AppSection.workspace;
+      });
+    }
+    _clearPendingAutoFollowState();
+    _armAutoFollowToBottom();
     _scheduleScrollToBottom(force: true);
+  }
+
+  /// Attempts to restore the model selection from the session's persisted
+  /// [AiSession.lastUsedModelId] and [AiSession.lastUsedModelLabel].
+  /// Falls back to the global default if the stored model is no longer available.
+  void _tryRestoreSessionModel(AiSession session) {
+    final storedProviderId = session.lastUsedModelId;
+    final storedModelId = session.lastUsedModelLabel;
+    if (storedProviderId == null ||
+        storedProviderId.isEmpty ||
+        storedModelId == null ||
+        storedModelId.isEmpty) {
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final providers = settingsController.aiModels;
+    // Find the provider config that matches storedProviderId.
+    final provider = providers.cast<AiModelConfig?>().firstWhere(
+      (p) => p!.id == storedProviderId,
+      orElse: () => null,
+    );
+    if (provider == null) {
+      // Provider no longer exists — keep the current global default.
+      return;
+    }
+    // Check if the stored model ID is still in the provider's known models.
+    final allIds = provider.allModelIds;
+    if (allIds.isNotEmpty && !allIds.contains(storedModelId)) {
+      // Model was removed; just select the provider (uses its current modelId).
+      settingsController.updateSelectedAiModel(storedProviderId);
+      return;
+    }
+    // Restore both the provider selection and the specific model.
+    settingsController.updateProviderActiveModel(
+      storedProviderId,
+      storedModelId,
+    );
   }
 
   Future<String?> _showThreadTemplateDialog() async {
@@ -1839,24 +1931,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     _replaceComposerText('');
+    // Capture the creation mode and reset it before sending.
+    final creationMode = _creationMode;
+    final responseModalities = creationMode == _CreationMode.image
+        ? const <String>['Text', 'Image']
+        : const <String>[];
     setState(() {
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
+      _creationMode = _CreationMode.none;
     });
 
     await _submitTextToSession(
       targetSessionId,
       prompt,
       pendingAttachments,
-      runtimeContext,
+      runtimeContext: runtimeContext,
+      responseModalities: responseModalities,
     );
   }
 
   Future<void> _submitTextToSession(
     String targetSessionId,
     String prompt,
-    List<_ComposerAttachmentDraft> pendingAttachments, [
+    List<_ComposerAttachmentDraft> pendingAttachments, {
     AiSessionRuntimeContext? runtimeContext,
-  ]) async {
+    List<String> responseModalities = const <String>[],
+  }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
     final selectedModel = settingsController.selectedAiModel;
@@ -1892,6 +1992,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         content: prompt,
         model: selectedModel,
         runtimeContext: runtimeContext,
+        responseModalities: responseModalities,
         attachmentFilePaths: pendingAttachments
             .map((item) => item.filePath)
             .toList(growable: false),
@@ -3216,6 +3317,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             providerConfigId,
             modelId,
           );
+          // Persist the model selection to the current session.
+          final session = sessionController.currentSession;
+          if (session != null) {
+            sessionController.updateSessionLastUsedModel(
+              session.id,
+              providerConfigId: providerConfigId,
+              modelId: modelId,
+            );
+          }
         },
         composerFocusNode: _composerFocusNode,
         composerHeight: _composerHeight,
@@ -3302,6 +3412,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onSend: _sendMessage,
         onStop: _stopResponding,
         onCreateThreadRequested: _createSessionFromDialog,
+        creationMode: _creationMode,
+        onCreationModeChanged: (mode) {
+          setState(() => _creationMode = mode);
+        },
         editingMessageId: sessionController.editingMessageId,
         onCancelEditing: _cancelEditingMessage,
         onEditMessage: _editMessage,
@@ -3510,19 +3624,26 @@ class _NavigationPaneState extends State<_NavigationPane> {
     final tiles = <Widget>[];
     bool heInserted = false;
 
-    Widget buildHeTile() => Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _HardnessSessionTile(
-            title: heRecord!.title,
-            status: heStatus!,
-            awaitingApproval: heAwaitingApproval,
-            isSelected:
-                widget.selectedSection == AppSection.hardnessSession,
-            onTap: widget.onHardnessSessionSelected ?? () {},
-            onRename: widget.onRenameHardnessSession ?? () {},
-            onDelete: widget.onDeleteHardnessSession ?? () {},
-          ),
-        );
+    Widget buildHeTile() {
+      final record = heRecord;
+      final status = heStatus;
+      if (record == null || status == null) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        key: ValueKey<String>('he-thread-${record.id}'),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: _HardnessSessionTile(
+          title: record.title,
+          status: status,
+          awaitingApproval: heAwaitingApproval,
+          isSelected: widget.selectedSection == AppSection.hardnessSession,
+          onTap: widget.onHardnessSessionSelected ?? () {},
+          onRename: widget.onRenameHardnessSession ?? () {},
+          onDelete: widget.onDeleteHardnessSession ?? () {},
+        ),
+      );
+    }
 
     for (final session in widget.sessions) {
       // Insert HE tile when its updatedAt >= the current AI session's.
@@ -3534,11 +3655,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
       }
       tiles.add(
         Padding(
+          key: ValueKey<String>('ai-thread-${session.id}'),
           padding: const EdgeInsets.only(bottom: 10),
           child: _ThreadTile(
             session: session,
-            sendPhase:
-                widget.sessionSendPhases[session.id] ?? AiSendPhase.idle,
+            sendPhase: widget.sessionSendPhases[session.id] ?? AiSendPhase.idle,
             isSelected:
                 widget.selectedSection == AppSection.workspace &&
                 widget.currentSessionId == session.id,
@@ -3970,6 +4091,8 @@ class _WorkspaceView extends StatelessWidget {
     required this.onSend,
     required this.onStop,
     required this.onCreateThreadRequested,
+    required this.creationMode,
+    required this.onCreationModeChanged,
     required this.editingMessageId,
     required this.onCancelEditing,
     required this.onEditMessage,
@@ -4020,6 +4143,8 @@ class _WorkspaceView extends StatelessWidget {
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final Future<void> Function() onCreateThreadRequested;
+  final _CreationMode creationMode;
+  final ValueChanged<_CreationMode> onCreationModeChanged;
   final String? editingMessageId;
   final Future<void> Function() onCancelEditing;
   final Future<void> Function(AiSessionMessage message) onEditMessage;
@@ -4158,6 +4283,8 @@ class _WorkspaceView extends StatelessWidget {
                     onReorderAttachments: onReorderAttachments,
                     onSend: onSend,
                     onStop: onStop,
+                    creationMode: creationMode,
+                    onCreationModeChanged: onCreationModeChanged,
                     editingMessageId: editingMessageId,
                     onCancelEditing: onCancelEditing,
                     fullAccessPermission: fullAccessPermission,
@@ -8347,16 +8474,19 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onAttachmentTap?.call(attachment),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Color.alphaBlend(
                       textColor.withValues(alpha: 0.08),
                       backgroundColor,
                     ),
                     borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: textColor.withValues(alpha: 0.12)),
+                    border: Border.all(
+                      color: textColor.withValues(alpha: 0.12),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -8419,10 +8549,8 @@ Future<void> _openAttachment(
     if (!context.mounted) return;
     showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) => _ImagePreviewDialog(
-        filePath: storagePath,
-        title: attachment.name,
-      ),
+      builder: (dialogContext) =>
+          _ImagePreviewDialog(filePath: storagePath, title: attachment.name),
     );
     return;
   }
@@ -8434,7 +8562,12 @@ Future<void> _openAttachment(
     if (Platform.isMacOS) {
       result = await Process.run('open', <String>[storagePath]);
     } else if (Platform.isWindows) {
-      result = await Process.run('cmd', <String>['/c', 'start', '', storagePath]);
+      result = await Process.run('cmd', <String>[
+        '/c',
+        'start',
+        '',
+        storagePath,
+      ]);
     } else if (Platform.isLinux) {
       result = await Process.run('xdg-open', <String>[storagePath]);
     } else {
@@ -8444,15 +8577,17 @@ Future<void> _openAttachment(
       final message = '${result.stderr}'.trim();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.isEmpty ? 'Failed to open file.' : message)),
+          SnackBar(
+            content: Text(message.isEmpty ? 'Failed to open file.' : message),
+          ),
         );
       }
     }
   } catch (error) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$error')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('$error')));
   }
 }
 
@@ -8475,12 +8610,69 @@ Future<void> _openComposerAttachment(
   );
 }
 
+/// Shimmer / skeleton placeholder shown while an image frame is loading.
+class _ImageShimmerPlaceholder extends StatefulWidget {
+  const _ImageShimmerPlaceholder();
+
+  @override
+  State<_ImageShimmerPlaceholder> createState() =>
+      _ImageShimmerPlaceholderState();
+}
+
+class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final baseColor = cs.surfaceContainerHighest;
+    final highlightColor = cs.surfaceContainerLow;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (context, child) {
+        return Container(
+          width: 200,
+          height: 200,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: LinearGradient(
+              begin: Alignment(-1.0 + 2.0 * _ctrl.value, 0),
+              end: Alignment(-1.0 + 2.0 * _ctrl.value + 1.0, 0),
+              colors: [baseColor, highlightColor, baseColor],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.image_outlined,
+              size: 40,
+              color: cs.onSurfaceVariant.withValues(alpha: 0.3),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Full-screen image preview dialog with zoom and pan support.
 class _ImagePreviewDialog extends StatelessWidget {
-  const _ImagePreviewDialog({
-    required this.filePath,
-    required this.title,
-  });
+  const _ImagePreviewDialog({required this.filePath, required this.title});
 
   final String filePath;
   final String title;
@@ -8527,12 +8719,18 @@ class _ImagePreviewDialog extends StatelessWidget {
                       if (Platform.isMacOS) {
                         await Process.run('open', <String>[filePath]);
                       } else if (Platform.isWindows) {
-                        await Process.run('cmd', <String>['/c', 'start', '', filePath]);
+                        await Process.run('cmd', <String>[
+                          '/c',
+                          'start',
+                          '',
+                          filePath,
+                        ]);
                       } else if (Platform.isLinux) {
                         await Process.run('xdg-open', <String>[filePath]);
                       }
                     },
                   ),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(
                       Icons.close_rounded,
@@ -9221,7 +9419,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         selectable: widget.selectable,
         styleSheet: effectiveStyleSheet,
         imageDirectory: null,
-        imageBuilder: null,
+        imageBuilder: _buildMarkdownImage,
         checkboxBuilder: null,
         bulletBuilder: null,
         builders: widget.builders,
@@ -9297,6 +9495,127 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     for (final recognizer in localRecognizers) {
       recognizer.dispose();
     }
+  }
+
+  Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
+    // Handle local file paths (absolute or file:// scheme).
+    final filePath = uri.scheme == 'file'
+        ? uri.toFilePath()
+        : (uri.scheme.isEmpty && uri.path.startsWith('/'))
+        ? uri.path
+        : null;
+    if (filePath != null && File(filePath).existsSync()) {
+      return GestureDetector(
+        onTap: () {
+          showAnimatedDialog<void>(
+            context: context,
+            builder: (ctx) => _ImagePreviewDialog(
+              filePath: filePath,
+              title: alt ?? title ?? p.basename(filePath),
+            ),
+          );
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.6,
+              maxHeight: 400,
+            ),
+            child: Image.file(
+              File(filePath),
+              fit: BoxFit.contain,
+              frameBuilder: _fadeInImageFrameBuilder,
+              errorBuilder: (_, __, ___) =>
+                  _brokenImagePlaceholder(context, alt ?? 'Image'),
+            ),
+          ),
+        ),
+      );
+    }
+    // Handle network URLs.
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.6,
+            maxHeight: 400,
+          ),
+          child: Image.network(
+            uri.toString(),
+            fit: BoxFit.contain,
+            frameBuilder: _fadeInImageFrameBuilder,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              final progress = loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                        loadingProgress.expectedTotalBytes!
+                  : null;
+              return SizedBox(
+                width: 200,
+                height: 200,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 2.4,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (_, __, ___) =>
+                _brokenImagePlaceholder(context, alt ?? uri.toString()),
+          ),
+        ),
+      );
+    }
+    // Fallback: show alt text.
+    return Text(alt ?? title ?? uri.toString());
+  }
+
+  /// Shared frame builder that fades in images with a smooth animation.
+  static Widget _fadeInImageFrameBuilder(
+    BuildContext context,
+    Widget child,
+    int? frame,
+    bool wasSynchronouslyLoaded,
+  ) {
+    if (wasSynchronouslyLoaded) return child;
+    if (frame == null) {
+      // No frame decoded yet — show shimmer placeholder.
+      return const _ImageShimmerPlaceholder();
+    }
+    // First frame decoded — fade in with a one-shot animation.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(opacity: value, child: child),
+      child: child,
+    );
+  }
+
+  static Widget _brokenImagePlaceholder(BuildContext context, String label) {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.broken_image_outlined,
+            size: 18,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -11171,6 +11490,8 @@ class _FileHoverPopup extends StatefulWidget {
 class _FileHoverPopupState extends State<_FileHoverPopup> {
   OverlayEntry? _overlayEntry;
   bool _isHovered = false;
+  bool _showScheduled = false;
+  bool _hideScheduled = false;
 
   /// Returns true if any Ctrl or Meta (Cmd on macOS) modifier key is currently
   /// held down. Uses [physicalKeysPressed] which reflects raw hardware state
@@ -11184,7 +11505,19 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
   }
 
   void _showOverlay() {
-    // Guard: skip for unresolved paths or if the overlay is already shown.
+    if (widget.isUnresolved || _overlayEntry != null || _showScheduled) return;
+    // Defer overlay insertion to avoid mutating the widget tree during
+    // MouseTracker._deviceUpdatePhase, which triggers the
+    // !_debugDuringDeviceUpdate re-entrancy assertion.
+    _showScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showScheduled = false;
+      if (!mounted || !_isHovered || _overlayEntry != null) return;
+      _showOverlayNow();
+    });
+  }
+
+  void _showOverlayNow() {
     if (widget.isUnresolved || _overlayEntry != null) return;
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
@@ -11277,12 +11610,27 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         ),
       ),
     );
-    Overlay.of(context).insert(_overlayEntry!);
+    try {
+      Overlay.of(context).insert(_overlayEntry!);
+    } catch (_) {
+      _overlayEntry = null;
+    }
   }
 
   void _hideOverlay() {
-    _overlayEntry?.remove();
+    if (_overlayEntry == null && !_showScheduled) return;
+    _showScheduled = false;
+    final entry = _overlayEntry;
     _overlayEntry = null;
+    if (entry == null) return;
+    // Defer overlay removal to avoid mutating the widget tree during
+    // MouseTracker._deviceUpdatePhase.
+    if (_hideScheduled) return;
+    _hideScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hideScheduled = false;
+      entry.remove();
+    });
   }
 
   @override
@@ -11298,8 +11646,11 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
 
   @override
   void deactivate() {
-    // Hide and reset state when the widget leaves the tree (e.g. list scroll).
-    _hideOverlay();
+    // Synchronous removal is safe when the widget is leaving the tree.
+    _showScheduled = false;
+    _hideScheduled = false;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     _isHovered = false;
     super.deactivate();
   }
@@ -11324,7 +11675,11 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
 
   @override
   void dispose() {
-    _hideOverlay();
+    // Synchronous cleanup—widget is being permanently destroyed.
+    _showScheduled = false;
+    _hideScheduled = false;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     HardwareKeyboard.instance.removeHandler(_handleKey);
     super.dispose();
   }
@@ -11336,6 +11691,15 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         _isHovered = true;
         if (!widget.isUnresolved && _isModifierPressed) {
           _showOverlay();
+        }
+      },
+      onHover: (_) {
+        if (!widget.isUnresolved) {
+          if (_isModifierPressed) {
+            _showOverlay();
+          } else {
+            _hideOverlay();
+          }
         }
       },
       onExit: (_) {
@@ -11409,6 +11773,8 @@ class _ComposerPanel extends StatefulWidget {
     required this.onReorderAttachments,
     required this.onSend,
     required this.onStop,
+    required this.creationMode,
+    required this.onCreationModeChanged,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
     required this.editingMessageId,
@@ -11442,6 +11808,8 @@ class _ComposerPanel extends StatefulWidget {
   final void Function(int oldIndex, int newIndex) onReorderAttachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
+  final _CreationMode creationMode;
+  final ValueChanged<_CreationMode> onCreationModeChanged;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
   final String? editingMessageId;
@@ -11456,7 +11824,6 @@ class _ComposerPanel extends StatefulWidget {
 }
 
 class _ComposerPanelState extends State<_ComposerPanel> {
-
   List<Widget> _buildModelMenuItems(BuildContext context) {
     final items = <Widget>[];
     final selectedId = widget.selectedModel?.id;
@@ -11474,10 +11841,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ? Icons.check_circle_rounded
                   : Icons.radio_button_unchecked_rounded,
             ),
-            onPressed: () => widget.onModelSelected(
-              provider.id,
-              provider.modelId,
-            ),
+            onPressed: () =>
+                widget.onModelSelected(provider.id, provider.modelId),
             child: Text(provider.providerLabel),
           ),
         );
@@ -11806,20 +12171,24 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   ),
                   menuChildren: _buildModelMenuItems(context),
                   builder: (context, controller, child) {
-                    return SizedBox(
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: widget.availableModels.isEmpty
-                            ? null
-                            : () {
-                                if (controller.isOpen) {
-                                  controller.close();
-                                  return;
-                                }
-                                controller.open();
-                              },
-                        icon: const Icon(Icons.hub_outlined),
-                        label: Text(selectedModelLabel),
+                    return OutlinedButton.icon(
+                      onPressed: widget.availableModels.isEmpty
+                          ? null
+                          : () {
+                              if (controller.isOpen) {
+                                controller.close();
+                                return;
+                              }
+                              controller.open();
+                            },
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 52),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      icon: const Icon(Icons.hub_outlined),
+                      label: Text(
+                        selectedModelLabel,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     );
                   },
@@ -11837,37 +12206,35 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           zh: '当前模型不支持附件',
                           en: 'The selected model does not support attachments',
                         ),
-                  child: SizedBox(
-                    height: 52,
-                    child: OutlinedButton.icon(
-                      onPressed: widget.attachmentsEnabled
-                          ? widget.onPickAttachments
-                          : null,
-                      icon: const Icon(Icons.attach_file_rounded),
-                      label: Text(
-                        widget.pendingAttachments.isEmpty
-                            ? _localizedText(context, zh: '附件', en: 'Attach')
-                            : _localizedText(
-                                context,
-                                zh: '附件 ${widget.pendingAttachments.length}',
-                                en: 'Files ${widget.pendingAttachments.length}',
-                              ),
-                      ),
+                  child: OutlinedButton.icon(
+                    onPressed: widget.attachmentsEnabled
+                        ? widget.onPickAttachments
+                        : null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 52),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    icon: const Icon(Icons.attach_file_rounded),
+                    label: Text(
+                      widget.pendingAttachments.isEmpty
+                          ? _localizedText(context, zh: '附件', en: 'Attach')
+                          : _localizedText(
+                              context,
+                              zh: '附件 ${widget.pendingAttachments.length}',
+                              en: 'Files ${widget.pendingAttachments.length}',
+                            ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                SizedBox(
-                  height: 52,
-                  child: _ComposerFullAccessModeButton(
-                    fullAccess: widget.fullAccessPermission,
-                    enabled: true,
-                    onChanged: (bool value) {
-                      if (value != widget.fullAccessPermission) {
-                        widget.onToggleFullAccessPermission(value);
-                      }
-                    },
-                  ),
+                _ComposerFullAccessModeButton(
+                  fullAccess: widget.fullAccessPermission,
+                  enabled: true,
+                  onChanged: (bool value) {
+                    if (value != widget.fullAccessPermission) {
+                      widget.onToggleFullAccessPermission(value);
+                    }
+                  },
                 ),
                 const SizedBox(width: 10),
                 Tooltip(
@@ -11876,20 +12243,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     widget.sessionMode,
                     runtimeStatus,
                   ),
-                  child: SizedBox(
-                    height: 52,
-                    child: _ComposerModeButton(
-                      mode: widget.sessionMode,
-                      runtimeStatus: runtimeStatus,
-                      enabled: modeToggleEnabled,
-                      onPressed: () {
-                        widget.onSessionModeChanged(
-                          widget.sessionMode == AiSessionMode.plan
-                              ? AiSessionMode.chat
-                              : AiSessionMode.plan,
-                        );
-                      },
-                    ),
+                  child: _ComposerModeButton(
+                    mode: widget.sessionMode,
+                    runtimeStatus: runtimeStatus,
+                    enabled: modeToggleEnabled,
+                    onPressed: () {
+                      widget.onSessionModeChanged(
+                        widget.sessionMode == AiSessionMode.plan
+                            ? AiSessionMode.chat
+                            : AiSessionMode.plan,
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -11956,6 +12320,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
             ),
           ),
+        ),
+        const SizedBox(width: 10),
+        _ComposerCreationModeButton(
+          creationMode: widget.creationMode,
+          onCreationModeChanged: widget.onCreationModeChanged,
         ),
         const SizedBox(width: 10),
         ValueListenableBuilder<TextEditingValue>(
@@ -12102,6 +12471,7 @@ class _ComposerFullAccessModeButton extends StatelessWidget {
                 }
               : null,
           style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 52),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             backgroundColor: backgroundColor,
             foregroundColor: foregroundColor,
@@ -12210,6 +12580,7 @@ class _ComposerModeButton extends StatelessWidget {
     return OutlinedButton(
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 52),
         padding: const EdgeInsets.symmetric(horizontal: 14),
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
@@ -12270,6 +12641,182 @@ class _ComposerModeButton extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Creation mode types for the composer.
+enum _CreationMode { none, image, video, audio, deepResearch }
+
+/// A "+" button that opens a popup for creation modes (image, video, audio, deep research).
+/// When a supported mode is selected, the button turns active (primary color + mode icon).
+class _ComposerCreationModeButton extends StatefulWidget {
+  const _ComposerCreationModeButton({
+    required this.creationMode,
+    required this.onCreationModeChanged,
+  });
+
+  final _CreationMode creationMode;
+  final ValueChanged<_CreationMode> onCreationModeChanged;
+
+  @override
+  State<_ComposerCreationModeButton> createState() =>
+      _ComposerCreationModeButtonState();
+}
+
+class _ComposerCreationModeButtonState
+    extends State<_ComposerCreationModeButton> {
+  IconData _iconForMode(_CreationMode mode) => switch (mode) {
+    _CreationMode.none => Icons.add_rounded,
+    _CreationMode.image => Icons.image_outlined,
+    _CreationMode.video => Icons.videocam_outlined,
+    _CreationMode.audio => Icons.audiotrack_outlined,
+    _CreationMode.deepResearch => Icons.travel_explore_rounded,
+  };
+
+  /// Notify the parent of a mode change after the current frame to avoid
+  /// mutating the widget tree while the [MouseTracker] is mid-update.
+  void _deferModeChange(_CreationMode mode) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onCreationModeChanged(mode);
+    });
+  }
+
+  void _selectMode(_CreationMode mode) {
+    if (mode == widget.creationMode) {
+      // Toggle off.
+      _deferModeChange(_CreationMode.none);
+      return;
+    }
+    // Only image generation is currently supported.
+    if (mode != _CreationMode.image) {
+      final label = switch (mode) {
+        _CreationMode.video => _localizedText(
+          context,
+          zh: '视频生成功能暂不支持，敬请期待',
+          en: 'Video generation is not yet supported',
+        ),
+        _CreationMode.audio => _localizedText(
+          context,
+          zh: '音频生成功能暂不支持，敬请期待',
+          en: 'Audio generation is not yet supported',
+        ),
+        _CreationMode.deepResearch => _localizedText(
+          context,
+          zh: '深度研究功能暂不支持，敬请期待',
+          en: 'Deep Research is not yet supported',
+        ),
+        _ => '',
+      };
+      if (label.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(label),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+    _deferModeChange(mode);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isActive = widget.creationMode != _CreationMode.none;
+    return MenuAnchor(
+      builder: (context, controller, child) {
+        return Tooltip(
+          message: _localizedText(context, zh: '创建', en: 'Create'),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              child: FilledButton(
+                onPressed: () {
+                  // When active, toggle off instead of opening the menu.
+                  if (isActive) {
+                    _deferModeChange(_CreationMode.none);
+                    return;
+                  }
+                  if (controller.isOpen) {
+                    controller.close();
+                  } else {
+                    controller.open();
+                  }
+                },
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(52, 52),
+                  backgroundColor: isActive
+                      ? colorScheme.primary
+                      : colorScheme.surfaceContainerHighest,
+                  foregroundColor: isActive
+                      ? colorScheme.onPrimary
+                      : colorScheme.onSurface,
+                  side: isActive
+                      ? null
+                      : BorderSide(color: colorScheme.outlineVariant),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  ),
+                  child: Icon(
+                    _iconForMode(widget.creationMode),
+                    key: ValueKey<_CreationMode>(widget.creationMode),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      menuChildren: [
+        MenuItemButton(
+          leadingIcon: Icon(
+            Icons.image_outlined,
+            size: 20,
+            color: widget.creationMode == _CreationMode.image
+                ? Theme.of(context).colorScheme.primary
+                : null,
+          ),
+          trailingIcon: widget.creationMode == _CreationMode.image
+              ? Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                )
+              : null,
+          onPressed: () => _selectMode(_CreationMode.image),
+          child: Text(_localizedText(context, zh: '创建图片', en: 'Create Image')),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.videocam_outlined, size: 20),
+          onPressed: () => _selectMode(_CreationMode.video),
+          child: Text(
+            _localizedText(context, zh: '视频生成', en: 'Generate Video'),
+          ),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.audiotrack_outlined, size: 20),
+          onPressed: () => _selectMode(_CreationMode.audio),
+          child: Text(
+            _localizedText(context, zh: '音频生成', en: 'Generate Audio'),
+          ),
+        ),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.travel_explore_rounded, size: 20),
+          onPressed: () => _selectMode(_CreationMode.deepResearch),
+          child: Text(_localizedText(context, zh: '深度研究', en: 'Deep Research')),
+        ),
+      ],
     );
   }
 }
@@ -12511,7 +13058,7 @@ class _HardnessSessionTile extends StatelessWidget {
 
     return GestureDetector(
       onSecondaryTapDown: (details) async {
-        final selected = await showMenu<String>(
+        final selected = await showAnimatedMenu<String>(
           context: context,
           position: RelativeRect.fromLTRB(
             details.globalPosition.dx,
@@ -12736,7 +13283,7 @@ class _ThreadTile extends StatelessWidget {
     final isActive = sendPhase != AiSendPhase.idle;
     return GestureDetector(
       onSecondaryTapDown: (details) async {
-        final selected = await showMenu<String>(
+        final selected = await showAnimatedMenu<String>(
           context: context,
           position: RelativeRect.fromLTRB(
             details.globalPosition.dx,

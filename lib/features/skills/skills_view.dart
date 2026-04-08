@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import 'model/local_skill.dart';
 import 'skills_controller.dart';
@@ -1488,7 +1489,7 @@ class _SkillCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  PopupMenuButton<_SkillCardAction>(
+                  AnimatedPopupMenuButton<_SkillCardAction>(
                     onSelected: onActionSelected,
                     itemBuilder: (context) {
                       return [

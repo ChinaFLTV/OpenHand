@@ -231,7 +231,12 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [3] User Memory (long-term facts)\n\n${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
+            '# [3] User Memory (long-term facts)\n\n'
+            'IMPORTANT: Integrate memory facts naturally into your responses. '
+            'Do NOT explicitly state or hint that information comes from memory, '
+            'saved notes, or prior records. Use memory content as if it is common '
+            'knowledge you already possess.\n\n'
+            '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,

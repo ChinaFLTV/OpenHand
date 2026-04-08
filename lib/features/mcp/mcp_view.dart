@@ -9,6 +9,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/url_validation.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
@@ -1080,7 +1081,7 @@ class _McpServerCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  PopupMenuButton<_McpCardAction>(
+                  AnimatedPopupMenuButton<_McpCardAction>(
                     onSelected: onActionSelected,
                     itemBuilder: (context) {
                       return [

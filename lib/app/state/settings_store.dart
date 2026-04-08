@@ -554,6 +554,26 @@ class SettingsStore {
       }
     }
 
+    // Menu / popup animation settings
+    final rawMenuAnimation =
+        '${rootValues['menu_animation_settings'] ?? ''}'.trim();
+    var menuAnimationSettings = const DialogAnimationSettings();
+    if (rawMenuAnimation.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawMenuAnimation);
+        if (decoded is Map<String, dynamic>) {
+          menuAnimationSettings = DialogAnimationSettings.fromJson(decoded);
+        } else if (decoded is String) {
+          final inner = jsonDecode(decoded);
+          if (inner is Map<String, dynamic>) {
+            menuAnimationSettings = DialogAnimationSettings.fromJson(inner);
+          }
+        }
+      } catch (_) {
+        didSanitize = true;
+      }
+    }
+
     return _SanitizedSettingsResult(
       didSanitize: didSanitize,
       snapshot: AppSettingsSnapshot(
@@ -575,6 +595,7 @@ class SettingsStore {
         selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
         shortcutBindings: shortcutBindings,
         dialogAnimationSettings: dialogAnimationSettings,
+        menuAnimationSettings: menuAnimationSettings,
       ),
     );
   }
@@ -624,6 +645,9 @@ class SettingsStore {
       )
       ..writeln(
         'dialog_animation_settings = ${jsonEncode(jsonEncode(snapshot.dialogAnimationSettings.toJson()))}',
+      )
+      ..writeln(
+        'menu_animation_settings = ${jsonEncode(jsonEncode(snapshot.menuAnimationSettings.toJson()))}',
       );
 
     for (final model in snapshot.aiModels) {

@@ -47,6 +47,7 @@ class SettingsController extends ChangeNotifier {
        _selectedAiModelId = snapshot.selectedAiModelId,
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
+       _menuAnimationSettings = snapshot.menuAnimationSettings,
        _persistenceIssue = persistenceIssue;
   static const Uuid _uuid = Uuid();
 
@@ -79,6 +80,7 @@ class SettingsController extends ChangeNotifier {
   String? _selectedAiModelId;
   Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
   DialogAnimationSettings _dialogAnimationSettings;
+  DialogAnimationSettings _menuAnimationSettings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -130,6 +132,8 @@ class SettingsController extends ChangeNotifier {
       _cloneShortcutBindings(_shortcutBindings);
   DialogAnimationSettings get dialogAnimationSettings =>
       _dialogAnimationSettings;
+  DialogAnimationSettings get menuAnimationSettings =>
+      _menuAnimationSettings;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -552,6 +556,18 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateMenuAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_menuAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _menuAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -584,6 +600,7 @@ class SettingsController extends ChangeNotifier {
       selectedAiModelId: _selectedAiModelId,
       shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
       dialogAnimationSettings: _dialogAnimationSettings,
+      menuAnimationSettings: _menuAnimationSettings,
     );
   }
 
@@ -612,6 +629,7 @@ class SettingsController extends ChangeNotifier {
     _selectedAiModelId = snapshot.selectedAiModelId;
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
+    _menuAnimationSettings = snapshot.menuAnimationSettings;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
