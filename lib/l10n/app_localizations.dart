@@ -757,31 +757,31 @@ abstract class AppLocalizations {
   /// No description provided for @aiModelAdd.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'新增模型'**
+  /// **'新增提供商'**
   String get aiModelAdd;
 
   /// No description provided for @aiModelsEmptyTitle.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'还没有可用模型'**
+  /// **'还没有可用模型提供商'**
   String get aiModelsEmptyTitle;
 
   /// No description provided for @aiModelsEmptyBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'先添加至少一个模型配置，后续线程聊天窗口会直接复用这里的模型列表。'**
+  /// **'先添加至少一个模型提供商配置，后续线程聊天窗口会直接复用这里的模型列表。'**
   String get aiModelsEmptyBody;
 
   /// No description provided for @aiModelDialogCreateTitle.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'新增模型配置'**
+  /// **'新增模型提供商'**
   String get aiModelDialogCreateTitle;
 
   /// No description provided for @aiModelDialogEditTitle.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'编辑模型配置'**
+  /// **'编辑模型提供商'**
   String get aiModelDialogEditTitle;
 
   /// No description provided for @aiModelBaseUrl.
@@ -835,25 +835,25 @@ abstract class AppLocalizations {
   /// No description provided for @aiModelSaveSuccess.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'模型配置已保存。'**
+  /// **'模型提供商配置已保存。'**
   String get aiModelSaveSuccess;
 
   /// No description provided for @aiModelDeleteConfirmTitle.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'删除模型配置'**
+  /// **'删除模型提供商'**
   String get aiModelDeleteConfirmTitle;
 
   /// No description provided for @aiModelDeleteConfirmBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'确认删除这条模型配置吗？'**
+  /// **'确认删除这条模型提供商配置吗？'**
   String get aiModelDeleteConfirmBody;
 
   /// No description provided for @aiModelDeleteSuccess.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'模型配置已删除。'**
+  /// **'模型提供商配置已删除。'**
   String get aiModelDeleteSuccess;
 
   /// No description provided for @aiModelMoveUp.
@@ -871,7 +871,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiModelSelected.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'当前会话模型'**
+  /// **'当前活跃提供商'**
   String get aiModelSelected;
 
   /// No description provided for @aiModelNoToken.
@@ -907,8 +907,62 @@ abstract class AppLocalizations {
   /// No description provided for @aiModelSelectionRequired.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'请先在设置中添加并选择一个 AI 模型。'**
+  /// **'请先在设置中添加并选择一个 AI 模型提供商。'**
   String get aiModelSelectionRequired;
+
+  /// No description provided for @aiModelScanButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描模型'**
+  String get aiModelScanButton;
+
+  /// No description provided for @aiModelScanning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在扫描可用模型…'**
+  String get aiModelScanning;
+
+  /// No description provided for @aiModelScanSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发现 {count} 个模型。'**
+  String aiModelScanSuccess(Object count);
+
+  /// No description provided for @aiModelScanFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扫描失败：{reason}'**
+  String aiModelScanFailed(Object reason);
+
+  /// No description provided for @aiModelScanEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未从该提供商扫描到模型。'**
+  String get aiModelScanEmpty;
+
+  /// No description provided for @aiModelAvailableModels.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可用模型'**
+  String get aiModelAvailableModels;
+
+  /// No description provided for @aiModelManualIdHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动输入模型 ID'**
+  String get aiModelManualIdHint;
+
+  /// No description provided for @aiModelManualIdAdd.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加'**
+  String get aiModelManualIdAdd;
+
+  /// No description provided for @aiModelCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 个模型'**
+  String aiModelCount(Object count);
 
   /// No description provided for @chatModelButton.
   ///

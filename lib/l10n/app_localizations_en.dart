@@ -355,20 +355,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPersistenceDismiss => 'Dismiss';
 
   @override
-  String get aiModelAdd => 'Add Model';
+  String get aiModelAdd => 'Add Provider';
 
   @override
-  String get aiModelsEmptyTitle => 'No models yet';
+  String get aiModelsEmptyTitle => 'No model providers yet';
 
   @override
   String get aiModelsEmptyBody =>
-      'Add at least one model configuration here, and the thread composer will reuse it directly.';
+      'Add at least one model provider configuration here, and the thread composer will reuse it directly.';
 
   @override
-  String get aiModelDialogCreateTitle => 'Add Model Configuration';
+  String get aiModelDialogCreateTitle => 'Add Model Provider';
 
   @override
-  String get aiModelDialogEditTitle => 'Edit Model Configuration';
+  String get aiModelDialogEditTitle => 'Edit Model Provider';
 
   @override
   String get aiModelBaseUrl => 'Base URL';
@@ -395,16 +395,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiModelProtocol => 'Protocol';
 
   @override
-  String get aiModelSaveSuccess => 'Model configuration saved.';
+  String get aiModelSaveSuccess => 'Model provider configuration saved.';
 
   @override
-  String get aiModelDeleteConfirmTitle => 'Delete Model Configuration';
+  String get aiModelDeleteConfirmTitle => 'Delete Model Provider';
 
   @override
-  String get aiModelDeleteConfirmBody => 'Delete this model configuration?';
+  String get aiModelDeleteConfirmBody =>
+      'Delete this model provider configuration?';
 
   @override
-  String get aiModelDeleteSuccess => 'Model configuration deleted.';
+  String get aiModelDeleteSuccess => 'Model provider configuration deleted.';
 
   @override
   String get aiModelMoveUp => 'Move Up';
@@ -413,7 +414,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiModelMoveDown => 'Move Down';
 
   @override
-  String get aiModelSelected => 'Active chat model';
+  String get aiModelSelected => 'Active model provider';
 
   @override
   String get aiModelNoToken => 'No token configured';
@@ -436,7 +437,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiModelSelectionRequired =>
-      'Add and select an AI model in Settings first.';
+      'Add and select an AI model provider in Settings first.';
+
+  @override
+  String get aiModelScanButton => 'Scan Models';
+
+  @override
+  String get aiModelScanning => 'Scanning available models…';
+
+  @override
+  String aiModelScanSuccess(Object count) {
+    return 'Found $count models.';
+  }
+
+  @override
+  String aiModelScanFailed(Object reason) {
+    return 'Scan failed: $reason';
+  }
+
+  @override
+  String get aiModelScanEmpty => 'No models found from this provider.';
+
+  @override
+  String get aiModelAvailableModels => 'Available Models';
+
+  @override
+  String get aiModelManualIdHint => 'Add model ID manually';
+
+  @override
+  String get aiModelManualIdAdd => 'Add';
+
+  @override
+  String aiModelCount(Object count) {
+    return '$count models';
+  }
 
   @override
   String get chatModelButton => 'Choose Model';

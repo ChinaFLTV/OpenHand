@@ -108,11 +108,11 @@
   "settingsPersistenceSaveFailedTitle": "设置保存失败",
   "settingsPersistenceSaveFailedBody": "设置文件写入失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。",
   "settingsPersistenceDismiss": "关闭提示",
-  "aiModelAdd": "新增模型",
-  "aiModelsEmptyTitle": "还没有可用模型",
-  "aiModelsEmptyBody": "先添加至少一个模型配置，后续线程聊天窗口会直接复用这里的模型列表。",
-  "aiModelDialogCreateTitle": "新增模型配置",
-  "aiModelDialogEditTitle": "编辑模型配置",
+  "aiModelAdd": "新增提供商",
+  "aiModelsEmptyTitle": "还没有可用模型提供商",
+  "aiModelsEmptyBody": "先添加至少一个模型提供商配置，后续线程聊天窗口会直接复用这里的模型列表。",
+  "aiModelDialogCreateTitle": "新增模型提供商",
+  "aiModelDialogEditTitle": "编辑模型提供商",
   "aiModelBaseUrl": "Base URL",
   "aiModelBaseUrlRequired": "请输入 Base URL",
   "aiModelBaseUrlInvalid": "请输入有效的 Base URL",
@@ -121,13 +121,13 @@
   "aiModelIdField": "模型 ID",
   "aiModelIdRequired": "请输入模型 ID",
   "aiModelProtocol": "协议类型",
-  "aiModelSaveSuccess": "模型配置已保存。",
-  "aiModelDeleteConfirmTitle": "删除模型配置",
-  "aiModelDeleteConfirmBody": "确认删除这条模型配置吗？",
-  "aiModelDeleteSuccess": "模型配置已删除。",
+  "aiModelSaveSuccess": "模型提供商配置已保存。",
+  "aiModelDeleteConfirmTitle": "删除模型提供商",
+  "aiModelDeleteConfirmBody": "确认删除这条模型提供商配置吗？",
+  "aiModelDeleteSuccess": "模型提供商配置已删除。",
   "aiModelMoveUp": "上移",
   "aiModelMoveDown": "下移",
-  "aiModelSelected": "当前会话模型",
+  "aiModelSelected": "当前活跃提供商",
   "aiModelNoToken": "未配置令牌",
   "aiModelTest": "测试",
   "aiModelTesting": "测试中",
@@ -144,7 +144,31 @@
       "reason": {}
     }
   },
-  "aiModelSelectionRequired": "请先在设置中添加并选择一个 AI 模型。",
+  "aiModelSelectionRequired": "请先在设置中添加并选择一个 AI 模型提供商。",
+  "aiModelScanButton": "扫描模型",
+  "aiModelScanning": "正在扫描可用模型…",
+  "aiModelScanSuccess": "发现 {count} 个模型。",
+  "@aiModelScanSuccess": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "aiModelScanFailed": "扫描失败：{reason}",
+  "@aiModelScanFailed": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "aiModelScanEmpty": "未从该提供商扫描到模型。",
+  "aiModelAvailableModels": "可用模型",
+  "aiModelManualIdHint": "手动输入模型 ID",
+  "aiModelManualIdAdd": "添加",
+  "aiModelCount": "{count} 个模型",
+  "@aiModelCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "chatModelButton": "选择模型",
   "aiAuthNone": "无",
   "aiAuthBearer": "Bearer",

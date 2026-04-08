@@ -1043,7 +1043,7 @@ class AiSessionController extends ChangeNotifier {
     _clearSessionScopedSendState(sessionId);
   }
 
-  Future<String?> beginEditingMessage(String messageId) async {
+  Future<({String content, List<AiMessageAttachment> attachments})?> beginEditingMessage(String messageId) async {
     return _enqueueOperation(() async {
       final session = currentSession;
       if (session == null) {
@@ -1058,6 +1058,7 @@ class AiSessionController extends ChangeNotifier {
       if (messageIndex == -1) {
         return null;
       }
+      final editingMessage = session.messages[messageIndex];
       final updatedMessages = <AiSessionMessage>[
         for (var index = 0; index < session.messages.length; index++)
           index > messageIndex && !session.messages[index].isDeleted
@@ -1082,7 +1083,10 @@ class AiSessionController extends ChangeNotifier {
       }
       _editingMessageId = messageId;
       notifyListeners();
-      return updatedMessages[messageIndex].content;
+      final attachments = AiMessageAttachment.listFromMetadata(
+        editingMessage.metadata[aiSessionMessageAttachmentsMetadataKey],
+      );
+      return (content: editingMessage.content, attachments: attachments);
     });
   }
 

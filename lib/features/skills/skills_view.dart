@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import 'model/local_skill.dart';
 import 'skills_controller.dart';
@@ -285,7 +286,7 @@ class _SkillsViewState extends State<SkillsView> {
 
   Future<void> _showCreateSkillDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    final createdSkillName = await showDialog<String>(
+    final createdSkillName = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) {
         return const _CreateSkillDialog();
@@ -333,7 +334,7 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-      await showDialog<void>(
+      await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) {
           return Dialog(
@@ -426,7 +427,7 @@ class _SkillsViewState extends State<SkillsView> {
         return;
       }
 
-      final submitted = await showDialog<bool>(
+      final submitted = await showAnimatedDialog<bool>(
         context: context,
         builder: (dialogContext) {
           return _EditSkillDialog(skill: skill, initialContent: initialContent);
@@ -450,7 +451,7 @@ class _SkillsViewState extends State<SkillsView> {
     LocalSkill skill,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(

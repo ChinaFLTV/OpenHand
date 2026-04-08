@@ -108,11 +108,11 @@
   "settingsPersistenceSaveFailedTitle": "Settings Save Failed",
   "settingsPersistenceSaveFailedBody": "Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.",
   "settingsPersistenceDismiss": "Dismiss",
-  "aiModelAdd": "Add Model",
-  "aiModelsEmptyTitle": "No models yet",
-  "aiModelsEmptyBody": "Add at least one model configuration here, and the thread composer will reuse it directly.",
-  "aiModelDialogCreateTitle": "Add Model Configuration",
-  "aiModelDialogEditTitle": "Edit Model Configuration",
+  "aiModelAdd": "Add Provider",
+  "aiModelsEmptyTitle": "No model providers yet",
+  "aiModelsEmptyBody": "Add at least one model provider configuration here, and the thread composer will reuse it directly.",
+  "aiModelDialogCreateTitle": "Add Model Provider",
+  "aiModelDialogEditTitle": "Edit Model Provider",
   "aiModelBaseUrl": "Base URL",
   "aiModelBaseUrlRequired": "Enter a base URL.",
   "aiModelBaseUrlInvalid": "Enter a valid base URL.",
@@ -121,13 +121,13 @@
   "aiModelIdField": "Model ID",
   "aiModelIdRequired": "Enter a model ID.",
   "aiModelProtocol": "Protocol",
-  "aiModelSaveSuccess": "Model configuration saved.",
-  "aiModelDeleteConfirmTitle": "Delete Model Configuration",
-  "aiModelDeleteConfirmBody": "Delete this model configuration?",
-  "aiModelDeleteSuccess": "Model configuration deleted.",
+  "aiModelSaveSuccess": "Model provider configuration saved.",
+  "aiModelDeleteConfirmTitle": "Delete Model Provider",
+  "aiModelDeleteConfirmBody": "Delete this model provider configuration?",
+  "aiModelDeleteSuccess": "Model provider configuration deleted.",
   "aiModelMoveUp": "Move Up",
   "aiModelMoveDown": "Move Down",
-  "aiModelSelected": "Active chat model",
+  "aiModelSelected": "Active model provider",
   "aiModelNoToken": "No token configured",
   "aiModelTest": "Test",
   "aiModelTesting": "Testing",
@@ -144,7 +144,31 @@
       "reason": {}
     }
   },
-  "aiModelSelectionRequired": "Add and select an AI model in Settings first.",
+  "aiModelSelectionRequired": "Add and select an AI model provider in Settings first.",
+  "aiModelScanButton": "Scan Models",
+  "aiModelScanning": "Scanning available models…",
+  "aiModelScanSuccess": "Found {count} models.",
+  "@aiModelScanSuccess": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "aiModelScanFailed": "Scan failed: {reason}",
+  "@aiModelScanFailed": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "aiModelScanEmpty": "No models found from this provider.",
+  "aiModelAvailableModels": "Available Models",
+  "aiModelManualIdHint": "Add model ID manually",
+  "aiModelManualIdAdd": "Add",
+  "aiModelCount": "{count} models",
+  "@aiModelCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "chatModelButton": "Choose Model",
   "aiAuthNone": "None",
   "aiAuthBearer": "Bearer",

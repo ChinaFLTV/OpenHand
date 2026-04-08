@@ -4,6 +4,7 @@ import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
+import '../model/dialog_animation_settings.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
 import 'openhand_shortcut.dart';
@@ -30,6 +31,7 @@ class AppSettingsSnapshot {
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
       shortcutBindings: defaultOpenHandShortcutBindings(),
+      dialogAnimationSettings: const DialogAnimationSettings(),
     );
   }
   const AppSettingsSnapshot({
@@ -50,6 +52,7 @@ class AppSettingsSnapshot {
     required this.aiModels,
     required this.selectedAiModelId,
     required this.shortcutBindings,
+    required this.dialogAnimationSettings,
   });
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
@@ -73,6 +76,7 @@ class AppSettingsSnapshot {
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
   final Map<OpenHandShortcutAction, List<int>> shortcutBindings;
+  final DialogAnimationSettings dialogAnimationSettings;
 
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
@@ -92,6 +96,7 @@ class AppSettingsSnapshot {
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
     Map<OpenHandShortcutAction, List<int>>? shortcutBindings,
+    DialogAnimationSettings? dialogAnimationSettings,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -120,6 +125,8 @@ class AppSettingsSnapshot {
           ? null
           : selectedAiModelId ?? this.selectedAiModelId,
       shortcutBindings: shortcutBindings ?? this.shortcutBindings,
+      dialogAnimationSettings:
+          dialogAnimationSettings ?? this.dialogAnimationSettings,
     );
   }
 }

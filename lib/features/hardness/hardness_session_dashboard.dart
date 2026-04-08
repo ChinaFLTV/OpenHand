@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
 import 'hardness_cli_catalog.dart';
@@ -112,23 +113,16 @@ final RegExp _heSetextEscapePattern = RegExp(r'(^|\n)(\s*)(=+|\^+)(?=\n|$)');
 }
 
 String _heAiModelConfigLabel(AiModelConfig config) {
-  final displayName = config.displayName.trim();
+  final label = config.providerLabel;
   final protocolLabel = config.protocolType.storageValue;
-  if (displayName.isNotEmpty) {
-    return '$displayName ($protocolLabel)';
-  }
-
-  final baseUrl = config.baseUrl.trim();
-  if (baseUrl.isNotEmpty) {
-    return '$protocolLabel — $baseUrl';
-  }
-  return protocolLabel;
+  return '$label ($protocolLabel)';
 }
 
 String _heDescribeAiModelConfig(
   List<AiModelConfig> settingsModels,
   String? configId, {
   required bool isZh,
+  String? urlModeModelId,
 }) {
   final trimmedConfigId = configId?.trim() ?? '';
   if (trimmedConfigId.isEmpty) {
@@ -139,6 +133,10 @@ String _heDescribeAiModelConfig(
       .where((item) => item.id == trimmedConfigId)
       .firstOrNull;
   if (matchedConfig != null) {
+    final effectiveModelId = urlModeModelId?.trim();
+    if (effectiveModelId != null && effectiveModelId.isNotEmpty) {
+      return '$effectiveModelId (${matchedConfig.providerLabel})';
+    }
     return _heAiModelConfigLabel(matchedConfig);
   }
 
@@ -169,10 +167,23 @@ String? _hePreferredAiModelConfigId({
   return settingsModels.isEmpty ? null : settingsModels.first.id;
 }
 
+/// Encodes (providerConfigId, modelId) as a compound dropdown key.
+String _heEncodeModelKey(String configId, String modelId) =>
+    '$configId\t$modelId';
+
+/// Decodes a compound key back to (providerConfigId, modelId).
+(String configId, String modelId)? _heDecodeModelKey(String? key) {
+  if (key == null) return null;
+  final parts = key.split('\t');
+  if (parts.length != 2) return null;
+  return (parts[0], parts[1]);
+}
+
 List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
   BuildContext context, {
   required List<AiModelConfig> settingsModels,
   required String? configuredId,
+  required String? configuredModelId,
   required bool isZh,
 }) {
   final theme = Theme.of(context);
@@ -186,9 +197,10 @@ List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
       settingsModels.any((item) => item.id == trimmedConfiguredId);
 
   if (hasConfiguredId && !hasMatchingConfig) {
+    final deletedModelId = configuredModelId?.trim() ?? '';
     items.add(
       DropdownMenuItem<String>(
-        value: trimmedConfiguredId,
+        value: _heEncodeModelKey(trimmedConfiguredId, deletedModelId),
         child: Text(
           isZh
               ? '已删除配置 · $trimmedConfiguredId'
@@ -200,18 +212,34 @@ List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
     );
   }
 
-  items.addAll(
-    settingsModels.map(
-      (config) => DropdownMenuItem<String>(
-        value: config.id,
-        child: Text(
-          _heAiModelConfigLabel(config),
-          style: theme.textTheme.bodySmall,
-          overflow: TextOverflow.ellipsis,
+  for (final config in settingsModels) {
+    final allIds = config.allModelIds;
+    if (allIds.isEmpty) {
+      items.add(
+        DropdownMenuItem<String>(
+          value: _heEncodeModelKey(config.id, config.modelId),
+          child: Text(
+            _heAiModelConfigLabel(config),
+            style: theme.textTheme.bodySmall,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-      ),
-    ),
-  );
+      );
+    } else {
+      for (final modelId in allIds) {
+        items.add(
+          DropdownMenuItem<String>(
+            value: _heEncodeModelKey(config.id, modelId),
+            child: Text(
+              '$modelId  (${config.providerLabel})',
+              style: theme.textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   return items;
 }
@@ -219,14 +247,23 @@ List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
 String? _heResolvedAiModelConfigDropdownValue(
   List<DropdownMenuItem<String>> items,
   String? configuredId,
+  String? configuredModelId,
 ) {
   final trimmedConfiguredId = configuredId?.trim();
   if (trimmedConfiguredId == null || trimmedConfiguredId.isEmpty) {
     return null;
   }
-  return items.any((item) => item.value == trimmedConfiguredId)
-      ? trimmedConfiguredId
-      : null;
+  final trimmedModelId = configuredModelId?.trim() ?? '';
+  final key = _heEncodeModelKey(trimmedConfiguredId, trimmedModelId);
+  if (items.any((item) => item.value == key)) return key;
+  // Try matching just by config ID (any model within).
+  return items
+      .where((item) {
+        final decoded = _heDecodeModelKey(item.value);
+        return decoded != null && decoded.$1 == trimmedConfiguredId;
+      })
+      .firstOrNull
+      ?.value;
 }
 
 // =============================================================================
@@ -1727,7 +1764,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
   Future<void> _deletePhaseLog(BuildContext context, int phaseIndex) async {
     final isZh = widget.isZh;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '删除阶段' : 'Delete Phase'),
@@ -1757,7 +1794,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
 
   Future<void> _requestCancel(BuildContext context) async {
     final isZh = widget.isZh;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isZh ? '确认中止' : 'Confirm Cancel'),
@@ -2062,7 +2099,7 @@ class _HePaneHeader extends StatelessWidget {
   }
 
   void _showSessionMetadata(BuildContext context) {
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => _HeSessionMetadataDialog(
         config: config,
@@ -2078,7 +2115,7 @@ class _HePaneHeader extends StatelessWidget {
 
   void _showSteeringAssets(BuildContext context) {
     final steeringRoot = p.join(config.persistenceDirectory, 'steering');
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) =>
           _HeSteeringAssetsDialog(steeringRoot: steeringRoot, isZh: isZh),
@@ -2299,7 +2336,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                             _HeMetadataEntryRow(
                               label: entry.$1,
                               value: entry.$2.isUrlMode
-                                  ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh)}'
+                                  ? 'URL/API · ${_heDescribeAiModelConfig(aiModels, entry.$2.aiModelConfigId, isZh: isZh, urlModeModelId: entry.$2.urlModeModelId)}'
                                   : entry.$2.isConfigured
                                   ? '${entry.$2.cliName} · ${describeHardnessCliModel(findHardnessCliByName(entry.$2.cliName), entry.$2.modelId, isZh: isZh)}'
                                   : (isZh ? '未配置' : 'Not configured'),
@@ -2733,6 +2770,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                         aiModels,
                         roleConfig.aiModelConfigId,
                         isZh: isZh,
+                        urlModeModelId: roleConfig.urlModeModelId,
                       ),
                     ),
                   if (!roleConfig.isUrlMode && roleConfig.modelId.isNotEmpty)
@@ -7288,11 +7326,13 @@ class _HePendingPhaseEditor extends StatelessWidget {
       context,
       settingsModels: settingsModels,
       configuredId: roleConfig.aiModelConfigId,
+      configuredModelId: roleConfig.urlModeModelId,
       isZh: isZh,
     );
     final selectedAiModelConfigId = _heResolvedAiModelConfigDropdownValue(
       aiModelConfigItems,
       roleConfig.aiModelConfigId,
+      roleConfig.urlModeModelId,
     );
 
     return Container(
@@ -7360,8 +7400,8 @@ class _HePendingPhaseEditor extends StatelessWidget {
                 labelText: isZh ? 'API 模型' : 'API Model',
                 helperText: settingsModels.isEmpty
                     ? (isZh
-                          ? '请先在设置中配置 API 模型，然后在这里选择。'
-                          : 'Configure API models in Settings first, then choose one here.')
+                          ? '请先在设置中配置 API 模型提供商，然后在这里选择。'
+                          : 'Configure API model providers in Settings first, then choose one here.')
                     : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
                     ? (isZh
                           ? '当前配置已在设置中删除，请重新选择有效模型。'
@@ -7383,7 +7423,15 @@ class _HePendingPhaseEditor extends StatelessWidget {
                   ? null
                   : (value) {
                       if (value == null) return;
-                      onChanged(roleConfig.copyWith(aiModelConfigId: value));
+                      final decoded = _heDecodeModelKey(value);
+                      if (decoded != null) {
+                        onChanged(
+                          roleConfig.copyWith(
+                            aiModelConfigId: decoded.$1,
+                            urlModeModelId: decoded.$2,
+                          ),
+                        );
+                      }
                     },
             )
           else
@@ -9132,7 +9180,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
   }
 
   void _openFileEditor(_HeSteeringEntry entry) {
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (_) => _HeSteeringFileEditorDialog(
         filePath: entry.absolutePath,
@@ -9578,7 +9626,7 @@ class _HeSteeringFileEditorDialogState
 
   Future<bool> _confirmDiscard() async {
     if (!_dirty) return true;
-    final result = await showDialog<bool>(
+    final result = await showAnimatedDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(widget.isZh ? '放弃更改？' : 'Discard changes?'),

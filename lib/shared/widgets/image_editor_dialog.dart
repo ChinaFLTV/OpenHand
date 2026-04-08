@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
 import '../../l10n/app_localizations.dart';
+import 'animated_dialog.dart';
 
 class ImageEditorResult {
   const ImageEditorResult({required this.bytes});
@@ -16,7 +17,7 @@ Future<ImageEditorResult?> showImageEditorDialog(
   BuildContext context, {
   required Uint8List imageBytes,
 }) {
-  return showDialog<ImageEditorResult>(
+  return showAnimatedDialog<ImageEditorResult>(
     context: context,
     builder: (dialogContext) {
       return _ImageEditorDialog(imageBytes: imageBytes);

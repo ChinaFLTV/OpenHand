@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import 'data/memory_store.dart';
 import 'memory_controller.dart';
 import 'model/user_memory_entry.dart';
@@ -169,7 +170,7 @@ class MemoryView extends StatelessWidget {
     UserMemoryEntry? initialEntry,
   }) async {
     final l10n = AppLocalizations.of(context)!;
-    final submitted = await showDialog<bool>(
+    final submitted = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return _MemoryEditorDialog(initialEntry: initialEntry);
@@ -190,7 +191,7 @@ class MemoryView extends StatelessWidget {
     UserMemoryEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(

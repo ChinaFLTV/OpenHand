@@ -397,6 +397,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
                 filePath: filePath,
                 mimeType: mimeType,
               ),
+              'detail': 'auto',
             },
           });
       }
@@ -712,6 +713,9 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           ],
         },
       'contents': requestContents,
+      'generationConfig': <String, Object?>{
+        'maxOutputTokens': 8192,
+      },
     };
   }
 
@@ -726,9 +730,14 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
+    final parts = await _mapGeminiContentParts(item.effectiveParts);
+    // Gemini API rejects messages with an empty parts array.
+    if (parts.isEmpty) {
+      parts.add(<String, Object?>{'text': ' '});
+    }
     return <String, Object?>{
       'role': item.role == AiChatRole.assistant ? 'model' : 'user',
-      'parts': await _mapGeminiContentParts(item.effectiveParts),
+      'parts': parts,
     };
   }
 
@@ -1052,6 +1061,24 @@ bool _supportsOpenAiCompatibleAttachments(
       'o4',
       'vision',
       'omni',
+      // Claude models served through OpenAI-compatible proxies/relays.
+      'claude-3',
+      'claude-4',
+      'claude-sonnet',
+      'claude-opus',
+      'claude-haiku',
+      // Gemini models served through OpenAI-compatible proxies/relays.
+      'gemini',
+      // Other common multimodal models accessed via OpenAI-compatible APIs.
+      'llava',
+      'pixtral',
+      'internvl',
+      'minicpm-v',
+      'cogvlm',
+      'moondream',
+      'qwen-vl',
+      'qwen2-vl',
+      'qwen2.5-vl',
     ]),
     AiProtocolType.deepseek => false,
     AiProtocolType.qwen => _containsAny(normalized, const <String>[

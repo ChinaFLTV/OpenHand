@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/app_info.dart';
 import '../../app/model/app_language.dart';
 import '../../app/model/app_settings_snapshot.dart';
+import '../../app/model/dialog_animation_settings.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
@@ -15,10 +16,12 @@ import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../ai/service/ai_model_scanner.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
@@ -255,6 +258,9 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                   ),
                 ),
+                _DialogAnimationSettingsSection(
+                  settingsController: settingsController,
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -443,11 +449,11 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '模型管理', en: 'Model Management'),
+          title: _localizedText(context, zh: '模型提供商管理', en: 'Model Provider Management'),
           description: _localizedText(
             context,
-            zh: '新增、选择、测试并维护当前可用的聊天模型。',
-            en: 'Add, select, test, and maintain the chat models available to OpenHand.',
+            zh: '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。',
+            en: 'Add, select, test, and maintain model provider configurations. Each provider can serve multiple models.',
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1207,7 +1213,7 @@ class _SettingsViewState extends State<SettingsView> {
     AiDenyCommandRule? initialRule,
   }) async {
     final settingsController = context.read<SettingsController>();
-    final submittedRule = await showDialog<AiDenyCommandRule>(
+    final submittedRule = await showAnimatedDialog<AiDenyCommandRule>(
       context: context,
       builder: (dialogContext) {
         return _DenyCommandRuleDialog(
@@ -1250,7 +1256,7 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     AiDenyCommandRule rule,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -1299,7 +1305,7 @@ class _SettingsViewState extends State<SettingsView> {
     AiAllowCommandRule? initialRule,
   }) async {
     final settingsController = context.read<SettingsController>();
-    final submittedRule = await showDialog<AiAllowCommandRule>(
+    final submittedRule = await showAnimatedDialog<AiAllowCommandRule>(
       context: context,
       builder: (dialogContext) {
         return _AllowCommandRuleDialog(
@@ -1343,7 +1349,7 @@ class _SettingsViewState extends State<SettingsView> {
     BuildContext context,
     AiAllowCommandRule rule,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -1440,7 +1446,7 @@ class _SettingsViewState extends State<SettingsView> {
     AiModelConfig? initialModel,
   }) async {
     final l10n = AppLocalizations.of(context)!;
-    final submitted = await showDialog<bool>(
+    final submitted = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return _AiModelEditorDialog(initialModel: initialModel);
@@ -1467,7 +1473,7 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(context, l10n.aiModelTestSuccess(model.displayName));
+      _showSnackBar(context, l10n.aiModelTestSuccess(model.providerLabel));
     } on AiChatException catch (error) {
       if (!mounted) {
         return;
@@ -1476,7 +1482,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiModelTestFailure(
-          model.displayName,
+          model.providerLabel,
           _normalizeAiModelTestMessage(error.message, l10n.chatRequestFailed),
         ),
       );
@@ -1488,7 +1494,7 @@ class _SettingsViewState extends State<SettingsView> {
       _showSnackBar(
         context,
         l10n.aiModelTestFailure(
-          model.displayName,
+          model.providerLabel,
           _normalizeAiModelTestMessage('$error', l10n.chatRequestFailed),
         ),
       );
@@ -1507,13 +1513,13 @@ class _SettingsViewState extends State<SettingsView> {
     AiModelConfig model,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(l10n.aiModelDeleteConfirmTitle),
           content: Text(
-            '${l10n.aiModelDeleteConfirmBody}\n\n${model.displayName}',
+            '${l10n.aiModelDeleteConfirmBody}\n\n${model.providerLabel}',
           ),
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -1559,7 +1565,7 @@ class _SettingsViewState extends State<SettingsView> {
     OpenHandShortcutAction action,
   ) async {
     final settingsController = context.read<SettingsController>();
-    final shortcutBinding = await showDialog<List<int>>(
+    final shortcutBinding = await showAnimatedDialog<List<int>>(
       context: context,
       builder: (dialogContext) {
         return _ShortcutRecorderDialog(
@@ -1710,19 +1716,28 @@ class _AiModelEditorDialog extends StatefulWidget {
 
 class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
   late final TextEditingController _baseUrlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
   late final TextEditingController _maxContextTokensController;
+  late final TextEditingController _manualModelIdController;
   late AiAuthScheme _authScheme;
   late AiProtocolType _protocolType;
   bool _obscureToken = true;
   bool _isSaving = false;
+  bool _isScanning = false;
   String? _errorMessage;
+  String? _scanError;
+  List<String> _availableModelIds = const <String>[];
+  String? _activeModelId;
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(
+      text: widget.initialModel?.name ?? '',
+    );
     _baseUrlController = TextEditingController(
       text: widget.initialModel?.baseUrl ?? '',
     );
@@ -1735,22 +1750,135 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _maxContextTokensController = TextEditingController(
       text: widget.initialModel?.maxContextTokens?.toString() ?? '',
     );
+    _manualModelIdController = TextEditingController();
     _authScheme = widget.initialModel?.authScheme ?? AiAuthScheme.bearer;
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
+    _availableModelIds = List<String>.from(
+      widget.initialModel?.availableModelIds ?? const <String>[],
+    );
+    _activeModelId = widget.initialModel?.modelId.trim().isNotEmpty == true
+        ? widget.initialModel!.modelId.trim()
+        : null;
   }
 
   @override
   void dispose() {
+    _nameController.dispose();
     _baseUrlController.dispose();
     _tokenController.dispose();
     _modelIdController.dispose();
     _maxContextTokensController.dispose();
+    _manualModelIdController.dispose();
     super.dispose();
   }
 
   String _localizedText({required String zh, required String en}) {
     final languageCode = Localizations.localeOf(context).languageCode;
     return languageCode.startsWith('zh') ? zh : en;
+  }
+
+  Future<void> _scanModels() async {
+    final baseUrl = _baseUrlController.text.trim();
+    if (baseUrl.isEmpty || !isValidHttpUrl(baseUrl)) {
+      setState(() {
+        _scanError = _localizedText(
+          zh: '请先输入有效的 Base URL',
+          en: 'Enter a valid Base URL first',
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _isScanning = true;
+      _scanError = null;
+    });
+
+    final scanner = AiModelScanner();
+    try {
+      final config = AiModelConfig(
+        id: '',
+        baseUrl: baseUrl,
+        authScheme: _authScheme,
+        token: _tokenController.text.trim(),
+        modelId: '',
+        protocolType: _protocolType,
+      );
+      final result = await scanner.scan(config);
+      if (!mounted) return;
+
+      if (result.isSuccess) {
+        final merged = <String>{..._availableModelIds, ...result.modelIds};
+        final sorted = merged.toList()..sort();
+        setState(() {
+          _availableModelIds = sorted;
+          _isScanning = false;
+          _scanError = result.modelIds.isEmpty
+              ? _localizedText(
+                  zh: '未从该提供商扫描到模型。',
+                  en: 'No models found from this provider.',
+                )
+              : null;
+          // Auto-select first model if none currently selected.
+          if (_activeModelId == null && sorted.isNotEmpty) {
+            _activeModelId = sorted.first;
+            _modelIdController.text = sorted.first;
+          }
+        });
+      } else {
+        setState(() {
+          _isScanning = false;
+          _scanError = result.error;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+        _scanError = '$e';
+      });
+    } finally {
+      scanner.dispose();
+    }
+  }
+
+  void _addManualModelId() {
+    final manualId = _manualModelIdController.text.trim();
+    if (manualId.isEmpty) return;
+    if (_availableModelIds.contains(manualId)) {
+      _manualModelIdController.clear();
+      return;
+    }
+    setState(() {
+      _availableModelIds = [..._availableModelIds, manualId]..sort();
+      _manualModelIdController.clear();
+      // If no model was selected, auto-select this one.
+      if (_activeModelId == null) {
+        _activeModelId = manualId;
+        _modelIdController.text = manualId;
+      }
+    });
+  }
+
+  void _removeModelId(String modelId) {
+    setState(() {
+      _availableModelIds = _availableModelIds
+          .where((id) => id != modelId)
+          .toList(growable: false);
+      if (_activeModelId == modelId) {
+        _activeModelId = _availableModelIds.isNotEmpty
+            ? _availableModelIds.first
+            : null;
+        _modelIdController.text = _activeModelId ?? '';
+      }
+    });
+  }
+
+  void _selectModelId(String modelId) {
+    setState(() {
+      _activeModelId = modelId;
+      _modelIdController.text = modelId;
+    });
   }
 
   @override
@@ -1762,7 +1890,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       canPop: !_isSaving,
       child: Dialog(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
+          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 780),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -1782,6 +1910,21 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          TextFormField(
+                            controller: _nameController,
+                            enabled: !_isSaving,
+                            decoration: InputDecoration(
+                              labelText: _localizedText(
+                                zh: '提供商名称',
+                                en: 'Provider Name',
+                              ),
+                              hintText: _localizedText(
+                                zh: '可选，如 DeepSeek、本地 Ollama',
+                                en: 'Optional, e.g. DeepSeek, Local Ollama',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           TextFormField(
                             controller: _baseUrlController,
                             enabled: !_isSaving,
@@ -1921,18 +2064,141 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 20),
+                          // ── Model scan section ──
+                          Row(
+                            children: [
+                              Text(
+                                l10n.aiModelAvailableModels,
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(width: 12),
+                              if (_isScanning)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                FilledButton.tonalIcon(
+                                  onPressed: _isSaving ? null : _scanModels,
+                                  icon: const Icon(
+                                    Icons.radar_rounded,
+                                    size: 18,
+                                  ),
+                                  label: Text(l10n.aiModelScanButton),
+                                ),
+                              if (_isScanning) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  l10n.aiModelScanning,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (_scanError != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _scanError!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colorScheme.error),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          // Available models chip list
+                          if (_availableModelIds.isNotEmpty)
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 160),
+                              child: SingleChildScrollView(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: _availableModelIds
+                                      .map(
+                                        (id) => InputChip(
+                                          label: Text(id),
+                                          selected: id == _activeModelId,
+                                          onSelected: _isSaving
+                                              ? null
+                                              : (_) => _selectModelId(id),
+                                          onDeleted: _isSaving
+                                              ? null
+                                              : () => _removeModelId(id),
+                                          deleteIcon: const Icon(
+                                            Icons.close,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                ),
+                              ),
+                            )
+                          else
+                            Text(
+                              _localizedText(
+                                zh: '点击「扫描模型」按钮自动发现可用模型，或手动添加。',
+                                en: 'Tap "Scan Models" to discover models automatically, or add manually below.',
+                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          const SizedBox(height: 12),
+                          // Manual model ID input
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _manualModelIdController,
+                                  enabled: !_isSaving,
+                                  decoration: InputDecoration(
+                                    labelText: l10n.aiModelManualIdHint,
+                                    isDense: true,
+                                  ),
+                                  onSubmitted: (_) => _addManualModelId(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.tonal(
+                                onPressed: _isSaving ? null : _addManualModelId,
+                                child: Text(l10n.aiModelManualIdAdd),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 16),
+                          // Current active model (legacy field, auto-synced)
                           TextFormField(
                             controller: _modelIdController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
-                              labelText: l10n.aiModelIdField,
+                              labelText: _localizedText(
+                                zh: '当前活跃模型 ID',
+                                en: 'Active Model ID',
+                              ),
+                              helperText: _localizedText(
+                                zh: '当前用于对话的模型。可从上方列表选择或直接输入。',
+                                en: 'The model used for conversations. Select from the list above or type directly.',
+                              ),
                             ),
-                            validator: (value) {
-                              if ((value?.trim() ?? '').isEmpty) {
-                                return l10n.aiModelIdRequired;
-                              }
-                              return null;
+                            onChanged: (value) {
+                              setState(() {
+                                _activeModelId =
+                                    value.trim().isEmpty ? null : value.trim();
+                              });
                             },
                           ),
                           const SizedBox(height: 16),
@@ -2022,6 +2288,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       id:
           widget.initialModel?.id ??
           context.read<SettingsController>().createAiModelId(),
+      name: _nameController.text.trim(),
       baseUrl: _baseUrlController.text.trim(),
       authScheme: _authScheme,
       token: _tokenController.text.trim(),
@@ -2030,6 +2297,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       maxContextTokens: _parseOptionalPositiveInt(
         _maxContextTokensController.text,
       ),
+      availableModelIds: _availableModelIds,
     );
 
     late final bool saved;
@@ -3185,11 +3453,21 @@ class _AiModelTile extends StatelessWidget {
   final VoidCallback onMoveDown;
   final VoidCallback onDelete;
 
+  String _localizedText(BuildContext context,
+      {required String zh, required String en}) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    return languageCode.startsWith('zh') ? zh : en;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final allModels = model.allModelIds;
+    final modelCountLabel = allModels.isNotEmpty
+        ? l10n.aiModelCount(allModels.length)
+        : _localizedText(context, zh: '无模型', en: 'No models');
 
     return InkWell(
       onTap: onSelect,
@@ -3219,16 +3497,30 @@ class _AiModelTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          model.displayName,
+                          model.providerLabel,
                           style: theme.textTheme.titleLarge,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
-                          '${model.protocolType.label(l10n)} · ${model.authScheme.label(l10n)}',
+                          '${model.protocolType.label(l10n)} · ${model.authScheme.label(l10n)} · $modelCountLabel',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
+                        if (model.modelId.trim().isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            _localizedText(
+                              context,
+                              zh: '当前模型：${model.modelId}',
+                              en: 'Active: ${model.modelId}',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -3302,6 +3594,36 @@ class _AiModelTile extends StatelessWidget {
                     ),
                 ],
               ),
+              // Show available models as small chips when expanded.
+              if (allModels.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: allModels
+                      .map(
+                        (id) => Chip(
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
+                          avatar: Icon(
+                            id == model.modelId
+                                ? Icons.star_rounded
+                                : Icons.smart_toy_outlined,
+                            size: 14,
+                          ),
+                          label: Text(
+                            id,
+                            style: theme.textTheme.labelSmall,
+                          ),
+                          backgroundColor: id == model.modelId
+                              ? colorScheme.primaryContainer
+                              : null,
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         ),
@@ -3322,4 +3644,207 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
     }
   }
   return output;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dialog animation settings section
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DialogAnimationSettingsSection extends StatelessWidget {
+  const _DialogAnimationSettingsSection({
+    required this.settingsController,
+  });
+
+  final SettingsController settingsController;
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final current = settingsController.dialogAnimationSettings;
+    return _ResponsiveSettingRow(
+      title: isZh ? '弹窗动画' : 'Dialog Animation',
+      subtitle: isZh
+          ? '配置全局弹窗的进场动画、退场动画、时长和速率曲线。'
+          : 'Configure entrance/exit animation style, duration, and easing curve for all dialogs.',
+
+      controlMaxWidth: 440,
+      control: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Entrance style
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '进场' : 'Enter',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationStyle>(
+                  value: current.entranceStyle,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationStyle.values
+                      .map(
+                        (style) => DropdownMenuItem(
+                          value: style,
+                          child: Text(
+                            style.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updateDialogAnimationSettings(
+                      current.copyWith(entranceStyle: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Exit style
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '退场' : 'Exit',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationStyle>(
+                  value: current.exitStyle,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationStyle.values
+                      .map(
+                        (style) => DropdownMenuItem(
+                          value: style,
+                          child: Text(
+                            style.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updateDialogAnimationSettings(
+                      current.copyWith(exitStyle: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Duration
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '时长' : 'Duration',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: current.durationMs.toDouble(),
+                        min: 100,
+                        max: 800,
+                        divisions: 14,
+                        label: '${current.durationMs}ms',
+                        onChanged: (value) {
+                          settingsController.updateDialogAnimationSettings(
+                            current.copyWith(durationMs: value.round()),
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 54,
+                      child: Text(
+                        '${current.durationMs}ms',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Curve
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '曲线' : 'Curve',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationCurve>(
+                  value: current.curve,
+                  isDense: true,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationCurve.values
+                      .map(
+                        (curve) => DropdownMenuItem(
+                          value: curve,
+                          child: Text(
+                            curve.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updateDialogAnimationSettings(
+                      current.copyWith(curve: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

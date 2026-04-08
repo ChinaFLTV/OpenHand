@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';
@@ -39,12 +40,14 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   final Map<HardnessAgentRole, String?> _selectedModel = {};
   final Map<HardnessAgentRole, HardnessExecutionMode> _executionMode = {};
   final Map<HardnessAgentRole, String?> _selectedAiModelConfigId = {};
+  final Map<HardnessAgentRole, String?> _selectedUrlModeModelId = {};
 
   // Quick-apply bar state
   HardnessExecutionMode _quickExecutionMode = HardnessExecutionMode.cli;
   String? _quickCli;
   String? _quickModel;
   String? _quickAiModelConfigId;
+  String? _quickUrlModeModelId;
 
   List<CliScanEntry> _scanResults = [];
   bool _isScanning = true;
@@ -186,6 +189,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
         modelId: '',
         executionMode: HardnessExecutionMode.url,
         aiModelConfigId: _selectedAiModelConfigId[role],
+        urlModeModelId: _selectedUrlModeModelId[role],
       );
     }
     return HardnessRoleConfig(
@@ -215,17 +219,30 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
         if (configId == null || configId.trim().isEmpty) {
           issues.add(
             isZh
-                ? '$roleLabel：请选择 API 模型配置。'
-                : '$roleLabel: choose an API model configuration.',
+                ? '$roleLabel：请选择 API 模型提供商。'
+                : '$roleLabel: choose an API model provider.',
           );
           continue;
         }
-        final modelExists = settingsModels.any((m) => m.id == configId);
-        if (!modelExists) {
+        final provider = settingsModels
+            .where((m) => m.id == configId)
+            .firstOrNull;
+        if (provider == null) {
           issues.add(
             isZh
-                ? '$roleLabel：所选 API 模型配置不存在，请重新选择。'
-                : '$roleLabel: the selected API model config no longer exists.',
+                ? '$roleLabel：所选 API 模型提供商不存在，请重新选择。'
+                : '$roleLabel: the selected API model provider no longer exists.',
+          );
+          continue;
+        }
+        final urlModelId = roleConfig.urlModeModelId?.trim();
+        if (urlModelId != null &&
+            urlModelId.isNotEmpty &&
+            !provider.allModelIds.contains(urlModelId)) {
+          issues.add(
+            isZh
+                ? '$roleLabel：所选模型 "$urlModelId" 在该提供商中不存在。'
+                : '$roleLabel: model "$urlModelId" not found in this provider.',
           );
         }
         continue;
@@ -342,7 +359,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       : _scanResults.where((r) => r.cli.name == name).firstOrNull;
 
   Future<void> _showInstallDialog(HardnessCli cli) async {
-    final result = await showDialog<bool>(
+    final result = await showAnimatedDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (context) => HardnessCliInstallDialog(cli: cli),
@@ -389,7 +406,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final cli = entry.cli;
     if (!cli.hasLoginTrigger) return;
 
-    await showDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => HardnessCliLoginDialog(entry: entry),
@@ -408,7 +425,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     // Confirmation dialog.
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isZh ? '确认登出' : 'Confirm Logout'),
@@ -484,6 +501,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
         for (final role in HardnessAgentRole.values) {
           _executionMode[role] = HardnessExecutionMode.url;
           _selectedAiModelConfigId[role] = _quickAiModelConfigId;
+          _selectedUrlModeModelId[role] = _quickUrlModeModelId;
         }
       } else {
         if (_quickCli == null) return;
@@ -648,6 +666,7 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                         settingsModels:
                             widget.settingsController?.aiModels ?? const [],
                         selectedAiModelConfigId: _quickAiModelConfigId,
+                        selectedUrlModeModelId: _quickUrlModeModelId,
                         onExecutionModeChanged: (v) => setState(() {
                           _quickExecutionMode = v ?? HardnessExecutionMode.cli;
                         }),
@@ -659,9 +678,11 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                           );
                         }),
                         onModelChanged: (v) => setState(() => _quickModel = v),
-                        onAiModelConfigChanged: (v) => setState(() {
-                          _quickAiModelConfigId = v;
-                        }),
+                        onAiModelConfigChanged: (configId, modelId) =>
+                            setState(() {
+                              _quickAiModelConfigId = configId;
+                              _quickUrlModeModelId = modelId;
+                            }),
                         onApply: _applyQuickConfig,
                         modelsForCli: _modelsForCli,
                       ),
@@ -725,6 +746,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                                 widget.settingsController?.aiModels ?? const [],
                             selectedAiModelConfigId:
                                 _selectedAiModelConfigId[role],
+                            selectedUrlModeModelId:
+                                _selectedUrlModeModelId[role],
                             showInstallButton: showInstall,
                             showViewDocsButton: showViewDocs,
                             showLoginButton: showLogin,
@@ -744,9 +767,11 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
                             onModelChanged: (v) => setState(() {
                               _selectedModel[role] = v;
                             }),
-                            onAiModelConfigChanged: (v) => setState(() {
-                              _selectedAiModelConfigId[role] = v;
-                            }),
+                            onAiModelConfigChanged: (configId, modelId) =>
+                                setState(() {
+                                  _selectedAiModelConfigId[role] = configId;
+                                  _selectedUrlModeModelId[role] = modelId;
+                                }),
                             onInstall: cli != null
                                 ? () => _showInstallDialog(cli)
                                 : null,
@@ -1108,6 +1133,7 @@ class _RoleConfigRow extends StatelessWidget {
     required this.selectedModel,
     this.settingsModels = const [],
     this.selectedAiModelConfigId,
+    this.selectedUrlModeModelId,
     required this.showInstallButton,
     this.showViewDocsButton = false,
     this.showLoginButton = false,
@@ -1132,6 +1158,7 @@ class _RoleConfigRow extends StatelessWidget {
   final String? selectedModel;
   final List<AiModelConfig> settingsModels;
   final String? selectedAiModelConfigId;
+  final String? selectedUrlModeModelId;
   final bool showInstallButton;
   final bool showViewDocsButton;
   final bool showLoginButton;
@@ -1140,7 +1167,8 @@ class _RoleConfigRow extends StatelessWidget {
   final ValueChanged<HardnessExecutionMode?> onExecutionModeChanged;
   final ValueChanged<String?> onCliChanged;
   final ValueChanged<String?> onModelChanged;
-  final ValueChanged<String?>? onAiModelConfigChanged;
+  final void Function(String? configId, String? modelId)?
+      onAiModelConfigChanged;
   final VoidCallback? onInstall;
   final VoidCallback? onViewDocs;
   final VoidCallback? onLogin;
@@ -1150,33 +1178,6 @@ class _RoleConfigRow extends StatelessWidget {
   CliScanEntry? get _selectedEntry => selectedCli == null
       ? null
       : scanResults.where((r) => r.cli.name == selectedCli).firstOrNull;
-
-  String? _resolvedAiModelConfigId() {
-    final id = selectedAiModelConfigId?.trim();
-    if (id == null || id.isEmpty) return null;
-    if (settingsModels.any((m) => m.id == id)) return id;
-    return null;
-  }
-
-  List<DropdownMenuItem<String>> _buildAiModelConfigItems(
-    BuildContext context,
-  ) {
-    return settingsModels
-        .map((config) {
-          final label = config.displayName.isNotEmpty
-              ? '${config.displayName} (${config.protocolType.storageValue})'
-              : '${config.protocolType.storageValue} — ${config.baseUrl}';
-          return DropdownMenuItem<String>(
-            value: config.id,
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13),
-            ),
-          );
-        })
-        .toList(growable: false);
-  }
 
   List<DropdownMenuItem<String>> _buildCliItems(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -1301,11 +1302,14 @@ class _RoleConfigRow extends StatelessWidget {
                 // URL mode: show API model config dropdown.
                 Expanded(
                   flex: 2,
-                  child: _CompactDropdown<String>(
+                  child: _MenuAnchorModelSelector(
                     label: isZh ? 'API 模型' : 'API Model',
-                    value: _resolvedAiModelConfigId(),
-                    items: _buildAiModelConfigItems(context),
-                    onChanged: onAiModelConfigChanged,
+                    settingsModels: settingsModels,
+                    selectedAiModelConfigId: selectedAiModelConfigId,
+                    selectedUrlModeModelId: selectedUrlModeModelId,
+                    onChanged: (configId, modelId) {
+                      onAiModelConfigChanged?.call(configId, modelId);
+                    },
                     enabled: settingsModels.isNotEmpty,
                   ),
                 ),
@@ -1313,8 +1317,8 @@ class _RoleConfigRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Tooltip(
                     message: isZh
-                        ? '请先在设置中配置 API 模型'
-                        : 'Configure API models in Settings first',
+                        ? '请先在设置中配置 API 模型提供商'
+                        : 'Configure API model providers in Settings first',
                     child: Icon(
                       Icons.warning_amber_rounded,
                       size: 16,
@@ -1568,6 +1572,7 @@ class _QuickApplyBar extends StatelessWidget {
     required this.selectedModel,
     required this.settingsModels,
     required this.selectedAiModelConfigId,
+    required this.selectedUrlModeModelId,
     required this.onExecutionModeChanged,
     required this.onCliChanged,
     required this.onModelChanged,
@@ -1585,23 +1590,28 @@ class _QuickApplyBar extends StatelessWidget {
   final String? selectedModel;
   final List<AiModelConfig> settingsModels;
   final String? selectedAiModelConfigId;
+  final String? selectedUrlModeModelId;
   final ValueChanged<HardnessExecutionMode?> onExecutionModeChanged;
   final ValueChanged<String?> onCliChanged;
   final ValueChanged<String?> onModelChanged;
-  final ValueChanged<String?> onAiModelConfigChanged;
+  final void Function(String? configId, String? modelId)
+      onAiModelConfigChanged;
   final VoidCallback onApply;
   final List<String> Function(String?) modelsForCli;
 
-  String? _resolvedAiModelConfigId() {
+  bool get _hasUrlModelSelected {
     final id = selectedAiModelConfigId?.trim();
-    if (id == null || id.isEmpty) return null;
-    if (settingsModels.any((m) => m.id == id)) return id;
-    return null;
+    if (id == null || id.isEmpty) return false;
+    final provider = settingsModels.where((m) => m.id == id).firstOrNull;
+    if (provider == null) return false;
+    final modelId = selectedUrlModeModelId?.trim();
+    if (modelId != null && modelId.isNotEmpty) return true;
+    return provider.modelId.trim().isNotEmpty;
   }
 
   bool get _canApply {
     if (executionMode == HardnessExecutionMode.url) {
-      return _resolvedAiModelConfigId() != null;
+      return _hasUrlModelSelected;
     }
     return selectedCli != null;
   }
@@ -1734,24 +1744,11 @@ class _QuickApplyBar extends StatelessWidget {
               // URL mode: API model config dropdown
               Expanded(
                 flex: 2,
-                child: _CompactDropdown<String>(
+                child: _MenuAnchorModelSelector(
                   label: isZh ? 'API 模型' : 'API Model',
-                  value: _resolvedAiModelConfigId(),
-                  items: settingsModels
-                      .map((config) {
-                        final label = config.displayName.isNotEmpty
-                            ? '${config.displayName} (${config.protocolType.storageValue})'
-                            : '${config.protocolType.storageValue} — ${config.baseUrl}';
-                        return DropdownMenuItem<String>(
-                          value: config.id,
-                          child: Text(
-                            label,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                        );
-                      })
-                      .toList(growable: false),
+                  settingsModels: settingsModels,
+                  selectedAiModelConfigId: selectedAiModelConfigId,
+                  selectedUrlModeModelId: selectedUrlModeModelId,
                   onChanged: onAiModelConfigChanged,
                   enabled: settingsModels.isNotEmpty,
                 ),
@@ -1914,6 +1911,161 @@ class _ScanChip extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MenuAnchor-based model selector (consistent with composer model selector)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MenuAnchorModelSelector extends StatelessWidget {
+  const _MenuAnchorModelSelector({
+    required this.label,
+    required this.settingsModels,
+    required this.selectedAiModelConfigId,
+    required this.selectedUrlModeModelId,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final String label;
+  final List<AiModelConfig> settingsModels;
+  final String? selectedAiModelConfigId;
+  final String? selectedUrlModeModelId;
+  final void Function(String? configId, String? modelId) onChanged;
+  final bool enabled;
+
+  String? get _displayLabel {
+    final id = selectedAiModelConfigId?.trim();
+    if (id == null || id.isEmpty) return null;
+    final config =
+        settingsModels.where((m) => m.id == id).firstOrNull;
+    if (config == null) return null;
+    final modelId = selectedUrlModeModelId?.trim();
+    if (modelId != null && modelId.isNotEmpty) return modelId;
+    if (config.modelId.trim().isNotEmpty) return config.modelId;
+    return config.providerLabel;
+  }
+
+  List<Widget> _buildMenuChildren(BuildContext context) {
+    final items = <Widget>[];
+    final activeConfigId = selectedAiModelConfigId?.trim();
+    final activeModelId = selectedUrlModeModelId?.trim();
+    for (final config in settingsModels) {
+      final allIds = config.allModelIds;
+      if (allIds.isEmpty) {
+        final isActive = config.id == activeConfigId &&
+            config.modelId == (activeModelId ?? config.modelId);
+        items.add(
+          MenuItemButton(
+            leadingIcon: Icon(
+              isActive
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 18,
+            ),
+            onPressed: () => onChanged(config.id, config.modelId),
+            child: Text(
+              '${config.providerLabel} (${config.protocolType.storageValue})',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        );
+      } else {
+        items.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Text(
+              config.providerLabel,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        );
+        for (final modelId in allIds) {
+          final isActive =
+              config.id == activeConfigId && modelId == activeModelId;
+          items.add(
+            MenuItemButton(
+              leadingIcon: Icon(
+                isActive
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 18,
+              ),
+              onPressed: () => onChanged(config.id, modelId),
+              child: Text(
+                modelId,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          );
+        }
+      }
+    }
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return MenuAnchor(
+      style: MenuStyle(
+        maximumSize: WidgetStatePropertyAll(
+          Size(360, MediaQuery.sizeOf(context).height * 0.5),
+        ),
+      ),
+      menuChildren: _buildMenuChildren(context),
+      builder: (context, controller, child) {
+        return GestureDetector(
+          onTap: (enabled && settingsModels.isNotEmpty)
+              ? () {
+                  if (controller.isOpen) {
+                    controller.close();
+                  } else {
+                    controller.open();
+                  }
+                }
+              : null,
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              isDense: true,
+              suffixIcon: Icon(
+                controller.isOpen
+                    ? Icons.arrow_drop_up_rounded
+                    : Icons.arrow_drop_down_rounded,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 24,
+                minHeight: 24,
+              ),
+            ),
+            child: Text(
+              _displayLabel ?? (enabled ? label : '—'),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                color: enabled
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

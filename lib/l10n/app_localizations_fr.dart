@@ -352,19 +352,19 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsPersistenceDismiss => '关闭提示';
 
   @override
-  String get aiModelAdd => '新增模型';
+  String get aiModelAdd => '新增提供商';
 
   @override
-  String get aiModelsEmptyTitle => '还没有可用模型';
+  String get aiModelsEmptyTitle => '还没有可用模型提供商';
 
   @override
-  String get aiModelsEmptyBody => '先添加至少一个模型配置，后续线程聊天窗口会直接复用这里的模型列表。';
+  String get aiModelsEmptyBody => '先添加至少一个模型提供商配置，后续线程聊天窗口会直接复用这里的模型列表。';
 
   @override
-  String get aiModelDialogCreateTitle => '新增模型配置';
+  String get aiModelDialogCreateTitle => '新增模型提供商';
 
   @override
-  String get aiModelDialogEditTitle => '编辑模型配置';
+  String get aiModelDialogEditTitle => '编辑模型提供商';
 
   @override
   String get aiModelBaseUrl => 'Base URL';
@@ -391,16 +391,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelProtocol => '协议类型';
 
   @override
-  String get aiModelSaveSuccess => '模型配置已保存。';
+  String get aiModelSaveSuccess => '模型提供商配置已保存。';
 
   @override
-  String get aiModelDeleteConfirmTitle => '删除模型配置';
+  String get aiModelDeleteConfirmTitle => '删除模型提供商';
 
   @override
-  String get aiModelDeleteConfirmBody => '确认删除这条模型配置吗？';
+  String get aiModelDeleteConfirmBody => '确认删除这条模型提供商配置吗？';
 
   @override
-  String get aiModelDeleteSuccess => '模型配置已删除。';
+  String get aiModelDeleteSuccess => '模型提供商配置已删除。';
 
   @override
   String get aiModelMoveUp => '上移';
@@ -409,7 +409,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiModelMoveDown => '下移';
 
   @override
-  String get aiModelSelected => '当前会话模型';
+  String get aiModelSelected => '当前活跃提供商';
 
   @override
   String get aiModelNoToken => '未配置令牌';
@@ -431,7 +431,40 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get aiModelSelectionRequired => '请先在设置中添加并选择一个 AI 模型。';
+  String get aiModelSelectionRequired => '请先在设置中添加并选择一个 AI 模型提供商。';
+
+  @override
+  String get aiModelScanButton => '扫描模型';
+
+  @override
+  String get aiModelScanning => '正在扫描可用模型…';
+
+  @override
+  String aiModelScanSuccess(Object count) {
+    return '发现 $count 个模型。';
+  }
+
+  @override
+  String aiModelScanFailed(Object reason) {
+    return '扫描失败：$reason';
+  }
+
+  @override
+  String get aiModelScanEmpty => '未从该提供商扫描到模型。';
+
+  @override
+  String get aiModelAvailableModels => '可用模型';
+
+  @override
+  String get aiModelManualIdHint => '手动输入模型 ID';
+
+  @override
+  String get aiModelManualIdAdd => '添加';
+
+  @override
+  String aiModelCount(Object count) {
+    return '$count 个模型';
+  }
 
   @override
   String get chatModelButton => '选择模型';

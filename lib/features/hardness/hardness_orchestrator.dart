@@ -1255,14 +1255,21 @@ class HardnessOrchestrator extends ChangeNotifier {
       return;
     }
 
-    final modelConfig = resolveAiModelConfig?.call(configId);
-    if (modelConfig == null) {
+    final resolvedConfig = resolveAiModelConfig?.call(configId);
+    if (resolvedConfig == null) {
       _appendLine(log, '✗ 找不到 ID 为 "$configId" 的模型配置。请检查设置。');
       log.status = HardnessPhaseStatus.failed;
       notifyListeners();
       await _finalizePhaseArtifacts(log);
       return;
     }
+
+    // Override the model ID if the role config specifies a specific model
+    // within the provider.
+    final overrideModelId = roleConfig.urlModeModelId?.trim();
+    final modelConfig = (overrideModelId != null && overrideModelId.isNotEmpty)
+        ? resolvedConfig.copyWith(modelId: overrideModelId)
+        : resolvedConfig;
 
     _appendLine(
       log,

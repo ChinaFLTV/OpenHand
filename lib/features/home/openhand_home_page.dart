@@ -24,6 +24,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_attachment.dart';
@@ -988,15 +989,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _cycleSelectedModel(int delta) {
     final settingsController = context.read<SettingsController>();
-    final models = settingsController.aiModels;
-    if (models.isEmpty) {
-      return;
+    final entries = settingsController.flatModelEntries;
+    if (entries.isEmpty) return;
+
+    final currentProvider = settingsController.selectedAiModel;
+    final currentProviderId = currentProvider?.id;
+    final currentModelId = currentProvider?.modelId;
+
+    var currentIndex = -1;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].providerConfigId == currentProviderId &&
+          entries[i].modelId == currentModelId) {
+        currentIndex = i;
+        break;
+      }
     }
-    final currentModelId = settingsController.selectedAiModelId;
-    final currentIndex = models.indexWhere((item) => item.id == currentModelId);
     final baseIndex = currentIndex >= 0 ? currentIndex : 0;
-    final nextIndex = (baseIndex + delta + models.length) % models.length;
-    unawaited(settingsController.updateSelectedAiModel(models[nextIndex].id));
+    final nextIndex = (baseIndex + delta + entries.length) % entries.length;
+    final next = entries[nextIndex];
+    unawaited(
+      settingsController.updateProviderActiveModel(
+        next.providerConfigId,
+        next.modelId,
+      ),
+    );
   }
 
   Future<void> _cycleSessionSelection(int delta) async {
@@ -1029,7 +1045,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<String?> _showThreadTemplateDialog() async {
-    return showDialog<String>(
+    return showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) {
         final sessionController = dialogContext.read<AiSessionController>();
@@ -1082,7 +1098,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     if (templateId == 'machine_expert') {
-      final result = await showDialog<MachineExpertDialogResult>(
+      final result = await showAnimatedDialog<MachineExpertDialogResult>(
         context: context,
         builder: (context) => const MachineExpertDialog(),
       );
@@ -1101,7 +1117,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (templateId == 'hardness_engineering') {
       final settingsCtrl = context.read<SettingsController>();
-      final config = await showDialog<HardnessSessionConfig>(
+      final config = await showAnimatedDialog<HardnessSessionConfig>(
         context: context,
         builder: (context) =>
             HardnessEngineeringDialog(settingsController: settingsCtrl),
@@ -1660,7 +1676,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<bool> _showFullAccessConfirmationDialog() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (context) {
         final theme = Theme.of(context);
@@ -1759,7 +1775,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (templateId == 'machine_expert') {
-        final result = await showDialog<MachineExpertDialogResult>(
+        final result = await showAnimatedDialog<MachineExpertDialogResult>(
           context: context,
           builder: (context) => MachineExpertDialog(initialTask: prompt),
         );
@@ -2080,6 +2096,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _pendingAttachments = _pendingAttachments
           .where((item) => item.filePath != filePath)
           .toList(growable: false);
+    });
+  }
+
+  void _reorderPendingAttachments(int oldIndex, int newIndex) {
+    setState(() {
+      final list = List<_ComposerAttachmentDraft>.from(_pendingAttachments);
+      final item = list.removeAt(oldIndex);
+      list.insert(newIndex.clamp(0, list.length), item);
+      _pendingAttachments = list;
     });
   }
 
@@ -2562,7 +2587,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       zh: '可用本地命令：\n$commandList\n\n`/help`、`/commands`、`/feedback`、`/new`、`/status`、`/stop` 不会发给模型，而是由 OpenHand 本地处理。\n\n写命令确认：${settingsController.aiWriteCommandConfirmationEnabled ? '开启' : '关闭'}\n允许命令规则：${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\n设置文件：${settingsController.displaySettingsFilePath}\n会话目录：${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
       en: 'Available local commands:\n$commandList\n\n`/help`, `/commands`, `/feedback`, `/new`, `/status`, and `/stop` are handled locally by OpenHand instead of being sent to the model.\n\nWrite command confirmation: ${settingsController.aiWriteCommandConfirmationEnabled ? 'enabled' : 'disabled'}\nAllow command rules: ${settingsController.aiAllowCommandRules.length}${allowRulePreview.isEmpty ? '' : '\n$allowRulePreview'}\n\nSettings file: ${settingsController.displaySettingsFilePath}\nSession directory: ${OpenHandPaths.shortenHomePath(sessionController.sessionsDirectoryPath)}',
     );
-    return showDialog<void>(
+    return showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2597,7 +2622,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       zh: 'OpenHand 反馈\n备注：${trimmedNote.isEmpty ? '请在这里补充问题描述。' : trimmedNote}\n设置文件：${settingsController.settingsFilePath}\n会话目录：${sessionController.sessionsDirectoryPath}',
       en: 'OpenHand Feedback\nNote: ${trimmedNote.isEmpty ? 'Add your issue details here.' : trimmedNote}\nSettings file: ${settingsController.settingsFilePath}\nSession directory: ${sessionController.sessionsDirectoryPath}',
     );
-    return showDialog<void>(
+    return showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2638,7 +2663,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final titleController = TextEditingController(text: session.title);
     String? submitted;
     try {
-      submitted = await showDialog<String>(
+      submitted = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
@@ -2695,7 +2720,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _deleteSession(AiSession session) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2743,7 +2768,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final titleController = TextEditingController(text: record.title);
     String? submitted;
     try {
-      submitted = await showDialog<String>(
+      submitted = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
@@ -2800,7 +2825,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _deleteHardnessSession() async {
     final record = _persistedHardnessSession;
     if (record == null) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2843,17 +2868,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _editMessage(AiSessionMessage message) async {
-    final content = await context
+    final result = await context
         .read<AiSessionController>()
         .beginEditingMessage(message.id);
-    if (!mounted || content == null) {
+    if (!mounted || result == null) {
       return;
     }
-    _replaceComposerText(content);
+    _replaceComposerText(result.content);
+
+    // Restore attachments from the original message so the user can
+    // keep, remove, or add more attachments while editing.
+    final restoredAttachments = <_ComposerAttachmentDraft>[];
+    for (final attachment in result.attachments) {
+      final path = attachment.storagePath.trim();
+      if (path.isNotEmpty && File(path).existsSync()) {
+        restoredAttachments.add(
+          _ComposerAttachmentDraft(
+            filePath: path,
+            name: attachment.name,
+            kind: attachment.kind,
+            sizeBytes: attachment.sizeBytes,
+          ),
+        );
+      }
+    }
+
     setState(() {
       _selectedSection = AppSection.workspace;
       _composerCollapsed = false;
-      _pendingAttachments = const <_ComposerAttachmentDraft>[];
+      _pendingAttachments = restoredAttachments;
     });
     _scheduleScrollToBottom();
   }
@@ -2873,7 +2916,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<bool> _deleteMessage(AiSessionMessage message) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -2920,7 +2963,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<bool> _deleteMessageFromHere(AiSessionMessage message) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -3168,8 +3211,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         transcriptPreparing: transcriptPreparing,
         selectedModel: settingsController.selectedAiModel,
         availableModels: settingsController.aiModels,
-        onModelSelected: (modelId) {
-          settingsController.updateSelectedAiModel(modelId);
+        onModelSelected: (providerConfigId, modelId) {
+          settingsController.updateProviderActiveModel(
+            providerConfigId,
+            modelId,
+          );
         },
         composerFocusNode: _composerFocusNode,
         composerHeight: _composerHeight,
@@ -3252,6 +3298,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ),
         onPickAttachments: _pickComposerAttachments,
         onRemoveAttachment: _removePendingAttachment,
+        onReorderAttachments: _reorderPendingAttachments,
         onSend: _sendMessage,
         onStop: _stopResponding,
         onCreateThreadRequested: _createSessionFromDialog,
@@ -3451,6 +3498,66 @@ class _NavigationPaneState extends State<_NavigationPane> {
     return _cachedDrawerTheme!;
   }
 
+  /// Builds an interleaved list of AI thread tiles and the optional HE session
+  /// tile, sorted by [updatedAt] descending.  The incoming [widget.sessions]
+  /// are already sorted by the store; we simply merge-insert the HE record at
+  /// the correct position.
+  List<Widget> _buildMergedThreadTiles({
+    required HardnessSessionRecord? heRecord,
+    required HardnessOrchestratorStatus? heStatus,
+    required bool heAwaitingApproval,
+  }) {
+    final tiles = <Widget>[];
+    bool heInserted = false;
+
+    Widget buildHeTile() => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _HardnessSessionTile(
+            title: heRecord!.title,
+            status: heStatus!,
+            awaitingApproval: heAwaitingApproval,
+            isSelected:
+                widget.selectedSection == AppSection.hardnessSession,
+            onTap: widget.onHardnessSessionSelected ?? () {},
+            onRename: widget.onRenameHardnessSession ?? () {},
+            onDelete: widget.onDeleteHardnessSession ?? () {},
+          ),
+        );
+
+    for (final session in widget.sessions) {
+      // Insert HE tile when its updatedAt >= the current AI session's.
+      if (!heInserted &&
+          heRecord != null &&
+          !session.updatedAt.isAfter(heRecord.updatedAt)) {
+        tiles.add(buildHeTile());
+        heInserted = true;
+      }
+      tiles.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _ThreadTile(
+            session: session,
+            sendPhase:
+                widget.sessionSendPhases[session.id] ?? AiSendPhase.idle,
+            isSelected:
+                widget.selectedSection == AppSection.workspace &&
+                widget.currentSessionId == session.id,
+            onTap: () => widget.onSessionSelected(session.id),
+            onRename: () => widget.onRenameSession(session),
+            onDelete: () => widget.onDeleteSession(session),
+          ),
+        ),
+      );
+    }
+
+    // HE session is the oldest, or there are no AI sessions — append at end.
+    if (!heInserted && heRecord != null) {
+      tiles.add(buildHeTile());
+    }
+
+    return tiles;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -3520,24 +3627,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Text(l10n.threads, style: theme.textTheme.titleMedium),
             ),
-            // HE session tile (shown above AI threads when a record exists).
-            // Driven by the live orchestrator when active, otherwise by the
-            // persisted record so the entry survives app restarts.
-            if (widget.hardnessSessionRecord != null) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-                child: _HardnessSessionTile(
-                  title: widget.hardnessSessionRecord!.title,
-                  status: heStatusForTile!,
-                  awaitingApproval: heAwaitingApprovalForTile,
-                  isSelected:
-                      widget.selectedSection == AppSection.hardnessSession,
-                  onTap: widget.onHardnessSessionSelected ?? () {},
-                  onRename: widget.onRenameHardnessSession ?? () {},
-                  onDelete: widget.onDeleteHardnessSession ?? () {},
-                ),
-              ),
-            ],
+            // Unified thread list: merge AI sessions and HE session,
+            // sorted by updatedAt descending (most recently updated first).
             if (widget.sessions.isEmpty && widget.hardnessSessionRecord == null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -3548,37 +3639,16 @@ class _NavigationPaneState extends State<_NavigationPane> {
                   ),
                 ),
               )
-            else if (widget.sessions.isNotEmpty)
+            else
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: widget.sessions
-                      .map(
-                        (session) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _ThreadTile(
-                            session: session,
-                            sendPhase:
-                                widget.sessionSendPhases[session.id] ??
-                                AiSendPhase.idle,
-                            // Only highlight an AI thread tile when the
-                            // workspace section is the active view.  When the
-                            // HE section (or any other section) is active the
-                            // AiSessionController's currentSessionId is still
-                            // set, which would otherwise create two
-                            // simultaneously highlighted navigation entries.
-                            isSelected:
-                                widget.selectedSection ==
-                                    AppSection.workspace &&
-                                widget.currentSessionId == session.id,
-                            onTap: () => widget.onSessionSelected(session.id),
-                            onRename: () => widget.onRenameSession(session),
-                            onDelete: () => widget.onDeleteSession(session),
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
+                  children: _buildMergedThreadTiles(
+                    heRecord: widget.hardnessSessionRecord,
+                    heStatus: heStatusForTile,
+                    heAwaitingApproval: heAwaitingApprovalForTile,
+                  ),
                 ),
               ),
           ],
@@ -3606,7 +3676,7 @@ Future<bool?> showWriteCommandConfirmationDialog(
   BuildContext context, {
   required BashCommandApprovalRequest request,
 }) {
-  return showDialog<bool>(
+  return showAnimatedDialog<bool>(
     context: context,
     builder: (dialogContext) =>
         _WriteCommandConfirmationDialog(request: request),
@@ -3896,6 +3966,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.attachmentsEnabled,
     required this.onPickAttachments,
     required this.onRemoveAttachment,
+    required this.onReorderAttachments,
     required this.onSend,
     required this.onStop,
     required this.onCreateThreadRequested,
@@ -3924,7 +3995,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
-  final ValueChanged<String> onModelSelected;
+  final void Function(String providerConfigId, String modelId) onModelSelected;
   final FocusNode composerFocusNode;
   final double composerHeight;
   final bool composerCollapsed;
@@ -3945,6 +4016,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
   final ValueChanged<String> onRemoveAttachment;
+  final void Function(int oldIndex, int newIndex) onReorderAttachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final Future<void> Function() onCreateThreadRequested;
@@ -4083,6 +4155,7 @@ class _WorkspaceView extends StatelessWidget {
                     attachmentsEnabled: attachmentsEnabled,
                     onPickAttachments: onPickAttachments,
                     onRemoveAttachment: onRemoveAttachment,
+                    onReorderAttachments: onReorderAttachments,
                     onSend: onSend,
                     onStop: onStop,
                     editingMessageId: editingMessageId,
@@ -6176,7 +6249,7 @@ Future<void> _showSessionMetadataDialog(
   AiSession session, {
   AiRuntimeToolPreview? liveRuntimeToolPreview,
 }) {
-  return showDialog<void>(
+  return showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _SessionMetadataDialog(
       session: session,
@@ -8120,6 +8193,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           attachments: attachments,
                           textColor: textColor,
                           backgroundColor: backgroundColor,
+                          onAttachmentTap: (attachment) =>
+                              _openAttachment(context, attachment),
                         ),
                         const SizedBox(height: 10),
                       ],
@@ -8251,11 +8326,13 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
     required this.attachments,
     required this.textColor,
     required this.backgroundColor,
+    this.onAttachmentTap,
   });
 
   final List<AiMessageAttachment> attachments;
   final Color textColor;
   final Color backgroundColor;
+  final void Function(AiMessageAttachment attachment)? onAttachmentTap;
 
   @override
   Widget build(BuildContext context) {
@@ -8265,40 +8342,248 @@ class _MessageAttachmentSummaryBlock extends StatelessWidget {
       runSpacing: 8,
       children: attachments
           .map(
-            (attachment) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  textColor.withValues(alpha: 0.08),
-                  backgroundColor,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: textColor.withValues(alpha: 0.12)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _iconForAttachmentKind(attachment.kind),
-                    size: 16,
-                    color: textColor.withValues(alpha: 0.88),
+            (attachment) => MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onAttachmentTap?.call(attachment),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Color.alphaBlend(
+                      textColor.withValues(alpha: 0.08),
+                      backgroundColor,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border:
+                        Border.all(color: textColor.withValues(alpha: 0.12)),
                   ),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
-                    child: Text(
-                      '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _iconForAttachmentKind(attachment.kind),
+                        size: 16,
                         color: textColor.withValues(alpha: 0.88),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        child: Text(
+                          '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: textColor.withValues(alpha: 0.88),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           )
           .toList(growable: false),
+    );
+  }
+}
+
+/// Opens a message attachment: images are shown in an in-app preview dialog;
+/// other file types are opened with the system default application.
+Future<void> _openAttachment(
+  BuildContext context,
+  AiMessageAttachment attachment,
+) async {
+  final storagePath = attachment.storagePath.trim();
+  if (storagePath.isEmpty) {
+    return;
+  }
+  final file = File(storagePath);
+  if (!file.existsSync()) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '附件文件不存在或已被移动。',
+            en: 'Attachment file not found or has been moved.',
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
+  if (attachment.isImage) {
+    if (!context.mounted) return;
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => _ImagePreviewDialog(
+        filePath: storagePath,
+        title: attachment.name,
+      ),
+    );
+    return;
+  }
+
+  // Non-image files: open with system default application.
+  if (!context.mounted) return;
+  try {
+    late final ProcessResult result;
+    if (Platform.isMacOS) {
+      result = await Process.run('open', <String>[storagePath]);
+    } else if (Platform.isWindows) {
+      result = await Process.run('cmd', <String>['/c', 'start', '', storagePath]);
+    } else if (Platform.isLinux) {
+      result = await Process.run('xdg-open', <String>[storagePath]);
+    } else {
+      return;
+    }
+    if (result.exitCode != 0) {
+      final message = '${result.stderr}'.trim();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message.isEmpty ? 'Failed to open file.' : message)),
+        );
+      }
+    }
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$error')),
+    );
+  }
+}
+
+/// Opens a composer attachment draft: images are shown in an in-app preview
+/// dialog; other file types are opened with the system default application.
+Future<void> _openComposerAttachment(
+  BuildContext context,
+  _ComposerAttachmentDraft draft,
+) async {
+  _openAttachment(
+    context,
+    AiMessageAttachment(
+      id: draft.filePath,
+      storagePath: draft.filePath,
+      kind: draft.kind,
+      name: draft.name,
+      mimeType: '',
+      sizeBytes: draft.sizeBytes,
+    ),
+  );
+}
+
+/// Full-screen image preview dialog with zoom and pan support.
+class _ImagePreviewDialog extends StatelessWidget {
+  const _ImagePreviewDialog({
+    required this.filePath,
+    required this.title,
+  });
+
+  final String filePath;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      backgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.9,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Title bar.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.open_in_new_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '使用系统应用打开',
+                      en: 'Open with System App',
+                    ),
+                    onPressed: () async {
+                      if (Platform.isMacOS) {
+                        await Process.run('open', <String>[filePath]);
+                      } else if (Platform.isWindows) {
+                        await Process.run('cmd', <String>['/c', 'start', '', filePath]);
+                      } else if (Platform.isLinux) {
+                        await Process.run('xdg-open', <String>[filePath]);
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Image body with zoom/pan.
+            Flexible(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5.0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Image.file(
+                    File(filePath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.broken_image_outlined,
+                            size: 48,
+                            color: colorScheme.error,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            _localizedText(
+                              context,
+                              zh: '无法加载图片',
+                              en: 'Failed to load image',
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -11121,6 +11406,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.attachmentsEnabled,
     required this.onPickAttachments,
     required this.onRemoveAttachment,
+    required this.onReorderAttachments,
     required this.onSend,
     required this.onStop,
     required this.fullAccessPermission,
@@ -11138,7 +11424,7 @@ class _ComposerPanel extends StatefulWidget {
   final TextEditingController controller;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
-  final ValueChanged<String> onModelSelected;
+  final void Function(String providerConfigId, String modelId) onModelSelected;
   final FocusNode focusNode;
   final double composerHeight;
   final bool isCollapsed;
@@ -11153,6 +11439,7 @@ class _ComposerPanel extends StatefulWidget {
   final bool attachmentsEnabled;
   final Future<void> Function() onPickAttachments;
   final ValueChanged<String> onRemoveAttachment;
+  final void Function(int oldIndex, int newIndex) onReorderAttachments;
   final Future<void> Function() onSend;
   final Future<void> Function() onStop;
   final bool fullAccessPermission;
@@ -11169,6 +11456,66 @@ class _ComposerPanel extends StatefulWidget {
 }
 
 class _ComposerPanelState extends State<_ComposerPanel> {
+
+  List<Widget> _buildModelMenuItems(BuildContext context) {
+    final items = <Widget>[];
+    final selectedId = widget.selectedModel?.id;
+    final selectedModelId = widget.selectedModel?.modelId;
+    for (final provider in widget.availableModels) {
+      final allIds = provider.allModelIds;
+      if (allIds.isEmpty) {
+        // Provider with no discovered models — show as single entry.
+        final isActive =
+            provider.id == selectedId && provider.modelId == selectedModelId;
+        items.add(
+          MenuItemButton(
+            leadingIcon: Icon(
+              isActive
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+            ),
+            onPressed: () => widget.onModelSelected(
+              provider.id,
+              provider.modelId,
+            ),
+            child: Text(provider.providerLabel),
+          ),
+        );
+      } else {
+        // Provider with models — show group header + sub-items.
+        items.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Text(
+              '${provider.providerLabel}  (${provider.protocolType.storageValue})',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+        for (final modelId in allIds) {
+          final isActive =
+              provider.id == selectedId && modelId == selectedModelId;
+          items.add(
+            MenuItemButton(
+              leadingIcon: Icon(
+                isActive
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 18,
+              ),
+              onPressed: () => widget.onModelSelected(provider.id, modelId),
+              child: Text(modelId),
+            ),
+          );
+        }
+      }
+    }
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -11417,18 +11764,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           const SizedBox(height: 8),
         ],
         if (widget.pendingAttachments.isNotEmpty) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.pendingAttachments
-                .map(
-                  (attachment) => _ComposerAttachmentChip(
-                    attachment: attachment,
-                    onRemove: () =>
-                        widget.onRemoveAttachment(attachment.filePath),
-                  ),
-                )
-                .toList(growable: false),
+          _ReorderableAttachmentWrap(
+            attachments: widget.pendingAttachments,
+            onReorder: widget.onReorderAttachments,
+            onRemove: (filePath) => widget.onRemoveAttachment(filePath),
+            onTap: (draft) => _openComposerAttachment(context, draft),
           ),
           const SizedBox(height: 12),
         ],
@@ -11459,19 +11799,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             child: Row(
               children: [
                 MenuAnchor(
-                  menuChildren: widget.availableModels
-                      .map(
-                        (model) => MenuItemButton(
-                          leadingIcon: Icon(
-                            model.id == widget.selectedModel?.id
-                                ? Icons.check_circle_rounded
-                                : Icons.radio_button_unchecked_rounded,
-                          ),
-                          onPressed: () => widget.onModelSelected(model.id),
-                          child: Text(model.displayName),
-                        ),
-                      )
-                      .toList(growable: false),
+                  style: MenuStyle(
+                    maximumSize: WidgetStatePropertyAll(
+                      Size(360, MediaQuery.sizeOf(context).height * 0.5),
+                    ),
+                  ),
+                  menuChildren: _buildModelMenuItems(context),
                   builder: (context, controller, child) {
                     return SizedBox(
                       height: 52,
@@ -11941,55 +12274,162 @@ class _ComposerModeButton extends StatelessWidget {
   }
 }
 
+/// A wrap layout that allows drag-to-reorder of attachment chips.
+class _ReorderableAttachmentWrap extends StatefulWidget {
+  const _ReorderableAttachmentWrap({
+    required this.attachments,
+    required this.onReorder,
+    required this.onRemove,
+    required this.onTap,
+  });
+
+  final List<_ComposerAttachmentDraft> attachments;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final ValueChanged<String> onRemove;
+  final void Function(_ComposerAttachmentDraft draft) onTap;
+
+  @override
+  State<_ReorderableAttachmentWrap> createState() =>
+      _ReorderableAttachmentWrapState();
+}
+
+class _ReorderableAttachmentWrapState
+    extends State<_ReorderableAttachmentWrap> {
+  int? _dragIndex;
+  int? _hoverIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(widget.attachments.length, (index) {
+        final attachment = widget.attachments[index];
+        final isDragging = _dragIndex == index;
+        final isHovering = _hoverIndex == index;
+        return DragTarget<int>(
+          onWillAcceptWithDetails: (details) {
+            if (details.data != index) {
+              setState(() => _hoverIndex = index);
+            }
+            return details.data != index;
+          },
+          onLeave: (_) {
+            if (_hoverIndex == index) {
+              setState(() => _hoverIndex = null);
+            }
+          },
+          onAcceptWithDetails: (details) {
+            setState(() => _hoverIndex = null);
+            widget.onReorder(details.data, index);
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Draggable<int>(
+              data: index,
+              onDragStarted: () => setState(() => _dragIndex = index),
+              onDragEnd: (_) => setState(() {
+                _dragIndex = null;
+                _hoverIndex = null;
+              }),
+              feedback: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(16),
+                child: Opacity(
+                  opacity: 0.85,
+                  child: _ComposerAttachmentChip(
+                    attachment: attachment,
+                    onRemove: () {},
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: _ComposerAttachmentChip(
+                  attachment: attachment,
+                  onRemove: () {},
+                ),
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                transform: isHovering
+                    ? (Matrix4.identity()..scale(1.05))
+                    : Matrix4.identity(),
+                transformAlignment: Alignment.center,
+                child: Opacity(
+                  opacity: isDragging ? 0.3 : 1.0,
+                  child: _ComposerAttachmentChip(
+                    attachment: attachment,
+                    onRemove: () => widget.onRemove(attachment.filePath),
+                    onTap: () => widget.onTap(attachment),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }),
+    );
+  }
+}
+
 class _ComposerAttachmentChip extends StatelessWidget {
   const _ComposerAttachmentChip({
     required this.attachment,
     required this.onRemove,
+    this.onTap,
   });
 
   final _ComposerAttachmentDraft attachment;
   final VoidCallback onRemove;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _iconForAttachmentKind(attachment.kind),
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
-          const SizedBox(width: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurface,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _iconForAttachmentKind(attachment.kind),
+                size: 16,
+                color: colorScheme.onSurfaceVariant,
               ),
-            ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Text(
+                  '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: onRemove,
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: onRemove,
-            child: Icon(
-              Icons.close_rounded,
-              size: 16,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -13927,7 +14367,7 @@ Future<String?> _showEditQueuedMessageDialog(
   final languageCode = Localizations.localeOf(context).languageCode;
   final isZh = languageCode.startsWith('zh');
   try {
-    return await showDialog<String>(
+    return await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(

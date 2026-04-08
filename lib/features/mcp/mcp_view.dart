@@ -8,6 +8,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/url_validation.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/animated_dialog.dart';
 import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'model/mcp_server.dart';
@@ -252,7 +253,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         .map((item) => item.name.toLowerCase())
         .toSet();
 
-    final submitted = await showDialog<bool>(
+    final submitted = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return _McpServerEditorDialog(
@@ -276,7 +277,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     McpServer server,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -1405,7 +1406,7 @@ void _showToolDetailsDialog(
   required McpToolCatalog toolCatalog,
   required McpTool tool,
 }) {
-  showDialog<void>(
+  showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _McpToolDetailsDialog(
       mcpController: mcpController,
@@ -1423,7 +1424,7 @@ void _showToolDebugDialog(
   required McpToolCatalog toolCatalog,
   McpTool? initialTool,
 }) {
-  showDialog<void>(
+  showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _McpToolDebugDialog(
       mcpController: mcpController,

@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../shared/data/atomic_file_operations.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/dialog_animation_settings.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../support/url_validation.dart';
@@ -453,7 +454,6 @@ class SettingsStore {
       final model = AiModelConfig.fromJson(rawModel);
       final isValid =
           model.id.trim().isNotEmpty &&
-          model.modelId.trim().isNotEmpty &&
           isValidHttpUrl(model.baseUrl);
       if (!isValid) {
         didSanitize = true;
@@ -534,6 +534,26 @@ class SettingsStore {
       }
     }
 
+    // Dialog animation settings
+    final rawDialogAnimation =
+        '${rootValues['dialog_animation_settings'] ?? ''}'.trim();
+    var dialogAnimationSettings = const DialogAnimationSettings();
+    if (rawDialogAnimation.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawDialogAnimation);
+        if (decoded is Map<String, dynamic>) {
+          dialogAnimationSettings = DialogAnimationSettings.fromJson(decoded);
+        } else if (decoded is String) {
+          final inner = jsonDecode(decoded);
+          if (inner is Map<String, dynamic>) {
+            dialogAnimationSettings = DialogAnimationSettings.fromJson(inner);
+          }
+        }
+      } catch (_) {
+        didSanitize = true;
+      }
+    }
+
     return _SanitizedSettingsResult(
       didSanitize: didSanitize,
       snapshot: AppSettingsSnapshot(
@@ -554,6 +574,7 @@ class SettingsStore {
         aiModels: aiModels,
         selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
         shortcutBindings: shortcutBindings,
+        dialogAnimationSettings: dialogAnimationSettings,
       ),
     );
   }
@@ -600,6 +621,9 @@ class SettingsStore {
       )
       ..writeln(
         'shortcut_bindings = ${jsonEncode(jsonEncode(<String, List<int>>{for (final entry in snapshot.shortcutBindings.entries) openHandShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(entry.value)}))}',
+      )
+      ..writeln(
+        'dialog_animation_settings = ${jsonEncode(jsonEncode(snapshot.dialogAnimationSettings.toJson()))}',
       );
 
     for (final model in snapshot.aiModels) {
@@ -607,6 +631,7 @@ class SettingsStore {
         ..writeln()
         ..writeln('[[ai_models]]')
         ..writeln('id = ${jsonEncode(model.id)}')
+        ..writeln('name = ${jsonEncode(model.name)}')
         ..writeln('base_url = ${jsonEncode(model.normalizedBaseUrl)}')
         ..writeln('auth_scheme = ${jsonEncode(model.authScheme.storageValue)}')
         ..writeln('token = ${jsonEncode(model.token)}')
@@ -616,6 +641,11 @@ class SettingsStore {
         );
       if (model.maxContextTokens != null) {
         buffer.writeln('max_context_tokens = ${model.maxContextTokens}');
+      }
+      if (model.availableModelIds.isNotEmpty) {
+        buffer.writeln(
+          'available_model_ids = ${jsonEncode(jsonEncode(model.availableModelIds))}',
+        );
       }
     }
 

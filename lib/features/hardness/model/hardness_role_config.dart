@@ -26,6 +26,7 @@ class HardnessRoleConfig {
     required this.modelId,
     this.executionMode = HardnessExecutionMode.cli,
     this.aiModelConfigId,
+    this.urlModeModelId,
   });
 
   /// Execution mode: CLI-based or URL/API-based.
@@ -41,6 +42,10 @@ class HardnessRoleConfig {
 
   /// ID of the AiModelConfig entry from settings. Used when [executionMode] == url.
   final String? aiModelConfigId;
+
+  /// Specific model ID to use within the provider. Used when [executionMode] == url.
+  /// If null, the provider's default [AiModelConfig.modelId] is used.
+  final String? urlModeModelId;
 
   bool get isConfigured {
     if (executionMode == HardnessExecutionMode.url) {
@@ -58,6 +63,8 @@ class HardnessRoleConfig {
     HardnessExecutionMode? executionMode,
     String? aiModelConfigId,
     bool clearAiModelConfigId = false,
+    String? urlModeModelId,
+    bool clearUrlModeModelId = false,
   }) {
     return HardnessRoleConfig(
       cliName: cliName ?? this.cliName,
@@ -66,6 +73,9 @@ class HardnessRoleConfig {
       aiModelConfigId: clearAiModelConfigId
           ? null
           : aiModelConfigId ?? this.aiModelConfigId,
+      urlModeModelId: clearUrlModeModelId
+          ? null
+          : urlModeModelId ?? this.urlModeModelId,
     );
   }
 
@@ -74,6 +84,7 @@ class HardnessRoleConfig {
     'model_id': modelId,
     'execution_mode': executionMode.storageValue,
     'ai_model_config_id': aiModelConfigId,
+    'url_mode_model_id': urlModeModelId,
   };
 
   static HardnessRoleConfig fromJson(Map<String, Object?> json) {
@@ -84,6 +95,7 @@ class HardnessRoleConfig {
         json['execution_mode'] as String?,
       ),
       aiModelConfigId: json['ai_model_config_id'] as String?,
+      urlModeModelId: json['url_mode_model_id'] as String?,
     );
   }
 

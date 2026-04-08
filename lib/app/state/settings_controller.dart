@@ -8,6 +8,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/dialog_animation_settings.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
@@ -45,6 +46,7 @@ class SettingsController extends ChangeNotifier {
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
+       _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _persistenceIssue = persistenceIssue;
   static const Uuid _uuid = Uuid();
 
@@ -76,6 +78,7 @@ class SettingsController extends ChangeNotifier {
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
   Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
+  DialogAnimationSettings _dialogAnimationSettings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -125,6 +128,8 @@ class SettingsController extends ChangeNotifier {
   String? get selectedAiModelId => _selectedAiModelId;
   Map<OpenHandShortcutAction, List<int>> get shortcutBindings =>
       _cloneShortcutBindings(_shortcutBindings);
+  DialogAnimationSettings get dialogAnimationSettings =>
+      _dialogAnimationSettings;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -428,6 +433,85 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// Updates the active model ID for a specific provider config, and
+  /// simultaneously selects that provider as the current one.
+  Future<bool> updateProviderActiveModel(
+    String providerConfigId,
+    String modelId,
+  ) async {
+    return _commitMutation(() {
+      final index = _aiModels.indexWhere(
+        (item) => item.id == providerConfigId,
+      );
+      if (index == -1) {
+        return _MutationDisposition.reject;
+      }
+      final updatedModels = List<AiModelConfig>.from(_aiModels);
+      updatedModels[index] = updatedModels[index].copyWith(modelId: modelId);
+      _aiModels = updatedModels;
+      _selectedAiModelId = providerConfigId;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// Updates the available model IDs list for a specific provider config.
+  Future<bool> updateProviderAvailableModels(
+    String providerConfigId,
+    List<String> availableModelIds,
+  ) async {
+    return _commitMutation(() {
+      final index = _aiModels.indexWhere(
+        (item) => item.id == providerConfigId,
+      );
+      if (index == -1) {
+        return _MutationDisposition.reject;
+      }
+      final updatedModels = List<AiModelConfig>.from(_aiModels);
+      final current = updatedModels[index];
+      updatedModels[index] = current.copyWith(
+        availableModelIds: availableModelIds,
+        // If the current modelId is empty but we have available models,
+        // auto-select the first one.
+        modelId: current.modelId.trim().isEmpty && availableModelIds.isNotEmpty
+            ? availableModelIds.first
+            : null,
+      );
+      _aiModels = updatedModels;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// Returns a flattened list of (providerConfigId, modelId) pairs for the
+  /// model selector UI. Each entry represents one selectable model across all
+  /// providers. Providers with no models (empty modelId and empty
+  /// availableModelIds) are represented by a single entry using the provider
+  /// displayName.
+  List<({String providerConfigId, String modelId, String providerLabel})>
+      get flatModelEntries {
+    final entries =
+        <({String providerConfigId, String modelId, String providerLabel})>[];
+    for (final config in _aiModels) {
+      final allIds = config.allModelIds;
+      if (allIds.isEmpty) {
+        // Provider with no models — show placeholder.
+        entries.add((
+          providerConfigId: config.id,
+          modelId: '',
+          providerLabel: config.providerLabel,
+        ));
+      } else {
+        for (final modelId in allIds) {
+          entries.add((
+            providerConfigId: config.id,
+            modelId: modelId,
+            providerLabel: config.providerLabel,
+          ));
+        }
+      }
+    }
+    return entries;
+  }
+
   Future<bool> updateShortcutBinding(
     OpenHandShortcutAction action,
     List<int> keyIds,
@@ -454,6 +538,18 @@ class SettingsController extends ChangeNotifier {
       action,
       defaultOpenHandShortcutBindings()[action] ?? const <int>[],
     );
+  }
+
+  Future<bool> updateDialogAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_dialogAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _dialogAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
   }
 
   String createAiModelId() {
@@ -487,6 +583,7 @@ class SettingsController extends ChangeNotifier {
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
       shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
+      dialogAnimationSettings: _dialogAnimationSettings,
     );
   }
 
@@ -514,6 +611,7 @@ class SettingsController extends ChangeNotifier {
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
     _selectedAiModelId = snapshot.selectedAiModelId;
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
+    _dialogAnimationSettings = snapshot.dialogAnimationSettings;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
