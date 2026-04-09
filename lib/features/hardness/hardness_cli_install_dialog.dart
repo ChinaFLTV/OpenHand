@@ -295,6 +295,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
 
         // Re-probe to confirm the binary is now reachable in the login shell.
         final probe = await probeCliInstallation(widget.cli);
+        if (!mounted) return;
         setState(() {
           _running = false;
           _success = probe.installed;
@@ -314,7 +315,7 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
               '⚠ 安装完成，但未在当前 PATH 中检测到 ${widget.cli.executable}');
           _appendLine('  → 请尝试重新启动 OpenHand 或从终端启动以加载新 PATH');
           // Treat as success so the caller re-scans.
-          setState(() => _success = true);
+          if (mounted) setState(() => _success = true);
         }
       } on TimeoutException {
         if (!mounted) return;

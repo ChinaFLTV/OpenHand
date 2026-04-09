@@ -104,6 +104,20 @@ class DialogAnimationSettings {
     this.curve = DialogAnimationCurve.easeOutCubic,
   });
 
+  factory DialogAnimationSettings.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return defaults;
+    return DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.fromStorage(
+        json['entrance_style'] as String?,
+      ),
+      exitStyle: DialogAnimationStyle.fromStorage(
+        json['exit_style'] as String?,
+      ),
+      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 320,
+      curve: DialogAnimationCurve.fromStorage(json['curve'] as String?),
+    );
+  }
+
   static const DialogAnimationSettings defaults = DialogAnimationSettings();
 
   final DialogAnimationStyle entranceStyle;
@@ -133,20 +147,6 @@ class DialogAnimationSettings {
     'duration_ms': durationMs,
     'curve': curve.storageValue,
   };
-
-  factory DialogAnimationSettings.fromJson(Map<String, dynamic>? json) {
-    if (json == null) return defaults;
-    return DialogAnimationSettings(
-      entranceStyle: DialogAnimationStyle.fromStorage(
-        json['entrance_style'] as String?,
-      ),
-      exitStyle: DialogAnimationStyle.fromStorage(
-        json['exit_style'] as String?,
-      ),
-      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 320,
-      curve: DialogAnimationCurve.fromStorage(json['curve'] as String?),
-    );
-  }
 
   @override
   bool operator ==(Object other) =>

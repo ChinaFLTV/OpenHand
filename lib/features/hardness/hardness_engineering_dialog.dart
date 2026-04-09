@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';

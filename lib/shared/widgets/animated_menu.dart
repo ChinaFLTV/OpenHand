@@ -500,7 +500,7 @@ class _AnimatedPopupMenuButtonState<T>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
-  _PopupMenuDefaultsM2(this.context)
+  const _PopupMenuDefaultsM2(this.context)
       : super(elevation: 8.0);
 
   final BuildContext context;
@@ -517,7 +517,7 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
 }
 
 class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
-  _PopupMenuDefaultsM3(this.context)
+  const _PopupMenuDefaultsM3(this.context)
       : super(elevation: 3.0);
 
   final BuildContext context;

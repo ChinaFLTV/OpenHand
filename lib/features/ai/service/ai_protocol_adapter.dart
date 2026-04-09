@@ -443,7 +443,6 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  @override
   Future<String> parseAssistantMessage(String rawResponse) async {
     final decoded = jsonDecode(rawResponse);
     if (decoded is! Map<String, Object?>) {

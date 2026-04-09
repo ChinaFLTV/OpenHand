@@ -250,9 +250,9 @@ class AiModelConfig {
     return parsed;
   }
 
-  /// Parses [available_model_ids] which may be:
-  /// - a List<dynamic> (from JSON deserialization)
-  /// - a String (double-JSON-encoded from TOML storage)
+  /// Parses `available_model_ids` which may be:
+  /// - a `List<dynamic>` (from JSON deserialization)
+  /// - a `String` (double-JSON-encoded from TOML storage)
   /// - null or other (returns empty list)
   static List<String> _parseAvailableModelIds(Object? value) {
     if (value == null) {

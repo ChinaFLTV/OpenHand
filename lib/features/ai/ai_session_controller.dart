@@ -28,20 +28,14 @@ import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
 
+
+part '_ai_session_models.dart';
+part '_ai_session_utils.dart';
+
 typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
 enum AiSendPhase { idle, compressing, sendingMessage, responding, awaitingApproval }
-
-class _CompressionWindowSelection {
-  const _CompressionWindowSelection({
-    required this.messagesToCompress,
-    required this.discardedMessages,
-  });
-
-  final List<AiSessionMessage> messagesToCompress;
-  final List<AiSessionMessage> discardedMessages;
-}
 
 class AiRuntimeToolPreview {
   const AiRuntimeToolPreview({
@@ -3697,36 +3691,6 @@ class AiSessionController extends ChangeNotifier {
     return null;
   }
 
-  bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
-    return todoItems.any(
-      (item) => item.status.trim().toLowerCase() != 'completed',
-    );
-  }
-
-  bool _hasPlanExecutionContext(AiSession session) {
-    return session.todoItems.isNotEmpty ||
-        (session.pendingPlan ?? '').trim().isNotEmpty ||
-        session.latestActivePlanRecord != null;
-  }
-
-  String _normalizeToolName(String toolName) {
-    return toolName.trim().toLowerCase();
-  }
-
-  bool _hasCompletedTodoItemsOnly(List<AiSessionTodoItem> todoItems) {
-    return todoItems.isNotEmpty &&
-        todoItems.every(
-          (item) => item.status.trim().toLowerCase() == 'completed',
-        );
-  }
-
-  bool _hasFailedTodoItems(List<AiSessionTodoItem> todoItems) {
-    return todoItems.any((item) {
-      final status = item.status.trim().toLowerCase();
-      return status == 'failed' || status == 'blocked' || status == 'cancelled';
-    });
-  }
-
   AiSessionPlanStatus _statusAfterClearingActivePlan(AiSession session) {
     final derivedStatus = _deriveTrackedPlanStatus(session);
     if (derivedStatus == AiSessionPlanStatus.completed ||
@@ -3827,30 +3791,6 @@ class AiSessionController extends ChangeNotifier {
       }
     }
     return null;
-  }
-
-  bool _isFailureTrackedPlanToolStatus(String status) {
-    return switch (status) {
-      'failed' ||
-      'cancelled' ||
-      'denied' ||
-      'rejected' ||
-      'timed_out' ||
-      'invalid_arguments' => true,
-      _ => false,
-    };
-  }
-
-  bool _isTrackedPlanRelevantErrorStage(String stage) {
-    return switch (stage.trim().toLowerCase()) {
-      'chat_request' ||
-      'chat_continuation_request' ||
-      'chat_stream' ||
-      'follow_up_request' ||
-      'tool_execution' ||
-      'tool_loop' => true,
-      _ => false,
-    };
   }
 
   AiSessionMessage? _latestTrackedPlanRecoveryMessage(AiSession session) {
@@ -4601,10 +4541,6 @@ class AiSessionController extends ChangeNotifier {
     return model;
   }
 
-  bool _isRetryableAutoTitleError(Object error) {
-    return '$error'.contains('Request timed out.');
-  }
-
   Future<bool> _waitForSessionIdleForAutoTitleRetry({
     required String sessionId,
     required String sourceMessageId,
@@ -5028,24 +4964,6 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  bool _environmentEquals(
-    AiSessionEnvironment left,
-    AiSessionEnvironment right,
-  ) {
-    return left.localeTag == right.localeTag &&
-        left.platform == right.platform &&
-        left.appVersion == right.appVersion &&
-        left.appBuildNumber == right.appBuildNumber &&
-        left.applicationDirectory == right.applicationDirectory &&
-        left.homeDirectory == right.homeDirectory &&
-        left.settingsFilePath == right.settingsFilePath &&
-        left.skillsStoragePath == right.skillsStoragePath &&
-        left.mcpServersFilePath == right.mcpServersFilePath &&
-        left.userMemoryFilePath == right.userMemoryFilePath &&
-        left.sessionsDirectoryPath == right.sessionsDirectoryPath &&
-        left.compressionThresholdChars == right.compressionThresholdChars;
-  }
-
   List<String> _readStringList(Object? rawValue) {
     if (rawValue is List) {
       return rawValue
@@ -5058,18 +4976,6 @@ class AiSessionController extends ChangeNotifier {
       return const <String>[];
     }
     return <String>[single];
-  }
-
-  bool _stringListsEqual(List<String> left, List<String> right) {
-    if (left.length != right.length) {
-      return false;
-    }
-    for (var index = 0; index < left.length; index++) {
-      if (left[index] != right[index]) {
-        return false;
-      }
-    }
-    return true;
   }
 
   bool? _readBool(Object? rawValue) {
@@ -5183,21 +5089,6 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  String _toolCallLimitWarningMessage({
-    required AiSessionRuntimeContext runtimeContext,
-    required int toolCallCount,
-    required int limit,
-  }) {
-    if (_prefersChineseLocale(runtimeContext.localeTag)) {
-      return '本轮对话中的工具调用次数已达到 $toolCallCount 次，超过当前设置的上限 $limit 次。OpenHand 已发送警告并安全终止本轮响应。';
-    }
-    return 'This response reached $toolCallCount tool calls, which exceeds the configured limit of $limit. OpenHand posted a warning and stopped the round for safety.';
-  }
-
-  bool _prefersChineseLocale(String localeTag) {
-    return localeTag.trim().toLowerCase().startsWith('zh');
-  }
-
   AiSession _rebuildSession(
     AiSession session, {
     int? totalPromptCharacters,
@@ -5240,236 +5131,6 @@ class AiSessionController extends ChangeNotifier {
       cacheCreationTokens: statistics.cacheCreationTokens,
       cacheReadTokens: statistics.cacheReadTokens,
     );
-  }
-
-  String _deriveSessionTitle(
-    AiSession session,
-    AiSessionMessage latestUserMessage,
-  ) {
-    final hasExistingUserMessages = session.messages.any(
-      (message) =>
-          !message.isDeleted && message.kind == AiSessionMessageKind.user,
-    );
-    if (hasExistingUserMessages &&
-        session.title.trim().isNotEmpty &&
-        session.title.trim() != session.templateName &&
-        session.autoTitleSourceMessageId != latestUserMessage.id &&
-        !session.isTitleManuallyEdited) {
-      return session.title;
-    }
-    final derivedTitle = _deriveReadableTitleFromContent(
-      latestUserMessage.content,
-      maxCharacters: _fallbackTitleMaxCharacters,
-    );
-    return derivedTitle.isEmpty ? session.title : derivedTitle;
-  }
-
-  String _sanitizeGeneratedTitle(String value) {
-    var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    normalized = normalized.replaceAll(RegExp(r'[\n]+'), ' ');
-    normalized = normalized.replaceAllMapped(
-      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
-      (match) => match.group(1) ?? '',
-    );
-    normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、:：-]\s*'), '');
-    normalized = normalized.replaceFirst(RegExp(r'^\s*[-*+#>]+\s*'), '');
-    normalized = _stripTitleWrappers(normalized);
-    final collapsed = normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (collapsed.isEmpty) {
-      return '';
-    }
-    return _trimTitleToMaxCharacters(
-      _stripTitleWrappers(collapsed),
-      _generatedTitleMaxCharacters,
-    );
-  }
-
-  bool _isMeaningfulAutoTitle(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return false;
-    }
-    final normalized = _normalizeAutoTitleForComparison(trimmed);
-    if (normalized.isEmpty ||
-        normalized ==
-            _normalizeAutoTitleForComparison(_defaultNewSessionTitle) ||
-        _genericAutoTitleCandidates.contains(normalized)) {
-      return false;
-    }
-    final hasCjk = RegExp(r'[\u4E00-\u9FFF]').hasMatch(trimmed);
-    if (hasCjk) {
-      return normalized.characters.length >= _minimumMeaningfulTitleCharacters;
-    }
-    final words = trimmed
-        .split(RegExp(r'\s+'))
-        .where((item) => item.trim().isNotEmpty)
-        .length;
-    if (words >= _minimumMeaningfulLatinTitleWords) {
-      return true;
-    }
-    final latinOrDigitCount = normalized.replaceAll(RegExp(r'[^a-z0-9]'), '');
-    return latinOrDigitCount.length >= 6;
-  }
-
-  String _deriveReadableTitleFromContent(
-    String value, {
-    required int maxCharacters,
-  }) {
-    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final lines = normalized
-        .split('\n')
-        .map(_sanitizeTitleSourceLine)
-        .where((item) => item.isNotEmpty)
-        .take(3)
-        .toList(growable: false);
-    if (lines.isEmpty) {
-      return '';
-    }
-    final candidates = <String>[
-      for (final line in lines) ..._splitTitleSourceLine(line),
-      lines.join(' '),
-      lines.first,
-    ];
-    for (final candidate in candidates) {
-      final trimmed = _trimTitleToMaxCharacters(candidate, maxCharacters);
-      if (_isMeaningfulAutoTitle(trimmed)) {
-        return trimmed;
-      }
-    }
-    return _trimTitleToMaxCharacters(lines.first, maxCharacters);
-  }
-
-  List<String> _splitTitleSourceLine(String value) {
-    return value
-        .split(RegExp(r'[。！？!?；;]'))
-        .map(_sanitizeTitleSourceLine)
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-  }
-
-  String _sanitizeTitleSourceLine(String value) {
-    var normalized = value.trim();
-    if (normalized.isEmpty) {
-      return '';
-    }
-    normalized = normalized.replaceAllMapped(
-      RegExp(r'\[([^\]]+)\]\([^)]+\)'),
-      (match) => match.group(1) ?? '',
-    );
-    normalized = normalized.replaceAll(RegExp(r'`{1,3}'), '');
-    normalized = normalized.replaceAll(RegExp(r'[*_~]'), '');
-    normalized = normalized.replaceFirst(RegExp(r'^\s*[#>]+\s*'), '');
-    normalized = normalized.replaceFirst(RegExp(r'^\s*[-+*]\s+'), '');
-    normalized = normalized.replaceFirst(RegExp(r'^\s*\d+[.)、]\s*'), '');
-    normalized = normalized.replaceFirst(
-      RegExp(r'^\s*(第一|第二|第三|第四|第五|首先|其次|然后|最后)[，,:：\s-]*'),
-      '',
-    );
-    normalized = normalized.replaceFirst(
-      RegExp(r'^\s*(有几处地方需要改进优化|有几个地方需要改进优化)[，,:：\s-]*'),
-      '',
-    );
-    normalized = _stripTitleLeadIn(normalized);
-    normalized = _stripTitleWrappers(normalized);
-    return normalized.replaceAll(RegExp(r'\s+'), ' ').trim();
-  }
-
-  String _stripTitleLeadIn(String value) {
-    var normalized = value.trim();
-    const chinesePrefixes = <String>[
-      '请帮我',
-      '帮我',
-      '请你',
-      '麻烦你',
-      '麻烦帮我',
-      '请问',
-      '需要你',
-      '我想请你',
-      '我想',
-      '我需要',
-      '帮忙',
-      '求助',
-    ];
-    for (final prefix in chinesePrefixes) {
-      if (normalized.startsWith(prefix) &&
-          normalized.characters.length > prefix.characters.length) {
-        normalized = normalized.substring(prefix.length).trimLeft();
-        break;
-      }
-    }
-    final englishPrefixes = <RegExp>[
-      RegExp(r'^(please|plz)\s+', caseSensitive: false),
-      RegExp(r'^(can|could|would)\s+you\s+', caseSensitive: false),
-      RegExp(r'^(help\s+me)\s+', caseSensitive: false),
-      RegExp(r'^(i\s+need\s+to)\s+', caseSensitive: false),
-      RegExp(r'^(i\s+want\s+to)\s+', caseSensitive: false),
-      RegExp(r'^(need\s+to)\s+', caseSensitive: false),
-    ];
-    for (final pattern in englishPrefixes) {
-      normalized = normalized.replaceFirst(pattern, '').trimLeft();
-    }
-    return normalized;
-  }
-
-  String _stripTitleWrappers(String value) {
-    var normalized = value.trim();
-    while (normalized.isNotEmpty) {
-      final stripped = normalized
-          .replaceFirst(RegExp(r'^[`*_#~>"“”‘’《》〈〉【】\[\]\(\)\-:：]+'), '')
-          .replaceFirst(RegExp(r'[`*_#~<>"“”‘’《》〈〉【】\[\]\(\)\-:：]+$'), '')
-          .trim();
-      if (stripped == normalized) {
-        return stripped;
-      }
-      normalized = stripped;
-    }
-    return normalized;
-  }
-
-  String _trimTitleToMaxCharacters(String value, int maxCharacters) {
-    final collapsed = value.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (collapsed.isEmpty) {
-      return '';
-    }
-    final characters = collapsed.characters;
-    if (characters.length <= maxCharacters) {
-      return collapsed;
-    }
-    final trimmed = characters.take(maxCharacters).toString().trimRight();
-    return trimmed.replaceFirst(RegExp(r'[\s,:：，。；、-]+$'), '').trimRight();
-  }
-
-  String _normalizeAutoTitleForComparison(String value) {
-    return _stripTitleWrappers(value).trim().toLowerCase().replaceAll(
-      RegExp("[\\s\\.,!?\\-_:;'\"“”‘’《》〈〉【】\\[\\]\\(\\)，。！？：；、]+"),
-      '',
-    );
-  }
-
-  String _sanitizeVisibleModelContent(String value) {
-    final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final lines = normalized.split('\n');
-    var cursor = 0;
-    while (cursor < lines.length && lines[cursor].trim().isEmpty) {
-      cursor += 1;
-    }
-    if (cursor >= lines.length ||
-        !_internalPromptLeakHeaders.contains(lines[cursor].trim())) {
-      return sanitizeVisibleDsmlContent(normalized);
-    }
-    while (cursor < lines.length) {
-      final trimmed = lines[cursor].trim();
-      if (trimmed.isEmpty || _internalPromptLeakHeaders.contains(trimmed)) {
-        cursor += 1;
-        continue;
-      }
-      break;
-    }
-    final sanitized = lines.skip(cursor).join('\n').trimLeft();
-    if (sanitized.length == normalized.length) {
-      return sanitizeVisibleDsmlContent(normalized);
-    }
-    return sanitizeVisibleDsmlContent(sanitized);
   }
 
   bool _shouldCompressSessionHistory(
@@ -5623,28 +5284,6 @@ class AiSessionController extends ChangeNotifier {
     }
     return (characterCount + _estimatedCharactersPerToken - 1) ~/
         _estimatedCharactersPerToken;
-  }
-
-  String _renderToolCallContent({
-    required String name,
-    required String arguments,
-  }) {
-    final normalizedName = name.trim().isEmpty ? 'tool' : name.trim();
-    final prettyArguments = _prettyToolArguments(arguments);
-    return '**$normalizedName**\n\n```json\n$prettyArguments\n```';
-  }
-
-  String _prettyToolArguments(String arguments) {
-    final trimmed = arguments.trim();
-    if (trimmed.isEmpty) {
-      return '{}';
-    }
-    try {
-      final decoded = jsonDecode(trimmed);
-      return const JsonEncoder.withIndent('  ').convert(decoded);
-    } catch (_) {
-      return trimmed;
-    }
   }
 
   Map<String, Object?> _decodeToolArguments(String arguments) {
@@ -5962,60 +5601,11 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  bool _isTerminalToolExecutionStatus(String status) {
-    return switch (status) {
-      'success' ||
-      'failed' ||
-      'cancelled' ||
-      'denied' ||
-      'rejected' ||
-      'timed_out' ||
-      'invalid_arguments' => true,
-      _ => false,
-    };
-  }
-
   int _toolExecutionMetadataInt(Object? rawValue) {
     if (rawValue is int) {
       return rawValue;
     }
     return int.tryParse('${rawValue ?? ''}'.trim()) ?? 0;
-  }
-
-  String _cancelledToolExecutionResultText({
-    required String command,
-    required String workingDirectory,
-    required int elapsedMs,
-    required bool hadStarted,
-  }) {
-    final resolvedCommand = command.isEmpty ? 'tool_call' : command;
-    final buffer = StringBuffer()
-      ..writeln('status: cancelled')
-      ..writeln('command: $resolvedCommand')
-      ..writeln('working_directory: $workingDirectory')
-      ..writeln('duration_ms: $elapsedMs')
-      ..write(
-        hadStarted
-            ? 'detail: The tool execution was cancelled by the user.'
-            : 'detail: The tool call was cancelled before execution started.',
-      );
-    return buffer.toString();
-  }
-
-  String _failedToolExecutionResultText({
-    required String command,
-    required String workingDirectory,
-    required int elapsedMs,
-    required String detail,
-  }) {
-    final resolvedCommand = command.isEmpty ? 'tool_call' : command;
-    final buffer = StringBuffer()
-      ..writeln('status: failed')
-      ..writeln('command: $resolvedCommand')
-      ..writeln('working_directory: $workingDirectory')
-      ..writeln('duration_ms: $elapsedMs')
-      ..write('detail: $detail');
-    return buffer.toString();
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
@@ -6096,49 +5686,4 @@ class AiSessionController extends ChangeNotifier {
   void _debugSessionLog(String sessionId, String message) {
     return;
   }
-}
-
-class _ClaudeCodeDocsTarget {
-  const _ClaudeCodeDocsTarget({required this.url, required this.label});
-
-  final String url;
-  final String label;
-}
-
-class _ScoredClaudeCodeDocsRoute {
-  const _ScoredClaudeCodeDocsRoute({
-    required this.route,
-    required this.score,
-    required this.priority,
-  });
-
-  final String route;
-  final int score;
-  final int priority;
-}
-
-class _RunningToolCallState {
-  const _RunningToolCallState({
-    required this.toolCall,
-    required this.messageId,
-    required this.executionSessionId,
-  });
-
-  final AiToolCall toolCall;
-  final String messageId;
-  final String executionSessionId;
-}
-
-class _PreparedUserTurn {
-  const _PreparedUserTurn({
-    required this.session,
-    required this.userMessage,
-    required this.shouldGenerateTitle,
-    required this.importedAttachments,
-  });
-
-  final AiSession session;
-  final AiSessionMessage userMessage;
-  final bool shouldGenerateTitle;
-  final bool importedAttachments;
 }

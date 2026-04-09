@@ -14,8 +14,8 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
-import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
 import 'hardness_cli_catalog.dart';

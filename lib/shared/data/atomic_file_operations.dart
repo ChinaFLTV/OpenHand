@@ -11,6 +11,16 @@ import 'dart:io';
 /// Call this once for each critical file **before** reading it at startup.
 /// It is safe to call even when no leftover artifacts exist.
 Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
+  // Clean up orphaned .tmp files from interrupted atomic writes.
+  final tempFile = File('${targetFile.path}.tmp');
+  if (await tempFile.exists()) {
+    try {
+      await tempFile.delete();
+    } on FileSystemException {
+      // Best-effort cleanup; ignore if the file cannot be deleted.
+    }
+  }
+
   if (await targetFile.exists()) {
     return;
   }
