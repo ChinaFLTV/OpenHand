@@ -225,13 +225,14 @@ class AiModelScanner {
   }
 
   /// Claude/Anthropic doesn't have a public models list endpoint.
-  /// Return a hardcoded list of known models as a best-effort fallback.
+  /// Try the beta endpoint; if it fails, return an empty result with
+  /// an informative message so the user can add model IDs manually.
   Future<AiModelScanResult> _scanClaude(
     AiModelConfig config, {
     required Duration timeout,
   }) async {
     // Anthropic does not expose a /models endpoint publicly.
-    // Try the beta endpoint first — if it fails, return well-known models.
+    // Try the beta endpoint first — if it fails, tell the user to add models manually.
     final baseUrl = config.normalizedBaseUrl;
     String modelsUrl;
     if (baseUrl.endsWith('/v1')) {
@@ -254,21 +255,22 @@ class AiModelScanner {
           return parsed;
         }
       }
-    } catch (_) {
-      // Fall through to default known models.
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error:
+            'Claude/Anthropic provider returned status ${response.statusCode}. '
+            'This API may not support a models listing endpoint. '
+            'Please add model IDs manually using the "手动输入模型 ID" field above.',
+      );
+    } catch (e) {
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error:
+            'Failed to scan Claude/Anthropic models ($e). '
+            'This API may not support a models listing endpoint. '
+            'Please add model IDs manually using the "手动输入模型 ID" field above.',
+      );
     }
-
-    return const AiModelScanResult(
-      modelIds: <String>[
-        'claude-sonnet-4-20250514',
-        'claude-opus-4-20250514',
-        'claude-3-7-sonnet-20250219',
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022',
-        'claude-3-opus-20240229',
-        'claude-3-haiku-20240307',
-      ],
-    );
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config) {
@@ -277,14 +279,30 @@ class AiModelScanner {
     };
     final rawToken = config.token.trim();
     if (rawToken.isEmpty || config.authScheme == AiAuthScheme.none) {
+      _mergeCustomHeaders(headers, config);
       return headers;
     }
     if (config.authScheme == AiAuthScheme.apiKey) {
       headers['x-api-key'] = config.authScheme.apply(rawToken);
+      _mergeCustomHeaders(headers, config);
       return headers;
     }
     headers['authorization'] = config.authScheme.apply(rawToken);
+    _mergeCustomHeaders(headers, config);
     return headers;
+  }
+
+  void _mergeCustomHeaders(
+    Map<String, String> headers,
+    AiModelConfig config,
+  ) {
+    if (config.customHeaders.isEmpty) return;
+    for (final entry in config.customHeaders.entries) {
+      final key = entry.key.trim();
+      if (key.isNotEmpty) {
+        headers[key] = entry.value;
+      }
+    }
   }
 
   /// Parses OpenAI-style `{ "data": [ { "id": "model-name" }, ... ] }`.

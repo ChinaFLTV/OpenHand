@@ -17,8 +17,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _modelIdController;
   late final TextEditingController _maxContextTokensController;
   late final TextEditingController _manualModelIdController;
+  late final TextEditingController _maxTokensController;
+  late final TextEditingController _temperatureController;
   late AiAuthScheme _authScheme;
   late AiProtocolType _protocolType;
+  late String _requestMethod;
+  late bool _streamEnabled;
   bool _obscureToken = true;
   bool _isSaving = false;
   bool _isScanning = false;
@@ -26,6 +30,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   String? _scanError;
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
+  late List<_HeaderEntry> _customHeaderEntries;
 
   @override
   void initState() {
@@ -46,14 +51,30 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       text: widget.initialModel?.maxContextTokens?.toString() ?? '',
     );
     _manualModelIdController = TextEditingController();
+    _maxTokensController = TextEditingController(
+      text: widget.initialModel?.maxTokens?.toString() ?? '',
+    );
+    _temperatureController = TextEditingController(
+      text: widget.initialModel?.temperature?.toString() ?? '0.7',
+    );
     _authScheme = widget.initialModel?.authScheme ?? AiAuthScheme.bearer;
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
+    _requestMethod = widget.initialModel?.requestMethod ?? 'POST';
+    _streamEnabled = widget.initialModel?.streamEnabled ?? true;
     _availableModelIds = List<String>.from(
       widget.initialModel?.availableModelIds ?? const <String>[],
     );
     _activeModelId = widget.initialModel?.modelId.trim().isNotEmpty == true
         ? widget.initialModel!.modelId.trim()
         : null;
+    _customHeaderEntries = <_HeaderEntry>[];
+    final existingHeaders = widget.initialModel?.customHeaders ?? const <String, String>{};
+    for (final entry in existingHeaders.entries) {
+      _customHeaderEntries.add(_HeaderEntry(
+        keyController: TextEditingController(text: entry.key),
+        valueController: TextEditingController(text: entry.value),
+      ));
+    }
   }
 
   @override
@@ -64,6 +85,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _modelIdController.dispose();
     _maxContextTokensController.dispose();
     _manualModelIdController.dispose();
+    _maxTokensController.dispose();
+    _temperatureController.dispose();
+    for (final entry in _customHeaderEntries) {
+      entry.keyController.dispose();
+      entry.valueController.dispose();
+    }
     super.dispose();
   }
 
@@ -98,6 +125,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         token: _tokenController.text.trim(),
         modelId: '',
         protocolType: _protocolType,
+        customHeaders: _collectCustomHeaders(),
       );
       final result = await scanner.scan(config);
       if (!mounted) return;
@@ -176,6 +204,35 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     });
   }
 
+  void _addHeaderEntry() {
+    setState(() {
+      _customHeaderEntries.add(_HeaderEntry(
+        keyController: TextEditingController(),
+        valueController: TextEditingController(),
+      ));
+    });
+  }
+
+  void _removeHeaderEntry(int index) {
+    setState(() {
+      final entry = _customHeaderEntries.removeAt(index);
+      entry.keyController.dispose();
+      entry.valueController.dispose();
+    });
+  }
+
+  Map<String, String> _collectCustomHeaders() {
+    final result = <String, String>{};
+    for (final entry in _customHeaderEntries) {
+      final key = entry.keyController.text.trim();
+      final value = entry.valueController.text.trim();
+      if (key.isNotEmpty) {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -185,7 +242,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       canPop: !_isSaving,
       child: Dialog(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 780),
+          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 860),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -420,20 +477,58 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   runSpacing: 6,
                                   children: _availableModelIds
                                       .map(
-                                        (id) => InputChip(
-                                          label: Text(id),
-                                          selected: id == _activeModelId,
-                                          onSelected: _isSaving
-                                              ? null
-                                              : (_) => _selectModelId(id),
-                                          onDeleted: _isSaving
-                                              ? null
-                                              : () => _removeModelId(id),
-                                          deleteIcon: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                          ),
-                                        ),
+                                        (id) {
+                                          final isActive =
+                                              id == _activeModelId;
+                                          final colorScheme =
+                                              Theme.of(context).colorScheme;
+                                          return InputChip(
+                                            label: Text(
+                                              id,
+                                              style: isActive
+                                                  ? TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: colorScheme
+                                                          .primary,
+                                                    )
+                                                  : null,
+                                            ),
+                                            avatar: isActive
+                                                ? Icon(
+                                                    Icons.check_rounded,
+                                                    size: 16,
+                                                    color:
+                                                        colorScheme.primary,
+                                                  )
+                                                : null,
+                                            selected: isActive,
+                                            selectedColor: colorScheme
+                                                .secondaryContainer,
+                                            showCheckmark: false,
+                                            side: isActive
+                                                ? BorderSide(
+                                                    color: colorScheme
+                                                        .primary
+                                                        .withValues(
+                                                          alpha: 0.5,
+                                                        ),
+                                                  )
+                                                : null,
+                                            onSelected: _isSaving
+                                                ? null
+                                                : (_) =>
+                                                    _selectModelId(id),
+                                            onDeleted: _isSaving
+                                                ? null
+                                                : () =>
+                                                    _removeModelId(id),
+                                            deleteIcon: const Icon(
+                                              Icons.close,
+                                              size: 16,
+                                            ),
+                                          );
+                                        },
                                       )
                                       .toList(growable: false),
                                 ),
@@ -526,6 +621,246 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 16),
+                          // ── Request configuration section ──
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final stacked = constraints.maxWidth < 640;
+                              final methodDropdown = DropdownButtonFormField<String>(
+                                initialValue: _requestMethod,
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    zh: '请求方式',
+                                    en: 'Request Method',
+                                  ),
+                                ),
+                                items: const <DropdownMenuItem<String>>[
+                                  DropdownMenuItem<String>(value: 'POST', child: Text('POST')),
+                                  DropdownMenuItem<String>(value: 'GET', child: Text('GET')),
+                                  DropdownMenuItem<String>(value: 'PUT', child: Text('PUT')),
+                                  DropdownMenuItem<String>(value: 'PATCH', child: Text('PATCH')),
+                                  DropdownMenuItem<String>(value: 'DELETE', child: Text('DELETE')),
+                                  DropdownMenuItem<String>(value: 'HEAD', child: Text('HEAD')),
+                                  DropdownMenuItem<String>(value: 'OPTIONS', child: Text('OPTIONS')),
+                                ],
+                                onChanged: _isSaving
+                                    ? null
+                                    : (value) {
+                                        if (value == null) return;
+                                        setState(() {
+                                          _requestMethod = value;
+                                        });
+                                      },
+                              );
+                              final streamToggle = InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    zh: '输出模式',
+                                    en: 'Output Mode',
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.only(top: 8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      _streamEnabled
+                                          ? _localizedText(zh: '流式输出', en: 'Streaming')
+                                          : _localizedText(zh: '非流式输出', en: 'Non-streaming'),
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                    const Spacer(),
+                                    Switch(
+                                      value: _streamEnabled,
+                                      onChanged: null, // Disabled for now
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (stacked) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    methodDropdown,
+                                    const SizedBox(height: 16),
+                                    streamToggle,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: methodDropdown),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: streamToggle),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final stacked = constraints.maxWidth < 640;
+                              final maxTokensField = TextFormField(
+                                controller: _maxTokensController,
+                                enabled: !_isSaving,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    zh: '最大输出 Token 数',
+                                    en: 'Max Output Tokens',
+                                  ),
+                                  helperText: _localizedText(
+                                    zh: '可选。不指定则使用适配器默认值。',
+                                    en: 'Optional. Uses adapter default if unset.',
+                                  ),
+                                ),
+                                validator: (value) {
+                                  final trimmed = value?.trim() ?? '';
+                                  if (trimmed.isEmpty) return null;
+                                  final parsed = int.tryParse(trimmed);
+                                  if (parsed == null || parsed <= 0) {
+                                    return _localizedText(
+                                      zh: '请输入大于 0 的整数',
+                                      en: 'Enter a whole number greater than 0',
+                                    );
+                                  }
+                                  return null;
+                                },
+                              );
+                              final temperatureField = TextFormField(
+                                controller: _temperatureController,
+                                enabled: !_isSaving,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    zh: '温度',
+                                    en: 'Temperature',
+                                  ),
+                                  helperText: _localizedText(
+                                    zh: '0.0 ~ 2.0，默认 0.7',
+                                    en: '0.0 ~ 2.0, default 0.7',
+                                  ),
+                                ),
+                                validator: (value) {
+                                  final trimmed = value?.trim() ?? '';
+                                  if (trimmed.isEmpty) return null;
+                                  final parsed = double.tryParse(trimmed);
+                                  if (parsed == null || parsed < 0 || parsed > 2.0) {
+                                    return _localizedText(
+                                      zh: '请输入 0.0 到 2.0 之间的数值',
+                                      en: 'Enter a number between 0.0 and 2.0',
+                                    );
+                                  }
+                                  return null;
+                                },
+                              );
+                              if (stacked) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    maxTokensField,
+                                    const SizedBox(height: 16),
+                                    temperatureField,
+                                  ],
+                                );
+                              }
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: maxTokensField),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: temperatureField),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                          // ── Custom headers section ──
+                          Row(
+                            children: [
+                              Text(
+                                _localizedText(
+                                  zh: '自定义请求头',
+                                  en: 'Custom Headers',
+                                ),
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const Spacer(),
+                              FilledButton.tonalIcon(
+                                onPressed: _isSaving ? null : _addHeaderEntry,
+                                icon: const Icon(Icons.add, size: 18),
+                                label: Text(_localizedText(zh: '添加', en: 'Add')),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (_customHeaderEntries.isEmpty)
+                            Text(
+                              _localizedText(
+                                zh: '暂无自定义请求头。点击「添加」按钮来添加。',
+                                en: 'No custom headers. Tap "Add" to create one.',
+                              ),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+                            )
+                          else
+                            ..._customHeaderEntries.asMap().entries.map((mapEntry) {
+                              final index = mapEntry.key;
+                              final entry = mapEntry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: entry.keyController,
+                                        enabled: !_isSaving,
+                                        decoration: InputDecoration(
+                                          labelText: _localizedText(
+                                            zh: 'Header 名称',
+                                            en: 'Header Name',
+                                          ),
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 3,
+                                      child: TextField(
+                                        controller: entry.valueController,
+                                        enabled: !_isSaving,
+                                        decoration: InputDecoration(
+                                          labelText: _localizedText(
+                                            zh: 'Header 值',
+                                            en: 'Header Value',
+                                          ),
+                                          isDense: true,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      onPressed: _isSaving
+                                          ? null
+                                          : () => _removeHeaderEntry(index),
+                                      icon: const Icon(Icons.close, size: 18),
+                                      style: IconButton.styleFrom(
+                                        minimumSize: const Size(32, 32),
+                                        maximumSize: const Size(32, 32),
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -593,6 +928,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _maxContextTokensController.text,
       ),
       availableModelIds: _availableModelIds,
+      customHeaders: _collectCustomHeaders(),
+      requestMethod: _requestMethod,
+      maxTokens: _parseOptionalPositiveInt(_maxTokensController.text),
+      temperature: _parseOptionalDouble(_temperatureController.text),
+      streamEnabled: _streamEnabled,
     );
 
     late final bool saved;
@@ -628,4 +968,20 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     }
     return parsed;
   }
+
+  double? _parseOptionalDouble(String rawValue) {
+    final trimmed = rawValue.trim();
+    if (trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+}
+
+class _HeaderEntry {
+  _HeaderEntry({
+    required this.keyController,
+    required this.valueController,
+  });
+
+  final TextEditingController keyController;
+  final TextEditingController valueController;
 }

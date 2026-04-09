@@ -148,7 +148,9 @@ class AiChatService implements AiChatClient {
       final response = await http.Response.fromStream(
         await _sendHttpRequestWithRedirects(
           client: _client,
-          method: 'POST',
+          method: model.requestMethod.trim().isNotEmpty
+              ? model.requestMethod.trim()
+              : 'POST',
           uri: Uri.parse(blueprint.url),
           headers: blueprint.headers,
           body: jsonEncode(blueprint.body),
@@ -197,7 +199,7 @@ class AiChatService implements AiChatClient {
     Future<void>? cancelSignal,
   }) async {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    if (adapter is! OpenAiProtocolAdapter || !adapter.supportsServerStreaming) {
+    if (!adapter.supportsServerStreaming) {
       _debugAiStreamLog(
         'model=${model.modelId} using synthetic stream adapter=${adapter.runtimeType}',
       );
@@ -210,6 +212,7 @@ class AiChatService implements AiChatClient {
         cancelSignal: cancelSignal,
       );
     }
+    final isClaudeProtocol = adapter is ClaudeProtocolAdapter;
 
     final blueprint = await adapter.buildChatRequest(
       model: model,
@@ -218,7 +221,10 @@ class AiChatService implements AiChatClient {
       responseModalities: responseModalities,
       stream: true,
     );
-    final request = http.Request('POST', Uri.parse(blueprint.url))
+    final effectiveMethod = model.requestMethod.trim().isNotEmpty
+        ? model.requestMethod.trim()
+        : 'POST';
+    final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
       ..body = jsonEncode(blueprint.body);
     final streamedResponseFuture = _sendHttpRequestWithRedirects(
@@ -408,96 +414,36 @@ class AiChatService implements AiChatClient {
       if (decoded is! Map<String, Object?>) {
         return;
       }
-      final usageJson = decoded['usage'];
-      if (usageJson is Map || usageJson is Map<String, Object?>) {
-        final usageMap = usageJson is Map<String, Object?>
-            ? usageJson
-            : Map<String, Object?>.from(usageJson as Map);
-        usage = AiTokenUsage(
-          promptTokens: _readInt(usageMap['prompt_tokens']),
-          completionTokens: _readInt(usageMap['completion_tokens']),
-          totalTokens: _readInt(usageMap['total_tokens']),
+
+      // Route to Claude-specific or OpenAI-specific stream handler.
+      if (isClaudeProtocol) {
+        _processClaudeStreamEvent(
+          decoded,
+          textBuffer: textBuffer,
+          reasoningBuffer: reasoningBuffer,
+          toolCalls: toolCalls,
+          usage: () => usage,
+          setUsage: (value) => usage = value,
+          markStreamActivity: markStreamActivity,
+          emitEvent: emitEvent,
+          completeStreamResult: (reason) => completeStreamResult(reason),
+          cancelSubscription: () {
+            unawaited(responseSubscription?.cancel());
+          },
+          model: model,
         );
-        if (usage != null && !usage!.isEmpty) {
-          markStreamActivity('usage');
-          _debugAiStreamLog(
-            'model=${model.modelId} usage prompt=${usage!.promptTokens ?? 0} completion=${usage!.completionTokens ?? 0} total=${usage!.totalTokens ?? 0}',
-          );
-          emitEvent(AiChatStreamEvent.usage(usage!));
-        }
-      }
-      final choices = decoded['choices'];
-      if (choices is! List<dynamic>) {
-        return;
-      }
-      for (final choice in choices) {
-        if (choice is! Map<String, Object?>) {
-          continue;
-        }
-        final delta = choice['delta'];
-        if (delta is! Map<String, Object?>) {
-          continue;
-        }
-        final textDelta = _extractStreamText(delta['content']);
-        if (textDelta.isNotEmpty) {
-          textBuffer.write(textDelta);
-          markStreamActivity('text_delta');
-          _debugAiStreamLog(
-            'model=${model.modelId} text_delta chars=${textDelta.length}',
-          );
-          emitEvent(AiChatStreamEvent.textDelta(textDelta));
-        }
-        final reasoningDelta = _extractReasoningText(delta);
-        if (reasoningDelta.isNotEmpty) {
-          reasoningBuffer.write(reasoningDelta);
-          markStreamActivity('reasoning_delta');
-          _debugAiStreamLog(
-            'model=${model.modelId} reasoning_delta chars=${reasoningDelta.length}',
-          );
-          emitEvent(AiChatStreamEvent.reasoningDelta(reasoningDelta));
-        }
-        final toolCallJson = delta['tool_calls'];
-        if (toolCallJson is! List) {
-          continue;
-        }
-        for (final rawToolCall in toolCallJson) {
-          if (rawToolCall is! Map) {
-            continue;
-          }
-          final toolCallMap = Map<String, Object?>.from(rawToolCall);
-          final index = _readInt(toolCallMap['index']) ?? 0;
-          final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
-          final id = '${toolCallMap['id'] ?? ''}'.trim();
-          if (id.isNotEmpty) {
-            entry.id = id;
-          }
-          final function = toolCallMap['function'];
-          if (function is Map) {
-            final functionMap = Map<String, Object?>.from(function);
-            final name = '${functionMap['name'] ?? ''}'.trim();
-            if (name.isNotEmpty) {
-              entry.name = name;
-            }
-            final argumentsFragment = '${functionMap['arguments'] ?? ''}';
-            if (argumentsFragment.isNotEmpty) {
-              entry.argumentsBuffer.write(argumentsFragment);
-            }
-            markStreamActivity('tool_call_delta');
-            _debugAiStreamLog(
-              'model=${model.modelId} tool_call_delta index=$index name=${entry.name} arg_chars=${argumentsFragment.length}',
-            );
-            emitEvent(
-              AiChatStreamEvent.toolCallDelta(
-                AiToolCallDelta(
-                  index: index,
-                  id: entry.id,
-                  name: entry.name,
-                  argumentsFragment: argumentsFragment,
-                ),
-              ),
-            );
-          }
-        }
+      } else {
+        _processOpenAiStreamEvent(
+          decoded,
+          textBuffer: textBuffer,
+          reasoningBuffer: reasoningBuffer,
+          toolCalls: toolCalls,
+          usage: () => usage,
+          setUsage: (value) => usage = value,
+          markStreamActivity: markStreamActivity,
+          emitEvent: emitEvent,
+          model: model,
+        );
       }
     }
 
@@ -695,6 +641,274 @@ class AiChatService implements AiChatClient {
 const Object _cancelledStreamSentinel = Object();
 
 class _SyntheticStreamCancelledException implements Exception {}
+
+/// Processes a single SSE event block in OpenAI-compatible format.
+void _processOpenAiStreamEvent(
+  Map<String, Object?> decoded, {
+  required StringBuffer textBuffer,
+  required StringBuffer reasoningBuffer,
+  required Map<int, _MutableToolCall> toolCalls,
+  required AiTokenUsage? Function() usage,
+  required void Function(AiTokenUsage?) setUsage,
+  required void Function(String) markStreamActivity,
+  required void Function(AiChatStreamEvent) emitEvent,
+  required AiModelConfig model,
+}) {
+  final usageJson = decoded['usage'];
+  if (usageJson is Map || usageJson is Map<String, Object?>) {
+    final usageMap = usageJson is Map<String, Object?>
+        ? usageJson
+        : Map<String, Object?>.from(usageJson as Map);
+    final parsedUsage = AiTokenUsage(
+      promptTokens: _readInt(usageMap['prompt_tokens']),
+      completionTokens: _readInt(usageMap['completion_tokens']),
+      totalTokens: _readInt(usageMap['total_tokens']),
+    );
+    if (!parsedUsage.isEmpty) {
+      setUsage(parsedUsage);
+      markStreamActivity('usage');
+      _debugAiStreamLog(
+        'model=${model.modelId} usage prompt=${parsedUsage.promptTokens ?? 0} completion=${parsedUsage.completionTokens ?? 0} total=${parsedUsage.totalTokens ?? 0}',
+      );
+      emitEvent(AiChatStreamEvent.usage(parsedUsage));
+    }
+  }
+  final choices = decoded['choices'];
+  if (choices is! List<dynamic>) {
+    return;
+  }
+  for (final choice in choices) {
+    if (choice is! Map<String, Object?>) {
+      continue;
+    }
+    final delta = choice['delta'];
+    if (delta is! Map<String, Object?>) {
+      continue;
+    }
+    final textDelta = _extractStreamText(delta['content']);
+    if (textDelta.isNotEmpty) {
+      textBuffer.write(textDelta);
+      markStreamActivity('text_delta');
+      _debugAiStreamLog(
+        'model=${model.modelId} text_delta chars=${textDelta.length}',
+      );
+      emitEvent(AiChatStreamEvent.textDelta(textDelta));
+    }
+    final reasoningDelta = _extractReasoningText(delta);
+    if (reasoningDelta.isNotEmpty) {
+      reasoningBuffer.write(reasoningDelta);
+      markStreamActivity('reasoning_delta');
+      _debugAiStreamLog(
+        'model=${model.modelId} reasoning_delta chars=${reasoningDelta.length}',
+      );
+      emitEvent(AiChatStreamEvent.reasoningDelta(reasoningDelta));
+    }
+    final toolCallJson = delta['tool_calls'];
+    if (toolCallJson is! List) {
+      continue;
+    }
+    for (final rawToolCall in toolCallJson) {
+      if (rawToolCall is! Map) {
+        continue;
+      }
+      final toolCallMap = Map<String, Object?>.from(rawToolCall);
+      final index = _readInt(toolCallMap['index']) ?? 0;
+      final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+      final id = '${toolCallMap['id'] ?? ''}'.trim();
+      if (id.isNotEmpty) {
+        entry.id = id;
+      }
+      final function = toolCallMap['function'];
+      if (function is Map) {
+        final functionMap = Map<String, Object?>.from(function);
+        final name = '${functionMap['name'] ?? ''}'.trim();
+        if (name.isNotEmpty) {
+          entry.name = name;
+        }
+        final argumentsFragment = '${functionMap['arguments'] ?? ''}';
+        if (argumentsFragment.isNotEmpty) {
+          entry.argumentsBuffer.write(argumentsFragment);
+        }
+        markStreamActivity('tool_call_delta');
+        _debugAiStreamLog(
+          'model=${model.modelId} tool_call_delta index=$index name=${entry.name} arg_chars=${argumentsFragment.length}',
+        );
+        emitEvent(
+          AiChatStreamEvent.toolCallDelta(
+            AiToolCallDelta(
+              index: index,
+              id: entry.id,
+              name: entry.name,
+              argumentsFragment: argumentsFragment,
+            ),
+          ),
+        );
+      }
+    }
+  }
+}
+
+/// Processes a single SSE event block in Claude/Anthropic streaming format.
+///
+/// Claude SSE events use a top-level `type` field to indicate the event kind:
+///   - `message_start` → initial message metadata + usage
+///   - `ping` → heartbeat, ignored
+///   - `content_block_start` → beginning of a content block (text/thinking)
+///   - `content_block_delta` → incremental text/thinking content
+///   - `content_block_stop` → end of current content block
+///   - `message_delta` → stop_reason + final usage
+///   - `message_stop` → end of message
+void _processClaudeStreamEvent(
+  Map<String, Object?> decoded, {
+  required StringBuffer textBuffer,
+  required StringBuffer reasoningBuffer,
+  required Map<int, _MutableToolCall> toolCalls,
+  required AiTokenUsage? Function() usage,
+  required void Function(AiTokenUsage?) setUsage,
+  required void Function(String) markStreamActivity,
+  required void Function(AiChatStreamEvent) emitEvent,
+  required void Function(String) completeStreamResult,
+  required void Function() cancelSubscription,
+  required AiModelConfig model,
+}) {
+  final type = '${decoded['type'] ?? ''}'.trim();
+
+  switch (type) {
+    case 'message_start':
+      // Extract initial usage from message_start.message.usage
+      final message = decoded['message'];
+      if (message is Map<String, Object?>) {
+        final usageJson = message['usage'];
+        if (usageJson is Map) {
+          final usageMap = usageJson is Map<String, Object?>
+              ? usageJson
+              : Map<String, Object?>.from(usageJson);
+          final promptTokens = _readInt(usageMap['input_tokens']);
+          final completionTokens = _readInt(usageMap['output_tokens']);
+          final parsedUsage = AiTokenUsage(
+            promptTokens: promptTokens,
+            completionTokens: completionTokens,
+            totalTokens: (promptTokens ?? 0) + (completionTokens ?? 0),
+            cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
+            cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
+          );
+          if (!parsedUsage.isEmpty) {
+            setUsage(parsedUsage);
+            markStreamActivity('usage');
+            emitEvent(AiChatStreamEvent.usage(parsedUsage));
+          }
+        }
+      }
+
+    case 'ping':
+      // Heartbeat — just mark activity.
+      markStreamActivity('ping');
+
+    case 'content_block_start':
+      // Track tool_use blocks so we capture the tool id and name.
+      final contentBlock = decoded['content_block'];
+      if (contentBlock is Map<String, Object?>) {
+        final blockType = '${contentBlock['type'] ?? ''}'.trim();
+        if (blockType == 'tool_use') {
+          final index = _readInt(decoded['index']) ?? toolCalls.length;
+          final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+          final id = '${contentBlock['id'] ?? ''}'.trim();
+          if (id.isNotEmpty) entry.id = id;
+          final name = '${contentBlock['name'] ?? ''}'.trim();
+          if (name.isNotEmpty) entry.name = name;
+        }
+      }
+      markStreamActivity('content_block_start');
+
+    case 'content_block_delta':
+      final delta = decoded['delta'];
+      if (delta is! Map<String, Object?>) break;
+      final deltaType = '${delta['type'] ?? ''}'.trim();
+      if (deltaType == 'text_delta') {
+        final text = '${delta['text'] ?? ''}';
+        if (text.isNotEmpty) {
+          textBuffer.write(text);
+          markStreamActivity('text_delta');
+          _debugAiStreamLog(
+            'model=${model.modelId} claude_text_delta chars=${text.length}',
+          );
+          emitEvent(AiChatStreamEvent.textDelta(text));
+        }
+      } else if (deltaType == 'thinking_delta') {
+        final thinking = '${delta['thinking'] ?? ''}';
+        if (thinking.isNotEmpty) {
+          reasoningBuffer.write(thinking);
+          markStreamActivity('reasoning_delta');
+          _debugAiStreamLog(
+            'model=${model.modelId} claude_thinking_delta chars=${thinking.length}',
+          );
+          emitEvent(AiChatStreamEvent.reasoningDelta(thinking));
+        }
+      } else if (deltaType == 'signature_delta') {
+        // Signature blocks — ignore for now.
+        markStreamActivity('signature_delta');
+      } else if (deltaType == 'input_json_delta') {
+        // Tool call argument fragment (Claude tool_use streaming).
+        final partialJson = '${delta['partial_json'] ?? ''}';
+        final index = _readInt(decoded['index']) ?? 0;
+        final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+        if (partialJson.isNotEmpty) {
+          entry.argumentsBuffer.write(partialJson);
+          markStreamActivity('tool_call_delta');
+          emitEvent(
+            AiChatStreamEvent.toolCallDelta(
+              AiToolCallDelta(
+                index: index,
+                id: entry.id,
+                name: entry.name,
+                argumentsFragment: partialJson,
+              ),
+            ),
+          );
+        }
+      }
+
+    case 'content_block_stop':
+      markStreamActivity('content_block_stop');
+
+    case 'message_delta':
+      // Final usage and stop_reason.
+      final usageJson = decoded['usage'];
+      if (usageJson is Map) {
+        final usageMap = usageJson is Map<String, Object?>
+            ? usageJson
+            : Map<String, Object?>.from(usageJson);
+        final inputTokens = _readInt(usageMap['input_tokens']);
+        final outputTokens = _readInt(usageMap['output_tokens']);
+        final parsedUsage = AiTokenUsage(
+          promptTokens: inputTokens,
+          completionTokens: outputTokens,
+          totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0),
+          cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
+          cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
+        );
+        if (!parsedUsage.isEmpty) {
+          setUsage(parsedUsage);
+          markStreamActivity('usage');
+          _debugAiStreamLog(
+            'model=${model.modelId} claude_usage input=${parsedUsage.promptTokens ?? 0} output=${parsedUsage.completionTokens ?? 0}',
+          );
+          emitEvent(AiChatStreamEvent.usage(parsedUsage));
+        }
+      }
+
+    case 'message_stop':
+      markStreamActivity('message_stop');
+      completeStreamResult('claude_message_stop');
+      cancelSubscription();
+
+    default:
+      // Unknown event type — log and ignore.
+      _debugAiStreamLog(
+        'model=${model.modelId} claude_unknown_event type=$type',
+      );
+  }
+}
 
 void _debugAiStreamLog(String message) {
   return;

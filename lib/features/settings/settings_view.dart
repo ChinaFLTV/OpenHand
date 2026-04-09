@@ -507,6 +507,11 @@ class _SettingsViewState extends State<SettingsView> {
                             settingsController.moveAiModel(index, index + 1),
                         onDelete: () =>
                             _confirmDeleteAiModel(context, aiModels[index]),
+                        onActiveModelChanged: (modelId) =>
+                            settingsController.updateProviderActiveModel(
+                              aiModels[index].id,
+                              modelId,
+                            ),
                       ),
                       if (index != aiModels.length - 1)
                         const SizedBox(height: 14),

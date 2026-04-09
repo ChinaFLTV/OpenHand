@@ -435,6 +435,12 @@ class AiSessionController extends ChangeNotifier {
     _approvalPreviousPhases.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
+    // Remove stale entries from _deletedSessionIds that no longer have
+    // in-flight operations.  An entry is safe to remove when no session
+    // operation queue is pending for that id.
+    _deletedSessionIds.removeWhere(
+      (sessionId) => !_sessionOperationQueues.containsKey(sessionId),
+    );
   }
 
   void clearPersistenceIssues() {
@@ -806,7 +812,15 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       } catch (error) {
-        if (!await _store.exists(sessionId)) {
+        // Guard the existence check so a secondary DB failure does not shadow
+        // the original delete error.
+        bool stillExists;
+        try {
+          stillExists = await _store.exists(sessionId);
+        } catch (_) {
+          stillExists = true;
+        }
+        if (!stillExists) {
           await _finalizeDeletedSession(
             sessionId: sessionId,
             wasSending: wasSending,
@@ -4512,9 +4526,32 @@ class AiSessionController extends ChangeNotifier {
     if (lastError == null) {
       return;
     }
+    // All API attempts failed — derive a title from user content as fallback.
+    final fallbackTitle = _deriveReadableTitleFromContent(
+      sourceContent,
+      maxCharacters: _generatedTitleMaxCharacters,
+    );
     final latestSession = _sessionById(sessionId);
     if (latestSession == null) {
       return;
+    }
+    if (fallbackTitle.isNotEmpty &&
+        !latestSession.isTitleManuallyEdited &&
+        (latestSession.autoTitleGeneratedAt == null ||
+            latestSession.autoTitleSourceMessageId == sourceMessageId)) {
+      final fallbackAt = _clock().toUtc();
+      final fallbackSession = _rebuildSession(
+        latestSession.copyWith(
+          title: fallbackTitle,
+          updatedAt: fallbackAt,
+          autoTitleGeneratedAt: fallbackAt,
+          autoTitleSourceMessageId: sourceMessageId,
+        ),
+      );
+      final committed = await _commitSessionLocked(fallbackSession);
+      if (committed) {
+        return;
+      }
     }
     final updatedSession = _appendError(
       latestSession,

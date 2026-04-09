@@ -105,6 +105,11 @@ class AiModelConfig {
       ),
       maxContextTokens: _readNullablePositiveInt(json['max_context_tokens']),
       availableModelIds: availableModelIds,
+      customHeaders: _parseCustomHeaders(json['custom_headers']),
+      requestMethod: _parseRequestMethod(json['request_method']),
+      maxTokens: _readNullablePositiveInt(json['max_tokens']),
+      temperature: _readNullableDouble(json['temperature']),
+      streamEnabled: json['stream_enabled'] as bool? ?? true,
     );
   }
   const AiModelConfig({
@@ -117,6 +122,11 @@ class AiModelConfig {
     required this.protocolType,
     this.maxContextTokens,
     this.availableModelIds = const <String>[],
+    this.customHeaders = const <String, String>{},
+    this.requestMethod = 'POST',
+    this.maxTokens,
+    this.temperature,
+    this.streamEnabled = true,
   });
 
   final String id;
@@ -136,6 +146,21 @@ class AiModelConfig {
 
   /// All known model IDs for this provider (auto-scanned + manually added).
   final List<String> availableModelIds;
+
+  /// User-defined custom HTTP headers to include in API requests.
+  final Map<String, String> customHeaders;
+
+  /// HTTP request method (default: POST).
+  final String requestMethod;
+
+  /// Maximum tokens for the response. When null, uses the adapter default.
+  final int? maxTokens;
+
+  /// Temperature for response generation. When null, uses the adapter default (0.7).
+  final double? temperature;
+
+  /// Whether to use server-sent events (SSE) streaming for responses.
+  final bool streamEnabled;
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
 
@@ -195,6 +220,13 @@ class AiModelConfig {
     int? maxContextTokens,
     bool clearMaxContextTokens = false,
     List<String>? availableModelIds,
+    Map<String, String>? customHeaders,
+    String? requestMethod,
+    int? maxTokens,
+    bool clearMaxTokens = false,
+    double? temperature,
+    bool clearTemperature = false,
+    bool? streamEnabled,
   }) {
     return AiModelConfig(
       id: id ?? this.id,
@@ -208,6 +240,11 @@ class AiModelConfig {
           ? null
           : maxContextTokens ?? this.maxContextTokens,
       availableModelIds: availableModelIds ?? this.availableModelIds,
+      customHeaders: customHeaders ?? this.customHeaders,
+      requestMethod: requestMethod ?? this.requestMethod,
+      maxTokens: clearMaxTokens ? null : maxTokens ?? this.maxTokens,
+      temperature: clearTemperature ? null : temperature ?? this.temperature,
+      streamEnabled: streamEnabled ?? this.streamEnabled,
     );
   }
 
@@ -222,6 +259,11 @@ class AiModelConfig {
       'protocol_type': protocolType.storageValue,
       'max_context_tokens': maxContextTokens,
       'available_model_ids': availableModelIds,
+      'custom_headers': customHeaders,
+      'request_method': requestMethod,
+      'max_tokens': maxTokens,
+      'temperature': temperature,
+      'stream_enabled': streamEnabled,
     };
   }
 
@@ -282,5 +324,57 @@ class AiModelConfig {
       }
     }
     return const <String>[];
+  }
+
+  static Map<String, String> _parseCustomHeaders(Object? value) {
+    if (value == null) {
+      return const <String, String>{};
+    }
+    if (value is Map) {
+      final result = <String, String>{};
+      for (final entry in value.entries) {
+        final key = '${entry.key}'.trim();
+        final val = '${entry.value}'.trim();
+        if (key.isNotEmpty) {
+          result[key] = val;
+        }
+      }
+      return result;
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return const <String, String>{};
+      }
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map) {
+          return _parseCustomHeaders(decoded);
+        }
+      } catch (_) {
+        // Not valid JSON — ignore.
+      }
+    }
+    return const <String, String>{};
+  }
+
+  static double? _readNullableDouble(Object? value) {
+    if (value is double) {
+      return value;
+    }
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    final parsed = double.tryParse('${value ?? ''}'.trim());
+    return parsed;
+  }
+
+  static String _parseRequestMethod(Object? value) {
+    final raw = '${value ?? ''}'.trim().toUpperCase();
+    if (raw.isEmpty) return 'POST';
+    return raw;
   }
 }

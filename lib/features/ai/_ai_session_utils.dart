@@ -60,7 +60,21 @@ bool _isTrackedPlanRelevantErrorStage(String stage) {
 }
 
 bool _isRetryableAutoTitleError(Object error) {
-  return '$error'.contains('Request timed out.');
+  final message = '$error';
+  return message.contains('Request timed out.') ||
+      message.contains('429') ||
+      message.contains('rate limit') ||
+      message.contains('Rate limit') ||
+      message.contains('503') ||
+      message.contains('502') ||
+      message.contains('overloaded') ||
+      message.contains('Overloaded') ||
+      message.contains('temporarily') ||
+      message.contains('RESOURCE_EXHAUSTED') ||
+      message.contains('Too Many Requests') ||
+      message.contains('Connection reset') ||
+      message.contains('Connection closed') ||
+      message.contains('Network error');
 }
 
 bool _environmentEquals(

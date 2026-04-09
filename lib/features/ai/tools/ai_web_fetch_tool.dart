@@ -146,7 +146,7 @@ class AiWebFetchTool extends AiTool {
     } on SocketException {
       return null;
     } on TimeoutException {
-      return null;
+      return 'WebFetch blocked ${uri.host} because DNS resolution timed out.';
     } catch (_) {
       return null;
     }

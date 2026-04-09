@@ -181,14 +181,34 @@ abstract class AiProtocolAdapter {
     final headers = <String, String>{'content-type': 'application/json'};
     final rawToken = model.token.trim();
     if (rawToken.isEmpty || model.authScheme == AiAuthScheme.none) {
+      // Apply custom headers from provider config.
+      _mergeCustomHeaders(headers, model);
       return headers;
     }
     if (model.authScheme == AiAuthScheme.apiKey) {
       headers['x-api-key'] = model.authScheme.apply(rawToken);
+      _mergeCustomHeaders(headers, model);
       return headers;
     }
     headers['authorization'] = model.authScheme.apply(rawToken);
+    _mergeCustomHeaders(headers, model);
     return headers;
+  }
+
+  /// Merges user-defined custom headers from [model.customHeaders] into the
+  /// [headers] map. Custom headers are applied last so they can override
+  /// previously set values (e.g. content-type, authorization).
+  void _mergeCustomHeaders(
+    Map<String, String> headers,
+    AiModelConfig model,
+  ) {
+    if (model.customHeaders.isEmpty) return;
+    for (final entry in model.customHeaders.entries) {
+      final key = entry.key.trim();
+      if (key.isNotEmpty) {
+        headers[key] = entry.value;
+      }
+    }
   }
 
   Future<Map<String, Object?>> buildBody(
@@ -359,6 +379,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final mergedMessages = _mergeConsecutiveSystemMessages(requestMessages);
     return <String, Object?>{
       'model': model.modelId,
+      if (model.maxTokens != null) 'max_tokens': model.maxTokens,
+      if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
       if (tools.isNotEmpty)
         'tools': tools
@@ -571,6 +593,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   String get endpointPath => 'v1/messages';
 
   @override
+  bool get supportsServerStreaming => true;
+
+  @override
   Map<String, String> buildHeaders(AiModelConfig model) {
     final headers = super.buildHeaders(model);
     headers.putIfAbsent('anthropic-version', () => '2023-06-01');
@@ -596,10 +621,12 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           .where((item) => item.role != AiChatRole.tool)
           .map(_mapClaudeMessage),
     );
+    final effectiveMaxTokens = model.maxTokens ?? 1024;
     return <String, Object?>{
       'model': model.modelId,
       if (systemContent.isNotEmpty) 'system': systemContent,
-      'max_tokens': 1024,
+      'max_tokens': effectiveMaxTokens,
+      if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
       'messages': requestMessages,
     };
@@ -810,7 +837,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         },
       'contents': requestContents,
       'generationConfig': <String, Object?>{
-        'maxOutputTokens': 8192,
+        'maxOutputTokens': model.maxTokens ?? 8192,
+        if (model.temperature != null) 'temperature': model.temperature,
         if (effectiveModalities.isNotEmpty)
           'responseModalities': effectiveModalities,
       },

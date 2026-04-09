@@ -405,6 +405,7 @@ class _AiModelTile extends StatelessWidget {
     required this.onMoveUp,
     required this.onMoveDown,
     required this.onDelete,
+    required this.onActiveModelChanged,
   });
 
   final AiModelConfig model;
@@ -418,6 +419,7 @@ class _AiModelTile extends StatelessWidget {
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
   final VoidCallback onDelete;
+  final void Function(String modelId) onActiveModelChanged;
 
   String _localizedText(BuildContext context,
       {required String zh, required String en}) {
@@ -560,7 +562,7 @@ class _AiModelTile extends StatelessWidget {
                     ),
                 ],
               ),
-              // Show available models as small chips when expanded.
+              // Show available models as small chips; active model is highlighted.
               if (allModels.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(
@@ -568,24 +570,57 @@ class _AiModelTile extends StatelessWidget {
                   runSpacing: 4,
                   children: allModels
                       .map(
-                        (id) => Chip(
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                          avatar: Icon(
-                            id == model.modelId
-                                ? Icons.star_rounded
-                                : Icons.smart_toy_outlined,
-                            size: 14,
-                          ),
-                          label: Text(
-                            id,
-                            style: theme.textTheme.labelSmall,
-                          ),
-                          backgroundColor: id == model.modelId
-                              ? colorScheme.primaryContainer
-                              : null,
-                        ),
+                        (id) {
+                          final isActive = id == model.modelId;
+                          return ActionChip(
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            avatar: Icon(
+                              isActive
+                                  ? Icons.star_rounded
+                                  : Icons.smart_toy_outlined,
+                              size: 14,
+                              color: isActive
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            label: Text(
+                              id,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: isActive
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                                color: isActive
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            backgroundColor: isActive
+                                ? colorScheme.secondaryContainer
+                                : null,
+                            side: isActive
+                                ? BorderSide(
+                                    color: colorScheme.primary
+                                        .withValues(alpha: 0.5),
+                                  )
+                                : null,
+                            tooltip: isActive
+                                ? _localizedText(
+                                    context,
+                                    zh: '当前活跃模型',
+                                    en: 'Currently active model',
+                                  )
+                                : _localizedText(
+                                    context,
+                                    zh: '点击切换为活跃模型',
+                                    en: 'Click to set as active model',
+                                  ),
+                            onPressed: isActive
+                                ? null
+                                : () => onActiveModelChanged(id),
+                          );
+                        },
                       )
                       .toList(growable: false),
                 ),
