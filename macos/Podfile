@@ -35,5 +35,12 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
+
+    # Suppress upstream C warnings from the sqlite3 amalgamation source.
+    if target.name == 'sqlite3'
+      target.build_configurations.each do |config|
+        config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+      end
+    end
   end
 end

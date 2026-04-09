@@ -3,34 +3,25 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../app/support/openhand_paths.dart';
 import 'data/memory_store.dart';
 import 'model/user_memory_entry.dart';
 
 class MemoryController extends ChangeNotifier {
   MemoryController._({
     required MemoryStore store,
-    required MemoryStore Function(String filePath) storeFactory,
     required String Function() idGenerator,
     required DateTime Function() clock,
   }) : _store = store,
-       _storeFactory = storeFactory,
        _idGenerator = idGenerator,
        _clock = clock;
 
   static Future<MemoryController> create({
-    required String initialFilePath,
     MemoryStore? store,
-    MemoryStore Function(String filePath)? storeFactory,
     String Function()? idGenerator,
     DateTime Function()? clock,
   }) async {
-    final effectiveStoreFactory =
-        storeFactory ??
-        (String filePath) => MemoryStore(userMemoryFilePath: filePath);
     final controller = MemoryController._(
-      store: store ?? effectiveStoreFactory(initialFilePath),
-      storeFactory: effectiveStoreFactory,
+      store: store ?? MemoryStore(),
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
     );
@@ -38,8 +29,7 @@ class MemoryController extends ChangeNotifier {
     return controller;
   }
 
-  MemoryStore _store;
-  final MemoryStore Function(String filePath) _storeFactory;
+  final MemoryStore _store;
   final String Function() _idGenerator;
   final DateTime Function() _clock;
 
@@ -84,31 +74,14 @@ class MemoryController extends ChangeNotifier {
     await _enqueueOperation(_loadLocked);
   }
 
+  /// Retained for backward compatibility. With DB backing, this simply
+  /// refreshes from the database (the file path is ignored).
   Future<bool> reloadFromFilePath(String filePath) async {
     return _enqueueOperation(() async {
-      final normalizedPath = OpenHandPaths.normalizePath(
-        filePath,
-        defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-      );
-      final previousStore = _store;
-      final previousEntries = List<UserMemoryEntry>.from(_entries);
-      final previousErrorMessage = _errorMessage;
-      final previousPersistenceIssue = _persistenceIssue;
-      final changedPath = _store.userMemoryFilePath != normalizedPath;
-      if (changedPath) {
-        _store = _storeFactory(normalizedPath);
-      }
       await _loadLocked();
       final didLoadFail =
           _errorMessage != null ||
           _persistenceIssue?.kind == MemoryPersistenceIssueKind.saveFailed;
-      if (changedPath && didLoadFail) {
-        _store = previousStore;
-        _entries = previousEntries;
-        _errorMessage = previousErrorMessage;
-        _persistenceIssue = previousPersistenceIssue;
-        notifyListeners();
-      }
       return !didLoadFail;
     });
   }

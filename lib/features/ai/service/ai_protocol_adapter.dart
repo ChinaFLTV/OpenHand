@@ -226,8 +226,10 @@ abstract class AiProtocolAdapter {
   }
 
   String extractErrorMessage(String rawResponse) {
+    final trimmed = rawResponse.trim();
+    // Try JSON error first.
     try {
-      final decoded = jsonDecode(rawResponse);
+      final decoded = jsonDecode(trimmed);
       if (decoded is Map<String, Object?>) {
         final error = decoded['error'];
         if (error is String && error.trim().isNotEmpty) {
@@ -241,9 +243,18 @@ abstract class AiProtocolAdapter {
         }
       }
     } catch (_) {
-      // Fall through to the raw body.
+      // Not JSON — may be HTML or plain text.
     }
-    return rawResponse.trim();
+    // Strip HTML tags for cleaner display when the server returns an HTML
+    // error page (e.g. nginx 400/502 pages).
+    if (trimmed.contains('<html') || trimmed.contains('<HTML')) {
+      final stripped = trimmed
+          .replaceAll(RegExp(r'<[^>]*>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      return stripped.isEmpty ? trimmed : stripped;
+    }
+    return trimmed;
   }
 
   String _buildUrl(String baseUrl, String path, String modelId) {
@@ -342,16 +353,19 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     final requestMessages = await Future.wait<Map<String, Object?>>(
       messages.map((item) => _mapOpenAiMessage(item)),
     );
+    // Many OpenAI-compatible providers reject requests with multiple system
+    // messages.  Merge consecutive leading system messages into one to
+    // maximise compatibility while keeping the prompt structure intact.
+    final mergedMessages = _mergeConsecutiveSystemMessages(requestMessages);
     return <String, Object?>{
       'model': model.modelId,
       if (stream) 'stream': true,
-      if (stream) 'stream_options': <String, Object?>{'include_usage': true},
       if (tools.isNotEmpty)
         'tools': tools
             .map((item) => item.toOpenAiJson())
             .toList(growable: false),
       if (tools.isNotEmpty) 'tool_choice': 'auto',
-      'messages': requestMessages,
+      'messages': mergedMessages,
     };
   }
 
@@ -415,6 +429,41 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       }
     }
     return payload;
+  }
+
+  /// Merges consecutive messages that share the `system` role into a single
+  /// message by concatenating their `content` fields with double newlines.
+  /// This ensures broad compatibility with OpenAI-compatible providers that
+  /// only accept a single system message.
+  static List<Map<String, Object?>> _mergeConsecutiveSystemMessages(
+    List<Map<String, Object?>> messages,
+  ) {
+    if (messages.length <= 1) return messages;
+    final result = <Map<String, Object?>>[];
+    StringBuffer? pendingSystem;
+    for (final msg in messages) {
+      if (msg['role'] == 'system' && msg['content'] is String) {
+        pendingSystem ??= StringBuffer();
+        if (pendingSystem.isNotEmpty) pendingSystem.write('\n\n');
+        pendingSystem.write(msg['content'] as String);
+      } else {
+        if (pendingSystem != null) {
+          result.add(<String, Object?>{
+            'role': 'system',
+            'content': pendingSystem.toString(),
+          });
+          pendingSystem = null;
+        }
+        result.add(msg);
+      }
+    }
+    if (pendingSystem != null) {
+      result.add(<String, Object?>{
+        'role': 'system',
+        'content': pendingSystem.toString(),
+      });
+    }
+    return result;
   }
 
   @override

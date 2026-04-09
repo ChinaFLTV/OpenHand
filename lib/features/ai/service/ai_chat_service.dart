@@ -265,6 +265,10 @@ class AiChatService implements AiChatClient {
       throw const AiChatException('Request timed out.');
     } on http.ClientException catch (error) {
       throw AiChatException(error.message);
+    } on SocketException catch (error) {
+      throw AiChatException('Network error: ${error.message}');
+    } on TlsException catch (error) {
+      throw AiChatException('TLS error: ${error.message}');
     }
     _debugAiStreamLog(
       'model=${model.modelId} stream_connected status=${streamedResponse.statusCode} url=${streamedResponse.request?.url ?? blueprint.url}',

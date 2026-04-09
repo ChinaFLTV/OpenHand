@@ -277,7 +277,8 @@ class _SkillsViewState extends State<SkillsView> {
         return;
       }
       _showSnackBar(context, '${l10n.skillsImportSuccess}: ${skill.name}');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: import skill failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -303,7 +304,8 @@ class _SkillsViewState extends State<SkillsView> {
     final l10n = AppLocalizations.of(context)!;
     try {
       await context.read<SkillsController>().openStorageDirectory();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: open skills directory failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -318,7 +320,8 @@ class _SkillsViewState extends State<SkillsView> {
     final l10n = AppLocalizations.of(context)!;
     try {
       await context.read<SkillsController>().openSkillDirectory(skill);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: open skill directory failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -407,7 +410,8 @@ class _SkillsViewState extends State<SkillsView> {
           );
         },
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: show skill preview failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -439,7 +443,8 @@ class _SkillsViewState extends State<SkillsView> {
         return;
       }
       _showSnackBar(context, l10n.skillsEditSuccess);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: edit skill failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -481,7 +486,8 @@ class _SkillsViewState extends State<SkillsView> {
         return;
       }
       _showSnackBar(context, l10n.skillsDeleteSuccess);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: delete skill failed: $e');
       if (!context.mounted) {
         return;
       }
@@ -880,7 +886,8 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
         return;
       }
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: save skill changes failed: $e');
       if (!mounted) {
         return;
       }
@@ -996,7 +1003,8 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
         _existingIconKind = null;
         _errorMessage = null;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: image processing failed: $e');
       if (!mounted) {
         return;
       }
@@ -1355,7 +1363,8 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
         return;
       }
       Navigator.of(context).pop(skill.name);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: create skill failed: $e');
       if (!mounted) {
         return;
       }
@@ -1398,7 +1407,8 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
         _selectedImageBytes = editedImage.bytes;
         _errorMessage = null;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsView: image processing failed: $e');
       if (!mounted) {
         return;
       }

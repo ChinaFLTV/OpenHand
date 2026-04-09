@@ -4,8 +4,7 @@ import 'package:path/path.dart' as p;
 
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
-  static const String defaultSettingsFileLabel =
-      '~/.openhand/settings/SETTINGS.toml';
+
   static const String defaultMcpServersFileLabel =
       '~/.openhand/mcp/mcp_servers.json';
   static const String defaultSessionsDirectoryLabel = '~/.openhand/sessions';
@@ -39,14 +38,6 @@ abstract final class OpenHandPaths {
     return p.join(homeDirectoryPath(), '.openhand', 'skills');
   }
 
-  static String defaultSettingsDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'settings');
-  }
-
-  static String defaultSettingsFilePath() {
-    return p.join(defaultSettingsDirectoryPath(), 'SETTINGS.toml');
-  }
-
   static String defaultMcpDirectoryPath() {
     return p.join(homeDirectoryPath(), '.openhand', 'mcp');
   }
@@ -57,6 +48,10 @@ abstract final class OpenHandPaths {
 
   static String defaultSessionsDirectoryPath() {
     return p.join(homeDirectoryPath(), '.openhand', 'sessions');
+  }
+
+  static String defaultDatabasePath() {
+    return p.join(homeDirectoryPath(), '.openhand', 'openhand.db');
   }
 
   static String defaultSessionAttachmentsDirectoryPath() {
@@ -73,14 +68,6 @@ abstract final class OpenHandPaths {
 
   static String defaultUserMemoryFilePath() {
     return p.join(defaultMemoryDirectoryPath(), 'user-memory.json');
-  }
-
-  static String legacyDefaultMemoryDirectoryPath() {
-    return p.join(applicationDirectoryPath(), '.openhand', 'memory');
-  }
-
-  static String legacyDefaultUserMemoryFilePath() {
-    return p.join(legacyDefaultMemoryDirectoryPath(), 'user-memory.json');
   }
 
   static String defaultUserMemoryFileLabel() {
@@ -120,23 +107,6 @@ abstract final class OpenHandPaths {
 
   static String basename(String path) {
     return p.basename(path);
-  }
-
-  static String? legacySandboxSettingsFilePath() {
-    if (!Platform.isMacOS) {
-      return null;
-    }
-    final home = Platform.environment['HOME'];
-    if (home == null || home.trim().isEmpty) {
-      return null;
-    }
-    final normalizedHome = p.normalize(home);
-    final sandboxMarker =
-        '${p.separator}Library${p.separator}Containers${p.separator}';
-    if (!normalizedHome.contains(sandboxMarker)) {
-      return null;
-    }
-    return p.join(normalizedHome, '.openhand', 'settings', 'SETTINGS.toml');
   }
 
   static String _normalizeHomePath(String rawPath) {

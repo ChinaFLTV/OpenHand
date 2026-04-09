@@ -1,7 +1,7 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:characters/characters.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -64,7 +64,8 @@ class SkillsRepository {
       try {
         skills.add(await _parseSkill(file, storagePath));
         loadedSkillDirectories.add(normalizedDirectoryPath);
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SkillsRepository: failed to parse skill at ${file.path}: $e');
         continue;
       }
     }
@@ -485,7 +486,8 @@ class SkillsRepository {
         iconPath: icon?.path,
         iconKind: icon?.kind,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsRepository: failed to load OpenAI metadata for $directoryPath: $e');
       return null;
     }
   }
@@ -528,7 +530,8 @@ class SkillsRepository {
           _readYamlString(interface['icon_large']),
         ),
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SkillsRepository: failed to read metadata document in $directoryPath: $e');
       return null;
     }
   }

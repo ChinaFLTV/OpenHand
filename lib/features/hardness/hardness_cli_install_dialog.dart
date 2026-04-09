@@ -39,6 +39,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
 
   @override
   void dispose() {
+    try {
+      _process?.kill();
+    } catch (_) {}
     _scrollController.dispose();
     super.dispose();
   }

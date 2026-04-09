@@ -1,59 +1,49 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:path/path.dart' as p;
+import 'package:sqflite_common/sqlite_api.dart';
 
-import '../../app/support/openhand_paths.dart';
-import '../../shared/data/atomic_file_operations.dart';
+import '../../shared/data/database_service.dart';
 import 'model/hardness_session_record.dart';
 
-/// Persists a single Hardness Engineering session record to disk so the
-/// session entry survives application restarts.
-///
-/// The record is stored as a JSON file at
-/// `~/.openhand/sessions/hardness-session.json`.
+/// Persists a single Hardness Engineering session record in the SQLite
+/// database so the session entry survives application restarts.
 class HardnessSessionStore {
-  HardnessSessionStore({String? filePath})
-    : _filePath =
-          filePath ??
-          p.join(
-            OpenHandPaths.defaultSessionsDirectoryPath(),
-            'hardness-session.json',
-          );
+  HardnessSessionStore();
 
-  final String _filePath;
+  Database get _db => DatabaseService.instance.database;
 
   /// Loads the persisted record, or returns `null` if none exists.
   Future<HardnessSessionRecord?> load() async {
-    final file = File(_filePath);
-    // Recover from an interrupted atomic write that left only a .bak file.
-    await recoverAtomicWriteBackupIfNeeded(file);
-    if (!await file.exists()) return null;
     try {
-      final raw = await file.readAsString();
-      final decoded = jsonDecode(raw);
+      final rows = await _db.query('hardness_sessions', limit: 1);
+      if (rows.isEmpty) return null;
+      final dataJson = rows.first['data_json'] as String?;
+      if (dataJson == null || dataJson.isEmpty) return null;
+      final decoded = jsonDecode(dataJson);
       if (decoded is! Map) return null;
-      return HardnessSessionRecord.fromJson(Map<String, Object?>.from(decoded));
+      return HardnessSessionRecord.fromJson(
+        Map<String, Object?>.from(decoded),
+      );
     } catch (_) {
       return null;
     }
   }
 
-  /// Persists [record] to disk (atomic write).
+  /// Persists [record] to the database.
   Future<void> save(HardnessSessionRecord record) async {
-    final dir = Directory(p.dirname(_filePath));
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-    final content = const JsonEncoder.withIndent('  ').convert(record.toJson());
-    await writeFileAtomically(File(_filePath), content);
+    final dataJson = jsonEncode(record.toJson());
+    await _db.insert(
+      'hardness_sessions',
+      <String, Object?>{
+        'id': record.id,
+        'data_json': dataJson,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Removes the persisted record.
   Future<void> clear() async {
-    final file = File(_filePath);
-    if (await file.exists()) {
-      await file.delete();
-    }
+    await _db.delete('hardness_sessions');
   }
 }

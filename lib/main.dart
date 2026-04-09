@@ -10,6 +10,7 @@ import 'features/ai/service/ai_claude_hook_service.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
+import 'shared/data/database_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,9 @@ Future<void> main() async {
     }
   };
 
+  // Initialize database before creating any controllers that depend on it.
+  await DatabaseService.initialize();
+
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final aiSessionControllerFuture = AiSessionController.create(
@@ -41,9 +45,7 @@ Future<void> main() async {
   final mcpControllerFuture = McpController.create(
     initialFilePath: settingsController.mcpServersFilePath,
   );
-  final memoryControllerFuture = MemoryController.create(
-    initialFilePath: settingsController.userMemoryFilePath,
-  );
+  final memoryControllerFuture = MemoryController.create();
   final appInfo = await appInfoFuture;
   final skillsController = await skillsControllerFuture;
   final mcpController = await mcpControllerFuture;

@@ -1,13 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
+import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_model_config.dart';
-import '../../shared/data/atomic_file_operations.dart';
+import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
 import '../model/dialog_animation_settings.dart';
@@ -42,23 +41,46 @@ class SettingsLoadResult {
 }
 
 class SettingsStore {
-  SettingsStore({String? settingsFilePath})
-    : _settingsFilePath =
-          settingsFilePath ?? OpenHandPaths.defaultSettingsFilePath();
+  SettingsStore();
 
-  final String _settingsFilePath;
+  static const String _dbSettingsKey = 'app_settings_json';
 
-  String get settingsFilePath => _settingsFilePath;
+  /// Retained for backward compatibility with controllers that expose a path.
+  String get settingsFilePath => 'db://app_settings';
+
+  Database get _db => DatabaseService.instance.database;
+
+  // ---------------------------------------------------------------------------
+  // Primary load / save (DB-backed)
+  // ---------------------------------------------------------------------------
 
   Future<SettingsLoadResult> load() async {
-    final targetFile = File(_settingsFilePath);
-    // Recover from an interrupted atomic write that left only a .bak file.
-    await recoverAtomicWriteBackupIfNeeded(targetFile);
-    if (!await targetFile.exists()) {
-      final migrated = await _migrateLegacySandboxSettings(targetFile);
-      if (migrated) {
-        return load();
+    try {
+      final rows = await _db.query(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: <Object?>[_dbSettingsKey],
+        limit: 1,
+      );
+
+      if (rows.isNotEmpty) {
+        final jsonStr = rows.first['value'] as String?;
+        if (jsonStr != null && jsonStr.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(jsonStr);
+            if (decoded is Map) {
+              final snapshot = _snapshotFromJson(
+                Map<String, Object?>.from(decoded),
+              );
+              return SettingsLoadResult(snapshot: snapshot);
+            }
+          } catch (_) {
+            // DB data is corrupt; fall through to defaults.
+          }
+        }
       }
+
+      // No settings in DB yet — use defaults and persist them.
       final snapshot = AppSettingsSnapshot.defaults();
       try {
         await save(snapshot);
@@ -68,633 +90,231 @@ class SettingsStore {
           snapshot: snapshot,
           issue: SettingsPersistenceIssue(
             kind: SettingsPersistenceIssueKind.saveFailed,
-            filePath: _settingsFilePath,
+            filePath: 'db://app_settings',
             detail: '$error',
           ),
         );
       }
-    }
-
-    final fallbackSnapshot = AppSettingsSnapshot.defaults();
-    late final String rawContent;
-    try {
-      rawContent = await targetFile.readAsString();
     } catch (error) {
       return SettingsLoadResult(
-        snapshot: fallbackSnapshot,
+        snapshot: AppSettingsSnapshot.defaults(),
         issue: SettingsPersistenceIssue(
           kind: SettingsPersistenceIssueKind.saveFailed,
-          filePath: _settingsFilePath,
+          filePath: 'db://app_settings',
           detail: '$error',
         ),
       );
     }
-
-    try {
-      final parsedDocument = _parse(rawContent);
-      final sanitizedResult = _sanitize(parsedDocument);
-      if (!sanitizedResult.didSanitize) {
-        return SettingsLoadResult(snapshot: sanitizedResult.snapshot);
-      }
-      try {
-        await save(sanitizedResult.snapshot);
-        return SettingsLoadResult(
-          snapshot: sanitizedResult.snapshot,
-          issue: SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.sanitizedInvalidContent,
-            filePath: _settingsFilePath,
-          ),
-        );
-      } catch (error) {
-        return SettingsLoadResult(
-          snapshot: sanitizedResult.snapshot,
-          issue: SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.saveFailed,
-            filePath: _settingsFilePath,
-            detail: '$error',
-          ),
-        );
-      }
-    } catch (error) {
-      try {
-        final backupPath = await _backupInvalidFile(targetFile);
-        await save(fallbackSnapshot);
-        return SettingsLoadResult(
-          snapshot: fallbackSnapshot,
-          issue: SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.recoveredInvalidFile,
-            filePath: backupPath,
-            detail: '$error',
-          ),
-        );
-      } catch (saveError) {
-        return SettingsLoadResult(
-          snapshot: fallbackSnapshot,
-          issue: SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.saveFailed,
-            filePath: _settingsFilePath,
-            detail: '$error\n$saveError',
-          ),
-        );
-      }
-    }
   }
 
   Future<void> save(AppSettingsSnapshot snapshot) async {
-    final targetFile = File(_settingsFilePath);
-    final targetDirectory = targetFile.parent;
-    if (!await targetDirectory.exists()) {
-      await targetDirectory.create(recursive: true);
-    }
-    final content = _encode(snapshot);
-    await _writeAtomically(targetFile, content);
-  }
-
-  Future<bool> _migrateLegacySandboxSettings(File targetFile) async {
-    final legacyPath = OpenHandPaths.legacySandboxSettingsFilePath();
-    if (legacyPath == null || p.equals(legacyPath, targetFile.path)) {
-      return false;
-    }
-    final legacyFile = File(legacyPath);
-    if (!await legacyFile.exists()) {
-      return false;
-    }
-    final targetDirectory = targetFile.parent;
-    if (!await targetDirectory.exists()) {
-      await targetDirectory.create(recursive: true);
-    }
-    await legacyFile.copy(targetFile.path);
-    return true;
-  }
-
-  Future<String> _backupInvalidFile(File sourceFile) async {
-    final stamp = DateTime.now().microsecondsSinceEpoch;
-    final backupPath = p.join(
-      sourceFile.parent.path,
-      'SETTINGS.invalid-$stamp.toml',
-    );
-    final backupFile = File(backupPath);
-    if (await backupFile.exists()) {
-      await backupFile.delete();
-    }
-    await sourceFile.rename(backupPath);
-    return backupPath;
-  }
-
-  Future<void> _writeAtomically(File targetFile, String content) {
-    return writeFileAtomically(targetFile, content);
-  }
-
-  _ParsedSettingsDocument _parse(String rawContent) {
-    final rootValues = <String, Object?>{};
-    final modelValues = <Map<String, Object?>>[];
-    Map<String, Object?>? currentModel;
-
-    for (final rawLine in const LineSplitter().convert(rawContent)) {
-      final line = _stripInlineComment(rawLine).trim();
-      if (line.isEmpty) {
-        continue;
-      }
-      if (line == '[[ai_models]]') {
-        currentModel = <String, Object?>{};
-        modelValues.add(currentModel);
-        continue;
-      }
-      if (line.startsWith('[') || line.endsWith(']')) {
-        throw const FormatException('Unsupported TOML section found.');
-      }
-
-      final separatorIndex = line.indexOf('=');
-      if (separatorIndex <= 0) {
-        throw FormatException('Invalid setting entry: $line');
-      }
-      final key = line.substring(0, separatorIndex).trim();
-      final rawValue = line.substring(separatorIndex + 1).trim();
-      final value = _parseValue(rawValue);
-      if (currentModel != null) {
-        currentModel[key] = value;
-      } else {
-        rootValues[key] = value;
-      }
-    }
-
-    return _ParsedSettingsDocument(
-      rootValues: rootValues,
-      modelValues: modelValues,
+    final jsonStr = jsonEncode(_snapshotToJson(snapshot));
+    await _db.insert(
+      'app_settings',
+      <String, Object?>{
+        'key': _dbSettingsKey,
+        'value': jsonStr,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Object? _parseValue(String rawValue) {
-    if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
-      return jsonDecode(rawValue);
-    }
-    final intValue = int.tryParse(rawValue);
-    if (intValue != null) {
-      return intValue;
-    }
-    if (rawValue == 'true') {
-      return true;
-    }
-    if (rawValue == 'false') {
-      return false;
-    }
-    throw FormatException('Unsupported value: $rawValue');
+  // ---------------------------------------------------------------------------
+  // JSON serialization for AppSettingsSnapshot
+  // ---------------------------------------------------------------------------
+
+  static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
+    return <String, Object?>{
+      'version': 1,
+      'theme_mode': _themeModeToStorage(snapshot.themeMode),
+      'theme_preset': snapshot.themePreset.storageValue,
+      'language': snapshot.language.storageValue,
+      'skills_storage_path': snapshot.skillsStoragePath,
+      'mcp_enabled': snapshot.mcpEnabled,
+      'mcp_servers_file_path': snapshot.mcpServersFilePath,
+      'memory_enabled': snapshot.memoryEnabled,
+      'user_memory_file_path': snapshot.userMemoryFilePath,
+      'ai_message_compression_threshold_chars':
+          snapshot.aiMessageCompressionThresholdChars,
+      'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
+      'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
+      'ai_write_command_confirmation_enabled':
+          snapshot.aiWriteCommandConfirmationEnabled,
+      'ai_allow_command_rules': snapshot.aiAllowCommandRules
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'ai_deny_command_rules': snapshot.aiDenyCommandRules
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      'selected_ai_model_id': snapshot.selectedAiModelId ?? '',
+      'shortcut_bindings': <String, List<int>>{
+        for (final entry in snapshot.shortcutBindings.entries)
+          openHandShortcutActionStorageKey(entry.key):
+              normalizeShortcutKeyIds(entry.value),
+      },
+      'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
+      'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
+      'ai_models': snapshot.aiModels
+          .map((model) => model.toJson())
+          .toList(growable: false),
+    };
   }
 
-  String _stripInlineComment(String rawLine) {
-    final buffer = StringBuffer();
-    var inString = false;
-    var escaping = false;
-    for (final rune in rawLine.runes) {
-      final char = String.fromCharCode(rune);
-      if (escaping) {
-        buffer.write(char);
-        escaping = false;
-        continue;
-      }
-      if (char == r'\') {
-        buffer.write(char);
-        escaping = true;
-        continue;
-      }
-      if (char == '"') {
-        inString = !inString;
-        buffer.write(char);
-        continue;
-      }
-      if (char == '#' && !inString) {
-        break;
-      }
-      buffer.write(char);
-    }
-    return buffer.toString();
-  }
-
-  _SanitizedSettingsResult _sanitize(_ParsedSettingsDocument document) {
-    var didSanitize = false;
-    final rootValues = document.rootValues;
-    final rawVersion = rootValues['version'];
-    if (rawVersion != 1) {
-      didSanitize = true;
-    }
-
-    final themeMode = _themeModeFromStorage(
-      '${rootValues['theme_mode'] ?? ''}',
-    );
-    if ('${rootValues['theme_mode'] ?? ''}'.trim().isEmpty) {
-      didSanitize = true;
-    }
-    final rawThemePreset = '${rootValues['theme_preset'] ?? ''}'.trim();
+  static AppSettingsSnapshot _snapshotFromJson(Map<String, Object?> json) {
+    final themeMode = _themeModeFromStorage('${json['theme_mode'] ?? ''}');
+    final rawThemePreset = '${json['theme_preset'] ?? ''}'.trim();
     final themePreset = OpenHandThemePreset.fromStorage(rawThemePreset);
-    if (!OpenHandThemePreset.isValidStorageValue(rawThemePreset)) {
-      didSanitize = true;
-    }
-    final language = appLanguageFromStorage('${rootValues['language'] ?? ''}');
-    if ('${rootValues['language'] ?? ''}'.trim().isEmpty) {
-      didSanitize = true;
-    }
+    final language = appLanguageFromStorage('${json['language'] ?? ''}');
 
-    final rawSkillsPath = '${rootValues['skills_storage_path'] ?? ''}';
-    final skillsStoragePath = OpenHandPaths.normalizeUserPath(rawSkillsPath);
-    if (rawSkillsPath.trim().isEmpty) {
-      didSanitize = true;
-    }
-    final rawMcpEnabled = rootValues['mcp_enabled'];
-    final mcpEnabled = rawMcpEnabled is bool ? rawMcpEnabled : true;
-    if (rawMcpEnabled is! bool) {
-      didSanitize = true;
-    }
-    final rawMcpServersFilePath =
-        '${rootValues['mcp_servers_file_path'] ?? ''}';
+    final skillsStoragePath = OpenHandPaths.normalizeUserPath(
+      '${json['skills_storage_path'] ?? ''}',
+    );
+    final mcpEnabled = json['mcp_enabled'] is bool
+        ? json['mcp_enabled'] as bool
+        : true;
     final mcpServersFilePath = OpenHandPaths.normalizePath(
-      rawMcpServersFilePath,
+      '${json['mcp_servers_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultMcpServersFilePath(),
     );
-    if (rawMcpServersFilePath.trim().isEmpty) {
-      didSanitize = true;
-    }
-    final rawMemoryEnabled = rootValues['memory_enabled'];
-    final memoryEnabled = rawMemoryEnabled is bool ? rawMemoryEnabled : true;
-    if (rawMemoryEnabled is! bool) {
-      didSanitize = true;
-    }
-    final rawUserMemoryFilePath = '${rootValues['user_memory_file'] ?? ''}';
-    final normalizedRawUserMemoryFilePath = rawUserMemoryFilePath.trim().isEmpty
-        ? ''
-        : OpenHandPaths.normalizePath(
-            rawUserMemoryFilePath,
-            defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-          );
-    final shouldMigrateLegacyUserMemoryPath =
-        normalizedRawUserMemoryFilePath.isNotEmpty &&
-        p.equals(
-          normalizedRawUserMemoryFilePath,
-          OpenHandPaths.legacyDefaultUserMemoryFilePath(),
-        );
-    final userMemoryFilePath = shouldMigrateLegacyUserMemoryPath
-        ? OpenHandPaths.defaultUserMemoryFilePath()
-        : OpenHandPaths.normalizePath(
-            rawUserMemoryFilePath,
-            defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
-          );
-    if (rawUserMemoryFilePath.trim().isEmpty ||
-        shouldMigrateLegacyUserMemoryPath) {
-      didSanitize = true;
-    }
-    final rawCompressionThreshold =
-        rootValues['ai_message_compression_threshold_chars'];
-    final aiMessageCompressionThresholdChars =
-        rawCompressionThreshold is int && rawCompressionThreshold > 0
-        ? rawCompressionThreshold
-        : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
-    if (rawCompressionThreshold is! int || rawCompressionThreshold <= 0) {
-      didSanitize = true;
-    }
-    final rawSingleRoundToolCallLimit =
-        rootValues['ai_single_round_tool_call_limit'];
-    final aiSingleRoundToolCallLimit =
-        rawSingleRoundToolCallLimit is int && rawSingleRoundToolCallLimit > 0
-        ? rawSingleRoundToolCallLimit
-        : AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit;
-    if (rawSingleRoundToolCallLimit is! int ||
-        rawSingleRoundToolCallLimit <= 0) {
-      didSanitize = true;
-    }
-    final rawSequentialToolRoundLimit =
-        rootValues['ai_sequential_tool_round_limit'];
-    final aiSequentialToolRoundLimit =
-        rawSequentialToolRoundLimit is int && rawSequentialToolRoundLimit > 0
-        ? rawSequentialToolRoundLimit
-        : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
-    if (rawSequentialToolRoundLimit is! int ||
-        rawSequentialToolRoundLimit <= 0) {
-      didSanitize = true;
-    }
-    final rawWriteCommandConfirmationEnabled =
-        rootValues['ai_write_command_confirmation_enabled'];
-    final aiWriteCommandConfirmationEnabled =
-        rawWriteCommandConfirmationEnabled is bool
-        ? rawWriteCommandConfirmationEnabled
+    final memoryEnabled = json['memory_enabled'] is bool
+        ? json['memory_enabled'] as bool
         : true;
-    if (rawWriteCommandConfirmationEnabled is! bool) {
-      didSanitize = true;
-    }
-    final rawAllowCommandRules =
-        '${rootValues['ai_allow_command_rules'] ?? ''}';
+    final userMemoryFilePath = OpenHandPaths.normalizePath(
+      '${json['user_memory_file_path'] ?? ''}',
+      defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
+    );
+    final aiMessageCompressionThresholdChars =
+        json['ai_message_compression_threshold_chars'] is int &&
+            (json['ai_message_compression_threshold_chars'] as int) > 0
+        ? json['ai_message_compression_threshold_chars'] as int
+        : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
+    final aiSingleRoundToolCallLimit =
+        json['ai_single_round_tool_call_limit'] is int &&
+            (json['ai_single_round_tool_call_limit'] as int) > 0
+        ? json['ai_single_round_tool_call_limit'] as int
+        : AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit;
+    final aiSequentialToolRoundLimit =
+        json['ai_sequential_tool_round_limit'] is int &&
+            (json['ai_sequential_tool_round_limit'] as int) > 0
+        ? json['ai_sequential_tool_round_limit'] as int
+        : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
+    final aiWriteCommandConfirmationEnabled =
+        json['ai_write_command_confirmation_enabled'] is bool
+        ? json['ai_write_command_confirmation_enabled'] as bool
+        : true;
+
+    // Allow command rules.
+    final rawAllowRules = json['ai_allow_command_rules'];
     final aiAllowCommandRules = <AiAllowCommandRule>[];
-    if (rawAllowCommandRules.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawAllowCommandRules);
-        if (decoded is List) {
-          final seenRuleIds = <String>{};
-          for (final item in decoded) {
-            if (item is! Map) {
-              didSanitize = true;
-              continue;
-            }
-            final rule = AiAllowCommandRule.fromJson(
-              Map<String, Object?>.from(item),
+    if (rawAllowRules is List) {
+      for (final item in rawAllowRules) {
+        if (item is Map) {
+          try {
+            aiAllowCommandRules.add(
+              AiAllowCommandRule.fromJson(Map<String, Object?>.from(item)),
             );
-            if (rule.id.isEmpty || rule.pattern.trim().isEmpty) {
-              didSanitize = true;
-              continue;
-            }
-            if (!seenRuleIds.add(rule.id)) {
-              didSanitize = true;
-              continue;
-            }
-            aiAllowCommandRules.add(rule);
-          }
-        } else {
-          didSanitize = true;
+          } catch (_) {}
         }
-      } catch (_) {
-        didSanitize = true;
       }
     }
-    final rawDenyCommandRules = '${rootValues['ai_deny_command_rules'] ?? ''}';
+
+    // Deny command rules.
+    final rawDenyRules = json['ai_deny_command_rules'];
     final aiDenyCommandRules = <AiDenyCommandRule>[];
-    if (rawDenyCommandRules.trim().isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawDenyCommandRules);
-        if (decoded is List) {
-          final seenRuleIds = <String>{};
-          for (final item in decoded) {
-            if (item is! Map) {
-              didSanitize = true;
-              continue;
-            }
-            final rule = AiDenyCommandRule.fromJson(
+    if (rawDenyRules is List) {
+      for (final item in rawDenyRules) {
+        if (item is Map) {
+          try {
+            aiDenyCommandRules.add(
+              AiDenyCommandRule.fromJson(Map<String, Object?>.from(item)),
+            );
+          } catch (_) {}
+        }
+      }
+    }
+
+    // AI models.
+    final rawModels = json['ai_models'];
+    final aiModels = <AiModelConfig>[];
+    if (rawModels is List) {
+      for (final item in rawModels) {
+        if (item is Map) {
+          try {
+            final model = AiModelConfig.fromJson(
               Map<String, Object?>.from(item),
             );
-            if (rule.id.isEmpty || rule.pattern.trim().isEmpty) {
-              didSanitize = true;
-              continue;
+            if (model.id.trim().isNotEmpty && isValidHttpUrl(model.baseUrl)) {
+              aiModels.add(model);
             }
-            if (!seenRuleIds.add(rule.id)) {
-              didSanitize = true;
-              continue;
-            }
-            aiDenyCommandRules.add(rule);
-          }
-        } else {
-          didSanitize = true;
+          } catch (_) {}
         }
-      } catch (_) {
-        didSanitize = true;
       }
     }
 
-    final aiModels = <AiModelConfig>[];
-    final seenAiModelIds = <String>{};
-    for (final rawModel in document.modelValues) {
-      final rawAuthScheme = '${rawModel['auth_scheme'] ?? ''}'.trim();
-      final rawProtocolType = '${rawModel['protocol_type'] ?? ''}'.trim();
-      final rawMaxContextTokens = rawModel['max_context_tokens'];
-      final model = AiModelConfig.fromJson(rawModel);
-      final isValid =
-          model.id.trim().isNotEmpty &&
-          isValidHttpUrl(model.baseUrl);
-      if (!isValid) {
-        didSanitize = true;
-        continue;
-      }
-      if (!seenAiModelIds.add(model.id)) {
-        didSanitize = true;
-        continue;
-      }
-      if (!AiAuthScheme.isValidStorageValue(rawAuthScheme)) {
-        didSanitize = true;
-      }
-      if (!AiProtocolType.isValidStorageValue(rawProtocolType)) {
-        didSanitize = true;
-      }
-      if (!_isValidNullablePositiveInt(rawMaxContextTokens)) {
-        didSanitize = true;
-      }
-      aiModels.add(model);
-    }
-
-    var selectedAiModelId = '${rootValues['selected_ai_model_id'] ?? ''}'
-        .trim();
-    if (selectedAiModelId.isEmpty) {
-      selectedAiModelId = aiModels.isEmpty ? '' : aiModels.first.id;
-      if (aiModels.isNotEmpty) {
-        didSanitize = true;
-      }
-    }
+    var selectedAiModelId = '${json['selected_ai_model_id'] ?? ''}'.trim();
     if (selectedAiModelId.isNotEmpty &&
         !aiModels.any((item) => item.id == selectedAiModelId)) {
       selectedAiModelId = aiModels.isEmpty ? '' : aiModels.first.id;
-      didSanitize = true;
     }
-    final rawShortcutBindings = '${rootValues['shortcut_bindings'] ?? ''}';
+
+    // Shortcut bindings.
+    final rawBindings = json['shortcut_bindings'];
     var shortcutBindings = defaultOpenHandShortcutBindings();
-    if (rawShortcutBindings.trim().isEmpty) {
-      didSanitize = true;
-    } else {
-      try {
-        final decoded = jsonDecode(rawShortcutBindings);
-        if (decoded is Map) {
-          final parsedBindings = <OpenHandShortcutAction, List<int>>{};
-          for (final entry in decoded.entries) {
-            final action = openHandShortcutActionFromStorageKey('${entry.key}');
-            if (action == null) {
-              didSanitize = true;
-              continue;
-            }
-            final value = entry.value;
-            if (value is! List) {
-              didSanitize = true;
-              continue;
-            }
-            final normalizedKeyIds = normalizeShortcutKeyIds(
-              value.whereType<num>().map((item) => item.toInt()),
-            );
-            if (!isValidShortcutBinding(normalizedKeyIds)) {
-              didSanitize = true;
-              continue;
-            }
-            parsedBindings[action] = normalizedKeyIds;
-          }
-          for (final action in OpenHandShortcutAction.values) {
-            if (!parsedBindings.containsKey(action)) {
-              didSanitize = true;
-            }
-          }
-          shortcutBindings = <OpenHandShortcutAction, List<int>>{
-            ...defaultOpenHandShortcutBindings(),
-            ...parsedBindings,
-          };
-        } else {
-          didSanitize = true;
+    if (rawBindings is Map) {
+      final parsed = <OpenHandShortcutAction, List<int>>{};
+      for (final entry in rawBindings.entries) {
+        final action = openHandShortcutActionFromStorageKey('${entry.key}');
+        if (action == null) continue;
+        final value = entry.value;
+        if (value is! List) continue;
+        final normalized = normalizeShortcutKeyIds(
+          value.whereType<num>().map((item) => item.toInt()),
+        );
+        if (isValidShortcutBinding(normalized)) {
+          parsed[action] = normalized;
         }
-      } catch (_) {
-        didSanitize = true;
       }
+      shortcutBindings = <OpenHandShortcutAction, List<int>>{
+        ...defaultOpenHandShortcutBindings(),
+        ...parsed,
+      };
     }
 
-    // Dialog animation settings
-    final rawDialogAnimation =
-        '${rootValues['dialog_animation_settings'] ?? ''}'.trim();
+    // Animation settings.
+    final rawDialogAnim = json['dialog_animation_settings'];
     var dialogAnimationSettings = const DialogAnimationSettings();
-    if (rawDialogAnimation.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawDialogAnimation);
-        if (decoded is Map<String, dynamic>) {
-          dialogAnimationSettings = DialogAnimationSettings.fromJson(decoded);
-        } else if (decoded is String) {
-          final inner = jsonDecode(decoded);
-          if (inner is Map<String, dynamic>) {
-            dialogAnimationSettings = DialogAnimationSettings.fromJson(inner);
-          }
-        }
-      } catch (_) {
-        didSanitize = true;
-      }
+    if (rawDialogAnim is Map<String, dynamic>) {
+      dialogAnimationSettings = DialogAnimationSettings.fromJson(rawDialogAnim);
     }
-
-    // Menu / popup animation settings
-    final rawMenuAnimation =
-        '${rootValues['menu_animation_settings'] ?? ''}'.trim();
+    final rawMenuAnim = json['menu_animation_settings'];
     var menuAnimationSettings = const DialogAnimationSettings();
-    if (rawMenuAnimation.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rawMenuAnimation);
-        if (decoded is Map<String, dynamic>) {
-          menuAnimationSettings = DialogAnimationSettings.fromJson(decoded);
-        } else if (decoded is String) {
-          final inner = jsonDecode(decoded);
-          if (inner is Map<String, dynamic>) {
-            menuAnimationSettings = DialogAnimationSettings.fromJson(inner);
-          }
-        }
-      } catch (_) {
-        didSanitize = true;
-      }
+    if (rawMenuAnim is Map<String, dynamic>) {
+      menuAnimationSettings = DialogAnimationSettings.fromJson(rawMenuAnim);
     }
 
-    return _SanitizedSettingsResult(
-      didSanitize: didSanitize,
-      snapshot: AppSettingsSnapshot(
-        themeMode: themeMode,
-        themePreset: themePreset,
-        language: language,
-        skillsStoragePath: skillsStoragePath,
-        mcpEnabled: mcpEnabled,
-        mcpServersFilePath: mcpServersFilePath,
-        memoryEnabled: memoryEnabled,
-        userMemoryFilePath: userMemoryFilePath,
-        aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
-        aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
-        aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
-        aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
-        aiAllowCommandRules: aiAllowCommandRules,
-        aiDenyCommandRules: aiDenyCommandRules,
-        aiModels: aiModels,
-        selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
-        shortcutBindings: shortcutBindings,
-        dialogAnimationSettings: dialogAnimationSettings,
-        menuAnimationSettings: menuAnimationSettings,
-      ),
+    return AppSettingsSnapshot(
+      themeMode: themeMode,
+      themePreset: themePreset,
+      language: language,
+      skillsStoragePath: skillsStoragePath,
+      mcpEnabled: mcpEnabled,
+      mcpServersFilePath: mcpServersFilePath,
+      memoryEnabled: memoryEnabled,
+      userMemoryFilePath: userMemoryFilePath,
+      aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
+      aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
+      aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
+      aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
+      aiAllowCommandRules: aiAllowCommandRules,
+      aiDenyCommandRules: aiDenyCommandRules,
+      aiModels: aiModels,
+      selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
+      shortcutBindings: shortcutBindings,
+      dialogAnimationSettings: dialogAnimationSettings,
+      menuAnimationSettings: menuAnimationSettings,
     );
   }
 
-  String _encode(AppSettingsSnapshot snapshot) {
-    final buffer = StringBuffer()
-      ..writeln('version = 1')
-      ..writeln(
-        'theme_mode = ${jsonEncode(_themeModeToStorage(snapshot.themeMode))}',
-      )
-      ..writeln(
-        'theme_preset = ${jsonEncode(snapshot.themePreset.storageValue)}',
-      )
-      ..writeln('language = ${jsonEncode(snapshot.language.storageValue)}')
-      ..writeln(
-        'skills_storage_path = ${jsonEncode(snapshot.skillsStoragePath)}',
-      )
-      ..writeln('mcp_enabled = ${snapshot.mcpEnabled}')
-      ..writeln(
-        'mcp_servers_file_path = ${jsonEncode(snapshot.mcpServersFilePath)}',
-      )
-      ..writeln('memory_enabled = ${snapshot.memoryEnabled}')
-      ..writeln('user_memory_file = ${jsonEncode(snapshot.userMemoryFilePath)}')
-      ..writeln(
-        'ai_message_compression_threshold_chars = ${snapshot.aiMessageCompressionThresholdChars}',
-      )
-      ..writeln(
-        'ai_single_round_tool_call_limit = ${snapshot.aiSingleRoundToolCallLimit}',
-      )
-      ..writeln(
-        'ai_sequential_tool_round_limit = ${snapshot.aiSequentialToolRoundLimit}',
-      )
-      ..writeln(
-        'ai_write_command_confirmation_enabled = ${snapshot.aiWriteCommandConfirmationEnabled}',
-      )
-      ..writeln(
-        'ai_allow_command_rules = ${jsonEncode(jsonEncode(snapshot.aiAllowCommandRules.map((item) => item.toJson()).toList(growable: false)))}',
-      )
-      ..writeln(
-        'ai_deny_command_rules = ${jsonEncode(jsonEncode(snapshot.aiDenyCommandRules.map((item) => item.toJson()).toList(growable: false)))}',
-      )
-      ..writeln(
-        'selected_ai_model_id = ${jsonEncode(snapshot.selectedAiModelId ?? '')}',
-      )
-      ..writeln(
-        'shortcut_bindings = ${jsonEncode(jsonEncode(<String, List<int>>{for (final entry in snapshot.shortcutBindings.entries) openHandShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(entry.value)}))}',
-      )
-      ..writeln(
-        'dialog_animation_settings = ${jsonEncode(jsonEncode(snapshot.dialogAnimationSettings.toJson()))}',
-      )
-      ..writeln(
-        'menu_animation_settings = ${jsonEncode(jsonEncode(snapshot.menuAnimationSettings.toJson()))}',
-      );
-
-    for (final model in snapshot.aiModels) {
-      buffer
-        ..writeln()
-        ..writeln('[[ai_models]]')
-        ..writeln('id = ${jsonEncode(model.id)}')
-        ..writeln('name = ${jsonEncode(model.name)}')
-        ..writeln('base_url = ${jsonEncode(model.normalizedBaseUrl)}')
-        ..writeln('auth_scheme = ${jsonEncode(model.authScheme.storageValue)}')
-        ..writeln('token = ${jsonEncode(model.token)}')
-        ..writeln('model_id = ${jsonEncode(model.modelId.trim())}')
-        ..writeln(
-          'protocol_type = ${jsonEncode(model.protocolType.storageValue)}',
-        );
-      if (model.maxContextTokens != null) {
-        buffer.writeln('max_context_tokens = ${model.maxContextTokens}');
-      }
-      if (model.availableModelIds.isNotEmpty) {
-        buffer.writeln(
-          'available_model_ids = ${jsonEncode(jsonEncode(model.availableModelIds))}',
-        );
-      }
-    }
-
-    return buffer.toString();
-  }
-}
-
-class _ParsedSettingsDocument {
-  const _ParsedSettingsDocument({
-    required this.rootValues,
-    required this.modelValues,
-  });
-
-  final Map<String, Object?> rootValues;
-  final List<Map<String, Object?>> modelValues;
-}
-
-class _SanitizedSettingsResult {
-  const _SanitizedSettingsResult({
-    required this.didSanitize,
-    required this.snapshot,
-  });
-
-  final bool didSanitize;
-  final AppSettingsSnapshot snapshot;
 }
 
 ThemeMode _themeModeFromStorage(String? value) {
@@ -711,18 +331,4 @@ String _themeModeToStorage(ThemeMode value) {
     ThemeMode.dark => 'dark',
     ThemeMode.system => 'system',
   };
-}
-
-bool _isValidNullablePositiveInt(Object? value) {
-  if (value == null) {
-    return true;
-  }
-  if (value is int) {
-    return value > 0;
-  }
-  if (value is num) {
-    return value > 0 && value == value.toInt();
-  }
-  final parsed = int.tryParse('$value'.trim());
-  return parsed != null && parsed > 0;
 }

@@ -158,7 +158,8 @@ class MemoryView extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     try {
       await context.read<MemoryController>().openStorageDirectory();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('MemoryView: failed to open storage directory: $e');
       if (!context.mounted) {
         return;
       }
@@ -454,7 +455,8 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
               content: content,
               tags: tags,
             );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('MemoryView: failed to save memory: $e');
       if (!mounted) {
         return;
       }
