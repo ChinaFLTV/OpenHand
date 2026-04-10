@@ -824,6 +824,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   final Map<String, ScrollController> _scrollControllers = {};
   final Map<String, _HighlightingTextController> _textControllers = {};
   final Map<String, FocusNode> _focusNodes = {};
+  final Set<String> _forcedFullEditorFiles = <String>{};
 
   @override
   void dispose() {
@@ -854,7 +855,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         final content = await file.readAsString();
         _fileContents[filePath] = content;
         _textControllers[filePath] = _HighlightingTextController(
-          text: content,
+          initialText: content,
           language: _editorLanguageFromPath(filePath),
         );
         _focusNodes[filePath] = FocusNode();
@@ -1066,15 +1067,30 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     final focusNode = _focusNodes.putIfAbsent(filePath, FocusNode.new);
     final language = _editorLanguageFromPath(filePath);
 
-    return KeyboardListener(
-      focusNode: FocusNode(),
-      onKeyEvent: (event) {
+    if (!_forcedFullEditorFiles.contains(filePath) &&
+        textController.useVirtualizedPreview) {
+      return _LargeFileCodeView(
+        key: ValueKey<String>('large-preview:$filePath'),
+        controller: textController,
+        scrollController: scrollController,
+        language: language,
+        onOpenFullEditor: () {
+          if (!mounted) return;
+          setState(() => _forcedFullEditorFiles.add(filePath));
+        },
+      );
+    }
+
+    return Focus(
+      onKeyEvent: (_, event) {
         if (event is KeyDownEvent &&
             event.logicalKey == LogicalKeyboardKey.keyS &&
             (HardwareKeyboard.instance.isControlPressed ||
                 HardwareKeyboard.instance.isMetaPressed)) {
           _saveFile(filePath);
+          return KeyEventResult.handled;
         }
+        return KeyEventResult.ignored;
       },
       child: _SyntaxHighlightEditor(
         controller: textController,
@@ -1166,7 +1182,10 @@ class _EditorBreadcrumb extends StatelessWidget {
                     _BreadcrumbSegment(
                       name: segments[i],
                       isLast: i == segments.length - 1,
-                      dirPath: i == segments.length - 1
+                      targetPath: i == segments.length - 1
+                          ? filePath
+                          : p.joinAll(segments.sublist(0, i + 1)),
+                      directoryPath: i == segments.length - 1
                           ? p.dirname(filePath)
                           : p.joinAll(segments.sublist(0, i + 1)),
                       onNavigateToFile: onNavigateToFile,
@@ -1186,13 +1205,15 @@ class _BreadcrumbSegment extends StatelessWidget {
   const _BreadcrumbSegment({
     required this.name,
     required this.isLast,
-    required this.dirPath,
+    required this.targetPath,
+    required this.directoryPath,
     this.onNavigateToFile,
   });
 
   final String name;
   final bool isLast;
-  final String dirPath;
+  final String targetPath;
+  final String directoryPath;
   final ValueChanged<String>? onNavigateToFile;
 
   @override
@@ -1204,8 +1225,9 @@ class _BreadcrumbSegment extends StatelessWidget {
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),
+        mouseCursor: SystemMouseCursors.click,
         hoverColor: colorScheme.primary.withValues(alpha: 0.06),
-        onTap: () => _showDirectoryPopup(context),
+        onTap: () => _handleTap(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           child: Text(
@@ -1223,42 +1245,85 @@ class _BreadcrumbSegment extends StatelessWidget {
     );
   }
 
-  Future<void> _showDirectoryPopup(BuildContext context) async {
-    final dir = Directory(dirPath);
-    if (!await dir.exists()) return;
-    List<FileSystemEntity> entries;
-    try {
-      entries = await dir.list().toList();
-    } catch (_) {
+  Future<void> _handleTap(BuildContext context) async {
+    await _showDirectoryPopup(
+      context,
+      directoryPath: directoryPath,
+      initialValue: isLast ? targetPath : null,
+    );
+  }
+
+  Future<void> _showDirectoryPopup(
+    BuildContext context, {
+    required String directoryPath,
+    String? initialValue,
+  }) async {
+    String currentDirectoryPath = directoryPath;
+    String? currentInitialValue = initialValue;
+    while (context.mounted) {
+      final dir = Directory(currentDirectoryPath);
+      if (!await dir.exists()) return;
+      List<FileSystemEntity> entries;
+      try {
+        entries = await dir.list().toList();
+      } catch (_) {
+        return;
+      }
+      entries.sort((a, b) {
+        final aIsDir = a is Directory;
+        final bIsDir = b is Directory;
+        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
+        return p.basename(a.path).toLowerCase().compareTo(
+              p.basename(b.path).toLowerCase(),
+            );
+      });
+      final filtered = entries
+          .where((e) => !p.basename(e.path).startsWith('.'))
+          .take(80)
+          .toList(growable: false);
+      if (filtered.isEmpty || !context.mounted) return;
+
+      final selected = await _showDirectoryEntriesMenu(
+        context,
+        entries: filtered,
+        initialValue: currentInitialValue,
+      );
+      if (selected == null || !context.mounted) return;
+      if (FileSystemEntity.isDirectorySync(selected)) {
+        currentDirectoryPath = selected;
+        currentInitialValue = null;
+        continue;
+      }
+      _scheduleOverlayActionAfterMenuDismissal(context, () {
+        onNavigateToFile?.call(selected);
+      });
       return;
     }
-    entries.sort((a, b) {
-      final aIsDir = a is Directory;
-      final bIsDir = b is Directory;
-      if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-      return p.basename(a.path).toLowerCase().compareTo(
-            p.basename(b.path).toLowerCase(),
-          );
-    });
-    final filtered = entries
-        .where((e) => !p.basename(e.path).startsWith('.'))
-        .take(50)
-        .toList();
-    if (filtered.isEmpty || !context.mounted) return;
-    final rb = context.findRenderObject() as RenderBox?;
-    if (rb == null) return;
-    final offset = rb.localToGlobal(Offset(0, rb.size.height));
+  }
+
+  Future<String?> _showDirectoryEntriesMenu(
+    BuildContext context, {
+    required List<FileSystemEntity> entries,
+    String? initialValue,
+  }) {
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final target = context.findRenderObject() as RenderBox?;
+    if (overlay == null || target == null) {
+      return Future<String?>.value();
+    }
+    final topLeft = target.localToGlobal(Offset.zero, ancestor: overlay);
+    final bottomRight = target.localToGlobal(
+      target.size.bottomRight(Offset.zero),
+      ancestor: overlay,
+    );
+    final anchorRect = Rect.fromPoints(topLeft, bottomRight);
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final selected = await showAnimatedMenu<String>(
+    return showAnimatedMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + 2,
-        offset.dx,
-        offset.dy + 2,
-      ),
-      items: filtered.map((entry) {
+      position: RelativeRect.fromRect(anchorRect, Offset.zero & overlay.size),
+      initialValue: initialValue,
+      items: entries.map((entry) {
         final entryName = p.basename(entry.path);
         final isDir = entry is Directory;
         return PopupMenuItem<String>(
@@ -1279,10 +1344,13 @@ class _BreadcrumbSegment extends StatelessWidget {
                     : colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 8),
-              Text(
-                entryName,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: isDir ? FontWeight.w600 : FontWeight.w400,
+              Expanded(
+                child: Text(
+                  entryName,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: isDir ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ),
             ],
@@ -1290,10 +1358,6 @@ class _BreadcrumbSegment extends StatelessWidget {
         );
       }).toList().cast<PopupMenuEntry<String>>(),
     );
-    if (selected == null || !context.mounted) return;
-    if (!FileSystemEntity.isDirectorySync(selected)) {
-      onNavigateToFile?.call(selected);
-    }
   }
 }
 
@@ -1338,8 +1402,44 @@ class _EditorActionButton extends StatelessWidget {
 // Syntax-highlighted editable editor widget
 // ---------------------------------------------------------------------------
 
+const double _editorFontSize = 13.0;
+const double _editorLineHeight = 1.55;
+const double _editorLineExtent = _editorFontSize * _editorLineHeight;
+const TextStyle _editorBaseStyle = TextStyle(
+  fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+  fontSize: _editorFontSize,
+  height: _editorLineHeight,
+  letterSpacing: 0,
+);
+
+class _EditorScrollBehavior extends MaterialScrollBehavior {
+  const _EditorScrollBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
 class _HighlightingTextController extends TextEditingController {
-  _HighlightingTextController({super.text, this.language});
+  _HighlightingTextController({String? initialText, this.language})
+    : _lastMeasuredText = initialText ?? '',
+      super(text: initialText) {
+    _updateDocumentMetrics(initialText ?? '');
+  }
 
   _CodeSyntaxHighlighter? highlighter;
   String? language;
@@ -1349,12 +1449,58 @@ class _HighlightingTextController extends TextEditingController {
   String? _lastText;
   int? _lastHighlighterHash;
   Timer? _debounceTimer;
+  String _lastMeasuredText;
+  List<String>? _cachedLines;
+  int _lineCount = 1;
+  int _longestLineLength = 0;
 
   /// Beyond this length, skip syntax highlighting entirely.
-  static const _maxHighlightLength = 200 * 1024;
+  static const _maxHighlightLength = 96 * 1024;
 
-  /// Beyond this length, debounce re-highlighting during rapid edits.
-  static const _debounceLength = 30 * 1024;
+  /// Beyond this line count, skip syntax highlighting entirely.
+  static const _maxHighlightLines = 1800;
+
+  /// Beyond this size, defer the expensive initial highlight parse.
+  static const _deferHighlightLength = 36 * 1024;
+  static const _deferHighlightLines = 900;
+
+  /// Large documents switch to a virtualized preview by default.
+  static const _previewLength = 160 * 1024;
+  static const _previewLines = 3200;
+
+  int get lineCount => _lineCount;
+
+  int get longestLineLength => _longestLineLength;
+
+  bool get useVirtualizedPreview =>
+      text.length >= _previewLength || _lineCount >= _previewLines;
+
+  List<String> get previewLines {
+    _cachedLines ??= () {
+      final lines = const LineSplitter().convert(text);
+      return lines.isEmpty
+          ? const <String>['']
+          : List<String>.unmodifiable(lines);
+    }();
+    return _cachedLines!;
+  }
+
+  bool get _disableHighlighting =>
+      text.length > _maxHighlightLength || _lineCount > _maxHighlightLines;
+
+  bool get _deferHighlighting =>
+      !_disableHighlighting &&
+      (text.length > _deferHighlightLength || _lineCount > _deferHighlightLines);
+
+  @override
+  set value(TextEditingValue newValue) {
+    final previousText = value.text;
+    super.value = newValue;
+    if (newValue.text == previousText && newValue.text == _lastMeasuredText) {
+      return;
+    }
+    _handleTextChanged(newValue.text);
+  }
 
   @override
   TextSpan buildTextSpan({
@@ -1362,7 +1508,7 @@ class _HighlightingTextController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    if (highlighter == null || text.length > _maxHighlightLength) {
+    if (highlighter == null || _disableHighlighting) {
       return TextSpan(text: text, style: style);
     }
     final hlHash = identityHashCode(highlighter);
@@ -1371,13 +1517,7 @@ class _HighlightingTextController extends TextEditingController {
         _lastHighlighterHash == hlHash) {
       return _cachedSpan!;
     }
-    // For large files, return plain text immediately and schedule a delayed
-    // re-highlight so that rapid keystrokes do not trigger expensive parsing
-    // on every frame.
-    if (text.length > _debounceLength && _cachedSpan != null) {
-      // The stale cached span was built for an older version of the text
-      // and cannot be reused directly (it would not match the current text
-      // length).  Return unstyled text while waiting for the debounce.
+    if (_deferHighlighting) {
       _scheduleDelayedHighlight();
       return TextSpan(text: text, style: style);
     }
@@ -1399,13 +1539,45 @@ class _HighlightingTextController extends TextEditingController {
   void _scheduleDelayedHighlight() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 350), () {
-      if (highlighter == null) return;
+      if (highlighter == null || _disableHighlighting) return;
       _rebuildHighlight();
       notifyListeners();
     });
   }
 
+  void _handleTextChanged(String currentText) {
+    _lastMeasuredText = currentText;
+    _cachedLines = null;
+    _updateDocumentMetrics(currentText);
+    invalidateHighlightCache();
+  }
+
+  void _updateDocumentMetrics(String currentText) {
+    var computedLineCount = 1;
+    var currentLineLength = 0;
+    var longestLineLength = 0;
+    for (final codeUnit in currentText.codeUnits) {
+      if (codeUnit == 10) {
+        computedLineCount += 1;
+        if (currentLineLength > longestLineLength) {
+          longestLineLength = currentLineLength;
+        }
+        currentLineLength = 0;
+        continue;
+      }
+      if (codeUnit != 13) {
+        currentLineLength += 1;
+      }
+    }
+    if (currentLineLength > longestLineLength) {
+      longestLineLength = currentLineLength;
+    }
+    _lineCount = math.max(1, computedLineCount);
+    _longestLineLength = longestLineLength;
+  }
+
   void invalidateHighlightCache() {
+    _debounceTimer?.cancel();
     _cachedSpan = null;
     _lastText = null;
     _lastHighlighterHash = null;
@@ -1442,15 +1614,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   late final ScrollController _lineNumberScrollController;
   bool _darkSurface = false;
 
-  static const _editorFontSize = 13.0;
-  static const _editorLineHeight = 1.55;
-  static const _lineExtent = _editorFontSize * _editorLineHeight;
-  static const _editorStyle = TextStyle(
-    fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
-    fontSize: _editorFontSize,
-    height: _editorLineHeight,
-    letterSpacing: 0,
-  );
+  TextStyle _resolvedEditorStyle() {
+    return _editorBaseStyle.copyWith(
+      color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
+    );
+  }
 
   @override
   void initState() {
@@ -1490,7 +1658,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     if (widget.controller.highlighter == null || darkSurface != _darkSurface) {
       _darkSurface = darkSurface;
       widget.controller.highlighter = _CodeSyntaxHighlighter(
-        baseStyle: _editorStyle,
+        baseStyle: _resolvedEditorStyle(),
         darkSurface: darkSurface,
       );
       widget.controller.invalidateHighlightCache();
@@ -1500,15 +1668,12 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final text = widget.controller.text;
-    final lineCount = '\n'.allMatches(text).length + 1;
+    final lineCount = widget.controller.lineCount;
     final digitCount = '$lineCount'.length;
     final lineNumberWidth = (digitCount * 8.5) + 32;
+    final editorStyle = _resolvedEditorStyle();
 
-    // Suppress platform-generated scrollbars per-widget so that only the
-    // single explicit Scrollbar around the code area is visible.
-    final noScrollbarBehavior =
-        ScrollConfiguration.of(context).copyWith(scrollbars: false);
+    const noScrollbarBehavior = _EditorScrollBehavior();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1531,7 +1696,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 10, bottom: 10),
               itemCount: lineCount,
-              itemExtent: _lineExtent,
+              itemExtent: _editorLineExtent,
               itemBuilder: (context, index) {
                 return Container(
                   alignment: Alignment.centerRight,
@@ -1544,7 +1709,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                       fontSize: 12,
                       height: _editorLineHeight,
                       color: colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.35),
+                          .withValues(alpha: 0.48),
                     ),
                   ),
                 );
@@ -1554,32 +1719,304 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         ),
         // ── Code area — single explicit scrollbar only ──
         Expanded(
-          child: Scrollbar(
-            controller: widget.scrollController,
-            thumbVisibility: true,
-            child: ScrollConfiguration(
-              behavior: noScrollbarBehavior,
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                maxLines: null,
-                expands: true,
-                scrollController: widget.scrollController,
-                style: _editorStyle,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.only(
-                    top: 10,
-                    bottom: 10,
-                    left: 8,
-                    right: 12,
+          child: PrimaryScrollController.none(
+            child: RawScrollbar(
+              controller: widget.scrollController,
+              thumbVisibility: true,
+              thickness: 9,
+              radius: const Radius.circular(999),
+              notificationPredicate: (notification) =>
+                  notification.metrics.axis == Axis.vertical,
+              child: ScrollConfiguration(
+                behavior: noScrollbarBehavior,
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  maxLines: null,
+                  expands: true,
+                  scrollController: widget.scrollController,
+                  style: editorStyle,
+                  cursorColor: colorScheme.primary,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.only(
+                      top: 10,
+                      bottom: 10,
+                      left: 8,
+                      right: 12,
+                    ),
+                    isDense: true,
+                    isCollapsed: true,
                   ),
-                  isDense: true,
-                  isCollapsed: true,
+                  onChanged: widget.onChanged,
                 ),
-                onChanged: widget.onChanged,
               ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LargeFileCodeView extends StatefulWidget {
+  const _LargeFileCodeView({
+    super.key,
+    required this.controller,
+    required this.scrollController,
+    required this.language,
+    required this.onOpenFullEditor,
+  });
+
+  final _HighlightingTextController controller;
+  final ScrollController scrollController;
+  final String? language;
+  final VoidCallback onOpenFullEditor;
+
+  @override
+  State<_LargeFileCodeView> createState() => _LargeFileCodeViewState();
+}
+
+class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
+  late final ScrollController _lineNumberScrollController;
+  late final ScrollController _horizontalScrollController;
+  final Map<int, TextSpan> _lineSpanCache = {};
+  _CodeSyntaxHighlighter? _lineHighlighter;
+  bool _darkSurface = false;
+  static const int _lineSpanCacheLimit = 600;
+
+  TextStyle _resolvedEditorStyle() {
+    return _editorBaseStyle.copyWith(
+      color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _lineNumberScrollController = ScrollController();
+    _horizontalScrollController = ScrollController();
+    widget.scrollController.addListener(_syncLineNumbers);
+  }
+
+  @override
+  void didUpdateWidget(covariant _LargeFileCodeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController.removeListener(_syncLineNumbers);
+      widget.scrollController.addListener(_syncLineNumbers);
+    }
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.language != widget.language) {
+      _lineSpanCache.clear();
+      _lineHighlighter = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_syncLineNumbers);
+    _lineNumberScrollController.dispose();
+    _horizontalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _syncLineNumbers() {
+    if (!_lineNumberScrollController.hasClients) return;
+    final offset = widget.scrollController.offset;
+    final max = _lineNumberScrollController.position.maxScrollExtent;
+    _lineNumberScrollController.jumpTo(offset.clamp(0.0, max));
+  }
+
+  TextSpan _highlightLine(int index) {
+    final cached = _lineSpanCache[index];
+    if (cached != null) {
+      return cached;
+    }
+    final line = widget.controller.previewLines[index];
+    _lineHighlighter ??= _CodeSyntaxHighlighter(
+      baseStyle: _resolvedEditorStyle(),
+      darkSurface: _darkSurface,
+    );
+    final span = line.isEmpty
+        ? TextSpan(text: ' ', style: _resolvedEditorStyle())
+        : _lineHighlighter!.build(
+            line,
+            language: widget.language,
+            allowAutoDetection: widget.language == null,
+          );
+    if (_lineSpanCache.length >= _lineSpanCacheLimit) {
+      _lineSpanCache.remove(_lineSpanCache.keys.first);
+    }
+    _lineSpanCache[index] = span;
+    return span;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final nextDarkSurface = theme.brightness == Brightness.dark;
+    if (nextDarkSurface != _darkSurface) {
+      _darkSurface = nextDarkSurface;
+      _lineHighlighter = null;
+      _lineSpanCache.clear();
+    } else {
+      _darkSurface = nextDarkSurface;
+    }
+    final lines = widget.controller.previewLines;
+    final lineCount = lines.length;
+    final digitCount = '$lineCount'.length;
+    final lineNumberWidth = (digitCount * 8.5) + 32;
+    const noScrollbarBehavior = _EditorScrollBehavior();
+    final bannerBackground = _darkSurface
+        ? colorScheme.surfaceContainerHigh
+        : colorScheme.primaryContainer.withValues(alpha: 0.42);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: bannerBackground,
+            border: Border(
+              bottom: BorderSide(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.24),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.speed_rounded, size: 16, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。',
+                    en: 'Large-file performance mode is active: using a virtualized read-only preview to avoid full-document layout stalls.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: widget.onOpenFullEditor,
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '仍然打开完整编辑器',
+                    en: 'Open full editor anyway',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final estimatedContentWidth = math.max(
+                constraints.maxWidth,
+                widget.controller.longestLineLength * (_editorFontSize * 0.68) +
+                    32,
+              );
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: lineNumberWidth,
+                    decoration: BoxDecoration(
+                      border: Border(
+                        right: BorderSide(
+                          color: colorScheme.outlineVariant
+                              .withValues(alpha: 0.2),
+                          width: 0.5,
+                        ),
+                      ),
+                    ),
+                    child: ScrollConfiguration(
+                      behavior: noScrollbarBehavior,
+                      child: ListView.builder(
+                        controller: _lineNumberScrollController,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(top: 10, bottom: 10),
+                        itemCount: lineCount,
+                        itemExtent: _editorLineExtent,
+                        itemBuilder: (context, index) {
+                          return Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 14, left: 10),
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                fontFamily:
+                                    'JetBrains Mono, Menlo, Consolas, monospace',
+                                fontSize: 12,
+                                height: _editorLineHeight,
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.48),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: PrimaryScrollController.none(
+                      child: RawScrollbar(
+                        controller: widget.scrollController,
+                        thumbVisibility: true,
+                        thickness: 9,
+                        radius: const Radius.circular(999),
+                        notificationPredicate: (notification) =>
+                            notification.metrics.axis == Axis.vertical,
+                        child: ScrollConfiguration(
+                          behavior: noScrollbarBehavior,
+                          child: SingleChildScrollView(
+                            controller: _horizontalScrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: SizedBox(
+                              width: estimatedContentWidth,
+                              child: ListView.builder(
+                                controller: widget.scrollController,
+                                padding: const EdgeInsets.only(
+                                  top: 10,
+                                  bottom: 10,
+                                  left: 8,
+                                  right: 12,
+                                ),
+                                cacheExtent: _editorLineExtent * 48,
+                                itemCount: lineCount,
+                                itemExtent: _editorLineExtent,
+                                itemBuilder: (context, index) {
+                                  return RepaintBoundary(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text.rich(
+                                        _highlightLine(index),
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ],
