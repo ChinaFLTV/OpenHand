@@ -88,10 +88,33 @@ class AiModelScanner {
         return _scanClaude(config, timeout: timeout);
       case AiProtocolType.ollama:
         return _scanOllama(config, timeout: timeout);
+      case AiProtocolType.seed:
+        return _scanSeed(config, timeout: timeout);
       default:
-        // OpenAI-compatible: openai, deepseek, qwen, kimi, glm, grok, vllm, sglang
+        // OpenAI-compatible: openai, deepseek, qwen, kimi, glm, grok,
+        // vllm, sglang, stepfun, mimo
         return _scanOpenAiCompatible(config, timeout: timeout);
     }
+  }
+
+  /// Strips common endpoint suffixes from a base URL and appends `/models`.
+  ///
+  /// Users sometimes paste the full endpoint URL (e.g.
+  /// `https://api.openai.com/v1/chat/completions`) as their base URL.
+  /// This normalizes such URLs so the models endpoint is correctly derived.
+  static String _toModelsUrl(String baseUrl) {
+    const suffixes = <String>[
+      '/chat/completions',
+      '/completions',
+      '/embeddings',
+      '/models',
+    ];
+    for (final suffix in suffixes) {
+      if (baseUrl.endsWith(suffix)) {
+        return '${baseUrl.substring(0, baseUrl.length - suffix.length)}/models';
+      }
+    }
+    return '$baseUrl/models';
   }
 
   /// OpenAI-compatible /models endpoint.
@@ -99,16 +122,7 @@ class AiModelScanner {
     AiModelConfig config, {
     required Duration timeout,
   }) async {
-    final baseUrl = config.normalizedBaseUrl;
-    // Many OpenAI-compatible services have base URL like https://api.xxx.com/v1
-    // The models endpoint is /v1/models — normalize by trimming /chat/completions if present
-    String modelsUrl;
-    if (baseUrl.endsWith('/chat/completions')) {
-      modelsUrl =
-          '${baseUrl.substring(0, baseUrl.length - '/chat/completions'.length)}/models';
-    } else {
-      modelsUrl = '$baseUrl/models';
-    }
+    final modelsUrl = _toModelsUrl(config.normalizedBaseUrl);
 
     final headers = _buildHeaders(config);
     final response = await _httpClient
@@ -174,6 +188,7 @@ class AiModelScanner {
   }
 
   /// Gemini models.list endpoint.
+  /// Handles pagination via `nextPageToken` to retrieve all models.
   Future<AiModelScanResult> _scanGemini(
     AiModelConfig config, {
     required Duration timeout,
@@ -182,27 +197,219 @@ class AiModelScanner {
     final token = config.token.trim();
     // Gemini REST: GET /v1beta/models?key=API_KEY
     // Or: /v1/models with bearer token
-    String modelsUrl;
+    String baseModelsUrl;
     if (baseUrl.contains('/v1beta')) {
-      modelsUrl = '$baseUrl/models';
+      baseModelsUrl = '$baseUrl/models';
     } else if (baseUrl.endsWith('/v1')) {
-      modelsUrl = '$baseUrl/models';
+      baseModelsUrl = '$baseUrl/models';
     } else {
-      modelsUrl = '$baseUrl/v1beta/models';
+      baseModelsUrl = '$baseUrl/v1beta/models';
     }
 
     final headers = <String, String>{};
-    if (config.authScheme == AiAuthScheme.apiKey && token.isNotEmpty) {
-      // Gemini uses key= query parameter, but also supports header-based auth
-      final uri = Uri.parse(modelsUrl);
-      modelsUrl = uri.replace(queryParameters: {
-        ...uri.queryParameters,
-        'key': token,
-      }).toString();
-    } else if (token.isNotEmpty) {
+    final useQueryAuth =
+        config.authScheme == AiAuthScheme.apiKey && token.isNotEmpty;
+    if (!useQueryAuth && token.isNotEmpty) {
       headers.addAll(_buildHeaders(config));
     }
 
+    final allIds = <String>[];
+    String? pageToken;
+    // Limit iterations to avoid infinite loops on malformed pagination.
+    const maxPages = 20;
+
+    for (var page = 0; page < maxPages; page++) {
+      var uri = Uri.parse(baseModelsUrl);
+      final queryParams = <String, String>{
+        ...uri.queryParameters,
+        'pageSize': '100',
+      };
+      if (useQueryAuth) {
+        queryParams['key'] = token;
+      }
+      if (pageToken != null) {
+        queryParams['pageToken'] = pageToken;
+      }
+      uri = uri.replace(queryParameters: queryParams);
+
+      final response = await _httpClient
+          .get(uri, headers: headers)
+          .timeout(timeout);
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return AiModelScanResult(
+          modelIds: const <String>[],
+          error:
+              'Authentication failed (${response.statusCode}). Check your API key.',
+        );
+      }
+      if (response.statusCode != 200) {
+        return AiModelScanResult(
+          modelIds: const <String>[],
+          error: 'Server returned status ${response.statusCode}.',
+        );
+      }
+
+      final json = jsonDecode(response.body);
+      if (json is! Map<String, dynamic>) {
+        return const AiModelScanResult(
+          modelIds: <String>[],
+          error: 'Unexpected response format.',
+        );
+      }
+
+      final models = json['models'];
+      if (models is List) {
+        for (final item in models) {
+          if (item is Map<String, dynamic>) {
+            String name = '${item['name'] ?? ''}'.trim();
+            // Gemini returns "models/gemini-pro" — strip the "models/" prefix.
+            if (name.startsWith('models/')) {
+              name = name.substring('models/'.length);
+            }
+            if (name.isNotEmpty) {
+              allIds.add(name);
+            }
+          }
+        }
+      }
+
+      // Handle pagination.
+      final nextToken = json['nextPageToken'];
+      if (nextToken is String && nextToken.isNotEmpty) {
+        pageToken = nextToken;
+      } else {
+        break;
+      }
+    }
+
+    allIds.sort();
+    return AiModelScanResult(modelIds: allIds);
+  }
+
+  /// Claude/Anthropic models list endpoint.
+  /// Anthropic supports GET /v1/models with `anthropic-version` header.
+  /// Response: `{ "data": [...], "has_more": bool, "last_id": "..." }`.
+  /// Pagination: pass `after_id=last_id` until `has_more` is false.
+  Future<AiModelScanResult> _scanClaude(
+    AiModelConfig config, {
+    required Duration timeout,
+  }) async {
+    final baseUrl = config.normalizedBaseUrl;
+    String modelsUrl;
+    if (baseUrl.endsWith('/v1')) {
+      modelsUrl = '$baseUrl/models';
+    } else {
+      modelsUrl = '$baseUrl/v1/models';
+    }
+
+    final headers = _buildHeaders(config);
+    headers['anthropic-version'] = '2023-06-01';
+
+    final allIds = <String>[];
+    String? afterId;
+    const maxPages = 20;
+
+    try {
+      for (var page = 0; page < maxPages; page++) {
+        var uri = Uri.parse(modelsUrl);
+        final queryParams = <String, String>{
+          ...uri.queryParameters,
+          'limit': '100',
+        };
+        if (afterId != null) {
+          queryParams['after_id'] = afterId;
+        }
+        uri = uri.replace(queryParameters: queryParams);
+
+        final response = await _httpClient
+            .get(uri, headers: headers)
+            .timeout(timeout);
+
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          return AiModelScanResult(
+            modelIds: const <String>[],
+            error:
+                'Authentication failed (${response.statusCode}). '
+                'Check your API key.',
+          );
+        }
+        if (response.statusCode != 200) {
+          // Some Anthropic-compatible proxies may not support /models.
+          if (allIds.isNotEmpty) break;
+          return AiModelScanResult(
+            modelIds: const <String>[],
+            error:
+                'Server returned status ${response.statusCode}. '
+                'If using a proxy, it may not support model listing.',
+          );
+        }
+
+        final json = jsonDecode(response.body);
+        if (json is! Map<String, dynamic>) {
+          if (allIds.isNotEmpty) break;
+          return const AiModelScanResult(
+            modelIds: <String>[],
+            error: 'Unexpected response format.',
+          );
+        }
+
+        final data = json['data'];
+        if (data is List) {
+          for (final item in data) {
+            if (item is Map<String, dynamic>) {
+              final id = '${item['id'] ?? ''}'.trim();
+              if (id.isNotEmpty) {
+                allIds.add(id);
+              }
+            }
+          }
+        }
+
+        // Handle cursor-based pagination.
+        final hasMore = json['has_more'];
+        final lastId = json['last_id'];
+        if (hasMore == true && lastId is String && lastId.isNotEmpty) {
+          afterId = lastId;
+        } else {
+          break;
+        }
+      }
+
+      if (allIds.isEmpty) {
+        return const AiModelScanResult(
+          modelIds: <String>[],
+          error:
+              'No models returned. If using a proxy, it may not support '
+              'model listing. Please add model IDs manually.',
+        );
+      }
+      allIds.sort();
+      return AiModelScanResult(modelIds: allIds);
+    } catch (e) {
+      if (allIds.isNotEmpty) {
+        allIds.sort();
+        return AiModelScanResult(modelIds: allIds);
+      }
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error:
+            'Failed to scan Claude/Anthropic models ($e). '
+            'Please add model IDs manually.',
+      );
+    }
+  }
+
+  /// Seed/豆包/Volcengine (火山方舟) models endpoint.
+  /// Base URL is typically https://ark.cn-beijing.volces.com/api/v3
+  /// which uses /api/v3/models instead of /v1/models.
+  Future<AiModelScanResult> _scanSeed(
+    AiModelConfig config, {
+    required Duration timeout,
+  }) async {
+    final modelsUrl = _toModelsUrl(config.normalizedBaseUrl);
+
+    final headers = _buildHeaders(config);
     final response = await _httpClient
         .get(Uri.parse(modelsUrl), headers: headers)
         .timeout(timeout);
@@ -221,56 +428,7 @@ class AiModelScanner {
       );
     }
 
-    return _parseGeminiModelsResponse(response.body);
-  }
-
-  /// Claude/Anthropic doesn't have a public models list endpoint.
-  /// Try the beta endpoint; if it fails, return an empty result with
-  /// an informative message so the user can add model IDs manually.
-  Future<AiModelScanResult> _scanClaude(
-    AiModelConfig config, {
-    required Duration timeout,
-  }) async {
-    // Anthropic does not expose a /models endpoint publicly.
-    // Try the beta endpoint first — if it fails, tell the user to add models manually.
-    final baseUrl = config.normalizedBaseUrl;
-    String modelsUrl;
-    if (baseUrl.endsWith('/v1')) {
-      modelsUrl = '$baseUrl/models';
-    } else {
-      modelsUrl = '$baseUrl/v1/models';
-    }
-
-    final headers = _buildHeaders(config);
-    headers['anthropic-version'] = '2023-06-01';
-
-    try {
-      final response = await _httpClient
-          .get(Uri.parse(modelsUrl), headers: headers)
-          .timeout(timeout);
-
-      if (response.statusCode == 200) {
-        final parsed = _parseOpenAiModelsResponse(response.body);
-        if (parsed.isSuccess && parsed.modelIds.isNotEmpty) {
-          return parsed;
-        }
-      }
-      return AiModelScanResult(
-        modelIds: const <String>[],
-        error:
-            'Claude/Anthropic provider returned status ${response.statusCode}. '
-            'This API may not support a models listing endpoint. '
-            'Please add model IDs manually using the "手动输入模型 ID" field above.',
-      );
-    } catch (e) {
-      return AiModelScanResult(
-        modelIds: const <String>[],
-        error:
-            'Failed to scan Claude/Anthropic models ($e). '
-            'This API may not support a models listing endpoint. '
-            'Please add model IDs manually using the "手动输入模型 ID" field above.',
-      );
-    }
+    return _parseOpenAiModelsResponse(response.body);
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config) {
@@ -354,39 +512,6 @@ class AiModelScanner {
     for (final item in models) {
       if (item is Map<String, dynamic>) {
         final name = '${item['name'] ?? ''}'.trim();
-        if (name.isNotEmpty) {
-          ids.add(name);
-        }
-      }
-    }
-    ids.sort();
-    return AiModelScanResult(modelIds: ids);
-  }
-
-  /// Parses Gemini `{ "models": [ { "name": "models/gemini-pro" }, ... ] }`.
-  AiModelScanResult _parseGeminiModelsResponse(String body) {
-    final json = jsonDecode(body);
-    if (json is! Map<String, dynamic>) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Unexpected response format.',
-      );
-    }
-    final models = json['models'];
-    if (models is! List) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Response does not contain a "models" array.',
-      );
-    }
-    final ids = <String>[];
-    for (final item in models) {
-      if (item is Map<String, dynamic>) {
-        String name = '${item['name'] ?? ''}'.trim();
-        // Gemini returns "models/gemini-pro" — strip the "models/" prefix.
-        if (name.startsWith('models/')) {
-          name = name.substring('models/'.length);
-        }
         if (name.isNotEmpty) {
           ids.add(name);
         }

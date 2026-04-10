@@ -1054,6 +1054,30 @@ abstract class AppLocalizations {
   /// **'SGLang'**
   String get aiProtocolSglang;
 
+  /// No description provided for @aiProtocolQwen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'通义千问'**
+  String get aiProtocolQwen;
+
+  /// No description provided for @aiProtocolSeed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'豆包 (火山方舟)'**
+  String get aiProtocolSeed;
+
+  /// No description provided for @aiProtocolStepFun.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'阶跃星辰'**
+  String get aiProtocolStepFun;
+
+  /// No description provided for @aiProtocolMimo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MIMO (小米)'**
+  String get aiProtocolMimo;
+
   /// No description provided for @skillsPageTitle.
   ///
   /// In zh_Hans, this message translates to:

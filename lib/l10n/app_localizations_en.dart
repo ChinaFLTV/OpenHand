@@ -518,6 +518,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProtocolSglang => 'SGLang';
 
   @override
+  String get aiProtocolQwen => 'Qwen';
+
+  @override
+  String get aiProtocolSeed => 'Seed (Doubao)';
+
+  @override
+  String get aiProtocolStepFun => 'StepFun';
+
+  @override
+  String get aiProtocolMimo => 'MIMO';
+
+  @override
   String get skillsPageTitle => 'Skills';
 
   @override

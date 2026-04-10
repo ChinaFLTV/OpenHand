@@ -512,6 +512,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolSglang => 'SGLang';
 
   @override
+  String get aiProtocolQwen => '通义千问';
+
+  @override
+  String get aiProtocolSeed => '豆包 (火山方舟)';
+
+  @override
+  String get aiProtocolStepFun => '阶跃星辰';
+
+  @override
+  String get aiProtocolMimo => 'MIMO (小米)';
+
+  @override
   String get skillsPageTitle => 'Compétences';
 
   @override

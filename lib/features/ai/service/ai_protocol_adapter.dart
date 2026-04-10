@@ -50,6 +50,16 @@ class AiToolDefinition {
       },
     };
   }
+
+  /// Claude/Anthropic tool format: top-level `name`, `description`,
+  /// `input_schema` (identical content to OpenAI `parameters`).
+  Map<String, Object?> toClaudeJson() {
+    return <String, Object?>{
+      'name': name,
+      'description': description,
+      'input_schema': parameters,
+    };
+  }
 }
 
 enum AiChatContentPartKind { text, imageFile }
@@ -596,6 +606,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   bool get supportsServerStreaming => true;
 
   @override
+  bool get supportsToolCalls => true;
+
+  @override
   Map<String, String> buildHeaders(AiModelConfig model) {
     final headers = super.buildHeaders(model);
     headers.putIfAbsent('anthropic-version', () => '2023-06-01');
@@ -615,12 +628,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
-    final requestMessages = await Future.wait<Map<String, Object?>>(
-      messages
-          .where((item) => item.role != AiChatRole.system)
-          .where((item) => item.role != AiChatRole.tool)
-          .map(_mapClaudeMessage),
-    );
+    final nonSystemMessages =
+        messages.where((item) => item.role != AiChatRole.system).toList();
+    final requestMessages = await _mapClaudeMessages(nonSystemMessages);
     final effectiveMaxTokens = model.maxTokens ?? 1024;
     return <String, Object?>{
       'model': model.modelId,
@@ -628,6 +638,11 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       'max_tokens': effectiveMaxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
+      if (tools.isNotEmpty)
+        'tools': tools
+            .map((item) => item.toClaudeJson())
+            .toList(growable: false),
+      if (tools.isNotEmpty) 'tool_choice': <String, Object?>{'type': 'auto'},
       'messages': requestMessages,
     };
   }
@@ -641,6 +656,84 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       'claude-opus',
       'claude-haiku',
     ]);
+  }
+
+  /// Maps a sequence of [AiChatTurn] messages into Claude API format,
+  /// handling tool_use (assistant) and tool_result (user) content blocks.
+  ///
+  /// Claude requires:
+  /// - Assistant messages that invoked tools include `tool_use` content blocks.
+  /// - Tool results are sent as `user` messages with `tool_result` blocks.
+  /// - Consecutive messages with the same role are merged (Claude rejects
+  ///   adjacent same-role messages).
+  Future<List<Map<String, Object?>>> _mapClaudeMessages(
+    List<AiChatTurn> turns,
+  ) async {
+    final result = <Map<String, Object?>>[];
+
+    for (final turn in turns) {
+      if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
+        // Assistant message that made tool calls — emit content blocks.
+        final contentBlocks = <Map<String, Object?>>[];
+        final text = turn.content.trim();
+        if (text.isNotEmpty) {
+          contentBlocks.add(<String, Object?>{'type': 'text', 'text': text});
+        }
+        for (final tc in turn.toolCalls) {
+          Object? parsedArgs;
+          try {
+            parsedArgs = jsonDecode(tc.arguments);
+          } catch (_) {
+            parsedArgs = <String, Object?>{};
+          }
+          contentBlocks.add(<String, Object?>{
+            'type': 'tool_use',
+            'id': tc.id,
+            'name': tc.name,
+            'input': parsedArgs,
+          });
+        }
+        result.add(<String, Object?>{
+          'role': 'assistant',
+          'content': contentBlocks,
+        });
+      } else if (turn.role == AiChatRole.tool) {
+        // Tool result — Claude expects this as a user message with
+        // tool_result content block.
+        final toolResultBlock = <String, Object?>{
+          'type': 'tool_result',
+          'tool_use_id': turn.toolCallId ?? '',
+          'content': turn.content,
+        };
+        // Merge with previous user message if possible to avoid
+        // consecutive user messages.
+        if (result.isNotEmpty && result.last['role'] == 'user') {
+          final prevContent = result.last['content'];
+          if (prevContent is List<Map<String, Object?>>) {
+            prevContent.add(toolResultBlock);
+          } else if (prevContent is String && prevContent.isNotEmpty) {
+            // Preserve existing text content when merging tool results.
+            result.last['content'] = <Map<String, Object?>>[
+              <String, Object?>{'type': 'text', 'text': prevContent},
+              toolResultBlock,
+            ];
+          } else {
+            result.last['content'] = <Map<String, Object?>>[toolResultBlock];
+          }
+        } else {
+          result.add(<String, Object?>{
+            'role': 'user',
+            'content': <Map<String, Object?>>[toolResultBlock],
+          });
+        }
+      } else {
+        // Regular user/assistant text message.
+        final mapped = await _mapClaudeMessage(turn);
+        result.add(mapped);
+      }
+    }
+
+    return result;
   }
 
   Future<Map<String, Object?>> _mapClaudeMessage(AiChatTurn item) async {
@@ -768,9 +861,36 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
-      throw const FormatException('Empty Claude response text.');
+      // When Claude returns only tool_use blocks with no text, return empty
+      // string rather than throwing — the tool calls carry the response.
+      return '';
     }
     return output;
+  }
+
+  @override
+  List<AiToolCall> parseToolCalls(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return const <AiToolCall>[];
+    }
+    final content = decoded['content'];
+    if (content is! List) {
+      return const <AiToolCall>[];
+    }
+    final calls = <AiToolCall>[];
+    for (final item in content) {
+      if (item is! Map<String, Object?>) continue;
+      final type = '${item['type'] ?? ''}'.trim();
+      if (type != 'tool_use') continue;
+      final id = '${item['id'] ?? ''}'.trim();
+      final name = '${item['name'] ?? ''}'.trim();
+      if (id.isEmpty || name.isEmpty) continue;
+      final input = item['input'];
+      final arguments = input is Map ? jsonEncode(input) : '{}';
+      calls.add(AiToolCall(id: id, name: name, arguments: arguments));
+    }
+    return calls;
   }
 }
 
@@ -786,6 +906,12 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   @override
   String get streamEndpointPath =>
       'v1beta/models/{model_id}:streamGenerateContent?alt=sse';
+
+  @override
+  bool get supportsServerStreaming => true;
+
+  @override
+  bool get supportsToolCalls => true;
 
   @override
   Map<String, String> buildHeaders(AiModelConfig model) {
@@ -812,12 +938,9 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
-    final requestContents = await Future.wait<Map<String, Object?>>(
-      messages
-          .where((item) => item.role != AiChatRole.system)
-          .where((item) => item.role != AiChatRole.tool)
-          .map(_mapGeminiMessage),
-    );
+    final nonSystemMessages =
+        messages.where((item) => item.role != AiChatRole.system).toList();
+    final requestContents = await _mapGeminiMessages(nonSystemMessages);
     /// Determine effective response modalities:
     /// 1. If the caller explicitly requests modalities (e.g. from creation mode),
     ///    use those directly.
@@ -842,6 +965,18 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         if (effectiveModalities.isNotEmpty)
           'responseModalities': effectiveModalities,
       },
+      if (tools.isNotEmpty)
+        'tools': <Map<String, Object?>>[
+          <String, Object?>{
+            'functionDeclarations': tools
+                .map((item) => <String, Object?>{
+                      'name': item.name,
+                      'description': item.description,
+                      'parameters': item.parameters,
+                    })
+                .toList(growable: false),
+          },
+        ],
     };
   }
 
@@ -853,6 +988,82 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       'gemini-2.5',
       'gemini',
     ]);
+  }
+
+  /// Maps a sequence of [AiChatTurn] into Gemini API format, handling
+  /// tool calls (functionCall parts) and tool results (functionResponse parts).
+  ///
+  /// Gemini requires:
+  /// - Model messages with `functionCall` parts for tool invocations.
+  /// - User messages with `functionResponse` parts for tool results.
+  Future<List<Map<String, Object?>>> _mapGeminiMessages(
+    List<AiChatTurn> turns,
+  ) async {
+    final result = <Map<String, Object?>>[];
+    // Track tool call ID → function name for resolving functionResponse.
+    final toolCallIdToName = <String, String>{};
+
+    for (final turn in turns) {
+      if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
+        // Model message with function calls.
+        final parts = <Map<String, Object?>>[];
+        final text = turn.content.trim();
+        if (text.isNotEmpty) {
+          parts.add(<String, Object?>{'text': text});
+        }
+        for (final tc in turn.toolCalls) {
+          toolCallIdToName[tc.id] = tc.name;
+          Object? parsedArgs;
+          try {
+            parsedArgs = jsonDecode(tc.arguments);
+          } catch (_) {
+            parsedArgs = <String, Object?>{};
+          }
+          parts.add(<String, Object?>{
+            'functionCall': <String, Object?>{
+              'name': tc.name,
+              'args': parsedArgs,
+            },
+          });
+        }
+        result.add(<String, Object?>{'role': 'model', 'parts': parts});
+      } else if (turn.role == AiChatRole.tool) {
+        // Tool result → functionResponse part.
+        // Gemini requires the function name, not the call ID.
+        final callId = turn.toolCallId ?? '';
+        final functionName = toolCallIdToName[callId] ?? callId;
+        Object? parsedContent;
+        try {
+          parsedContent = jsonDecode(turn.content);
+        } catch (_) {
+          parsedContent = <String, Object?>{'result': turn.content};
+        }
+        final responseBlock = <String, Object?>{
+          'functionResponse': <String, Object?>{
+            'name': functionName,
+            'response': parsedContent,
+          },
+        };
+        // Merge with previous user message if possible.
+        if (result.isNotEmpty && result.last['role'] == 'user') {
+          final prevParts = result.last['parts'];
+          if (prevParts is List<Map<String, Object?>>) {
+            prevParts.add(responseBlock);
+          } else {
+            result.last['parts'] = <Map<String, Object?>>[responseBlock];
+          }
+        } else {
+          result.add(<String, Object?>{
+            'role': 'user',
+            'parts': <Map<String, Object?>>[responseBlock],
+          });
+        }
+      } else {
+        result.add(await _mapGeminiMessage(turn));
+      }
+    }
+
+    return result;
   }
 
   Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
@@ -997,9 +1208,51 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
-      throw const FormatException('Empty Gemini response text.');
+      // When Gemini returns only function call parts with no text, return
+      // empty string — the tool calls carry the response.
+      return '';
     }
     return output;
+  }
+
+  @override
+  List<AiToolCall> parseToolCalls(String rawResponse) {
+    final decoded = jsonDecode(rawResponse);
+    if (decoded is! Map<String, Object?>) {
+      return const <AiToolCall>[];
+    }
+    final candidates = decoded['candidates'];
+    if (candidates is! List || candidates.isEmpty) {
+      return const <AiToolCall>[];
+    }
+    final firstCandidate = candidates.first;
+    if (firstCandidate is! Map<String, Object?>) {
+      return const <AiToolCall>[];
+    }
+    final content = firstCandidate['content'];
+    if (content is! Map<String, Object?>) {
+      return const <AiToolCall>[];
+    }
+    final parts = content['parts'];
+    if (parts is! List) {
+      return const <AiToolCall>[];
+    }
+    final calls = <AiToolCall>[];
+    var index = 0;
+    for (final part in parts) {
+      if (part is! Map<String, Object?>) continue;
+      final functionCall = part['functionCall'];
+      if (functionCall is! Map<String, Object?>) continue;
+      final name = '${functionCall['name'] ?? ''}'.trim();
+      if (name.isEmpty) continue;
+      final args = functionCall['args'];
+      final arguments = args is Map ? jsonEncode(args) : '{}';
+      calls.add(
+        AiToolCall(id: 'gemini-tc-$index', name: name, arguments: arguments),
+      );
+      index++;
+    }
+    return calls;
   }
 }
 
@@ -1131,6 +1384,11 @@ abstract final class AiProtocolRegistry {
         AiProtocolType.sglang: const OpenAiProtocolAdapter(
           AiProtocolType.sglang,
         ),
+        AiProtocolType.seed: const OpenAiProtocolAdapter(AiProtocolType.seed),
+        AiProtocolType.stepfun: const OpenAiProtocolAdapter(
+          AiProtocolType.stepfun,
+        ),
+        AiProtocolType.mimo: const OpenAiProtocolAdapter(AiProtocolType.mimo),
         AiProtocolType.claude: const ClaudeProtocolAdapter(),
         AiProtocolType.gemini: const GeminiProtocolAdapter(),
       };
@@ -1359,6 +1617,23 @@ bool _supportsOpenAiCompatibleAttachments(
       'qwen-vl',
       'qwen2-vl',
       'vision',
+    ]),
+    AiProtocolType.seed => _containsAny(normalized, const <String>[
+      'vision',
+      'doubao-vision',
+      'doubao-1.5-vision',
+      'vl',
+    ]),
+    AiProtocolType.stepfun => _containsAny(normalized, const <String>[
+      'step-2v',
+      'step-1.5v',
+      'step-1v',
+      'vision',
+      'vl',
+    ]),
+    AiProtocolType.mimo => _containsAny(normalized, const <String>[
+      'vision',
+      'vl',
     ]),
     AiProtocolType.claude || AiProtocolType.gemini => true,
   };

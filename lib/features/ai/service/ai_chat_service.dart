@@ -213,6 +213,7 @@ class AiChatService implements AiChatClient {
       );
     }
     final isClaudeProtocol = adapter is ClaudeProtocolAdapter;
+    final isGeminiProtocol = adapter is GeminiProtocolAdapter;
 
     final blueprint = await adapter.buildChatRequest(
       model: model,
@@ -415,7 +416,7 @@ class AiChatService implements AiChatClient {
         return;
       }
 
-      // Route to Claude-specific or OpenAI-specific stream handler.
+      // Route to protocol-specific stream handler.
       if (isClaudeProtocol) {
         _processClaudeStreamEvent(
           decoded,
@@ -430,6 +431,18 @@ class AiChatService implements AiChatClient {
           cancelSubscription: () {
             unawaited(responseSubscription?.cancel());
           },
+          model: model,
+        );
+      } else if (isGeminiProtocol) {
+        _processGeminiStreamEvent(
+          decoded,
+          textBuffer: textBuffer,
+          reasoningBuffer: reasoningBuffer,
+          toolCalls: toolCalls,
+          usage: () => usage,
+          setUsage: (value) => usage = value,
+          markStreamActivity: markStreamActivity,
+          emitEvent: emitEvent,
           model: model,
         );
       } else {
@@ -850,7 +863,7 @@ void _processClaudeStreamEvent(
       } else if (deltaType == 'input_json_delta') {
         // Tool call argument fragment (Claude tool_use streaming).
         final partialJson = '${delta['partial_json'] ?? ''}';
-        final index = _readInt(decoded['index']) ?? 0;
+        final index = _readInt(decoded['index']) ?? toolCalls.length;
         final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
         if (partialJson.isNotEmpty) {
           entry.argumentsBuffer.write(partialJson);
@@ -907,6 +920,121 @@ void _processClaudeStreamEvent(
       _debugAiStreamLog(
         'model=${model.modelId} claude_unknown_event type=$type',
       );
+  }
+}
+
+/// Processes a single SSE event block in Gemini streaming format.
+///
+/// Gemini streaming (`?alt=sse`) returns the same JSON structure as non-
+/// streaming but incrementally for each generated chunk:
+/// ```json
+/// {
+///   "candidates": [{
+///     "content": {
+///       "parts": [{ "text": "..." }],
+///       "role": "model"
+///     }
+///   }],
+///   "usageMetadata": { ... }
+/// }
+/// ```
+/// Tool calls appear as `functionCall` parts:
+/// ```json
+/// { "functionCall": { "name": "...", "args": {...} } }
+/// ```
+void _processGeminiStreamEvent(
+  Map<String, Object?> decoded, {
+  required StringBuffer textBuffer,
+  required StringBuffer reasoningBuffer,
+  required Map<int, _MutableToolCall> toolCalls,
+  required AiTokenUsage? Function() usage,
+  required void Function(AiTokenUsage?) setUsage,
+  required void Function(String) markStreamActivity,
+  required void Function(AiChatStreamEvent) emitEvent,
+  required AiModelConfig model,
+}) {
+  // Parse usage metadata.
+  final usageJson = decoded['usageMetadata'];
+  if (usageJson is Map) {
+    final usageMap = usageJson is Map<String, Object?>
+        ? usageJson
+        : Map<String, Object?>.from(usageJson);
+    final parsedUsage = AiTokenUsage(
+      promptTokens: _readInt(usageMap['promptTokenCount']),
+      completionTokens: _readInt(usageMap['candidatesTokenCount']),
+      totalTokens: _readInt(usageMap['totalTokenCount']),
+      cacheReadTokens: _readInt(usageMap['cachedContentTokenCount']),
+    );
+    if (!parsedUsage.isEmpty) {
+      setUsage(parsedUsage);
+      markStreamActivity('usage');
+      emitEvent(AiChatStreamEvent.usage(parsedUsage));
+    }
+  }
+
+  // Parse candidates.
+  final candidates = decoded['candidates'];
+  if (candidates is! List<dynamic>) return;
+  for (final candidate in candidates) {
+    if (candidate is! Map<String, Object?>) continue;
+    final content = candidate['content'];
+    if (content is! Map<String, Object?>) continue;
+    final parts = content['parts'];
+    if (parts is! List<dynamic>) continue;
+
+    for (final part in parts) {
+      if (part is! Map<String, Object?>) continue;
+
+      // Text delta.
+      final text = '${part['text'] ?? ''}'.trim();
+      if (text.isNotEmpty) {
+        textBuffer.write(text);
+        markStreamActivity('text_delta');
+        _debugAiStreamLog(
+          'model=${model.modelId} gemini_text_delta chars=${text.length}',
+        );
+        emitEvent(AiChatStreamEvent.textDelta(text));
+        continue;
+      }
+
+      // Thinking / reasoning (Gemini 2.5 `thought` field).
+      final thought = part['thought'];
+      if (thought == true) {
+        final thinkingText = '${part['text'] ?? ''}';
+        if (thinkingText.isNotEmpty) {
+          reasoningBuffer.write(thinkingText);
+          markStreamActivity('reasoning_delta');
+          emitEvent(AiChatStreamEvent.reasoningDelta(thinkingText));
+          continue;
+        }
+      }
+
+      // Function call (tool use).
+      final functionCall = part['functionCall'];
+      if (functionCall is Map<String, Object?>) {
+        final name = '${functionCall['name'] ?? ''}'.trim();
+        if (name.isNotEmpty) {
+          final index = toolCalls.length;
+          final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+          entry.id = 'gemini-tc-$index';
+          entry.name = name;
+          final args = functionCall['args'];
+          final argsJson = args is Map ? jsonEncode(args) : '{}';
+          entry.argumentsBuffer.write(argsJson);
+          markStreamActivity('tool_call_delta');
+          emitEvent(
+            AiChatStreamEvent.toolCallDelta(
+              AiToolCallDelta(
+                index: index,
+                id: entry.id,
+                name: name,
+                argumentsFragment: argsJson,
+              ),
+            ),
+          );
+        }
+      }
+    }
   }
 }
 

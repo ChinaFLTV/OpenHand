@@ -53,7 +53,10 @@ enum AiProtocolType {
   grok('grok'),
   ollama('ollama'),
   vllm('vllm'),
-  sglang('sglang');
+  sglang('sglang'),
+  seed('seed'),
+  stepfun('stepfun'),
+  mimo('mimo');
 
   const AiProtocolType(this.storageValue);
 
@@ -76,13 +79,16 @@ enum AiProtocolType {
       AiProtocolType.claude => l10n.aiProtocolClaude,
       AiProtocolType.gemini => l10n.aiProtocolGemini,
       AiProtocolType.deepseek => l10n.aiProtocolDeepSeek,
-      AiProtocolType.qwen => 'Qwen',
+      AiProtocolType.qwen => l10n.aiProtocolQwen,
       AiProtocolType.kimi => l10n.aiProtocolKimi,
       AiProtocolType.glm => l10n.aiProtocolGlm,
       AiProtocolType.grok => l10n.aiProtocolGrok,
       AiProtocolType.ollama => l10n.aiProtocolOllama,
       AiProtocolType.vllm => l10n.aiProtocolVllm,
       AiProtocolType.sglang => l10n.aiProtocolSglang,
+      AiProtocolType.seed => l10n.aiProtocolSeed,
+      AiProtocolType.stepfun => l10n.aiProtocolStepFun,
+      AiProtocolType.mimo => l10n.aiProtocolMimo,
     };
   }
 }
