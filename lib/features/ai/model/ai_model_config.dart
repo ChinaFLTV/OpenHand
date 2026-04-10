@@ -88,7 +88,6 @@ enum AiProtocolType {
 }
 
 class AiModelConfig {
-
   factory AiModelConfig.fromJson(Map<String, Object?> json) {
     final availableModelIds = _parseAvailableModelIds(
       json['available_model_ids'],
@@ -128,6 +127,18 @@ class AiModelConfig {
     this.temperature,
     this.streamEnabled = true,
   });
+
+  static List<String> normalizeModelIds(Iterable<String> values) {
+    final normalized = <String>{};
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) {
+        normalized.add(trimmed);
+      }
+    }
+    final sorted = normalized.toList()..sort();
+    return sorted.toList(growable: false);
+  }
 
   final String id;
 
@@ -200,13 +211,11 @@ class AiModelConfig {
   /// Returns a deduplicated, sorted list merging [availableModelIds] and
   /// the current [modelId] (if non-empty).
   List<String> get allModelIds {
-    final ids = <String>{...availableModelIds};
     final trimmedModelId = modelId.trim();
-    if (trimmedModelId.isNotEmpty) {
-      ids.add(trimmedModelId);
-    }
-    final sorted = ids.toList()..sort();
-    return sorted;
+    return normalizeModelIds(<String>[
+      ...availableModelIds,
+      if (trimmedModelId.isNotEmpty) trimmedModelId,
+    ]);
   }
 
   AiModelConfig copyWith({
@@ -239,7 +248,9 @@ class AiModelConfig {
       maxContextTokens: clearMaxContextTokens
           ? null
           : maxContextTokens ?? this.maxContextTokens,
-      availableModelIds: availableModelIds ?? this.availableModelIds,
+      availableModelIds: normalizeModelIds(
+        availableModelIds ?? this.availableModelIds,
+      ),
       customHeaders: customHeaders ?? this.customHeaders,
       requestMethod: requestMethod ?? this.requestMethod,
       maxTokens: clearMaxTokens ? null : maxTokens ?? this.maxTokens,
@@ -258,7 +269,7 @@ class AiModelConfig {
       'model_id': modelId.trim(),
       'protocol_type': protocolType.storageValue,
       'max_context_tokens': maxContextTokens,
-      'available_model_ids': availableModelIds,
+      'available_model_ids': normalizeModelIds(availableModelIds),
       'custom_headers': customHeaders,
       'request_method': requestMethod,
       'max_tokens': maxTokens,
@@ -301,10 +312,10 @@ class AiModelConfig {
       return const <String>[];
     }
     if (value is List) {
-      return <String>[
+      return normalizeModelIds(<String>[
         for (final item in value)
           if ('$item'.trim().isNotEmpty) '$item'.trim(),
-      ];
+      ]);
     }
     if (value is String) {
       final trimmed = value.trim();
@@ -314,10 +325,10 @@ class AiModelConfig {
       try {
         final decoded = jsonDecode(trimmed);
         if (decoded is List) {
-          return <String>[
+          return normalizeModelIds(<String>[
             for (final item in decoded)
               if ('$item'.trim().isNotEmpty) '$item'.trim(),
-          ];
+          ]);
         }
       } catch (_) {
         // Not valid JSON — ignore.

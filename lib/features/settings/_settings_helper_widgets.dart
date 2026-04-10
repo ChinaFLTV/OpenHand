@@ -392,6 +392,158 @@ class _SettingsPersistenceIssueCard extends StatelessWidget {
   }
 }
 
+class _AiProviderModelChip extends StatelessWidget {
+  const _AiProviderModelChip({
+    required this.modelId,
+    required this.isActive,
+    required this.onPressed,
+    this.onDeleted,
+    this.tooltip,
+    this.compact = false,
+    this.enabled = true,
+  });
+
+  final String modelId;
+  final bool isActive;
+  final VoidCallback onPressed;
+  final VoidCallback? onDeleted;
+  final String? tooltip;
+  final bool compact;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final inactiveBaseColor = colorScheme.surfaceContainerHighest.withValues(
+      alpha: isDark ? 0.54 : 0.94,
+    );
+    final inactiveHoverColor = Color.alphaBlend(
+      colorScheme.onSurface.withValues(alpha: isDark ? 0.04 : 0.02),
+      Color.lerp(inactiveBaseColor, colorScheme.surfaceContainerHigh, 0.56) ??
+          inactiveBaseColor,
+    );
+    final inactivePressedColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: isDark ? 0.07 : 0.03),
+      Color.lerp(inactiveBaseColor, colorScheme.surfaceContainerHigh, 0.82) ??
+          inactiveBaseColor,
+    );
+    final activeBaseColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: isDark ? 0.10 : 0.03),
+      Color.lerp(
+            colorScheme.surfaceContainerLowest,
+            colorScheme.primaryContainer,
+            isDark ? 0.74 : 0.66,
+          ) ??
+          colorScheme.primaryContainer,
+    );
+    final activeHoverColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: isDark ? 0.14 : 0.05),
+      Color.lerp(activeBaseColor, colorScheme.primaryContainer, 0.36) ??
+          activeBaseColor,
+    );
+    final activePressedColor = Color.alphaBlend(
+      colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.08),
+      Color.lerp(
+            activeBaseColor,
+            colorScheme.primary,
+            isDark ? 0.14 : 0.10,
+          ) ??
+          activeBaseColor,
+    );
+    final labelColor = isActive
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final accentColor = isActive
+        ? colorScheme.primary
+        : colorScheme.onSurfaceVariant;
+    final borderColor = isActive
+        ? colorScheme.primary.withValues(alpha: isDark ? 0.62 : 0.52)
+        : colorScheme.outlineVariant.withValues(alpha: isDark ? 0.76 : 0.94);
+    final fillColor = WidgetStateProperty.resolveWith<Color?>((states) {
+      final selected = states.contains(WidgetState.selected);
+      final pressed = states.contains(WidgetState.pressed);
+      final hovered = states.contains(WidgetState.hovered);
+      final disabled = states.contains(WidgetState.disabled);
+      if (selected) {
+        if (disabled) {
+          return activeBaseColor.withValues(alpha: isDark ? 0.56 : 0.72);
+        }
+        if (pressed) {
+          return activePressedColor;
+        }
+        if (hovered) {
+          return activeHoverColor;
+        }
+        return activeBaseColor;
+      }
+      if (disabled) {
+        return inactiveBaseColor.withValues(alpha: isDark ? 0.42 : 0.72);
+      }
+      if (pressed) {
+        return inactivePressedColor;
+      }
+      if (hovered) {
+        return inactiveHoverColor;
+      }
+      return inactiveBaseColor;
+    });
+    final effectiveOnPressed = enabled ? onPressed : null;
+    final effectiveOnDeleted = enabled ? onDeleted : null;
+    final chip = InputChip(
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
+      mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+      elevation: 0,
+      pressElevation: isActive ? 0.8 : 0.45,
+      shadowColor: colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+      selectedShadowColor: colorScheme.primary.withValues(
+        alpha: isDark ? 0.30 : 0.18,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 4 : 6,
+      ),
+      labelPadding: EdgeInsets.symmetric(horizontal: compact ? 1 : 2),
+      label: Text(
+        modelId,
+        style:
+            (compact ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
+                ?.copyWith(
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: labelColor,
+                ),
+      ),
+      avatar: Icon(
+        isActive ? Icons.star_rounded : Icons.smart_toy_outlined,
+        size: compact ? 14 : 16,
+        color: accentColor,
+      ),
+      selected: isActive,
+      showCheckmark: false,
+      color: fillColor,
+      side: BorderSide(color: borderColor, width: isActive ? 1.15 : 1),
+      onSelected: effectiveOnPressed == null ? null : (_) => effectiveOnPressed(),
+      onDeleted: effectiveOnDeleted,
+      deleteIcon: effectiveOnDeleted == null
+          ? null
+          : Icon(
+              Icons.close_rounded,
+              size: compact ? 14 : 16,
+              color: accentColor,
+            ),
+    );
+
+    Widget result = chip;
+    final trimmedTooltip = tooltip?.trim();
+    if (enabled && trimmedTooltip != null && trimmedTooltip.isNotEmpty) {
+      result = Tooltip(message: trimmedTooltip, child: result);
+    }
+    return result;
+  }
+}
+
 class _AiModelTile extends StatelessWidget {
   const _AiModelTile({
     required this.model,
@@ -421,8 +573,11 @@ class _AiModelTile extends StatelessWidget {
   final VoidCallback onDelete;
   final void Function(String modelId) onActiveModelChanged;
 
-  String _localizedText(BuildContext context,
-      {required String zh, required String en}) {
+  String _localizedText(
+    BuildContext context, {
+    required String zh,
+    required String en,
+  }) {
     final languageCode = Localizations.localeOf(context).languageCode;
     return languageCode.startsWith('zh') ? zh : en;
   }
@@ -566,62 +721,31 @@ class _AiModelTile extends StatelessWidget {
               if (allModels.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: allModels
-                      .map(
-                        (id) {
-                          final isActive = id == model.modelId;
-                          return ActionChip(
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            avatar: Icon(
-                              isActive
-                                  ? Icons.star_rounded
-                                  : Icons.smart_toy_outlined,
-                              size: 14,
-                              color: isActive
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurfaceVariant,
-                            ),
-                            label: Text(
-                              id,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontWeight: isActive
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                                color: isActive
-                                    ? colorScheme.primary
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            backgroundColor: isActive
-                                ? colorScheme.secondaryContainer
-                                : null,
-                            side: isActive
-                                ? BorderSide(
-                                    color: colorScheme.primary
-                                        .withValues(alpha: 0.5),
-                                  )
-                                : null,
-                            tooltip: isActive
-                                ? _localizedText(
-                                    context,
-                                    zh: '当前活跃模型',
-                                    en: 'Currently active model',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '点击切换为活跃模型',
-                                    en: 'Click to set as active model',
-                                  ),
-                            onPressed: isActive
-                                ? null
-                                : () => onActiveModelChanged(id),
-                          );
-                        },
-                      )
+                      .map((id) {
+                        final isActive = id == model.modelId;
+                        return _AiProviderModelChip(
+                          modelId: id,
+                          isActive: isActive,
+                          compact: true,
+                          tooltip: isActive
+                              ? _localizedText(
+                                  context,
+                                  zh: '当前活跃模型',
+                                  en: 'Currently active model',
+                                )
+                              : _localizedText(
+                                  context,
+                                  zh: '点击切换为活跃模型',
+                                  en: 'Click to set as active model',
+                                ),
+                          onPressed: isActive
+                              ? () {}
+                              : () => onActiveModelChanged(id),
+                        );
+                      })
                       .toList(growable: false),
                 ),
               ],

@@ -32,6 +32,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   String? _activeModelId;
   late List<_HeaderEntry> _customHeaderEntries;
 
+  List<String> get _visibleModelIds => AiModelConfig.normalizeModelIds(<String>[
+    ..._availableModelIds,
+    if ((_activeModelId ?? '').trim().isNotEmpty) _activeModelId!.trim(),
+  ]);
+
   @override
   void initState() {
     super.initState();
@@ -61,19 +66,22 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _protocolType = widget.initialModel?.protocolType ?? AiProtocolType.openai;
     _requestMethod = widget.initialModel?.requestMethod ?? 'POST';
     _streamEnabled = widget.initialModel?.streamEnabled ?? true;
-    _availableModelIds = List<String>.from(
+    _availableModelIds = AiModelConfig.normalizeModelIds(
       widget.initialModel?.availableModelIds ?? const <String>[],
     );
     _activeModelId = widget.initialModel?.modelId.trim().isNotEmpty == true
         ? widget.initialModel!.modelId.trim()
         : null;
     _customHeaderEntries = <_HeaderEntry>[];
-    final existingHeaders = widget.initialModel?.customHeaders ?? const <String, String>{};
+    final existingHeaders =
+        widget.initialModel?.customHeaders ?? const <String, String>{};
     for (final entry in existingHeaders.entries) {
-      _customHeaderEntries.add(_HeaderEntry(
-        keyController: TextEditingController(text: entry.key),
-        valueController: TextEditingController(text: entry.value),
-      ));
+      _customHeaderEntries.add(
+        _HeaderEntry(
+          keyController: TextEditingController(text: entry.key),
+          valueController: TextEditingController(text: entry.value),
+        ),
+      );
     }
   }
 
@@ -131,8 +139,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       if (!mounted) return;
 
       if (result.isSuccess) {
-        final merged = <String>{..._availableModelIds, ...result.modelIds};
-        final sorted = merged.toList()..sort();
+        final sorted = AiModelConfig.normalizeModelIds(<String>[
+          ..._availableModelIds,
+          ...result.modelIds,
+        ]);
         setState(() {
           _availableModelIds = sorted;
           _isScanning = false;
@@ -173,7 +183,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       return;
     }
     setState(() {
-      _availableModelIds = [..._availableModelIds, manualId]..sort();
+      _availableModelIds = AiModelConfig.normalizeModelIds(<String>[
+        ..._availableModelIds,
+        manualId,
+      ]);
       _manualModelIdController.clear();
       // If no model was selected, auto-select this one.
       if (_activeModelId == null) {
@@ -185,9 +198,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 
   void _removeModelId(String modelId) {
     setState(() {
-      _availableModelIds = _availableModelIds
-          .where((id) => id != modelId)
-          .toList(growable: false);
+      _availableModelIds = AiModelConfig.normalizeModelIds(
+        _availableModelIds.where((id) => id != modelId),
+      );
       if (_activeModelId == modelId) {
         _activeModelId = _availableModelIds.isNotEmpty
             ? _availableModelIds.first
@@ -198,18 +211,28 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   }
 
   void _selectModelId(String modelId) {
+    final trimmedModelId = modelId.trim();
+    if (trimmedModelId.isEmpty) {
+      return;
+    }
     setState(() {
-      _activeModelId = modelId;
-      _modelIdController.text = modelId;
+      _activeModelId = trimmedModelId;
+      _modelIdController.text = trimmedModelId;
+      _availableModelIds = AiModelConfig.normalizeModelIds(<String>[
+        ..._availableModelIds,
+        trimmedModelId,
+      ]);
     });
   }
 
   void _addHeaderEntry() {
     setState(() {
-      _customHeaderEntries.add(_HeaderEntry(
-        keyController: TextEditingController(),
-        valueController: TextEditingController(),
-      ));
+      _customHeaderEntries.add(
+        _HeaderEntry(
+          keyController: TextEditingController(),
+          valueController: TextEditingController(),
+        ),
+      );
     });
   }
 
@@ -446,9 +469,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 const SizedBox(width: 8),
                                 Text(
                                   l10n.aiModelScanning,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(
                                         color: colorScheme.onSurfaceVariant,
                                       ),
@@ -460,76 +481,39 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             const SizedBox(height: 8),
                             Text(
                               _scanError!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: colorScheme.error),
                             ),
                           ],
                           const SizedBox(height: 12),
                           // Available models chip list
-                          if (_availableModelIds.isNotEmpty)
+                          if (_visibleModelIds.isNotEmpty)
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxHeight: 160),
                               child: SingleChildScrollView(
                                 child: Wrap(
                                   spacing: 8,
                                   runSpacing: 6,
-                                  children: _availableModelIds
-                                      .map(
-                                        (id) {
-                                          final isActive =
-                                              id == _activeModelId;
-                                          final colorScheme =
-                                              Theme.of(context).colorScheme;
-                                          return InputChip(
-                                            label: Text(
-                                              id,
-                                              style: isActive
-                                                  ? TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: colorScheme
-                                                          .primary,
-                                                    )
-                                                  : null,
-                                            ),
-                                            avatar: isActive
-                                                ? Icon(
-                                                    Icons.check_rounded,
-                                                    size: 16,
-                                                    color:
-                                                        colorScheme.primary,
-                                                  )
-                                                : null,
-                                            selected: isActive,
-                                            selectedColor: colorScheme
-                                                .secondaryContainer,
-                                            showCheckmark: false,
-                                            side: isActive
-                                                ? BorderSide(
-                                                    color: colorScheme
-                                                        .primary
-                                                        .withValues(
-                                                          alpha: 0.5,
-                                                        ),
-                                                  )
-                                                : null,
-                                            onSelected: _isSaving
-                                                ? null
-                                                : (_) =>
-                                                    _selectModelId(id),
-                                            onDeleted: _isSaving
-                                                ? null
-                                                : () =>
-                                                    _removeModelId(id),
-                                            deleteIcon: const Icon(
-                                              Icons.close,
-                                              size: 16,
-                                            ),
-                                          );
-                                        },
-                                      )
+                                  children: _visibleModelIds
+                                      .map((id) {
+                                        final isActive = id == _activeModelId;
+                                        return _AiProviderModelChip(
+                                          modelId: id,
+                                          isActive: isActive,
+                                          enabled: !_isSaving,
+                                          tooltip: isActive
+                                              ? _localizedText(
+                                                  zh: '当前活跃模型',
+                                                  en: 'Currently active model',
+                                                )
+                                              : _localizedText(
+                                                  zh: '点击切换为活跃模型',
+                                                  en: 'Click to set as active model',
+                                                ),
+                                          onPressed: () => _selectModelId(id),
+                                          onDeleted: () => _removeModelId(id),
+                                        );
+                                      })
                                       .toList(growable: false),
                                 ),
                               ),
@@ -540,9 +524,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 zh: '点击「扫描模型」按钮自动发现可用模型，或手动添加。',
                                 en: 'Tap "Scan Models" to discover models automatically, or add manually below.',
                               ),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -586,8 +568,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             ),
                             onChanged: (value) {
                               setState(() {
-                                _activeModelId =
-                                    value.trim().isEmpty ? null : value.trim();
+                                _activeModelId = value.trim().isEmpty
+                                    ? null
+                                    : value.trim();
                               });
                             },
                           ),
@@ -626,32 +609,54 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final stacked = constraints.maxWidth < 640;
-                              final methodDropdown = DropdownButtonFormField<String>(
-                                initialValue: _requestMethod,
-                                decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    zh: '请求方式',
-                                    en: 'Request Method',
-                                  ),
-                                ),
-                                items: const <DropdownMenuItem<String>>[
-                                  DropdownMenuItem<String>(value: 'POST', child: Text('POST')),
-                                  DropdownMenuItem<String>(value: 'GET', child: Text('GET')),
-                                  DropdownMenuItem<String>(value: 'PUT', child: Text('PUT')),
-                                  DropdownMenuItem<String>(value: 'PATCH', child: Text('PATCH')),
-                                  DropdownMenuItem<String>(value: 'DELETE', child: Text('DELETE')),
-                                  DropdownMenuItem<String>(value: 'HEAD', child: Text('HEAD')),
-                                  DropdownMenuItem<String>(value: 'OPTIONS', child: Text('OPTIONS')),
-                                ],
-                                onChanged: _isSaving
-                                    ? null
-                                    : (value) {
-                                        if (value == null) return;
-                                        setState(() {
-                                          _requestMethod = value;
-                                        });
-                                      },
-                              );
+                              final methodDropdown =
+                                  DropdownButtonFormField<String>(
+                                    initialValue: _requestMethod,
+                                    decoration: InputDecoration(
+                                      labelText: _localizedText(
+                                        zh: '请求方式',
+                                        en: 'Request Method',
+                                      ),
+                                    ),
+                                    items: const <DropdownMenuItem<String>>[
+                                      DropdownMenuItem<String>(
+                                        value: 'POST',
+                                        child: Text('POST'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'GET',
+                                        child: Text('GET'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'PUT',
+                                        child: Text('PUT'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'PATCH',
+                                        child: Text('PATCH'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'DELETE',
+                                        child: Text('DELETE'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'HEAD',
+                                        child: Text('HEAD'),
+                                      ),
+                                      DropdownMenuItem<String>(
+                                        value: 'OPTIONS',
+                                        child: Text('OPTIONS'),
+                                      ),
+                                    ],
+                                    onChanged: _isSaving
+                                        ? null
+                                        : (value) {
+                                            if (value == null) return;
+                                            setState(() {
+                                              _requestMethod = value;
+                                            });
+                                          },
+                                  );
                               final streamToggle = InputDecorator(
                                 decoration: InputDecoration(
                                   labelText: _localizedText(
@@ -665,9 +670,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   children: [
                                     Text(
                                       _streamEnabled
-                                          ? _localizedText(zh: '流式输出', en: 'Streaming')
-                                          : _localizedText(zh: '非流式输出', en: 'Non-streaming'),
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          ? _localizedText(
+                                              zh: '流式输出',
+                                              en: 'Streaming',
+                                            )
+                                          : _localizedText(
+                                              zh: '非流式输出',
+                                              en: 'Non-streaming',
+                                            ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
                                             color: colorScheme.onSurfaceVariant,
                                           ),
                                     ),
@@ -733,7 +747,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               final temperatureField = TextFormField(
                                 controller: _temperatureController,
                                 enabled: !_isSaving,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 decoration: InputDecoration(
                                   labelText: _localizedText(
                                     zh: '温度',
@@ -748,7 +765,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   final trimmed = value?.trim() ?? '';
                                   if (trimmed.isEmpty) return null;
                                   final parsed = double.tryParse(trimmed);
-                                  if (parsed == null || parsed < 0 || parsed > 2.0) {
+                                  if (parsed == null ||
+                                      parsed < 0 ||
+                                      parsed > 2.0) {
                                     return _localizedText(
                                       zh: '请输入 0.0 到 2.0 之间的数值',
                                       en: 'Enter a number between 0.0 and 2.0',
@@ -792,7 +811,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               FilledButton.tonalIcon(
                                 onPressed: _isSaving ? null : _addHeaderEntry,
                                 icon: const Icon(Icons.add, size: 18),
-                                label: Text(_localizedText(zh: '添加', en: 'Add')),
+                                label: Text(
+                                  _localizedText(zh: '添加', en: 'Add'),
+                                ),
                               ),
                             ],
                           ),
@@ -803,13 +824,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 zh: '暂无自定义请求头。点击「添加」按钮来添加。',
                                 en: 'No custom headers. Tap "Add" to create one.',
                               ),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: colorScheme.onSurfaceVariant),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                             )
                           else
-                            ..._customHeaderEntries.asMap().entries.map((mapEntry) {
+                            ..._customHeaderEntries.asMap().entries.map((
+                              mapEntry,
+                            ) {
                               final index = mapEntry.key;
                               final entry = mapEntry.value;
                               return Padding(
@@ -977,10 +1000,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 }
 
 class _HeaderEntry {
-  _HeaderEntry({
-    required this.keyController,
-    required this.valueController,
-  });
+  _HeaderEntry({required this.keyController, required this.valueController});
 
   final TextEditingController keyController;
   final TextEditingController valueController;

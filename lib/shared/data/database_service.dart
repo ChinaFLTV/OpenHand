@@ -49,14 +49,20 @@ class DatabaseService {
   }
 
   /// Initialize the database service.  Safe to call multiple times (idempotent).
-  static Future<DatabaseService> initialize({String? databasePath}) async {
+  static Future<DatabaseService> initialize({
+    String? databasePath,
+    bool useNoIsolateFactory = false,
+  }) async {
     if (_instance != null) {
       return _instance!;
     }
 
     // Initialize FFI for desktop platforms.
     sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    final effectiveFactory = useNoIsolateFactory
+        ? databaseFactoryFfiNoIsolate
+        : databaseFactoryFfi;
+    databaseFactory = effectiveFactory;
 
     final effectivePath = databasePath ?? defaultDatabasePath();
     final dbDirectory = Directory(p.dirname(effectivePath));
@@ -65,7 +71,7 @@ class DatabaseService {
     }
 
     final service = DatabaseService._();
-    service._database = await databaseFactoryFfi.openDatabase(
+    service._database = await effectiveFactory.openDatabase(
       effectivePath,
       options: OpenDatabaseOptions(
         version: schemaVersion,

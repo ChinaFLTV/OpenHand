@@ -17,7 +17,6 @@ import 'settings_store.dart';
 enum _MutationDisposition { apply, successNoChange, reject }
 
 class SettingsController extends ChangeNotifier {
-
   SettingsController._({
     required SettingsStore store,
     required AppSettingsSnapshot snapshot,
@@ -132,8 +131,7 @@ class SettingsController extends ChangeNotifier {
       _cloneShortcutBindings(_shortcutBindings);
   DialogAnimationSettings get dialogAnimationSettings =>
       _dialogAnimationSettings;
-  DialogAnimationSettings get menuAnimationSettings =>
-      _menuAnimationSettings;
+  DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -376,19 +374,36 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> saveAiModel(AiModelConfig value) async {
     return _commitMutation(() {
+      final normalizedAvailableModelIds = AiModelConfig.normalizeModelIds(
+        value.availableModelIds,
+      );
+      final normalizedModelId = value.modelId.trim().isNotEmpty
+          ? value.modelId.trim()
+          : (normalizedAvailableModelIds.isNotEmpty
+                ? normalizedAvailableModelIds.first
+                : '');
+      final normalizedValue = value.copyWith(
+        modelId: normalizedModelId,
+        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+          ...normalizedAvailableModelIds,
+          if (normalizedModelId.isNotEmpty) normalizedModelId,
+        ]),
+      );
       final updatedModels = List<AiModelConfig>.from(_aiModels);
-      final index = updatedModels.indexWhere((item) => item.id == value.id);
+      final index = updatedModels.indexWhere(
+        (item) => item.id == normalizedValue.id,
+      );
       if (index == -1) {
-        updatedModels.add(value);
+        updatedModels.add(normalizedValue);
       } else {
-        updatedModels[index] = value;
+        updatedModels[index] = normalizedValue;
       }
-      final nextSelectedModelId = _selectedAiModelId ?? value.id;
+      final nextSelectedModelId = _selectedAiModelId ?? normalizedValue.id;
       _aiModels = updatedModels;
       _selectedAiModelId =
           updatedModels.any((item) => item.id == nextSelectedModelId)
           ? nextSelectedModelId
-          : value.id;
+          : normalizedValue.id;
       return _MutationDisposition.apply;
     });
   }
@@ -444,14 +459,20 @@ class SettingsController extends ChangeNotifier {
     String modelId,
   ) async {
     return _commitMutation(() {
-      final index = _aiModels.indexWhere(
-        (item) => item.id == providerConfigId,
-      );
+      final index = _aiModels.indexWhere((item) => item.id == providerConfigId);
       if (index == -1) {
         return _MutationDisposition.reject;
       }
+      final normalizedModelId = modelId.trim();
       final updatedModels = List<AiModelConfig>.from(_aiModels);
-      updatedModels[index] = updatedModels[index].copyWith(modelId: modelId);
+      final current = updatedModels[index];
+      updatedModels[index] = current.copyWith(
+        modelId: normalizedModelId,
+        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+          ...current.availableModelIds,
+          if (normalizedModelId.isNotEmpty) normalizedModelId,
+        ]),
+      );
       _aiModels = updatedModels;
       _selectedAiModelId = providerConfigId;
       return _MutationDisposition.apply;
@@ -464,21 +485,26 @@ class SettingsController extends ChangeNotifier {
     List<String> availableModelIds,
   ) async {
     return _commitMutation(() {
-      final index = _aiModels.indexWhere(
-        (item) => item.id == providerConfigId,
-      );
+      final index = _aiModels.indexWhere((item) => item.id == providerConfigId);
       if (index == -1) {
         return _MutationDisposition.reject;
       }
       final updatedModels = List<AiModelConfig>.from(_aiModels);
       final current = updatedModels[index];
+      final normalizedAvailableModelIds = AiModelConfig.normalizeModelIds(
+        availableModelIds,
+      );
+      final normalizedModelId = current.modelId.trim().isNotEmpty
+          ? current.modelId.trim()
+          : (normalizedAvailableModelIds.isNotEmpty
+                ? normalizedAvailableModelIds.first
+                : '');
       updatedModels[index] = current.copyWith(
-        availableModelIds: availableModelIds,
-        // If the current modelId is empty but we have available models,
-        // auto-select the first one.
-        modelId: current.modelId.trim().isEmpty && availableModelIds.isNotEmpty
-            ? availableModelIds.first
-            : null,
+        availableModelIds: AiModelConfig.normalizeModelIds(<String>[
+          ...normalizedAvailableModelIds,
+          if (normalizedModelId.isNotEmpty) normalizedModelId,
+        ]),
+        modelId: normalizedModelId,
       );
       _aiModels = updatedModels;
       return _MutationDisposition.apply;
@@ -491,7 +517,7 @@ class SettingsController extends ChangeNotifier {
   /// availableModelIds) are represented by a single entry using the provider
   /// displayName.
   List<({String providerConfigId, String modelId, String providerLabel})>
-      get flatModelEntries {
+  get flatModelEntries {
     final entries =
         <({String providerConfigId, String modelId, String providerLabel})>[];
     for (final config in _aiModels) {
