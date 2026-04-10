@@ -14,14 +14,18 @@ import '../service/ai_chat_service.dart';
 import '../service/ai_claude_hook_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_bash_tool.dart';
+import 'ai_codebase_search_tool.dart';
+import 'ai_delete_file_tool.dart';
 import 'ai_edit_tool.dart';
 import 'ai_exit_plan_mode_tool.dart';
+import 'ai_git_tool.dart';
 import 'ai_glob_tool.dart';
 import 'ai_grep_tool.dart';
 import 'ai_ls_tool.dart';
 import 'ai_lsp_tool.dart';
 import 'ai_multi_edit_tool.dart';
 import 'ai_notebook_edit_tool.dart';
+import 'ai_read_lints_tool.dart';
 import 'ai_read_tool.dart';
 import 'ai_task_tool.dart';
 import 'ai_todo_write_tool.dart';
@@ -52,7 +56,11 @@ class AiToolRegistry {
       ..register(AiTodoWriteTool())
       ..register(AiNotebookEditTool())
       ..register(AiReadTool())
-      ..register(AiLspTool());
+      ..register(AiLspTool())
+      ..register(AiCodebaseSearchTool())
+      ..register(AiGitTool())
+      ..register(AiDeleteFileTool())
+      ..register(AiReadLintsTool());
   }
 
   // ──────────────────────────────────────────────────────────────

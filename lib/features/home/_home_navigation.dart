@@ -247,7 +247,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
 }
 
 class _ContentPane extends StatelessWidget {
-  const _ContentPane({required this.child});
+  const _ContentPane({super.key, required this.child});
 
   final Widget child;
 

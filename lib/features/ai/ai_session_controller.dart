@@ -2852,6 +2852,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.webSearch:
       case AiBuiltinToolKind.lsp:
       case AiBuiltinToolKind.task:
+      case AiBuiltinToolKind.codebaseSearch:
+      case AiBuiltinToolKind.git:
+      case AiBuiltinToolKind.readLints:
         return true;
       case AiBuiltinToolKind.bash:
         return !_bashToolService
@@ -2864,6 +2867,7 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.write:
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.todoWrite:
+      case AiBuiltinToolKind.deleteFile:
         return false;
     }
   }

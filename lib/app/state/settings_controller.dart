@@ -47,6 +47,7 @@ class SettingsController extends ChangeNotifier {
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _menuAnimationSettings = snapshot.menuAnimationSettings,
+       _panelAnimationSettings = snapshot.panelAnimationSettings,
        _persistenceIssue = persistenceIssue;
   static const Uuid _uuid = Uuid();
 
@@ -80,6 +81,7 @@ class SettingsController extends ChangeNotifier {
   Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
   DialogAnimationSettings _dialogAnimationSettings;
   DialogAnimationSettings _menuAnimationSettings;
+  DialogAnimationSettings _panelAnimationSettings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -132,6 +134,7 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings get dialogAnimationSettings =>
       _dialogAnimationSettings;
   DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
+  DialogAnimationSettings get panelAnimationSettings => _panelAnimationSettings;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -594,6 +597,18 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updatePanelAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_panelAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _panelAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -627,6 +642,7 @@ class SettingsController extends ChangeNotifier {
       shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
       dialogAnimationSettings: _dialogAnimationSettings,
       menuAnimationSettings: _menuAnimationSettings,
+      panelAnimationSettings: _panelAnimationSettings,
     );
   }
 
@@ -656,6 +672,7 @@ class SettingsController extends ChangeNotifier {
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;
+    _panelAnimationSettings = snapshot.panelAnimationSettings;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

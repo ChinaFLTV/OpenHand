@@ -271,6 +271,9 @@ class _SettingsViewState extends State<SettingsView> {
                 _MenuAnimationSettingsSection(
                   settingsController: settingsController,
                 ),
+                _PanelAnimationSettingsSection(
+                  settingsController: settingsController,
+                ),
               ],
             ),
             const SizedBox(height: 18),

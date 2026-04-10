@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 
 import '../model/ai_thread_template.dart';
 import 'machine_expert_prompts.dart';
+import 'programming_expert_prompts.dart';
 
 class AiPromptTemplateBundle {
   const AiPromptTemplateBundle({
@@ -50,6 +51,14 @@ class AiPromptTemplateRepository {
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/hardness_engineering',
     ),
+    AiThreadTemplate(
+      id: 'programming_expert',
+      name: '编程专家',
+      iconName: 'code_rounded',
+      description: '对标 Cursor Agent 的全栈 AI 编程助手。具备语义代码搜索、LSP 诊断、Git 集成、自主 Agent 循环，支持 Research→Synthesis→Implementation→Verification 四阶段工作流。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/programming_expert',
+    ),
   ];
 
   List<AiThreadTemplate> get templates =>
@@ -79,6 +88,10 @@ class AiPromptTemplateRepository {
         systemFallback = _hardnessSystemInstructions;
         developerFallback = _hardnessDeveloperInstructions;
         compressionFallback = _hardnessCompressionSummaryInstructions;
+      case 'programming_expert':
+        systemFallback = programmingExpertSystemInstructions;
+        developerFallback = programmingExpertDeveloperInstructions;
+        compressionFallback = programmingExpertCompressionSummaryInstructions;
       default:
         systemFallback = _defaultSystemInstructions;
         developerFallback = _defaultDeveloperInstructions;

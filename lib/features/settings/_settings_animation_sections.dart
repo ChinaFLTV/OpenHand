@@ -390,3 +390,194 @@ class _MenuAnimationSettingsSection extends StatelessWidget {
     );
   }
 }
+
+class _PanelAnimationSettingsSection extends StatelessWidget {
+  const _PanelAnimationSettingsSection({
+    required this.settingsController,
+  });
+
+  final SettingsController settingsController;
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final current = settingsController.panelAnimationSettings;
+    return _ResponsiveSettingRow(
+      title: isZh ? '面板动画' : 'Panel Animation',
+      subtitle: isZh
+          ? '配置侧边栏面板切换（如文件浏览器、代码编辑器）的进场动画、退场动画、时长和速率曲线。'
+          : 'Configure entrance/exit animation style, duration, and easing curve for sidebar panel transitions (e.g. file explorer, code editor).',
+      controlMaxWidth: 440,
+      control: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '进场' : 'Enter',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationStyle>(
+                  initialValue: current.entranceStyle,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationStyle.values
+                      .map(
+                        (style) => DropdownMenuItem(
+                          value: style,
+                          child: Text(
+                            style.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updatePanelAnimationSettings(
+                      current.copyWith(entranceStyle: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '退场' : 'Exit',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationStyle>(
+                  initialValue: current.exitStyle,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationStyle.values
+                      .map(
+                        (style) => DropdownMenuItem(
+                          value: style,
+                          child: Text(
+                            style.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updatePanelAnimationSettings(
+                      current.copyWith(exitStyle: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '时长' : 'Duration',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: current.durationMs.toDouble(),
+                        min: 100,
+                        max: 800,
+                        divisions: 14,
+                        label: '${current.durationMs}ms',
+                        onChanged: (value) {
+                          settingsController.updatePanelAnimationSettings(
+                            current.copyWith(durationMs: value.round()),
+                          );
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      width: 54,
+                      child: Text(
+                        '${current.durationMs}ms',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(
+                width: 80,
+                child: Text(
+                  isZh ? '曲线' : 'Curve',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<DialogAnimationCurve>(
+                  initialValue: current.curve,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: DialogAnimationCurve.values
+                      .map(
+                        (curve) => DropdownMenuItem(
+                          value: curve,
+                          child: Text(
+                            curve.label(isZh),
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    settingsController.updatePanelAnimationSettings(
+                      current.copyWith(curve: value),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

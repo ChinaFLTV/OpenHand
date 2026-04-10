@@ -87,6 +87,10 @@ enum AiBuiltinToolKind {
   todoWrite,
   webSearch,
   lsp,
+  codebaseSearch,
+  git,
+  deleteFile,
+  readLints,
 }
 
 class AiToolExecutionResult {
@@ -668,6 +672,10 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.todoWrite => 'TodoWrite',
       AiBuiltinToolKind.webSearch => 'WebSearch',
       AiBuiltinToolKind.lsp => 'Lsp',
+      AiBuiltinToolKind.codebaseSearch => 'CodebaseSearch',
+      AiBuiltinToolKind.git => 'Git',
+      AiBuiltinToolKind.deleteFile => 'DeleteFile',
+      AiBuiltinToolKind.readLints => 'ReadLints',
       null => tool.name,
     };
   }
@@ -1325,6 +1333,134 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['query'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.codebaseSearch,
+      name: 'CodebaseSearch',
+      description:
+          'Semantic code search: finds relevant code snippets by natural language query. '
+          'Uses multi-signal weighted matching (keyword extraction, pattern grep, filename glob). '
+          'Best for discovering code by intent when you don\'t know the exact text.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'query': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Natural language query describing the code you are looking for.',
+          },
+          'path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional directory to scope the search (absolute or relative).',
+          },
+          'file_pattern': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional glob pattern to filter files (e.g. "*.dart", "*.ts").',
+          },
+        },
+        'required': <String>['query'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.git,
+      name: 'Git',
+      description:
+          'Structured read-only Git operations. Supports: status, diff, log, blame, show, branch, stash_list. '
+          'For write operations (commit, push, rebase) use the Bash tool instead.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'operation': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'status',
+              'diff',
+              'log',
+              'blame',
+              'show',
+              'branch',
+              'stash_list',
+            ],
+            'description': 'The Git operation to perform.',
+          },
+          'target': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Target ref, commit hash, or file path depending on operation.',
+          },
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description': 'File path for blame or scoped diff.',
+          },
+          'staged': <String, Object?>{
+            'type': 'boolean',
+            'description': 'For diff: show staged changes only.',
+          },
+          'count': <String, Object?>{
+            'type': 'integer',
+            'description': 'For log: max number of commits to show.',
+          },
+          'author': <String, Object?>{
+            'type': 'string',
+            'description': 'For log: filter by author.',
+          },
+          'since': <String, Object?>{
+            'type': 'string',
+            'description': 'For log: show commits since this date.',
+          },
+          'start_line': <String, Object?>{
+            'type': 'integer',
+            'description': 'For blame: start line (1-based).',
+          },
+          'end_line': <String, Object?>{
+            'type': 'integer',
+            'description': 'For blame: end line (1-based).',
+          },
+        },
+        'required': <String>['operation'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.deleteFile,
+      name: 'DeleteFile',
+      description:
+          'Delete a single file from disk. Cannot delete directories. '
+          'Blocked for system-critical paths (/System, /usr, /bin, /sbin, /etc, home root).',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description': 'Absolute or relative path to the file to delete.',
+          },
+        },
+        'required': <String>['file_path'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.readLints,
+      name: 'ReadLints',
+      description:
+          'Read diagnostics and lint errors from the workspace. '
+          'Runs flutter analyze / dart analyze and returns structured results. '
+          'Optionally scoped to specific file paths.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'paths': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description':
+                'Optional list of file or directory paths to analyze. If empty, analyzes the whole workspace.',
+          },
+        },
         'additionalProperties': false,
       },
     ),

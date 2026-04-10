@@ -7,6 +7,8 @@ class _SessionToolbar extends StatelessWidget {
     this.sendPhase = AiSendPhase.idle,
     this.planTimelineCollapsed = false,
     this.onPlanTimelineCollapsedChanged,
+    this.fileExplorerVisible = false,
+    this.onFileExplorerToggled,
   });
 
   final AiSession session;
@@ -14,6 +16,8 @@ class _SessionToolbar extends StatelessWidget {
   final AiSendPhase sendPhase;
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
+  final bool fileExplorerVisible;
+  final VoidCallback? onFileExplorerToggled;
 
   @override
   Widget build(BuildContext context) {
@@ -147,6 +151,20 @@ class _SessionToolbar extends StatelessWidget {
                 ),
               ],
               const SizedBox(width: 10),
+              if (onFileExplorerToggled != null) ...[
+                _ToolbarPill(
+                  icon: fileExplorerVisible
+                      ? Icons.folder_open_rounded
+                      : Icons.folder_outlined,
+                  label: _localizedText(
+                    context,
+                    zh: fileExplorerVisible ? '收起项目' : '项目文件',
+                    en: fileExplorerVisible ? 'Hide Files' : 'Project Files',
+                  ),
+                  onTap: onFileExplorerToggled,
+                ),
+                const SizedBox(width: 10),
+              ],
               _TokenDial(
                 totalTokens: session.statistics.totalTokens ?? 0,
                 cacheReadTokens: session.statistics.cacheReadTokens,

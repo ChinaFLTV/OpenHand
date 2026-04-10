@@ -154,6 +154,7 @@ class SettingsStore {
       },
       'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
+      'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -291,6 +292,11 @@ class SettingsStore {
     if (rawMenuAnim is Map<String, dynamic>) {
       menuAnimationSettings = DialogAnimationSettings.fromJson(rawMenuAnim);
     }
+    final rawPanelAnim = json['panel_animation_settings'];
+    var panelAnimationSettings = const DialogAnimationSettings();
+    if (rawPanelAnim is Map<String, dynamic>) {
+      panelAnimationSettings = DialogAnimationSettings.fromJson(rawPanelAnim);
+    }
 
     return AppSettingsSnapshot(
       themeMode: themeMode,
@@ -312,6 +318,7 @@ class SettingsStore {
       shortcutBindings: shortcutBindings,
       dialogAnimationSettings: dialogAnimationSettings,
       menuAnimationSettings: menuAnimationSettings,
+      panelAnimationSettings: panelAnimationSettings,
     );
   }
 

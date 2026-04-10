@@ -18,6 +18,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
+import '../../app/model/dialog_animation_settings.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
@@ -78,6 +79,8 @@ part '_home_message_meta_rows.dart';
 part '_home_code_highlighting.dart';
 part '_home_token_dial.dart';
 part '_home_thread_template_dialog.dart';
+part '_home_programming_expert_project_dialog.dart';
+part '_home_programming_expert_file_explorer.dart';
 part '_home_hardness_annotations.dart';
 
 
@@ -152,6 +155,95 @@ void _disposeTextEditingControllerAfterCurrentFrame(
   WidgetsBinding.instance.addPostFrameCallback((_) {
     controller.dispose();
   });
+}
+
+Widget _buildPanelTransition({
+  required Widget child,
+  required Animation<double> animation,
+  required DialogAnimationStyle entranceStyle,
+  required DialogAnimationStyle exitStyle,
+}) {
+  // Choose the effective style based on whether the animation is running
+  // forward (entrance) or in reverse (exit).
+  final isEntering = animation.status == AnimationStatus.forward ||
+      animation.status == AnimationStatus.completed;
+  final effectiveStyle = isEntering ? entranceStyle : exitStyle;
+  return switch (effectiveStyle) {
+    DialogAnimationStyle.none => FadeTransition(
+      opacity: animation,
+      child: child,
+    ),
+    DialogAnimationStyle.fadeScale => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.92, end: 1.0).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        ),
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideUp => FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideDown => FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, -0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.expand => FadeTransition(
+      opacity: animation,
+      child: SizeTransition(
+        sizeFactor: animation,
+        axisAlignment: -1,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.rotateScale => FadeTransition(
+      opacity: animation,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
+        child: RotationTransition(
+          turns: Tween<double>(begin: -0.02, end: 0).animate(animation),
+          child: child,
+        ),
+      ),
+    ),
+    DialogAnimationStyle.elastic => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOut,
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.elasticOut,
+          ),
+        ),
+        child: child,
+      ),
+    ),
+  };
 }
 
 void _scheduleOverlayActionAfterMenuDismissal(
@@ -249,6 +341,62 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   HardnessSessionRecord? _persistedHardnessSession;
   Timer? _hardnessSessionSaveTimer;
   HardnessPhase? _lastHardnessAwaitingApprovalPhase;
+
+  // Programming Expert: file explorer & inline editor state.
+  bool _fileExplorerVisible = false;
+  final List<String> _openFilePaths = [];
+  String? _activeFilePath;
+
+  void _toggleFileExplorer() {
+    setState(() => _fileExplorerVisible = !_fileExplorerVisible);
+  }
+
+  void _openFileInEditor(String filePath) {
+    setState(() {
+      if (!_openFilePaths.contains(filePath)) {
+        _openFilePaths.add(filePath);
+      }
+      _activeFilePath = filePath;
+    });
+  }
+
+  void _selectFileTab(String filePath) {
+    setState(() => _activeFilePath = filePath);
+  }
+
+  void _closeFileTab(String filePath) {
+    setState(() {
+      _openFilePaths.remove(filePath);
+      if (_activeFilePath == filePath) {
+        _activeFilePath =
+            _openFilePaths.isNotEmpty ? _openFilePaths.last : null;
+      }
+    });
+  }
+
+  void _closeAllFileTabs() {
+    setState(() {
+      _openFilePaths.clear();
+      _activeFilePath = null;
+    });
+  }
+
+  void _reorderFileTabs(int oldIndex, int newIndex) {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final item = _openFilePaths.removeAt(oldIndex);
+      _openFilePaths.insert(newIndex, item);
+    });
+  }
+
+  String? _programmingExpertProjectRoot(AiSession? session) {
+    if (session == null || session.templateId != 'programming_expert') {
+      return null;
+    }
+    final config = session.metadata['programming_expert_config'];
+    if (config is Map) return config['project_root'] as String?;
+    return null;
+  }
 
   void _cacheHardnessShellState(HardnessOrchestrator? orchestrator) {
     _lastHardnessAwaitingApprovalPhase = orchestrator?.awaitingApprovalPhase;
@@ -1222,6 +1370,39 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (created && mounted) {
         _replaceComposerText(result.toPrompt());
         await _sendMessage();
+      }
+      return created;
+    }
+    if (templateId == 'programming_expert') {
+      final sessionController = context.read<AiSessionController>();
+      final recentPaths = _collectRecentProjectPaths(
+        sessionController.sessions,
+      );
+      final projectRoot = await showAnimatedDialog<String>(
+        context: context,
+        builder: (context) => _ProgrammingExpertProjectDialog(
+          recentProjectPaths: recentPaths,
+        ),
+      );
+      if (!mounted || projectRoot == null) {
+        return false;
+      }
+      final created = await _createSession(
+        templateId: templateId,
+        runtimeContext: runtimeContext,
+      );
+      if (created && mounted) {
+        final currentSession = sessionController.currentSession;
+        if (currentSession != null) {
+          await sessionController.updateSessionMetadata(
+            currentSession.id,
+            <String, Object?>{
+              'programming_expert_config': <String, Object?>{
+                'project_root': projectRoot,
+              },
+            },
+          );
+        }
       }
       return created;
     }
@@ -3221,8 +3402,101 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       ? _deleteHardnessSession
                       : null,
                 );
-                final contentPane = _ContentPane(
-                  child: _buildSectionContent(context),
+
+                // Swap left pane to file explorer when toggled for
+                // programming_expert sessions.
+                final currentSession = sessionController.currentSession;
+                final projectRoot =
+                    _programmingExpertProjectRoot(currentSession);
+                final showFileExplorer =
+                    _fileExplorerVisible &&
+                    projectRoot != null &&
+                    _selectedSection == AppSection.workspace;
+                final panelAnim = context
+                    .read<SettingsController>()
+                    .panelAnimationSettings;
+                final panelDuration = panelAnim.duration;
+                final panelCurve = panelAnim.curve.curve;
+                final panelReverseCurve = panelAnim.curve.reverseCurve;
+                final Widget leftPaneContent = showFileExplorer
+                    ? _ContentPane(
+                        key: const ValueKey<String>('file-explorer-pane'),
+                        child: _FileExplorerPanel(
+                          rootPath: projectRoot,
+                          onFileSelected: _openFileInEditor,
+                          activeFilePath: _activeFilePath,
+                        ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey<String>('navigation-pane'),
+                        child: navigationPane,
+                      );
+                final Widget leftPane = AnimatedSwitcher(
+                  duration: panelDuration,
+                  switchInCurve: panelCurve,
+                  switchOutCurve: panelReverseCurve,
+                  transitionBuilder: (child, animation) {
+                    return _buildPanelTransition(
+                      child: child,
+                      animation: animation,
+                      entranceStyle: panelAnim.entranceStyle,
+                      exitStyle: panelAnim.exitStyle,
+                    );
+                  },
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: Alignment.topCenter,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    );
+                  },
+                  child: leftPaneContent,
+                );
+
+                // Swap right pane to code editor when files are open.
+                final showEditor =
+                    _activeFilePath != null && _openFilePaths.isNotEmpty;
+                final Widget rightPaneContent = showEditor
+                    ? Padding(
+                        key: const ValueKey<String>('editor-pane'),
+                        padding: const EdgeInsets.all(4),
+                        child: _CodeEditorView(
+                          openFiles: _openFilePaths,
+                          activeFilePath: _activeFilePath!,
+                          onTabSelected: _selectFileTab,
+                          onTabClosed: _closeFileTab,
+                          onCloseAll: _closeAllFileTabs,
+                          onReorderTabs: _reorderFileTabs,
+                        ),
+                      )
+                    : _ContentPane(
+                        key: const ValueKey<String>('section-content-pane'),
+                        child: _buildSectionContent(context),
+                      );
+                final Widget rightPane = AnimatedSwitcher(
+                  duration: panelDuration,
+                  switchInCurve: panelCurve,
+                  switchOutCurve: panelReverseCurve,
+                  transitionBuilder: (child, animation) {
+                    return _buildPanelTransition(
+                      child: child,
+                      animation: animation,
+                      entranceStyle: panelAnim.entranceStyle,
+                      exitStyle: panelAnim.exitStyle,
+                    );
+                  },
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: Alignment.topCenter,
+                      children: [
+                        ...previousChildren,
+                        if (currentChild != null) currentChild,
+                      ],
+                    );
+                  },
+                  child: rightPaneContent,
                 );
 
                 if (stackedLayout) {
@@ -3230,10 +3504,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     children: [
                       SizedBox(
                         height: stackedNavigationHeight,
-                        child: navigationPane,
+                        child: leftPane,
                       ),
                       const SizedBox(height: 16),
-                      Expanded(child: contentPane),
+                      Expanded(child: rightPane),
                     ],
                   );
                 }
@@ -3244,7 +3518,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        SizedBox(width: navWidth, child: navigationPane),
+                        SizedBox(width: navWidth, child: leftPane),
                         MouseRegion(
                           cursor: SystemMouseCursors.resizeColumn,
                           child: GestureDetector(
@@ -3268,7 +3542,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                             ),
                           ),
                         ),
-                        Expanded(child: contentPane),
+                        Expanded(child: rightPane),
                       ],
                     );
                   },
@@ -3445,6 +3719,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         // whenever a forced-scroll-to-bottom is pending (i.e. a session was
         // just activated). This eliminates the visible animate-from-top jank.
         jumpToBottomOnInit: _pendingForcedScrollToBottom,
+        fileExplorerVisible: _fileExplorerVisible,
+        onFileExplorerToggled:
+            _programmingExpertProjectRoot(currentSession) != null
+                ? _toggleFileExplorer
+                : null,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,

@@ -545,33 +545,35 @@ class _CodeSyntaxHighlighter {
     required bool darkSurface,
   }) : _baseStyle = baseStyle {
     // Pre-compute all token styles once per highlighter instance.
+    // Light palette: high-contrast, Material-tinted IDE colours.
+    // Dark palette: pastel tones on dark surface.
     _commentStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B7C68),
+      color: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF2E7D32),
       fontStyle: FontStyle.italic,
     );
     _keywordStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFFB42367),
+      color: darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFF1565C0),
       fontWeight: FontWeight.w700,
     );
     _stringStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB45309),
+      color: darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFC62828),
     );
     _numberStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+      color: darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF0277BD),
     );
     _titleStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF0F766E),
+      color: darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF00627A),
       fontWeight: FontWeight.w700,
     );
     _typeStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
+      color: darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF6A1B9A),
       fontWeight: FontWeight.w600,
     );
     _metaStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF475569),
+      color: darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF4E342E),
     );
     _operatorStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+      color: darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF37474F),
     );
   }
 

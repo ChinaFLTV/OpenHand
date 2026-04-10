@@ -51,6 +51,8 @@ class _WorkspaceView extends StatelessWidget {
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
     this.jumpToBottomOnInit = false,
+    this.fileExplorerVisible = false,
+    this.onFileExplorerToggled,
   });
 
   final TextEditingController draftController;
@@ -105,6 +107,8 @@ class _WorkspaceView extends StatelessWidget {
   // When true, the message list widget will immediately jump to the bottom
   // on its first frame instead of relying on the parent's scroll scheduler.
   final bool jumpToBottomOnInit;
+  final bool fileExplorerVisible;
+  final VoidCallback? onFileExplorerToggled;
 
   @override
   Widget build(BuildContext context) {
@@ -126,9 +130,27 @@ class _WorkspaceView extends StatelessWidget {
                       key: ValueKey<String>('no-session'),
                     )
                   : currentSession!.messages.isEmpty
-                  ? _WorkspaceEmptyState(
-                      key: ValueKey<String>(currentSession!.id),
-                      session: currentSession,
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SessionToolbar(
+                          session: currentSession!,
+                          liveRuntimeToolPreview: liveRuntimeToolPreview,
+                          sendPhase: sendPhase,
+                          planTimelineCollapsed: planTimelineCollapsed,
+                          onPlanTimelineCollapsedChanged:
+                              onPlanTimelineCollapsedChanged,
+                          fileExplorerVisible: fileExplorerVisible,
+                          onFileExplorerToggled: onFileExplorerToggled,
+                        ),
+                        const SizedBox(height: 14),
+                        Expanded(
+                          child: _WorkspaceEmptyState(
+                            key: ValueKey<String>(currentSession!.id),
+                            session: currentSession,
+                          ),
+                        ),
+                      ],
                     )
                   : Stack(
                       children: [
@@ -163,6 +185,8 @@ class _WorkspaceView extends StatelessWidget {
                               // session was just activated, so the user never sees a
                               // flash from scroll-top to scroll-bottom.
                               jumpToBottomOnInit: jumpToBottomOnInit,
+                              fileExplorerVisible: fileExplorerVisible,
+                              onFileExplorerToggled: onFileExplorerToggled,
                             ),
                           ),
                         ),
@@ -188,6 +212,8 @@ class _WorkspaceView extends StatelessWidget {
                                 planTimelineCollapsed: planTimelineCollapsed,
                                 onPlanTimelineCollapsedChanged:
                                     onPlanTimelineCollapsedChanged,
+                                fileExplorerVisible: fileExplorerVisible,
+                                onFileExplorerToggled: onFileExplorerToggled,
                               ),
                             ),
                           ),

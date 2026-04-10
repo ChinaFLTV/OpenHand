@@ -8,6 +8,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
     required this.sendPhase,
     required this.planTimelineCollapsed,
     required this.onPlanTimelineCollapsedChanged,
+    this.fileExplorerVisible = false,
+    this.onFileExplorerToggled,
   });
 
   final AiSession session;
@@ -15,6 +17,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   final AiSendPhase sendPhase;
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
+  final bool fileExplorerVisible;
+  final VoidCallback? onFileExplorerToggled;
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +31,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           sendPhase: sendPhase,
           planTimelineCollapsed: planTimelineCollapsed,
           onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
+          fileExplorerVisible: fileExplorerVisible,
+          onFileExplorerToggled: onFileExplorerToggled,
         ),
         const SizedBox(height: 14),
         const Expanded(child: OpenHandLoadingLogo()),
@@ -79,6 +85,8 @@ class _SessionTranscript extends StatefulWidget {
     required this.onDeleteMessageFromHere,
     required this.onDismissError,
     this.jumpToBottomOnInit = false,
+    this.fileExplorerVisible = false,
+    this.onFileExplorerToggled,
   });
 
   final ScrollController controller;
@@ -99,6 +107,8 @@ class _SessionTranscript extends StatefulWidget {
   // This eliminates the visible scroll-from-top animation that would otherwise
   // appear when a session is loaded and the parent schedules a forced scroll.
   final bool jumpToBottomOnInit;
+  final bool fileExplorerVisible;
+  final VoidCallback? onFileExplorerToggled;
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
@@ -440,6 +450,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           sendPhase: widget.sendPhase,
           planTimelineCollapsed: widget.planTimelineCollapsed,
           onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
+          fileExplorerVisible: widget.fileExplorerVisible,
+          onFileExplorerToggled: widget.onFileExplorerToggled,
         ),
         const SizedBox(height: 14),
         Expanded(

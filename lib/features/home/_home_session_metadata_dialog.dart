@@ -191,12 +191,19 @@ class _SessionMetadataDialog extends StatelessWidget {
                         const SizedBox(height: 16),
                         _buildHardnessConfigSection(context, session),
                       ],
+                      if (session.templateId == 'programming_expert') ...[
+                        const SizedBox(height: 16),
+                        _buildProgrammingExpertConfigSection(context, session),
+                      ],
                       if (session.metadata.entries
                           .where(
                             (e) =>
                                 !(session.templateId ==
                                         'hardness_engineering' &&
-                                    e.key == 'hardness_config'),
+                                    e.key == 'hardness_config') &&
+                                !(session.templateId ==
+                                        'programming_expert' &&
+                                    e.key == 'programming_expert_config'),
                           )
                           .isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -211,7 +218,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 (e) =>
                                     !(session.templateId ==
                                             'hardness_engineering' &&
-                                        e.key == 'hardness_config'),
+                                        e.key == 'hardness_config') &&
+                                    !(session.templateId ==
+                                            'programming_expert' &&
+                                        e.key == 'programming_expert_config'),
                               )
                               .map((entry) {
                                 return _MetadataEntryRow(

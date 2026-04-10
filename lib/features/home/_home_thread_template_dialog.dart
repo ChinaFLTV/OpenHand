@@ -26,17 +26,28 @@ class _ThreadTemplateDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: templates
-                    .map(
-                      (template) => _ThreadTemplateCard(
-                        template: template,
-                        onTap: () => Navigator.of(context).pop(template.id),
-                      ),
-                    )
-                    .toList(growable: false),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const columns = 4;
+                  const spacing = 16.0;
+                  final cardWidth = (constraints.maxWidth -
+                          spacing * (columns - 1)) /
+                      columns;
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: templates
+                        .map(
+                          (template) => _ThreadTemplateCard(
+                            template: template,
+                            width: cardWidth,
+                            onTap: () =>
+                                Navigator.of(context).pop(template.id),
+                          ),
+                        )
+                        .toList(growable: false),
+                  );
+                },
               ),
             ],
           ),
@@ -53,10 +64,15 @@ class _ThreadTemplateDialog extends StatelessWidget {
 }
 
 class _ThreadTemplateCard extends StatefulWidget {
-  const _ThreadTemplateCard({required this.template, required this.onTap});
+  const _ThreadTemplateCard({
+    required this.template,
+    required this.onTap,
+    this.width = 280,
+  });
 
   final AiThreadTemplate template;
   final VoidCallback onTap;
+  final double width;
 
   @override
   State<_ThreadTemplateCard> createState() => _ThreadTemplateCardState();
@@ -76,7 +92,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return SizedBox(
-      width: 280,
+      width: widget.width,
       height: 300,
       child: Material(
         color: colorScheme.surfaceContainerLow,
@@ -143,6 +159,51 @@ String _formatDateTime(DateTime value) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$year-$month-$day $hour:$minute';
+}
+
+Widget _buildProgrammingExpertConfigSection(
+  BuildContext context,
+  AiSession session,
+) {
+  final theme = Theme.of(context);
+  final colorScheme = theme.colorScheme;
+  final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+  final sectionTitle = isZh
+      ? '编程专家配置'
+      : 'Programming Expert Config';
+  final rawConfig = session.metadata['programming_expert_config'];
+
+  final Map<String, Object?> configMap;
+  if (rawConfig is Map<String, Object?>) {
+    configMap = rawConfig;
+  } else if (rawConfig is Map) {
+    configMap = Map<String, Object?>.from(rawConfig);
+  } else {
+    return _MetadataSection(
+      title: sectionTitle,
+      children: [
+        Text(
+          isZh
+              ? '配置数据尚未写入会话元数据。'
+              : 'Configuration data has not been stored in session metadata.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  final projectRoot = '${configMap['project_root'] ?? ''}'.trim();
+  return _MetadataSection(
+    title: sectionTitle,
+    children: [
+      _MetadataEntryRow(
+        label: isZh ? '项目根目录' : 'Project Root',
+        value: projectRoot.isEmpty ? '-' : projectRoot,
+      ),
+    ],
+  );
 }
 
 Widget _buildHardnessConfigSection(BuildContext context, AiSession session) {

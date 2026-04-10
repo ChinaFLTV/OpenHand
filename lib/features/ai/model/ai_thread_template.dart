@@ -23,6 +23,7 @@ class AiThreadTemplate {
       'build_circle_rounded' => Icons.build_circle_rounded,
       'forum_rounded' => Icons.forum_rounded,
       'hub_rounded' => Icons.hub_rounded,
+      'code_rounded' => Icons.code_rounded,
       _ => Icons.auto_awesome_rounded,
     };
   }
