@@ -20,6 +20,7 @@ import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/model/editor_code_theme.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
@@ -3659,6 +3660,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                           onTabClosed: _closeFileTab,
                           onCloseAll: _closeAllFileTabs,
                           onReorderTabs: _reorderFileTabs,
+                          fileExplorerVisible: _fileExplorerVisible,
+                          onToggleFileExplorer: _toggleFileExplorer,
                         ),
                       )
                     : _ContentPane(

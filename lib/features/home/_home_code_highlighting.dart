@@ -539,42 +539,112 @@ String _closeUnterminatedFencedCodeBlock(String source) {
   return '$source$separator$openFence';
 }
 
+// ---------------------------------------------------------------------------
+// Code editor colour themes
+// ---------------------------------------------------------------------------
+
+/// Returns a set of token colours for the given [theme] and [darkSurface] flag.
+({
+  Color comment,
+  Color keyword,
+  Color string,
+  Color number,
+  Color title,
+  Color type,
+  Color meta,
+  Color operator,
+}) _codeThemeColors(EditorCodeTheme theme, bool darkSurface) {
+  return switch (theme) {
+    EditorCodeTheme.materialYou => (
+      comment: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B6472),
+      keyword: darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFF0B57D0),
+      string: darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB42318),
+      number: darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
+      title: darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF7C3AED),
+      type: darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF8A3C00),
+      meta: darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF0F4C81),
+      operator: darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF1F2937),
+    ),
+    EditorCodeTheme.monokai => (
+      comment: darkSurface ? const Color(0xFF75715E) : const Color(0xFF8E908C),
+      keyword: darkSurface ? const Color(0xFFF92672) : const Color(0xFFC7254E),
+      string: darkSurface ? const Color(0xFFE6DB74) : const Color(0xFF718C00),
+      number: darkSurface ? const Color(0xFFAE81FF) : const Color(0xFF8959A8),
+      title: darkSurface ? const Color(0xFFA6E22E) : const Color(0xFF4271AE),
+      type: darkSurface ? const Color(0xFF66D9EF) : const Color(0xFFC82828),
+      meta: darkSurface ? const Color(0xFFFD971F) : const Color(0xFFEAB700),
+      operator: darkSurface ? const Color(0xFFF8F8F2) : const Color(0xFF3E3D32),
+    ),
+    EditorCodeTheme.solarized => (
+      comment: darkSurface ? const Color(0xFF586E75) : const Color(0xFF93A1A1),
+      keyword: darkSurface ? const Color(0xFF859900) : const Color(0xFF859900),
+      string: darkSurface ? const Color(0xFF2AA198) : const Color(0xFF2AA198),
+      number: darkSurface ? const Color(0xFFD33682) : const Color(0xFFD33682),
+      title: darkSurface ? const Color(0xFF268BD2) : const Color(0xFF268BD2),
+      type: darkSurface ? const Color(0xFFB58900) : const Color(0xFFB58900),
+      meta: darkSurface ? const Color(0xFF6C71C4) : const Color(0xFF6C71C4),
+      operator: darkSurface ? const Color(0xFF839496) : const Color(0xFF657B83),
+    ),
+    EditorCodeTheme.oneDark => (
+      comment: darkSurface ? const Color(0xFF5C6370) : const Color(0xFFA0A1A7),
+      keyword: darkSurface ? const Color(0xFFC678DD) : const Color(0xFFA626A4),
+      string: darkSurface ? const Color(0xFF98C379) : const Color(0xFF50A14F),
+      number: darkSurface ? const Color(0xFFD19A66) : const Color(0xFF986801),
+      title: darkSurface ? const Color(0xFF61AFEF) : const Color(0xFF4078F2),
+      type: darkSurface ? const Color(0xFFE5C07B) : const Color(0xFFC18401),
+      meta: darkSurface ? const Color(0xFF56B6C2) : const Color(0xFF0184BC),
+      operator: darkSurface ? const Color(0xFFABB2BF) : const Color(0xFF383A42),
+    ),
+    EditorCodeTheme.github => (
+      comment: darkSurface ? const Color(0xFF8B949E) : const Color(0xFF6A737D),
+      keyword: darkSurface ? const Color(0xFFFF7B72) : const Color(0xFFD73A49),
+      string: darkSurface ? const Color(0xFFA5D6FF) : const Color(0xFF032F62),
+      number: darkSurface ? const Color(0xFF79C0FF) : const Color(0xFF005CC5),
+      title: darkSurface ? const Color(0xFFD2A8FF) : const Color(0xFF6F42C1),
+      type: darkSurface ? const Color(0xFFFFA657) : const Color(0xFFE36209),
+      meta: darkSurface ? const Color(0xFF7EE787) : const Color(0xFF22863A),
+      operator: darkSurface ? const Color(0xFFC9D1D9) : const Color(0xFF24292E),
+    ),
+    EditorCodeTheme.dracula => (
+      comment: darkSurface ? const Color(0xFF6272A4) : const Color(0xFF8E908C),
+      keyword: darkSurface ? const Color(0xFFFF79C6) : const Color(0xFFD73A49),
+      string: darkSurface ? const Color(0xFFF1FA8C) : const Color(0xFF50A14F),
+      number: darkSurface ? const Color(0xFFBD93F9) : const Color(0xFF6F42C1),
+      title: darkSurface ? const Color(0xFF50FA7B) : const Color(0xFF22863A),
+      type: darkSurface ? const Color(0xFF8BE9FD) : const Color(0xFF005CC5),
+      meta: darkSurface ? const Color(0xFFFFB86C) : const Color(0xFFE36209),
+      operator: darkSurface ? const Color(0xFFF8F8F2) : const Color(0xFF24292E),
+    ),
+  };
+}
+
 class _CodeSyntaxHighlighter {
   _CodeSyntaxHighlighter({
     required TextStyle baseStyle,
     required bool darkSurface,
+    EditorCodeTheme codeTheme = EditorCodeTheme.materialYou,
   }) : _baseStyle = baseStyle {
-    // Pre-compute all token styles once per highlighter instance.
-    // Light palette: high-contrast, Material-tinted IDE colours.
-    // Dark palette: pastel tones on dark surface.
+    final colors = _codeThemeColors(codeTheme, darkSurface);
     _commentStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B6472),
+      color: colors.comment,
       fontStyle: FontStyle.italic,
     );
     _keywordStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFF9A8D4) : const Color(0xFF0B57D0),
+      color: colors.keyword,
       fontWeight: FontWeight.w700,
     );
-    _stringStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFFDE68A) : const Color(0xFFB42318),
-    );
-    _numberStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
-    );
+    _stringStyle = baseStyle.copyWith(color: colors.string);
+    _numberStyle = baseStyle.copyWith(color: colors.number);
     _titleStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFF67E8F9) : const Color(0xFF7C3AED),
+      color: colors.title,
       fontWeight: FontWeight.w700,
     );
     _typeStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFC4B5FD) : const Color(0xFF8A3C00),
+      color: colors.type,
       fontWeight: FontWeight.w600,
     );
-    _metaStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFCBD5E1) : const Color(0xFF0F4C81),
-    );
-    _operatorStyle = baseStyle.copyWith(
-      color: darkSurface ? const Color(0xFFE2E8F0) : const Color(0xFF1F2937),
-    );
+    _metaStyle = baseStyle.copyWith(color: colors.meta);
+    _operatorStyle = baseStyle.copyWith(color: colors.operator);
   }
 
   final TextStyle _baseStyle;

@@ -203,6 +203,37 @@ class AiLspPrepareRenameResult {
   final String? placeholder;
 }
 
+/// Represents a single completion item returned by the LSP server.
+class AiLspCompletionItem {
+  const AiLspCompletionItem({
+    required this.label,
+    this.kind,
+    this.detail,
+    this.insertText,
+    this.filterText,
+    this.sortText,
+  });
+
+  final String label;
+
+  /// CompletionItemKind (1=Text, 2=Method, 3=Function, 4=Constructor,
+  /// 5=Field, 6=Variable, 7=Class, 8=Interface, 9=Module, 10=Property,
+  /// 11=Unit, 12=Value, 13=Enum, 14=Keyword, 15=Snippet, 16=Color,
+  /// 17=File, 18=Reference, 19=Folder, 20=EnumMember, 21=Constant,
+  /// 22=Struct, 23=Event, 24=Operator, 25=TypeParameter)
+  final int? kind;
+  final String? detail;
+  final String? insertText;
+  final String? filterText;
+  final String? sortText;
+
+  /// The text to actually insert when selected.
+  String get effectiveInsertText => insertText ?? label;
+
+  /// The text used for filtering / matching against typed prefix.
+  String get effectiveFilterText => filterText ?? label;
+}
+
 class AiLspClientService {
   AiLspClientService._();
 
@@ -564,6 +595,34 @@ class AiLspClientService {
       documentText: documentText,
     );
     return parseHover(result);
+  }
+
+  Future<List<AiLspCompletionItem>> completion({
+    required String filePath,
+    required int line,
+    required int character,
+    String? language,
+    String? documentText,
+  }) async {
+    final backend = await resolveBackendForFile(
+      filePath: filePath,
+      language: language,
+    );
+    if (!backend.isAvailable) {
+      return const <AiLspCompletionItem>[];
+    }
+    final session = await _getOrCreateSession(backend);
+    await session.ensureDocumentSynced(
+      filePath: filePath,
+      language: backend.language,
+      text: documentText,
+    );
+    final result = await session.completion(
+      filePath: filePath,
+      line: line,
+      character: character,
+    );
+    return parseCompletionItems(result);
   }
 
   Future<List<AiLspDocumentSymbol>> documentSymbols({
@@ -1081,6 +1140,37 @@ class AiLspClientService {
     return List<AiLspWorkspaceSymbol>.unmodifiable(symbols);
   }
 
+  static List<AiLspCompletionItem> parseCompletionItems(Object? result) {
+    List<Object?> items;
+    if (result is List) {
+      items = result;
+    } else if (result is Map<String, Object?>) {
+      final innerItems = result['items'];
+      if (innerItems is List) {
+        items = innerItems;
+      } else {
+        return const <AiLspCompletionItem>[];
+      }
+    } else {
+      return const <AiLspCompletionItem>[];
+    }
+    final completions = <AiLspCompletionItem>[];
+    for (final raw in items) {
+      if (raw is! Map<String, Object?>) continue;
+      final label = raw['label'];
+      if (label == null) continue;
+      completions.add(AiLspCompletionItem(
+        label: '$label',
+        kind: raw['kind'] is int ? raw['kind'] as int : null,
+        detail: raw['detail']?.toString(),
+        insertText: raw['insertText']?.toString(),
+        filterText: raw['filterText']?.toString(),
+        sortText: raw['sortText']?.toString(),
+      ));
+    }
+    return List<AiLspCompletionItem>.unmodifiable(completions);
+  }
+
   static List<AiLspTextEdit> _parseTextEdits(Object? result) {
     if (result is! List) {
       return const <AiLspTextEdit>[];
@@ -1372,6 +1462,14 @@ class _AiLspSession {
           'definition': <String, Object?>{'linkSupport': true},
           'references': <String, Object?>{},
           'implementation': <String, Object?>{},
+          'completion': <String, Object?>{
+            'completionItem': <String, Object?>{
+              'snippetSupport': false,
+              'deprecatedSupport': false,
+              'insertReplaceSupport': false,
+            },
+            'contextSupport': true,
+          },
           'rename': <String, Object?>{'prepareSupport': true},
           'codeAction': <String, Object?>{
             'dynamicRegistration': false,
@@ -1482,6 +1580,23 @@ class _AiLspSession {
   Future<Object?> workspaceSymbols({required String query}) async {
     touch();
     return _sendRequest('workspace/symbol', <String, Object?>{'query': query});
+  }
+
+  Future<Object?> completion({
+    required String filePath,
+    required int line,
+    required int character,
+  }) async {
+    touch();
+    return _sendRequest('textDocument/completion', <String, Object?>{
+      'textDocument': <String, Object?>{
+        'uri': Uri.file(filePath).toString(),
+      },
+      'position': <String, Object?>{
+        'line': line - 1,
+        'character': character - 1,
+      },
+    });
   }
 
   Future<Object?> prepareRename({

@@ -120,6 +120,51 @@ extension on _SettingsViewState {
           ),
         ),
         const SizedBox(height: 16),
+        // Code Theme
+        _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '代码主题',
+            en: 'Code Theme',
+          ),
+          description: _localizedText(
+            context,
+            zh: '选择编辑器中代码的配色方案。',
+            en: 'Choose a color scheme for code in the editor.',
+          ),
+          child: _ResponsiveSettingRow(
+            title: _localizedText(context, zh: '配色方案', en: 'Color Scheme'),
+            subtitle: _localizedText(
+              context,
+              zh: '切换代码编辑器的语法高亮配色主题。',
+              en: 'Switch the syntax highlighting color theme of the code editor.',
+            ),
+            control: DropdownButton<EditorCodeTheme>(
+              value: settingsController.editorCodeTheme,
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(12),
+              items: EditorCodeTheme.values.map((theme) {
+                final languageCode =
+                    Localizations.localeOf(context).languageCode;
+                final darkSurface =
+                    Theme.of(context).brightness == Brightness.dark;
+                final label = languageCode.startsWith('zh')
+                    ? theme.labelZh(darkSurface)
+                    : theme.labelEn(darkSurface);
+                return DropdownMenuItem<EditorCodeTheme>(
+                  value: theme,
+                  child: Text(label),
+                );
+              }).toList(growable: false),
+              onChanged: (value) async {
+                if (value != null) {
+                  await settingsController.updateEditorCodeTheme(value);
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         // Language Server Mappings
         _SettingsSubsectionCard(
           title: _localizedText(

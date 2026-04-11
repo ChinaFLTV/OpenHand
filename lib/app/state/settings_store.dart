@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/editor_code_theme.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
@@ -132,6 +133,7 @@ class SettingsStore {
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
+      'editor_code_theme': snapshot.editorCodeTheme.storageValue,
       'editor_lsp_settings': <String, Object?>{
         for (final entry in snapshot.editorLspSettings.entries)
           entry.key: entry.value.toJson(),
@@ -190,6 +192,9 @@ class SettingsStore {
     final editorWordWrap = json['editor_word_wrap'] is bool
         ? json['editor_word_wrap'] as bool
         : true;
+    final editorCodeTheme = EditorCodeTheme.fromStorage(
+      '${json['editor_code_theme'] ?? ''}',
+    );
     final editorLspSettings = <String, AiLspLanguageSettings>{};
     final rawEditorLspSettings = json['editor_lsp_settings'];
     if (rawEditorLspSettings is Map) {
@@ -329,6 +334,7 @@ class SettingsStore {
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,
+      editorCodeTheme: editorCodeTheme,
       editorLspSettings: editorLspSettings,
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,

@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
+import '../model/editor_code_theme.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
@@ -33,6 +34,7 @@ class SettingsController extends ChangeNotifier {
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
+       _editorCodeTheme = snapshot.editorCodeTheme,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
        ),
@@ -77,6 +79,7 @@ class SettingsController extends ChangeNotifier {
   bool _memoryEnabled;
   String _userMemoryFilePath;
   bool _editorWordWrap;
+  EditorCodeTheme _editorCodeTheme;
   Map<String, AiLspLanguageSettings> _editorLspSettings;
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
@@ -116,6 +119,7 @@ class SettingsController extends ChangeNotifier {
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
   bool get editorWordWrap => _editorWordWrap;
+  EditorCodeTheme get editorCodeTheme => _editorCodeTheme;
   Map<String, AiLspLanguageSettings> get editorLspSettings =>
       _cloneEditorLspSettingsMap(_editorLspSettings);
   AiLspLanguageSettings editorLspSettingsForLanguage(String language) {
@@ -281,6 +285,16 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _editorWordWrap = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateEditorCodeTheme(EditorCodeTheme value) async {
+    return _commitMutation(() {
+      if (_editorCodeTheme == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _editorCodeTheme = value;
       return _MutationDisposition.apply;
     });
   }
@@ -702,6 +716,7 @@ class SettingsController extends ChangeNotifier {
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
+      editorCodeTheme: _editorCodeTheme,
       editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
@@ -728,6 +743,7 @@ class SettingsController extends ChangeNotifier {
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
     _editorWordWrap = snapshot.editorWordWrap;
+    _editorCodeTheme = snapshot.editorCodeTheme;
     _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;

@@ -12,6 +12,7 @@ import '../../app/model/app_info.dart';
 import '../../app/model/app_language.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/dialog_animation_settings.dart';
+import '../../app/model/editor_code_theme.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';

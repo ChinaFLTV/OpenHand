@@ -4,6 +4,8 @@ part of 'openhand_home_page.dart';
 // File Explorer Panel — replaces the navigation sidebar when toggled
 // ─────────────────────────────────────────────────────────────────────────────
 
+enum _UnsavedCloseAction { save, discard, cancel }
+
 class _FileExplorerPanel extends StatefulWidget {
   const _FileExplorerPanel({
     required this.rootPath,
@@ -1349,6 +1351,8 @@ class _CodeEditorView extends StatefulWidget {
     required this.onTabClosed,
     required this.onCloseAll,
     required this.onReorderTabs,
+    this.onToggleFileExplorer,
+    this.fileExplorerVisible = false,
     this.projectLanguage = 'mixed',
     this.projectSdkPath = '',
     this.projectLspPath = '',
@@ -1361,6 +1365,8 @@ class _CodeEditorView extends StatefulWidget {
   final ValueChanged<String> onTabClosed;
   final VoidCallback onCloseAll;
   final void Function(int oldIndex, int newIndex) onReorderTabs;
+  final VoidCallback? onToggleFileExplorer;
+  final bool fileExplorerVisible;
 
   /// The configured project language ('dart', 'python', 'mixed', etc).
   final String projectLanguage;
@@ -1393,6 +1399,10 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
   /// Mutable font size for pinch / Cmd+scroll zoom.
   double _fontSize = _editorFontSizeDefault;
+  /// Visual scale applied via Transform.scale during continuous zoom gestures.
+  /// 1.0 means no transform; >1 means zoom-in, <1 means zoom-out.
+  double _zoomVisualScale = 1.0;
+  Timer? _zoomCommitTimer;
 
   // ── Find & Replace state ──
   bool _findBarVisible = false;
@@ -1449,6 +1459,18 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   // ── Cursor position tracking ──
   int _cursorLine = 1;
   int _cursorColumn = 1;
+
+  // ── Code completion (autocomplete) state ──
+  List<AiLspCompletionItem> _completionItems = const <AiLspCompletionItem>[];
+  List<AiLspCompletionItem> _filteredCompletionItems =
+      const <AiLspCompletionItem>[];
+  int _completionSelectedIndex = 0;
+  bool _completionVisible = false;
+  Timer? _completionDebounceTimer;
+  String _completionPrefix = '';
+  int _completionRequestEpoch = 0;
+  OverlayEntry? _completionOverlayEntry;
+  final LayerLink _completionLayerLink = LayerLink();
 
   @override
   void initState() {
@@ -1517,28 +1539,52 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     }
   }
 
+  // ── Zoom helpers ──
+
+  /// Discrete keyboard zoom (Cmd+/Cmd-): apply font size change directly.
   void _zoomIn() {
+    _commitZoomScale();
     setState(() {
       _fontSize = (_fontSize + 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
     });
   }
 
   void _zoomOut() {
+    _commitZoomScale();
     setState(() {
       _fontSize = (_fontSize - 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
     });
   }
 
   void _zoomReset() {
+    _commitZoomScale();
     setState(() => _fontSize = _editorFontSizeDefault);
   }
 
+  /// Continuous zoom (pinch / scroll-wheel): apply a visual transform to avoid
+  /// expensive re-layout + re-highlight on every frame.
   void _zoomByScale(double scaleDelta) {
+    final effectiveNewSize = (_fontSize * _zoomVisualScale * scaleDelta);
+    // Clamp the visual scale so the effective font size stays within bounds.
+    final clampedSize = effectiveNewSize.clamp(_editorFontSizeMin, _editorFontSizeMax);
     setState(() {
-      // Apply a smooth scale to current font size
-      // Use a moderate sensitivity factor for natural zoom feel
-      final newSize = _fontSize * scaleDelta;
-      _fontSize = newSize.clamp(_editorFontSizeMin, _editorFontSizeMax);
+      _zoomVisualScale = clampedSize / _fontSize;
+    });
+    // Schedule a commit: when the gesture settles, apply the real font size
+    // change once (re-highlights only once instead of every frame).
+    _zoomCommitTimer?.cancel();
+    _zoomCommitTimer = Timer(const Duration(milliseconds: 180), _commitZoomScale);
+  }
+
+  /// Collapse `_zoomVisualScale` into `_fontSize` for a real layout update.
+  void _commitZoomScale() {
+    _zoomCommitTimer?.cancel();
+    if ((_zoomVisualScale - 1.0).abs() < 0.001) return;
+    final committed = (_fontSize * _zoomVisualScale)
+        .clamp(_editorFontSizeMin, _editorFontSizeMax);
+    setState(() {
+      _fontSize = committed;
+      _zoomVisualScale = 1.0;
     });
   }
 
@@ -4094,6 +4140,9 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
   @override
   void dispose() {
+    _zoomCommitTimer?.cancel();
+    _completionDebounceTimer?.cancel();
+    _dismissCompletionOverlay();
     _symbolController.removeListener(_applySymbolFilter);
     _symbolRefreshTimer?.cancel();
     AiLspClientService.instance.workspaceEditHandler = null;
@@ -5285,6 +5334,224 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   }
 
   // ── Cursor position tracking ──
+
+  // ── Code Completion (Autocomplete) ──
+
+  void _triggerCompletion() {
+    _completionDebounceTimer?.cancel();
+    _completionDebounceTimer = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _requestCompletion();
+    });
+  }
+
+  void _dismissCompletionOverlay() {
+    _completionOverlayEntry?.remove();
+    _completionOverlayEntry = null;
+    if (_completionVisible) {
+      setState(() => _completionVisible = false);
+    }
+  }
+
+  Future<void> _requestCompletion() async {
+    final filePath = widget.activeFilePath;
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final offset = controller.selection.baseOffset;
+    if (offset < 0) return;
+
+    // Compute current line and column
+    final text = controller.text;
+    var line = 1;
+    var col = 1;
+    for (var i = 0; i < offset && i < text.length; i++) {
+      if (text.codeUnitAt(i) == 10) {
+        line++;
+        col = 1;
+      } else {
+        col++;
+      }
+    }
+
+    // Extract the word prefix being typed
+    var prefixStart = offset;
+    while (prefixStart > 0) {
+      final ch = text.codeUnitAt(prefixStart - 1);
+      if (_isIdentifierChar(ch)) {
+        prefixStart--;
+      } else {
+        break;
+      }
+    }
+    final prefix = text.substring(prefixStart, offset);
+    _completionPrefix = prefix;
+
+    final epoch = ++_completionRequestEpoch;
+
+    try {
+      final items = await AiLspClientService.instance.completion(
+        filePath: filePath,
+        line: line,
+        character: col,
+        documentText: text,
+      );
+      if (!mounted || epoch != _completionRequestEpoch) return;
+      _completionItems = items;
+      _filterCompletionItems();
+      if (_filteredCompletionItems.isNotEmpty) {
+        _showCompletionOverlay();
+      } else {
+        _dismissCompletionOverlay();
+      }
+    } catch (_) {
+      if (mounted && epoch == _completionRequestEpoch) {
+        _dismissCompletionOverlay();
+      }
+    }
+  }
+
+  void _filterCompletionItems() {
+    if (_completionPrefix.isEmpty) {
+      _filteredCompletionItems = _completionItems.length > 40
+          ? _completionItems.sublist(0, 40)
+          : _completionItems;
+    } else {
+      final lowerPrefix = _completionPrefix.toLowerCase();
+      _filteredCompletionItems = _completionItems
+          .where(
+            (item) =>
+                item.effectiveFilterText.toLowerCase().contains(lowerPrefix),
+          )
+          .take(40)
+          .toList(growable: false);
+    }
+    _completionSelectedIndex = 0;
+  }
+
+  void _showCompletionOverlay() {
+    _dismissCompletionOverlay();
+    setState(() => _completionVisible = true);
+  }
+
+  void _applyCompletionItem(AiLspCompletionItem item) {
+    final filePath = widget.activeFilePath;
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final offset = controller.selection.baseOffset;
+    if (offset < 0) return;
+
+    final text = controller.text;
+    var prefixStart = offset;
+    while (prefixStart > 0 && _isIdentifierChar(text.codeUnitAt(prefixStart - 1))) {
+      prefixStart--;
+    }
+
+    final before = text.substring(0, prefixStart);
+    final after = text.substring(offset);
+    final insertText = item.effectiveInsertText;
+    final newText = '$before$insertText$after';
+    final newOffset = prefixStart + insertText.length;
+
+    controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+    _dismissCompletionOverlay();
+    // Mark file dirty & refresh diagnostics
+    if (mounted) {
+      setState(() {
+        _fileDirty[filePath] = true;
+        _diagnosticsStaleFiles.add(filePath);
+      });
+      _scheduleDiagnosticsRefresh(filePath);
+      _updateCursorPosition(controller);
+    }
+  }
+
+  bool _handleCompletionKeyEvent(KeyEvent event) {
+    if (!_completionVisible || _filteredCompletionItems.isEmpty) return false;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _completionSelectedIndex =
+            (_completionSelectedIndex + 1) % _filteredCompletionItems.length;
+      });
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _completionSelectedIndex =
+            (_completionSelectedIndex - 1 + _filteredCompletionItems.length) %
+            _filteredCompletionItems.length;
+      });
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.tab) {
+      _applyCompletionItem(_filteredCompletionItems[_completionSelectedIndex]);
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _dismissCompletionOverlay();
+      return true;
+    }
+    return false;
+  }
+
+  static bool _isIdentifierChar(int ch) {
+    return (ch >= 65 && ch <= 90) || // A-Z
+        (ch >= 97 && ch <= 122) || // a-z
+        (ch >= 48 && ch <= 57) || // 0-9
+        ch == 95 || // _
+        ch == 36; // $
+  }
+
+  static IconData _completionItemKindIcon(int? kind) {
+    return switch (kind) {
+      2 => Icons.functions_rounded, // Method
+      3 => Icons.functions_rounded, // Function
+      4 => Icons.add_box_rounded, // Constructor
+      5 => Icons.data_object_rounded, // Field
+      6 => Icons.data_usage_rounded, // Variable
+      7 => Icons.class_rounded, // Class
+      8 => Icons.api_rounded, // Interface
+      9 => Icons.inventory_2_rounded, // Module
+      10 => Icons.tune_rounded, // Property
+      13 => Icons.list_alt_rounded, // Enum
+      14 => Icons.key_rounded, // Keyword
+      15 => Icons.code_rounded, // Snippet
+      20 => Icons.label_rounded, // EnumMember
+      21 => Icons.lock_rounded, // Constant
+      22 => Icons.account_tree_rounded, // Struct
+      25 => Icons.text_fields_rounded, // TypeParameter
+      _ => Icons.circle_outlined, // Default
+    };
+  }
+
+  static String _completionItemKindLabel(int? kind) {
+    return switch (kind) {
+      1 => 'text',
+      2 => 'method',
+      3 => 'function',
+      4 => 'constructor',
+      5 => 'field',
+      6 => 'variable',
+      7 => 'class',
+      8 => 'interface',
+      9 => 'module',
+      10 => 'property',
+      11 => 'unit',
+      12 => 'value',
+      13 => 'enum',
+      14 => 'keyword',
+      15 => 'snippet',
+      20 => 'enumMember',
+      21 => 'constant',
+      22 => 'struct',
+      25 => 'typeParam',
+      _ => '',
+    };
+  }
 
   void _updateCursorPosition(_HighlightingTextController controller) {
     final offset = controller.selection.baseOffset;
@@ -7143,6 +7410,58 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     } catch (_) {}
   }
 
+  Future<void> _confirmCloseTab(String filePath) async {
+    if (_fileDirty[filePath] != true) {
+      widget.onTabClosed(filePath);
+      return;
+    }
+    final fileName = p.basename(filePath);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final result = await showDialog<_UnsavedCloseAction>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final colorScheme = theme.colorScheme;
+        return AlertDialog(
+          title: Text(
+            isZh ? '文件未保存' : 'Unsaved Changes',
+            style: theme.textTheme.titleMedium,
+          ),
+          content: Text(
+            isZh
+                ? '"$fileName" 有未保存的更改，是否保存？'
+                : '"$fileName" has unsaved changes. Do you want to save?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_UnsavedCloseAction.cancel),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext)
+                  .pop(_UnsavedCloseAction.discard),
+              child: Text(
+                isZh ? '不保存' : "Don't Save",
+                style: TextStyle(color: colorScheme.error),
+              ),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_UnsavedCloseAction.save),
+              child: Text(isZh ? '保存' : 'Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (result == null || result == _UnsavedCloseAction.cancel) return;
+    if (result == _UnsavedCloseAction.save) {
+      await _saveFile(filePath);
+    }
+    widget.onTabClosed(filePath);
+  }
+
   RelativeRect _menuPositionForGlobalOffset(Offset globalPosition) {
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
@@ -8468,7 +8787,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                         isActive: widget.openFiles[i] == widget.activeFilePath,
                         isDirty: _fileDirty[widget.openFiles[i]] == true,
                         onTap: () => widget.onTabSelected(widget.openFiles[i]),
-                        onClose: () => widget.onTabClosed(widget.openFiles[i]),
+                        onClose: () => _confirmCloseTab(widget.openFiles[i]),
                         onShowMenu: (position) {
                           unawaited(
                             _showEditorTabMenu(widget.openFiles[i], position),
@@ -8487,6 +8806,24 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                   onPressed: () => _saveFile(widget.activeFilePath),
                 ),
               ],
+              // File explorer toggle button
+              if (widget.onToggleFileExplorer != null)
+                _EditorActionButton(
+                  tooltip: _localizedText(
+                    context,
+                    zh: widget.fileExplorerVisible ? '隐藏文件浏览器' : '显示文件浏览器',
+                    en: widget.fileExplorerVisible
+                        ? 'Hide file browser'
+                        : 'Show file browser',
+                  ),
+                  icon: widget.fileExplorerVisible
+                      ? Icons.folder_open_rounded
+                      : Icons.folder_rounded,
+                  color: widget.fileExplorerVisible
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  onPressed: widget.onToggleFileExplorer!,
+                ),
               // Close all button
               _EditorActionButton(
                 tooltip: _localizedText(
@@ -8553,10 +8890,14 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                       child: ColoredBox(
                         color: colorScheme.surface,
                         child: RepaintBoundary(
-                          child: _buildEditorContent(
-                            widget.activeFilePath,
-                            theme,
-                            colorScheme,
+                          child: Transform.scale(
+                            scale: _zoomVisualScale,
+                            alignment: Alignment.topLeft,
+                            child: _buildEditorContent(
+                              widget.activeFilePath,
+                              theme,
+                              colorScheme,
+                            ),
                           ),
                         ),
                       ),
@@ -8645,6 +8986,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         scrollController: scrollController,
         language: language,
         fontSize: _fontSize,
+        codeTheme: context.watch<SettingsController>().editorCodeTheme,
         onOpenFullEditor: () {
           if (!mounted) return;
           setState(() => _forcedFullEditorFiles.add(filePath));
@@ -8652,11 +8994,19 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       );
     }
 
-    return Focus(
+    final Widget editorBody = Focus(
       onKeyEvent: (_, event) {
+        // Handle completion navigation keys first
+        if (_handleCompletionKeyEvent(event)) {
+          return KeyEventResult.handled;
+        }
         if (event is! KeyDownEvent) return KeyEventResult.ignored;
         // Escape — no meta required
         if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (_completionVisible) {
+            _dismissCompletionOverlay();
+            return KeyEventResult.handled;
+          }
           if (_findBarVisible ||
               _goToLineVisible ||
               _symbolBarVisible ||
@@ -8691,6 +9041,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         if (!meta) return KeyEventResult.ignored;
         if (event.logicalKey == LogicalKeyboardKey.keyS) {
           _saveFile(filePath);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.space) {
+          // Ctrl/Cmd+Space — trigger completion explicitly
+          _requestCompletion();
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.keyF) {
@@ -8778,6 +9133,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         language: language,
         fontSize: _fontSize,
         wordWrap: context.watch<SettingsController>().editorWordWrap,
+        codeTheme: context.watch<SettingsController>().editorCodeTheme,
         activeLine: _cursorLine,
         diagnostics: diagnostics,
         diagnosticsByLine: diagnosticsByLine,
@@ -8795,6 +9151,8 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
           if (_symbolBarVisible) {
             _scheduleSymbolRefresh();
           }
+          // Trigger LSP completion on text changes
+          _triggerCompletion();
         },
         onSelectionChanged: () {
           if (!mounted) return;
@@ -8827,6 +9185,164 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         onSecondaryTapDown: (details) {
           _showEditorCodeContextMenu(filePath, details.globalPosition);
         },
+      ),
+    );
+
+    // Wrap the editor with the completion overlay
+    if (_completionVisible && _filteredCompletionItems.isNotEmpty) {
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          editorBody,
+          Positioned(
+            left: 60,
+            top: (_cursorLine * _fontSize * _editorLineHeight).clamp(0, 200),
+            child: _CompletionOverlay(
+              items: _filteredCompletionItems,
+              selectedIndex: _completionSelectedIndex,
+              onSelected: _applyCompletionItem,
+              onDismissed: _dismissCompletionOverlay,
+            ),
+          ),
+        ],
+      );
+    }
+    return editorBody;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Completion overlay — IDEA-style autocomplete popup
+// ---------------------------------------------------------------------------
+
+class _CompletionOverlay extends StatelessWidget {
+  const _CompletionOverlay({
+    required this.items,
+    required this.selectedIndex,
+    required this.onSelected,
+    required this.onDismissed,
+  });
+
+  final List<AiLspCompletionItem> items;
+  final int selectedIndex;
+  final ValueChanged<AiLspCompletionItem> onSelected;
+  final VoidCallback onDismissed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final displayItems = items.length > 12 ? items.sublist(0, 12) : items;
+    return Material(
+      elevation: 8,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(10),
+      color: colorScheme.surfaceContainerHighest,
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 420,
+          minWidth: 200,
+          maxHeight: 320,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+            width: 0.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            shrinkWrap: true,
+            itemCount: displayItems.length,
+            itemBuilder: (context, index) {
+              final item = displayItems[index];
+              final isSelected = index == selectedIndex;
+              final kindLabel =
+                  _CodeEditorViewState._completionItemKindLabel(item.kind);
+              return InkWell(
+                onTap: () => onSelected(item),
+                child: Container(
+                  color: isSelected
+                      ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                      : Colors.transparent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _CodeEditorViewState._completionItemKindIcon(item.kind),
+                        size: 16,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 12.5,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            color: isSelected
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (item.detail != null && item.detail!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            item.detail!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                      if (kindLabel.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                colorScheme.secondaryContainer
+                                    .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            kindLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontSize: 9,
+                              color: colorScheme.onSecondaryContainer
+                                  .withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -10634,6 +11150,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     this.language,
     this.fontSize = _editorFontSizeDefault,
     this.wordWrap = true,
+    this.codeTheme = EditorCodeTheme.materialYou,
     this.activeLine = 1,
     this.diagnostics = const <_EditorDiagnostic>[],
     this.diagnosticsByLine = const <int, List<_EditorDiagnostic>>{},
@@ -10652,6 +11169,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final double fontSize;
   final bool wordWrap;
+  final EditorCodeTheme codeTheme;
   final int activeLine;
   final List<_EditorDiagnostic> diagnostics;
   final Map<int, List<_EditorDiagnostic>> diagnosticsByLine;
@@ -10802,10 +11320,12 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _resolvedDiagnosticRangesDiagnostics = null;
       _removeDiagnosticTooltip();
     }
-    if (oldWidget.fontSize != widget.fontSize) {
+    if (oldWidget.fontSize != widget.fontSize ||
+        oldWidget.codeTheme != widget.codeTheme) {
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
         darkSurface: _darkSurface,
+        codeTheme: widget.codeTheme,
       );
       widget.controller.invalidateHighlightCache();
       _hoverTextPainter = null;
@@ -10848,6 +11368,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
         darkSurface: darkSurface,
+        codeTheme: widget.codeTheme,
       );
       widget.controller.invalidateHighlightCache();
       _hoverTextPainter = null;
@@ -11752,6 +12273,7 @@ class _LargeFileCodeView extends StatefulWidget {
     required this.language,
     required this.onOpenFullEditor,
     this.fontSize = _editorFontSizeDefault,
+    this.codeTheme = EditorCodeTheme.materialYou,
   });
 
   final _HighlightingTextController controller;
@@ -11759,6 +12281,7 @@ class _LargeFileCodeView extends StatefulWidget {
   final String? language;
   final VoidCallback onOpenFullEditor;
   final double fontSize;
+  final EditorCodeTheme codeTheme;
 
   @override
   State<_LargeFileCodeView> createState() => _LargeFileCodeViewState();
@@ -11796,7 +12319,8 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
       widget.scrollController.addListener(_syncLineNumbers);
     }
     if (oldWidget.controller != widget.controller ||
-        oldWidget.language != widget.language) {
+        oldWidget.language != widget.language ||
+        oldWidget.codeTheme != widget.codeTheme) {
       _lineSpanCache.clear();
       _lineHighlighter = null;
     }
@@ -11836,6 +12360,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
     _lineHighlighter ??= _CodeSyntaxHighlighter(
       baseStyle: _resolvedEditorStyle(),
       darkSurface: _darkSurface,
+      codeTheme: widget.codeTheme,
     );
     final span = line.isEmpty
         ? TextSpan(text: ' ', style: _resolvedEditorStyle())
@@ -12127,22 +12652,23 @@ class _EditorTab extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
+                    if (isDirty)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: colorScheme.primary,
+                        ),
+                      ),
                     GestureDetector(
                       onTap: onClose,
-                      child: isDirty
-                          ? Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: colorScheme.primary,
-                              ),
-                            )
-                          : Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                              color: fgColor.withValues(alpha: 0.5),
-                            ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: fgColor.withValues(alpha: 0.5),
+                      ),
                     ),
                   ],
                 ),
