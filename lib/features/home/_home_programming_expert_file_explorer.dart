@@ -22,6 +22,7 @@ class _FileExplorerPanel extends StatefulWidget {
 class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   late _FileNode _rootNode;
   bool _loading = true;
+  final ScrollController _treeScrollController = ScrollController();
 
   // Clipboard state for cut/copy/paste operations.
   String? _clipboardPath;
@@ -33,6 +34,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   final FocusNode _searchFocusNode = FocusNode();
   List<_FileNode> _searchResults = const [];
   bool _searchLoading = false;
+
+  // Track the currently selected node in the tree (for "Expand Selected").
+  String? _selectedNodePath;
+  final Map<String, GlobalKey> _treeItemKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
@@ -59,6 +64,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     if (oldWidget.rootPath != widget.rootPath) {
       setState(() {
         _loading = true;
+        _selectedNodePath = null;
         _rootNode = _FileNode(
           name: p.basename(widget.rootPath),
           path: widget.rootPath,
@@ -81,6 +87,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   @override
   void dispose() {
+    _treeScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -134,20 +141,23 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
         if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p.basename(a.path).toLowerCase().compareTo(
-          p.basename(b.path).toLowerCase(),
-        );
+        return p
+            .basename(a.path)
+            .toLowerCase()
+            .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
         if (results.length >= 100) return;
         final name = p.basename(entry.path);
         if (_isHiddenOrIgnored(name)) continue;
         if (name.toLowerCase().contains(query)) {
-          results.add(_FileNode(
-            name: name,
-            path: entry.path,
-            isDirectory: entry is Directory,
-          ));
+          results.add(
+            _FileNode(
+              name: name,
+              path: entry.path,
+              isDirectory: entry is Directory,
+            ),
+          );
         }
         if (entry is Directory) {
           await _searchDirectory(entry, query, results, depth + 1);
@@ -174,7 +184,29 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       current = match.first;
       current.isExpanded = true;
     }
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      _selectedNodePath = active;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollNodeIntoView(active);
+    });
+  }
+
+  GlobalKey _treeItemKey(String path) {
+    return _treeItemKeys.putIfAbsent(path, GlobalKey.new);
+  }
+
+  void _scrollNodeIntoView(String path) {
+    final targetContext = _treeItemKeys[path]?.currentContext;
+    if (targetContext == null) return;
+    Scrollable.ensureVisible(
+      targetContext,
+      alignment: 0.18,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _loadChildren(_FileNode node) async {
@@ -186,19 +218,22 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
         if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p.basename(a.path).toLowerCase().compareTo(
-          p.basename(b.path).toLowerCase(),
-        );
+        return p
+            .basename(a.path)
+            .toLowerCase()
+            .compareTo(p.basename(b.path).toLowerCase());
       });
       final children = <_FileNode>[];
       for (final entry in entries) {
         final name = p.basename(entry.path);
         if (_isHiddenOrIgnored(name)) continue;
-        children.add(_FileNode(
-          name: name,
-          path: entry.path,
-          isDirectory: entry is Directory,
-        ));
+        children.add(
+          _FileNode(
+            name: name,
+            path: entry.path,
+            isDirectory: entry is Directory,
+          ),
+        );
       }
       node.children = children;
       node.childrenLoaded = true;
@@ -211,8 +246,16 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   bool _isHiddenOrIgnored(String name) {
     if (name.startsWith('.')) return true;
     const ignored = {
-      'node_modules', 'build', '.dart_tool', '__pycache__',
-      '.git', '.idea', '.vscode', 'target', 'dist', '.gradle',
+      'node_modules',
+      'build',
+      '.dart_tool',
+      '__pycache__',
+      '.git',
+      '.idea',
+      '.vscode',
+      'target',
+      'dist',
+      '.gradle',
     };
     return ignored.contains(name);
   }
@@ -223,6 +266,74 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       await _loadChildren(node);
     }
     setState(() => node.isExpanded = !node.isExpanded);
+  }
+
+  /// Scroll-from-source: reveal and select the currently active file in tree.
+  Future<void> _selectOpenedFile() async {
+    await _revealActiveFile();
+  }
+
+  /// Recursively expand the selected directory node.
+  Future<void> _expandSelected() async {
+    final targetPath = _selectedNodePath ?? widget.activeFilePath;
+    if (targetPath == null) return;
+    var node = _findNodeByPath(_rootNode, targetPath);
+    if (node == null && widget.activeFilePath != null) {
+      await _revealActiveFile();
+      node = _findNodeByPath(_rootNode, targetPath);
+    }
+    if (node != null && !node.isDirectory) {
+      node = _findNodeByPath(_rootNode, p.dirname(node.path));
+    }
+    if (node == null || !node.isDirectory) return;
+    await _expandRecursive(node, 0);
+    final expandedPath = node.path;
+    if (!mounted) return;
+    setState(() => _selectedNodePath = expandedPath);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollNodeIntoView(expandedPath);
+    });
+  }
+
+  Future<void> _expandRecursive(_FileNode node, int depth) async {
+    if (!node.isDirectory || depth > 12) return;
+    if (!node.childrenLoaded) await _loadChildren(node);
+    node.isExpanded = true;
+    for (final child in node.children) {
+      if (child.isDirectory) {
+        await _expandRecursive(child, depth + 1);
+      }
+    }
+  }
+
+  /// Collapse all expanded directories.
+  void _collapseAll() {
+    for (final child in _rootNode.children) {
+      if (child.isDirectory) {
+        _collapseNode(child);
+      }
+    }
+    _rootNode.isExpanded = true;
+    setState(() {});
+  }
+
+  void _collapseNode(_FileNode node) {
+    node.isExpanded = false;
+    for (final child in node.children) {
+      if (child.isDirectory) _collapseNode(child);
+    }
+  }
+
+  _FileNode? _findNodeByPath(_FileNode current, String targetPath) {
+    if (current.path == targetPath) return current;
+    for (final child in current.children) {
+      if (targetPath.startsWith(child.path)) {
+        final found = _findNodeByPath(child, targetPath);
+        if (found != null) return found;
+      }
+    }
+    return null;
   }
 
   Future<void> _refreshNode(_FileNode node) async {
@@ -277,8 +388,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   Future<void> _showCopyPathMenu(_FileNode node, Offset position) async {
     if (!mounted) return;
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     final rootPath = widget.rootPath;
     final absolutePath = node.path;
     final fileName = node.name;
@@ -297,16 +407,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           value: 'abs',
           child: Row(
             children: [
-              Expanded(
-                child: Text(isZh ? '绝对路径' : 'Absolute Path'),
-              ),
+              Expanded(child: Text(isZh ? '绝对路径' : 'Absolute Path')),
               const SizedBox(width: 16),
               Text(
                 '⇧⌘C',
                 style: TextStyle(
                   fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -342,8 +451,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     final newName = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) {
-        final isZh = Localizations.localeOf(dialogContext).languageCode
-            .startsWith('zh');
+        final isZh = Localizations.localeOf(
+          dialogContext,
+        ).languageCode.startsWith('zh');
         return AlertDialog(
           title: Text(isZh ? '重命名' : 'Rename'),
           content: TextField(
@@ -541,7 +651,82 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
+              // Select Opened File (scroll-from-source)
+              Tooltip(
+                message: _localizedText(
+                  context,
+                  zh: '定位到已打开文件',
+                  en: 'Select Opened File',
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: _borderRadius999,
+                  child: InkWell(
+                    borderRadius: _borderRadius999,
+                    onTap: _selectOpenedFile,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.my_location_rounded,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              // Expand Selected
+              Tooltip(
+                message: _localizedText(
+                  context,
+                  zh: '展开选中目录',
+                  en: 'Expand Selected',
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: _borderRadius999,
+                  child: InkWell(
+                    borderRadius: _borderRadius999,
+                    onTap: _expandSelected,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.unfold_more_rounded,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              // Collapse All
+              Tooltip(
+                message: _localizedText(
+                  context,
+                  zh: '全部折叠',
+                  en: 'Collapse All',
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: _borderRadius999,
+                  child: InkWell(
+                    borderRadius: _borderRadius999,
+                    onTap: _collapseAll,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.unfold_less_rounded,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
               Material(
                 color: Colors.transparent,
                 borderRadius: _borderRadius999,
@@ -578,9 +763,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  hintText: Localizations.localeOf(context)
-                          .languageCode
-                          .startsWith('zh')
+                  hintText:
+                      Localizations.localeOf(
+                        context,
+                      ).languageCode.startsWith('zh')
                       ? '搜索文件或目录…'
                       : 'Search files…',
                   hintStyle: theme.textTheme.bodySmall?.copyWith(
@@ -591,7 +777,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     child: Icon(
                       Icons.search_rounded,
                       size: 16,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
                   prefixIconConstraints: const BoxConstraints(
@@ -619,8 +807,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                     maxHeight: 36,
                   ),
                   filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
+                  fillColor: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -649,6 +838,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           child: _searchActive && _searchController.text.trim().isNotEmpty
               ? _buildSearchResults(theme, colorScheme)
               : SingleChildScrollView(
+                  controller: _treeScrollController,
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -675,8 +865,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       );
     }
     if (_searchResults.isEmpty) {
-      final isZh =
-          Localizations.localeOf(context).languageCode.startsWith('zh');
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -706,10 +897,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               child: Row(
                 children: [
                   Icon(
@@ -735,8 +923,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                         Text(
                           relativePath,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
                             fontSize: 10,
                           ),
                           maxLines: 1,
@@ -757,22 +946,27 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   List<Widget> _buildTree(List<_FileNode> nodes, int depth) {
     final result = <Widget>[];
     for (final node in nodes) {
-      result.add(_FileTreeTile(
-        node: node,
-        depth: depth,
-        isActive: widget.activeFilePath == node.path,
-        hasClipboard: _clipboardPath != null,
-        rootPath: widget.rootPath,
-        onTap: () {
-          if (node.isDirectory) {
-            _toggleExpand(node);
-          } else {
-            widget.onFileSelected(node.path);
-          }
-        },
-        onContextMenuAction: (action, position) =>
-            _handleContextMenuAction(action, node, position),
-      ));
+      result.add(
+        _FileTreeTile(
+          key: _treeItemKey(node.path),
+          node: node,
+          depth: depth,
+          isActive: widget.activeFilePath == node.path,
+          isSelected: _selectedNodePath == node.path,
+          hasClipboard: _clipboardPath != null,
+          rootPath: widget.rootPath,
+          onTap: () {
+            setState(() => _selectedNodePath = node.path);
+            if (node.isDirectory) {
+              _toggleExpand(node);
+            } else {
+              widget.onFileSelected(node.path);
+            }
+          },
+          onContextMenuAction: (action, position) =>
+              _handleContextMenuAction(action, node, position),
+        ),
+      );
       if (node.isDirectory && node.isExpanded) {
         result.addAll(_buildTree(node.children, depth + 1));
       }
@@ -798,12 +992,14 @@ class _FileNode {
 
 class _FileTreeTile extends StatelessWidget {
   const _FileTreeTile({
+    super.key,
     required this.node,
     required this.depth,
     required this.onTap,
     required this.onContextMenuAction,
     required this.rootPath,
     this.isActive = false,
+    this.isSelected = false,
     this.hasClipboard = false,
   });
 
@@ -813,6 +1009,7 @@ class _FileTreeTile extends StatelessWidget {
   final void Function(String action, Offset position) onContextMenuAction;
   final String rootPath;
   final bool isActive;
+  final bool isSelected;
   final bool hasClipboard;
 
   @override
@@ -940,10 +1137,13 @@ class _FileTreeTile extends StatelessWidget {
                 ? BoxDecoration(
                     color: colorScheme.primaryContainer.withValues(alpha: 0.35),
                     border: Border(
-                      left: BorderSide(
-                        color: colorScheme.primary,
-                        width: 2.5,
-                      ),
+                      left: BorderSide(color: colorScheme.primary, width: 2.5),
+                    ),
+                  )
+                : isSelected
+                ? BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
                     ),
                   )
                 : null,
@@ -974,8 +1174,8 @@ class _FileTreeTile extends StatelessWidget {
                   color: node.isDirectory
                       ? colorScheme.primary
                       : isActive
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -985,11 +1185,9 @@ class _FileTreeTile extends StatelessWidget {
                       fontWeight: node.isDirectory
                           ? FontWeight.w600
                           : isActive
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                      color: isActive
-                          ? colorScheme.onPrimaryContainer
-                          : null,
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: isActive ? colorScheme.onPrimaryContainer : null,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1016,8 +1214,12 @@ IconData _fileExplorerIcon(_FileNode node) {
     '.md' => Icons.article_rounded,
     '.html' || '.htm' => Icons.web_rounded,
     '.css' || '.scss' || '.less' => Icons.palette_rounded,
-    '.png' || '.jpg' || '.jpeg' || '.gif' || '.svg' || '.webp' =>
-      Icons.image_rounded,
+    '.png' ||
+    '.jpg' ||
+    '.jpeg' ||
+    '.gif' ||
+    '.svg' ||
+    '.webp' => Icons.image_rounded,
     '.sh' || '.bash' || '.zsh' => Icons.terminal_rounded,
     '.lock' => Icons.lock_rounded,
     '.xml' => Icons.code_rounded,
@@ -1072,6 +1274,68 @@ String? _editorLanguageFromPath(String filePath) {
   };
 }
 
+String _resolveEditorLanguage({
+  required String filePath,
+  required String projectLanguage,
+}) {
+  final detected = _editorLanguageFromPath(filePath);
+  if (detected != null) {
+    return detected;
+  }
+  if (projectLanguage.isNotEmpty && projectLanguage != 'mixed') {
+    return projectLanguage;
+  }
+  return 'plaintext';
+}
+
+String _inferWorkspaceRoot(String filePath) {
+  var dir = Directory(p.dirname(filePath));
+  while (true) {
+    if (File(p.join(dir.path, 'pubspec.yaml')).existsSync() ||
+        Directory(p.join(dir.path, '.git')).existsSync() ||
+        File(p.join(dir.path, 'package.json')).existsSync() ||
+        File(p.join(dir.path, 'go.mod')).existsSync() ||
+        File(p.join(dir.path, 'Cargo.toml')).existsSync()) {
+      return dir.path;
+    }
+    final parent = dir.parent;
+    if (parent.path == dir.path) {
+      return dir.path;
+    }
+    dir = parent;
+  }
+}
+
+enum _EditorTabMenuAction {
+  close,
+  closeOthers,
+  closeAll,
+  closeUnmodified,
+  closeLeft,
+  closeRight,
+  copyPathReference,
+}
+
+enum _ProjectToolchainTreeNodeTone { active, info, muted, warning, success }
+
+class _ProjectToolchainTreeNode {
+  const _ProjectToolchainTreeNode({
+    required this.title,
+    required this.description,
+    required this.tone,
+    this.icon = Icons.account_tree_rounded,
+    this.badge,
+    this.children = const <_ProjectToolchainTreeNode>[],
+  });
+
+  final String title;
+  final String description;
+  final _ProjectToolchainTreeNodeTone tone;
+  final IconData icon;
+  final String? badge;
+  final List<_ProjectToolchainTreeNode> children;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Code Editor View — IDEA-style editor with Material You Expressive
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1080,24 +1344,39 @@ class _CodeEditorView extends StatefulWidget {
   const _CodeEditorView({
     required this.openFiles,
     required this.activeFilePath,
+    required this.onOpenFile,
     required this.onTabSelected,
     required this.onTabClosed,
     required this.onCloseAll,
     required this.onReorderTabs,
+    this.projectLanguage = 'mixed',
+    this.projectSdkPath = '',
+    this.projectLspPath = '',
   });
 
   final List<String> openFiles;
   final String activeFilePath;
+  final ValueChanged<String> onOpenFile;
   final ValueChanged<String> onTabSelected;
   final ValueChanged<String> onTabClosed;
   final VoidCallback onCloseAll;
   final void Function(int oldIndex, int newIndex) onReorderTabs;
+
+  /// The configured project language ('dart', 'python', 'mixed', etc).
+  final String projectLanguage;
+  final String projectSdkPath;
+  final String projectLspPath;
 
   @override
   State<_CodeEditorView> createState() => _CodeEditorViewState();
 }
 
 class _CodeEditorViewState extends State<_CodeEditorView> {
+  static const Duration _editorLspDiagnosticsDebounce = Duration(
+    milliseconds: 420,
+  );
+  static const Duration _editorLspSymbolsDebounce = Duration(milliseconds: 260);
+
   final Map<String, String?> _fileContents = {};
   final Map<String, bool> _fileLoading = {};
   final Map<String, bool> _fileDirty = {};
@@ -1105,9 +1384,2722 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   final Map<String, _HighlightingTextController> _textControllers = {};
   final Map<String, FocusNode> _focusNodes = {};
   final Set<String> _forcedFullEditorFiles = <String>{};
+  final Map<String, AiLspBackendResolution> _lspBackendByFile =
+      <String, AiLspBackendResolution>{};
+  final Set<String> _lspBackendLoadingFiles = <String>{};
+  final Map<String, Future<AiLspBackendResolution>> _lspBackendRequests =
+      <String, Future<AiLspBackendResolution>>{};
+  final Map<String, Timer> _lspDiagnosticsTimers = <String, Timer>{};
+
+  /// Mutable font size for pinch / Cmd+scroll zoom.
+  double _fontSize = _editorFontSizeDefault;
+
+  // ── Find & Replace state ──
+  bool _findBarVisible = false;
+  bool _replaceBarVisible = false;
+  final TextEditingController _findController = TextEditingController();
+  final TextEditingController _replaceController = TextEditingController();
+  final FocusNode _findFocusNode = FocusNode();
+  List<int> _findMatchOffsets = const [];
+  int _currentMatchIndex = -1;
+  bool _findCaseSensitive = false;
+
+  // ── Go To Line state ──
+  bool _goToLineVisible = false;
+  final TextEditingController _goToLineController = TextEditingController();
+  final FocusNode _goToLineFocusNode = FocusNode();
+
+  // ── Symbol navigation state ──
+  bool _symbolBarVisible = false;
+  bool _workspaceSymbolMode = false;
+  final TextEditingController _symbolController = TextEditingController();
+  final FocusNode _symbolFocusNode = FocusNode();
+  List<_EditorSymbol> _allSymbols = const [];
+  List<_EditorSymbol> _visibleSymbols = const [];
+  bool _symbolsTruncated = false;
+  bool _symbolsLoading = false;
+  bool _symbolsUsingLsp = false;
+  String? _symbolHintMessage;
+  Timer? _symbolRefreshTimer;
+  int _symbolRefreshEpoch = 0;
+
+  // ── Diagnostics state backed by shared LSP sessions ──
+  bool _projectToolchainBarVisible = false;
+  bool _diagnosticsBarVisible = false;
+  final Map<String, List<_EditorDiagnostic>> _diagnosticsByFile =
+      <String, List<_EditorDiagnostic>>{};
+  final Set<String> _diagnosticsLoadingFiles = <String>{};
+  final Set<String> _diagnosticsStaleFiles = <String>{};
+
+  // ── LSP action results ──
+  bool _lspResultBarVisible = false;
+  bool _lspResultLoading = false;
+  String _lspResultTitle = '';
+  String? _lspResultMessage;
+  List<AiLspLocation> _lspResultLocations = const <AiLspLocation>[];
+  List<AiLspCodeAction> _lspResultCodeActions = const <AiLspCodeAction>[];
+  bool _lspResultPreviewLoading = false;
+  int _lspResultPreviewEpoch = 0;
+  Map<String, _EditorLocationPreview> _lspResultPreviews =
+      const <String, _EditorLocationPreview>{};
+  AiLspHoverResult? _lspHoverResult;
+  AiLspLocation? _pendingNavigationLocation;
+  _PendingWorkspaceEditPreviewContext? _pendingWorkspaceEditPreviewContext;
+
+  // ── Cursor position tracking ──
+  int _cursorLine = 1;
+  int _cursorColumn = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _symbolController.addListener(_applySymbolFilter);
+    AiLspClientService.instance.workspaceEditHandler =
+        _applyIncomingWorkspaceEdit;
+    _syncProjectLspOverrideSettings();
+    unawaited(_ensureLspBackend(widget.activeFilePath));
+  }
+
+  @override
+  void didUpdateWidget(covariant _CodeEditorView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final projectLspConfigChanged =
+        oldWidget.projectLanguage != widget.projectLanguage ||
+        oldWidget.projectSdkPath != widget.projectSdkPath ||
+        oldWidget.projectLspPath != widget.projectLspPath;
+    if (projectLspConfigChanged) {
+      _syncProjectLspOverrideSettings();
+      _resetLspResolutionState();
+    }
+    for (final removedFile in oldWidget.openFiles) {
+      if (widget.openFiles.contains(removedFile)) {
+        continue;
+      }
+      _lspDiagnosticsTimers.remove(removedFile)?.cancel();
+      _lspBackendRequests.remove(removedFile);
+      _lspBackendByFile.remove(removedFile);
+      _diagnosticsByFile.remove(removedFile);
+      _diagnosticsStaleFiles.remove(removedFile);
+      unawaited(
+        AiLspClientService.instance.closeDocument(
+          filePath: removedFile,
+          language: _resolvedLanguageForFile(removedFile),
+        ),
+      );
+    }
+    if (oldWidget.activeFilePath == widget.activeFilePath &&
+        !projectLspConfigChanged) {
+      return;
+    }
+    unawaited(
+      _ensureLspBackend(widget.activeFilePath, force: projectLspConfigChanged),
+    );
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller != null) {
+      _updateCursorPosition(controller);
+      if (_findBarVisible && _findController.text.isNotEmpty) {
+        _updateFindMatches(_findController.text);
+      }
+      if (_symbolBarVisible) {
+        unawaited(_refreshSymbols());
+      }
+      _maybeApplyPendingNavigation();
+      unawaited(_maybeRefreshDiagnostics(widget.activeFilePath));
+    } else if (_symbolBarVisible) {
+      setState(() {
+        _allSymbols = const [];
+        _visibleSymbols = const [];
+        _symbolsTruncated = false;
+        _symbolsLoading = false;
+        _symbolsUsingLsp = false;
+        _symbolHintMessage = null;
+      });
+    }
+  }
+
+  void _zoomIn() {
+    setState(() {
+      _fontSize = (_fontSize + 1).clamp(_editorFontSizeMin, _editorFontSizeMax);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _fontSize = (_fontSize - 1).clamp(_editorFontSizeMin, _editorFontSizeMax);
+    });
+  }
+
+  void _zoomReset() {
+    setState(() => _fontSize = _editorFontSizeDefault);
+  }
+
+  Map<String, AiLspLanguageSettings> _projectLspOverrideSettings() {
+    final language = normalizeAiLspLanguage(widget.projectLanguage);
+    if (language == 'mixed' || language == 'plaintext') {
+      return const <String, AiLspLanguageSettings>{};
+    }
+    final overrideSettings = AiLspLanguageSettings(
+      rootPath: OpenHandPaths.normalizeOptionalPath(widget.projectLspPath),
+      sdkPath: OpenHandPaths.normalizeOptionalPath(widget.projectSdkPath),
+    );
+    if (overrideSettings.isEmpty) {
+      return const <String, AiLspLanguageSettings>{};
+    }
+    return <String, AiLspLanguageSettings>{language: overrideSettings};
+  }
+
+  void _syncProjectLspOverrideSettings() {
+    AiLspClientService.instance.updateProjectLanguageSettingsOverride(
+      _projectLspOverrideSettings(),
+    );
+  }
+
+  void _resetLspResolutionState() {
+    for (final timer in _lspDiagnosticsTimers.values) {
+      timer.cancel();
+    }
+    _lspDiagnosticsTimers.clear();
+    _lspBackendRequests.clear();
+    _lspBackendLoadingFiles.clear();
+    if (!mounted) {
+      _lspBackendByFile.clear();
+      _diagnosticsByFile.clear();
+      _diagnosticsLoadingFiles.clear();
+      _diagnosticsStaleFiles.clear();
+      return;
+    }
+    setState(() {
+      _lspBackendByFile.clear();
+      _diagnosticsByFile.clear();
+      _diagnosticsLoadingFiles.clear();
+      _diagnosticsStaleFiles
+        ..clear()
+        ..addAll(widget.openFiles);
+    });
+  }
+
+  String _resolvedLanguageForFile(String filePath) {
+    return _resolveEditorLanguage(
+      filePath: filePath,
+      projectLanguage: widget.projectLanguage,
+    );
+  }
+
+  AiLspBackendResolution? _lspResolutionForFile(String filePath) {
+    return _lspBackendByFile[filePath];
+  }
+
+  bool _supportsLspForFile(String filePath) {
+    return _lspResolutionForFile(filePath)?.isAvailable == true;
+  }
+
+  Future<AiLspBackendResolution> _ensureLspBackend(
+    String filePath, {
+    bool force = false,
+  }) async {
+    final pending = _lspBackendRequests[filePath];
+    if (pending != null) {
+      return pending;
+    }
+    final cached = _lspBackendByFile[filePath];
+    if (!force && cached != null) {
+      return cached;
+    }
+    final completer = Completer<AiLspBackendResolution>();
+    _lspBackendRequests[filePath] = completer.future;
+
+    Future<void> resolveBackend() async {
+      _lspBackendLoadingFiles.add(filePath);
+      try {
+        final resolution = await AiLspClientService.instance
+            .resolveBackendForFile(
+              filePath: filePath,
+              language: _resolvedLanguageForFile(filePath),
+            );
+        if (!mounted) {
+          _lspBackendLoadingFiles.remove(filePath);
+          completer.complete(resolution);
+          return;
+        }
+        setState(() {
+          _lspBackendLoadingFiles.remove(filePath);
+          _lspBackendByFile[filePath] = resolution;
+        });
+        completer.complete(resolution);
+      } catch (error, stackTrace) {
+        _lspBackendLoadingFiles.remove(filePath);
+        completer.completeError(error, stackTrace);
+      } finally {
+        if (identical(_lspBackendRequests[filePath], completer.future)) {
+          _lspBackendRequests.remove(filePath);
+        }
+      }
+    }
+
+    unawaited(resolveBackend());
+    return completer.future;
+  }
+
+  int _offsetForLineColumn(String text, int line, int column) {
+    final targetLine = math.max(1, line);
+    final targetColumn = math.max(1, column);
+    var currentLine = 1;
+    var currentColumn = 1;
+    for (var index = 0; index < text.length; index++) {
+      if (currentLine == targetLine && currentColumn == targetColumn) {
+        return index;
+      }
+      if (text.codeUnitAt(index) == 10) {
+        if (currentLine == targetLine) {
+          return index;
+        }
+        currentLine += 1;
+        currentColumn = 1;
+      } else {
+        currentColumn += 1;
+      }
+    }
+    return text.length;
+  }
+
+  int _lineForOffset(String text, int offset) {
+    var line = 1;
+    for (var index = 0; index < offset && index < text.length; index++) {
+      if (text.codeUnitAt(index) == 10) {
+        line += 1;
+      }
+    }
+    return line;
+  }
+
+  void _scrollToLine(String filePath, int line) {
+    final scrollController = _scrollControllers[filePath];
+    if (scrollController == null || !scrollController.hasClients) {
+      return;
+    }
+    final lineExtent = _fontSize * _editorLineHeight;
+    final targetOffset = (math.max(1, line) - 1) * lineExtent;
+    final viewportHeight = scrollController.position.viewportDimension;
+    final centered = (targetOffset - viewportHeight / 3).clamp(
+      0.0,
+      scrollController.position.maxScrollExtent,
+    );
+    scrollController.animateTo(
+      centered,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _jumpToLineColumn(int line, {int column = 1}) {
+    final filePath = widget.activeFilePath;
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return;
+    }
+    final offset = _offsetForLineColumn(controller.text, line, column);
+    controller.selection = TextSelection.collapsed(offset: offset);
+    _updateCursorPosition(controller);
+    _focusNodes[filePath]?.requestFocus();
+    _scrollToLine(filePath, line);
+  }
+
+  void _scheduleDiagnosticsRefresh(String filePath) {
+    _lspDiagnosticsTimers.remove(filePath)?.cancel();
+    _lspDiagnosticsTimers[filePath] = Timer(_editorLspDiagnosticsDebounce, () {
+      unawaited(_refreshDiagnostics(filePath));
+    });
+  }
+
+  void _maybeApplyPendingNavigation() {
+    final pending = _pendingNavigationLocation;
+    if (pending == null || pending.filePath != widget.activeFilePath) {
+      return;
+    }
+    final controller = _textControllers[pending.filePath];
+    if (controller == null) {
+      return;
+    }
+    _pendingNavigationLocation = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _jumpToLineColumn(pending.line, column: pending.character);
+    });
+  }
+
+  void _showSymbolBar() {
+    _openSymbolBar(workspace: false);
+  }
+
+  void _showWorkspaceSymbolBar() {
+    _openSymbolBar(workspace: true);
+  }
+
+  void _openSymbolBar({required bool workspace}) {
+    setState(() {
+      _symbolBarVisible = true;
+      _workspaceSymbolMode = workspace;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _lspResultBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+    _scheduleSymbolRefresh(immediate: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _symbolFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _hideSymbolBar() {
+    _symbolRefreshTimer?.cancel();
+    setState(() {
+      _symbolBarVisible = false;
+      _workspaceSymbolMode = false;
+      _symbolController.clear();
+      _allSymbols = const [];
+      _visibleSymbols = const [];
+      _symbolsTruncated = false;
+      _symbolsLoading = false;
+      _symbolsUsingLsp = false;
+      _symbolHintMessage = null;
+    });
+  }
+
+  void _setSymbolSearchMode(bool workspace) {
+    if (_workspaceSymbolMode == workspace) {
+      return;
+    }
+    setState(() {
+      _workspaceSymbolMode = workspace;
+      _allSymbols = const [];
+      _visibleSymbols = const [];
+      _symbolsTruncated = false;
+      _symbolsLoading = false;
+      _symbolsUsingLsp = false;
+      _symbolHintMessage = null;
+    });
+    _scheduleSymbolRefresh(immediate: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _symbolFocusNode.requestFocus();
+      }
+    });
+  }
+
+  List<_EditorSymbol> _filterSymbols(
+    List<_EditorSymbol> symbols,
+    String rawQuery,
+  ) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return symbols.take(72).toList(growable: false);
+    }
+    return symbols
+        .where((symbol) {
+          final name = symbol.name.toLowerCase();
+          final signature = symbol.signature.toLowerCase();
+          return name.contains(query) || signature.contains(query);
+        })
+        .take(72)
+        .toList(growable: false);
+  }
+
+  void _applySymbolFilter() {
+    if (!_symbolBarVisible) {
+      return;
+    }
+    if (_workspaceSymbolMode) {
+      _scheduleSymbolRefresh();
+      return;
+    }
+    setState(() {
+      _visibleSymbols = _filterSymbols(_allSymbols, _symbolController.text);
+    });
+  }
+
+  void _scheduleSymbolRefresh({bool immediate = false}) {
+    _symbolRefreshTimer?.cancel();
+    if (!_symbolBarVisible) {
+      return;
+    }
+    if (immediate) {
+      unawaited(_refreshSymbols());
+      return;
+    }
+    _symbolRefreshTimer = Timer(_editorLspSymbolsDebounce, () {
+      unawaited(_refreshSymbols());
+    });
+  }
+
+  Future<void> _refreshSymbols() async {
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    final filePath = widget.activeFilePath;
+    final refreshEpoch = ++_symbolRefreshEpoch;
+    final fallbackExtraction = _extractEditorSymbols(
+      filePath: filePath,
+      text: controller.text,
+      language: _resolvedLanguageForFile(filePath),
+    );
+
+    void applyExtraction(
+      _EditorSymbolExtractionResult extraction, {
+      required bool usingLsp,
+      String? hintMessage,
+    }) {
+      if (!mounted ||
+          refreshEpoch != _symbolRefreshEpoch ||
+          widget.activeFilePath != filePath) {
+        return;
+      }
+      setState(() {
+        _symbolsLoading = false;
+        _symbolsUsingLsp = usingLsp;
+        _symbolHintMessage = hintMessage;
+        _allSymbols = extraction.symbols;
+        _visibleSymbols = _filterSymbols(
+          extraction.symbols,
+          _symbolController.text,
+        );
+        _symbolsTruncated = extraction.truncated;
+      });
+    }
+
+    if (mounted) {
+      setState(() {
+        _symbolsLoading = true;
+      });
+    }
+
+    if (_workspaceSymbolMode) {
+      final query = _symbolController.text.trim();
+      if (query.isEmpty) {
+        applyExtraction(
+          const _EditorSymbolExtractionResult(
+            symbols: <_EditorSymbol>[],
+            truncated: false,
+          ),
+          usingLsp: false,
+          hintMessage: _localizedText(
+            context,
+            zh: '输入符号名后即可在当前工作区内跨文件搜索。',
+            en: 'Type a symbol name to search across files in the current workspace.',
+          ),
+        );
+        return;
+      }
+      try {
+        final resolution = await _ensureLspBackend(filePath);
+        if (!mounted ||
+            refreshEpoch != _symbolRefreshEpoch ||
+            widget.activeFilePath != filePath) {
+          return;
+        }
+        if (!resolution.isAvailable) {
+          applyExtraction(
+            const _EditorSymbolExtractionResult(
+              symbols: <_EditorSymbol>[],
+              truncated: false,
+            ),
+            usingLsp: false,
+            hintMessage: _localizedText(
+              context,
+              zh: '当前文件没有可用的工作区符号后端。',
+              en: 'No workspace symbol backend is available for the current file.',
+            ),
+          );
+          return;
+        }
+        final workspaceSymbols = await AiLspClientService.instance
+            .workspaceSymbols(
+              filePath: filePath,
+              query: query,
+              language: resolution.language,
+            );
+        if (!mounted ||
+            refreshEpoch != _symbolRefreshEpoch ||
+            widget.activeFilePath != filePath) {
+          return;
+        }
+        final extraction = _extractEditorSymbolsFromWorkspaceLsp(
+          workspaceSymbols: workspaceSymbols,
+        );
+        applyExtraction(
+          extraction,
+          usingLsp: true,
+          hintMessage: extraction.symbols.isEmpty
+              ? _localizedText(
+                  context,
+                  zh: '没有找到匹配的工作区符号。',
+                  en: 'No matching workspace symbols were found.',
+                )
+              : null,
+        );
+      } catch (_) {
+        applyExtraction(
+          const _EditorSymbolExtractionResult(
+            symbols: <_EditorSymbol>[],
+            truncated: false,
+          ),
+          usingLsp: false,
+          hintMessage: _localizedText(
+            context,
+            zh: '读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。',
+            en: 'Fetching workspace symbols failed. Confirm that the active language server supports workspace/symbol.',
+          ),
+        );
+      }
+      return;
+    }
+
+    if (controller.useVirtualizedPreview &&
+        !_forcedFullEditorFiles.contains(filePath)) {
+      applyExtraction(
+        fallbackExtraction,
+        usingLsp: false,
+        hintMessage: _localizedText(
+          context,
+          zh: '当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。',
+          en: 'This file is still in large-file preview mode, so the symbol bar is using local extraction to stay responsive.',
+        ),
+      );
+      return;
+    }
+
+    try {
+      final resolution = await _ensureLspBackend(filePath);
+      if (!mounted ||
+          refreshEpoch != _symbolRefreshEpoch ||
+          widget.activeFilePath != filePath) {
+        return;
+      }
+      if (!resolution.isAvailable) {
+        applyExtraction(
+          fallbackExtraction,
+          usingLsp: false,
+          hintMessage: _localizedText(
+            context,
+            zh: '当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。',
+            en: 'No LSP symbol backend is available for this file, so the symbol bar fell back to local extraction.',
+          ),
+        );
+        return;
+      }
+
+      final documentSymbols = await AiLspClientService.instance.documentSymbols(
+        filePath: filePath,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted ||
+          refreshEpoch != _symbolRefreshEpoch ||
+          widget.activeFilePath != filePath) {
+        return;
+      }
+
+      final extraction = _extractEditorSymbolsFromLsp(
+        filePath: filePath,
+        documentSymbols: documentSymbols,
+        text: controller.text,
+      );
+      applyExtraction(
+        extraction,
+        usingLsp: true,
+        hintMessage: extraction.symbols.isEmpty
+            ? _localizedText(
+                context,
+                zh: 'LSP 已返回空符号列表。',
+                en: 'The LSP server returned an empty symbol list.',
+              )
+            : null,
+      );
+    } catch (_) {
+      applyExtraction(
+        fallbackExtraction,
+        usingLsp: false,
+        hintMessage: _localizedText(
+          context,
+          zh: '读取 LSP 符号失败，已回退到本地符号提取。',
+          en: 'Fetching LSP symbols failed, so the symbol bar fell back to local extraction.',
+        ),
+      );
+    }
+  }
+
+  String _locationPreviewKey(AiLspLocation location) {
+    return '${p.normalize(location.filePath)}:${location.line}:${location.character}';
+  }
+
+  String _truncatePreviewText(String text, {int maxLength = 160}) {
+    final normalized = text.replaceAll('\t', '  ').trimRight();
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+    return '${normalized.substring(0, maxLength - 1)}…';
+  }
+
+  Future<void> _loadLspLocationPreviews(
+    List<AiLspLocation> locations,
+    int previewEpoch,
+  ) async {
+    final fileLinesCache = <String, List<String>>{};
+    Future<List<String>> readLines(String filePath) async {
+      final cached = fileLinesCache[filePath];
+      if (cached != null) {
+        return cached;
+      }
+      final controller = _textControllers[filePath];
+      final text = controller?.text ?? await File(filePath).readAsString();
+      final lines = const LineSplitter().convert(text);
+      fileLinesCache[filePath] = lines;
+      return lines;
+    }
+
+    final previews = <String, _EditorLocationPreview>{};
+    for (final location in locations) {
+      try {
+        final lines = await readLines(location.filePath);
+        if (!mounted || previewEpoch != _lspResultPreviewEpoch) {
+          return;
+        }
+        if (lines.isEmpty) {
+          continue;
+        }
+        final startLine = math.max(1, location.line - 1);
+        final endLine = math.min(lines.length, location.line + 1);
+        final previewLines = <_EditorPreviewLine>[];
+        for (var lineNumber = startLine; lineNumber <= endLine; lineNumber++) {
+          previewLines.add(
+            _EditorPreviewLine(
+              lineNumber: lineNumber,
+              text: _truncatePreviewText(lines[lineNumber - 1]),
+              isHighlight: lineNumber == location.line,
+            ),
+          );
+        }
+        previews[_locationPreviewKey(location)] = _EditorLocationPreview(
+          lines: List<_EditorPreviewLine>.unmodifiable(previewLines),
+        );
+      } catch (_) {
+        if (!mounted || previewEpoch != _lspResultPreviewEpoch) {
+          return;
+        }
+      }
+    }
+
+    if (!mounted || previewEpoch != _lspResultPreviewEpoch) {
+      return;
+    }
+    setState(() {
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = Map<String, _EditorLocationPreview>.unmodifiable(
+        previews,
+      );
+    });
+  }
+
+  Future<void> _navigateToEditorSymbol(_EditorSymbol symbol) async {
+    _hideSymbolBar();
+    final location = AiLspLocation(
+      filePath: symbol.filePath,
+      range: AiLspRange(
+        start: AiLspPosition(line: symbol.line, character: symbol.column),
+        end: AiLspPosition(line: symbol.line, character: symbol.column),
+      ),
+    );
+    await _navigateToLspLocation(location);
+  }
+
+  AiLspPosition _positionForOffset(String text, int offset) {
+    final boundedOffset = offset.clamp(0, text.length);
+    var line = 1;
+    var column = 1;
+    for (var index = 0; index < boundedOffset; index++) {
+      if (text.codeUnitAt(index) == 10) {
+        line += 1;
+        column = 1;
+      } else {
+        column += 1;
+      }
+    }
+    return AiLspPosition(line: line, character: column);
+  }
+
+  AiLspRange _selectionRangeForController(
+    _HighlightingTextController controller,
+  ) {
+    final selection = controller.selection;
+    final base = selection.baseOffset < 0 ? 0 : selection.baseOffset;
+    final extent = selection.extentOffset < 0 ? base : selection.extentOffset;
+    final startOffset = math.min(base, extent);
+    final endOffset = math.max(base, extent);
+    return AiLspRange(
+      start: _positionForOffset(controller.text, startOffset),
+      end: _positionForOffset(controller.text, endOffset),
+    );
+  }
+
+  Future<void> _syncOpenDocumentsForLsp() async {
+    for (final filePath in widget.openFiles) {
+      final controller = _textControllers[filePath];
+      if (controller == null) {
+        continue;
+      }
+      final resolution = await _ensureLspBackend(filePath);
+      if (!resolution.isAvailable) {
+        continue;
+      }
+      await AiLspClientService.instance.syncDocument(
+        filePath: filePath,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+    }
+  }
+
+  String _currentSymbolName(_HighlightingTextController controller) {
+    final selection = controller.selection;
+    if (selection.start >= 0 && selection.end > selection.start) {
+      return controller.text.substring(selection.start, selection.end).trim();
+    }
+    final offset = selection.baseOffset.clamp(0, controller.text.length);
+    var start = offset;
+    var end = offset;
+    final text = controller.text;
+    bool isSymbolChar(int codeUnit) {
+      final isLetter =
+          (codeUnit >= 65 && codeUnit <= 90) ||
+          (codeUnit >= 97 && codeUnit <= 122);
+      final isDigit = codeUnit >= 48 && codeUnit <= 57;
+      return isLetter || isDigit || codeUnit == 95 || codeUnit == 36;
+    }
+
+    while (start > 0 && isSymbolChar(text.codeUnitAt(start - 1))) {
+      start -= 1;
+    }
+    while (end < text.length && isSymbolChar(text.codeUnitAt(end))) {
+      end += 1;
+    }
+    if (start >= end) {
+      return '';
+    }
+    return text.substring(start, end).trim();
+  }
+
+  String _applyTextEdits(String text, List<AiLspTextEdit> edits) {
+    var updated = text;
+    for (final edit
+        in edits.toList()..sort((left, right) {
+          final leftStart = _editorOffsetForLineColumn(
+            updated,
+            left.range.start.line,
+            left.range.start.character,
+          );
+          final rightStart = _editorOffsetForLineColumn(
+            updated,
+            right.range.start.line,
+            right.range.start.character,
+          );
+          return rightStart.compareTo(leftStart);
+        })) {
+      final start = _editorOffsetForLineColumn(
+        updated,
+        edit.range.start.line,
+        edit.range.start.character,
+      );
+      final end = _editorOffsetForLineColumn(
+        updated,
+        edit.range.end.line,
+        edit.range.end.character,
+      );
+      updated = updated.replaceRange(start, end, edit.newText);
+    }
+    return updated;
+  }
+
+  Future<_PreparedWorkspaceEdit> _prepareWorkspaceEdit(
+    AiLspWorkspaceEdit edit,
+  ) async {
+    final preparedFiles = <_PreparedWorkspaceEditFile>[];
+    for (final fileEdit in edit.fileEdits) {
+      final controller = _textControllers[fileEdit.filePath];
+      final file = File(fileEdit.filePath);
+      final originalText =
+          controller?.text ??
+          (await file.exists() ? await file.readAsString() : '');
+      final updatedText = _applyTextEdits(originalText, fileEdit.edits);
+      final diffLines = originalText == updatedText
+          ? const <String>[]
+          : _computeEditorUnifiedDiff(
+              originalText.split('\n'),
+              updatedText.split('\n'),
+            );
+      final additions = diffLines
+          .where((line) => line.startsWith('+') && !line.startsWith('+++'))
+          .length;
+      final deletions = diffLines
+          .where((line) => line.startsWith('-') && !line.startsWith('---'))
+          .length;
+      const maxPreviewLines = 240;
+      preparedFiles.add(
+        _PreparedWorkspaceEditFile(
+          filePath: fileEdit.filePath,
+          updatedText: updatedText,
+          editCount: fileEdit.edits.length,
+          diffLines: diffLines.length > maxPreviewLines
+              ? diffLines.take(maxPreviewLines).toList(growable: false)
+              : List<String>.from(diffLines, growable: false),
+          additionCount: additions,
+          deletionCount: deletions,
+          isTruncated: diffLines.length > maxPreviewLines,
+        ),
+      );
+    }
+    return _PreparedWorkspaceEdit(edit: edit, files: preparedFiles);
+  }
+
+  Future<bool> _applyPreparedWorkspaceEdit(
+    _PreparedWorkspaceEdit prepared,
+  ) async {
+    final edit = prepared.edit;
+    if (edit.isEmpty && !edit.hasUnsupportedOperations) {
+      return false;
+    }
+
+    final activeFilePath = widget.activeFilePath;
+    for (final preparedFile in prepared.files) {
+      final filePath = preparedFile.filePath;
+      final newText = preparedFile.updatedText;
+      final controller = _textControllers[filePath];
+      if (controller != null) {
+        final previousSelection = controller.selection;
+        final collapsedOffset = previousSelection.baseOffset.clamp(
+          0,
+          newText.length,
+        );
+        controller.value = controller.value.copyWith(
+          text: newText,
+          selection: TextSelection.collapsed(offset: collapsedOffset),
+          composing: TextRange.empty,
+        );
+        _fileContents[filePath] = newText;
+        if (filePath == activeFilePath) {
+          _updateCursorPosition(controller);
+          if (_findBarVisible && _findController.text.isNotEmpty) {
+            _updateFindMatches(_findController.text);
+          }
+          if (_symbolBarVisible) {
+            _scheduleSymbolRefresh(immediate: true);
+          }
+        }
+        _fileDirty[filePath] = true;
+      } else {
+        await File(filePath).writeAsString(newText);
+      }
+      _diagnosticsByFile.remove(filePath);
+      _diagnosticsStaleFiles.add(filePath);
+      await AiLspClientService.instance.syncDocument(
+        filePath: filePath,
+        language: _resolvedLanguageForFile(filePath),
+        documentText: newText,
+      );
+    }
+
+    if (!mounted) {
+      return true;
+    }
+    setState(() {});
+    if (prepared.files.any((item) => item.filePath == activeFilePath)) {
+      unawaited(_refreshDiagnostics(activeFilePath));
+    }
+    return true;
+  }
+
+  Future<bool> _reviewWorkspaceEditAndMaybeApply({
+    required String title,
+    required AiLspWorkspaceEdit edit,
+    String? description,
+  }) async {
+    if (edit.isEmpty && !edit.hasUnsupportedOperations) {
+      return false;
+    }
+    final prepared = await _prepareWorkspaceEdit(edit);
+    if (!mounted) {
+      return false;
+    }
+    final approved = await _showWorkspaceEditPreviewDialog(
+      title: title,
+      preparedEdit: prepared,
+      description: description,
+    );
+    if (!mounted || approved != true) {
+      return false;
+    }
+    return _applyPreparedWorkspaceEdit(prepared);
+  }
+
+  Future<bool?> _showWorkspaceEditPreviewDialog({
+    required String title,
+    required _PreparedWorkspaceEdit preparedEdit,
+    String? description,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final colorScheme = theme.colorScheme;
+        final isZh = Localizations.localeOf(
+          dialogContext,
+        ).languageCode.startsWith('zh');
+        final canApply = preparedEdit.files.isNotEmpty;
+        final fileCount = preparedEdit.files.length;
+        final editCount = preparedEdit.edit.editCount;
+
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 28,
+            vertical: 24,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1080, maxHeight: 760),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: isZh ? '关闭' : 'Close',
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _WorkspaceEditStatChip(
+                        label: isZh ? '$fileCount 个文件' : '$fileCount files',
+                        color: colorScheme.primary,
+                      ),
+                      _WorkspaceEditStatChip(
+                        label: isZh ? '$editCount 处修改' : '$editCount edits',
+                        color: colorScheme.tertiary,
+                      ),
+                      if (preparedEdit.edit.hasUnsupportedOperations)
+                        _WorkspaceEditStatChip(
+                          label: isZh
+                              ? '${preparedEdit.edit.unsupportedOperationsCount} 个未支持操作'
+                              : '${preparedEdit.edit.unsupportedOperationsCount} unsupported ops',
+                          color: colorScheme.error,
+                        ),
+                    ],
+                  ),
+                  if (description?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      description!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  if (preparedEdit.edit.hasUnsupportedOperations) ...[
+                    const SizedBox(height: 10),
+                    _buildDiagnosticsHint(
+                      colorScheme,
+                      isZh
+                          ? '文件重命名、创建、删除等文件级操作还没有自动预览或应用能力，仅展示可计算的文本修改。'
+                          : 'File-level operations such as rename, create, or delete are not previewed or applied automatically yet. Only text edits are shown here.',
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: preparedEdit.files.isEmpty
+                        ? Center(
+                            child: Text(
+                              isZh
+                                  ? '当前没有可预览的文本修改。'
+                                  : 'There are no previewable text edits for this operation.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: preparedEdit.files.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (dialogContext, index) {
+                              final file = preparedEdit.files[index];
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerLowest
+                                      .withValues(alpha: 0.94),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.22),
+                                    width: 0.5,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                p.basename(file.filePath),
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color:
+                                                          colorScheme.onSurface,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                _displayPathForFilePath(
+                                                  file.filePath,
+                                                ),
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                      color:
+                                                          colorScheme.primary,
+                                                      fontFamily:
+                                                          'SF Mono, Menlo, monospace',
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            _WorkspaceEditStatChip(
+                                              label: isZh
+                                                  ? '${file.editCount} 处修改'
+                                                  : '${file.editCount} edits',
+                                              color: colorScheme.primary,
+                                            ),
+                                            if (file.additionCount > 0)
+                                              _WorkspaceEditStatChip(
+                                                label: isZh
+                                                    ? '+${file.additionCount} 新增'
+                                                    : '+${file.additionCount}',
+                                                color: const Color(0xFF2E7D32),
+                                              ),
+                                            if (file.deletionCount > 0)
+                                              _WorkspaceEditStatChip(
+                                                label: isZh
+                                                    ? '-${file.deletionCount} 删除'
+                                                    : '-${file.deletionCount}',
+                                                color: colorScheme.error,
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    if (file.diffLines.isEmpty)
+                                      Text(
+                                        isZh
+                                            ? '该文件没有可显示的文本差异。'
+                                            : 'This file does not have a displayable text diff.',
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
+                                      )
+                                    else
+                                      Container(
+                                        constraints: const BoxConstraints(
+                                          maxHeight: 250,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme.surface,
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          border: Border.all(
+                                            color: colorScheme.outlineVariant
+                                                .withValues(alpha: 0.2),
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount:
+                                              file.diffLines.length +
+                                              (file.isTruncated ? 1 : 0),
+                                          itemBuilder: (diffContext, diffIndex) {
+                                            if (file.isTruncated &&
+                                                diffIndex ==
+                                                    file.diffLines.length) {
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 8,
+                                                    ),
+                                                child: Text(
+                                                  isZh
+                                                      ? '差异内容过长，已截断显示前 240 行。'
+                                                      : 'The diff is long, so only the first 240 lines are shown.',
+                                                  style: theme
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color: colorScheme
+                                                            .onSurfaceVariant,
+                                                      ),
+                                                ),
+                                              );
+                                            }
+                                            return _WorkspaceEditDiffLine(
+                                              line: file.diffLines[diffIndex],
+                                              colorScheme: colorScheme,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        child: Text(isZh ? '取消' : 'Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: canApply
+                            ? () => Navigator.of(dialogContext).pop(true)
+                            : null,
+                        icon: const Icon(Icons.check_rounded),
+                        label: Text(
+                          canApply
+                              ? (isZh ? '应用修改' : 'Apply Changes')
+                              : (isZh ? '无可应用修改' : 'No Applicable Changes'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _applyWorkspaceEdit(AiLspWorkspaceEdit edit) async {
+    final prepared = await _prepareWorkspaceEdit(edit);
+    return _applyPreparedWorkspaceEdit(prepared);
+  }
+
+  Future<bool> _applyIncomingWorkspaceEdit(AiLspWorkspaceEdit edit) async {
+    try {
+      final previewContext = _pendingWorkspaceEditPreviewContext;
+      if (previewContext == null) {
+        return await _applyWorkspaceEdit(edit);
+      }
+      final applied = await _reviewWorkspaceEditAndMaybeApply(
+        title: previewContext.title,
+        edit: edit,
+        description: previewContext.description,
+      );
+      if (applied) {
+        previewContext.appliedSummaries.add(_workspaceEditSummary(edit));
+      } else {
+        previewContext.declined = true;
+      }
+      return applied;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String _workspaceEditSummary(AiLspWorkspaceEdit edit) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final base = isZh
+        ? '已应用 ${edit.editCount} 处修改，涉及 ${edit.fileCount} 个文件。'
+        : 'Applied ${edit.editCount} edits across ${edit.fileCount} files.';
+    if (!edit.hasUnsupportedOperations) {
+      return base;
+    }
+    return isZh
+        ? '$base 其中有 ${edit.unsupportedOperationsCount} 个文件级操作未自动处理。'
+        : '$base ${edit.unsupportedOperationsCount} file-level operations were not applied automatically.';
+  }
+
+  Future<String?> _promptRenameSymbol(String initialValue) async {
+    final controller = TextEditingController(text: initialValue);
+    final focusNode = FocusNode();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        final colorScheme = Theme.of(dialogContext).colorScheme;
+        final isZh = Localizations.localeOf(
+          dialogContext,
+        ).languageCode.startsWith('zh');
+        return AlertDialog(
+          title: Text(isZh ? '重命名符号' : 'Rename Symbol'),
+          content: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: isZh ? '新名称' : 'New name',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: colorScheme.primary),
+              ),
+            ),
+            onSubmitted: (value) {
+              Navigator.of(dialogContext).pop(value.trim());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: Text(isZh ? '应用' : 'Apply'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    focusNode.dispose();
+    return result?.trim();
+  }
+
+  Future<void> _renameSymbolAtCursor() async {
+    final title = _localizedText(context, zh: '重命名符号', en: 'Rename Symbol');
+    final previewDescription = _localizedText(
+      context,
+      zh: '先查看这次重命名将影响的差异，再决定是否应用。',
+      en: 'Review the diff for this rename before deciding whether to apply it.',
+    );
+    final previewCanceledMessage = _localizedText(
+      context,
+      zh: '已取消本次重命名，未写入任何修改。',
+      en: 'The rename was cancelled and no changes were applied.',
+    );
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      await _syncOpenDocumentsForLsp();
+      final prepared = await AiLspClientService.instance.prepareRename(
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (prepared == null) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前光标位置不支持重命名。',
+            en: 'The symbol at the current cursor position cannot be renamed.',
+          ),
+        );
+        return;
+      }
+      final currentName = prepared.placeholder?.trim().isNotEmpty == true
+          ? prepared.placeholder!.trim()
+          : _currentSymbolName(controller);
+      final newName = await _promptRenameSymbol(currentName);
+      if (!mounted ||
+          newName == null ||
+          newName.isEmpty ||
+          newName == currentName) {
+        _hideLspResultBar();
+        return;
+      }
+      _showLspLoading(title);
+      final edit = await AiLspClientService.instance.renameSymbol(
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        newName: newName,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (edit.isEmpty && !edit.hasUnsupportedOperations) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '语言服务器没有返回需要应用的修改。',
+            en: 'The language server did not return any edits to apply.',
+          ),
+        );
+        return;
+      }
+      final applied = await _reviewWorkspaceEditAndMaybeApply(
+        title: title,
+        edit: edit,
+        description: previewDescription,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!applied) {
+        _showLspMessage(title: title, message: previewCanceledMessage);
+        return;
+      }
+      _showLspMessage(title: title, message: _workspaceEditSummary(edit));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _showCodeActionsAtCursor() async {
+    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
+    final emptyMessage = _localizedText(
+      context,
+      zh: '当前光标位置没有可用的代码操作。',
+      en: 'No code actions are available at the current cursor position.',
+    );
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      await _syncOpenDocumentsForLsp();
+      final range = _selectionRangeForController(controller);
+      final diagnostics = await AiLspClientService.instance.diagnosticsForFile(
+        filePath: widget.activeFilePath,
+        language: resolution.language,
+        documentText: controller.text,
+        waitForPublish: false,
+      );
+      final filteredDiagnostics = diagnostics
+          .where((item) {
+            final lineInRange =
+                _cursorLine >= item.range.start.line &&
+                _cursorLine <= item.range.end.line;
+            if (lineInRange) {
+              return true;
+            }
+            if (controller.selection.start != controller.selection.end) {
+              final selectionStart = _editorOffsetForLineColumn(
+                controller.text,
+                range.start.line,
+                range.start.character,
+              );
+              final selectionEnd = _editorOffsetForLineColumn(
+                controller.text,
+                range.end.line,
+                range.end.character,
+              );
+              final diagnosticStart = _editorOffsetForLineColumn(
+                controller.text,
+                item.range.start.line,
+                item.range.start.character,
+              );
+              final diagnosticEnd = _editorOffsetForLineColumn(
+                controller.text,
+                item.range.end.line,
+                item.range.end.character,
+              );
+              return diagnosticStart <= selectionEnd &&
+                  selectionStart <= diagnosticEnd;
+            }
+            return false;
+          })
+          .toList(growable: false);
+      await _requestAndShowCodeActions(
+        title: title,
+        resolution: resolution,
+        controller: controller,
+        range: range,
+        diagnostics: filteredDiagnostics,
+        emptyMessage: emptyMessage,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _applyCodeAction(AiLspCodeAction action) async {
+    if (action.isDisabled) {
+      return;
+    }
+    final title = action.title;
+    final previewDescription = _localizedText(
+      context,
+      zh: '先预览该代码操作将要写入的差异，再决定是否应用。',
+      en: 'Review the diff from this code action before applying it.',
+    );
+    final commandPreviewDescription = _localizedText(
+      context,
+      zh: '如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。',
+      en: 'If the language-server command requests edits while running, those edits will also be previewed first.',
+    );
+    final previewCanceledMessage = _localizedText(
+      context,
+      zh: '已取消本次代码操作，未写入任何修改。',
+      en: 'The code action was cancelled and no changes were applied.',
+    );
+    final commandExecutedMessage = _localizedText(
+      context,
+      zh: '已执行语言服务器命令。',
+      en: 'Executed the language-server command.',
+    );
+    final commandEditsSkippedMessage = _localizedText(
+      context,
+      zh: '有语言服务器请求的修改被跳过。',
+      en: 'Some language-server requested edits were skipped.',
+    );
+    final noApplicableEditsMessage = _localizedText(
+      context,
+      zh: '该代码操作没有返回可应用的编辑。',
+      en: 'This code action did not return any applicable edits.',
+    );
+    _showLspLoading(title);
+    final previewContext = _PendingWorkspaceEditPreviewContext(
+      title: title,
+      description: commandPreviewDescription,
+    );
+    _pendingWorkspaceEditPreviewContext = previewContext;
+    try {
+      final resolution = await _ensureLspBackend(widget.activeFilePath);
+      if (!resolution.isAvailable) {
+        if (mounted) {
+          _showLspMessage(
+            title: title,
+            message: _lspUnavailableMessage(resolution),
+          );
+        }
+        return;
+      }
+      await _syncOpenDocumentsForLsp();
+      var resolvedAction = action;
+      if (resolvedAction.edit == null &&
+          resolvedAction.command == null &&
+          resolvedAction.canResolve) {
+        resolvedAction = await AiLspClientService.instance.resolveCodeAction(
+          filePath: widget.activeFilePath,
+          action: resolvedAction,
+          language: resolution.language,
+        );
+      }
+      var summaryParts = <String>[];
+      if (resolvedAction.edit != null) {
+        final applied = await _reviewWorkspaceEditAndMaybeApply(
+          title: title,
+          edit: resolvedAction.edit!,
+          description: previewDescription,
+        );
+        if (!mounted) {
+          return;
+        }
+        if (!applied) {
+          _showLspMessage(title: title, message: previewCanceledMessage);
+          return;
+        }
+        summaryParts.add(_workspaceEditSummary(resolvedAction.edit!));
+      }
+      if (resolvedAction.command != null) {
+        await AiLspClientService.instance.executeCommand(
+          filePath: widget.activeFilePath,
+          language: resolution.language,
+          command: resolvedAction.command!,
+        );
+        summaryParts.add(commandExecutedMessage);
+        if (previewContext.appliedSummaries.isNotEmpty) {
+          summaryParts.addAll(previewContext.appliedSummaries);
+        }
+        if (previewContext.declined) {
+          summaryParts.add(commandEditsSkippedMessage);
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      if (summaryParts.isEmpty) {
+        _showLspMessage(title: title, message: noApplicableEditsMessage);
+        return;
+      }
+      _showLspMessage(title: title, message: summaryParts.join('\n'));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    } finally {
+      if (identical(_pendingWorkspaceEditPreviewContext, previewContext)) {
+        _pendingWorkspaceEditPreviewContext = null;
+      }
+    }
+  }
+
+  Future<List<AiLspCodeAction>> _requestCodeActions({
+    required AiLspBackendResolution resolution,
+    required _HighlightingTextController controller,
+    required AiLspRange range,
+    required List<AiLspDiagnostic> diagnostics,
+  }) {
+    return AiLspClientService.instance.codeActions(
+      filePath: widget.activeFilePath,
+      range: range,
+      diagnostics: diagnostics,
+      language: resolution.language,
+      documentText: controller.text,
+    );
+  }
+
+  Future<void> _requestAndShowCodeActions({
+    required String title,
+    required AiLspBackendResolution resolution,
+    required _HighlightingTextController controller,
+    required AiLspRange range,
+    required List<AiLspDiagnostic> diagnostics,
+    required String emptyMessage,
+  }) async {
+    final actions = await _requestCodeActions(
+      resolution: resolution,
+      controller: controller,
+      range: range,
+      diagnostics: diagnostics,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (actions.isEmpty) {
+      _showLspMessage(title: title, message: emptyMessage);
+      return;
+    }
+    _showLspCodeActions(title: title, actions: actions);
+  }
+
+  Future<AiLspBackendResolution?> _prepareLspActionWithoutResultBar(
+    String title,
+  ) async {
+    final filePath = widget.activeFilePath;
+    final precondition = _cursorLspPreconditionMessage(filePath);
+    if (precondition != null) {
+      _showLspMessage(title: title, message: precondition);
+      return null;
+    }
+    final resolution = await _ensureLspBackend(filePath);
+    if (!resolution.isAvailable) {
+      if (mounted) {
+        _showLspMessage(
+          title: title,
+          message: _lspUnavailableMessage(resolution),
+        );
+      }
+      return null;
+    }
+    return resolution;
+  }
+
+  AiLspRange _editorDiagnosticRange(_EditorDiagnostic diagnostic) {
+    return AiLspRange(
+      start: AiLspPosition(line: diagnostic.line, character: diagnostic.column),
+      end: AiLspPosition(
+        line: diagnostic.endLine,
+        character: diagnostic.endColumn,
+      ),
+    );
+  }
+
+  bool _lspRangesOverlap(AiLspRange left, AiLspRange right) {
+    bool isBefore(AiLspPosition a, AiLspPosition b) {
+      return a.line < b.line || (a.line == b.line && a.character < b.character);
+    }
+
+    return !isBefore(left.end, right.start) && !isBefore(right.end, left.start);
+  }
+
+  AiLspDiagnostic _editorDiagnosticToLspDiagnostic(
+    _EditorDiagnostic diagnostic,
+  ) {
+    return AiLspDiagnostic(
+      range: _editorDiagnosticRange(diagnostic),
+      message: diagnostic.message,
+      code: diagnostic.code,
+      severity: switch (diagnostic.severity) {
+        'ERROR' => 1,
+        'WARNING' => 2,
+        _ => 3,
+      },
+    );
+  }
+
+  AiLspRange _combinedEditorDiagnosticRange(
+    List<_EditorDiagnostic> diagnostics,
+  ) {
+    var start = AiLspPosition(
+      line: diagnostics.first.line,
+      character: diagnostics.first.column,
+    );
+    var end = AiLspPosition(
+      line: diagnostics.first.endLine,
+      character: diagnostics.first.endColumn,
+    );
+    for (final diagnostic in diagnostics.skip(1)) {
+      final nextStart = AiLspPosition(
+        line: diagnostic.line,
+        character: diagnostic.column,
+      );
+      final nextEnd = AiLspPosition(
+        line: diagnostic.endLine,
+        character: diagnostic.endColumn,
+      );
+      if (nextStart.line < start.line ||
+          (nextStart.line == start.line &&
+              nextStart.character < start.character)) {
+        start = nextStart;
+      }
+      if (nextEnd.line > end.line ||
+          (nextEnd.line == end.line && nextEnd.character > end.character)) {
+        end = nextEnd;
+      }
+    }
+    return AiLspRange(start: start, end: end);
+  }
+
+  Future<List<AiLspCodeAction>> _requestCodeActionsForEditorDiagnostics({
+    required String title,
+    required List<_EditorDiagnostic> diagnostics,
+  }) async {
+    if (diagnostics.isEmpty) {
+      return const <AiLspCodeAction>[];
+    }
+    final resolution = await _prepareLspActionWithoutResultBar(title);
+    if (resolution == null) {
+      return const <AiLspCodeAction>[];
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return const <AiLspCodeAction>[];
+    }
+
+    await _syncOpenDocumentsForLsp();
+    final lspDiagnostics = await AiLspClientService.instance.diagnosticsForFile(
+      filePath: widget.activeFilePath,
+      language: resolution.language,
+      documentText: controller.text,
+      waitForPublish: false,
+    );
+    final diagnosticRanges = diagnostics
+        .map(_editorDiagnosticRange)
+        .toList(growable: false);
+    final matchedDiagnostics = lspDiagnostics
+        .where((diagnostic) {
+          return diagnosticRanges.any(
+            (range) => _lspRangesOverlap(diagnostic.range, range),
+          );
+        })
+        .toList(growable: false);
+
+    return _requestCodeActions(
+      resolution: resolution,
+      controller: controller,
+      range: _combinedEditorDiagnosticRange(diagnostics),
+      diagnostics: matchedDiagnostics.isNotEmpty
+          ? matchedDiagnostics
+          : diagnostics
+                .map(_editorDiagnosticToLspDiagnostic)
+                .toList(growable: false),
+    );
+  }
+
+  AiLspCodeAction? _preferredDirectQuickFixAction(
+    List<AiLspCodeAction> actions,
+  ) {
+    final applicable = actions
+        .where((action) => !action.isDisabled)
+        .toList(growable: false);
+    if (applicable.isEmpty) {
+      return null;
+    }
+    final quickFixes = applicable
+        .where((action) {
+          final kind = (action.kind ?? '').trim().toLowerCase();
+          return kind.isEmpty || kind.startsWith('quickfix');
+        })
+        .toList(growable: false);
+    final preferredQuickFixes = quickFixes
+        .where((action) => action.isPreferred)
+        .toList(growable: false);
+    if (preferredQuickFixes.isNotEmpty) {
+      return preferredQuickFixes.first;
+    }
+    if (quickFixes.length == 1) {
+      return quickFixes.first;
+    }
+    if (quickFixes.isEmpty && applicable.length == 1) {
+      return applicable.first;
+    }
+    return null;
+  }
+
+  Future<void> _applyQuickFixForEditorDiagnostics(
+    List<_EditorDiagnostic> diagnostics,
+    Offset anchorPosition,
+  ) async {
+    final title = _localizedText(context, zh: '快速修复', en: 'Quick Fix');
+    final noActionsMessage = _localizedText(
+      context,
+      zh: '当前诊断位置没有可用的快速修复。',
+      en: 'No quick fixes are available for the hovered diagnostic.',
+    );
+    try {
+      final actions = await _requestCodeActionsForEditorDiagnostics(
+        title: title,
+        diagnostics: diagnostics,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (actions.isEmpty) {
+        _showLspMessage(title: title, message: noActionsMessage);
+        return;
+      }
+      final directAction = _preferredDirectQuickFixAction(actions);
+      if (directAction != null) {
+        await _applyCodeAction(directAction);
+        return;
+      }
+      await _showInlineCodeActionMenu(
+        title: title,
+        actions: actions,
+        anchorPosition: anchorPosition,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _showMoreActionsForEditorDiagnostics(
+    List<_EditorDiagnostic> diagnostics,
+    Offset anchorPosition,
+  ) async {
+    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
+    final noActionsMessage = _localizedText(
+      context,
+      zh: '当前诊断位置没有可用的代码操作。',
+      en: 'No code actions are available for the hovered diagnostic.',
+    );
+    try {
+      final actions = await _requestCodeActionsForEditorDiagnostics(
+        title: title,
+        diagnostics: diagnostics,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (actions.isEmpty) {
+        _showLspMessage(title: title, message: noActionsMessage);
+        return;
+      }
+      await _showInlineCodeActionMenu(
+        title: title,
+        actions: actions,
+        anchorPosition: anchorPosition,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _showInlineCodeActionMenu({
+    required String title,
+    required List<AiLspCodeAction> actions,
+    required Offset anchorPosition,
+  }) async {
+    const defaultSubgroupKey = '__default__';
+
+    String groupKeyForAction(AiLspCodeAction action) {
+      final kind = (action.kind ?? '').trim().toLowerCase();
+      if (kind.isEmpty) {
+        return 'quickfix';
+      }
+      final key = kind.split('.').first;
+      if (key == 'quickfix' || key == 'refactor' || key == 'source') {
+        return key;
+      }
+      return 'other';
+    }
+
+    int groupPriority(String key) {
+      return switch (key) {
+        'quickfix' => 0,
+        'refactor' => 1,
+        'source' => 2,
+        _ => 3,
+      };
+    }
+
+    String groupLabel(String key) {
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
+      return switch (key) {
+        'quickfix' => isZh ? '快速修复' : 'Quick Fix',
+        'refactor' => isZh ? '重构' : 'Refactor',
+        'source' => isZh ? '源码操作' : 'Source',
+        _ => isZh ? '其他操作' : 'Other Actions',
+      };
+    }
+
+    String subgroupKeyForAction(AiLspCodeAction action, String groupKey) {
+      final kind = (action.kind ?? '').trim();
+      if (kind.isEmpty) {
+        return defaultSubgroupKey;
+      }
+      final segments = kind.split('.');
+      if (segments.length < 2) {
+        return defaultSubgroupKey;
+      }
+      if (groupKey == 'other') {
+        return segments.length >= 2 ? segments[1] : defaultSubgroupKey;
+      }
+      return segments[1].trim().isEmpty
+          ? defaultSubgroupKey
+          : segments[1].trim();
+    }
+
+    String humanizeKindSegment(String raw) {
+      if (raw.trim().isEmpty || raw == defaultSubgroupKey) {
+        return '';
+      }
+      final normalized = raw
+          .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (match) {
+            return '${match.group(1)} ${match.group(2)}';
+          })
+          .replaceAll(RegExp(r'[-_]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (normalized.isEmpty) {
+        return raw;
+      }
+      return normalized
+          .split(' ')
+          .map(
+            (word) => word.isEmpty
+                ? word
+                : '${word[0].toUpperCase()}${word.substring(1)}',
+          )
+          .join(' ');
+    }
+
+    String subgroupLabel(String groupKey, String subgroupKey) {
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
+      if (subgroupKey == defaultSubgroupKey) {
+        return switch (groupKey) {
+          'quickfix' => isZh ? '默认修复' : 'Default',
+          'refactor' => isZh ? '通用重构' : 'General',
+          'source' => isZh ? '通用源码操作' : 'General',
+          _ => isZh ? '通用操作' : 'General',
+        };
+      }
+      final humanized = humanizeKindSegment(subgroupKey);
+      return humanized.isEmpty ? subgroupKey : humanized;
+    }
+
+    int subgroupPriority(String subgroupKey) {
+      return subgroupKey == defaultSubgroupKey ? 0 : 1;
+    }
+
+    final groupedEntries =
+        <String, Map<String, List<(int, AiLspCodeAction)>>>{};
+    for (var index = 0; index < actions.length; index++) {
+      final action = actions[index];
+      final groupKey = groupKeyForAction(action);
+      final subgroupKey = subgroupKeyForAction(action, groupKey);
+      final subgroups = groupedEntries[groupKey] ??=
+          <String, List<(int, AiLspCodeAction)>>{};
+      (subgroups[subgroupKey] ??= <(int, AiLspCodeAction)>[]).add((
+        index,
+        action,
+      ));
+    }
+    final orderedGroups = groupedEntries.entries.toList(growable: false)
+      ..sort(
+        (left, right) =>
+            groupPriority(left.key).compareTo(groupPriority(right.key)),
+      );
+
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) {
+      _showLspCodeActions(title: title, actions: actions);
+      return;
+    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final menuItems = <PopupMenuEntry<int>>[];
+    for (var groupIndex = 0; groupIndex < orderedGroups.length; groupIndex++) {
+      final groupEntry = orderedGroups[groupIndex];
+      final subgroupEntries = groupEntry.value.entries.toList(growable: false)
+        ..sort((left, right) {
+          final byPriority = subgroupPriority(
+            left.key,
+          ).compareTo(subgroupPriority(right.key));
+          if (byPriority != 0) {
+            return byPriority;
+          }
+          return subgroupLabel(
+            groupEntry.key,
+            left.key,
+          ).toLowerCase().compareTo(
+            subgroupLabel(groupEntry.key, right.key).toLowerCase(),
+          );
+        });
+      final showSubgroupHeaders =
+          subgroupEntries.length > 1 ||
+          subgroupEntries.first.key != defaultSubgroupKey;
+
+      if (groupIndex > 0) {
+        menuItems.add(const PopupMenuDivider());
+      }
+      menuItems.add(
+        PopupMenuItem<int>(
+          enabled: false,
+          height: 28,
+          child: Text(
+            groupLabel(groupEntry.key),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      );
+
+      for (
+        var subgroupIndex = 0;
+        subgroupIndex < subgroupEntries.length;
+        subgroupIndex++
+      ) {
+        final subgroupEntry = subgroupEntries[subgroupIndex];
+        if (showSubgroupHeaders) {
+          menuItems.add(
+            PopupMenuItem<int>(
+              enabled: false,
+              height: 24,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  subgroupLabel(groupEntry.key, subgroupEntry.key),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final sortedEntries = subgroupEntry.value.toList(growable: false)
+          ..sort((left, right) {
+            if (left.$2.isDisabled != right.$2.isDisabled) {
+              return left.$2.isDisabled ? 1 : -1;
+            }
+            if (left.$2.isPreferred != right.$2.isPreferred) {
+              return left.$2.isPreferred ? -1 : 1;
+            }
+            return left.$2.title.toLowerCase().compareTo(
+              right.$2.title.toLowerCase(),
+            );
+          });
+        for (final entry in sortedEntries) {
+          menuItems.add(
+            PopupMenuItem<int>(
+              value: entry.$1,
+              enabled: !entry.$2.isDisabled,
+              child: SizedBox(
+                width: 320,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                        top: 1,
+                        left: showSubgroupHeaders ? 16 : 0,
+                      ),
+                      child: Icon(
+                        _codeActionIcon(entry.$2),
+                        size: 16,
+                        color: entry.$2.isDisabled
+                            ? colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.45,
+                              )
+                            : colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  entry.$2.title,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: entry.$2.isDisabled
+                                        ? colorScheme.onSurfaceVariant
+                                        : colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              if (entry.$2.isPreferred)
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 14,
+                                  color: colorScheme.primary,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _codeActionSummary(entry.$2),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+    final selectedIndex = await showAnimatedMenu<int>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromCenter(center: anchorPosition, width: 1, height: 1),
+        Offset.zero & overlay.size,
+      ),
+      items: menuItems,
+    );
+    if (selectedIndex == null || !mounted) {
+      return;
+    }
+    final selectedAction = actions[selectedIndex];
+    if (selectedAction.isDisabled) {
+      return;
+    }
+    _scheduleOverlayActionAfterMenuDismissal(context, () {
+      unawaited(_applyCodeAction(selectedAction));
+    });
+  }
+
+  Future<void> _showCodeActionsForDiagnosticLine(
+    int lineNumber,
+    Offset anchorPosition,
+  ) async {
+    final title = _localizedText(context, zh: '快速修复', en: 'Quick Fix');
+    final noDiagnosticsMessage = _localizedText(
+      context,
+      zh: '当前诊断行没有可用的快速修复。',
+      en: 'No quick fixes are available for this diagnostic line.',
+    );
+    final resolution = await _prepareLspActionWithoutResultBar(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      await _syncOpenDocumentsForLsp();
+      final diagnostics = await AiLspClientService.instance.diagnosticsForFile(
+        filePath: widget.activeFilePath,
+        language: resolution.language,
+        documentText: controller.text,
+        waitForPublish: false,
+      );
+      final lineDiagnostics = diagnostics
+          .where((item) {
+            return lineNumber >= item.range.start.line &&
+                lineNumber <= item.range.end.line;
+          })
+          .toList(growable: false);
+      if (lineDiagnostics.isEmpty) {
+        _showLspMessage(title: title, message: noDiagnosticsMessage);
+        return;
+      }
+
+      var start = lineDiagnostics.first.range.start;
+      var end = lineDiagnostics.first.range.end;
+      for (final diagnostic in lineDiagnostics.skip(1)) {
+        final nextStart = diagnostic.range.start;
+        final nextEnd = diagnostic.range.end;
+        if (nextStart.line < start.line ||
+            (nextStart.line == start.line &&
+                nextStart.character < start.character)) {
+          start = nextStart;
+        }
+        if (nextEnd.line > end.line ||
+            (nextEnd.line == end.line && nextEnd.character > end.character)) {
+          end = nextEnd;
+        }
+      }
+
+      _jumpToLineColumn(lineNumber, column: start.character);
+      final menuTitle = '$title  •  $lineNumber';
+      final actions = await _requestCodeActions(
+        resolution: resolution,
+        controller: controller,
+        range: AiLspRange(start: start, end: end),
+        diagnostics: lineDiagnostics,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (actions.isEmpty) {
+        _showLspMessage(title: menuTitle, message: noDiagnosticsMessage);
+        return;
+      }
+      await _showInlineCodeActionMenu(
+        title: menuTitle,
+        actions: actions,
+        anchorPosition: anchorPosition,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _maybeRefreshDiagnostics(String filePath) async {
+    if (_diagnosticsByFile.containsKey(filePath) ||
+        _diagnosticsLoadingFiles.contains(filePath)) {
+      return;
+    }
+    final resolution = await _ensureLspBackend(filePath);
+    if (!resolution.isAvailable) {
+      return;
+    }
+    await _refreshDiagnostics(filePath);
+  }
+
+  Future<void> _refreshDiagnostics(String filePath) async {
+    if (_diagnosticsLoadingFiles.contains(filePath)) {
+      return;
+    }
+    final resolution = await _ensureLspBackend(filePath);
+    if (!resolution.isAvailable) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _diagnosticsByFile.remove(filePath);
+        _diagnosticsStaleFiles.remove(filePath);
+      });
+      return;
+    }
+    setState(() => _diagnosticsLoadingFiles.add(filePath));
+    try {
+      final controller = _textControllers[filePath];
+      final diagnostics = await AiLspClientService.instance.diagnosticsForFile(
+        filePath: filePath,
+        language: resolution.language,
+        documentText: controller?.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _diagnosticsLoadingFiles.remove(filePath);
+        _diagnosticsByFile[filePath] = diagnostics
+            .map(
+              (item) => _EditorDiagnostic(
+                severity: switch (item.severity) {
+                  1 => 'ERROR',
+                  2 => 'WARNING',
+                  _ => 'INFO',
+                },
+                code: item.code ?? item.source ?? 'lsp',
+                message: item.message,
+                line: item.range.start.line,
+                column: item.range.start.character,
+                endLine: item.range.end.line,
+                endColumn: item.range.end.character,
+                length: math.max(
+                  1,
+                  item.range.start.line == item.range.end.line
+                      ? item.range.end.character - item.range.start.character
+                      : 1,
+                ),
+              ),
+            )
+            .toList(growable: false);
+        _diagnosticsStaleFiles.remove(filePath);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _diagnosticsLoadingFiles.remove(filePath);
+        _diagnosticsByFile.remove(filePath);
+      });
+    }
+  }
+
+  String? _cursorLspPreconditionMessage(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return _localizedText(
+        context,
+        zh: '当前文件尚未完成加载，暂时无法执行 LSP 操作。',
+        en: 'The current file is still loading, so LSP actions are not available yet.',
+      );
+    }
+    if (controller.useVirtualizedPreview &&
+        !_forcedFullEditorFiles.contains(filePath)) {
+      return _localizedText(
+        context,
+        zh: '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。',
+        en: 'This file is still in large-file preview mode. Open the full editor before running LSP navigation.',
+      );
+    }
+    return null;
+  }
+
+  String _lspUnavailableMessage(AiLspBackendResolution resolution) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    return switch (resolution.availability) {
+      AiLspBackendAvailability.unsupportedLanguage =>
+        isZh
+            ? '当前语言 ${_programmingLanguageLabel(context, resolution.language)} 还没有映射到 LSP 后端。'
+            : 'No LSP backend mapping is configured for ${_programmingLanguageLabel(context, resolution.language)}.',
+      AiLspBackendAvailability.executableNotFound =>
+        resolution.configuredInstallRoot?.trim().isNotEmpty == true
+            ? (isZh
+                  ? '已识别到 ${resolution.displayName ?? resolution.backendId}，但在你配置的 LSP 根路径 ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)} 中没有找到命令 ${resolution.executable ?? ''}。'
+                  : 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found inside the configured LSP root ${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)}.')
+            : (isZh
+                  ? '已识别到 ${resolution.displayName ?? resolution.backendId}，但本机 PATH 中没有找到命令 ${resolution.executable ?? ''}。'
+                  : 'The editor resolved ${resolution.displayName ?? resolution.backendId}, but ${resolution.executable ?? ''} was not found on PATH.'),
+      AiLspBackendAvailability.available =>
+        isZh ? 'LSP 后端已就绪。' : 'The LSP backend is ready.',
+    };
+  }
+
+  void _showLspLoading(String title) {
+    _lspResultPreviewEpoch += 1;
+    setState(() {
+      _lspResultBarVisible = true;
+      _lspResultLoading = true;
+      _lspResultTitle = title;
+      _lspResultMessage = null;
+      _lspResultLocations = const <AiLspLocation>[];
+      _lspResultCodeActions = const <AiLspCodeAction>[];
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = null;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+  }
+
+  void _showLspMessage({required String title, required String message}) {
+    _lspResultPreviewEpoch += 1;
+    setState(() {
+      _lspResultBarVisible = true;
+      _lspResultLoading = false;
+      _lspResultTitle = title;
+      _lspResultMessage = message;
+      _lspResultLocations = const <AiLspLocation>[];
+      _lspResultCodeActions = const <AiLspCodeAction>[];
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = null;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+  }
+
+  void _showLspLocations({
+    required String title,
+    required List<AiLspLocation> locations,
+    String? message,
+  }) {
+    final previewEpoch = ++_lspResultPreviewEpoch;
+    setState(() {
+      _lspResultBarVisible = true;
+      _lspResultLoading = false;
+      _lspResultTitle = title;
+      _lspResultMessage = message;
+      _lspResultLocations = locations;
+      _lspResultCodeActions = const <AiLspCodeAction>[];
+      _lspResultPreviewLoading = locations.isNotEmpty;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = null;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+    if (locations.isNotEmpty) {
+      unawaited(_loadLspLocationPreviews(locations, previewEpoch));
+    }
+  }
+
+  void _showLspCodeActions({
+    required String title,
+    required List<AiLspCodeAction> actions,
+    String? message,
+  }) {
+    _lspResultPreviewEpoch += 1;
+    setState(() {
+      _lspResultBarVisible = true;
+      _lspResultLoading = false;
+      _lspResultTitle = title;
+      _lspResultMessage = message;
+      _lspResultLocations = const <AiLspLocation>[];
+      _lspResultCodeActions = actions;
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = null;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+  }
+
+  void _showLspHoverResult({
+    required String title,
+    required AiLspHoverResult hover,
+  }) {
+    _lspResultPreviewEpoch += 1;
+    setState(() {
+      _lspResultBarVisible = true;
+      _lspResultLoading = false;
+      _lspResultTitle = title;
+      _lspResultMessage = null;
+      _lspResultLocations = const <AiLspLocation>[];
+      _lspResultCodeActions = const <AiLspCodeAction>[];
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = hover;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+    });
+  }
+
+  void _hideLspResultBar() {
+    _lspResultPreviewEpoch += 1;
+    setState(() {
+      _lspResultBarVisible = false;
+      _lspResultLoading = false;
+      _lspResultTitle = '';
+      _lspResultMessage = null;
+      _lspResultLocations = const <AiLspLocation>[];
+      _lspResultCodeActions = const <AiLspCodeAction>[];
+      _lspResultPreviewLoading = false;
+      _lspResultPreviews = const <String, _EditorLocationPreview>{};
+      _lspHoverResult = null;
+    });
+  }
+
+  Future<void> _navigateToLspLocation(AiLspLocation location) async {
+    if (location.filePath == widget.activeFilePath) {
+      _jumpToLineColumn(location.line, column: location.character);
+      return;
+    }
+    _pendingNavigationLocation = location;
+    widget.onOpenFile(location.filePath);
+  }
+
+  Future<AiLspBackendResolution?> _prepareCursorLspAction(String title) async {
+    final filePath = widget.activeFilePath;
+    final precondition = _cursorLspPreconditionMessage(filePath);
+    if (precondition != null) {
+      _showLspMessage(title: title, message: precondition);
+      return null;
+    }
+    _showLspLoading(title);
+    final resolution = await _ensureLspBackend(filePath);
+    if (!resolution.isAvailable) {
+      if (mounted) {
+        _showLspMessage(
+          title: title,
+          message: _lspUnavailableMessage(resolution),
+        );
+      }
+      return null;
+    }
+    return resolution;
+  }
+
+  Future<void> _goToDefinitionAtCursor() async {
+    final title = _localizedText(context, zh: '定义跳转', en: 'Go to Definition');
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      final locations = await AiLspClientService.instance.goToDefinition(
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (locations.isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前光标位置没有找到定义。',
+            en: 'No definition was found at the current cursor position.',
+          ),
+        );
+        return;
+      }
+      if (locations.length == 1) {
+        _hideLspResultBar();
+        await _navigateToLspLocation(locations.first);
+        return;
+      }
+      _showLspLocations(
+        title: title,
+        locations: locations,
+        message: _localizedText(
+          context,
+          zh: '找到多个定义结果，请选择要跳转的位置。',
+          en: 'Multiple definitions were found. Choose a target to navigate to.',
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _findReferencesAtCursor() async {
+    final title = _localizedText(context, zh: '引用查找', en: 'Find References');
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      final locations = await AiLspClientService.instance.findReferences(
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (locations.isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前光标位置没有找到引用。',
+            en: 'No references were found at the current cursor position.',
+          ),
+        );
+        return;
+      }
+      _showLspLocations(title: title, locations: locations);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _showHoverAtCursor() async {
+    final title = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    try {
+      final hover = await AiLspClientService.instance.hover(
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (hover == null || hover.renderedText.trim().isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前光标位置没有可显示的悬浮信息。',
+            en: 'There is no hover information at the current cursor position.',
+          ),
+        );
+        return;
+      }
+      _showLspHoverResult(title: title, hover: hover);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
 
   @override
   void dispose() {
+    _symbolController.removeListener(_applySymbolFilter);
+    _symbolRefreshTimer?.cancel();
+    AiLspClientService.instance.workspaceEditHandler = null;
+    AiLspClientService.instance.updateProjectLanguageSettingsOverride(null);
+    for (final timer in _lspDiagnosticsTimers.values) {
+      timer.cancel();
+    }
+    for (final filePath in _textControllers.keys) {
+      unawaited(
+        AiLspClientService.instance.closeDocument(
+          filePath: filePath,
+          language: _resolvedLanguageForFile(filePath),
+        ),
+      );
+    }
     for (final controller in _scrollControllers.values) {
       controller.dispose();
     }
@@ -1117,7 +4109,2976 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     for (final focusNode in _focusNodes.values) {
       focusNode.dispose();
     }
+    _symbolController.dispose();
+    _symbolFocusNode.dispose();
+    _findController.dispose();
+    _replaceController.dispose();
+    _findFocusNode.dispose();
+    _goToLineController.dispose();
+    _goToLineFocusNode.dispose();
     super.dispose();
+  }
+
+  // ── Find & Replace ──
+
+  void _showFind() {
+    setState(() {
+      _findBarVisible = true;
+      _replaceBarVisible = false;
+      _goToLineVisible = false;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _lspResultBarVisible = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _findFocusNode.requestFocus();
+    });
+  }
+
+  void _showFindAndReplace() {
+    setState(() {
+      _findBarVisible = true;
+      _replaceBarVisible = true;
+      _goToLineVisible = false;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _lspResultBarVisible = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _findFocusNode.requestFocus();
+    });
+  }
+
+  void _hideFindBar() {
+    setState(() {
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _findMatchOffsets = const [];
+      _currentMatchIndex = -1;
+    });
+  }
+
+  void _updateFindMatches(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _findMatchOffsets = const [];
+        _currentMatchIndex = -1;
+      });
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) return;
+    final text = controller.text;
+    final pattern = _findCaseSensitive ? query : query.toLowerCase();
+    final searchText = _findCaseSensitive ? text : text.toLowerCase();
+    final offsets = <int>[];
+    var startIndex = 0;
+    while (true) {
+      final idx = searchText.indexOf(pattern, startIndex);
+      if (idx < 0) break;
+      offsets.add(idx);
+      startIndex = idx + 1;
+      if (offsets.length > 10000) break; // safety limit
+    }
+    setState(() {
+      _findMatchOffsets = offsets;
+      _currentMatchIndex = offsets.isEmpty ? -1 : 0;
+    });
+    if (offsets.isNotEmpty) {
+      _selectMatch(0);
+    }
+  }
+
+  void _findNext() {
+    if (_findMatchOffsets.isEmpty) return;
+    final next = (_currentMatchIndex + 1) % _findMatchOffsets.length;
+    setState(() => _currentMatchIndex = next);
+    _selectMatch(next);
+  }
+
+  void _findPrevious() {
+    if (_findMatchOffsets.isEmpty) return;
+    final prev =
+        (_currentMatchIndex - 1 + _findMatchOffsets.length) %
+        _findMatchOffsets.length;
+    setState(() => _currentMatchIndex = prev);
+    _selectMatch(prev);
+  }
+
+  void _selectMatch(int index) {
+    if (index < 0 || index >= _findMatchOffsets.length) return;
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) return;
+    final offset = _findMatchOffsets[index];
+    final length = _findController.text.length;
+    controller.selection = TextSelection(
+      baseOffset: offset,
+      extentOffset: offset + length,
+    );
+    _updateCursorPosition(controller);
+    final focusNode = _focusNodes[widget.activeFilePath];
+    focusNode?.requestFocus();
+    _scrollToLine(
+      widget.activeFilePath,
+      _lineForOffset(controller.text, offset),
+    );
+  }
+
+  void _replaceCurrent() {
+    if (_currentMatchIndex < 0 ||
+        _currentMatchIndex >= _findMatchOffsets.length) {
+      return;
+    }
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) return;
+    final offset = _findMatchOffsets[_currentMatchIndex];
+    final findLen = _findController.text.length;
+    final replaceText = _replaceController.text;
+    final text = controller.text;
+    controller.text = text.replaceRange(offset, offset + findLen, replaceText);
+    controller.selection = TextSelection.collapsed(
+      offset: offset + replaceText.length,
+    );
+    setState(() {
+      _fileDirty[widget.activeFilePath] = true;
+      _diagnosticsStaleFiles.add(widget.activeFilePath);
+    });
+    _scheduleDiagnosticsRefresh(widget.activeFilePath);
+    if (_symbolBarVisible) {
+      _scheduleSymbolRefresh(immediate: true);
+    }
+    _updateFindMatches(_findController.text);
+  }
+
+  void _replaceAll() {
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null || _findController.text.isEmpty) return;
+    final findText = _findController.text;
+    final replaceText = _replaceController.text;
+    if (_findCaseSensitive) {
+      controller.text = controller.text.replaceAll(findText, replaceText);
+    } else {
+      controller.text = controller.text.replaceAll(
+        RegExp(RegExp.escape(findText), caseSensitive: false),
+        replaceText,
+      );
+    }
+    setState(() {
+      _fileDirty[widget.activeFilePath] = true;
+      _diagnosticsStaleFiles.add(widget.activeFilePath);
+      _findMatchOffsets = const [];
+      _currentMatchIndex = -1;
+    });
+    _scheduleDiagnosticsRefresh(widget.activeFilePath);
+    if (_symbolBarVisible) {
+      _scheduleSymbolRefresh(immediate: true);
+    }
+    _updateFindMatches(findText);
+  }
+
+  // ── Go To Line ──
+
+  void _showGoToLine() {
+    final controller = _textControllers[widget.activeFilePath];
+    setState(() {
+      _goToLineVisible = true;
+      _findBarVisible = false;
+      _replaceBarVisible = false;
+      _symbolBarVisible = false;
+      _projectToolchainBarVisible = false;
+      _diagnosticsBarVisible = false;
+      _lspResultBarVisible = false;
+      _goToLineController.text = '';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _goToLineFocusNode.requestFocus();
+    });
+    if (controller != null) {
+      _goToLineController.text = '$_cursorLine';
+      _goToLineController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: '$_cursorLine'.length,
+      );
+    }
+  }
+
+  bool _supportsDiagnosticsForFile(String filePath) {
+    return _supportsLspForFile(filePath);
+  }
+
+  String _diagnosticsUnavailableMessage(String filePath) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return isZh
+          ? '正在为当前文件解析 LSP 后端…'
+          : 'Resolving an LSP backend for the current file...';
+    }
+    if (resolution == null) {
+      return isZh
+          ? '当前文件的 LSP 后端尚未解析完成。'
+          : 'The LSP backend for this file has not been resolved yet.';
+    }
+    return _lspUnavailableMessage(resolution);
+  }
+
+  String _lspBackendStatusLabel(BuildContext context, String filePath) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return isZh ? 'LSP 解析中' : 'LSP...';
+    }
+    if (resolution == null) {
+      return 'LSP';
+    }
+    if (resolution.isAvailable) {
+      return resolution.displayName ??
+          resolution.backendId ??
+          _programmingLanguageLabel(context, resolution.language);
+    }
+    return isZh ? '无 LSP' : 'No LSP';
+  }
+
+  bool _hasProjectToolchainOverride() {
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    if (projectLanguage == 'mixed' || projectLanguage == 'plaintext') {
+      return false;
+    }
+    return widget.projectSdkPath.trim().isNotEmpty ||
+        widget.projectLspPath.trim().isNotEmpty;
+  }
+
+  String _projectToolchainStatusLabel(BuildContext context, String filePath) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    final hasOverride = _hasProjectToolchainOverride();
+    final isResolving =
+        _lspBackendLoadingFiles.contains(filePath) &&
+        _lspResolutionForFile(filePath) == null;
+    if (isResolving && hasOverride) {
+      return isZh ? '项目重绑' : 'Rebinding';
+    }
+    if (isResolving) {
+      return isZh ? '解析中' : 'Resolving';
+    }
+    if (projectLanguage == 'mixed') {
+      return isZh ? '混合模式' : 'Mixed';
+    }
+    if (hasOverride) {
+      return isZh ? '项目覆盖' : 'Project';
+    }
+    return isZh ? '全局默认' : 'Global';
+  }
+
+  Color _projectToolchainStatusColor(ColorScheme colorScheme, String filePath) {
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    final hasOverride = _hasProjectToolchainOverride();
+    final isResolving =
+        _lspBackendLoadingFiles.contains(filePath) &&
+        _lspResolutionForFile(filePath) == null;
+    if (isResolving) {
+      return colorScheme.primary;
+    }
+    if (hasOverride) {
+      return colorScheme.primary;
+    }
+    if (projectLanguage == 'mixed') {
+      return colorScheme.tertiary;
+    }
+    return colorScheme.onSurfaceVariant;
+  }
+
+  String _projectToolchainStatusTooltip(BuildContext context, String filePath) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    final hasOverride = _hasProjectToolchainOverride();
+    final isResolving =
+        _lspBackendLoadingFiles.contains(filePath) &&
+        _lspResolutionForFile(filePath) == null;
+    if (isResolving && hasOverride) {
+      return isZh
+          ? '项目级 SDK / LSP 覆盖刚刚更新，当前文件正在重新绑定后端。'
+          : 'Project-level SDK / LSP overrides were updated and the current file is rebinding its backend.';
+    }
+    if (projectLanguage == 'mixed') {
+      return isZh
+          ? '混合模式下会按文件类型自动识别语言，并继续使用全局的按语言配置。点击展开来源树可查看当前文件命中的语言映射。'
+          : 'Mixed mode auto-detects the language per file and continues using the global per-language mappings. Expand the panel to inspect which mapping was matched for the current file.';
+    }
+    if (hasOverride) {
+      return isZh
+          ? '当前项目对 SDK 或 LSP 路径做了覆盖，点击展开项目级生效面板与来源树。'
+          : 'The current project overrides the SDK or LSP root. Click to expand the project-level status panel and source tree.';
+    }
+    return isZh
+        ? '当前项目没有单独覆盖，点击展开当前继承关系和全局映射命中来源。'
+        : 'This project has no dedicated override. Click to expand the current inheritance details and the matched global mapping.';
+  }
+
+  void _toggleProjectToolchainBar() {
+    final shouldOpen = !_projectToolchainBarVisible;
+    setState(() {
+      _projectToolchainBarVisible = shouldOpen;
+      if (shouldOpen) {
+        _findBarVisible = false;
+        _replaceBarVisible = false;
+        _goToLineVisible = false;
+        _symbolBarVisible = false;
+        _diagnosticsBarVisible = false;
+        _lspResultBarVisible = false;
+      }
+    });
+    if (shouldOpen) {
+      unawaited(
+        _ensureLspBackend(
+          widget.activeFilePath,
+          force: _lspResolutionForFile(widget.activeFilePath) == null,
+        ),
+      );
+    }
+  }
+
+  Color _lspBackendStatusColor(ColorScheme colorScheme, String filePath) {
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return colorScheme.primary;
+    }
+    if (resolution == null) {
+      return colorScheme.onSurfaceVariant;
+    }
+    if (resolution.isAvailable) {
+      return colorScheme.onSurfaceVariant;
+    }
+    return resolution.availability ==
+            AiLspBackendAvailability.executableNotFound
+        ? colorScheme.error
+        : colorScheme.onSurfaceVariant;
+  }
+
+  Color _lspActionColor(ColorScheme colorScheme, String filePath) {
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return colorScheme.primary;
+    }
+    if (resolution?.isAvailable == true) {
+      return colorScheme.onSurfaceVariant;
+    }
+    return colorScheme.onSurfaceVariant.withValues(alpha: 0.55);
+  }
+
+  String _displayPathForFilePath(String filePath) {
+    final activeRoot = _lspResolutionForFile(widget.activeFilePath)?.rootPath;
+    if (activeRoot != null && activeRoot.isNotEmpty) {
+      try {
+        final relative = p.relative(filePath, from: activeRoot);
+        if (!relative.startsWith('..')) {
+          return relative;
+        }
+      } catch (_) {}
+    }
+    final inferredRoot = _inferWorkspaceRoot(widget.activeFilePath);
+    try {
+      final relative = p.relative(filePath, from: inferredRoot);
+      if (!relative.startsWith('..')) {
+        return relative;
+      }
+    } catch (_) {}
+    return filePath;
+  }
+
+  String _displayPathForLspLocation(AiLspLocation location) {
+    return _displayPathForFilePath(location.filePath);
+  }
+
+  Future<void> _showLspBackendStatusForActiveFile() async {
+    final title = _localizedText(context, zh: 'LSP 后端', en: 'LSP Backend');
+    _showLspLoading(title);
+    try {
+      final resolution = await _ensureLspBackend(
+        widget.activeFilePath,
+        force: true,
+      );
+      if (!mounted) {
+        return;
+      }
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
+      if (!resolution.isAvailable) {
+        _showLspMessage(
+          title: title,
+          message: _lspUnavailableMessage(resolution),
+        );
+        return;
+      }
+      final command = <String>[
+        resolution.executablePath ?? resolution.executable ?? '',
+        ...resolution.arguments,
+      ].where((item) => item.trim().isNotEmpty).join(' ');
+      final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+      final hasProjectOverride = _hasProjectToolchainOverride();
+      final lspSourceLine = widget.projectLspPath.trim().isNotEmpty
+          ? (isZh
+                ? 'LSP 根路径来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})'
+                : 'LSP root source: project override (${OpenHandPaths.shortenHomePath(widget.projectLspPath)})')
+          : resolution.configuredInstallRoot?.trim().isNotEmpty == true
+          ? (isZh
+                ? 'LSP 根路径来源：已保存配置 (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})'
+                : 'LSP root source: saved mapping (${OpenHandPaths.shortenHomePath(resolution.configuredInstallRoot!)})')
+          : (isZh
+                ? 'LSP 根路径来源：PATH 自动探测'
+                : 'LSP root source: PATH auto-detection');
+      final sdkSourceLine = widget.projectSdkPath.trim().isNotEmpty
+          ? (isZh
+                ? 'SDK 来源：项目覆盖 (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})'
+                : 'SDK source: project override (${OpenHandPaths.shortenHomePath(widget.projectSdkPath)})')
+          : (isZh
+                ? 'SDK 来源：全局配置或系统默认'
+                : 'SDK source: global mapping or system default');
+      final modeLine = projectLanguage == 'mixed'
+          ? (isZh
+                ? '项目模式：混合语言，按文件后缀自动选择语言后端'
+                : 'Project mode: mixed language, resolve the backend per file type')
+          : hasProjectOverride
+          ? (isZh
+                ? '项目模式：项目级工具链覆盖已启用'
+                : 'Project mode: project-level toolchain override enabled')
+          : (isZh
+                ? '项目模式：继续使用全局按语言配置'
+                : 'Project mode: using the global per-language mapping');
+      _showLspMessage(
+        title: title,
+        message: _localizedText(
+          context,
+          zh: '当前文件已解析到 ${resolution.displayName ?? resolution.backendId ?? 'LSP'}。\n项目语言：${_programmingLanguageLabel(context, widget.projectLanguage)}\n当前文件语言：${_programmingLanguageLabel(context, resolution.language)}\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：${resolution.rootPath}\n命令：$command',
+          en: 'Resolved ${resolution.displayName ?? resolution.backendId ?? 'LSP'} for the current file.\nProject language: ${_programmingLanguageLabel(context, widget.projectLanguage)}\nCurrent file language: ${_programmingLanguageLabel(context, resolution.language)}\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: ${resolution.rootPath}\nCommand: $command',
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Widget _buildProjectToolchainInfoRow({
+    required ColorScheme colorScheme,
+    required String label,
+    required String value,
+    Color? valueColor,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                color: valueColor ?? colorScheme.onSurface,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _languageMappingEntryLabel(BuildContext context, String language) {
+    final normalizedLanguage = normalizeAiLspLanguage(language);
+    return '${_programmingLanguageLabel(context, normalizedLanguage)} ($normalizedLanguage)';
+  }
+
+  Color _projectToolchainTreeToneColor(
+    ColorScheme colorScheme,
+    _ProjectToolchainTreeNodeTone tone,
+  ) {
+    return switch (tone) {
+      _ProjectToolchainTreeNodeTone.active => colorScheme.primary,
+      _ProjectToolchainTreeNodeTone.info => colorScheme.tertiary,
+      _ProjectToolchainTreeNodeTone.muted => colorScheme.onSurfaceVariant,
+      _ProjectToolchainTreeNodeTone.warning => colorScheme.error,
+      _ProjectToolchainTreeNodeTone.success => const Color(0xFF2E7D32),
+    };
+  }
+
+  _ProjectToolchainTreeNode _projectToolchainLeafNode({
+    required String title,
+    required String description,
+    required _ProjectToolchainTreeNodeTone tone,
+    IconData icon = Icons.subdirectory_arrow_right_rounded,
+    String? badge,
+  }) {
+    return _ProjectToolchainTreeNode(
+      title: title,
+      description: description,
+      tone: tone,
+      icon: icon,
+      badge: badge,
+    );
+  }
+
+  _ProjectToolchainTreeNode _projectToolchainSourceTree({
+    required SettingsController settingsController,
+    required bool isZh,
+    required String filePath,
+    required AiLspBackendResolution? resolution,
+  }) {
+    final effectiveFileLanguage = normalizeAiLspLanguage(
+      _resolvedLanguageForFile(filePath),
+    );
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    final projectOverrideSettings =
+        _projectLspOverrideSettings()[projectLanguage] ??
+        const AiLspLanguageSettings();
+    final projectOverrideTargetsCurrentFile =
+        projectLanguage != 'mixed' &&
+        projectLanguage != 'plaintext' &&
+        effectiveFileLanguage == projectLanguage;
+    final globalSettings = settingsController.editorLspSettingsForLanguage(
+      effectiveFileLanguage,
+    );
+    final projectNode = switch (projectLanguage) {
+      'mixed' => _ProjectToolchainTreeNode(
+        title: isZh ? '项目层' : 'Project layer',
+        description: isZh
+            ? '当前项目处于混合语言模式，不会把整个项目固定到单一语言；这个文件会继续使用 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。'
+            : 'The project is in mixed-language mode, so it does not pin the whole workspace to a single language. This file continues with the global ${_languageMappingEntryLabel(context, effectiveFileLanguage)} mapping.',
+        tone: _ProjectToolchainTreeNodeTone.info,
+        icon: Icons.layers_rounded,
+        badge: isZh ? 'Mixed' : 'Mixed',
+      ),
+      _ when !projectOverrideTargetsCurrentFile => _ProjectToolchainTreeNode(
+        title: isZh ? '项目层' : 'Project layer',
+        description: isZh
+            ? '项目层当前只覆盖 ${_languageMappingEntryLabel(context, projectLanguage)}，而这个文件命中的是 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}，所以项目级 SDK / LSP 覆盖不会参与。'
+            : 'The project layer currently targets ${_languageMappingEntryLabel(context, projectLanguage)}, while this file resolves to ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so project-level SDK / LSP overrides do not participate.',
+        tone: _ProjectToolchainTreeNodeTone.muted,
+        icon: Icons.layers_rounded,
+        badge: isZh ? '未命中' : 'No Match',
+        children: <_ProjectToolchainTreeNode>[
+          _projectToolchainLeafNode(
+            title: isZh ? '项目语言' : 'Project language',
+            description: _languageMappingEntryLabel(context, projectLanguage),
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.flag_rounded,
+          ),
+        ],
+      ),
+      _ when projectOverrideSettings.isEmpty => _ProjectToolchainTreeNode(
+        title: isZh ? '项目层' : 'Project layer',
+        description: isZh
+            ? '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，但当前项目没有额外保存 SDK / LSP 覆盖。'
+            : 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, but this project does not save an extra SDK / LSP override.',
+        tone: _ProjectToolchainTreeNodeTone.muted,
+        icon: Icons.layers_rounded,
+        badge: isZh ? '跟随全局' : 'Follow Global',
+        children: <_ProjectToolchainTreeNode>[
+          _projectToolchainLeafNode(
+            title: 'SDK',
+            description: isZh
+                ? '未覆盖，继续跟随全局配置或系统默认。'
+                : 'Not overridden, so it continues with the global mapping or the system default.',
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.developer_board_rounded,
+          ),
+          _projectToolchainLeafNode(
+            title: 'LSP Root',
+            description: isZh
+                ? '未覆盖，继续跟随全局映射或 PATH 自动探测。'
+                : 'Not overridden, so it continues with the global mapping or PATH auto-detection.',
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.settings_ethernet_rounded,
+          ),
+        ],
+      ),
+      _ => _ProjectToolchainTreeNode(
+        title: isZh ? '项目层' : 'Project layer',
+        description: isZh
+            ? '项目层已命中 ${_languageMappingEntryLabel(context, projectLanguage)}，当前文件会优先检查项目级 SDK / LSP 覆盖。'
+            : 'The project layer matched ${_languageMappingEntryLabel(context, projectLanguage)}, so the current file checks the project-level SDK / LSP overrides first.',
+        tone: _ProjectToolchainTreeNodeTone.active,
+        icon: Icons.layers_rounded,
+        badge: isZh ? '项目覆盖' : 'Project Override',
+        children: <_ProjectToolchainTreeNode>[
+          _projectToolchainLeafNode(
+            title: 'SDK',
+            description: projectOverrideSettings.sdkPath.trim().isNotEmpty
+                ? OpenHandPaths.shortenHomePath(projectOverrideSettings.sdkPath)
+                : (isZh
+                      ? '未覆盖，继续跟随全局配置或系统默认。'
+                      : 'Not overridden, so it continues with the global mapping or the system default.'),
+            tone: projectOverrideSettings.sdkPath.trim().isNotEmpty
+                ? _ProjectToolchainTreeNodeTone.active
+                : _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.developer_board_rounded,
+          ),
+          _projectToolchainLeafNode(
+            title: 'LSP Root',
+            description: projectOverrideSettings.rootPath.trim().isNotEmpty
+                ? OpenHandPaths.shortenHomePath(
+                    projectOverrideSettings.rootPath,
+                  )
+                : (isZh
+                      ? '未覆盖，继续跟随全局映射或 PATH 自动探测。'
+                      : 'Not overridden, so it continues with the global mapping or PATH auto-detection.'),
+            tone: projectOverrideSettings.rootPath.trim().isNotEmpty
+                ? _ProjectToolchainTreeNodeTone.active
+                : _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.settings_ethernet_rounded,
+          ),
+        ],
+      ),
+    };
+
+    final globalBackend = globalSettings.backendId.trim().isNotEmpty
+        ? (aiLspBackendById(globalSettings.backendId.trim())?.displayName ??
+              globalSettings.backendId.trim())
+        : (isZh
+              ? '未固定，按该语言默认后端自动选择'
+              : 'Not pinned, using the default backend for this language');
+    final globalNode = globalSettings.isEmpty
+        ? _ProjectToolchainTreeNode(
+            title: isZh ? '全局语言映射' : 'Global mapping',
+            description: isZh
+                ? '没有保存 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射，后续会继续回退到 PATH / 系统默认。'
+                : 'There is no saved global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}, so resolution continues to PATH / system defaults.',
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.hub_rounded,
+            badge: isZh ? '回退' : 'Fallback',
+          )
+        : _ProjectToolchainTreeNode(
+            title: isZh ? '全局语言映射' : 'Global mapping',
+            description: isZh
+                ? '已命中 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 的全局映射。'
+                : 'Matched the global mapping for ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+            tone: _ProjectToolchainTreeNodeTone.info,
+            icon: Icons.hub_rounded,
+            badge: isZh ? '已命中' : 'Matched',
+            children: <_ProjectToolchainTreeNode>[
+              _projectToolchainLeafNode(
+                title: isZh ? '后端' : 'Backend',
+                description: globalBackend,
+                tone: _ProjectToolchainTreeNodeTone.info,
+                icon: Icons.memory_rounded,
+              ),
+              _projectToolchainLeafNode(
+                title: 'SDK',
+                description: globalSettings.sdkPath.trim().isNotEmpty
+                    ? OpenHandPaths.shortenHomePath(globalSettings.sdkPath)
+                    : (isZh
+                          ? '未配置，继续跟随系统默认。'
+                          : 'Not configured, so it continues with the system default.'),
+                tone: globalSettings.sdkPath.trim().isNotEmpty
+                    ? _ProjectToolchainTreeNodeTone.info
+                    : _ProjectToolchainTreeNodeTone.muted,
+                icon: Icons.developer_board_rounded,
+              ),
+              _projectToolchainLeafNode(
+                title: 'LSP Root',
+                description: globalSettings.rootPath.trim().isNotEmpty
+                    ? OpenHandPaths.shortenHomePath(globalSettings.rootPath)
+                    : (isZh
+                          ? '未配置，继续从 PATH 自动探测。'
+                          : 'Not configured, so it continues with PATH auto-detection.'),
+                tone: globalSettings.rootPath.trim().isNotEmpty
+                    ? _ProjectToolchainTreeNodeTone.info
+                    : _ProjectToolchainTreeNodeTone.muted,
+                icon: Icons.settings_ethernet_rounded,
+              ),
+              if (globalSettings.version.trim().isNotEmpty)
+                _projectToolchainLeafNode(
+                  title: isZh ? '版本' : 'Version',
+                  description: globalSettings.version.trim(),
+                  tone: _ProjectToolchainTreeNodeTone.info,
+                  icon: Icons.sell_rounded,
+                ),
+            ],
+          );
+
+    final finalNode = switch (resolution) {
+      null => _ProjectToolchainTreeNode(
+        title: isZh ? '最终解析' : 'Final resolution',
+        description: isZh
+            ? '正在等待当前文件的后端解析结果。'
+            : 'Waiting for the backend resolution of the current file.',
+        tone: _ProjectToolchainTreeNodeTone.info,
+        icon: Icons.route_rounded,
+        badge: isZh ? '等待中' : 'Pending',
+      ),
+      final resolved when !resolved.isAvailable => _ProjectToolchainTreeNode(
+        title: isZh ? '最终解析' : 'Final resolution',
+        description: isZh
+            ? '在 ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'} 中未找到 ${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'}。'
+            : '${resolved.displayName ?? resolved.backendId ?? resolved.executable ?? 'LSP'} was not found in ${resolved.configuredInstallRoot?.trim().isNotEmpty == true ? OpenHandPaths.shortenHomePath(resolved.configuredInstallRoot!) : 'PATH'}.',
+        tone: _ProjectToolchainTreeNodeTone.warning,
+        icon: Icons.route_rounded,
+        badge: isZh ? '未找到' : 'Missing',
+        children: <_ProjectToolchainTreeNode>[
+          _projectToolchainLeafNode(
+            title: isZh ? '工作区' : 'Workspace',
+            description: OpenHandPaths.shortenHomePath(resolved.rootPath),
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.folder_open_rounded,
+          ),
+          _projectToolchainLeafNode(
+            title: isZh ? '命令名' : 'Command',
+            description: resolved.executable ?? 'LSP',
+            tone: _ProjectToolchainTreeNodeTone.warning,
+            icon: Icons.terminal_rounded,
+          ),
+        ],
+      ),
+      final resolved => _ProjectToolchainTreeNode(
+        title: isZh ? '最终解析' : 'Final resolution',
+        description: resolved.configuredInstallRoot?.trim().isNotEmpty == true
+            ? (isZh
+                  ? '已从 ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? '项目级 LSP 根路径'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? '全局 ${_languageMappingEntryLabel(context, effectiveFileLanguage)} 映射'
+                        : '已配置 LSP 根路径'} 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。'
+                  : 'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from ${widget.projectLspPath.trim().isNotEmpty && projectOverrideTargetsCurrentFile
+                        ? 'the project LSP root'
+                        : globalSettings.rootPath.trim().isNotEmpty
+                        ? 'the global ${_languageMappingEntryLabel(context, effectiveFileLanguage)} mapping'
+                        : 'the configured LSP root'}.')
+            : (isZh
+                  ? '已通过 PATH 解析到 ${resolved.displayName ?? resolved.backendId ?? 'LSP'}。'
+                  : 'Resolved ${resolved.displayName ?? resolved.backendId ?? 'LSP'} from PATH.'),
+        tone: _ProjectToolchainTreeNodeTone.success,
+        icon: Icons.route_rounded,
+        badge: resolved.configuredInstallRoot?.trim().isNotEmpty == true
+            ? (isZh ? '已绑定' : 'Bound')
+            : 'PATH',
+        children: <_ProjectToolchainTreeNode>[
+          _projectToolchainLeafNode(
+            title: isZh ? '工作区' : 'Workspace',
+            description: OpenHandPaths.shortenHomePath(resolved.rootPath),
+            tone: _ProjectToolchainTreeNodeTone.muted,
+            icon: Icons.folder_open_rounded,
+          ),
+          _projectToolchainLeafNode(
+            title: isZh ? '可执行文件' : 'Executable',
+            description: OpenHandPaths.shortenHomePath(
+              resolved.executablePath?.trim().isNotEmpty == true
+                  ? resolved.executablePath!
+                  : (resolved.executable ?? ''),
+            ),
+            tone: _ProjectToolchainTreeNodeTone.success,
+            icon: Icons.memory_rounded,
+          ),
+        ],
+      ),
+    };
+
+    return _ProjectToolchainTreeNode(
+      title: isZh ? '当前文件' : 'Current file',
+      description: isZh
+          ? '${p.basename(filePath)} 当前识别为 ${_languageMappingEntryLabel(context, effectiveFileLanguage)}。'
+          : '${p.basename(filePath)} currently resolves as ${_languageMappingEntryLabel(context, effectiveFileLanguage)}.',
+      tone: _ProjectToolchainTreeNodeTone.active,
+      icon: Icons.insert_drive_file_rounded,
+      badge: isZh ? '当前上下文' : 'Current Context',
+      children: <_ProjectToolchainTreeNode>[projectNode, globalNode, finalNode],
+    );
+  }
+
+  Widget _buildProjectToolchainSourceTreeNode({
+    required ColorScheme colorScheme,
+    required _ProjectToolchainTreeNode node,
+  }) {
+    final accentColor = _projectToolchainTreeToneColor(colorScheme, node.tone);
+    final backgroundOpacity = switch (node.tone) {
+      _ProjectToolchainTreeNodeTone.active => 0.10,
+      _ProjectToolchainTreeNodeTone.info => 0.08,
+      _ProjectToolchainTreeNodeTone.muted => 0.05,
+      _ProjectToolchainTreeNodeTone.warning => 0.10,
+      _ProjectToolchainTreeNodeTone.success => 0.08,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: backgroundOpacity),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.18),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                alignment: Alignment.center,
+                child: Icon(node.icon, size: 13, color: accentColor),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            node.title,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                        if (node.badge?.trim().isNotEmpty == true)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accentColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              node.badge!,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: accentColor,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      node.description,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.45,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (node.children.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(left: 18, top: 8),
+            padding: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = 0; index < node.children.length; index++) ...[
+                  _buildProjectToolchainSourceTreeNode(
+                    colorScheme: colorScheme,
+                    node: node.children[index],
+                  ),
+                  if (index < node.children.length - 1)
+                    const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildProjectToolchainBar(ColorScheme colorScheme) {
+    if (!_projectToolchainBarVisible) {
+      return const SizedBox.shrink();
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final settingsController = context.watch<SettingsController>();
+    final filePath = widget.activeFilePath;
+    final resolution = _lspResolutionForFile(filePath);
+    final projectLanguage = normalizeAiLspLanguage(widget.projectLanguage);
+    final effectiveFileLanguage = _resolvedLanguageForFile(filePath);
+    final hasProjectOverride = _hasProjectToolchainOverride();
+    final isResolving =
+        _lspBackendLoadingFiles.contains(filePath) && resolution == null;
+    final sdkValue = widget.projectSdkPath.trim().isNotEmpty
+        ? OpenHandPaths.shortenHomePath(widget.projectSdkPath)
+        : (isZh
+              ? '跟随全局配置或系统默认'
+              : 'Following the global mapping or system default');
+    final lspValue = widget.projectLspPath.trim().isNotEmpty
+        ? OpenHandPaths.shortenHomePath(widget.projectLspPath)
+        : (isZh
+              ? '跟随全局映射或 PATH 自动探测'
+              : 'Following the global mapping or PATH auto-detection');
+    final modeValue = projectLanguage == 'mixed'
+        ? (isZh
+              ? '混合语言模式，按文件类型自动选择后端'
+              : 'Mixed-language mode, resolve the backend per file type')
+        : hasProjectOverride
+        ? (isZh
+              ? '项目级 SDK / LSP 覆盖已启用'
+              : 'Project-level SDK / LSP overrides are enabled')
+        : (isZh
+              ? '未设置项目级覆盖，继续使用全局按语言配置'
+              : 'No project override is set, so the global per-language mapping is used');
+    final backendValue = resolution == null
+        ? (isZh ? '等待解析' : 'Waiting for resolution')
+        : resolution.isAvailable
+        ? (resolution.displayName ?? resolution.backendId ?? 'LSP')
+        : (isZh
+              ? '当前文件没有可用后端'
+              : 'No backend is available for the current file');
+    final sourceTree = _projectToolchainSourceTree(
+      settingsController: settingsController,
+      isZh: isZh,
+      filePath: filePath,
+      resolution: resolution,
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 320),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+          border: Border(
+            bottom: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+              width: 0.5,
+            ),
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      isZh ? '项目级 LSP 状态' : 'Project LSP Status',
+                      style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              _FindBarButton(
+                icon: Icons.refresh_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '重新解析当前文件后端',
+                  en: 'Re-resolve the backend for the current file',
+                ),
+                onPressed: () {
+                  unawaited(
+                    _ensureLspBackend(widget.activeFilePath, force: true),
+                  );
+                },
+                colorScheme: colorScheme,
+              ),
+              _FindBarButton(
+                icon: Icons.hub_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '查看后端详情',
+                  en: 'Inspect backend details',
+                ),
+                onPressed: () {
+                  unawaited(_showLspBackendStatusForActiveFile());
+                },
+                colorScheme: colorScheme,
+              ),
+              _FindBarButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '关闭 (Esc)',
+                  en: 'Close (Esc)',
+                ),
+                onPressed: () {
+                  setState(() => _projectToolchainBarVisible = false);
+                },
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (isResolving)
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isZh
+                      ? '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…'
+                      : 'Rebinding the LSP backend for the current file after the project change or config update…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: isZh ? '项目语言' : 'Project language',
+              value: _programmingLanguageLabel(context, widget.projectLanguage),
+            ),
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: isZh ? '当前文件语言' : 'Current file',
+              value: _programmingLanguageLabel(context, effectiveFileLanguage),
+            ),
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: isZh ? '模式' : 'Mode',
+              value: modeValue,
+              valueColor: hasProjectOverride
+                  ? colorScheme.primary
+                  : colorScheme.onSurface,
+            ),
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: 'SDK',
+              value: sdkValue,
+              valueColor: widget.projectSdkPath.trim().isNotEmpty
+                  ? colorScheme.primary
+                  : colorScheme.onSurface,
+            ),
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: 'LSP',
+              value: lspValue,
+              valueColor: widget.projectLspPath.trim().isNotEmpty
+                  ? colorScheme.primary
+                  : colorScheme.onSurface,
+            ),
+            _buildProjectToolchainInfoRow(
+              colorScheme: colorScheme,
+              label: isZh ? '当前后端' : 'Effective backend',
+              value: backendValue,
+              valueColor: resolution?.isAvailable == true
+                  ? colorScheme.onSurface
+                  : (resolution == null
+                        ? colorScheme.onSurfaceVariant
+                        : colorScheme.error),
+            ),
+            if (resolution?.isAvailable == true)
+              _buildProjectToolchainInfoRow(
+                colorScheme: colorScheme,
+                label: isZh ? '工作区' : 'Workspace',
+                value: OpenHandPaths.shortenHomePath(resolution!.rootPath),
+              ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLowest.withValues(
+                  alpha: 0.92,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isZh ? '来源树' : 'Source Tree',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _buildProjectToolchainSourceTreeNode(
+                    colorScheme: colorScheme,
+                    node: sourceTree,
+                  ),
+                ],
+              ),
+            ),
+            if (resolution != null && !resolution.isAvailable)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: _buildDiagnosticsHint(
+                  colorScheme,
+                  _lspUnavailableMessage(resolution),
+                ),
+              ),
+          ],
+        ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _goToLine(String input) {
+    final lineNum = int.tryParse(input.trim());
+    if (lineNum == null || lineNum < 1) return;
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) return;
+    final targetLine = lineNum.clamp(1, controller.lineCount);
+    _jumpToLineColumn(targetLine);
+    setState(() => _goToLineVisible = false);
+  }
+
+  // ── Cursor position tracking ──
+
+  void _updateCursorPosition(_HighlightingTextController controller) {
+    final offset = controller.selection.baseOffset;
+    if (offset < 0) return;
+    final text = controller.text;
+    var line = 1;
+    var col = 1;
+    for (var i = 0; i < offset && i < text.length; i++) {
+      if (text.codeUnitAt(i) == 10) {
+        line++;
+        col = 1;
+      } else {
+        col++;
+      }
+    }
+    if (_cursorLine != line || _cursorColumn != col) {
+      setState(() {
+        _cursorLine = line;
+        _cursorColumn = col;
+      });
+    }
+  }
+
+  // ── Find / Replace bar UI ──
+
+  Widget _buildFindBar(ColorScheme colorScheme) {
+    if (!_findBarVisible) return const SizedBox.shrink();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final matchLabel = _findMatchOffsets.isEmpty
+        ? ''
+        : '${_currentMatchIndex + 1}/${_findMatchOffsets.length}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Search row ──
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: TextField(
+                    controller: _findController,
+                    focusNode: _findFocusNode,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: isZh ? '查找' : 'Find',
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: colorScheme.primary),
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.surface,
+                    ),
+                    onChanged: _updateFindMatches,
+                    onSubmitted: (_) => _findNext(),
+                  ),
+                ),
+              ),
+              if (matchLabel.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    matchLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              _FindBarButton(
+                icon: Icons.keyboard_arrow_up_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '上一个结果',
+                  en: 'Previous Match',
+                ),
+                onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
+                colorScheme: colorScheme,
+              ),
+              _FindBarButton(
+                icon: Icons.keyboard_arrow_down_rounded,
+                tooltip: _localizedText(context, zh: '下一个结果', en: 'Next Match'),
+                onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
+                colorScheme: colorScheme,
+              ),
+              _FindBarButton(
+                icon: Icons.font_download_rounded,
+                tooltip: _localizedText(context, zh: '区分大小写', en: 'Match Case'),
+                isActive: _findCaseSensitive,
+                onPressed: () {
+                  setState(() => _findCaseSensitive = !_findCaseSensitive);
+                  _updateFindMatches(_findController.text);
+                },
+                colorScheme: colorScheme,
+              ),
+              if (!_replaceBarVisible)
+                _FindBarButton(
+                  icon: Icons.find_replace_rounded,
+                  tooltip: _localizedText(
+                    context,
+                    zh: '显示替换',
+                    en: 'Show Replace',
+                  ),
+                  onPressed: () => setState(() => _replaceBarVisible = true),
+                  colorScheme: colorScheme,
+                ),
+              _FindBarButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '关闭 (Esc)',
+                  en: 'Close (Esc)',
+                ),
+                onPressed: _hideFindBar,
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+          // ── Replace row ──
+          if (_replaceBarVisible) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 30,
+                    child: TextField(
+                      controller: _replaceController,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurface,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: isZh ? '替换' : 'Replace',
+                        hintStyle: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                            color: colorScheme.outline.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(
+                            color: colorScheme.outline.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: colorScheme.primary),
+                        ),
+                        filled: true,
+                        fillColor: colorScheme.surface,
+                      ),
+                      onSubmitted: (_) => _replaceCurrent(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _FindBarButton(
+                  icon: Icons.find_replace_rounded,
+                  tooltip: _localizedText(
+                    context,
+                    zh: '替换当前结果',
+                    en: 'Replace Current',
+                  ),
+                  onPressed: _findMatchOffsets.isEmpty ? null : _replaceCurrent,
+                  colorScheme: colorScheme,
+                ),
+                _FindBarButton(
+                  icon: Icons.done_all_rounded,
+                  tooltip: _localizedText(
+                    context,
+                    zh: '全部替换',
+                    en: 'Replace All',
+                  ),
+                  onPressed: _findMatchOffsets.isEmpty ? null : _replaceAll,
+                  colorScheme: colorScheme,
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Go-to-Line bar UI ──
+
+  Widget _buildGoToLineBar(ColorScheme colorScheme) {
+    if (!_goToLineVisible) return const SizedBox.shrink();
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text(
+            isZh ? '跳转到行:' : 'Go to Line:',
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 100,
+            height: 30,
+            child: TextField(
+              controller: _goToLineController,
+              focusNode: _goToLineFocusNode,
+              keyboardType: TextInputType.number,
+              style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: colorScheme.primary),
+                ),
+                filled: true,
+                fillColor: colorScheme.surface,
+              ),
+              onSubmitted: (val) => _goToLine(val),
+            ),
+          ),
+          const SizedBox(width: 4),
+          _FindBarButton(
+            icon: Icons.close_rounded,
+            tooltip: _localizedText(context, zh: '关闭 (Esc)', en: 'Close (Esc)'),
+            onPressed: () => setState(() => _goToLineVisible = false),
+            colorScheme: colorScheme,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSymbolBar(ColorScheme colorScheme) {
+    if (!_symbolBarVisible) {
+      return const SizedBox.shrink();
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final symbolCountLabel = _allSymbols.isEmpty
+        ? ''
+        : '${_visibleSymbols.length}/${_allSymbols.length}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 30,
+                  child: TextField(
+                    controller: _symbolController,
+                    focusNode: _symbolFocusNode,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: _workspaceSymbolMode
+                          ? (isZh ? '搜索工作区符号' : 'Search Workspace Symbols')
+                          : (isZh ? '跳转到符号' : 'Go to Symbol'),
+                      hintStyle: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(
+                          color: colorScheme.outline.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: colorScheme.primary),
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.surface,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              _FindBarButton(
+                icon: Icons.article_outlined,
+                tooltip: _localizedText(
+                  context,
+                  zh: '当前文件符号',
+                  en: 'Current File Symbols',
+                ),
+                onPressed: _workspaceSymbolMode
+                    ? () => _setSymbolSearchMode(false)
+                    : null,
+                colorScheme: colorScheme,
+                isActive: !_workspaceSymbolMode,
+              ),
+              _FindBarButton(
+                icon: Icons.travel_explore_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '工作区符号',
+                  en: 'Workspace Symbols',
+                ),
+                onPressed: _workspaceSymbolMode
+                    ? null
+                    : () => _setSymbolSearchMode(true),
+                colorScheme: colorScheme,
+                isActive: _workspaceSymbolMode,
+              ),
+              if (_symbolsLoading)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          (_symbolsUsingLsp
+                                  ? colorScheme.primaryContainer
+                                  : colorScheme.surfaceContainerLowest)
+                              .withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _workspaceSymbolMode
+                          ? 'WS'
+                          : _symbolsUsingLsp
+                          ? 'LSP'
+                          : (isZh ? '本地' : 'Local'),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: _symbolsUsingLsp
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              if (symbolCountLabel.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Text(
+                    symbolCountLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              _FindBarButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '关闭 (Esc)',
+                  en: 'Close (Esc)',
+                ),
+                onPressed: _hideSymbolBar,
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (_symbolsLoading && _allSymbols.isEmpty)
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isZh ? '正在加载符号列表…' : 'Loading symbols…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            )
+          else if (_visibleSymbols.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                _allSymbols.isEmpty
+                    ? (_workspaceSymbolMode
+                          ? (isZh
+                                ? '输入关键词后可跨文件搜索工作区符号'
+                                : 'Type a query to search workspace symbols across files')
+                          : (isZh
+                                ? '当前文件未提取到可导航符号'
+                                : 'No navigable symbols found in this file'))
+                    : (_workspaceSymbolMode
+                          ? (isZh
+                                ? '没有匹配的工作区符号'
+                                : 'No matching workspace symbols')
+                          : (isZh ? '没有匹配的符号' : 'No matching symbols')),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 190),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _visibleSymbols.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+                ),
+                itemBuilder: (context, index) {
+                  final symbol = _visibleSymbols[index];
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        unawaited(_navigateToEditorSymbol(symbol));
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            if (symbol.depth > 0)
+                              SizedBox(
+                                width: math.min(symbol.depth * 12.0, 36.0),
+                              ),
+                            Icon(
+                              _symbolKindIcon(symbol.kind),
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    symbol.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  if (_workspaceSymbolMode ||
+                                      symbol.filePath != widget.activeFilePath)
+                                    Text(
+                                      _displayPathForFilePath(symbol.filePath),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.primary,
+                                        fontFamily: 'SF Mono, Menlo, monospace',
+                                      ),
+                                    ),
+                                  Text(
+                                    symbol.signature,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${symbol.line}:${symbol.column}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurfaceVariant,
+                                fontFamily: 'SF Mono, Menlo, monospace',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          if (_symbolHintMessage != null)
+            Padding(
+              padding: EdgeInsets.only(
+                top: _symbolsTruncated ? 0 : 6,
+                bottom: _symbolsTruncated ? 6 : 0,
+              ),
+              child: _buildDiagnosticsHint(colorScheme, _symbolHintMessage!),
+            ),
+          if (_symbolsTruncated)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                isZh
+                    ? '符号列表已做性能截断，仅展示前部结果。'
+                    : 'The symbol list was truncated for performance.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsBar(ColorScheme colorScheme) {
+    if (!_diagnosticsBarVisible) {
+      return const SizedBox.shrink();
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final filePath = widget.activeFilePath;
+    final resolution = _lspResolutionForFile(filePath);
+    final supportsDiagnostics = _supportsDiagnosticsForFile(filePath);
+    final diagnostics =
+        _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
+    final isLoading = _diagnosticsLoadingFiles.contains(filePath);
+    final isResolvingBackend =
+        _lspBackendLoadingFiles.contains(filePath) && resolution == null;
+    final isStale =
+        _fileDirty[filePath] == true ||
+        _diagnosticsStaleFiles.contains(filePath);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isZh ? '代码诊断' : 'Diagnostics',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              if (supportsDiagnostics)
+                _FindBarButton(
+                  icon: Icons.refresh_rounded,
+                  tooltip: _localizedText(
+                    context,
+                    zh: '刷新诊断',
+                    en: 'Refresh diagnostics',
+                  ),
+                  onPressed: isLoading
+                      ? null
+                      : () => _refreshDiagnostics(filePath),
+                  colorScheme: colorScheme,
+                ),
+              _FindBarButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '关闭 (Esc)',
+                  en: 'Close (Esc)',
+                ),
+                onPressed: () => setState(() => _diagnosticsBarVisible = false),
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (isResolvingBackend)
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isZh ? '正在连接 LSP 后端…' : 'Resolving LSP backend…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            )
+          else if (!supportsDiagnostics)
+            _buildDiagnosticsHint(
+              colorScheme,
+              _diagnosticsUnavailableMessage(filePath),
+            )
+          else if (isLoading)
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isZh ? '正在等待 LSP 诊断结果…' : 'Waiting for LSP diagnostics…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            if (isStale)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _buildDiagnosticsHint(
+                  colorScheme,
+                  isZh
+                      ? '编辑内容已经变化，诊断会按当前文本继续刷新。'
+                      : 'The editor text changed; diagnostics will keep refreshing against the current content.',
+                ),
+              ),
+            if (diagnostics.isEmpty)
+              Text(
+                isZh ? '未发现诊断问题。' : 'No diagnostics found.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 190),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: diagnostics.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+                  ),
+                  itemBuilder: (context, index) {
+                    final diagnostic = diagnostics[index];
+                    final severityColor = _diagnosticSeverityColor(
+                      colorScheme,
+                      diagnostic,
+                    );
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          _jumpToLineColumn(
+                            diagnostic.line,
+                            column: diagnostic.column,
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                diagnostic.isError
+                                    ? Icons.error_outline_rounded
+                                    : diagnostic.isWarning
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.info_outline_rounded,
+                                size: 16,
+                                color: severityColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      diagnostic.message,
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${diagnostic.code}  •  ${diagnostic.line}:${diagnostic.column}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontFamily: 'SF Mono, Menlo, monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLspResultBar(ColorScheme colorScheme) {
+    if (!_lspResultBarVisible) {
+      return const SizedBox.shrink();
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final theme = Theme.of(context);
+    final hasLocations = _lspResultLocations.isNotEmpty;
+    final hasCodeActions = _lspResultCodeActions.isNotEmpty;
+    final hover = _lspHoverResult;
+    final message = _lspResultMessage;
+    final resultCount = hasLocations
+        ? _lspResultLocations.length
+        : hasCodeActions
+        ? _lspResultCodeActions.length
+        : 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _lspResultTitle,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (resultCount > 0) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '($resultCount)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              _FindBarButton(
+                icon: Icons.close_rounded,
+                tooltip: _localizedText(
+                  context,
+                  zh: '关闭 (Esc)',
+                  en: 'Close (Esc)',
+                ),
+                onPressed: _hideLspResultBar,
+                colorScheme: colorScheme,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          if (_lspResultPreviewLoading && hasLocations)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _buildDiagnosticsHint(
+                colorScheme,
+                isZh
+                    ? '正在加载结果附近的代码上下文…'
+                    : 'Loading code context around the current results...',
+              ),
+            ),
+          if (_lspResultLoading)
+            Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isZh ? '正在执行 LSP 请求…' : 'Running LSP request…',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            if (message != null) ...[
+              _buildDiagnosticsHint(colorScheme, message),
+              if (hover != null || hasLocations || hasCodeActions)
+                const SizedBox(height: 8),
+            ],
+            if (hover != null)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: SingleChildScrollView(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerLowest.withValues(
+                        alpha: 0.9,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.2,
+                        ),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: hover.markdown?.trim().isNotEmpty == true
+                        ? _SafeMarkdownBody(
+                            data: hover.markdown!,
+                            selectable: true,
+                            parseKey: hover.markdown!,
+                            styleSheet: _buildLspHoverMarkdownStyleSheet(
+                              theme,
+                              colorScheme,
+                            ),
+                          )
+                        : SelectableText(
+                            hover.renderedText,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.45,
+                              color: colorScheme.onSurface,
+                              fontFamily:
+                                  'JetBrains Mono, Menlo, Consolas, monospace',
+                            ),
+                          ),
+                  ),
+                ),
+              )
+            else if (hasCodeActions)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _lspResultCodeActions.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+                  ),
+                  itemBuilder: (context, index) {
+                    final action = _lspResultCodeActions[index];
+                    final isDisabled = action.isDisabled;
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: isDisabled
+                            ? null
+                            : () {
+                                unawaited(_applyCodeAction(action));
+                              },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                _codeActionIcon(action),
+                                size: 16,
+                                color: isDisabled
+                                    ? colorScheme.onSurfaceVariant.withValues(
+                                        alpha: 0.45,
+                                      )
+                                    : colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            action.title,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: isDisabled
+                                                  ? colorScheme.onSurfaceVariant
+                                                  : colorScheme.onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                        if (action.isPreferred)
+                                          Icon(
+                                            Icons.star_rounded,
+                                            size: 14,
+                                            color: colorScheme.primary,
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _codeActionSummary(action),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDisabled
+                                            ? colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.7)
+                                            : colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (hasLocations)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _lspResultLocations.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+                  ),
+                  itemBuilder: (context, index) {
+                    final location = _lspResultLocations[index];
+                    final displayPath = _displayPathForLspLocation(location);
+                    final preview =
+                        _lspResultPreviews[_locationPreviewKey(location)];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          unawaited(_navigateToLspLocation(location));
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.place_outlined,
+                                size: 16,
+                                color: colorScheme.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      p.basename(location.filePath),
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$displayPath  •  ${location.line}:${location.character}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: colorScheme.onSurfaceVariant,
+                                        fontFamily: 'SF Mono, Menlo, monospace',
+                                      ),
+                                    ),
+                                    if (preview != null) ...[
+                                      const SizedBox(height: 6),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colorScheme
+                                              .surfaceContainerLowest
+                                              .withValues(alpha: 0.9),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: colorScheme.outlineVariant
+                                                .withValues(alpha: 0.18),
+                                            width: 0.5,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            for (final line in preview.lines)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 1,
+                                                    ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 34,
+                                                      child: Text(
+                                                        '${line.lineNumber}',
+                                                        textAlign:
+                                                            TextAlign.right,
+                                                        style: TextStyle(
+                                                          fontSize: 10.5,
+                                                          color:
+                                                              line.isHighlight
+                                                              ? colorScheme
+                                                                    .primary
+                                                              : colorScheme
+                                                                    .onSurfaceVariant,
+                                                          fontFamily:
+                                                              'SF Mono, Menlo, monospace',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        line.text.isEmpty
+                                                            ? ' '
+                                                            : line.text,
+                                                        style: TextStyle(
+                                                          fontSize: 11.5,
+                                                          fontWeight:
+                                                              line.isHighlight
+                                                              ? FontWeight.w600
+                                                              : FontWeight.w400,
+                                                          color:
+                                                              line.isHighlight
+                                                              ? colorScheme
+                                                                    .onSurface
+                                                              : colorScheme
+                                                                    .onSurfaceVariant,
+                                                          fontFamily:
+                                                              'JetBrains Mono, Menlo, Consolas, monospace',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (message == null)
+              Text(
+                isZh
+                    ? '当前请求没有返回可显示内容。'
+                    : 'This request returned no displayable content.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsHint(ColorScheme colorScheme, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline_rounded, size: 14, color: colorScheme.primary),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  MarkdownStyleSheet _buildLspHoverMarkdownStyleSheet(
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    final surface = colorScheme.surfaceContainerLowest;
+    final border = colorScheme.outlineVariant.withValues(alpha: 0.35);
+    return MarkdownStyleSheet.fromTheme(theme).copyWith(
+      p: (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
+        color: colorScheme.onSurface,
+        fontSize: 12.5,
+        height: 1.55,
+      ),
+      code: TextStyle(
+        fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+        fontSize: 11.5,
+        color: colorScheme.primary,
+        backgroundColor: surface,
+      ),
+      codeblockPadding: const EdgeInsets.all(10),
+      codeblockDecoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+      blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      blockquoteDecoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colorScheme.primary.withValues(alpha: 0.08),
+          surface,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: border),
+      ),
+    );
+  }
+
+  IconData _symbolKindIcon(String kind) {
+    return switch (kind) {
+      'class' || 'interface' || 'type' => Icons.account_tree_rounded,
+      'enum' => Icons.list_alt_rounded,
+      'function' || 'method' => Icons.functions_rounded,
+      'extension' || 'mixin' => Icons.extension_rounded,
+      _ => Icons.label_outline_rounded,
+    };
+  }
+
+  IconData _codeActionIcon(AiLspCodeAction action) {
+    final kind = action.kind ?? '';
+    if (kind.startsWith('quickfix')) {
+      return Icons.auto_fix_high_rounded;
+    }
+    if (kind.startsWith('refactor')) {
+      return Icons.drive_file_rename_outline_rounded;
+    }
+    if (kind.startsWith('source')) {
+      return Icons.build_circle_outlined;
+    }
+    return Icons.lightbulb_outline_rounded;
+  }
+
+  String _codeActionSummary(AiLspCodeAction action) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    if (action.isDisabled) {
+      return action.disabledReason!;
+    }
+    final parts = <String>[];
+    if (action.kind != null && action.kind!.trim().isNotEmpty) {
+      parts.add(action.kind!);
+    }
+    final edit = action.edit;
+    if (edit != null && !edit.isEmpty) {
+      parts.add(
+        isZh
+            ? '${edit.fileCount} 文件 / ${edit.editCount} 修改'
+            : '${edit.fileCount} files / ${edit.editCount} edits',
+      );
+    }
+    if (action.command != null) {
+      parts.add(isZh ? '命令' : 'Command');
+    }
+    if (action.isPreferred) {
+      parts.add(isZh ? '推荐' : 'Preferred');
+    }
+    return parts.isEmpty
+        ? (isZh ? '可应用操作' : 'Applicable action')
+        : parts.join('  •  ');
+  }
+
+  Color _diagnosticSeverityColor(
+    ColorScheme colorScheme,
+    _EditorDiagnostic diagnostic,
+  ) {
+    if (diagnostic.isError) {
+      return colorScheme.error;
+    }
+    if (diagnostic.isWarning) {
+      return const Color(0xFFB7791F);
+    }
+    return colorScheme.primary;
+  }
+
+  Map<int, List<_EditorDiagnostic>> _diagnosticsByLineForFile(String filePath) {
+    final grouped = <int, List<_EditorDiagnostic>>{};
+    for (final diagnostic
+        in _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[]) {
+      (grouped[diagnostic.line] ??= <_EditorDiagnostic>[]).add(diagnostic);
+    }
+    return grouped;
+  }
+
+  _EditorDiagnostic? _primaryDiagnosticForLine(
+    List<_EditorDiagnostic> diagnostics,
+  ) {
+    if (diagnostics.isEmpty) {
+      return null;
+    }
+    for (final diagnostic in diagnostics) {
+      if (diagnostic.isError) {
+        return diagnostic;
+      }
+    }
+    for (final diagnostic in diagnostics) {
+      if (diagnostic.isWarning) {
+        return diagnostic;
+      }
+    }
+    return diagnostics.first;
+  }
+
+  String _diagnosticsStatusLabel(BuildContext context, String filePath) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return isZh ? 'LSP中' : 'LSP';
+    }
+    if (resolution == null) {
+      return isZh ? '待解析' : 'Resolve';
+    }
+    if (!resolution.isAvailable) {
+      return isZh ? '无后端' : 'No LSP';
+    }
+    if (_diagnosticsLoadingFiles.contains(filePath)) {
+      return isZh ? '诊断中' : 'LSP Diag';
+    }
+    final diagnostics =
+        _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
+    final errors = diagnostics.where((item) => item.isError).length;
+    final warnings = diagnostics.where((item) => item.isWarning).length;
+    final stale =
+        _fileDirty[filePath] == true ||
+        _diagnosticsStaleFiles.contains(filePath);
+    if (errors == 0 && warnings == 0) {
+      return stale ? (isZh ? '已过期' : 'Stale') : (isZh ? '通过' : 'Clean');
+    }
+    final buffer = StringBuffer();
+    if (errors > 0) {
+      buffer.write(isZh ? '$errors错' : '${errors}E');
+    }
+    if (warnings > 0) {
+      if (buffer.isNotEmpty) {
+        buffer.write(' · ');
+      }
+      buffer.write(isZh ? '$warnings警' : '${warnings}W');
+    }
+    return buffer.toString();
+  }
+
+  Color _diagnosticsStatusColor(ColorScheme colorScheme, String filePath) {
+    final resolution = _lspResolutionForFile(filePath);
+    if (_lspBackendLoadingFiles.contains(filePath) && resolution == null) {
+      return colorScheme.primary;
+    }
+    if (resolution == null) {
+      return colorScheme.onSurfaceVariant;
+    }
+    if (!resolution.isAvailable) {
+      return resolution.availability ==
+              AiLspBackendAvailability.executableNotFound
+          ? colorScheme.error
+          : colorScheme.onSurfaceVariant;
+    }
+    if (_diagnosticsLoadingFiles.contains(filePath)) {
+      return colorScheme.primary;
+    }
+    final diagnostics =
+        _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
+    if (diagnostics.any((item) => item.isError)) {
+      return colorScheme.error;
+    }
+    if (diagnostics.any((item) => item.isWarning)) {
+      return const Color(0xFFB7791F);
+    }
+    if (_fileDirty[filePath] == true ||
+        _diagnosticsStaleFiles.contains(filePath)) {
+      return colorScheme.tertiary;
+    }
+    return colorScheme.onSurfaceVariant;
+  }
+
+  Widget _buildStatusChip({
+    required ColorScheme colorScheme,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    String? tooltip,
+    Color? foregroundColor,
+    bool active = false,
+  }) {
+    final resolvedForeground = foregroundColor ?? colorScheme.onSurfaceVariant;
+    final chip = Material(
+      color: active
+          ? colorScheme.primaryContainer.withValues(alpha: 0.6)
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: resolvedForeground),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(fontSize: 11, color: resolvedForeground),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (tooltip == null || tooltip.isEmpty) {
+      return chip;
+    }
+    return Tooltip(message: tooltip, child: chip);
+  }
+
+  // ── Status bar UI ──
+
+  Widget _buildStatusBar(ColorScheme colorScheme) {
+    final language = _resolvedLanguageForFile(widget.activeFilePath);
+    final zoomPct = (_fontSize / _editorFontSizeDefault * 100).round();
+    final diagnosticsLabel = _diagnosticsStatusLabel(
+      context,
+      widget.activeFilePath,
+    );
+    final backendResolution = _lspResolutionForFile(widget.activeFilePath);
+    final lspActionColor = _lspActionColor(colorScheme, widget.activeFilePath);
+    final definitionTitle = _localizedText(
+      context,
+      zh: '定义跳转',
+      en: 'Go to Definition',
+    );
+    final referencesTitle = _localizedText(
+      context,
+      zh: '引用查找',
+      en: 'Find References',
+    );
+    final renameTitle = _localizedText(
+      context,
+      zh: '重命名符号',
+      en: 'Rename Symbol',
+    );
+    final codeActionsTitle = _localizedText(
+      context,
+      zh: '代码操作',
+      en: 'Code Actions',
+    );
+    final hoverTitle = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');
+    final backendTitle = _localizedText(
+      context,
+      zh: 'LSP 后端',
+      en: 'LSP Backend',
+    );
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
+        border: Border(
+          top: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              child: Row(
+                children: [
+                  Text(
+                    'Ln $_cursorLine, Col $_cursorColumn',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                      fontFamily: 'SF Mono, Menlo, monospace',
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    _programmingLanguageLabel(context, language),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (zoomPct != 100) ...[
+                    const SizedBox(width: 16),
+                    Text(
+                      '$zoomPct%',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.account_tree_rounded,
+                    label: _localizedText(context, zh: '符号', en: 'Symbols'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '符号导航 (Shift+Cmd/Ctrl+O)',
+                      en: 'Symbol navigation (Shift+Cmd/Ctrl+O)',
+                    ),
+                    onTap: _showSymbolBar,
+                    active: _symbolBarVisible && !_workspaceSymbolMode,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.travel_explore_rounded,
+                    label: _localizedText(context, zh: '全局符号', en: 'Workspace'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '工作区符号搜索 (Cmd/Ctrl+T)',
+                      en: 'Workspace symbol search (Cmd/Ctrl+T)',
+                    ),
+                    onTap: _showWorkspaceSymbolBar,
+                    active: _symbolBarVisible && _workspaceSymbolMode,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: _supportsDiagnosticsForFile(widget.activeFilePath)
+                        ? Icons.health_and_safety_rounded
+                        : _lspBackendLoadingFiles.contains(
+                            widget.activeFilePath,
+                          )
+                        ? Icons.sync_rounded
+                        : Icons.info_outline_rounded,
+                    label: diagnosticsLabel,
+                    tooltip: _localizedText(
+                      context,
+                      zh: '显示当前文件诊断',
+                      en: 'Show diagnostics for the current file',
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _diagnosticsBarVisible = true;
+                        _symbolBarVisible = false;
+                        _projectToolchainBarVisible = false;
+                        _lspResultBarVisible = false;
+                        _findBarVisible = false;
+                        _replaceBarVisible = false;
+                        _goToLineVisible = false;
+                      });
+                      unawaited(
+                        _maybeRefreshDiagnostics(widget.activeFilePath),
+                      );
+                    },
+                    active: _diagnosticsBarVisible,
+                    foregroundColor: _diagnosticsStatusColor(
+                      colorScheme,
+                      widget.activeFilePath,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: _hasProjectToolchainOverride()
+                        ? Icons.tune_rounded
+                        : normalizeAiLspLanguage(widget.projectLanguage) ==
+                              'mixed'
+                        ? Icons.hub_outlined
+                        : Icons.layers_outlined,
+                    label: _projectToolchainStatusLabel(
+                      context,
+                      widget.activeFilePath,
+                    ),
+                    tooltip: _projectToolchainStatusTooltip(
+                      context,
+                      widget.activeFilePath,
+                    ),
+                    onTap: () {
+                      _toggleProjectToolchainBar();
+                    },
+                    active: _projectToolchainBarVisible,
+                    foregroundColor: _projectToolchainStatusColor(
+                      colorScheme,
+                      widget.activeFilePath,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: switch (backendResolution?.availability) {
+                      AiLspBackendAvailability.available => Icons.hub_rounded,
+                      AiLspBackendAvailability.executableNotFound =>
+                        Icons.error_outline_rounded,
+                      AiLspBackendAvailability.unsupportedLanguage =>
+                        Icons.link_off_rounded,
+                      null =>
+                        _lspBackendLoadingFiles.contains(widget.activeFilePath)
+                            ? Icons.sync_rounded
+                            : Icons.hub_outlined,
+                    },
+                    label: _lspBackendStatusLabel(
+                      context,
+                      widget.activeFilePath,
+                    ),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '查看当前文件绑定的 LSP 后端',
+                      en: 'Inspect the LSP backend bound to the current file',
+                    ),
+                    onTap: () {
+                      unawaited(_showLspBackendStatusForActiveFile());
+                    },
+                    active:
+                        _lspResultBarVisible && _lspResultTitle == backendTitle,
+                    foregroundColor: _lspBackendStatusColor(
+                      colorScheme,
+                      widget.activeFilePath,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.subdirectory_arrow_right_rounded,
+                    label: _localizedText(context, zh: '定义', en: 'Def'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '定义跳转 (F12 / Cmd/Ctrl+B)',
+                      en: 'Go to Definition (F12 / Cmd/Ctrl+B)',
+                    ),
+                    onTap: () {
+                      unawaited(_goToDefinitionAtCursor());
+                    },
+                    active:
+                        _lspResultBarVisible &&
+                        _lspResultTitle == definitionTitle,
+                    foregroundColor: lspActionColor,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.format_list_bulleted_rounded,
+                    label: _localizedText(context, zh: '引用', en: 'Refs'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)',
+                      en: 'Find References (Shift+F12 / Cmd/Ctrl+Shift+B)',
+                    ),
+                    onTap: () {
+                      unawaited(_findReferencesAtCursor());
+                    },
+                    active:
+                        _lspResultBarVisible &&
+                        _lspResultTitle == referencesTitle,
+                    foregroundColor: lspActionColor,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.info_outline_rounded,
+                    label: _localizedText(context, zh: '悬浮', en: 'Hover'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '悬浮信息 (Cmd/Ctrl+I)',
+                      en: 'Hover Info (Cmd/Ctrl+I)',
+                    ),
+                    onTap: () {
+                      unawaited(_showHoverAtCursor());
+                    },
+                    active:
+                        _lspResultBarVisible && _lspResultTitle == hoverTitle,
+                    foregroundColor: lspActionColor,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.drive_file_rename_outline_rounded,
+                    label: _localizedText(context, zh: '重命名', en: 'Rename'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '重命名符号 (F2)',
+                      en: 'Rename Symbol (F2)',
+                    ),
+                    onTap: () {
+                      unawaited(_renameSymbolAtCursor());
+                    },
+                    active:
+                        _lspResultBarVisible && _lspResultTitle == renameTitle,
+                    foregroundColor: lspActionColor,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.lightbulb_outline_rounded,
+                    label: _localizedText(context, zh: '操作', en: 'Actions'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '代码操作 (Cmd/Ctrl+.)',
+                      en: 'Code Actions (Cmd/Ctrl+.)',
+                    ),
+                    onTap: () {
+                      unawaited(_showCodeActionsAtCursor());
+                    },
+                    active:
+                        _lspResultBarVisible &&
+                        _lspResultTitle == codeActionsTitle,
+                    foregroundColor: lspActionColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'UTF-8',
+            style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadFile(String filePath) async {
@@ -1134,12 +7095,21 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         }
         final content = await file.readAsString();
         _fileContents[filePath] = content;
-        _textControllers[filePath] = _HighlightingTextController(
+        final controller = _HighlightingTextController(
           initialText: content,
-          language: _editorLanguageFromPath(filePath),
+          language: _resolvedLanguageForFile(filePath),
         );
+        _textControllers[filePath] = controller;
         _focusNodes[filePath] = FocusNode();
         _fileDirty[filePath] = false;
+        if (filePath == widget.activeFilePath) {
+          _updateCursorPosition(controller);
+          if (_symbolBarVisible) {
+            _scheduleSymbolRefresh(immediate: true);
+          }
+          _maybeApplyPendingNavigation();
+          unawaited(_maybeRefreshDiagnostics(filePath));
+        }
       } else {
         _fileContents[filePath] = null;
       }
@@ -1154,8 +7124,259 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     if (controller == null || _fileDirty[filePath] != true) return;
     try {
       await File(filePath).writeAsString(controller.text);
-      if (mounted) setState(() => _fileDirty[filePath] = false);
+      if (mounted) {
+        setState(() {
+          _fileDirty[filePath] = false;
+          _diagnosticsStaleFiles.add(filePath);
+        });
+      }
+      await _refreshDiagnostics(filePath);
     } catch (_) {}
+  }
+
+  RelativeRect _menuPositionForGlobalOffset(Offset globalPosition) {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (overlay == null) {
+      return RelativeRect.fromLTRB(
+        globalPosition.dx,
+        globalPosition.dy,
+        globalPosition.dx,
+        globalPosition.dy,
+      );
+    }
+    final localPosition = overlay.globalToLocal(globalPosition);
+    return RelativeRect.fromLTRB(
+      localPosition.dx,
+      localPosition.dy,
+      overlay.size.width - localPosition.dx,
+      overlay.size.height - localPosition.dy,
+    );
+  }
+
+  void _closeTabBatch(List<String> filesToClose, {String? fallbackActiveFile}) {
+    if (filesToClose.isEmpty) {
+      return;
+    }
+    final closingSet = filesToClose.toSet();
+    final safeFallback =
+        fallbackActiveFile != null &&
+            !closingSet.contains(fallbackActiveFile) &&
+            widget.openFiles.contains(fallbackActiveFile)
+        ? fallbackActiveFile
+        : null;
+    if (closingSet.contains(widget.activeFilePath) && safeFallback != null) {
+      widget.onTabSelected(safeFallback);
+    }
+    for (final filePath
+        in widget.openFiles.where(closingSet.contains).toList()) {
+      widget.onTabClosed(filePath);
+    }
+  }
+
+  Future<void> _showEditorFileCopyPathMenu(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final workspaceRoot =
+        _lspResolutionForFile(filePath)?.rootPath.isNotEmpty == true
+        ? _lspResolutionForFile(filePath)!.rootPath
+        : _inferWorkspaceRoot(filePath);
+    String relativeFromWorkspace = filePath;
+    try {
+      final candidate = p.relative(filePath, from: workspaceRoot);
+      if (!candidate.startsWith('..')) {
+        relativeFromWorkspace = candidate;
+      }
+    } catch (_) {}
+
+    final selected = await showAnimatedMenu<String>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        PopupMenuItem<String>(
+          value: 'abs',
+          child: Text(isZh ? '绝对路径' : 'Absolute Path'),
+        ),
+        PopupMenuItem<String>(
+          value: 'name',
+          child: Text(isZh ? '文件名' : 'File Name'),
+        ),
+        PopupMenuItem<String>(
+          value: 'workspace_root',
+          child: Text(isZh ? '相对工作区路径' : 'Path from Workspace Root'),
+        ),
+      ],
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    final textToCopy = switch (selected) {
+      'abs' => filePath,
+      'name' => p.basename(filePath),
+      'workspace_root' => relativeFromWorkspace,
+      _ => filePath,
+    };
+    await Clipboard.setData(ClipboardData(text: textToCopy));
+  }
+
+  Future<void> _handleEditorTabMenuAction(
+    _EditorTabMenuAction action, {
+    required String filePath,
+    required Offset globalPosition,
+  }) async {
+    switch (action) {
+      case _EditorTabMenuAction.close:
+        widget.onTabClosed(filePath);
+        return;
+      case _EditorTabMenuAction.closeOthers:
+        _closeTabBatch(
+          widget.openFiles.where((path) => path != filePath).toList(),
+          fallbackActiveFile: filePath,
+        );
+        return;
+      case _EditorTabMenuAction.closeAll:
+        widget.onCloseAll();
+        return;
+      case _EditorTabMenuAction.closeUnmodified:
+        final filesToClose = widget.openFiles
+            .where((path) => _fileDirty[path] != true)
+            .toList(growable: false);
+        final remainingFiles = widget.openFiles
+            .where((path) => !filesToClose.contains(path))
+            .toList(growable: false);
+        _closeTabBatch(
+          filesToClose,
+          fallbackActiveFile: remainingFiles.isEmpty
+              ? null
+              : remainingFiles.last,
+        );
+        return;
+      case _EditorTabMenuAction.closeLeft:
+        final fileIndex = widget.openFiles.indexOf(filePath);
+        if (fileIndex <= 0) {
+          return;
+        }
+        _closeTabBatch(
+          widget.openFiles.take(fileIndex).toList(growable: false),
+          fallbackActiveFile: filePath,
+        );
+        return;
+      case _EditorTabMenuAction.closeRight:
+        final fileIndex = widget.openFiles.indexOf(filePath);
+        if (fileIndex < 0 || fileIndex >= widget.openFiles.length - 1) {
+          return;
+        }
+        _closeTabBatch(
+          widget.openFiles.skip(fileIndex + 1).toList(growable: false),
+          fallbackActiveFile: filePath,
+        );
+        return;
+      case _EditorTabMenuAction.copyPathReference:
+        _scheduleOverlayActionAfterMenuDismissal(context, () {
+          unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
+        });
+        return;
+    }
+  }
+
+  Future<void> _showEditorTabMenu(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+    final fileIndex = widget.openFiles.indexOf(filePath);
+    if (fileIndex < 0) {
+      return;
+    }
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final hasOtherTabs = widget.openFiles.length > 1;
+    final hasTabsToLeft = fileIndex > 0;
+    final hasTabsToRight = fileIndex < widget.openFiles.length - 1;
+    final hasUnmodifiedTabs = widget.openFiles.any(
+      (path) => _fileDirty[path] != true,
+    );
+
+    PopupMenuItem<_EditorTabMenuAction> buildItem({
+      required _EditorTabMenuAction value,
+      required IconData icon,
+      required String label,
+      bool enabled = true,
+    }) {
+      return PopupMenuItem<_EditorTabMenuAction>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+          ],
+        ),
+      );
+    }
+
+    final selected = await showAnimatedMenu<_EditorTabMenuAction>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        buildItem(
+          value: _EditorTabMenuAction.close,
+          icon: Icons.close_rounded,
+          label: isZh ? '关闭' : 'Close',
+        ),
+        buildItem(
+          value: _EditorTabMenuAction.closeOthers,
+          icon: Icons.filter_none_rounded,
+          label: isZh ? '关闭其他标签页' : 'Close Other Tabs',
+          enabled: hasOtherTabs,
+        ),
+        buildItem(
+          value: _EditorTabMenuAction.closeAll,
+          icon: Icons.deselect_rounded,
+          label: isZh ? '关闭所有标签页' : 'Close All Tabs',
+          enabled: widget.openFiles.isNotEmpty,
+        ),
+        buildItem(
+          value: _EditorTabMenuAction.closeUnmodified,
+          icon: Icons.cleaning_services_rounded,
+          label: isZh ? '关闭未修改标签页' : 'Close Unmodified Tabs',
+          enabled: hasUnmodifiedTabs,
+        ),
+        buildItem(
+          value: _EditorTabMenuAction.closeLeft,
+          icon: Icons.keyboard_double_arrow_left_rounded,
+          label: isZh ? '关闭左侧标签页' : 'Close Tabs to the Left',
+          enabled: hasTabsToLeft,
+        ),
+        buildItem(
+          value: _EditorTabMenuAction.closeRight,
+          icon: Icons.keyboard_double_arrow_right_rounded,
+          label: isZh ? '关闭右侧标签页' : 'Close Tabs to the Right',
+          enabled: hasTabsToRight,
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: _EditorTabMenuAction.copyPathReference,
+          icon: Icons.content_copy_rounded,
+          label: isZh ? '复制路径 / 引用…' : 'Copy Path / Reference…',
+        ),
+      ],
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    await _handleEditorTabMenuAction(
+      selected,
+      filePath: filePath,
+      globalPosition: globalPosition,
+    );
   }
 
   @override
@@ -1194,7 +7415,10 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                   },
                   onReorder: widget.onReorderTabs,
                   padding: const EdgeInsets.only(
-                    left: 6, top: 5, bottom: 5, right: 2,
+                    left: 6,
+                    top: 5,
+                    bottom: 5,
+                    right: 2,
                   ),
                   children: [
                     for (var i = 0; i < widget.openFiles.length; i++)
@@ -1203,13 +7427,15 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                         index: i,
                         fileName: p.basename(widget.openFiles[i]),
                         filePath: widget.openFiles[i],
-                        isActive:
-                            widget.openFiles[i] == widget.activeFilePath,
+                        isActive: widget.openFiles[i] == widget.activeFilePath,
                         isDirty: _fileDirty[widget.openFiles[i]] == true,
-                        onTap: () =>
-                            widget.onTabSelected(widget.openFiles[i]),
-                        onClose: () =>
-                            widget.onTabClosed(widget.openFiles[i]),
+                        onTap: () => widget.onTabSelected(widget.openFiles[i]),
+                        onClose: () => widget.onTabClosed(widget.openFiles[i]),
+                        onShowMenu: (position) {
+                          unawaited(
+                            _showEditorTabMenu(widget.openFiles[i], position),
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1217,11 +7443,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
               // Save button
               if (_fileDirty[widget.activeFilePath] == true) ...[
                 _EditorActionButton(
-                  tooltip: _localizedText(
-                    context,
-                    zh: '保存文件',
-                    en: 'Save file',
-                  ),
+                  tooltip: _localizedText(context, zh: '保存文件', en: 'Save file'),
                   icon: Icons.save_rounded,
                   color: colorScheme.primary,
                   onPressed: () => _saveFile(widget.activeFilePath),
@@ -1244,43 +7466,67 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         ),
         // ── Gap between tab bar and editor ──
         const SizedBox(height: 6),
-        // ── Editor content — fully rounded container ──
+        // ── Editor content — rounded outer shell, square code area ──
         Expanded(
-          child: Container(
-            width: double.infinity,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLow,
-              borderRadius: const BorderRadius.all(Radius.circular(16)),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                width: 0.5,
+          child: _EditorZoomWrapper(
+            onZoomIn: _zoomIn,
+            onZoomOut: _zoomOut,
+            onZoomReset: _zoomReset,
+            child: Container(
+              width: double.infinity,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: const BorderRadius.all(Radius.circular(16)),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                  width: 0.5,
+                ),
               ),
-            ),
-            child: Column(
-              children: [
-                // ── Breadcrumb path bar ──
-                _EditorBreadcrumb(
-                  filePath: widget.activeFilePath,
-                  onNavigateToFile: widget.onTabSelected,
-                ),
-                // ── Divider ──
-                Divider(
-                  height: 0.5,
-                  thickness: 0.5,
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-                ),
-                // ── Code content ──
-                Expanded(
-                  child: RepaintBoundary(
-                    child: _buildEditorContent(
-                      widget.activeFilePath,
-                      theme,
-                      colorScheme,
+              child: Column(
+                children: [
+                  // ── Breadcrumb path bar ──
+                  _EditorBreadcrumb(
+                    filePath: widget.activeFilePath,
+                    onNavigateToFile: widget.onTabSelected,
+                  ),
+                  // ── Divider ──
+                  Divider(
+                    height: 0.5,
+                    thickness: 0.5,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                  ),
+                  // ── Find / Replace bar ──
+                  _buildFindBar(colorScheme),
+                  // ── Go-to-Line bar ──
+                  _buildGoToLineBar(colorScheme),
+                  // ── Symbol navigation bar ──
+                  _buildSymbolBar(colorScheme),
+                  // ── Project toolchain bar ──
+                  _buildProjectToolchainBar(colorScheme),
+                  // ── Diagnostics bar ──
+                  _buildDiagnosticsBar(colorScheme),
+                  // ── LSP result bar ──
+                  _buildLspResultBar(colorScheme),
+                  // ── Code content ──
+                  Expanded(
+                    child: ClipRect(
+                      child: ColoredBox(
+                        color: colorScheme.surface,
+                        child: RepaintBoundary(
+                          child: _buildEditorContent(
+                            widget.activeFilePath,
+                            theme,
+                            colorScheme,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  // ── Status bar ──
+                  _buildStatusBar(colorScheme),
+                ],
+              ),
             ),
           ),
         ),
@@ -1307,8 +7553,9 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     }
     final content = _fileContents[filePath];
     if (content == null) {
-      final isZh =
-          Localizations.localeOf(context).languageCode.startsWith('zh');
+      final isZh = Localizations.localeOf(
+        context,
+      ).languageCode.startsWith('zh');
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1345,7 +7592,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       ScrollController.new,
     );
     final focusNode = _focusNodes.putIfAbsent(filePath, FocusNode.new);
-    final language = _editorLanguageFromPath(filePath);
+    final language = _resolvedLanguageForFile(filePath);
+    final diagnostics =
+        _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
+    final diagnosticsByLine = _diagnosticsByLineForFile(filePath);
+    textController.diagnostics = diagnostics;
 
     if (!_forcedFullEditorFiles.contains(filePath) &&
         textController.useVirtualizedPreview) {
@@ -1354,6 +7605,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         controller: textController,
         scrollController: scrollController,
         language: language,
+        fontSize: _fontSize,
         onOpenFullEditor: () {
           if (!mounted) return;
           setState(() => _forcedFullEditorFiles.add(filePath));
@@ -1363,11 +7615,80 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
     return Focus(
       onKeyEvent: (_, event) {
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.keyS &&
-            (HardwareKeyboard.instance.isControlPressed ||
-                HardwareKeyboard.instance.isMetaPressed)) {
+        if (event is! KeyDownEvent) return KeyEventResult.ignored;
+        // Escape — no meta required
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          if (_findBarVisible ||
+              _goToLineVisible ||
+              _symbolBarVisible ||
+              _diagnosticsBarVisible ||
+              _lspResultBarVisible) {
+            _hideFindBar();
+            setState(() {
+              _goToLineVisible = false;
+              _symbolBarVisible = false;
+              _diagnosticsBarVisible = false;
+              _lspResultBarVisible = false;
+            });
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.f12) {
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            unawaited(_findReferencesAtCursor());
+          } else {
+            unawaited(_goToDefinitionAtCursor());
+          }
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.f2) {
+          unawaited(_renameSymbolAtCursor());
+          return KeyEventResult.handled;
+        }
+        final meta =
+            HardwareKeyboard.instance.isControlPressed ||
+            HardwareKeyboard.instance.isMetaPressed;
+        if (!meta) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.keyS) {
           _saveFile(filePath);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyF) {
+          _showFind();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyH) {
+          _showFindAndReplace();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyG) {
+          _showGoToLine();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyB) {
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            unawaited(_findReferencesAtCursor());
+          } else {
+            unawaited(_goToDefinitionAtCursor());
+          }
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyI) {
+          unawaited(_showHoverAtCursor());
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyT) {
+          _showWorkspaceSymbolBar();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.period) {
+          unawaited(_showCodeActionsAtCursor());
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.keyO &&
+            HardwareKeyboard.instance.isShiftPressed) {
+          _showSymbolBar();
           return KeyEventResult.handled;
         }
         return KeyEventResult.ignored;
@@ -1377,9 +7698,52 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         scrollController: scrollController,
         focusNode: focusNode,
         language: language,
+        fontSize: _fontSize,
+        activeLine: _cursorLine,
+        diagnostics: diagnostics,
+        diagnosticsByLine: diagnosticsByLine,
         onChanged: (value) {
           if (!mounted) return;
-          setState(() => _fileDirty[filePath] = true);
+          setState(() {
+            _fileDirty[filePath] = true;
+            _diagnosticsStaleFiles.add(filePath);
+          });
+          _scheduleDiagnosticsRefresh(filePath);
+          _updateCursorPosition(textController);
+          if (_findBarVisible && _findController.text.isNotEmpty) {
+            _updateFindMatches(_findController.text);
+          }
+          if (_symbolBarVisible) {
+            _scheduleSymbolRefresh();
+          }
+        },
+        onSelectionChanged: () {
+          if (!mounted) return;
+          _updateCursorPosition(textController);
+        },
+        onDiagnosticLineRequested: (lineNumber) {
+          final diagnostics =
+              diagnosticsByLine[lineNumber] ?? const <_EditorDiagnostic>[];
+          final primaryDiagnostic = _primaryDiagnosticForLine(diagnostics);
+          if (primaryDiagnostic == null) {
+            return;
+          }
+          _jumpToLineColumn(lineNumber, column: primaryDiagnostic.column);
+        },
+        onDiagnosticQuickFixRequested: (lineNumber, anchorPosition) {
+          unawaited(
+            _showCodeActionsForDiagnosticLine(lineNumber, anchorPosition),
+          );
+        },
+        onDiagnosticTooltipQuickFixRequested: (diagnostics, anchorPosition) {
+          unawaited(
+            _applyQuickFixForEditorDiagnostics(diagnostics, anchorPosition),
+          );
+        },
+        onDiagnosticTooltipMoreActionsRequested: (diagnostics, anchorPosition) {
+          unawaited(
+            _showMoreActionsForEditorDiagnostics(diagnostics, anchorPosition),
+          );
         },
       ),
     );
@@ -1391,10 +7755,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 // ---------------------------------------------------------------------------
 
 class _EditorBreadcrumb extends StatelessWidget {
-  const _EditorBreadcrumb({
-    required this.filePath,
-    this.onNavigateToFile,
-  });
+  const _EditorBreadcrumb({required this.filePath, this.onNavigateToFile});
 
   final String filePath;
   final ValueChanged<String>? onNavigateToFile;
@@ -1414,11 +7775,13 @@ class _EditorBreadcrumb extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            _fileExplorerIcon(_FileNode(
-              name: p.basename(filePath),
-              path: filePath,
-              isDirectory: false,
-            )),
+            _fileExplorerIcon(
+              _FileNode(
+                name: p.basename(filePath),
+                path: filePath,
+                isDirectory: false,
+              ),
+            ),
             size: 13,
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
@@ -1434,8 +7797,9 @@ class _EditorBreadcrumb extends StatelessWidget {
                       '...',
                       style: theme.textTheme.labelSmall?.copyWith(
                         fontSize: 11,
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.6),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                     Padding(
@@ -1443,8 +7807,9 @@ class _EditorBreadcrumb extends StatelessWidget {
                       child: Icon(
                         Icons.chevron_right_rounded,
                         size: 12,
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.3),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                     ),
                   ],
@@ -1455,8 +7820,9 @@ class _EditorBreadcrumb extends StatelessWidget {
                         child: Icon(
                           Icons.chevron_right_rounded,
                           size: 12,
-                          color: colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.3),
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.3,
+                          ),
                         ),
                       ),
                     _BreadcrumbSegment(
@@ -1553,9 +7919,10 @@ class _BreadcrumbSegment extends StatelessWidget {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
         if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p.basename(a.path).toLowerCase().compareTo(
-              p.basename(b.path).toLowerCase(),
-            );
+        return p
+            .basename(a.path)
+            .toLowerCase()
+            .compareTo(p.basename(b.path).toLowerCase());
       });
       final filtered = entries
           .where((e) => !p.basename(e.path).startsWith('.'))
@@ -1586,7 +7953,8 @@ class _BreadcrumbSegment extends StatelessWidget {
     required List<FileSystemEntity> entries,
     String? initialValue,
   }) {
-    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
     final target = context.findRenderObject() as RenderBox?;
     if (overlay == null || target == null) {
       return Future<String?>.value();
@@ -1603,40 +7971,45 @@ class _BreadcrumbSegment extends StatelessWidget {
       context: context,
       position: RelativeRect.fromRect(anchorRect, Offset.zero & overlay.size),
       initialValue: initialValue,
-      items: entries.map((entry) {
-        final entryName = p.basename(entry.path);
-        final isDir = entry is Directory;
-        return PopupMenuItem<String>(
-          value: entry.path,
-          height: 36,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _fileExplorerIcon(_FileNode(
-                  name: entryName,
-                  path: entry.path,
-                  isDirectory: isDir,
-                )),
-                size: 15,
-                color: isDir
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  entryName,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: isDir ? FontWeight.w600 : FontWeight.w400,
+      items: entries
+          .map((entry) {
+            final entryName = p.basename(entry.path);
+            final isDir = entry is Directory;
+            return PopupMenuItem<String>(
+              value: entry.path,
+              height: 36,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _fileExplorerIcon(
+                      _FileNode(
+                        name: entryName,
+                        path: entry.path,
+                        isDirectory: isDir,
+                      ),
+                    ),
+                    size: 15,
+                    color: isDir
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      entryName,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: isDir ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      }).toList().cast<PopupMenuEntry<String>>(),
+            );
+          })
+          .toList()
+          .cast<PopupMenuEntry<String>>(),
     );
   }
 }
@@ -1679,18 +8052,1143 @@ class _EditorActionButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Find bar icon button
+// ---------------------------------------------------------------------------
+
+class _FindBarButton extends StatelessWidget {
+  const _FindBarButton({
+    required this.icon,
+    required this.tooltip,
+    required this.colorScheme,
+    this.onPressed,
+    this.isActive = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final ColorScheme colorScheme;
+  final VoidCallback? onPressed;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: isActive
+            ? colorScheme.primaryContainer.withValues(alpha: 0.6)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              icon,
+              size: 16,
+              color: onPressed == null
+                  ? colorScheme.onSurfaceVariant.withValues(alpha: 0.3)
+                  : isActive
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorSymbol {
+  const _EditorSymbol({
+    required this.name,
+    required this.kind,
+    required this.filePath,
+    required this.line,
+    required this.column,
+    required this.offset,
+    required this.signature,
+    required this.depth,
+  });
+
+  final String name;
+  final String kind;
+  final String filePath;
+  final int line;
+  final int column;
+  final int offset;
+  final String signature;
+  final int depth;
+}
+
+class _EditorSymbolExtractionResult {
+  const _EditorSymbolExtractionResult({
+    required this.symbols,
+    required this.truncated,
+  });
+
+  final List<_EditorSymbol> symbols;
+  final bool truncated;
+}
+
+class _EditorDiagnostic {
+  const _EditorDiagnostic({
+    required this.severity,
+    required this.code,
+    required this.message,
+    required this.line,
+    required this.column,
+    required this.endLine,
+    required this.endColumn,
+    required this.length,
+  });
+
+  final String severity;
+  final String code;
+  final String message;
+  final int line;
+  final int column;
+  final int endLine;
+  final int endColumn;
+  final int length;
+
+  bool get isError => severity == 'ERROR';
+  bool get isWarning => severity == 'WARNING';
+}
+
+class _EditorDiagnosticDecoratedRange {
+  const _EditorDiagnosticDecoratedRange({
+    required this.startOffset,
+    required this.endOffset,
+    required this.severityRank,
+    required this.overlayStyle,
+  });
+
+  final int startOffset;
+  final int endOffset;
+  final int severityRank;
+  final TextStyle overlayStyle;
+}
+
+class _EditorDiagnosticResolvedRange {
+  const _EditorDiagnosticResolvedRange({
+    required this.diagnostic,
+    required this.startOffset,
+    required this.endOffset,
+  });
+
+  final _EditorDiagnostic diagnostic;
+  final int startOffset;
+  final int endOffset;
+}
+
+class _EditorDiagnosticTooltipState {
+  const _EditorDiagnosticTooltipState({
+    required this.diagnostics,
+    required this.anchorRect,
+  });
+
+  final List<_EditorDiagnostic> diagnostics;
+  final Rect anchorRect;
+}
+
+class _EditorDecoratedInlineSpanResult {
+  const _EditorDecoratedInlineSpanResult({
+    required this.spans,
+    required this.endOffset,
+  });
+
+  final List<InlineSpan> spans;
+  final int endOffset;
+}
+
+int _editorDiagnosticSeverityRank(_EditorDiagnostic diagnostic) {
+  if (diagnostic.isError) {
+    return 3;
+  }
+  if (diagnostic.isWarning) {
+    return 2;
+  }
+  return 1;
+}
+
+Color _editorDiagnosticUnderlineColor(_EditorDiagnostic diagnostic) {
+  if (diagnostic.isError) {
+    return const Color(0xFFD92D20);
+  }
+  if (diagnostic.isWarning) {
+    return const Color(0xFFB7791F);
+  }
+  return const Color(0xFF0B57D0);
+}
+
+TextStyle _editorDiagnosticOverlayStyle(_EditorDiagnostic diagnostic) {
+  final accent = _editorDiagnosticUnderlineColor(diagnostic);
+  return TextStyle(
+    decoration: TextDecoration.underline,
+    decorationColor: accent,
+    decorationStyle: TextDecorationStyle.wavy,
+    decorationThickness: diagnostic.isError ? 2 : 1.7,
+    backgroundColor: accent.withValues(alpha: diagnostic.isError ? 0.08 : 0.06),
+  );
+}
+
+List<_EditorDiagnosticResolvedRange> _buildEditorDiagnosticResolvedRanges(
+  String text,
+  List<_EditorDiagnostic> diagnostics,
+) {
+  final ranges = <_EditorDiagnosticResolvedRange>[];
+  for (final diagnostic in diagnostics) {
+    final startOffset = _editorOffsetForLineColumn(
+      text,
+      diagnostic.line,
+      diagnostic.column,
+    );
+    var endOffset = _editorOffsetForLineColumn(
+      text,
+      diagnostic.endLine,
+      diagnostic.endColumn,
+    );
+    if (endOffset <= startOffset) {
+      endOffset = math.min(
+        text.length,
+        startOffset + math.max(1, diagnostic.length),
+      );
+    }
+    if (endOffset <= startOffset) {
+      continue;
+    }
+    ranges.add(
+      _EditorDiagnosticResolvedRange(
+        diagnostic: diagnostic,
+        startOffset: startOffset,
+        endOffset: endOffset,
+      ),
+    );
+  }
+  ranges.sort((left, right) {
+    final byStart = left.startOffset.compareTo(right.startOffset);
+    if (byStart != 0) {
+      return byStart;
+    }
+    return _editorDiagnosticSeverityRank(
+      right.diagnostic,
+    ).compareTo(_editorDiagnosticSeverityRank(left.diagnostic));
+  });
+  return ranges;
+}
+
+List<_EditorDiagnosticDecoratedRange> _buildEditorDiagnosticDecoratedRanges(
+  String text,
+  List<_EditorDiagnostic> diagnostics,
+) {
+  return _buildEditorDiagnosticResolvedRanges(text, diagnostics)
+      .map(
+        (range) => _EditorDiagnosticDecoratedRange(
+          startOffset: range.startOffset,
+          endOffset: range.endOffset,
+          severityRank: _editorDiagnosticSeverityRank(range.diagnostic),
+          overlayStyle: _editorDiagnosticOverlayStyle(range.diagnostic),
+        ),
+      )
+      .toList(growable: false);
+}
+
+TextSpan _applyEditorDiagnosticDecorationsToTextSpan(
+  TextSpan span,
+  String text,
+  List<_EditorDiagnostic> diagnostics,
+) {
+  final ranges = _buildEditorDiagnosticDecoratedRanges(text, diagnostics);
+  if (ranges.isEmpty) {
+    return span;
+  }
+  final result = _decorateEditorInlineSpan(span, ranges, 0);
+  if (result.spans.length == 1 && result.spans.first is TextSpan) {
+    return result.spans.first as TextSpan;
+  }
+  return TextSpan(style: span.style, children: result.spans);
+}
+
+_EditorDecoratedInlineSpanResult _decorateEditorInlineSpan(
+  InlineSpan span,
+  List<_EditorDiagnosticDecoratedRange> ranges,
+  int startOffset,
+) {
+  if (span is! TextSpan) {
+    return _EditorDecoratedInlineSpanResult(
+      spans: <InlineSpan>[span],
+      endOffset: startOffset,
+    );
+  }
+  if (span.text != null) {
+    return _decorateEditorLeafTextSpan(span, ranges, startOffset);
+  }
+  final children = <InlineSpan>[];
+  var cursor = startOffset;
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    final childResult = _decorateEditorInlineSpan(child, ranges, cursor);
+    children.addAll(childResult.spans);
+    cursor = childResult.endOffset;
+  }
+  return _EditorDecoratedInlineSpanResult(
+    spans: <InlineSpan>[TextSpan(style: span.style, children: children)],
+    endOffset: cursor,
+  );
+}
+
+_EditorDecoratedInlineSpanResult _decorateEditorLeafTextSpan(
+  TextSpan span,
+  List<_EditorDiagnosticDecoratedRange> ranges,
+  int startOffset,
+) {
+  final leafText = span.text ?? '';
+  final endOffset = startOffset + leafText.length;
+  if (leafText.isEmpty) {
+    return _EditorDecoratedInlineSpanResult(
+      spans: <InlineSpan>[span],
+      endOffset: endOffset,
+    );
+  }
+  final relevantRanges = ranges
+      .where((range) {
+        return range.endOffset > startOffset && range.startOffset < endOffset;
+      })
+      .toList(growable: false);
+  if (relevantRanges.isEmpty) {
+    return _EditorDecoratedInlineSpanResult(
+      spans: <InlineSpan>[span],
+      endOffset: endOffset,
+    );
+  }
+
+  final spans = <InlineSpan>[];
+  var localOffset = 0;
+  while (localOffset < leafText.length) {
+    _EditorDiagnosticDecoratedRange? activeRange;
+    var nextBoundary = leafText.length;
+    for (final range in relevantRanges) {
+      final localRangeStart = math.max(0, range.startOffset - startOffset);
+      final localRangeEnd = math.min(
+        leafText.length,
+        range.endOffset - startOffset,
+      );
+      if (localRangeEnd <= localOffset) {
+        continue;
+      }
+      if (localRangeStart > localOffset) {
+        nextBoundary = math.min(nextBoundary, localRangeStart);
+        continue;
+      }
+      if (localOffset >= localRangeStart && localOffset < localRangeEnd) {
+        if (activeRange == null ||
+            range.severityRank > activeRange.severityRank ||
+            (range.severityRank == activeRange.severityRank &&
+                range.endOffset > activeRange.endOffset)) {
+          activeRange = range;
+        }
+        nextBoundary = math.min(nextBoundary, localRangeEnd);
+      }
+    }
+    if (nextBoundary <= localOffset) {
+      nextBoundary = localOffset + 1;
+    }
+    final segmentText = leafText.substring(localOffset, nextBoundary);
+    final segmentStyle = activeRange == null
+        ? span.style
+        : (span.style?.merge(activeRange.overlayStyle) ??
+              activeRange.overlayStyle);
+    spans.add(TextSpan(text: segmentText, style: segmentStyle));
+    localOffset = nextBoundary;
+  }
+
+  return _EditorDecoratedInlineSpanResult(spans: spans, endOffset: endOffset);
+}
+
+class _EditorPreviewLine {
+  const _EditorPreviewLine({
+    required this.lineNumber,
+    required this.text,
+    required this.isHighlight,
+  });
+
+  final int lineNumber;
+  final String text;
+  final bool isHighlight;
+}
+
+class _EditorLocationPreview {
+  const _EditorLocationPreview({required this.lines});
+
+  final List<_EditorPreviewLine> lines;
+}
+
+class _PreparedWorkspaceEdit {
+  const _PreparedWorkspaceEdit({required this.edit, required this.files});
+
+  final AiLspWorkspaceEdit edit;
+  final List<_PreparedWorkspaceEditFile> files;
+}
+
+class _PreparedWorkspaceEditFile {
+  const _PreparedWorkspaceEditFile({
+    required this.filePath,
+    required this.updatedText,
+    required this.editCount,
+    required this.diffLines,
+    required this.additionCount,
+    required this.deletionCount,
+    required this.isTruncated,
+  });
+
+  final String filePath;
+  final String updatedText;
+  final int editCount;
+  final List<String> diffLines;
+  final int additionCount;
+  final int deletionCount;
+  final bool isTruncated;
+}
+
+class _PendingWorkspaceEditPreviewContext {
+  _PendingWorkspaceEditPreviewContext({required this.title, this.description});
+
+  final String title;
+  final String? description;
+  final List<String> appliedSummaries = <String>[];
+  bool declined = false;
+}
+
+class _WorkspaceEditStatChip extends StatelessWidget {
+  const _WorkspaceEditStatChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkspaceEditDiffLine extends StatelessWidget {
+  const _WorkspaceEditDiffLine({required this.line, required this.colorScheme});
+
+  final String line;
+  final ColorScheme colorScheme;
+
+  static const _addedBg = Color(0xFFE6F4E6);
+  static const _removedBg = Color(0xFFF7E6E6);
+  static const _hunkBg = Color(0xFFE8EEF8);
+  static const _addedBgDark = Color(0xFF1A3D1A);
+  static const _removedBgDark = Color(0xFF3D1A1A);
+  static const _hunkBgDark = Color(0xFF1A2B3D);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color? background;
+    Color foreground;
+    FontWeight fontWeight = FontWeight.normal;
+
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      foreground = colorScheme.secondary;
+      fontWeight = FontWeight.w700;
+    } else if (line.startsWith('+')) {
+      background = isDark ? _addedBgDark.withValues(alpha: 0.55) : _addedBg;
+      foreground = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    } else if (line.startsWith('-')) {
+      background = isDark ? _removedBgDark.withValues(alpha: 0.55) : _removedBg;
+      foreground = isDark ? const Color(0xFFE57373) : colorScheme.error;
+    } else if (line.startsWith('@@')) {
+      background = isDark ? _hunkBgDark.withValues(alpha: 0.55) : _hunkBg;
+      foreground = isDark ? const Color(0xFF90CAF9) : colorScheme.primary;
+      fontWeight = FontWeight.w700;
+    } else {
+      foreground = colorScheme.onSurface.withValues(alpha: 0.82);
+    }
+
+    return Container(
+      width: double.infinity,
+      color: background,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: Text(
+        line.isEmpty ? ' ' : line,
+        style: TextStyle(
+          color: foreground,
+          fontWeight: fontWeight,
+          fontSize: 11.8,
+          height: 1.4,
+          fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+        ),
+      ),
+    );
+  }
+}
+
+List<String> _computeEditorUnifiedDiff(
+  List<String> before,
+  List<String> after,
+) {
+  if (before.isEmpty && after.isEmpty) return const <String>[];
+  if (before.isEmpty) {
+    return <String>[
+      '--- /dev/null',
+      '+++ b/file',
+      '@@ -0,0 +1,${after.length} @@',
+      ...after.map((line) => '+$line'),
+    ];
+  }
+  if (after.isEmpty) {
+    return <String>[
+      '--- a/file',
+      '+++ /dev/null',
+      '@@ -1,${before.length} +0,0 @@',
+      ...before.map((line) => '-$line'),
+    ];
+  }
+  if (before.length + after.length > 10000) {
+    return _fallbackEditorDiff(before, after);
+  }
+
+  final n = before.length;
+  final m = after.length;
+  final max = n + m;
+  final size = 2 * max + 1;
+  final v = List<int>.filled(size, 0);
+  final traces = <List<int>>[];
+
+  var found = false;
+  for (var d = 0; d <= max && !found; d++) {
+    traces.add(List<int>.from(v));
+    for (var k = -d; k <= d; k += 2) {
+      int x;
+      if (k == -d || (k != d && v[k - 1 + max] < v[k + 1 + max])) {
+        x = v[k + 1 + max];
+      } else {
+        x = v[k - 1 + max] + 1;
+      }
+      var y = x - k;
+      while (x < n && y < m && before[x] == after[y]) {
+        x++;
+        y++;
+      }
+      v[k + max] = x;
+      if (x >= n && y >= m) {
+        found = true;
+        break;
+      }
+    }
+  }
+
+  final editScript = <({String type, String text})>[];
+  var bx = n;
+  var by = m;
+  for (var d = traces.length - 1; d > 0; d--) {
+    final previousTrace = traces[d - 1];
+    final k = bx - by;
+    int previousK;
+    if (k == -d ||
+        (k != d && previousTrace[k - 1 + max] < previousTrace[k + 1 + max])) {
+      previousK = k + 1;
+    } else {
+      previousK = k - 1;
+    }
+    final previousX = previousTrace[previousK + max];
+    final previousY = previousX - previousK;
+
+    while (bx > previousX && by > previousY) {
+      bx--;
+      by--;
+      editScript.add((type: ' ', text: before[bx]));
+    }
+    if (bx == previousX && by > previousY) {
+      by--;
+      editScript.add((type: '+', text: after[by]));
+    } else if (by == previousY && bx > previousX) {
+      bx--;
+      editScript.add((type: '-', text: before[bx]));
+    }
+  }
+
+  while (bx > 0 && by > 0) {
+    bx--;
+    by--;
+    editScript.add((type: ' ', text: before[bx]));
+  }
+  while (bx > 0) {
+    bx--;
+    editScript.add((type: '-', text: before[bx]));
+  }
+  while (by > 0) {
+    by--;
+    editScript.add((type: '+', text: after[by]));
+  }
+
+  final edits = editScript.reversed.toList(growable: false);
+  const contextSize = 3;
+  final result = <String>['--- a/file', '+++ b/file'];
+  final changeIndices = <int>[];
+
+  for (var index = 0; index < edits.length; index++) {
+    if (edits[index].type != ' ') {
+      changeIndices.add(index);
+    }
+  }
+  if (changeIndices.isEmpty) {
+    return const <String>[];
+  }
+
+  final hunkRanges = <(int, int)>[];
+  var hunkStart = (changeIndices.first - contextSize).clamp(0, edits.length);
+  var hunkEnd = (changeIndices.first + contextSize + 1).clamp(0, edits.length);
+
+  for (var index = 1; index < changeIndices.length; index++) {
+    final nextStart = (changeIndices[index] - contextSize).clamp(
+      0,
+      edits.length,
+    );
+    final nextEnd = (changeIndices[index] + contextSize + 1).clamp(
+      0,
+      edits.length,
+    );
+    if (nextStart <= hunkEnd) {
+      hunkEnd = nextEnd;
+    } else {
+      hunkRanges.add((hunkStart, hunkEnd));
+      hunkStart = nextStart;
+      hunkEnd = nextEnd;
+    }
+  }
+  hunkRanges.add((hunkStart, hunkEnd));
+
+  for (final (start, end) in hunkRanges) {
+    var beforeLine = 0;
+    var afterLine = 0;
+    for (var index = 0; index < start; index++) {
+      if (edits[index].type != '+') {
+        beforeLine++;
+      }
+      if (edits[index].type != '-') {
+        afterLine++;
+      }
+    }
+    final hunkBeforeStart = beforeLine + 1;
+    final hunkAfterStart = afterLine + 1;
+    var hunkBeforeCount = 0;
+    var hunkAfterCount = 0;
+    final hunkLines = <String>[];
+    for (var index = start; index < end; index++) {
+      final edit = edits[index];
+      hunkLines.add('${edit.type}${edit.text}');
+      if (edit.type != '+') {
+        hunkBeforeCount++;
+      }
+      if (edit.type != '-') {
+        hunkAfterCount++;
+      }
+    }
+    result.add(
+      '@@ -$hunkBeforeStart,$hunkBeforeCount +$hunkAfterStart,$hunkAfterCount @@',
+    );
+    result.addAll(hunkLines);
+  }
+
+  return result;
+}
+
+List<String> _fallbackEditorDiff(List<String> before, List<String> after) {
+  final result = <String>['--- a/file', '+++ b/file'];
+  final maxLen = math.max(before.length, after.length);
+  var diffStart = -1;
+  final hunkLines = <String>[];
+
+  for (var index = 0; index < maxLen; index++) {
+    final beforeLine = index < before.length ? before[index] : null;
+    final afterLine = index < after.length ? after[index] : null;
+    if (beforeLine == afterLine) {
+      if (hunkLines.isNotEmpty) {
+        result.add('@@ -${diffStart + 1} @@');
+        result.addAll(hunkLines);
+        hunkLines.clear();
+        diffStart = -1;
+      }
+      continue;
+    }
+    if (diffStart < 0) {
+      diffStart = index;
+    }
+    if (beforeLine != null) {
+      hunkLines.add('-$beforeLine');
+    }
+    if (afterLine != null) {
+      hunkLines.add('+$afterLine');
+    }
+  }
+
+  if (hunkLines.isNotEmpty) {
+    result.add('@@ -${(diffStart < 0 ? 0 : diffStart) + 1} @@');
+    result.addAll(hunkLines);
+  }
+
+  return result;
+}
+
+class _EditorSymbolPattern {
+  const _EditorSymbolPattern(this.regExp, this.kind);
+
+  final RegExp regExp;
+  final String kind;
+}
+
+const Set<String> _editorIgnoredSymbolNames = <String>{
+  'if',
+  'for',
+  'while',
+  'switch',
+  'catch',
+  'return',
+  'throw',
+  'new',
+  'else',
+  'do',
+};
+
+final List<_EditorSymbolPattern> _genericSymbolPatterns =
+    <_EditorSymbolPattern>[
+      _EditorSymbolPattern(
+        RegExp(r'^\s*(?:abstract\s+)?class\s+([A-Za-z_][\w$]*)\b'),
+        'class',
+      ),
+      _EditorSymbolPattern(
+        RegExp(r'^\s*(?:abstract\s+)?interface\s+([A-Za-z_][\w$]*)\b'),
+        'interface',
+      ),
+      _EditorSymbolPattern(RegExp(r'^\s*enum\s+([A-Za-z_][\w$]*)\b'), 'enum'),
+      _EditorSymbolPattern(
+        RegExp(r'^\s*(?:async\s+)?def\s+([A-Za-z_][\w$]*)\s*\('),
+        'function',
+      ),
+      _EditorSymbolPattern(
+        RegExp(r'^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][\w$]*)\s*\('),
+        'function',
+      ),
+      _EditorSymbolPattern(
+        RegExp(
+          r'^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_][\w$]*)\s*\(',
+        ),
+        'function',
+      ),
+    ];
+
+final List<_EditorSymbolPattern> _dartSymbolPatterns = <_EditorSymbolPattern>[
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:abstract\s+)?class\s+([A-Za-z_][\w$]*)\b'),
+    'class',
+  ),
+  _EditorSymbolPattern(RegExp(r'^\s*mixin\s+([A-Za-z_][\w$]*)\b'), 'mixin'),
+  _EditorSymbolPattern(RegExp(r'^\s*enum\s+([A-Za-z_][\w$]*)\b'), 'enum'),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*extension\s+([A-Za-z_][\w$]*)\s+on\b'),
+    'extension',
+  ),
+  _EditorSymbolPattern(RegExp(r'^\s*typedef\s+([A-Za-z_][\w$]*)\b'), 'typedef'),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:static\s+)?(?:[A-Za-z_<>,?\[\]\.]+\s+){0,3}([A-Za-z_][\w$]*)\s*\([^;]*\)\s*(?:\{|=>)',
+    ),
+    'method',
+  ),
+];
+
+final List<_EditorSymbolPattern>
+_javascriptSymbolPatterns = <_EditorSymbolPattern>[
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:export\s+)?(?:default\s+)?class\s+([A-Za-z_][\w$]*)\b'),
+    'class',
+  ),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:export\s+)?interface\s+([A-Za-z_][\w$]*)\b'),
+    'interface',
+  ),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:export\s+)?type\s+([A-Za-z_][\w$]*)\b'),
+    'type',
+  ),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:export\s+)?enum\s+([A-Za-z_][\w$]*)\b'),
+    'enum',
+  ),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_][\w$]*)\s*\('),
+    'function',
+  ),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_][\w$]*)\s*=>',
+    ),
+    'function',
+  ),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:public\s+|private\s+|protected\s+|static\s+|async\s+|readonly\s+|override\s+|get\s+|set\s+)*([A-Za-z_][\w$]*)\s*\([^;]*\)\s*\{',
+    ),
+    'method',
+  ),
+];
+
+final List<_EditorSymbolPattern> _pythonSymbolPatterns = <_EditorSymbolPattern>[
+  _EditorSymbolPattern(RegExp(r'^\s*class\s+([A-Za-z_][\w$]*)\b'), 'class'),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*(?:async\s+)?def\s+([A-Za-z_][\w$]*)\s*\('),
+    'function',
+  ),
+];
+
+final List<_EditorSymbolPattern> _goSymbolPatterns = <_EditorSymbolPattern>[
+  _EditorSymbolPattern(
+    RegExp(r'^\s*type\s+([A-Za-z_][\w$]*)\s+(?:struct|interface)\b'),
+    'type',
+  ),
+  _EditorSymbolPattern(
+    RegExp(r'^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][\w$]*)\s*\('),
+    'function',
+  ),
+];
+
+final List<_EditorSymbolPattern>
+_javaLikeSymbolPatterns = <_EditorSymbolPattern>[
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:public\s+|private\s+|protected\s+|internal\s+|open\s+|abstract\s+|final\s+|sealed\s+|data\s+|static\s+)*class\s+([A-Za-z_][\w$]*)\b',
+    ),
+    'class',
+  ),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:public\s+|private\s+|protected\s+|internal\s+|open\s+|sealed\s+|static\s+)*interface\s+([A-Za-z_][\w$]*)\b',
+    ),
+    'interface',
+  ),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:public\s+|private\s+|protected\s+|internal\s+|static\s+)*enum\s+([A-Za-z_][\w$]*)\b',
+    ),
+    'enum',
+  ),
+  _EditorSymbolPattern(
+    RegExp(
+      r'^\s*(?:public\s+|private\s+|protected\s+|internal\s+|open\s+|final\s+|abstract\s+|override\s+|static\s+|suspend\s+|operator\s+|inline\s+|async\s+)*(?:[A-Za-z_<>,?\[\]\.]+\s+){0,3}([A-Za-z_][\w$]*)\s*\([^;]*\)\s*\{?',
+    ),
+    'method',
+  ),
+];
+
+List<_EditorSymbolPattern> _symbolPatternsForLanguage(String language) {
+  return switch (language) {
+    'dart' => _dartSymbolPatterns,
+    'javascript' || 'typescript' => _javascriptSymbolPatterns,
+    'python' => _pythonSymbolPatterns,
+    'go' => _goSymbolPatterns,
+    'java' ||
+    'kotlin' ||
+    'csharp' ||
+    'swift' ||
+    'cpp' => _javaLikeSymbolPatterns,
+    _ => _genericSymbolPatterns,
+  };
+}
+
+bool _isEditorCommentLine(String trimmedLine) {
+  return trimmedLine.startsWith('//') ||
+      trimmedLine.startsWith('#') ||
+      trimmedLine.startsWith('*') ||
+      trimmedLine.startsWith('/*') ||
+      trimmedLine.startsWith('<!--') ||
+      trimmedLine.startsWith('--');
+}
+
+int _editorOffsetForLineColumn(String text, int line, int column) {
+  final targetLine = math.max(1, line);
+  final targetColumn = math.max(1, column);
+  var currentLine = 1;
+  var currentColumn = 1;
+  for (var index = 0; index < text.length; index++) {
+    if (currentLine == targetLine && currentColumn == targetColumn) {
+      return index;
+    }
+    if (text.codeUnitAt(index) == 10) {
+      if (currentLine == targetLine) {
+        return index;
+      }
+      currentLine += 1;
+      currentColumn = 1;
+    } else {
+      currentColumn += 1;
+    }
+  }
+  return text.length;
+}
+
+String _editorSymbolKindFromLsp(int kind) {
+  return switch (kind) {
+    5 => 'class',
+    6 => 'method',
+    7 || 8 => 'field',
+    9 => 'constructor',
+    10 => 'enum',
+    11 => 'interface',
+    12 => 'function',
+    13 || 14 => 'variable',
+    22 => 'enumMember',
+    23 => 'struct',
+    26 => 'type',
+    _ => 'symbol',
+  };
+}
+
+_EditorSymbolExtractionResult _extractEditorSymbolsFromLsp({
+  required String filePath,
+  required List<AiLspDocumentSymbol> documentSymbols,
+  required String text,
+}) {
+  const maxSymbols = 240;
+  final symbols = <_EditorSymbol>[];
+  var truncated = false;
+
+  void visit(AiLspDocumentSymbol symbol, int depth) {
+    if (symbols.length >= maxSymbols) {
+      truncated = true;
+      return;
+    }
+    final name = symbol.name.trim();
+    if (name.isNotEmpty) {
+      final kind = _editorSymbolKindFromLsp(symbol.kind);
+      final detail = symbol.detail?.trim();
+      symbols.add(
+        _EditorSymbol(
+          name: name,
+          kind: kind,
+          filePath: filePath,
+          line: symbol.range.start.line,
+          column: symbol.range.start.character,
+          offset: _editorOffsetForLineColumn(
+            text,
+            symbol.range.start.line,
+            symbol.range.start.character,
+          ),
+          signature: detail == null || detail.isEmpty ? kind : detail,
+          depth: depth,
+        ),
+      );
+    }
+    if (symbols.length >= maxSymbols) {
+      truncated = true;
+      return;
+    }
+    for (final child in symbol.children) {
+      visit(child, depth + 1);
+      if (truncated) {
+        return;
+      }
+    }
+  }
+
+  for (final symbol in documentSymbols) {
+    visit(symbol, 0);
+    if (truncated) {
+      break;
+    }
+  }
+
+  return _EditorSymbolExtractionResult(
+    symbols: List<_EditorSymbol>.unmodifiable(symbols),
+    truncated: truncated,
+  );
+}
+
+_EditorSymbolExtractionResult _extractEditorSymbolsFromWorkspaceLsp({
+  required List<AiLspWorkspaceSymbol> workspaceSymbols,
+}) {
+  const maxSymbols = 240;
+  final symbols = <_EditorSymbol>[];
+  var truncated = false;
+
+  for (final symbol in workspaceSymbols) {
+    if (symbols.length >= maxSymbols) {
+      truncated = true;
+      break;
+    }
+    final detail = symbol.detail?.trim();
+    final containerName = symbol.containerName?.trim();
+    symbols.add(
+      _EditorSymbol(
+        name: symbol.name,
+        kind: _editorSymbolKindFromLsp(symbol.kind),
+        filePath: symbol.location.filePath,
+        line: symbol.location.line,
+        column: symbol.location.character,
+        offset: 0,
+        signature: detail?.isNotEmpty == true
+            ? detail!
+            : containerName?.isNotEmpty == true
+            ? containerName!
+            : _editorSymbolKindFromLsp(symbol.kind),
+        depth: 0,
+      ),
+    );
+  }
+
+  return _EditorSymbolExtractionResult(
+    symbols: List<_EditorSymbol>.unmodifiable(symbols),
+    truncated: truncated,
+  );
+}
+
+_EditorSymbolExtractionResult _extractEditorSymbols({
+  required String filePath,
+  required String text,
+  required String language,
+}) {
+  const maxSymbols = 240;
+  const maxLines = 5000;
+  const maxTextLength = 320 * 1024;
+
+  final allLines = const LineSplitter().convert(text);
+  final truncated = allLines.length > maxLines || text.length > maxTextLength;
+  final lineCount = truncated
+      ? math.min(allLines.length, maxLines)
+      : allLines.length;
+  final lines = allLines.take(lineCount).toList(growable: false);
+  final patterns = _symbolPatternsForLanguage(language);
+  final symbols = <_EditorSymbol>[];
+  var offset = 0;
+
+  for (var index = 0; index < lines.length; index++) {
+    final line = lines[index];
+    final trimmed = line.trimLeft();
+    if (trimmed.isEmpty || _isEditorCommentLine(trimmed)) {
+      offset += line.length + 1;
+      continue;
+    }
+    for (final pattern in patterns) {
+      final match = pattern.regExp.firstMatch(line);
+      if (match == null) {
+        continue;
+      }
+      final name = match.group(1)?.trim() ?? '';
+      if (name.isEmpty || _editorIgnoredSymbolNames.contains(name)) {
+        continue;
+      }
+      symbols.add(
+        _EditorSymbol(
+          name: name,
+          kind: pattern.kind,
+          filePath: filePath,
+          line: index + 1,
+          column: match.start + 1,
+          offset: offset + match.start,
+          signature: trimmed,
+          depth: 0,
+        ),
+      );
+      break;
+    }
+    offset += line.length + 1;
+    if (symbols.length >= maxSymbols) {
+      return _EditorSymbolExtractionResult(
+        symbols: List<_EditorSymbol>.unmodifiable(symbols),
+        truncated: true,
+      );
+    }
+  }
+
+  return _EditorSymbolExtractionResult(
+    symbols: List<_EditorSymbol>.unmodifiable(symbols),
+    truncated: truncated,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Syntax-highlighted editable editor widget
 // ---------------------------------------------------------------------------
 
-const double _editorFontSize = 13.0;
+const double _editorFontSizeDefault = 13.0;
+const double _editorFontSizeMin = 8.0;
+const double _editorFontSizeMax = 32.0;
 const double _editorLineHeight = 1.55;
-const double _editorLineExtent = _editorFontSize * _editorLineHeight;
-const TextStyle _editorBaseStyle = TextStyle(
+
+TextStyle _editorBaseStyleForSize(double fontSize) => TextStyle(
   fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
-  fontSize: _editorFontSize,
+  fontSize: fontSize,
   height: _editorLineHeight,
   letterSpacing: 0,
 );
+
+double _measureEditorLineNumberTextWidth({
+  required int lineCount,
+  required double fontSize,
+}) {
+  final digits = math.max(1, '$lineCount'.length);
+  final painter = TextPainter(
+    text: TextSpan(
+      text: List<String>.filled(digits, '8').join(),
+      style: TextStyle(
+        fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
+        fontSize: fontSize - 1,
+        height: _editorLineHeight,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  )..layout();
+  return painter.width.ceilToDouble();
+}
+
+double _editorEditableGutterWidth({
+  required int lineCount,
+  required double fontSize,
+  required bool hasDiagnostics,
+}) {
+  final basePadding = hasDiagnostics ? 62.0 : 40.0;
+  final minimumWidth = hasDiagnostics ? 88.0 : 60.0;
+  return math.max(
+    minimumWidth,
+    _measureEditorLineNumberTextWidth(
+          lineCount: lineCount,
+          fontSize: fontSize,
+        ) +
+        basePadding,
+  );
+}
+
+double _editorPreviewGutterWidth({
+  required int lineCount,
+  required double fontSize,
+}) {
+  return math.max(
+    56.0,
+    _measureEditorLineNumberTextWidth(
+          lineCount: lineCount,
+          fontSize: fontSize,
+        ) +
+        32.0,
+  );
+}
 
 class _EditorScrollBehavior extends MaterialScrollBehavior {
   const _EditorScrollBehavior();
@@ -1714,6 +9212,119 @@ class _EditorScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
+/// Handles Cmd/Ctrl + scroll‑wheel zoom and Cmd/Ctrl + +/-/0 keyboard zoom
+/// for the code editor, similar to IntelliJ IDEA and VS Code.
+class _EditorZoomWrapper extends StatefulWidget {
+  const _EditorZoomWrapper({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onZoomReset,
+    required this.child,
+  });
+
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onZoomReset;
+  final Widget child;
+
+  @override
+  State<_EditorZoomWrapper> createState() => _EditorZoomWrapperState();
+}
+
+class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
+  static const Duration _zoomThrottle = Duration(milliseconds: 45);
+  DateTime? _lastZoomAt;
+  double? _lastPanZoomScale;
+
+  void _dispatchZoom(VoidCallback action) {
+    final now = DateTime.now();
+    if (_lastZoomAt != null && now.difference(_lastZoomAt!) < _zoomThrottle) {
+      return;
+    }
+    _lastZoomAt = now;
+    action();
+  }
+
+  void _handlePanZoomStart(PointerPanZoomStartEvent event) {
+    _lastPanZoomScale = 1.0;
+  }
+
+  void _handlePanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final previousScale = _lastPanZoomScale ?? 1.0;
+    final currentScale = event.scale;
+    _lastPanZoomScale = currentScale;
+    final scaleDelta = currentScale / previousScale;
+    if (scaleDelta >= 1.04) {
+      _dispatchZoom(widget.onZoomIn);
+    } else if (scaleDelta <= 0.96) {
+      _dispatchZoom(widget.onZoomOut);
+    }
+  }
+
+  void _handlePanZoomEnd(PointerPanZoomEndEvent event) {
+    _lastPanZoomScale = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onKeyEvent: (_, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return KeyEventResult.ignored;
+        }
+        final meta =
+            HardwareKeyboard.instance.isMetaPressed ||
+            HardwareKeyboard.instance.isControlPressed;
+        if (!meta) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.equal ||
+            event.logicalKey == LogicalKeyboardKey.numpadAdd) {
+          _dispatchZoom(widget.onZoomIn);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.minus ||
+            event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
+          _dispatchZoom(widget.onZoomOut);
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.digit0 ||
+            event.logicalKey == LogicalKeyboardKey.numpad0) {
+          widget.onZoomReset();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            final meta =
+                HardwareKeyboard.instance.isMetaPressed ||
+                HardwareKeyboard.instance.isControlPressed;
+            if (meta) {
+              if (event.scrollDelta.dy <= -2) {
+                _dispatchZoom(widget.onZoomIn);
+              } else if (event.scrollDelta.dy >= 2) {
+                _dispatchZoom(widget.onZoomOut);
+              }
+            }
+          } else if (event is PointerScaleEvent) {
+            // Trackpad pinch-to-zoom
+            if (event.scale >= 1.04) {
+              _dispatchZoom(widget.onZoomIn);
+            } else if (event.scale <= 0.96) {
+              _dispatchZoom(widget.onZoomOut);
+            }
+          }
+        },
+        onPointerPanZoomStart: _handlePanZoomStart,
+        onPointerPanZoomUpdate: _handlePanZoomUpdate,
+        onPointerPanZoomEnd: _handlePanZoomEnd,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _HighlightingTextController extends TextEditingController {
   _HighlightingTextController({String? initialText, this.language})
     : _lastMeasuredText = initialText ?? '',
@@ -1723,14 +9334,18 @@ class _HighlightingTextController extends TextEditingController {
 
   _CodeSyntaxHighlighter? highlighter;
   String? language;
+  static const int _plainTextCacheHash = -1;
 
   // ── Highlight cache ──
   TextSpan? _cachedSpan;
   String? _lastText;
   int? _lastHighlighterHash;
+  int? _lastDiagnosticsRevision;
   Timer? _debounceTimer;
   String _lastMeasuredText;
   List<String>? _cachedLines;
+  List<_EditorDiagnostic> _diagnostics = const <_EditorDiagnostic>[];
+  int _diagnosticsRevision = 0;
   int _lineCount = 1;
   int _longestLineLength = 0;
 
@@ -1770,7 +9385,19 @@ class _HighlightingTextController extends TextEditingController {
 
   bool get _deferHighlighting =>
       !_disableHighlighting &&
-      (text.length > _deferHighlightLength || _lineCount > _deferHighlightLines);
+      (text.length > _deferHighlightLength ||
+          _lineCount > _deferHighlightLines);
+
+  set diagnostics(List<_EditorDiagnostic> value) {
+    if (identical(_diagnostics, value)) {
+      return;
+    }
+    _diagnostics = value.isEmpty
+        ? const <_EditorDiagnostic>[]
+        : List<_EditorDiagnostic>.unmodifiable(value);
+    _diagnosticsRevision += 1;
+    invalidateHighlightCache();
+  }
 
   @override
   set value(TextEditingValue newValue) {
@@ -1788,32 +9415,61 @@ class _HighlightingTextController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    if (highlighter == null || _disableHighlighting) {
-      return TextSpan(text: text, style: style);
-    }
-    final hlHash = identityHashCode(highlighter);
+    final hlHash = highlighter == null
+        ? _plainTextCacheHash
+        : identityHashCode(highlighter);
+    final deferHighlighting = highlighter != null && _deferHighlighting;
     if (_cachedSpan != null &&
         _lastText == text &&
-        _lastHighlighterHash == hlHash) {
+        (_lastHighlighterHash == hlHash ||
+            (deferHighlighting &&
+                _lastHighlighterHash == _plainTextCacheHash)) &&
+        _lastDiagnosticsRevision == _diagnosticsRevision) {
       return _cachedSpan!;
     }
-    if (_deferHighlighting) {
+    if (highlighter == null || _disableHighlighting) {
+      return _cachePlainTextSpan(style);
+    }
+    if (deferHighlighting) {
       _scheduleDelayedHighlight();
-      return TextSpan(text: text, style: style);
+      return _cachePlainTextSpan(style);
     }
     _rebuildHighlight();
-    return _cachedSpan ?? TextSpan(text: text, style: style);
+    return _cachedSpan ?? _cachePlainTextSpan(style);
   }
 
   void _rebuildHighlight() {
     if (highlighter == null) return;
-    _cachedSpan = highlighter!.build(
+    final highlighted = highlighter!.build(
       text,
       language: language,
       allowAutoDetection: language == null,
     );
+    _cachedSpan = _diagnostics.isEmpty
+        ? highlighted
+        : _applyEditorDiagnosticDecorationsToTextSpan(
+            highlighted,
+            text,
+            _diagnostics,
+          );
     _lastText = text;
     _lastHighlighterHash = identityHashCode(highlighter);
+    _lastDiagnosticsRevision = _diagnosticsRevision;
+  }
+
+  TextSpan _cachePlainTextSpan(TextStyle? style) {
+    final plain = TextSpan(text: text, style: style);
+    _cachedSpan = _diagnostics.isEmpty
+        ? plain
+        : _applyEditorDiagnosticDecorationsToTextSpan(
+            plain,
+            text,
+            _diagnostics,
+          );
+    _lastText = text;
+    _lastHighlighterHash = _plainTextCacheHash;
+    _lastDiagnosticsRevision = _diagnosticsRevision;
+    return _cachedSpan!;
   }
 
   void _scheduleDelayedHighlight() {
@@ -1861,6 +9517,7 @@ class _HighlightingTextController extends TextEditingController {
     _cachedSpan = null;
     _lastText = null;
     _lastHighlighterHash = null;
+    _lastDiagnosticsRevision = null;
   }
 
   @override
@@ -1877,6 +9534,15 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     required this.focusNode,
     required this.onChanged,
     this.language,
+    this.fontSize = _editorFontSizeDefault,
+    this.activeLine = 1,
+    this.diagnostics = const <_EditorDiagnostic>[],
+    this.diagnosticsByLine = const <int, List<_EditorDiagnostic>>{},
+    this.onSelectionChanged,
+    this.onDiagnosticLineRequested,
+    this.onDiagnosticQuickFixRequested,
+    this.onDiagnosticTooltipQuickFixRequested,
+    this.onDiagnosticTooltipMoreActionsRequested,
   });
 
   final _HighlightingTextController controller;
@@ -1884,18 +9550,107 @@ class _SyntaxHighlightEditor extends StatefulWidget {
   final FocusNode focusNode;
   final String? language;
   final ValueChanged<String> onChanged;
+  final double fontSize;
+  final int activeLine;
+  final List<_EditorDiagnostic> diagnostics;
+  final Map<int, List<_EditorDiagnostic>> diagnosticsByLine;
+  final VoidCallback? onSelectionChanged;
+  final ValueChanged<int>? onDiagnosticLineRequested;
+  final void Function(int lineNumber, Offset globalPosition)?
+  onDiagnosticQuickFixRequested;
+  final void Function(
+    List<_EditorDiagnostic> diagnostics,
+    Offset globalPosition,
+  )?
+  onDiagnosticTooltipQuickFixRequested;
+  final void Function(
+    List<_EditorDiagnostic> diagnostics,
+    Offset globalPosition,
+  )?
+  onDiagnosticTooltipMoreActionsRequested;
 
   @override
-  State<_SyntaxHighlightEditor> createState() =>
-      _SyntaxHighlightEditorState();
+  State<_SyntaxHighlightEditor> createState() => _SyntaxHighlightEditorState();
 }
 
 class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
+  static const double _editorTextPaddingLeft = 8;
+  static const double _editorTextPaddingRight = 12;
+  static const double _editorTextPaddingTop = 10;
+  static const double _editorTextPaddingBottom = 10;
+
+  final GlobalKey _textViewportKey = GlobalKey();
   late final ScrollController _lineNumberScrollController;
   bool _darkSurface = false;
+  int? _hoveredGutterLine;
+  OverlayEntry? _diagnosticTooltipEntry;
+  bool _diagnosticTooltipUpdateQueued = false;
+  Timer? _diagnosticTooltipHideTimer;
+  bool _hoveringDiagnosticTooltip = false;
+  int? _hoveredTextDiagnosticOffset;
+  List<_EditorDiagnostic> _hoveredTextDiagnostics = const <_EditorDiagnostic>[];
+  Rect? _hoveredTextDiagnosticAnchorRect;
+  TextPainter? _hoverTextPainter;
+  String? _hoverTextPainterText;
+  double? _hoverTextPainterWidth;
+  List<_EditorDiagnosticResolvedRange>? _resolvedDiagnosticRangesCache;
+  String? _resolvedDiagnosticRangesText;
+  List<_EditorDiagnostic>? _resolvedDiagnosticRangesDiagnostics;
+
+  double get _lineExtent => widget.fontSize * _editorLineHeight;
+
+  _EditorDiagnostic? _primaryDiagnosticForLine(int lineNumber) {
+    final diagnostics =
+        widget.diagnosticsByLine[lineNumber] ?? const <_EditorDiagnostic>[];
+    if (diagnostics.isEmpty) {
+      return null;
+    }
+    for (final diagnostic in diagnostics) {
+      if (diagnostic.isError) {
+        return diagnostic;
+      }
+    }
+    for (final diagnostic in diagnostics) {
+      if (diagnostic.isWarning) {
+        return diagnostic;
+      }
+    }
+    return diagnostics.first;
+  }
+
+  Color _diagnosticColor(
+    ColorScheme colorScheme,
+    _EditorDiagnostic diagnostic,
+  ) {
+    if (diagnostic.isError) {
+      return colorScheme.error;
+    }
+    if (diagnostic.isWarning) {
+      return const Color(0xFFB7791F);
+    }
+    return colorScheme.primary;
+  }
+
+  String _diagnosticsTooltip(List<_EditorDiagnostic> diagnostics) {
+    if (diagnostics.isEmpty) {
+      return '';
+    }
+    final messages = diagnostics
+        .map((diagnostic) => diagnostic.message.trim())
+        .where((message) => message.isNotEmpty)
+        .take(2)
+        .toList(growable: false);
+    if (messages.isEmpty) {
+      return '';
+    }
+    if (diagnostics.length <= 2) {
+      return messages.join('\n');
+    }
+    return '${messages.join('\n')}\n…';
+  }
 
   TextStyle _resolvedEditorStyle() {
-    return _editorBaseStyle.copyWith(
+    return _editorBaseStyleForSize(widget.fontSize).copyWith(
       color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
     );
   }
@@ -1905,13 +9660,24 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     super.initState();
     _lineNumberScrollController = ScrollController();
     widget.scrollController.addListener(_syncLineNumbers);
+    widget.controller.addListener(_handleSelectionChange);
   }
 
   @override
   void dispose() {
+    _diagnosticTooltipHideTimer?.cancel();
+    _removeDiagnosticTooltip();
     widget.scrollController.removeListener(_syncLineNumbers);
+    widget.controller.removeListener(_handleSelectionChange);
     _lineNumberScrollController.dispose();
     super.dispose();
+  }
+
+  void _handleSelectionChange() {
+    widget.onSelectionChanged?.call();
+    if (_hoveredTextDiagnosticOffset != null) {
+      _scheduleDiagnosticTooltipUpdate();
+    }
   }
 
   @override
@@ -1921,6 +9687,35 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       oldWidget.scrollController.removeListener(_syncLineNumbers);
       widget.scrollController.addListener(_syncLineNumbers);
     }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleSelectionChange);
+      widget.controller.addListener(_handleSelectionChange);
+      _hoverTextPainter = null;
+      _hoverTextPainterText = null;
+      _resolvedDiagnosticRangesCache = null;
+      _resolvedDiagnosticRangesText = null;
+      _resolvedDiagnosticRangesDiagnostics = null;
+      _removeDiagnosticTooltip();
+    }
+    if (oldWidget.fontSize != widget.fontSize) {
+      widget.controller.highlighter = _CodeSyntaxHighlighter(
+        baseStyle: _resolvedEditorStyle(),
+        darkSurface: _darkSurface,
+      );
+      widget.controller.invalidateHighlightCache();
+      _hoverTextPainter = null;
+      _hoverTextPainterText = null;
+      _hoverTextPainterWidth = null;
+      if (_hoveredTextDiagnosticOffset != null) {
+        _scheduleDiagnosticTooltipUpdate();
+      }
+    }
+    if (!identical(oldWidget.diagnostics, widget.diagnostics)) {
+      _resolvedDiagnosticRangesCache = null;
+      _resolvedDiagnosticRangesText = null;
+      _resolvedDiagnosticRangesDiagnostics = null;
+      _removeDiagnosticTooltip();
+    }
   }
 
   void _syncLineNumbers() {
@@ -1928,6 +9723,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final offset = widget.scrollController.offset;
     final max = _lineNumberScrollController.position.maxScrollExtent;
     _lineNumberScrollController.jumpTo(offset.clamp(0.0, max));
+    if (_hoveredTextDiagnosticOffset != null) {
+      _scheduleDiagnosticTooltipUpdate();
+    }
   }
 
   @override
@@ -1942,15 +9740,632 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         darkSurface: darkSurface,
       );
       widget.controller.invalidateHighlightCache();
+      _hoverTextPainter = null;
+      _hoverTextPainterText = null;
+      _hoverTextPainterWidth = null;
+      _diagnosticTooltipEntry?.markNeedsBuild();
+      if (_hoveredTextDiagnosticOffset != null) {
+        _scheduleDiagnosticTooltipUpdate();
+      }
     }
+  }
+
+  List<_EditorDiagnosticResolvedRange> _resolvedDiagnosticRanges() {
+    if (_resolvedDiagnosticRangesCache != null &&
+        _resolvedDiagnosticRangesText == widget.controller.text &&
+        identical(_resolvedDiagnosticRangesDiagnostics, widget.diagnostics)) {
+      return _resolvedDiagnosticRangesCache!;
+    }
+    final ranges = _buildEditorDiagnosticResolvedRanges(
+      widget.controller.text,
+      widget.diagnostics,
+    );
+    _resolvedDiagnosticRangesCache = ranges;
+    _resolvedDiagnosticRangesText = widget.controller.text;
+    _resolvedDiagnosticRangesDiagnostics = widget.diagnostics;
+    return ranges;
+  }
+
+  TextPainter _resolvedHoverTextPainter(double maxWidth, TextStyle style) {
+    if (_hoverTextPainter != null &&
+        _hoverTextPainterText == widget.controller.text &&
+        _hoverTextPainterWidth == maxWidth) {
+      return _hoverTextPainter!;
+    }
+    final painter = TextPainter(
+      text: TextSpan(text: widget.controller.text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: maxWidth);
+    _hoverTextPainter = painter;
+    _hoverTextPainterText = widget.controller.text;
+    _hoverTextPainterWidth = maxWidth;
+    return painter;
+  }
+
+  int? _textOffsetForHoverPosition({
+    required Offset localPosition,
+    required double viewportWidth,
+    required TextStyle style,
+  }) {
+    final contentWidth =
+        viewportWidth - _editorTextPaddingLeft - _editorTextPaddingRight;
+    if (contentWidth <= 0) {
+      return null;
+    }
+    final adjusted = Offset(
+      localPosition.dx - _editorTextPaddingLeft,
+      localPosition.dy - _editorTextPaddingTop + widget.scrollController.offset,
+    );
+    if (adjusted.dx < 0 || adjusted.dy < 0 || adjusted.dx > contentWidth) {
+      return null;
+    }
+    final painter = _resolvedHoverTextPainter(contentWidth, style);
+    if (adjusted.dy > painter.height) {
+      return null;
+    }
+    final position = painter.getPositionForOffset(adjusted);
+    return position.offset.clamp(0, widget.controller.text.length);
+  }
+
+  List<_EditorDiagnosticResolvedRange> _diagnosticRangesAtTextOffset(
+    int offset,
+  ) {
+    final matches =
+        _resolvedDiagnosticRanges()
+            .where((range) {
+              return offset >= range.startOffset && offset < range.endOffset;
+            })
+            .toList(growable: false)
+          ..sort((left, right) {
+            final severity = _editorDiagnosticSeverityRank(
+              right.diagnostic,
+            ).compareTo(_editorDiagnosticSeverityRank(left.diagnostic));
+            if (severity != 0) {
+              return severity;
+            }
+            return left.startOffset.compareTo(right.startOffset);
+          });
+    return matches;
+  }
+
+  _EditorDiagnosticResolvedRange _preferredTooltipAnchorRange(
+    List<_EditorDiagnosticResolvedRange> matches,
+  ) {
+    final sorted = matches.toList(growable: false)
+      ..sort((left, right) {
+        final leftLength = left.endOffset - left.startOffset;
+        final rightLength = right.endOffset - right.startOffset;
+        final byLength = leftLength.compareTo(rightLength);
+        if (byLength != 0) {
+          return byLength;
+        }
+        final severity = _editorDiagnosticSeverityRank(
+          right.diagnostic,
+        ).compareTo(_editorDiagnosticSeverityRank(left.diagnostic));
+        if (severity != 0) {
+          return severity;
+        }
+        return left.startOffset.compareTo(right.startOffset);
+      });
+    return sorted.first;
+  }
+
+  bool _sameDiagnosticsList(
+    List<_EditorDiagnostic> left,
+    List<_EditorDiagnostic> right,
+  ) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var index = 0; index < left.length; index++) {
+      if (!identical(left[index], right[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Rect? _diagnosticAnchorRectForRange({
+    required _EditorDiagnosticResolvedRange range,
+    required int hoveredOffset,
+    required TextStyle editorStyle,
+  }) {
+    final renderBox =
+        _textViewportKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.attached || !renderBox.hasSize) {
+      return null;
+    }
+
+    final contentWidth =
+        renderBox.size.width - _editorTextPaddingLeft - _editorTextPaddingRight;
+    if (contentWidth <= 0) {
+      return null;
+    }
+
+    final painter = _resolvedHoverTextPainter(contentWidth, editorStyle);
+    final textLength = widget.controller.text.length;
+    final startOffset = math.max(0, math.min(range.startOffset, textLength));
+    final endOffset = math.max(
+      startOffset,
+      math.min(range.endOffset, textLength),
+    );
+    final safeHoverOffset = math.max(
+      startOffset,
+      math.min(hoveredOffset, math.max(startOffset, endOffset - 1)),
+    );
+
+    final selectionBoxes = endOffset > startOffset
+        ? painter.getBoxesForSelection(
+            TextSelection(baseOffset: startOffset, extentOffset: endOffset),
+          )
+        : const <TextBox>[];
+
+    Rect contentRect;
+    if (selectionBoxes.isNotEmpty) {
+      final hoverCaretOffset = painter.getOffsetForCaret(
+        TextPosition(offset: safeHoverOffset),
+        Rect.zero,
+      );
+      final hoverPoint = Offset(
+        hoverCaretOffset.dx,
+        hoverCaretOffset.dy + (painter.preferredLineHeight / 2),
+      );
+
+      double distanceSquaredToRect(Rect rect) {
+        final dx = hoverPoint.dx < rect.left
+            ? rect.left - hoverPoint.dx
+            : hoverPoint.dx > rect.right
+            ? hoverPoint.dx - rect.right
+            : 0.0;
+        final dy = hoverPoint.dy < rect.top
+            ? rect.top - hoverPoint.dy
+            : hoverPoint.dy > rect.bottom
+            ? hoverPoint.dy - rect.bottom
+            : 0.0;
+        return (dx * dx) + (dy * dy);
+      }
+
+      contentRect = selectionBoxes
+          .map(
+            (box) => Rect.fromLTRB(
+              math.min(box.left, box.right),
+              box.top,
+              math.max(box.left, box.right),
+              box.bottom,
+            ),
+          )
+          .reduce((best, candidate) {
+            return distanceSquaredToRect(candidate) <
+                    distanceSquaredToRect(best)
+                ? candidate
+                : best;
+          });
+    } else {
+      final caretOffset = painter.getOffsetForCaret(
+        TextPosition(offset: startOffset),
+        Rect.zero,
+      );
+      contentRect = Rect.fromLTWH(
+        caretOffset.dx,
+        caretOffset.dy,
+        math.min(18.0, contentWidth),
+        painter.preferredLineHeight,
+      );
+    }
+
+    final minAnchorWidth = math.min(18.0, contentWidth);
+    if (contentRect.width < minAnchorWidth) {
+      final minCenterDx = minAnchorWidth / 2;
+      final maxCenterDx = math.max(
+        minCenterDx,
+        contentWidth - minAnchorWidth / 2,
+      );
+      final centerDx = math.max(
+        minCenterDx,
+        math.min(contentRect.center.dx, maxCenterDx),
+      );
+      contentRect = Rect.fromCenter(
+        center: Offset(centerDx, contentRect.center.dy),
+        width: minAnchorWidth,
+        height: math.max(contentRect.height, painter.preferredLineHeight),
+      );
+    }
+
+    final scrollOffset = widget.scrollController.hasClients
+        ? widget.scrollController.offset
+        : 0.0;
+    final viewportRect = contentRect.shift(
+      Offset(_editorTextPaddingLeft, _editorTextPaddingTop - scrollOffset),
+    );
+    if (viewportRect.bottom < 0 ||
+        viewportRect.top > renderBox.size.height ||
+        viewportRect.right < 0 ||
+        viewportRect.left > renderBox.size.width) {
+      return null;
+    }
+
+    return Rect.fromPoints(
+      renderBox.localToGlobal(viewportRect.topLeft),
+      renderBox.localToGlobal(viewportRect.bottomRight),
+    );
+  }
+
+  _EditorDiagnosticTooltipState? _resolveDiagnosticTooltipState() {
+    final hoveredOffset = _hoveredTextDiagnosticOffset;
+    if (hoveredOffset == null || widget.diagnostics.isEmpty) {
+      return null;
+    }
+
+    final matches = _diagnosticRangesAtTextOffset(hoveredOffset);
+    if (matches.isEmpty) {
+      return null;
+    }
+
+    final anchorRect = _diagnosticAnchorRectForRange(
+      range: _preferredTooltipAnchorRange(matches),
+      hoveredOffset: hoveredOffset,
+      editorStyle: _resolvedEditorStyle(),
+    );
+    if (anchorRect == null) {
+      return null;
+    }
+
+    return _EditorDiagnosticTooltipState(
+      diagnostics: matches
+          .map((range) => range.diagnostic)
+          .toList(growable: false),
+      anchorRect: anchorRect,
+    );
+  }
+
+  Offset _diagnosticMenuAnchorPosition(Rect anchorRect) {
+    return Offset(anchorRect.center.dx, anchorRect.bottom + 6);
+  }
+
+  List<_EditorDiagnostic> _diagnosticsAtTextOffset(int offset) {
+    return _diagnosticRangesAtTextOffset(
+      offset,
+    ).map((range) => range.diagnostic).toList(growable: false);
+  }
+
+  void _handleTextHover(
+    PointerHoverEvent event, {
+    required double viewportWidth,
+    required TextStyle editorStyle,
+  }) {
+    if (widget.diagnostics.isEmpty) {
+      _scheduleDiagnosticTooltipHide();
+      return;
+    }
+    final offset = _textOffsetForHoverPosition(
+      localPosition: event.localPosition,
+      viewportWidth: viewportWidth,
+      style: editorStyle,
+    );
+    if (offset == null) {
+      _scheduleDiagnosticTooltipHide();
+      return;
+    }
+    final diagnostics = _diagnosticsAtTextOffset(offset);
+    if (diagnostics.isEmpty) {
+      _scheduleDiagnosticTooltipHide();
+      return;
+    }
+    _diagnosticTooltipHideTimer?.cancel();
+    _hoveredTextDiagnosticOffset = offset;
+    _scheduleDiagnosticTooltipUpdate();
+  }
+
+  void _removeDiagnosticTooltip() {
+    _diagnosticTooltipHideTimer?.cancel();
+    _diagnosticTooltipHideTimer = null;
+    _hoveringDiagnosticTooltip = false;
+    _hoveredTextDiagnosticOffset = null;
+    _hoveredTextDiagnostics = const <_EditorDiagnostic>[];
+    _hoveredTextDiagnosticAnchorRect = null;
+    _diagnosticTooltipEntry?.remove();
+    _diagnosticTooltipEntry = null;
+  }
+
+  void _scheduleDiagnosticTooltipHide() {
+    _diagnosticTooltipHideTimer?.cancel();
+    if (_hoveringDiagnosticTooltip) {
+      return;
+    }
+    _diagnosticTooltipHideTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted || _hoveringDiagnosticTooltip) {
+        return;
+      }
+      _removeDiagnosticTooltip();
+    });
+  }
+
+  void _scheduleDiagnosticTooltipUpdate() {
+    _diagnosticTooltipHideTimer?.cancel();
+    if (_diagnosticTooltipUpdateQueued) {
+      return;
+    }
+    _diagnosticTooltipUpdateQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _diagnosticTooltipUpdateQueued = false;
+      if (!mounted) {
+        _removeDiagnosticTooltip();
+        return;
+      }
+      final tooltipState = _resolveDiagnosticTooltipState();
+      if (tooltipState == null) {
+        _removeDiagnosticTooltip();
+        return;
+      }
+      final diagnosticsUnchanged = _sameDiagnosticsList(
+        _hoveredTextDiagnostics,
+        tooltipState.diagnostics,
+      );
+      final anchorUnchanged =
+          _hoveredTextDiagnosticAnchorRect == tooltipState.anchorRect;
+      _hoveredTextDiagnostics = tooltipState.diagnostics;
+      _hoveredTextDiagnosticAnchorRect = tooltipState.anchorRect;
+      final overlay = Overlay.of(context, rootOverlay: true);
+      if (_diagnosticTooltipEntry == null) {
+        _diagnosticTooltipEntry = OverlayEntry(
+          builder: (overlayContext) =>
+              _buildDiagnosticTooltipOverlay(overlayContext),
+        );
+        overlay.insert(_diagnosticTooltipEntry!);
+        return;
+      }
+      if (diagnosticsUnchanged && anchorUnchanged) {
+        return;
+      }
+      _diagnosticTooltipEntry!.markNeedsBuild();
+    });
+  }
+
+  Widget _buildDiagnosticTooltipOverlay(BuildContext overlayContext) {
+    final diagnostics = _hoveredTextDiagnostics;
+    final globalAnchorRect = _hoveredTextDiagnosticAnchorRect;
+    if (diagnostics.isEmpty || globalAnchorRect == null) {
+      return const SizedBox.shrink();
+    }
+    final overlayBox =
+        Overlay.of(overlayContext).context.findRenderObject() as RenderBox?;
+    final overlaySize = overlayBox?.size ?? MediaQuery.sizeOf(overlayContext);
+    const tooltipMaxWidth = 340.0;
+    const tooltipHeightBudget = 236.0;
+    const tooltipGap = 10.0;
+    final left = math.max(
+      8.0,
+      math.min(
+        globalAnchorRect.left,
+        overlaySize.width - tooltipMaxWidth - 8.0,
+      ),
+    );
+    final showBelow =
+        globalAnchorRect.bottom + tooltipGap + tooltipHeightBudget <=
+        overlaySize.height - 8.0;
+    final topCandidate = showBelow
+        ? globalAnchorRect.bottom + tooltipGap
+        : globalAnchorRect.top - tooltipHeightBudget - tooltipGap;
+    final top = math.max(
+      8.0,
+      math.min(topCandidate, overlaySize.height - tooltipHeightBudget - 8.0),
+    );
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final visibleDiagnostics = diagnostics.take(4).toList(growable: false);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final actionAnchor = _diagnosticMenuAnchorPosition(globalAnchorRect);
+
+    return Positioned(
+      left: left,
+      top: top,
+      child: MouseRegion(
+        onEnter: (_) {
+          _hoveringDiagnosticTooltip = true;
+          _diagnosticTooltipHideTimer?.cancel();
+        },
+        onExit: (_) {
+          _hoveringDiagnosticTooltip = false;
+          _scheduleDiagnosticTooltipHide();
+        },
+        child: Material(
+          color: Colors.transparent,
+          elevation: 12,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 340),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.98,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (
+                    var index = 0;
+                    index < visibleDiagnostics.length;
+                    index++
+                  ) ...[
+                    if (index > 0)
+                      Divider(
+                        height: 12,
+                        color: colorScheme.outlineVariant.withValues(
+                          alpha: 0.18,
+                        ),
+                      ),
+                    _buildDiagnosticTooltipEntry(
+                      theme,
+                      colorScheme,
+                      visibleDiagnostics[index],
+                    ),
+                  ],
+                  if (diagnostics.length > visibleDiagnostics.length) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      isZh
+                          ? '还有 ${diagnostics.length - visibleDiagnostics.length} 条重叠诊断'
+                          : '${diagnostics.length - visibleDiagnostics.length} more overlapping diagnostics',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                  if (widget.onDiagnosticTooltipQuickFixRequested != null ||
+                      widget.onDiagnosticTooltipMoreActionsRequested !=
+                          null) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (widget.onDiagnosticTooltipMoreActionsRequested !=
+                              null)
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                final selectedDiagnostics =
+                                    List<_EditorDiagnostic>.from(
+                                      diagnostics,
+                                      growable: false,
+                                    );
+                                _removeDiagnosticTooltip();
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  widget.onDiagnosticTooltipMoreActionsRequested
+                                      ?.call(selectedDiagnostics, actionAnchor);
+                                });
+                              },
+                              icon: const Icon(
+                                Icons.more_horiz_rounded,
+                                size: 16,
+                              ),
+                              label: Text(isZh ? '更多操作' : 'More Actions'),
+                            ),
+                          if (widget.onDiagnosticTooltipQuickFixRequested !=
+                              null)
+                            FilledButton.tonalIcon(
+                              onPressed: () {
+                                final selectedDiagnostics =
+                                    List<_EditorDiagnostic>.from(
+                                      diagnostics,
+                                      growable: false,
+                                    );
+                                _removeDiagnosticTooltip();
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  widget.onDiagnosticTooltipQuickFixRequested
+                                      ?.call(selectedDiagnostics, actionAnchor);
+                                });
+                              },
+                              icon: const Icon(
+                                Icons.auto_fix_high_rounded,
+                                size: 16,
+                              ),
+                              label: Text(isZh ? '应用快速修复' : 'Apply Quick Fix'),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticTooltipEntry(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    _EditorDiagnostic diagnostic,
+  ) {
+    final accent = _diagnosticColor(colorScheme, diagnostic);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final severityLabel = diagnostic.isError
+        ? (isZh ? '错误' : 'Error')
+        : diagnostic.isWarning
+        ? (isZh ? '警告' : 'Warning')
+        : (isZh ? '提示' : 'Info');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            diagnostic.isError
+                ? Icons.error_outline_rounded
+                : diagnostic.isWarning
+                ? Icons.warning_amber_rounded
+                : Icons.info_outline_rounded,
+            size: 16,
+            color: accent,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                diagnostic.message,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${diagnostic.code}  •  $severityLabel  •  ${diagnostic.line}:${diagnostic.column}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontFamily: 'SF Mono, Menlo, monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final lineCount = widget.controller.lineCount;
-    final digitCount = '$lineCount'.length;
-    final lineNumberWidth = (digitCount * 8.5) + 32;
+    final hasAnyDiagnostics = widget.diagnosticsByLine.isNotEmpty;
+    final lineNumberWidth = _editorEditableGutterWidth(
+      lineCount: lineCount,
+      fontSize: widget.fontSize,
+      hasDiagnostics: hasAnyDiagnostics,
+    );
     final editorStyle = _resolvedEditorStyle();
 
     const noScrollbarBehavior = _EditorScrollBehavior();
@@ -1976,62 +10391,200 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 10, bottom: 10),
               itemCount: lineCount,
-              itemExtent: _editorLineExtent,
+              itemExtent: _lineExtent,
               itemBuilder: (context, index) {
-                return Container(
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 14, left: 10),
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontFamily:
-                          'JetBrains Mono, Menlo, Consolas, monospace',
-                      fontSize: 12,
-                      height: _editorLineHeight,
-                      color: colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.48),
+                final lineNumber = index + 1;
+                final diagnostics =
+                    widget.diagnosticsByLine[lineNumber] ??
+                    const <_EditorDiagnostic>[];
+                final primaryDiagnostic = _primaryDiagnosticForLine(lineNumber);
+                final hasDiagnostics = primaryDiagnostic != null;
+                final lineIsActive = widget.activeLine == lineNumber;
+                final showQuickFix =
+                    hasDiagnostics &&
+                    widget.onDiagnosticQuickFixRequested != null &&
+                    (lineIsActive || _hoveredGutterLine == lineNumber);
+                final accentColor = hasDiagnostics
+                    ? _diagnosticColor(colorScheme, primaryDiagnostic)
+                    : colorScheme.onSurfaceVariant;
+                final tooltip = _diagnosticsTooltip(diagnostics);
+
+                Widget lineWidget = MouseRegion(
+                  onEnter: hasDiagnostics
+                      ? (_) {
+                          if (_hoveredGutterLine != lineNumber) {
+                            setState(() => _hoveredGutterLine = lineNumber);
+                          }
+                        }
+                      : null,
+                  onExit: hasDiagnostics
+                      ? (_) {
+                          if (_hoveredGutterLine == lineNumber) {
+                            setState(() => _hoveredGutterLine = null);
+                          }
+                        }
+                      : null,
+                  child: Material(
+                    color: hasDiagnostics && (lineIsActive || showQuickFix)
+                        ? accentColor.withValues(alpha: 0.08)
+                        : Colors.transparent,
+                    child: InkWell(
+                      onTap: hasDiagnostics
+                          ? () => widget.onDiagnosticLineRequested?.call(
+                              lineNumber,
+                            )
+                          : null,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 8,
+                          right: hasAnyDiagnostics ? 6 : 14,
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              child: hasDiagnostics
+                                  ? Center(
+                                      child: Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: accentColor,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: accentColor.withValues(
+                                                alpha: 0.2,
+                                              ),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '$lineNumber',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontFamily:
+                                      'JetBrains Mono, Menlo, Consolas, monospace',
+                                  fontSize: widget.fontSize - 1,
+                                  height: _editorLineHeight,
+                                  fontWeight: hasDiagnostics
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: hasDiagnostics
+                                      ? accentColor
+                                      : colorScheme.onSurfaceVariant.withValues(
+                                          alpha: 0.48,
+                                        ),
+                                ),
+                              ),
+                            ),
+                            if (hasAnyDiagnostics) ...[
+                              const SizedBox(width: 4),
+                              SizedBox(
+                                width: 18,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 140),
+                                  opacity: showQuickFix ? 1 : 0,
+                                  child: IgnorePointer(
+                                    ignoring: !showQuickFix,
+                                    child: Tooltip(
+                                      message: _localizedText(
+                                        context,
+                                        zh: '显示该诊断行的快速修复',
+                                        en: 'Show quick fixes for this diagnostic line',
+                                      ),
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTapDown: (details) => widget
+                                            .onDiagnosticQuickFixRequested
+                                            ?.call(
+                                              lineNumber,
+                                              details.globalPosition,
+                                            ),
+                                        child: const Icon(
+                                          Icons.lightbulb_outline_rounded,
+                                          size: 15,
+                                          color: Color(0xFFB7791F),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 );
+
+                if (hasDiagnostics && tooltip.isNotEmpty) {
+                  lineWidget = Tooltip(message: tooltip, child: lineWidget);
+                }
+                return lineWidget;
               },
             ),
           ),
         ),
         // ── Code area — single explicit scrollbar only ──
         Expanded(
-          child: PrimaryScrollController.none(
-            child: RawScrollbar(
-              controller: widget.scrollController,
-              thumbVisibility: true,
-              thickness: 9,
-              radius: const Radius.circular(999),
-              notificationPredicate: (notification) =>
-                  notification.metrics.axis == Axis.vertical,
-              child: ScrollConfiguration(
-                behavior: noScrollbarBehavior,
-                child: TextField(
-                  controller: widget.controller,
-                  focusNode: widget.focusNode,
-                  maxLines: null,
-                  expands: true,
-                  scrollController: widget.scrollController,
-                  style: editorStyle,
-                  cursorColor: colorScheme.primary,
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.only(
-                      top: 10,
-                      bottom: 10,
-                      left: 8,
-                      right: 12,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final viewportWidth = constraints.maxWidth;
+              return PrimaryScrollController.none(
+                child: RawScrollbar(
+                  controller: widget.scrollController,
+                  thumbVisibility: true,
+                  thickness: 9,
+                  radius: const Radius.circular(999),
+                  notificationPredicate: (notification) =>
+                      notification.metrics.axis == Axis.vertical,
+                  child: ScrollConfiguration(
+                    behavior: noScrollbarBehavior,
+                    child: MouseRegion(
+                      key: _textViewportKey,
+                      onExit: (_) => _scheduleDiagnosticTooltipHide(),
+                      onHover: widget.diagnostics.isEmpty
+                          ? null
+                          : (event) => _handleTextHover(
+                              event,
+                              viewportWidth: viewportWidth,
+                              editorStyle: editorStyle,
+                            ),
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        maxLines: null,
+                        expands: true,
+                        scrollController: widget.scrollController,
+                        style: editorStyle,
+                        cursorColor: colorScheme.primary,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.only(
+                            top: _editorTextPaddingTop,
+                            bottom: _editorTextPaddingBottom,
+                            left: _editorTextPaddingLeft,
+                            right: _editorTextPaddingRight,
+                          ),
+                          isDense: true,
+                          isCollapsed: true,
+                        ),
+                        onChanged: widget.onChanged,
+                      ),
                     ),
-                    isDense: true,
-                    isCollapsed: true,
                   ),
-                  onChanged: widget.onChanged,
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ],
@@ -2046,12 +10599,14 @@ class _LargeFileCodeView extends StatefulWidget {
     required this.scrollController,
     required this.language,
     required this.onOpenFullEditor,
+    this.fontSize = _editorFontSizeDefault,
   });
 
   final _HighlightingTextController controller;
   final ScrollController scrollController;
   final String? language;
   final VoidCallback onOpenFullEditor;
+  final double fontSize;
 
   @override
   State<_LargeFileCodeView> createState() => _LargeFileCodeViewState();
@@ -2063,10 +10618,12 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   final Map<int, TextSpan> _lineSpanCache = {};
   _CodeSyntaxHighlighter? _lineHighlighter;
   bool _darkSurface = false;
+
+  double get _lineExtent => widget.fontSize * _editorLineHeight;
   static const int _lineSpanCacheLimit = 600;
 
   TextStyle _resolvedEditorStyle() {
-    return _editorBaseStyle.copyWith(
+    return _editorBaseStyleForSize(widget.fontSize).copyWith(
       color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
     );
   }
@@ -2146,8 +10703,10 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
     }
     final lines = widget.controller.previewLines;
     final lineCount = lines.length;
-    final digitCount = '$lineCount'.length;
-    final lineNumberWidth = (digitCount * 8.5) + 32;
+    final lineNumberWidth = _editorPreviewGutterWidth(
+      lineCount: lineCount,
+      fontSize: widget.fontSize,
+    );
     const noScrollbarBehavior = _EditorScrollBehavior();
     final bannerBackground = _darkSurface
         ? colorScheme.surfaceContainerHigh
@@ -2202,7 +10761,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
             builder: (context, constraints) {
               final estimatedContentWidth = math.max(
                 constraints.maxWidth,
-                widget.controller.longestLineLength * (_editorFontSize * 0.68) +
+                widget.controller.longestLineLength * (widget.fontSize * 0.68) +
                     32,
               );
               return Row(
@@ -2213,8 +10772,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                     decoration: BoxDecoration(
                       border: Border(
                         right: BorderSide(
-                          color: colorScheme.outlineVariant
-                              .withValues(alpha: 0.2),
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.2,
+                          ),
                           width: 0.5,
                         ),
                       ),
@@ -2226,7 +10786,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                         physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(top: 10, bottom: 10),
                         itemCount: lineCount,
-                        itemExtent: _editorLineExtent,
+                        itemExtent: _lineExtent,
                         itemBuilder: (context, index) {
                           return Container(
                             alignment: Alignment.centerRight,
@@ -2236,10 +10796,11 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                               style: TextStyle(
                                 fontFamily:
                                     'JetBrains Mono, Menlo, Consolas, monospace',
-                                fontSize: 12,
+                                fontSize: widget.fontSize - 1,
                                 height: _editorLineHeight,
-                                color: colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.48),
+                                color: colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.48,
+                                ),
                               ),
                             ),
                           );
@@ -2271,9 +10832,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                                   left: 8,
                                   right: 12,
                                 ),
-                                cacheExtent: _editorLineExtent * 48,
+                                cacheExtent: _lineExtent * 48,
                                 itemCount: lineCount,
-                                itemExtent: _editorLineExtent,
+                                itemExtent: _lineExtent,
                                 itemBuilder: (context, index) {
                                   return RepaintBoundary(
                                     child: Align(
@@ -2318,6 +10879,7 @@ class _EditorTab extends StatelessWidget {
     required this.isDirty,
     required this.onTap,
     required this.onClose,
+    required this.onShowMenu,
   });
 
   final int index;
@@ -2327,6 +10889,7 @@ class _EditorTab extends StatelessWidget {
   final bool isDirty;
   final VoidCallback onTap;
   final VoidCallback onClose;
+  final ValueChanged<Offset> onShowMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -2341,65 +10904,79 @@ class _EditorTab extends StatelessWidget {
       index: index,
       child: Padding(
         padding: const EdgeInsets.only(right: 3),
-        child: Material(
-          color: isActive
-              ? colorScheme.primaryContainer
-              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: _borderRadius999,
-          elevation: isActive ? 1 : 0,
-          shadowColor: colorScheme.shadow.withValues(alpha: 0.15),
-          child: InkWell(
-            onTap: onTap,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onSecondaryTapDown: (details) {
+            onTap();
+            onShowMenu(details.globalPosition);
+          },
+          onDoubleTapDown: (details) {
+            onTap();
+            onShowMenu(details.globalPosition);
+          },
+          child: Material(
+            color: isActive
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
             borderRadius: _borderRadius999,
-            overlayColor: WidgetStatePropertyAll<Color>(
-              colorScheme.primary.withValues(alpha: 0.08),
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              height: 34,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _fileExplorerIcon(_FileNode(
-                      name: fileName,
-                      path: filePath,
-                      isDirectory: false,
-                    )),
-                    size: 14,
-                    color: fgColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    fileName,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight:
-                          isActive ? FontWeight.w700 : FontWeight.w500,
+            elevation: isActive ? 1 : 0,
+            shadowColor: colorScheme.shadow.withValues(alpha: 0.15),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: _borderRadius999,
+              overlayColor: WidgetStatePropertyAll<Color>(
+                colorScheme.primary.withValues(alpha: 0.08),
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _fileExplorerIcon(
+                        _FileNode(
+                          name: fileName,
+                          path: filePath,
+                          isDirectory: false,
+                        ),
+                      ),
+                      size: 14,
                       color: fgColor,
-                      letterSpacing: 0,
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: onClose,
-                    child: isDirty
-                        ? Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: colorScheme.primary,
+                    const SizedBox(width: 6),
+                    Text(
+                      fileName,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: fgColor,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onClose,
+                      child: isDirty
+                          ? Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colorScheme.primary,
+                              ),
+                            )
+                          : Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: fgColor.withValues(alpha: 0.5),
                             ),
-                          )
-                        : Icon(
-                            Icons.close_rounded,
-                            size: 14,
-                            color: fgColor.withValues(alpha: 0.5),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

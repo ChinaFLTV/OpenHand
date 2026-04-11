@@ -2,6 +2,7 @@ part of 'openhand_home_page.dart';
 
 class _ComposerPanel extends StatefulWidget {
   const _ComposerPanel({
+    super.key,
     required this.currentSession,
     required this.liveRuntimeToolPreview,
     required this.controller,
@@ -88,6 +89,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   List<String> _atMentionBreadcrumbs = const [];
   bool _atMentionLoading = false;
   bool _atMentionSuppressListener = false;
+  // Offset of a dismissed '@' – prevents re-triggering the popup for the
+  // same '@' character after the user explicitly closed it.
+  int _atMentionDismissedOffset = -1;
+  // Project file/directory references selected via the @ mention overlay.
+  List<_AtMentionItem> _projectFileReferences = [];
 
   @override
   void initState() {
@@ -135,8 +141,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         atIndex = i;
         break;
       }
-      // Stop scanning at whitespace or newline *before* the first char.
-      if (ch == 0x0A || ch == 0x0D) {
+      // Stop scanning at any whitespace (space, tab, newline, carriage-return).
+      // Once the user types a space after the query, the mention is abandoned.
+      if (ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D) {
         break;
       }
     }
@@ -152,6 +159,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         return;
       }
     }
+    // If the user previously dismissed the popup for this exact '@' offset
+    // AND the '@' character at that offset is still the same one (not a newly
+    // typed '@'), do not re-trigger.
+    if (atIndex == _atMentionDismissedOffset) {
+      return;
+    }
+    _atMentionDismissedOffset = -1;
     final query = text.substring(atIndex + 1, cursor);
     _atMentionTriggerOffset = atIndex;
     _performAtMentionSearch(root, query);
@@ -275,12 +289,22 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           loading: _atMentionLoading,
           breadcrumbs: _atMentionBreadcrumbs,
           onSelect: _handleAtMentionSelect,
+          onDrillDown: _handleAtMentionDrillDown,
           onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
-          onDismiss: _dismissAtMentionOverlay,
+          onDismiss: _userDismissAtMentionOverlay,
         );
       },
     );
     overlay.insert(_atMentionOverlay!);
+  }
+
+  /// Dismiss triggered by user action (click outside / Escape).
+  /// Remembers the '@' offset so the popup won't re-trigger for the same '@'.
+  void _userDismissAtMentionOverlay() {
+    if (_atMentionTriggerOffset >= 0) {
+      _atMentionDismissedOffset = _atMentionTriggerOffset;
+    }
+    _dismissAtMentionOverlay();
   }
 
   void _dismissAtMentionOverlay() {
@@ -292,59 +316,75 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _atMentionBreadcrumbs = const [];
       _atMentionResults = const [];
     }
+    // Validate the dismissed-offset marker: if the '@' at that position
+    // no longer exists in the text, clear it so it won't block a future '@'
+    // that happens to land at the same offset.
+    if (_atMentionDismissedOffset >= 0) {
+      final text = widget.controller.text;
+      if (_atMentionDismissedOffset >= text.length ||
+          text.codeUnitAt(_atMentionDismissedOffset) != 0x40) {
+        _atMentionDismissedOffset = -1;
+      }
+    }
   }
 
   void _handleAtMentionSelect(_AtMentionItem item) {
-    if (item.isDirectory) {
-      // Drill into directory.
-      final root = widget.projectRoot;
-      if (root == null) return;
-      setState(() {
-        _atMentionCurrentDirectory = p.relative(item.path, from: root);
-        _atMentionBreadcrumbs = p.split(_atMentionCurrentDirectory)
-            .where((s) => s.isNotEmpty)
-            .toList();
-      });
-      // Replace the query text after @ with just @
-      final textLen = widget.controller.text.length;
-      if (_atMentionTriggerOffset >= 0 && _atMentionTriggerOffset < textLen) {
-        final cursor = widget.controller.selection.baseOffset
-            .clamp(0, textLen);
-        final start = _atMentionTriggerOffset + 1;
-        if (start <= cursor) {
-          _atMentionSuppressListener = true;
-          widget.controller.text = widget.controller.text.replaceRange(
-            start, cursor, '',
-          );
-          widget.controller.selection = TextSelection.collapsed(
-            offset: start,
-          );
-          _atMentionSuppressListener = false;
-        }
-      }
-      _performAtMentionSearch(root, '');
-      return;
-    }
-    // Insert file reference.
-    if (_atMentionTriggerOffset < 0 ||
-        _atMentionTriggerOffset > widget.controller.text.length) {
+    // Add to project file/directory references as a capsule chip.
+    if (_projectFileReferences.any((r) => r.path == item.path)) {
+      // Already referenced — just dismiss.
       _dismissAtMentionOverlay();
+      widget.focusNode.requestFocus();
       return;
     }
-    final textBefore = widget.controller.text.substring(0, _atMentionTriggerOffset);
-    final cursor = widget.controller.selection.baseOffset;
-    final textAfter = widget.controller.text.substring(
-      cursor.clamp(0, widget.controller.text.length),
-    );
-    final insertion = '@${item.relativePath} ';
-    _atMentionSuppressListener = true;
-    widget.controller.text = '$textBefore$insertion$textAfter';
-    widget.controller.selection = TextSelection.collapsed(
-      offset: textBefore.length + insertion.length,
-    );
-    _atMentionSuppressListener = false;
+    // Remove the '@query' text from the input.
+    if (_atMentionTriggerOffset >= 0 &&
+        _atMentionTriggerOffset <= widget.controller.text.length) {
+      final cursor = widget.controller.selection.baseOffset
+          .clamp(0, widget.controller.text.length);
+      _atMentionSuppressListener = true;
+      widget.controller.text = widget.controller.text.replaceRange(
+        _atMentionTriggerOffset, cursor, '',
+      );
+      widget.controller.selection = TextSelection.collapsed(
+        offset: _atMentionTriggerOffset,
+      );
+      _atMentionSuppressListener = false;
+    }
+    setState(() {
+      _projectFileReferences = [..._projectFileReferences, item];
+    });
     _dismissAtMentionOverlay();
     widget.focusNode.requestFocus();
+  }
+
+  void _handleAtMentionDrillDown(_AtMentionItem item) {
+    if (!item.isDirectory) return;
+    final root = widget.projectRoot;
+    if (root == null) return;
+    setState(() {
+      _atMentionCurrentDirectory = p.relative(item.path, from: root);
+      _atMentionBreadcrumbs = p.split(_atMentionCurrentDirectory)
+          .where((s) => s.isNotEmpty)
+          .toList();
+    });
+    // Replace the query text after @ with just @
+    final textLen = widget.controller.text.length;
+    if (_atMentionTriggerOffset >= 0 && _atMentionTriggerOffset < textLen) {
+      final cursor = widget.controller.selection.baseOffset
+          .clamp(0, textLen);
+      final start = _atMentionTriggerOffset + 1;
+      if (start <= cursor) {
+        _atMentionSuppressListener = true;
+        widget.controller.text = widget.controller.text.replaceRange(
+          start, cursor, '',
+        );
+        widget.controller.selection = TextSelection.collapsed(
+          offset: start,
+        );
+        _atMentionSuppressListener = false;
+      }
+    }
+    _performAtMentionSearch(root, '');
   }
 
   void _handleAtMentionBreadcrumbTap(int depth) {
@@ -365,6 +405,39 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
     _performAtMentionSearch(root, '');
   }
+
+  /// Injects project file/directory references into the controller text and
+  /// clears the capsule list. Called both from the send button and from the
+  /// parent via [GlobalKey] for keyboard-shortcut sends.
+  void _injectReferencesIntoText() {
+    if (_projectFileReferences.isEmpty) return;
+    final refs = _projectFileReferences.map((r) {
+      final suffix = r.isDirectory ? '/' : '';
+      return '@${r.relativePath}$suffix';
+    }).join(' ');
+    _atMentionSuppressListener = true;
+    final currentText = widget.controller.text;
+    if (currentText.trim().isEmpty) {
+      widget.controller.text = refs;
+    } else {
+      widget.controller.text = '$refs\n$currentText';
+    }
+    widget.controller.selection = TextSelection.collapsed(
+      offset: widget.controller.text.length,
+    );
+    _atMentionSuppressListener = false;
+    setState(() {
+      _projectFileReferences = [];
+    });
+  }
+
+  /// Injects project file/directory references into the prompt text as
+  /// `@path` tokens, clears the capsule list, then delegates to [widget.onSend].
+  Future<void> _sendWithReferences() async {
+    _injectReferencesIntoText();
+    await widget.onSend();
+  }
+
   List<Widget> _buildModelMenuItems(BuildContext context) {
     final items = <Widget>[];
     final selectedId = widget.selectedModel?.id;
@@ -669,6 +742,30 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
           const SizedBox(height: 8),
         ],
+        if (_projectFileReferences.isNotEmpty) ...[
+          _ReorderableProjectReferenceWrap(
+            references: _projectFileReferences,
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                final list = List<_AtMentionItem>.from(_projectFileReferences);
+                final item = list.removeAt(oldIndex);
+                list.insert(
+                  newIndex > oldIndex ? newIndex - 1 : newIndex,
+                  item,
+                );
+                _projectFileReferences = list;
+              });
+            },
+            onRemove: (path) {
+              setState(() {
+                _projectFileReferences = _projectFileReferences
+                    .where((r) => r.path != path)
+                    .toList();
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
         if (widget.pendingAttachments.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
             attachments: widget.pendingAttachments,
@@ -876,19 +973,20 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           builder: (context, textValue, _) {
             final hasUserTextOrAttachments =
                 textValue.text.trim().isNotEmpty ||
-                widget.pendingAttachments.isNotEmpty;
+                widget.pendingAttachments.isNotEmpty ||
+                _projectFileReferences.isNotEmpty;
             final isQueueingAction = isBusy && hasUserTextOrAttachments;
 
             return SizedBox(
               height: 52,
               child: FilledButton.icon(
                 onPressed: isQueueingAction
-                    ? () => widget.onSend()
+                    ? () => _sendWithReferences()
                     : canStopSending && !hasUserTextOrAttachments
                     ? () => widget.onStop()
                     : isBusy
                     ? null
-                    : () => widget.onSend(),
+                    : () => _sendWithReferences(),
                 icon: isQueueingAction
                     ? const Icon(Icons.queue_play_next_rounded)
                     : canStopSending && !hasUserTextOrAttachments
@@ -1527,6 +1625,169 @@ class _ComposerAttachmentChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Project file/directory reference capsules (reorderable, removable chips)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ReorderableProjectReferenceWrap extends StatefulWidget {
+  const _ReorderableProjectReferenceWrap({
+    required this.references,
+    required this.onReorder,
+    required this.onRemove,
+  });
+
+  final List<_AtMentionItem> references;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final ValueChanged<String> onRemove;
+
+  @override
+  State<_ReorderableProjectReferenceWrap> createState() =>
+      _ReorderableProjectReferenceWrapState();
+}
+
+class _ReorderableProjectReferenceWrapState
+    extends State<_ReorderableProjectReferenceWrap> {
+  int? _dragIndex;
+  int? _hoverIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: List.generate(widget.references.length, (index) {
+        final ref = widget.references[index];
+        final isDragging = _dragIndex == index;
+        final isHovering = _hoverIndex == index;
+        return DragTarget<int>(
+          onWillAcceptWithDetails: (details) {
+            if (details.data != index) {
+              setState(() => _hoverIndex = index);
+            }
+            return details.data != index;
+          },
+          onLeave: (_) {
+            if (_hoverIndex == index) {
+              setState(() => _hoverIndex = null);
+            }
+          },
+          onAcceptWithDetails: (details) {
+            setState(() => _hoverIndex = null);
+            widget.onReorder(details.data, index);
+          },
+          builder: (context, candidateData, rejectedData) {
+            return Draggable<int>(
+              data: index,
+              onDragStarted: () => setState(() => _dragIndex = index),
+              onDragEnd: (_) => setState(() {
+                _dragIndex = null;
+                _hoverIndex = null;
+              }),
+              feedback: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(14),
+                child: Opacity(
+                  opacity: 0.85,
+                  child: _ProjectReferenceChip(
+                    item: ref,
+                    onRemove: () {},
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(
+                opacity: 0.3,
+                child: _ProjectReferenceChip(
+                  item: ref,
+                  onRemove: () {},
+                ),
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                transform: isHovering
+                    ? (Matrix4.identity()..scaleByDouble(1.05, 1.05, 1.0, 1.0))
+                    : Matrix4.identity(),
+                transformAlignment: Alignment.center,
+                child: Opacity(
+                  opacity: isDragging ? 0.3 : 1.0,
+                  child: _ProjectReferenceChip(
+                    item: ref,
+                    onRemove: () => widget.onRemove(ref.path),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }),
+    );
+  }
+}
+
+class _ProjectReferenceChip extends StatelessWidget {
+  const _ProjectReferenceChip({
+    required this.item,
+    required this.onRemove,
+  });
+
+  final _AtMentionItem item;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            item.isDirectory
+                ? Icons.folder_rounded
+                : _AtMentionOverlayPanel._atMentionIcon(item),
+            size: 14,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 5),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 220),
+            child: Text(
+              item.isDirectory
+                  ? '${item.relativePath}/'
+                  : item.relativePath,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // @ mention overlay (Cursor-style file reference autocomplete)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1552,6 +1813,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     required this.loading,
     required this.breadcrumbs,
     required this.onSelect,
+    required this.onDrillDown,
     required this.onBreadcrumbTap,
     required this.onDismiss,
   });
@@ -1562,6 +1824,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
   final bool loading;
   final List<String> breadcrumbs;
   final void Function(_AtMentionItem item) onSelect;
+  final void Function(_AtMentionItem item) onDrillDown;
   final void Function(int depth) onBreadcrumbTap;
   final VoidCallback onDismiss;
 
@@ -1657,7 +1920,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       child: Center(
                         child: Text(
-                          isZh ? '未找到匹配文件' : 'No matching files',
+                          isZh ? '未找到匹配文件或目录' : 'No matching files or directories',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.6),
@@ -1727,12 +1990,21 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                                       ),
                                     ),
                                     if (item.isDirectory) ...[
-                                      const SizedBox(width: 6),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        size: 16,
-                                        color: colorScheme.onSurfaceVariant
-                                            .withValues(alpha: 0.4),
+                                      const SizedBox(width: 4),
+                                      SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          tooltip: isZh ? '进入目录' : 'Open directory',
+                                          onPressed: () => onDrillDown(item),
+                                          icon: Icon(
+                                            Icons.chevron_right_rounded,
+                                            size: 18,
+                                            color: colorScheme.primary,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ],

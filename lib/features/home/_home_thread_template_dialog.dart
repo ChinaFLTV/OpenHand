@@ -30,8 +30,8 @@ class _ThreadTemplateDialog extends StatelessWidget {
                 builder: (context, constraints) {
                   const columns = 4;
                   const spacing = 16.0;
-                  final cardWidth = (constraints.maxWidth -
-                          spacing * (columns - 1)) /
+                  final cardWidth =
+                      (constraints.maxWidth - spacing * (columns - 1)) /
                       columns;
                   return Wrap(
                     spacing: spacing,
@@ -41,8 +41,7 @@ class _ThreadTemplateDialog extends StatelessWidget {
                           (template) => _ThreadTemplateCard(
                             template: template,
                             width: cardWidth,
-                            onTap: () =>
-                                Navigator.of(context).pop(template.id),
+                            onTap: () => Navigator.of(context).pop(template.id),
                           ),
                         )
                         .toList(growable: false),
@@ -168,9 +167,7 @@ Widget _buildProgrammingExpertConfigSection(
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
   final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-  final sectionTitle = isZh
-      ? '编程专家配置'
-      : 'Programming Expert Config';
+  final sectionTitle = isZh ? '编程专家配置' : 'Programming Expert Config';
   final rawConfig = session.metadata['programming_expert_config'];
 
   final Map<String, Object?> configMap;
@@ -195,12 +192,31 @@ Widget _buildProgrammingExpertConfigSection(
   }
 
   final projectRoot = '${configMap['project_root'] ?? ''}'.trim();
+  final language = '${configMap['language'] ?? 'mixed'}'.trim();
+  final sdkPath = OpenHandPaths.normalizeOptionalPath(
+    '${configMap['sdk_path'] ?? ''}',
+  );
+  final lspPath = OpenHandPaths.normalizeOptionalPath(
+    '${configMap['lsp_path'] ?? ''}',
+  );
   return _MetadataSection(
     title: sectionTitle,
     children: [
       _MetadataEntryRow(
         label: isZh ? '项目根目录' : 'Project Root',
         value: projectRoot.isEmpty ? '-' : projectRoot,
+      ),
+      _MetadataEntryRow(
+        label: isZh ? '项目语言' : 'Project Language',
+        value: _programmingLanguageLabel(context, language),
+      ),
+      _MetadataEntryRow(
+        label: isZh ? 'SDK 路径' : 'SDK Path',
+        value: sdkPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(sdkPath),
+      ),
+      _MetadataEntryRow(
+        label: isZh ? 'LSP 路径' : 'LSP Path',
+        value: lspPath.isEmpty ? '-' : OpenHandPaths.shortenHomePath(lspPath),
       ),
     ],
   );
@@ -459,4 +475,3 @@ String _localizedMetadataField(BuildContext context, String field) {
 
 final RegExp _heAgentPattern = RegExp(r'\[HE_AGENT:(\w+)\|([^\]]+)\]');
 final RegExp _hePhasePattern = RegExp(r'\[HE_PHASE:(\w+)\]');
-

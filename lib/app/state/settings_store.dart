@@ -5,6 +5,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
+import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
@@ -109,14 +110,10 @@ class SettingsStore {
 
   Future<void> save(AppSettingsSnapshot snapshot) async {
     final jsonStr = jsonEncode(_snapshotToJson(snapshot));
-    await _db.insert(
-      'app_settings',
-      <String, Object?>{
-        'key': _dbSettingsKey,
-        'value': jsonStr,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert('app_settings', <String, Object?>{
+      'key': _dbSettingsKey,
+      'value': jsonStr,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ---------------------------------------------------------------------------
@@ -125,7 +122,7 @@ class SettingsStore {
 
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
-      'version': 1,
+      'version': 2,
       'theme_mode': _themeModeToStorage(snapshot.themeMode),
       'theme_preset': snapshot.themePreset.storageValue,
       'language': snapshot.language.storageValue,
@@ -134,6 +131,10 @@ class SettingsStore {
       'mcp_servers_file_path': snapshot.mcpServersFilePath,
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
+      'editor_lsp_settings': <String, Object?>{
+        for (final entry in snapshot.editorLspSettings.entries)
+          entry.key: entry.value.toJson(),
+      },
       'ai_message_compression_threshold_chars':
           snapshot.aiMessageCompressionThresholdChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
@@ -149,8 +150,9 @@ class SettingsStore {
       'selected_ai_model_id': snapshot.selectedAiModelId ?? '',
       'shortcut_bindings': <String, List<int>>{
         for (final entry in snapshot.shortcutBindings.entries)
-          openHandShortcutActionStorageKey(entry.key):
-              normalizeShortcutKeyIds(entry.value),
+          openHandShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(
+            entry.value,
+          ),
       },
       'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
@@ -184,6 +186,21 @@ class SettingsStore {
       '${json['user_memory_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
     );
+    final editorLspSettings = <String, AiLspLanguageSettings>{};
+    final rawEditorLspSettings = json['editor_lsp_settings'];
+    if (rawEditorLspSettings is Map) {
+      for (final entry in rawEditorLspSettings.entries) {
+        if (entry.value is! Map) {
+          continue;
+        }
+        try {
+          editorLspSettings['${entry.key}'
+              .trim()] = AiLspLanguageSettings.fromJson(
+            Map<String, Object?>.from(entry.value as Map),
+          );
+        } catch (_) {}
+      }
+    }
     final aiMessageCompressionThresholdChars =
         json['ai_message_compression_threshold_chars'] is int &&
             (json['ai_message_compression_threshold_chars'] as int) > 0
@@ -307,6 +324,7 @@ class SettingsStore {
       mcpServersFilePath: mcpServersFilePath,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
+      editorLspSettings: editorLspSettings,
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
@@ -321,7 +339,6 @@ class SettingsStore {
       panelAnimationSettings: panelAnimationSettings,
     );
   }
-
 }
 
 ThemeMode _themeModeFromStorage(String? value) {

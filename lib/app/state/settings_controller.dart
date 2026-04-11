@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
+import '../../features/ai/model/ai_lsp_backend_catalog.dart';
+import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
@@ -30,6 +32,9 @@ class SettingsController extends ChangeNotifier {
        _mcpServersFilePath = snapshot.mcpServersFilePath,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
+       _editorLspSettings = _cloneEditorLspSettingsMap(
+         snapshot.editorLspSettings,
+       ),
        _aiMessageCompressionThresholdChars =
            snapshot.aiMessageCompressionThresholdChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
@@ -70,6 +75,7 @@ class SettingsController extends ChangeNotifier {
   String _mcpServersFilePath;
   bool _memoryEnabled;
   String _userMemoryFilePath;
+  Map<String, AiLspLanguageSettings> _editorLspSettings;
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
   int _aiSequentialToolRoundLimit;
@@ -107,6 +113,25 @@ class SettingsController extends ChangeNotifier {
       OpenHandPaths.defaultMcpServersFileLabel;
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
+  Map<String, AiLspLanguageSettings> get editorLspSettings =>
+      _cloneEditorLspSettingsMap(_editorLspSettings);
+  AiLspLanguageSettings editorLspSettingsForLanguage(String language) {
+    return _editorLspSettings[normalizeAiLspLanguage(language)] ??
+        const AiLspLanguageSettings();
+  }
+
+  String defaultEditorLspRootPath(String language) {
+    return OpenHandPaths.defaultLspDirectoryPathForLanguage(
+      normalizeAiLspLanguage(language),
+    );
+  }
+
+  String defaultEditorLspRootLabel(String language) {
+    return OpenHandPaths.defaultLspDirectoryLabelForLanguage(
+      normalizeAiLspLanguage(language),
+    );
+  }
+
   int get aiMessageCompressionThresholdChars =>
       _aiMessageCompressionThresholdChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
@@ -243,6 +268,38 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _userMemoryFilePath = normalizedPath;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateEditorLspSettings(
+    String language,
+    AiLspLanguageSettings value,
+  ) async {
+    final normalizedLanguage = normalizeAiLspLanguage(language);
+    if (normalizedLanguage == 'plaintext') {
+      return false;
+    }
+    final normalizedValue = AiLspLanguageSettings(
+      backendId: value.backendId.trim(),
+      rootPath: OpenHandPaths.normalizeOptionalPath(value.rootPath),
+      sdkPath: OpenHandPaths.normalizeOptionalPath(value.sdkPath),
+      version: value.version.trim(),
+    );
+    return _commitMutation(() {
+      final next = _cloneEditorLspSettingsMap(_editorLspSettings);
+      if (normalizedValue.isEmpty) {
+        if (!next.containsKey(normalizedLanguage)) {
+          return _MutationDisposition.successNoChange;
+        }
+        next.remove(normalizedLanguage);
+      } else {
+        if (next[normalizedLanguage] == normalizedValue) {
+          return _MutationDisposition.successNoChange;
+        }
+        next[normalizedLanguage] = normalizedValue;
+      }
+      _editorLspSettings = next;
       return _MutationDisposition.apply;
     });
   }
@@ -631,6 +688,7 @@ class SettingsController extends ChangeNotifier {
       mcpServersFilePath: _mcpServersFilePath,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
+      editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
@@ -655,6 +713,7 @@ class SettingsController extends ChangeNotifier {
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
+    _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
@@ -709,6 +768,14 @@ class SettingsController extends ChangeNotifier {
     });
     return completer.future;
   }
+}
+
+Map<String, AiLspLanguageSettings> _cloneEditorLspSettingsMap(
+  Map<String, AiLspLanguageSettings> settings,
+) {
+  return <String, AiLspLanguageSettings>{
+    for (final entry in settings.entries) entry.key: entry.value,
+  };
 }
 
 Map<OpenHandShortcutAction, List<int>> _cloneShortcutBindings(

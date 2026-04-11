@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
+  static const String defaultLspDirectoryLabel = '~/.openhand/lsp';
 
   static const String defaultMcpServersFileLabel =
       '~/.openhand/mcp/mcp_servers.json';
@@ -36,6 +37,18 @@ abstract final class OpenHandPaths {
 
   static String defaultSkillsDirectoryPath() {
     return p.join(homeDirectoryPath(), '.openhand', 'skills');
+  }
+
+  static String defaultLspDirectoryPath() {
+    return p.join(homeDirectoryPath(), '.openhand', 'lsp');
+  }
+
+  static String defaultLspDirectoryPathForLanguage(String language) {
+    return p.join(defaultLspDirectoryPath(), language.trim());
+  }
+
+  static String defaultLspDirectoryLabelForLanguage(String language) {
+    return shortenHomePath(defaultLspDirectoryPathForLanguage(language));
   }
 
   static String defaultMcpDirectoryPath() {
@@ -76,6 +89,20 @@ abstract final class OpenHandPaths {
 
   static String normalizeUserPath(String? rawPath) {
     return normalizePath(rawPath, defaultPath: defaultSkillsDirectoryPath());
+  }
+
+  static String normalizeOptionalPath(String? rawPath) {
+    if (rawPath == null || rawPath.trim().isEmpty) {
+      return '';
+    }
+    final trimmed = rawPath.trim();
+    if (trimmed == '~') {
+      return homeDirectoryPath();
+    }
+    if (trimmed.startsWith('~/') || trimmed.startsWith(r'~\')) {
+      return p.normalize(p.join(homeDirectoryPath(), trimmed.substring(2)));
+    }
+    return p.normalize(trimmed);
   }
 
   static String normalizePath(String? rawPath, {required String defaultPath}) {

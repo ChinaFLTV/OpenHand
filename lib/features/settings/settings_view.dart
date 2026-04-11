@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,15 +23,19 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_deny_command_rule.dart';
+import '../ai/model/ai_lsp_backend_catalog.dart';
+import '../ai/model/ai_lsp_language_settings.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';
+import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
 
-
 part '_settings_ai_model_editor.dart';
+part '_settings_editor_lsp.dart';
 part '_settings_command_rules.dart';
 part '_settings_shortcut_widgets.dart';
 part '_settings_animation_sections.dart';
@@ -48,6 +56,7 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _skillsPathFocusNode;
   late final TextEditingController _memoryFileController;
   late final FocusNode _memoryFileFocusNode;
+  late final ScrollController _editorLspListScrollController;
   late final TextEditingController _compressionThresholdController;
   late final FocusNode _compressionThresholdFocusNode;
   late final TextEditingController _toolCallLimitController;
@@ -63,6 +72,7 @@ class _SettingsViewState extends State<SettingsView> {
     _skillsPathFocusNode = FocusNode();
     _memoryFileController = TextEditingController();
     _memoryFileFocusNode = FocusNode();
+    _editorLspListScrollController = ScrollController();
     _compressionThresholdController = TextEditingController();
     _compressionThresholdFocusNode = FocusNode();
     _toolCallLimitController = TextEditingController();
@@ -77,6 +87,7 @@ class _SettingsViewState extends State<SettingsView> {
     _skillsPathFocusNode.dispose();
     _memoryFileController.dispose();
     _memoryFileFocusNode.dispose();
+    _editorLspListScrollController.dispose();
     _compressionThresholdController.dispose();
     _compressionThresholdFocusNode.dispose();
     _toolCallLimitController.dispose();
@@ -312,6 +323,16 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 18),
             _SettingsGroupCard(
+              title: _localizedText(context, zh: '编辑器', en: 'Editor'),
+              description: _localizedText(
+                context,
+                zh: '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。',
+                en: 'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.',
+              ),
+              children: [_buildEditorSection(context, settingsController)],
+            ),
+            const SizedBox(height: 18),
+            _SettingsGroupCard(
               title: l10n.aboutSectionTitle,
               description: l10n.aboutSectionBody,
               children: [
@@ -462,7 +483,11 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '模型提供商管理', en: 'Model Provider Management'),
+          title: _localizedText(
+            context,
+            zh: '模型提供商管理',
+            en: 'Model Provider Management',
+          ),
           description: _localizedText(
             context,
             zh: '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。',

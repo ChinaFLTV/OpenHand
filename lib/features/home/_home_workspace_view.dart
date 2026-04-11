@@ -54,6 +54,7 @@ class _WorkspaceView extends StatelessWidget {
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
     this.projectRoot,
+    this.composerPanelKey,
   });
 
   final TextEditingController draftController;
@@ -111,6 +112,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
   final String? projectRoot;
+  final GlobalKey<_ComposerPanelState>? composerPanelKey;
 
   @override
   Widget build(BuildContext context) {
@@ -232,6 +234,7 @@ class _WorkspaceView extends StatelessWidget {
                 },
                 child: SizeChangedLayoutNotifier(
                   child: _ComposerPanel(
+                    key: composerPanelKey,
                     currentSession: currentSession,
                     liveRuntimeToolPreview: liveRuntimeToolPreview,
                     controller: draftController,

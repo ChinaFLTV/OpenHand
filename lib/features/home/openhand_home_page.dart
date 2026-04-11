@@ -32,6 +32,8 @@ import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_attachment.dart';
+import '../ai/model/ai_lsp_backend_catalog.dart';
+import '../ai/model/ai_lsp_language_settings.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session.dart';
 import '../ai/model/ai_session_message.dart';
@@ -42,6 +44,7 @@ import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
+import '../ai/service/lsp_client_service.dart';
 import '../hardness/hardness_api_phase_runner.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../hardness/hardness_engineering_dialog.dart';
@@ -84,7 +87,6 @@ part '_home_thread_template_dialog.dart';
 part '_home_programming_expert_project_dialog.dart';
 part '_home_programming_expert_file_explorer.dart';
 part '_home_hardness_annotations.dart';
-
 
 enum AppSection {
   workspace,
@@ -167,7 +169,8 @@ Widget _buildPanelTransition({
 }) {
   // Choose the effective style based on whether the animation is running
   // forward (entrance) or in reverse (exit).
-  final isEntering = animation.status == AnimationStatus.forward ||
+  final isEntering =
+      animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
   final effectiveStyle = isEntering ? entranceStyle : exitStyle;
   return switch (effectiveStyle) {
@@ -231,17 +234,12 @@ Widget _buildPanelTransition({
       ),
     ),
     DialogAnimationStyle.elastic => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOut,
-      ),
+      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.elasticOut,
-          ),
-        ),
+        scale: Tween<double>(
+          begin: 0.8,
+          end: 1.0,
+        ).animate(CurvedAnimation(parent: animation, curve: Curves.elasticOut)),
         child: child,
       ),
     ),
@@ -288,6 +286,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final ScrollController _messageScrollController = ScrollController();
   final FocusNode _globalShortcutFocusNode = FocusNode();
   final FocusNode _composerFocusNode = FocusNode();
+  final GlobalKey<_ComposerPanelState> _composerPanelKey =
+      GlobalKey<_ComposerPanelState>();
   final AiWorkspaceInstructionService _workspaceInstructionService =
       AiWorkspaceInstructionService();
   final AiGitSnapshotService _gitSnapshotService = AiGitSnapshotService();
@@ -374,8 +374,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     setState(() {
       _openFilePaths.remove(filePath);
       if (_activeFilePath == filePath) {
-        _activeFilePath =
-            _openFilePaths.isNotEmpty ? _openFilePaths.last : null;
+        _activeFilePath = _openFilePaths.isNotEmpty
+            ? _openFilePaths.last
+            : null;
       }
     });
     _scheduleEditorTabsPersistence();
@@ -414,14 +415,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'open_files': _openFilePaths,
         'active_file': _activeFilePath,
       });
-      await db.insert(
-        'app_settings',
-        <String, Object?>{
-          'key': 'editor_tabs_$sessionId',
-          'value': payload,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('app_settings', <String, Object?>{
+        'key': 'editor_tabs_$sessionId',
+        'value': payload,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (_) {}
   }
 
@@ -452,7 +449,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           setState(() {
             _openFilePaths.clear();
             _openFilePaths.addAll(validFiles);
-            _activeFilePath = activeFile != null && validFiles.contains(activeFile)
+            _activeFilePath =
+                activeFile != null && validFiles.contains(activeFile)
                 ? activeFile
                 : validFiles.last;
           });
@@ -480,11 +478,72 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   String? _programmingExpertProjectRoot(AiSession? session) {
+    final config = _programmingExpertConfigMap(session);
+    if (config == null) {
+      return null;
+    }
+    final projectRoot = OpenHandPaths.normalizeOptionalPath(
+      '${config['project_root'] ?? ''}',
+    );
+    return projectRoot.isEmpty ? null : projectRoot;
+  }
+
+  String _programmingExpertLanguage(AiSession? session) {
+    final config = _programmingExpertConfigMap(session);
+    if (config == null) {
+      return 'mixed';
+    }
+    return normalizeAiLspLanguage('${config['language'] ?? 'mixed'}');
+  }
+
+  String _programmingExpertSdkPath(AiSession? session) {
+    final config = _programmingExpertConfigMap(session);
+    if (config == null) {
+      return '';
+    }
+    return OpenHandPaths.normalizeOptionalPath('${config['sdk_path'] ?? ''}');
+  }
+
+  String _programmingExpertLspPath(AiSession? session) {
+    final config = _programmingExpertConfigMap(session);
+    if (config == null) {
+      return '';
+    }
+    return OpenHandPaths.normalizeOptionalPath('${config['lsp_path'] ?? ''}');
+  }
+
+  String? _preferredProgrammingExpertProjectRootCandidate({
+    required AiSessionController sessionController,
+    AiSessionRuntimeContext? runtimeContext,
+  }) {
+    String? normalizeCandidate(String? value) {
+      final normalized = OpenHandPaths.normalizeOptionalPath(value ?? '');
+      return normalized.isEmpty ? null : normalized;
+    }
+
+    final currentProgrammingProject = _programmingExpertProjectRoot(
+      sessionController.currentSession,
+    );
+    if (currentProgrammingProject != null) {
+      return currentProgrammingProject;
+    }
+    return normalizeCandidate(
+          runtimeContext?.repositorySnapshot?.repositoryRootPath,
+        ) ??
+        normalizeCandidate(runtimeContext?.workingDirectory);
+  }
+
+  Map<String, Object?>? _programmingExpertConfigMap(AiSession? session) {
     if (session == null || session.templateId != 'programming_expert') {
       return null;
     }
     final config = session.metadata['programming_expert_config'];
-    if (config is Map) return config['project_root'] as String?;
+    if (config is Map<String, Object?>) {
+      return config;
+    }
+    if (config is Map) {
+      return Map<String, Object?>.from(config);
+    }
     return null;
   }
 
@@ -1133,6 +1192,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
+    // Escape dismisses the @ mention overlay if it is showing.
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      final composerState = _composerPanelKey.currentState;
+      if (composerState != null && composerState._atMentionOverlay != null) {
+        composerState._userDismissAtMentionOverlay();
+        return KeyEventResult.handled;
+      }
+    }
     final bindings = context.read<SettingsController>().shortcutBindings;
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
       ...HardwareKeyboard.instance.logicalKeysPressed,
@@ -1165,6 +1232,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           } else {
             // Always delegate to _sendMessage() which handles both direct
             // send (when idle) and queueing (when busy).
+            _composerPanelKey.currentState?._injectReferencesIntoText();
             unawaited(_sendMessage());
           }
         case OpenHandShortcutAction.toggleComposer:
@@ -1256,6 +1324,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           await _stopResponding();
           return;
         }
+        _composerPanelKey.currentState?._injectReferencesIntoText();
         await _sendMessage();
         return;
       case OpenHandShortcutAction.toggleComposer:
@@ -1471,16 +1540,25 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (templateId == 'programming_expert') {
       final sessionController = context.read<AiSessionController>();
-      final recentPaths = _collectRecentProjectPaths(
+      final recentPathCache = _collectProgrammingExpertRecentPaths(
         sessionController.sessions,
       );
-      final projectRoot = await showAnimatedDialog<String>(
+      final settingsController = context.read<SettingsController>();
+      final currentWorkspacePath =
+          _preferredProgrammingExpertProjectRootCandidate(
+            sessionController: sessionController,
+            runtimeContext: runtimeContext,
+          ) ??
+          '';
+      final peConfig = await showAnimatedDialog<_ProgrammingExpertConfig>(
         context: context,
         builder: (context) => _ProgrammingExpertProjectDialog(
-          recentProjectPaths: recentPaths,
+          settingsController: settingsController,
+          recentPathCache: recentPathCache,
+          currentWorkspacePath: currentWorkspacePath,
         ),
       );
-      if (!mounted || projectRoot == null) {
+      if (!mounted || peConfig == null) {
         return false;
       }
       final created = await _createSession(
@@ -1494,7 +1572,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             currentSession.id,
             <String, Object?>{
               'programming_expert_config': <String, Object?>{
-                'project_root': projectRoot,
+                'project_root': peConfig.projectRoot,
+                'language': peConfig.language,
+                'sdk_path': peConfig.sdkPath,
+                'lsp_path': peConfig.lspPath,
               },
             },
           );
@@ -3502,8 +3583,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 // Swap left pane to file explorer when toggled for
                 // programming_expert sessions.
                 final currentSession = sessionController.currentSession;
-                final projectRoot =
-                    _programmingExpertProjectRoot(currentSession);
+                final projectRoot = _programmingExpertProjectRoot(
+                  currentSession,
+                );
                 final showFileExplorer =
                     _fileExplorerVisible &&
                     projectRoot != null &&
@@ -3553,7 +3635,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
                 // Swap right pane to code editor when files are open.
                 final showEditor =
-                    _activeFilePath != null && _openFilePaths.isNotEmpty;
+                    _selectedSection == AppSection.workspace &&
+                    _activeFilePath != null &&
+                    _openFilePaths.isNotEmpty;
                 final Widget rightPaneContent = showEditor
                     ? Padding(
                         key: const ValueKey<String>('editor-pane'),
@@ -3561,6 +3645,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         child: _CodeEditorView(
                           openFiles: _openFilePaths,
                           activeFilePath: _activeFilePath!,
+                          projectLanguage: _programmingExpertLanguage(
+                            currentSession,
+                          ),
+                          projectSdkPath: _programmingExpertSdkPath(
+                            currentSession,
+                          ),
+                          projectLspPath: _programmingExpertLspPath(
+                            currentSession,
+                          ),
+                          onOpenFile: _openFileInEditor,
                           onTabSelected: _selectFileTab,
                           onTabClosed: _closeFileTab,
                           onCloseAll: _closeAllFileTabs,
@@ -3818,9 +3912,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         fileExplorerVisible: _fileExplorerVisible,
         onFileExplorerToggled:
             _programmingExpertProjectRoot(currentSession) != null
-                ? _toggleFileExplorer
-                : null,
+            ? _toggleFileExplorer
+            : null,
         projectRoot: _programmingExpertProjectRoot(currentSession),
+        composerPanelKey: _composerPanelKey,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,
@@ -3926,4 +4021,3 @@ AppSection _sectionFromDrawerIndex(int index) {
     _ => AppSection.workspace,
   };
 }
-

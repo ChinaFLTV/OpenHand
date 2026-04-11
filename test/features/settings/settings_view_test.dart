@@ -104,83 +104,125 @@ void main() {
       );
     });
 
-    testWidgets('editing active model id keeps chips and saved provider in sync', (
-      tester,
-    ) async {
-      await tester.runAsync(() async {
-        await harness.seedAiModels();
-      });
-      await tester.pumpSettingsView(harness);
+    testWidgets(
+      'editing active model id keeps chips and saved provider in sync',
+      (tester) async {
+        await tester.runAsync(() async {
+          await harness.seedAiModels();
+        });
+        await tester.pumpSettingsView(harness);
 
-      await tester.tap(find.byIcon(Icons.edit_outlined));
-      await tester.pump(const Duration(milliseconds: 260));
+        await tester.tap(find.byIcon(Icons.edit_outlined));
+        await tester.pump(const Duration(milliseconds: 260));
 
-      final Finder dialogFinder = find.byType(Dialog);
-      expect(dialogFinder, findsOneWidget);
+        final Finder dialogFinder = find.byType(Dialog);
+        expect(dialogFinder, findsOneWidget);
 
-      await tester.tap(
-        find.descendant(of: dialogFinder, matching: find.text('zyb-high')),
-      );
-      await tester.pump(const Duration(milliseconds: 120));
+        await tester.tap(
+          find.descendant(of: dialogFinder, matching: find.text('zyb-high')),
+        );
+        await tester.pump(const Duration(milliseconds: 120));
 
-      Finder activeModelFieldFinder = find.descendant(
-        of: dialogFinder,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is TextFormField && widget.controller?.text == 'zyb-high',
-        ),
-      );
-      expect(activeModelFieldFinder, findsOneWidget);
-
-      await tester.enterText(
-        activeModelFieldFinder,
-        'custom-zyb-model',
-      );
-      await tester.pump(const Duration(milliseconds: 120));
-
-      activeModelFieldFinder = find.descendant(
-        of: dialogFinder,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is TextFormField &&
-              widget.controller?.text == 'custom-zyb-model',
-        ),
-      );
-      expect(activeModelFieldFinder, findsOneWidget);
-      expect(
-        find.descendant(
+        Finder activeModelFieldFinder = find.descendant(
           of: dialogFinder,
           matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is TextFormField &&
+                widget.controller?.text == 'zyb-high',
+          ),
+        );
+        expect(activeModelFieldFinder, findsOneWidget);
+
+        await tester.enterText(activeModelFieldFinder, 'custom-zyb-model');
+        await tester.pump(const Duration(milliseconds: 120));
+
+        activeModelFieldFinder = find.descendant(
+          of: dialogFinder,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is TextFormField &&
+                widget.controller?.text == 'custom-zyb-model',
+          ),
+        );
+        expect(activeModelFieldFinder, findsOneWidget);
+        expect(
+          find.descendant(
+            of: dialogFinder,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is InputChip &&
+                  widget.label is Text &&
+                  (widget.label as Text).data == 'custom-zyb-model',
+            ),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(
+          find.descendant(of: dialogFinder, matching: find.text('保存')),
+        );
+        await tester.pump();
+        await tester.flushRealAsyncWork();
+
+        expect(find.byType(Dialog), findsNothing);
+        expect(find.text('当前模型：custom-zyb-model'), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
             (widget) =>
                 widget is InputChip &&
                 widget.label is Text &&
                 (widget.label as Text).data == 'custom-zyb-model',
           ),
-        ),
-        findsOneWidget,
-      );
+          findsOneWidget,
+        );
 
-      await tester.tap(
-        find.descendant(of: dialogFinder, matching: find.text('保存')),
-      );
+        final AiModelConfig savedModel =
+            harness.settingsController.aiModels.single;
+        expect(savedModel.modelId, 'custom-zyb-model');
+        expect(savedModel.availableModelIds, contains('custom-zyb-model'));
+      },
+    );
+  });
+
+  group('SettingsView editor LSP mappings', () {
+    late _SettingsViewTestHarness harness;
+
+    setUp(() async {
+      harness = await _SettingsViewTestHarness.create();
+    });
+
+    tearDown(() async {
+      await harness.dispose();
+    });
+
+    testWidgets('scrollbar shares its controller with the mapping list', (
+      tester,
+    ) async {
+      await tester.pumpSettingsView(harness);
+      await tester.ensureVisible(find.text('语言服务器映射'));
       await tester.pump();
-      await tester.flushRealAsyncWork();
 
-      expect(find.byType(Dialog), findsNothing);
-      expect(find.text('当前模型：custom-zyb-model'), findsOneWidget);
-      expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is InputChip &&
-              widget.label is Text &&
-              (widget.label as Text).data == 'custom-zyb-model',
-        ),
-        findsOneWidget,
+      final Finder scrollbarFinder = find.byType(Scrollbar);
+      expect(scrollbarFinder, findsOneWidget);
+
+      final Finder listViewFinder = find.descendant(
+        of: scrollbarFinder,
+        matching: find.byType(ListView),
       );
+      expect(listViewFinder, findsOneWidget);
 
-      final AiModelConfig savedModel = harness.settingsController.aiModels.single;
-      expect(savedModel.modelId, 'custom-zyb-model');
-      expect(savedModel.availableModelIds, contains('custom-zyb-model'));
+      final Scrollbar scrollbar = tester.widget<Scrollbar>(scrollbarFinder);
+      final ListView listView = tester.widget<ListView>(listViewFinder);
+
+      expect(scrollbar.controller, isNotNull);
+      expect(listView.controller, same(scrollbar.controller));
+      expect(listView.primary, isFalse);
+
+      await tester.drag(listViewFinder, const Offset(0, -320));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 240));
+
+      expect(tester.takeException(), isNull);
     });
   });
 }

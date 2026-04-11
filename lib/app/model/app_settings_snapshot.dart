@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
+import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/dialog_animation_settings.dart';
@@ -10,7 +11,6 @@ import '../theme/openhand_theme_preset.dart';
 import 'openhand_shortcut.dart';
 
 class AppSettingsSnapshot {
-
   factory AppSettingsSnapshot.defaults() {
     return AppSettingsSnapshot(
       themeMode: ThemeMode.system,
@@ -21,6 +21,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
+      editorLspSettings: const <String, AiLspLanguageSettings>{},
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
@@ -45,6 +46,7 @@ class AppSettingsSnapshot {
     required this.mcpServersFilePath,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
+    required this.editorLspSettings,
     required this.aiMessageCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
@@ -71,6 +73,7 @@ class AppSettingsSnapshot {
   final String mcpServersFilePath;
   final bool memoryEnabled;
   final String userMemoryFilePath;
+  final Map<String, AiLspLanguageSettings> editorLspSettings;
   final int aiMessageCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
@@ -93,6 +96,7 @@ class AppSettingsSnapshot {
     String? mcpServersFilePath,
     bool? memoryEnabled,
     String? userMemoryFilePath,
+    Map<String, AiLspLanguageSettings>? editorLspSettings,
     int? aiMessageCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
@@ -116,6 +120,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
+      editorLspSettings: editorLspSettings ?? this.editorLspSettings,
       aiMessageCompressionThresholdChars:
           aiMessageCompressionThresholdChars ??
           this.aiMessageCompressionThresholdChars,
