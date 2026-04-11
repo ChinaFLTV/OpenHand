@@ -27,6 +27,13 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   String? _clipboardPath;
   bool _clipboardIsCut = false;
 
+  // Search state.
+  bool _searchActive = false;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  List<_FileNode> _searchResults = const [];
+  bool _searchLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +77,83 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     } else if (oldWidget.activeFilePath != widget.activeFilePath) {
       _revealActiveFile();
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchActive = !_searchActive;
+      if (!_searchActive) {
+        _searchController.clear();
+        _searchResults = const [];
+        _searchLoading = false;
+      } else {
+        // Focus the search field after the frame.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _searchFocusNode.requestFocus();
+        });
+      }
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _searchResults = const [];
+        _searchLoading = false;
+      });
+      return;
+    }
+    setState(() => _searchLoading = true);
+    final results = <_FileNode>[];
+    await _searchDirectory(Directory(widget.rootPath), trimmed, results, 0);
+    if (!mounted) return;
+    setState(() {
+      _searchResults = results;
+      _searchLoading = false;
+    });
+  }
+
+  Future<void> _searchDirectory(
+    Directory dir,
+    String query,
+    List<_FileNode> results,
+    int depth,
+  ) async {
+    if (depth > 12 || results.length >= 100) return;
+    try {
+      final entries = await dir.list().toList();
+      entries.sort((a, b) {
+        final aIsDir = a is Directory;
+        final bIsDir = b is Directory;
+        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
+        return p.basename(a.path).toLowerCase().compareTo(
+          p.basename(b.path).toLowerCase(),
+        );
+      });
+      for (final entry in entries) {
+        if (results.length >= 100) return;
+        final name = p.basename(entry.path);
+        if (_isHiddenOrIgnored(name)) continue;
+        if (name.toLowerCase().contains(query)) {
+          results.add(_FileNode(
+            name: name,
+            path: entry.path,
+            isDirectory: entry is Directory,
+          ));
+        }
+        if (entry is Directory) {
+          await _searchDirectory(entry, query, results, depth + 1);
+        }
+      }
+    } catch (_) {}
   }
 
   /// Expand parent directories to make the active file visible in the tree
@@ -442,6 +526,27 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 borderRadius: _borderRadius999,
                 child: InkWell(
                   borderRadius: _borderRadius999,
+                  onTap: _toggleSearch,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      _searchActive
+                          ? Icons.search_off_rounded
+                          : Icons.search_rounded,
+                      size: 16,
+                      color: _searchActive
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Material(
+                color: Colors.transparent,
+                borderRadius: _borderRadius999,
+                child: InkWell(
+                  borderRadius: _borderRadius999,
                   onTap: _refreshRoot,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -456,21 +561,196 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             ],
           ),
         ),
+        // Search input field.
+        if (_searchActive) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: SizedBox(
+              height: 36,
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                style: theme.textTheme.bodySmall,
+                onChanged: _performSearch,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  hintText: Localizations.localeOf(context)
+                          .languageCode
+                          .startsWith('zh')
+                      ? '搜索文件或目录…'
+                      : 'Search files…',
+                  hintStyle: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 4),
+                    child: Icon(
+                      Icons.search_rounded,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 28,
+                    maxHeight: 36,
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            _performSearch('');
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      : null,
+                  suffixIconConstraints: const BoxConstraints(
+                    minWidth: 24,
+                    maxHeight: 36,
+                  ),
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
         Divider(
           height: 1,
           color: colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _buildTree(_rootNode.children, 0),
+          child: _searchActive && _searchController.text.trim().isNotEmpty
+              ? _buildSearchResults(theme, colorScheme)
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _buildTree(_rootNode.children, 0),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults(ThemeData theme, ColorScheme colorScheme) {
+    if (_searchLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_searchResults.isEmpty) {
+      final isZh =
+          Localizations.localeOf(context).languageCode.startsWith('zh');
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            isZh ? '未找到匹配项' : 'No matches found',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
           ),
         ),
-      ],
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final node = _searchResults[index];
+        final relativePath = p.relative(node.path, from: widget.rootPath);
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              if (node.isDirectory) {
+                _toggleExpand(node);
+              } else {
+                widget.onFileSelected(node.path);
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 6,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _fileExplorerIcon(node),
+                    size: 16,
+                    color: node.isDirectory
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          node.name,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          relativePath,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                            fontSize: 10,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

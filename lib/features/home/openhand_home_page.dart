@@ -13,6 +13,7 @@ import 'package:highlight/highlight.dart' as highlight;
 import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:sqflite_common/sqlite_api.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
@@ -24,6 +25,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
@@ -346,6 +348,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _fileExplorerVisible = false;
   final List<String> _openFilePaths = [];
   String? _activeFilePath;
+  String? _editorTabsSessionId;
+  Timer? _editorTabsSaveTimer;
 
   void _toggleFileExplorer() {
     setState(() => _fileExplorerVisible = !_fileExplorerVisible);
@@ -358,10 +362,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       _activeFilePath = filePath;
     });
+    _scheduleEditorTabsPersistence();
   }
 
   void _selectFileTab(String filePath) {
     setState(() => _activeFilePath = filePath);
+    _scheduleEditorTabsPersistence();
   }
 
   void _closeFileTab(String filePath) {
@@ -372,6 +378,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _openFilePaths.isNotEmpty ? _openFilePaths.last : null;
       }
     });
+    _scheduleEditorTabsPersistence();
   }
 
   void _closeAllFileTabs() {
@@ -379,6 +386,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _openFilePaths.clear();
       _activeFilePath = null;
     });
+    _scheduleEditorTabsPersistence();
   }
 
   void _reorderFileTabs(int oldIndex, int newIndex) {
@@ -387,6 +395,88 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final item = _openFilePaths.removeAt(oldIndex);
       _openFilePaths.insert(newIndex, item);
     });
+    _scheduleEditorTabsPersistence();
+  }
+
+  void _scheduleEditorTabsPersistence() {
+    _editorTabsSaveTimer?.cancel();
+    _editorTabsSaveTimer = Timer(const Duration(milliseconds: 500), () {
+      _persistEditorTabs();
+    });
+  }
+
+  Future<void> _persistEditorTabs() async {
+    final sessionId = _editorTabsSessionId;
+    if (sessionId == null || sessionId.trim().isEmpty) return;
+    try {
+      final db = DatabaseService.instance.database;
+      final payload = jsonEncode(<String, Object?>{
+        'open_files': _openFilePaths,
+        'active_file': _activeFilePath,
+      });
+      await db.insert(
+        'app_settings',
+        <String, Object?>{
+          'key': 'editor_tabs_$sessionId',
+          'value': payload,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _restoreEditorTabs(String sessionId) async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.query(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: <Object?>['editor_tabs_$sessionId'],
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+      final jsonStr = rows.first['value'] as String?;
+      if (jsonStr == null || jsonStr.isEmpty) return;
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is! Map<String, Object?>) return;
+      final openFiles = decoded['open_files'];
+      final activeFile = decoded['active_file'] as String?;
+      if (openFiles is List) {
+        final validFiles = <String>[];
+        for (final item in openFiles) {
+          if (item is String && item.isNotEmpty) {
+            validFiles.add(item);
+          }
+        }
+        if (validFiles.isNotEmpty) {
+          setState(() {
+            _openFilePaths.clear();
+            _openFilePaths.addAll(validFiles);
+            _activeFilePath = activeFile != null && validFiles.contains(activeFile)
+                ? activeFile
+                : validFiles.last;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _syncEditorTabsForSession(String? sessionId) {
+    if (_editorTabsSessionId == sessionId) return;
+    // Persist current tabs before switching.
+    _editorTabsSaveTimer?.cancel();
+    if (_editorTabsSessionId != null) {
+      unawaited(_persistEditorTabs());
+    }
+    _editorTabsSessionId = sessionId;
+    // Clear and restore.
+    setState(() {
+      _openFilePaths.clear();
+      _activeFilePath = null;
+    });
+    if (sessionId != null && sessionId.isNotEmpty) {
+      _restoreEditorTabs(sessionId);
+    }
   }
 
   String? _programmingExpertProjectRoot(AiSession? session) {
@@ -537,6 +627,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHardnessOrchestrator?.cancel();
     _activeHardnessOrchestrator?.dispose();
     _hardnessSessionSaveTimer?.cancel();
+    _editorTabsSaveTimer?.cancel();
+    // Flush pending editor tabs before disposal.
+    if (_editorTabsSessionId != null) {
+      unawaited(_persistEditorTabs().catchError((_) {}));
+    }
     final pendingHardnessRecord = _persistedHardnessSession;
     if (pendingHardnessRecord != null) {
       unawaited(
@@ -585,6 +680,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final sessionController = _observedSessionController;
         _syncComposerDraftForSession(sessionController?.currentSessionId);
         _syncTranscriptPreparation(sessionController?.currentSession);
+        _syncEditorTabsForSession(sessionController?.currentSessionId);
       }),
     );
   }
@@ -3724,6 +3820,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             _programmingExpertProjectRoot(currentSession) != null
                 ? _toggleFileExplorer
                 : null,
+        projectRoot: _programmingExpertProjectRoot(currentSession),
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,

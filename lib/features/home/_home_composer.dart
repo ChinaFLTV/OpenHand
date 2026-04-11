@@ -35,6 +35,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.onRemoveQueuedMessage,
     required this.onMoveQueuedMessage,
     required this.onEditQueuedMessage,
+    this.projectRoot,
   });
 
   final AiSession? currentSession;
@@ -70,12 +71,300 @@ class _ComposerPanel extends StatefulWidget {
   final ValueChanged<int> onRemoveQueuedMessage;
   final void Function(int from, int to) onMoveQueuedMessage;
   final void Function(int index, String newText) onEditQueuedMessage;
+  final String? projectRoot;
 
   @override
   State<_ComposerPanel> createState() => _ComposerPanelState();
 }
 
 class _ComposerPanelState extends State<_ComposerPanel> {
+  final LayerLink _atMentionLayerLink = LayerLink();
+  OverlayEntry? _atMentionOverlay;
+  List<_AtMentionItem> _atMentionResults = const [];
+  int _atMentionSelectedIndex = 0;
+  int _atMentionTriggerOffset = -1;
+  String _atMentionCurrentDirectory = '';
+  // Breadcrumb path segments for directory drilling.
+  List<String> _atMentionBreadcrumbs = const [];
+  bool _atMentionLoading = false;
+  bool _atMentionSuppressListener = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleTextChangedForAtMention);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ComposerPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_handleTextChangedForAtMention);
+      widget.controller.addListener(_handleTextChangedForAtMention);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_handleTextChangedForAtMention);
+    _dismissAtMentionOverlay();
+    super.dispose();
+  }
+
+  // ── @ mention detection ──
+
+  void _handleTextChangedForAtMention() {
+    if (_atMentionSuppressListener) return;
+    final root = widget.projectRoot;
+    if (root == null || root.isEmpty) {
+      _dismissAtMentionOverlay();
+      return;
+    }
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    if (!selection.isValid || !selection.isCollapsed) {
+      _dismissAtMentionOverlay();
+      return;
+    }
+    final cursor = selection.baseOffset;
+    // Scan backwards from cursor to find a '@' anchor.
+    int atIndex = -1;
+    for (var i = cursor - 1; i >= 0; i--) {
+      final ch = text.codeUnitAt(i);
+      if (ch == 0x40 /* @ */) {
+        atIndex = i;
+        break;
+      }
+      // Stop scanning at whitespace or newline *before* the first char.
+      if (ch == 0x0A || ch == 0x0D) {
+        break;
+      }
+    }
+    if (atIndex < 0) {
+      _dismissAtMentionOverlay();
+      return;
+    }
+    // The character before @ must be start-of-text or whitespace.
+    if (atIndex > 0) {
+      final prev = text.codeUnitAt(atIndex - 1);
+      if (prev != 0x20 && prev != 0x0A && prev != 0x0D && prev != 0x09) {
+        _dismissAtMentionOverlay();
+        return;
+      }
+    }
+    final query = text.substring(atIndex + 1, cursor);
+    _atMentionTriggerOffset = atIndex;
+    _performAtMentionSearch(root, query);
+  }
+
+  Future<void> _performAtMentionSearch(String rootPath, String query) async {
+    setState(() => _atMentionLoading = true);
+    final basePath = _atMentionCurrentDirectory.isEmpty
+        ? rootPath
+        : p.join(rootPath, _atMentionCurrentDirectory);
+    final trimmedQuery = query.trim().toLowerCase();
+    final results = <_AtMentionItem>[];
+    try {
+      final dir = Directory(basePath);
+      if (!await dir.exists()) {
+        setState(() {
+          _atMentionResults = const [];
+          _atMentionLoading = false;
+        });
+        _showAtMentionOverlay();
+        return;
+      }
+      final entries = await dir.list().toList();
+      entries.sort((a, b) {
+        final aIsDir = a is Directory;
+        final bIsDir = b is Directory;
+        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
+        return p.basename(a.path).toLowerCase().compareTo(
+          p.basename(b.path).toLowerCase(),
+        );
+      });
+      for (final entry in entries) {
+        if (results.length >= 50) break;
+        final name = p.basename(entry.path);
+        if (name.startsWith('.')) continue;
+        const ignored = {
+          'node_modules', 'build', '.dart_tool', '__pycache__',
+          '.git', '.idea', '.vscode', 'target', 'dist', '.gradle',
+        };
+        if (ignored.contains(name)) continue;
+        if (trimmedQuery.isEmpty || name.toLowerCase().contains(trimmedQuery)) {
+          final relativePath = p.relative(entry.path, from: rootPath);
+          results.add(_AtMentionItem(
+            name: name,
+            path: entry.path,
+            relativePath: relativePath,
+            isDirectory: entry is Directory,
+          ));
+        }
+      }
+      // If trimmedQuery is non-empty and we have few results, also search
+      // recursively for deeper matches (up to 80 total).
+      if (trimmedQuery.isNotEmpty && results.length < 20) {
+        await _deepSearchAtMention(
+          Directory(rootPath),
+          trimmedQuery,
+          results,
+          rootPath,
+          0,
+        );
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _atMentionResults = results;
+      _atMentionSelectedIndex = 0;
+      _atMentionLoading = false;
+    });
+    _showAtMentionOverlay();
+  }
+
+  Future<void> _deepSearchAtMention(
+    Directory dir,
+    String query,
+    List<_AtMentionItem> results,
+    String rootPath,
+    int depth,
+  ) async {
+    if (depth > 8 || results.length >= 80) return;
+    try {
+      final entries = await dir.list().toList();
+      for (final entry in entries) {
+        if (results.length >= 80) return;
+        final name = p.basename(entry.path);
+        if (name.startsWith('.')) continue;
+        const ignored = {
+          'node_modules', 'build', '.dart_tool', '__pycache__',
+          '.git', '.idea', '.vscode', 'target', 'dist', '.gradle',
+        };
+        if (ignored.contains(name)) continue;
+        final relativePath = p.relative(entry.path, from: rootPath);
+        // Avoid duplicates already in the shallow list.
+        if (name.toLowerCase().contains(query) &&
+            !results.any((r) => r.path == entry.path)) {
+          results.add(_AtMentionItem(
+            name: name,
+            path: entry.path,
+            relativePath: relativePath,
+            isDirectory: entry is Directory,
+          ));
+        }
+        if (entry is Directory) {
+          await _deepSearchAtMention(entry, query, results, rootPath, depth + 1);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showAtMentionOverlay() {
+    if (_atMentionOverlay != null) {
+      _atMentionOverlay!.markNeedsBuild();
+      return;
+    }
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _atMentionOverlay = OverlayEntry(
+      builder: (ctx) {
+        return _AtMentionOverlayPanel(
+          link: _atMentionLayerLink,
+          items: _atMentionResults,
+          selectedIndex: _atMentionSelectedIndex,
+          loading: _atMentionLoading,
+          breadcrumbs: _atMentionBreadcrumbs,
+          onSelect: _handleAtMentionSelect,
+          onBreadcrumbTap: _handleAtMentionBreadcrumbTap,
+          onDismiss: _dismissAtMentionOverlay,
+        );
+      },
+    );
+    overlay.insert(_atMentionOverlay!);
+  }
+
+  void _dismissAtMentionOverlay() {
+    _atMentionOverlay?.remove();
+    _atMentionOverlay = null;
+    if (_atMentionTriggerOffset >= 0) {
+      _atMentionTriggerOffset = -1;
+      _atMentionCurrentDirectory = '';
+      _atMentionBreadcrumbs = const [];
+      _atMentionResults = const [];
+    }
+  }
+
+  void _handleAtMentionSelect(_AtMentionItem item) {
+    if (item.isDirectory) {
+      // Drill into directory.
+      final root = widget.projectRoot;
+      if (root == null) return;
+      setState(() {
+        _atMentionCurrentDirectory = p.relative(item.path, from: root);
+        _atMentionBreadcrumbs = p.split(_atMentionCurrentDirectory)
+            .where((s) => s.isNotEmpty)
+            .toList();
+      });
+      // Replace the query text after @ with just @
+      final textLen = widget.controller.text.length;
+      if (_atMentionTriggerOffset >= 0 && _atMentionTriggerOffset < textLen) {
+        final cursor = widget.controller.selection.baseOffset
+            .clamp(0, textLen);
+        final start = _atMentionTriggerOffset + 1;
+        if (start <= cursor) {
+          _atMentionSuppressListener = true;
+          widget.controller.text = widget.controller.text.replaceRange(
+            start, cursor, '',
+          );
+          widget.controller.selection = TextSelection.collapsed(
+            offset: start,
+          );
+          _atMentionSuppressListener = false;
+        }
+      }
+      _performAtMentionSearch(root, '');
+      return;
+    }
+    // Insert file reference.
+    if (_atMentionTriggerOffset < 0 ||
+        _atMentionTriggerOffset > widget.controller.text.length) {
+      _dismissAtMentionOverlay();
+      return;
+    }
+    final textBefore = widget.controller.text.substring(0, _atMentionTriggerOffset);
+    final cursor = widget.controller.selection.baseOffset;
+    final textAfter = widget.controller.text.substring(
+      cursor.clamp(0, widget.controller.text.length),
+    );
+    final insertion = '@${item.relativePath} ';
+    _atMentionSuppressListener = true;
+    widget.controller.text = '$textBefore$insertion$textAfter';
+    widget.controller.selection = TextSelection.collapsed(
+      offset: textBefore.length + insertion.length,
+    );
+    _atMentionSuppressListener = false;
+    _dismissAtMentionOverlay();
+    widget.focusNode.requestFocus();
+  }
+
+  void _handleAtMentionBreadcrumbTap(int depth) {
+    final root = widget.projectRoot;
+    if (root == null) return;
+    if (depth < 0) {
+      // Go back to project root.
+      setState(() {
+        _atMentionCurrentDirectory = '';
+        _atMentionBreadcrumbs = const [];
+      });
+    } else {
+      final newBreadcrumbs = _atMentionBreadcrumbs.sublist(0, depth + 1);
+      setState(() {
+        _atMentionCurrentDirectory = p.joinAll(newBreadcrumbs);
+        _atMentionBreadcrumbs = newBreadcrumbs;
+      });
+    }
+    _performAtMentionSearch(root, '');
+  }
   List<Widget> _buildModelMenuItems(BuildContext context) {
     final items = <Widget>[];
     final selectedId = widget.selectedModel?.id;
@@ -394,14 +683,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           curve: Curves.easeOutCubic,
           child: SizedBox(
             height: widget.composerHeight,
-            child: TextField(
-              controller: widget.controller,
-              focusNode: widget.focusNode,
-              expands: true,
-              maxLines: null,
-              textInputAction: TextInputAction.newline,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: InputDecoration(hintText: l10n.composerHint),
+            child: CompositedTransformTarget(
+              link: _atMentionLayerLink,
+              child: TextField(
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                expands: true,
+                maxLines: null,
+                textInputAction: TextInputAction.newline,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: InputDecoration(hintText: l10n.composerHint),
+              ),
             ),
           ),
         ),
@@ -1224,6 +1516,304 @@ class _ComposerAttachmentChip extends StatelessWidget {
                   Icons.close_rounded,
                   size: 16,
                   color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// @ mention overlay (Cursor-style file reference autocomplete)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AtMentionItem {
+  const _AtMentionItem({
+    required this.name,
+    required this.path,
+    required this.relativePath,
+    required this.isDirectory,
+  });
+
+  final String name;
+  final String path;
+  final String relativePath;
+  final bool isDirectory;
+}
+
+class _AtMentionOverlayPanel extends StatelessWidget {
+  const _AtMentionOverlayPanel({
+    required this.link,
+    required this.items,
+    required this.selectedIndex,
+    required this.loading,
+    required this.breadcrumbs,
+    required this.onSelect,
+    required this.onBreadcrumbTap,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final List<_AtMentionItem> items;
+  final int selectedIndex;
+  final bool loading;
+  final List<String> breadcrumbs;
+  final void Function(_AtMentionItem item) onSelect;
+  final void Function(int depth) onBreadcrumbTap;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final isZh =
+        Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    return Stack(
+      children: [
+        // Dismiss barrier.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onDismiss,
+          ),
+        ),
+        CompositedTransformFollower(
+          link: link,
+          followerAnchor: Alignment.bottomLeft,
+          offset: const Offset(0, -6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 460,
+              maxHeight: 340,
+            ),
+            child: Material(
+              elevation: 8,
+              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(16),
+              color: isDark
+                  ? colorScheme.surfaceContainerHigh
+                  : colorScheme.surface,
+              surfaceTintColor: colorScheme.surfaceTint,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Breadcrumb row.
+                  if (breadcrumbs.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _AtMentionBreadcrumbChip(
+                              label: isZh ? '项目根目录' : 'Project Root',
+                              icon: Icons.home_rounded,
+                              onTap: () => onBreadcrumbTap(-1),
+                            ),
+                            for (var i = 0; i < breadcrumbs.length; i++) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 14,
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                              ),
+                              _AtMentionBreadcrumbChip(
+                                label: breadcrumbs[i],
+                                icon: Icons.folder_rounded,
+                                onTap: () => onBreadcrumbTap(i),
+                                isLast: i == breadcrumbs.length - 1,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Results.
+                  if (loading)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else if (items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          isZh ? '未找到匹配文件' : 'No matching files',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        itemBuilder: (ctx, index) {
+                          final item = items[index];
+                          final isSelected = index == selectedIndex;
+                          return Material(
+                            color: isSelected
+                                ? colorScheme.primaryContainer
+                                    .withValues(alpha: 0.4)
+                                : Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onSelect(item),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _atMentionIcon(item),
+                                      size: 18,
+                                      color: item.isDirectory
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            item.relativePath,
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                                  color: colorScheme
+                                                      .onSurfaceVariant
+                                                      .withValues(alpha: 0.55),
+                                                  fontSize: 10,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (item.isDirectory) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 16,
+                                        color: colorScheme.onSurfaceVariant
+                                            .withValues(alpha: 0.4),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static IconData _atMentionIcon(_AtMentionItem item) {
+    if (item.isDirectory) return Icons.folder_rounded;
+    final ext = p.extension(item.name).toLowerCase();
+    return switch (ext) {
+      '.dart' => Icons.code_rounded,
+      '.py' => Icons.code_rounded,
+      '.js' || '.jsx' || '.ts' || '.tsx' => Icons.javascript_rounded,
+      '.json' => Icons.data_object_rounded,
+      '.yaml' || '.yml' => Icons.settings_rounded,
+      '.md' => Icons.article_rounded,
+      '.html' || '.htm' => Icons.web_rounded,
+      '.css' || '.scss' || '.less' => Icons.palette_rounded,
+      '.png' || '.jpg' || '.jpeg' || '.gif' || '.svg' || '.webp' =>
+        Icons.image_rounded,
+      '.go' || '.rs' || '.java' || '.kt' || '.swift' || '.c' || '.cpp' =>
+        Icons.code_rounded,
+      '.sql' => Icons.storage_rounded,
+      '.sh' || '.bash' || '.zsh' => Icons.terminal_rounded,
+      '.vue' => Icons.web_rounded,
+      _ => Icons.insert_drive_file_rounded,
+    };
+  }
+}
+
+class _AtMentionBreadcrumbChip extends StatelessWidget {
+  const _AtMentionBreadcrumbChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: isLast
+          ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: colorScheme.primary),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isLast
+                      ? colorScheme.onPrimaryContainer
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: isLast ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ],

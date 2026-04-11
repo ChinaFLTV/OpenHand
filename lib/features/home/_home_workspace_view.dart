@@ -53,6 +53,7 @@ class _WorkspaceView extends StatelessWidget {
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.projectRoot,
   });
 
   final TextEditingController draftController;
@@ -109,6 +110,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final String? projectRoot;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +265,7 @@ class _WorkspaceView extends StatelessWidget {
                     onRemoveQueuedMessage: onRemoveQueuedMessage,
                     onMoveQueuedMessage: onMoveQueuedMessage,
                     onEditQueuedMessage: onEditQueuedMessage,
+                    projectRoot: projectRoot,
                   ),
                 ),
               ),

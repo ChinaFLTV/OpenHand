@@ -111,16 +111,80 @@ final RegExp _dsmlAttributePattern = RegExp(
 );
 
 String _canonicalizeDsmlMarkup(String value) {
-  final normalized = value
+  var normalized = value
       .replaceAll('<｜DSML｜', '<DSML:')
       .replaceAll('</｜DSML｜', '</DSML:')
       .replaceAll('<｜dsml｜', '<DSML:')
       .replaceAll('</｜dsml｜', '</DSML:');
-  return normalized.replaceAllMapped(_dsmlTagPrefixPattern, (match) {
+  normalized = normalized.replaceAllMapped(_dsmlTagPrefixPattern, (match) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
+  // Canonicalize raw (non-DSML) function_calls / invoke / parameter tags that
+  // low-intelligence models sometimes emit verbatim instead of using the DSML
+  // prefix or producing proper protocol-native tool_calls.
+  normalized = normalized
+      .replaceAllMapped(_rawFunctionCallsTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        return slash.isNotEmpty ? '</DSML:function_calls>' : '<DSML:function_calls>';
+      })
+      .replaceAllMapped(_rawInvokeTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty ? '</DSML:invoke>' : '<DSML:invoke$attrs>';
+      })
+      .replaceAllMapped(_rawParameterTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty ? '</DSML:parameter>' : '<DSML:parameter$attrs>';
+      });
+  // Also canonicalize the antml variant used by some Claude-based models.
+  normalized = normalized
+      .replaceAllMapped(_antmlFunctionCallsTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        return slash.isNotEmpty ? '</DSML:function_calls>' : '<DSML:function_calls>';
+      })
+      .replaceAllMapped(_antmlInvokeTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty ? '</DSML:invoke>' : '<DSML:invoke$attrs>';
+      })
+      .replaceAllMapped(_antmlParameterTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty ? '</DSML:parameter>' : '<DSML:parameter$attrs>';
+      });
+  return normalized;
 }
+
+// Raw function_calls/invoke/parameter tags (without any namespace prefix).
+// Only match standalone XML element names — not already canonicalized DSML: forms.
+final RegExp _rawFunctionCallsTagPattern = RegExp(
+  r'<\s*(/?)\s*function_calls\s*>',
+  caseSensitive: false,
+);
+final RegExp _rawInvokeTagPattern = RegExp(
+  r'<\s*(/?)\s*invoke\b([^>]*)>',
+  caseSensitive: false,
+);
+final RegExp _rawParameterTagPattern = RegExp(
+  r'<\s*(/?)\s*parameter\b([^>]*)>',
+  caseSensitive: false,
+);
+
+// antml:function_calls / antml:invoke / antml:parameter variants.
+final RegExp _antmlFunctionCallsTagPattern = RegExp(
+  r'<\s*(/?)\s*antml:function_calls\s*>',
+  caseSensitive: false,
+);
+final RegExp _antmlInvokeTagPattern = RegExp(
+  r'<\s*(/?)\s*antml:invoke\b([^>]*)>',
+  caseSensitive: false,
+);
+final RegExp _antmlParameterTagPattern = RegExp(
+  r'<\s*(/?)\s*antml:parameter\b([^>]*)>',
+  caseSensitive: false,
+);
 
 Map<String, String> _parseDsmlAttributes(String rawAttributes) {
   final attributes = <String, String>{};
