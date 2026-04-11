@@ -13,18 +13,22 @@ class HardnessSessionStore {
   Database get _db => DatabaseService.instance.database;
 
   /// Loads the persisted record, or returns `null` if none exists.
+  ///
+  /// Returns `null` if no record exists or if the persisted JSON is malformed.
+  /// Throws [DatabaseException] or similar for serious database-level errors.
   Future<HardnessSessionRecord?> load() async {
+    final rows = await _db.query('hardness_sessions', limit: 1);
+    if (rows.isEmpty) return null;
+    final dataJson = rows.first['data_json'] as String?;
+    if (dataJson == null || dataJson.isEmpty) return null;
     try {
-      final rows = await _db.query('hardness_sessions', limit: 1);
-      if (rows.isEmpty) return null;
-      final dataJson = rows.first['data_json'] as String?;
-      if (dataJson == null || dataJson.isEmpty) return null;
       final decoded = jsonDecode(dataJson);
       if (decoded is! Map) return null;
       return HardnessSessionRecord.fromJson(
         Map<String, Object?>.from(decoded),
       );
-    } catch (_) {
+    } on FormatException {
+      // Corrupted JSON - treat as missing record rather than crashing.
       return null;
     }
   }

@@ -429,12 +429,24 @@ class McpController extends ChangeNotifier {
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
+    if (_isDisposed) {
+      return Future<T>.error(StateError('McpController is disposed'));
+    }
     final completer = Completer<T>();
     _operationQueue = _operationQueue.catchError((_) {}).then((_) async {
+      // Check disposed state before executing to avoid race conditions.
+      if (_isDisposed) {
+        if (!completer.isCompleted) {
+          completer.completeError(StateError('McpController is disposed'));
+        }
+        return;
+      }
       try {
         completer.complete(await operation());
       } catch (error, stackTrace) {
-        completer.completeError(error, stackTrace);
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
       }
     });
     return completer.future;

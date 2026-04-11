@@ -564,7 +564,18 @@ class SkillsRepository {
       return null;
     }
 
+    // Reject absolute paths to prevent path traversal attacks.
+    if (p.isAbsolute(sanitizedPath)) {
+      return null;
+    }
+
     final normalizedPath = p.normalize(sanitizedPath);
+
+    // Reject paths containing parent directory references.
+    if (normalizedPath.contains('..')) {
+      return null;
+    }
+
     final extension = p.extension(normalizedPath).toLowerCase();
     final iconKind = switch (extension) {
       '.svg' => LocalSkillIconKind.svg,
@@ -580,7 +591,6 @@ class SkillsRepository {
     }
 
     final candidatePaths = <String>[
-      if (p.isAbsolute(sanitizedPath)) normalizedPath,
       p.normalize(p.join(metadataDirectoryPath, sanitizedPath)),
       p.normalize(p.join(skillDirectoryPath, sanitizedPath)),
     ];

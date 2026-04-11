@@ -381,7 +381,11 @@ class AiSession {
 
   AiSessionMessage? get latestCompressionPoint {
     final index = latestCompressionPointIndex;
-    return index == null ? null : messages[index];
+    // Guard against stale cache or concurrent modification.
+    if (index == null || index < 0 || index >= messages.length) {
+      return null;
+    }
+    return messages[index];
   }
 
   int? get latestCompressionPointIndex {

@@ -914,6 +914,9 @@ class AiBashToolService {
           maxCapturedCharacters,
         );
       }
+      // Cancel subscriptions when process exits to avoid dangling listeners.
+      unawaited(session.stdoutSubscription?.cancel());
+      unawaited(session.stderrSubscription?.cancel());
       _persistentSessions.remove(sessionId);
     });
     _persistentSessions[sessionId] = session;
@@ -1059,9 +1062,10 @@ class AiBashToolService {
     if (session == null) {
       return;
     }
-    _killProcess(session.process);
+    // Cancel subscriptions first to avoid reading from a killed process.
     await session.stdoutSubscription?.cancel();
     await session.stderrSubscription?.cancel();
+    _killProcess(session.process);
   }
 
   String _resolveShellExecutable() {
@@ -1147,9 +1151,10 @@ class AiBashToolService {
       if (session == null) {
         continue;
       }
+      // Cancel subscriptions before killing process to avoid error callbacks.
+      unawaited(session.stdoutSubscription?.cancel());
+      unawaited(session.stderrSubscription?.cancel());
       _killProcess(session.process);
-      session.stdoutSubscription?.cancel();
-      session.stderrSubscription?.cancel();
     }
   }
 
