@@ -7379,6 +7379,1035 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Editor code area context menu (right-click)
+  // ---------------------------------------------------------------------------
+
+  /// Top-level context menu action identifiers.
+  static const _ctxGoToDefinition = 'go_to_definition';
+  static const _ctxFindReferences = 'find_references';
+  static const _ctxGoToImplementation = 'go_to_implementation';
+  static const _ctxHoverInfo = 'hover_info';
+  static const _ctxRefactorSubmenu = 'refactor';
+  static const _ctxNavigateSubmenu = 'navigate';
+  static const _ctxFoldingSubmenu = 'folding';
+  static const _ctxCut = 'cut';
+  static const _ctxCopy = 'copy';
+  static const _ctxPaste = 'paste';
+  static const _ctxSelectAll = 'select_all';
+  static const _ctxFind = 'find';
+  static const _ctxReplace = 'replace';
+  static const _ctxOpenInExplorer = 'open_in_explorer';
+  static const _ctxCopyPath = 'copy_path';
+
+  void _showEditorCodeContextMenu(
+    String filePath,
+    Offset globalPosition,
+  ) {
+    unawaited(_showEditorCodeContextMenuAsync(filePath, globalPosition));
+  }
+
+  Future<void> _showEditorCodeContextMenuAsync(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final colorScheme = Theme.of(context).colorScheme;
+    final controller = _textControllers[filePath];
+    final hasSelection =
+        controller != null &&
+        controller.selection.start != controller.selection.end;
+
+    Widget submenuIndicator() {
+      return Icon(
+        Icons.chevron_right_rounded,
+        size: 16,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+      );
+    }
+
+    Widget shortcutLabel(String text) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 24),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    PopupMenuItem<String> buildItem({
+      required String value,
+      required IconData icon,
+      required String label,
+      String? shortcut,
+      bool hasSubmenu = false,
+      bool enabled = true,
+      Color? iconColor,
+      Color? textColor,
+    }) {
+      return PopupMenuItem<String>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label, style: textColor != null ? TextStyle(color: textColor) : null),
+            ),
+            if (shortcut != null) shortcutLabel(shortcut),
+            if (hasSubmenu) submenuIndicator(),
+          ],
+        ),
+      );
+    }
+
+    final selected = await showAnimatedMenu<String>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        buildItem(
+          value: _ctxGoToDefinition,
+          icon: Icons.gps_fixed_rounded,
+          label: isZh ? '跳转到定义' : 'Go to Definition',
+          shortcut: 'F12',
+        ),
+        buildItem(
+          value: _ctxFindReferences,
+          icon: Icons.search_rounded,
+          label: isZh ? '查找引用' : 'Find References',
+          shortcut: '⇧F12',
+        ),
+        buildItem(
+          value: _ctxGoToImplementation,
+          icon: Icons.integration_instructions_outlined,
+          label: isZh ? '跳转到实现' : 'Go to Implementation',
+          shortcut: '⌥⌘B',
+        ),
+        buildItem(
+          value: _ctxHoverInfo,
+          icon: Icons.info_outline_rounded,
+          label: isZh ? '悬浮信息' : 'Hover Info',
+          shortcut: '⌘I',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: _ctxRefactorSubmenu,
+          icon: Icons.build_rounded,
+          label: isZh ? '重构' : 'Refactor',
+          hasSubmenu: true,
+        ),
+        buildItem(
+          value: _ctxNavigateSubmenu,
+          icon: Icons.explore_rounded,
+          label: isZh ? '导航' : 'Navigate',
+          hasSubmenu: true,
+        ),
+        buildItem(
+          value: _ctxFoldingSubmenu,
+          icon: Icons.unfold_less_rounded,
+          label: isZh ? '折叠' : 'Folding',
+          hasSubmenu: true,
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: _ctxCut,
+          icon: Icons.content_cut_rounded,
+          label: isZh ? '剪切' : 'Cut',
+          shortcut: '⌘X',
+          enabled: hasSelection,
+        ),
+        buildItem(
+          value: _ctxCopy,
+          icon: Icons.content_copy_rounded,
+          label: isZh ? '复制' : 'Copy',
+          shortcut: '⌘C',
+          enabled: hasSelection,
+        ),
+        buildItem(
+          value: _ctxPaste,
+          icon: Icons.content_paste_rounded,
+          label: isZh ? '粘贴' : 'Paste',
+          shortcut: '⌘V',
+        ),
+        buildItem(
+          value: _ctxSelectAll,
+          icon: Icons.select_all_rounded,
+          label: isZh ? '全选' : 'Select All',
+          shortcut: '⌘A',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: _ctxFind,
+          icon: Icons.find_in_page_rounded,
+          label: isZh ? '查找' : 'Find',
+          shortcut: '⌘F',
+        ),
+        buildItem(
+          value: _ctxReplace,
+          icon: Icons.find_replace_rounded,
+          label: isZh ? '替换' : 'Replace',
+          shortcut: '⌘H',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: _ctxOpenInExplorer,
+          icon: Icons.folder_open_outlined,
+          label: isZh ? '在系统文件浏览器中打开' : 'Open in System Explorer',
+        ),
+        buildItem(
+          value: _ctxCopyPath,
+          icon: Icons.link_rounded,
+          label: isZh ? '复制路径 / 引用…' : 'Copy Path / Reference…',
+        ),
+      ],
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case _ctxGoToDefinition:
+        unawaited(_goToDefinitionAtCursor());
+      case _ctxFindReferences:
+        unawaited(_findReferencesAtCursor());
+      case _ctxGoToImplementation:
+        unawaited(_goToImplementationAtCursor());
+      case _ctxHoverInfo:
+        unawaited(_showHoverAtCursor());
+      case _ctxRefactorSubmenu:
+        _scheduleOverlayActionAfterMenuDismissal(context, () {
+          unawaited(_showRefactorSubmenu(filePath, globalPosition));
+        });
+      case _ctxNavigateSubmenu:
+        _scheduleOverlayActionAfterMenuDismissal(context, () {
+          unawaited(_showNavigateSubmenu(filePath, globalPosition));
+        });
+      case _ctxFoldingSubmenu:
+        _scheduleOverlayActionAfterMenuDismissal(context, () {
+          unawaited(_showFoldingSubmenu(filePath, globalPosition));
+        });
+      case _ctxCut:
+        _editorClipboardCut(filePath);
+      case _ctxCopy:
+        _editorClipboardCopy(filePath);
+      case _ctxPaste:
+        unawaited(_editorClipboardPaste(filePath));
+      case _ctxSelectAll:
+        _editorSelectAll(filePath);
+      case _ctxFind:
+        _showFind();
+      case _ctxReplace:
+        _showFindAndReplace();
+      case _ctxOpenInExplorer:
+        unawaited(_openFileInSystemExplorer(filePath));
+      case _ctxCopyPath:
+        _scheduleOverlayActionAfterMenuDismissal(context, () {
+          unawaited(_showEditorFileCopyPathMenu(filePath, globalPosition));
+        });
+    }
+  }
+
+  // ── Refactor submenu ──
+
+  Future<void> _showRefactorSubmenu(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    PopupMenuItem<String> buildItem({
+      required String value,
+      required IconData icon,
+      required String label,
+      String? shortcut,
+      bool enabled = true,
+    }) {
+      return PopupMenuItem<String>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+            if (shortcut != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  shortcut,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final selected = await showAnimatedMenu<String>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        buildItem(
+          value: 'rename',
+          icon: Icons.drive_file_rename_outline,
+          label: isZh ? '重命名…' : 'Rename…',
+          shortcut: 'F2',
+        ),
+        buildItem(
+          value: 'code_actions',
+          icon: Icons.lightbulb_outline_rounded,
+          label: isZh ? '代码操作…' : 'Code Actions…',
+          shortcut: '⌘.',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'extract_method',
+          icon: Icons.functions_rounded,
+          label: isZh ? '提取方法…' : 'Extract Method…',
+          shortcut: '⌥⌘M',
+        ),
+        buildItem(
+          value: 'extract_variable',
+          icon: Icons.data_object_rounded,
+          label: isZh ? '提取变量…' : 'Extract Variable…',
+          shortcut: '⌥⌘V',
+        ),
+        buildItem(
+          value: 'extract_constant',
+          icon: Icons.pin_rounded,
+          label: isZh ? '提取常量…' : 'Extract Constant…',
+          shortcut: '⌥⌘C',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'inline',
+          icon: Icons.compress_rounded,
+          label: isZh ? '内联函数/方法' : 'Inline Function/Method',
+          shortcut: '⌥⌘N',
+        ),
+        buildItem(
+          value: 'change_signature',
+          icon: Icons.tune_rounded,
+          label: isZh ? '更改签名…' : 'Change Signature…',
+          shortcut: '⌘F6',
+        ),
+      ],
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case 'rename':
+        unawaited(_renameSymbolAtCursor());
+      case 'code_actions':
+        unawaited(_showCodeActionsAtCursor());
+      case 'extract_method':
+        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.function'));
+      case 'extract_variable':
+        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.variable'));
+      case 'extract_constant':
+        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.constant'));
+      case 'inline':
+        unawaited(_executeRefactorCodeAction(filePath, 'refactor.inline'));
+      case 'change_signature':
+        unawaited(_showCodeActionsAtCursor());
+    }
+  }
+
+  // ── Navigate submenu ──
+
+  Future<void> _showNavigateSubmenu(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    PopupMenuItem<String> buildItem({
+      required String value,
+      required IconData icon,
+      required String label,
+      String? shortcut,
+      bool enabled = true,
+    }) {
+      return PopupMenuItem<String>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+            if (shortcut != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  shortcut,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final selected = await showAnimatedMenu<String>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        buildItem(
+          value: 'definition',
+          icon: Icons.gps_fixed_rounded,
+          label: isZh ? '声明 / 用法' : 'Declaration or Usages',
+          shortcut: '⌘B',
+        ),
+        buildItem(
+          value: 'implementation',
+          icon: Icons.integration_instructions_outlined,
+          label: isZh ? '实现' : 'Implementation(s)',
+          shortcut: '⌥⌘B',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'document_symbols',
+          icon: Icons.account_tree_rounded,
+          label: isZh ? '文档符号' : 'Document Symbols',
+          shortcut: '⌘⇧O',
+        ),
+        buildItem(
+          value: 'workspace_symbols',
+          icon: Icons.workspaces_outlined,
+          label: isZh ? '工作区符号' : 'Workspace Symbols',
+          shortcut: '⌘T',
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'go_to_line',
+          icon: Icons.format_list_numbered_rounded,
+          label: isZh ? '跳转到行…' : 'Go to Line…',
+          shortcut: '⌘G',
+        ),
+      ],
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case 'definition':
+        unawaited(_goToDefinitionAtCursor());
+      case 'implementation':
+        unawaited(_goToImplementationAtCursor());
+      case 'document_symbols':
+        _showSymbolBar();
+      case 'workspace_symbols':
+        _showWorkspaceSymbolBar();
+      case 'go_to_line':
+        _showGoToLine();
+    }
+  }
+
+  // ── Folding submenu ──
+
+  Future<void> _showFoldingSubmenu(
+    String filePath,
+    Offset globalPosition,
+  ) async {
+    if (!mounted) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final hasFoldedRegions = _foldedRegions[filePath]?.isNotEmpty == true;
+    final foldableRegions = _foldableRegionsForFile(filePath);
+    final hasFoldableRegions = foldableRegions.isNotEmpty;
+
+    PopupMenuItem<String> buildItem({
+      required String value,
+      required IconData icon,
+      required String label,
+      String? shortcut,
+      bool enabled = true,
+    }) {
+      return PopupMenuItem<String>(
+        value: value,
+        enabled: enabled,
+        child: Row(
+          children: [
+            Icon(icon, size: 18),
+            const SizedBox(width: 10),
+            Expanded(child: Text(label)),
+            if (shortcut != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  shortcut,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final selected = await showAnimatedMenu<String>(
+      context: context,
+      position: _menuPositionForGlobalOffset(globalPosition),
+      items: [
+        buildItem(
+          value: 'toggle_fold',
+          icon: Icons.unfold_more_rounded,
+          label: isZh ? '切换折叠' : 'Toggle Folding',
+          enabled: hasFoldableRegions,
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'fold_all',
+          icon: Icons.unfold_less_rounded,
+          label: isZh ? '全部折叠' : 'Collapse All',
+          shortcut: '⇧⌘-',
+          enabled: hasFoldableRegions,
+        ),
+        buildItem(
+          value: 'unfold_all',
+          icon: Icons.unfold_more_rounded,
+          label: isZh ? '全部展开' : 'Expand All',
+          shortcut: '⇧⌘+',
+          enabled: hasFoldedRegions,
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'fold_at_cursor',
+          icon: Icons.expand_less_rounded,
+          label: isZh ? '折叠当前区域' : 'Collapse',
+          shortcut: '⌘-',
+          enabled: hasFoldableRegions,
+        ),
+        buildItem(
+          value: 'unfold_at_cursor',
+          icon: Icons.expand_more_rounded,
+          label: isZh ? '展开当前区域' : 'Expand',
+          shortcut: '⌘+',
+          enabled: hasFoldedRegions,
+        ),
+        const PopupMenuDivider(),
+        buildItem(
+          value: 'fold_comments',
+          icon: Icons.comment_rounded,
+          label: isZh ? '折叠文档注释' : 'Collapse Doc Comments',
+          enabled: hasFoldableRegions,
+        ),
+        buildItem(
+          value: 'unfold_comments',
+          icon: Icons.insert_comment_rounded,
+          label: isZh ? '展开文档注释' : 'Expand Doc Comments',
+          enabled: hasFoldedRegions,
+        ),
+      ],
+    );
+    if (selected == null || !mounted) return;
+
+    switch (selected) {
+      case 'toggle_fold':
+        _toggleFoldAtCursor(filePath);
+      case 'fold_all':
+        _foldAll(filePath);
+      case 'unfold_all':
+        _unfoldAll(filePath);
+      case 'fold_at_cursor':
+        _foldAtCursor(filePath);
+      case 'unfold_at_cursor':
+        _unfoldAtCursor(filePath);
+      case 'fold_comments':
+        _foldComments(filePath);
+      case 'unfold_comments':
+        _unfoldComments(filePath);
+    }
+  }
+
+  // ── Go to Implementation (LSP textDocument/implementation) ──
+
+  Future<void> _goToImplementationAtCursor() async {
+    final title = _localizedText(
+      context,
+      zh: '跳转到实现',
+      en: 'Go to Implementation',
+    );
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) return;
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) return;
+    try {
+      final result = await AiLspClientService.instance.request(
+        operation: 'goToImplementation',
+        filePath: widget.activeFilePath,
+        line: _cursorLine,
+        character: _cursorColumn,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) return;
+      final locations = AiLspClientService.parseLocations(result);
+      if (locations.isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前光标位置没有找到实现。',
+            en: 'No implementation was found at the current cursor position.',
+          ),
+        );
+        return;
+      }
+      if (locations.length == 1) {
+        _hideLspResultBar();
+        await _navigateToLspLocation(locations.first);
+        return;
+      }
+      _showLspLocations(
+        title: title,
+        locations: locations,
+        message: _localizedText(
+          context,
+          zh: '找到多个实现，请选择要跳转的位置。',
+          en: 'Multiple implementations found. Choose a target to navigate to.',
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  // ── Refactor code action by kind ──
+
+  Future<void> _executeRefactorCodeAction(
+    String filePath,
+    String codeActionKind,
+  ) async {
+    final title = _localizedText(context, zh: '重构', en: 'Refactor');
+    final resolution = await _prepareCursorLspAction(title);
+    if (resolution == null) return;
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    try {
+      await _syncOpenDocumentsForLsp();
+      final range = _selectionRangeForController(controller);
+      final actions = await AiLspClientService.instance.codeActions(
+        filePath: filePath,
+        range: range,
+        language: resolution.language,
+        documentText: controller.text,
+      );
+      if (!mounted) return;
+      final matching = actions
+          .where((a) => a.kind?.startsWith(codeActionKind) == true)
+          .toList(growable: false);
+      if (matching.isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '当前位置没有可用的"$codeActionKind"重构操作。',
+            en: 'No "$codeActionKind" refactoring is available at the current position.',
+          ),
+        );
+        return;
+      }
+      if (matching.length == 1) {
+        await _applyRefactorCodeAction(matching.first, filePath);
+        return;
+      }
+      // Multiple matching actions — let user choose
+      await _showCodeActionPickerAndApply(
+        title: title,
+        actions: matching,
+        filePath: filePath,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  Future<void> _showCodeActionPickerAndApply({
+    required String title,
+    required List<AiLspCodeAction> actions,
+    required String filePath,
+  }) async {
+    if (!mounted || actions.isEmpty) return;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final selected = await showDialog<AiLspCodeAction>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(title),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 320),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final action in actions)
+                    ListTile(
+                      title: Text(action.title),
+                      subtitle: action.kind != null
+                          ? Text(
+                              action.kind!,
+                              style: const TextStyle(fontSize: 11),
+                            )
+                          : null,
+                      onTap: () => Navigator.of(dialogContext).pop(action),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(isZh ? '取消' : 'Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+    if (selected == null || !mounted) return;
+    await _applyRefactorCodeAction(selected, filePath);
+  }
+
+  Future<void> _applyRefactorCodeAction(
+    AiLspCodeAction action,
+    String filePath,
+  ) async {
+    final title = action.title;
+    try {
+      final resolved = await AiLspClientService.instance.resolveCodeAction(
+        filePath: filePath,
+        action: action,
+        language: _resolvedLanguageForFile(filePath),
+      );
+      if (!mounted) return;
+      final edit = resolved.edit;
+      if (edit != null && !edit.isEmpty) {
+        final applied = await _reviewWorkspaceEditAndMaybeApply(
+          title: title,
+          edit: edit,
+          description: _localizedText(
+            context,
+            zh: '查看此次重构将影响的差异，再决定是否应用。',
+            en: 'Review the changes before applying.',
+          ),
+        );
+        if (!mounted) return;
+        if (applied) {
+          _showLspMessage(title: title, message: _workspaceEditSummary(edit));
+        }
+        return;
+      }
+      final command = resolved.command;
+      if (command != null) {
+        await AiLspClientService.instance.executeCommand(
+          filePath: filePath,
+          command: command,
+          language: _resolvedLanguageForFile(filePath),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _showLspMessage(title: title, message: '$error');
+    }
+  }
+
+  // ── Clipboard operations (for context menu) ──
+
+  void _editorClipboardCut(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final selection = controller.selection;
+    if (selection.start == selection.end) return;
+    final selectedText = controller.text.substring(
+      selection.start,
+      selection.end,
+    );
+    Clipboard.setData(ClipboardData(text: selectedText));
+    controller.text = controller.text.replaceRange(
+      selection.start,
+      selection.end,
+      '',
+    );
+    controller.selection = TextSelection.collapsed(offset: selection.start);
+    setState(() {
+      _fileDirty[filePath] = true;
+      _diagnosticsStaleFiles.add(filePath);
+    });
+    _scheduleDiagnosticsRefresh(filePath);
+  }
+
+  void _editorClipboardCopy(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final selection = controller.selection;
+    if (selection.start == selection.end) return;
+    final selectedText = controller.text.substring(
+      selection.start,
+      selection.end,
+    );
+    Clipboard.setData(ClipboardData(text: selectedText));
+  }
+
+  Future<void> _editorClipboardPaste(String filePath) async {
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data?.text == null || data!.text!.isEmpty) return;
+    final selection = controller.selection;
+    controller.text = controller.text.replaceRange(
+      selection.start,
+      selection.end,
+      data.text!,
+    );
+    final newOffset = selection.start + data.text!.length;
+    controller.selection = TextSelection.collapsed(offset: newOffset);
+    setState(() {
+      _fileDirty[filePath] = true;
+      _diagnosticsStaleFiles.add(filePath);
+    });
+    _scheduleDiagnosticsRefresh(filePath);
+  }
+
+  void _editorSelectAll(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: controller.text.length,
+    );
+  }
+
+  // ── Open file in system explorer ──
+
+  Future<void> _openFileInSystemExplorer(String filePath) async {
+    final target = p.dirname(filePath);
+    try {
+      if (Platform.isMacOS) {
+        await Process.run('open', [target]);
+      } else if (Platform.isWindows) {
+        await Process.run('explorer', [target]);
+      } else if (Platform.isLinux) {
+        await Process.run('xdg-open', [target]);
+      }
+    } catch (_) {}
+  }
+
+  // ── Code folding infrastructure ──
+
+  /// Map of filePath → set of start lines that are currently folded.
+  final Map<String, Set<int>> _foldedRegions = <String, Set<int>>{};
+
+  /// Returns foldable regions for a file from braces/indentation analysis.
+  List<_FoldableRegion> _foldableRegionsForFile(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) return const <_FoldableRegion>[];
+    return _computeFoldableRegions(controller.text);
+  }
+
+  /// Computes foldable regions from code structure (brace matching).
+  static List<_FoldableRegion> _computeFoldableRegions(String text) {
+    final regions = <_FoldableRegion>[];
+    final lines = text.split('\n');
+    final braceStack = <int>[]; // stack of line numbers with opening braces
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trimRight();
+      // Count brace openings/closings
+      for (var j = 0; j < line.length; j++) {
+        final ch = line.codeUnitAt(j);
+        if (ch == 0x7B) {
+          // '{'
+          braceStack.add(i + 1); // 1-indexed line
+        } else if (ch == 0x7D && braceStack.isNotEmpty) {
+          // '}'
+          final startLine = braceStack.removeLast();
+          final endLine = i + 1;
+          if (endLine > startLine + 1) {
+            regions.add(_FoldableRegion(startLine: startLine, endLine: endLine));
+          }
+        }
+      }
+    }
+
+    // Also detect multi-line comment blocks (/* ... */ and /// doc comments)
+    bool inBlockComment = false;
+    int blockCommentStart = 0;
+    int consecutiveDocStart = 0;
+    int consecutiveDocCount = 0;
+
+    for (var i = 0; i < lines.length; i++) {
+      final trimmed = lines[i].trimLeft();
+      // Block comments
+      if (!inBlockComment && trimmed.startsWith('/*')) {
+        inBlockComment = true;
+        blockCommentStart = i + 1;
+      }
+      if (inBlockComment && trimmed.contains('*/')) {
+        inBlockComment = false;
+        final endLine = i + 1;
+        if (endLine > blockCommentStart + 1) {
+          regions.add(_FoldableRegion(
+            startLine: blockCommentStart,
+            endLine: endLine,
+            isComment: true,
+          ));
+        }
+      }
+      // Consecutive line doc comments (///)
+      if (trimmed.startsWith('///')) {
+        if (consecutiveDocCount == 0) {
+          consecutiveDocStart = i + 1;
+        }
+        consecutiveDocCount++;
+      } else {
+        if (consecutiveDocCount > 2) {
+          regions.add(_FoldableRegion(
+            startLine: consecutiveDocStart,
+            endLine: consecutiveDocStart + consecutiveDocCount - 1,
+            isComment: true,
+          ));
+        }
+        consecutiveDocCount = 0;
+      }
+    }
+    if (consecutiveDocCount > 2) {
+      regions.add(_FoldableRegion(
+        startLine: consecutiveDocStart,
+        endLine: consecutiveDocStart + consecutiveDocCount - 1,
+        isComment: true,
+      ));
+    }
+
+    regions.sort((a, b) => a.startLine.compareTo(b.startLine));
+    return regions;
+  }
+
+  _FoldableRegion? _foldableRegionAtCursor(String filePath) {
+    final regions = _foldableRegionsForFile(filePath);
+    for (final region in regions) {
+      if (_cursorLine >= region.startLine && _cursorLine <= region.endLine) {
+        return region;
+      }
+    }
+    return null;
+  }
+
+  void _toggleFoldAtCursor(String filePath) {
+    final region = _foldableRegionAtCursor(filePath);
+    if (region == null) return;
+    final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
+    setState(() {
+      if (folded.contains(region.startLine)) {
+        folded.remove(region.startLine);
+      } else {
+        folded.add(region.startLine);
+      }
+    });
+    _applyFolding(filePath);
+  }
+
+  void _foldAtCursor(String filePath) {
+    final region = _foldableRegionAtCursor(filePath);
+    if (region == null) return;
+    final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
+    if (folded.contains(region.startLine)) return;
+    setState(() => folded.add(region.startLine));
+    _applyFolding(filePath);
+  }
+
+  void _unfoldAtCursor(String filePath) {
+    final region = _foldableRegionAtCursor(filePath);
+    if (region == null) return;
+    final folded = _foldedRegions[filePath];
+    if (folded == null || !folded.contains(region.startLine)) return;
+    setState(() => folded.remove(region.startLine));
+    _applyFolding(filePath);
+  }
+
+  void _foldAll(String filePath) {
+    final regions = _foldableRegionsForFile(filePath);
+    if (regions.isEmpty) return;
+    final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
+    setState(() {
+      for (final region in regions) {
+        folded.add(region.startLine);
+      }
+    });
+    _applyFolding(filePath);
+  }
+
+  void _unfoldAll(String filePath) {
+    final folded = _foldedRegions[filePath];
+    if (folded == null || folded.isEmpty) return;
+    setState(() => folded.clear());
+    _applyFolding(filePath);
+  }
+
+  void _foldComments(String filePath) {
+    final regions = _foldableRegionsForFile(filePath);
+    final commentRegions =
+        regions.where((r) => r.isComment).toList(growable: false);
+    if (commentRegions.isEmpty) return;
+    final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
+    setState(() {
+      for (final region in commentRegions) {
+        folded.add(region.startLine);
+      }
+    });
+    _applyFolding(filePath);
+  }
+
+  void _unfoldComments(String filePath) {
+    final regions = _foldableRegionsForFile(filePath);
+    final commentStarts =
+        regions.where((r) => r.isComment).map((r) => r.startLine).toSet();
+    final folded = _foldedRegions[filePath];
+    if (folded == null || folded.isEmpty) return;
+    setState(() => folded.removeWhere((line) => commentStarts.contains(line)));
+    _applyFolding(filePath);
+  }
+
+  /// Applies folding state to the text controller by updating hidden lines.
+  void _applyFolding(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) return;
+    final foldedStarts = _foldedRegions[filePath];
+    if (foldedStarts == null || foldedStarts.isEmpty) {
+      controller.foldedLineRanges = const <_FoldableRegion>[];
+      return;
+    }
+    final regions = _foldableRegionsForFile(filePath);
+    final active = regions
+        .where((r) => foldedStarts.contains(r.startLine))
+        .toList(growable: false);
+    controller.foldedLineRanges = active;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -7667,7 +8696,10 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.keyB) {
-          if (HardwareKeyboard.instance.isShiftPressed) {
+          if (HardwareKeyboard.instance.isShiftPressed &&
+              HardwareKeyboard.instance.isAltPressed) {
+            unawaited(_goToImplementationAtCursor());
+          } else if (HardwareKeyboard.instance.isShiftPressed) {
             unawaited(_findReferencesAtCursor());
           } else {
             unawaited(_goToDefinitionAtCursor());
@@ -7690,6 +8722,42 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
             HardwareKeyboard.instance.isShiftPressed) {
           _showSymbolBar();
           return KeyEventResult.handled;
+        }
+        // ── Folding shortcuts ──
+        if (event.logicalKey == LogicalKeyboardKey.minus) {
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            _foldAll(filePath);
+          } else {
+            _foldAtCursor(filePath);
+          }
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.equal) {
+          if (HardwareKeyboard.instance.isShiftPressed) {
+            _unfoldAll(filePath);
+          } else {
+            _unfoldAtCursor(filePath);
+          }
+          return KeyEventResult.handled;
+        }
+        // ── Refactor shortcuts (⌥⌘ combos) ──
+        if (HardwareKeyboard.instance.isAltPressed) {
+          if (event.logicalKey == LogicalKeyboardKey.keyM) {
+            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.function'));
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.keyV) {
+            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.variable'));
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.keyC) {
+            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.constant'));
+            return KeyEventResult.handled;
+          }
+          if (event.logicalKey == LogicalKeyboardKey.keyN) {
+            unawaited(_executeRefactorCodeAction(filePath, 'refactor.inline'));
+            return KeyEventResult.handled;
+          }
         }
         return KeyEventResult.ignored;
       },
@@ -7744,6 +8812,9 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
           unawaited(
             _showMoreActionsForEditorDiagnostics(diagnostics, anchorPosition),
           );
+        },
+        onSecondaryTapDown: (details) {
+          _showEditorCodeContextMenu(filePath, details.globalPosition);
         },
       ),
     );
@@ -8130,6 +9201,23 @@ class _EditorSymbolExtractionResult {
 
   final List<_EditorSymbol> symbols;
   final bool truncated;
+}
+
+class _FoldableRegion {
+  const _FoldableRegion({
+    required this.startLine,
+    required this.endLine,
+    this.isComment = false,
+  });
+
+  /// 1-indexed start line of the foldable region.
+  final int startLine;
+
+  /// 1-indexed end line (inclusive) of the foldable region.
+  final int endLine;
+
+  /// Whether this region is a comment block.
+  final bool isComment;
 }
 
 class _EditorDiagnostic {
@@ -9348,6 +10436,15 @@ class _HighlightingTextController extends TextEditingController {
   int _diagnosticsRevision = 0;
   int _lineCount = 1;
   int _longestLineLength = 0;
+  List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
+
+  set foldedLineRanges(List<_FoldableRegion> value) {
+    _foldedLineRanges = value;
+    invalidateHighlightCache();
+    notifyListeners();
+  }
+
+  List<_FoldableRegion> get foldedLineRanges => _foldedLineRanges;
 
   /// Beyond this length, skip syntax highlighting entirely.
   static const _maxHighlightLength = 96 * 1024;
@@ -9543,6 +10640,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     this.onDiagnosticQuickFixRequested,
     this.onDiagnosticTooltipQuickFixRequested,
     this.onDiagnosticTooltipMoreActionsRequested,
+    this.onSecondaryTapDown,
   });
 
   final _HighlightingTextController controller;
@@ -9568,6 +10666,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     Offset globalPosition,
   )?
   onDiagnosticTooltipMoreActionsRequested;
+  final void Function(TapDownDetails details)? onSecondaryTapDown;
 
   @override
   State<_SyntaxHighlightEditor> createState() => _SyntaxHighlightEditorState();
@@ -10549,36 +11648,41 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                       notification.metrics.axis == Axis.vertical,
                   child: ScrollConfiguration(
                     behavior: noScrollbarBehavior,
-                    child: MouseRegion(
-                      key: _textViewportKey,
-                      onExit: (_) => _scheduleDiagnosticTooltipHide(),
-                      onHover: widget.diagnostics.isEmpty
-                          ? null
-                          : (event) => _handleTextHover(
-                              event,
-                              viewportWidth: viewportWidth,
-                              editorStyle: editorStyle,
+                    child: GestureDetector(
+                      onSecondaryTapDown: widget.onSecondaryTapDown,
+                      child: MouseRegion(
+                        key: _textViewportKey,
+                        onExit: (_) => _scheduleDiagnosticTooltipHide(),
+                        onHover: widget.diagnostics.isEmpty
+                            ? null
+                            : (event) => _handleTextHover(
+                                event,
+                                viewportWidth: viewportWidth,
+                                editorStyle: editorStyle,
+                              ),
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          maxLines: null,
+                          expands: true,
+                          scrollController: widget.scrollController,
+                          style: editorStyle,
+                          cursorColor: colorScheme.primary,
+                          contextMenuBuilder: (context0, state0) =>
+                              const SizedBox.shrink(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.only(
+                              top: _editorTextPaddingTop,
+                              bottom: _editorTextPaddingBottom,
+                              left: _editorTextPaddingLeft,
+                              right: _editorTextPaddingRight,
                             ),
-                      child: TextField(
-                        controller: widget.controller,
-                        focusNode: widget.focusNode,
-                        maxLines: null,
-                        expands: true,
-                        scrollController: widget.scrollController,
-                        style: editorStyle,
-                        cursorColor: colorScheme.primary,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.only(
-                            top: _editorTextPaddingTop,
-                            bottom: _editorTextPaddingBottom,
-                            left: _editorTextPaddingLeft,
-                            right: _editorTextPaddingRight,
+                            isDense: true,
+                            isCollapsed: true,
                           ),
-                          isDense: true,
-                          isCollapsed: true,
+                          onChanged: widget.onChanged,
                         ),
-                        onChanged: widget.onChanged,
                       ),
                     ),
                   ),
