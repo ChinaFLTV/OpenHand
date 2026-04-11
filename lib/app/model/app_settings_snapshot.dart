@@ -21,6 +21,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: OpenHandPaths.defaultMcpServersFilePath(),
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
+      editorWordWrap: true,
       editorLspSettings: const <String, AiLspLanguageSettings>{},
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
@@ -46,6 +47,7 @@ class AppSettingsSnapshot {
     required this.mcpServersFilePath,
     required this.memoryEnabled,
     required this.userMemoryFilePath,
+    required this.editorWordWrap,
     required this.editorLspSettings,
     required this.aiMessageCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
@@ -73,6 +75,7 @@ class AppSettingsSnapshot {
   final String mcpServersFilePath;
   final bool memoryEnabled;
   final String userMemoryFilePath;
+  final bool editorWordWrap;
   final Map<String, AiLspLanguageSettings> editorLspSettings;
   final int aiMessageCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
@@ -96,6 +99,7 @@ class AppSettingsSnapshot {
     String? mcpServersFilePath,
     bool? memoryEnabled,
     String? userMemoryFilePath,
+    bool? editorWordWrap,
     Map<String, AiLspLanguageSettings>? editorLspSettings,
     int? aiMessageCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
@@ -120,6 +124,7 @@ class AppSettingsSnapshot {
       mcpServersFilePath: mcpServersFilePath ?? this.mcpServersFilePath,
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
+      editorWordWrap: editorWordWrap ?? this.editorWordWrap,
       editorLspSettings: editorLspSettings ?? this.editorLspSettings,
       aiMessageCompressionThresholdChars:
           aiMessageCompressionThresholdChars ??

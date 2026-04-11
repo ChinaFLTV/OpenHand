@@ -170,7 +170,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
       clipBehavior: Clip.antiAlias,
       child: Theme(
         data: drawerTheme,
+        // Use a ValueKey to ensure full rebuild when selectedIndex changes,
+        // forcing the internal _SelectableAnimatedBuilder widgets to recreate
+        // their animation controllers and avoid stale selection state.
         child: NavigationDrawer(
+          key: ValueKey<int>(widget.selectedSection.drawerIndex),
           selectedIndex: widget.selectedSection.drawerIndex,
           onDestinationSelected: (index) {
             widget.onSectionSelected(_sectionFromDrawerIndex(index));

@@ -1519,18 +1519,27 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
   void _zoomIn() {
     setState(() {
-      _fontSize = (_fontSize + 1).clamp(_editorFontSizeMin, _editorFontSizeMax);
+      _fontSize = (_fontSize + 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
     });
   }
 
   void _zoomOut() {
     setState(() {
-      _fontSize = (_fontSize - 1).clamp(_editorFontSizeMin, _editorFontSizeMax);
+      _fontSize = (_fontSize - 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
     });
   }
 
   void _zoomReset() {
     setState(() => _fontSize = _editorFontSizeDefault);
+  }
+
+  void _zoomByScale(double scaleDelta) {
+    setState(() {
+      // Apply a smooth scale to current font size
+      // Use a moderate sensitivity factor for natural zoom feel
+      final newSize = _fontSize * scaleDelta;
+      _fontSize = newSize.clamp(_editorFontSizeMin, _editorFontSizeMax);
+    });
   }
 
   Map<String, AiLspLanguageSettings> _projectLspOverrideSettings() {
@@ -8501,6 +8510,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
             onZoomIn: _zoomIn,
             onZoomOut: _zoomOut,
             onZoomReset: _zoomReset,
+            onZoomByScale: _zoomByScale,
             child: Container(
               width: double.infinity,
               clipBehavior: Clip.antiAlias,
@@ -8767,6 +8777,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         focusNode: focusNode,
         language: language,
         fontSize: _fontSize,
+        wordWrap: context.watch<SettingsController>().editorWordWrap,
         activeLine: _cursorLine,
         diagnostics: diagnostics,
         diagnosticsByLine: diagnosticsByLine,
@@ -10307,12 +10318,14 @@ class _EditorZoomWrapper extends StatefulWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onZoomReset,
+    required this.onZoomByScale,
     required this.child,
   });
 
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onZoomReset;
+  final ValueChanged<double> onZoomByScale;
   final Widget child;
 
   @override
@@ -10320,18 +10333,8 @@ class _EditorZoomWrapper extends StatefulWidget {
 }
 
 class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
-  static const Duration _zoomThrottle = Duration(milliseconds: 45);
-  DateTime? _lastZoomAt;
+  // For smooth pinch-to-zoom on trackpad/touch
   double? _lastPanZoomScale;
-
-  void _dispatchZoom(VoidCallback action) {
-    final now = DateTime.now();
-    if (_lastZoomAt != null && now.difference(_lastZoomAt!) < _zoomThrottle) {
-      return;
-    }
-    _lastZoomAt = now;
-    action();
-  }
 
   void _handlePanZoomStart(PointerPanZoomStartEvent event) {
     _lastPanZoomScale = 1.0;
@@ -10341,11 +10344,13 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
     final previousScale = _lastPanZoomScale ?? 1.0;
     final currentScale = event.scale;
     _lastPanZoomScale = currentScale;
+
+    // Calculate incremental scale delta and apply directly for smooth zoom
     final scaleDelta = currentScale / previousScale;
-    if (scaleDelta >= 1.04) {
-      _dispatchZoom(widget.onZoomIn);
-    } else if (scaleDelta <= 0.96) {
-      _dispatchZoom(widget.onZoomOut);
+
+    // Only process if there's meaningful scale change (filters out noise)
+    if ((scaleDelta - 1.0).abs() > 0.001) {
+      widget.onZoomByScale(scaleDelta);
     }
   }
 
@@ -10366,12 +10371,12 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
         if (!meta) return KeyEventResult.ignored;
         if (event.logicalKey == LogicalKeyboardKey.equal ||
             event.logicalKey == LogicalKeyboardKey.numpadAdd) {
-          _dispatchZoom(widget.onZoomIn);
+          widget.onZoomIn();
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.minus ||
             event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
-          _dispatchZoom(widget.onZoomOut);
+          widget.onZoomOut();
           return KeyEventResult.handled;
         }
         if (event.logicalKey == LogicalKeyboardKey.digit0 ||
@@ -10389,19 +10394,15 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
                 HardwareKeyboard.instance.isMetaPressed ||
                 HardwareKeyboard.instance.isControlPressed;
             if (meta) {
-              if (event.scrollDelta.dy <= -2) {
-                _dispatchZoom(widget.onZoomIn);
-              } else if (event.scrollDelta.dy >= 2) {
-                _dispatchZoom(widget.onZoomOut);
-              }
+              // Convert scroll delta to scale factor for smooth zoom
+              // Sensitivity: 120 scroll units = ~10% zoom
+              const scrollSensitivity = 0.001;
+              final scaleFactor = 1.0 - (event.scrollDelta.dy * scrollSensitivity);
+              widget.onZoomByScale(scaleFactor.clamp(0.9, 1.1));
             }
           } else if (event is PointerScaleEvent) {
-            // Trackpad pinch-to-zoom
-            if (event.scale >= 1.04) {
-              _dispatchZoom(widget.onZoomIn);
-            } else if (event.scale <= 0.96) {
-              _dispatchZoom(widget.onZoomOut);
-            }
+            // Trackpad pinch-to-zoom: apply scale directly for smooth experience
+            widget.onZoomByScale(event.scale);
           }
         },
         onPointerPanZoomStart: _handlePanZoomStart,
@@ -10632,6 +10633,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     required this.onChanged,
     this.language,
     this.fontSize = _editorFontSizeDefault,
+    this.wordWrap = true,
     this.activeLine = 1,
     this.diagnostics = const <_EditorDiagnostic>[],
     this.diagnosticsByLine = const <int, List<_EditorDiagnostic>>{},
@@ -10649,6 +10651,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
   final String? language;
   final ValueChanged<String> onChanged;
   final double fontSize;
+  final bool wordWrap;
   final int activeLine;
   final List<_EditorDiagnostic> diagnostics;
   final Map<int, List<_EditorDiagnostic>> diagnosticsByLine;
@@ -10680,6 +10683,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
   final GlobalKey _textViewportKey = GlobalKey();
   late final ScrollController _lineNumberScrollController;
+  late final ScrollController _horizontalScrollController;
   bool _darkSurface = false;
   int? _hoveredGutterLine;
   OverlayEntry? _diagnosticTooltipEntry;
@@ -10758,6 +10762,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   void initState() {
     super.initState();
     _lineNumberScrollController = ScrollController();
+    _horizontalScrollController = ScrollController();
     widget.scrollController.addListener(_syncLineNumbers);
     widget.controller.addListener(_handleSelectionChange);
   }
@@ -10769,6 +10774,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     widget.scrollController.removeListener(_syncLineNumbers);
     widget.controller.removeListener(_handleSelectionChange);
     _lineNumberScrollController.dispose();
+    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -10808,6 +10814,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       if (_hoveredTextDiagnosticOffset != null) {
         _scheduleDiagnosticTooltipUpdate();
       }
+      // Re-sync line numbers after font size change to ensure alignment
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncLineNumbers();
+      });
     }
     if (!identical(oldWidget.diagnostics, widget.diagnostics)) {
       _resolvedDiagnosticRangesCache = null;
@@ -11486,6 +11497,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
           child: ScrollConfiguration(
             behavior: noScrollbarBehavior,
             child: ListView.builder(
+              // Key based on fontSize forces rebuild when zoom changes
+              key: ValueKey('line-numbers-${widget.fontSize}'),
               controller: _lineNumberScrollController,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 10, bottom: 10),
@@ -11568,6 +11581,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                               child: Text(
                                 '$lineNumber',
                                 textAlign: TextAlign.right,
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.visible,
                                 style: TextStyle(
                                   fontFamily:
                                       'JetBrains Mono, Menlo, Consolas, monospace',
@@ -11633,11 +11649,58 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
             ),
           ),
         ),
-        // ── Code area — single explicit scrollbar only ──
+        // ── Code area — with optional horizontal scroll ──
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final viewportWidth = constraints.maxWidth;
+              final estimatedContentWidth = widget.wordWrap
+                  ? viewportWidth
+                  : math.max(
+                      viewportWidth,
+                      widget.controller.longestLineLength *
+                              (widget.fontSize * 0.62) +
+                          _editorTextPaddingLeft +
+                          _editorTextPaddingRight +
+                          48,
+                    );
+
+              Widget textFieldWidget = TextField(
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                maxLines: null,
+                expands: true,
+                scrollController: widget.scrollController,
+                style: editorStyle,
+                cursorColor: colorScheme.primary,
+                contextMenuBuilder: (context0, state0) =>
+                    const SizedBox.shrink(),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.only(
+                    top: _editorTextPaddingTop,
+                    bottom: _editorTextPaddingBottom,
+                    left: _editorTextPaddingLeft,
+                    right: _editorTextPaddingRight,
+                  ),
+                  isDense: true,
+                  isCollapsed: true,
+                ),
+                onChanged: widget.onChanged,
+              );
+
+              // When word wrap is disabled, wrap in horizontal scroll
+              if (!widget.wordWrap) {
+                textFieldWidget = SingleChildScrollView(
+                  controller: _horizontalScrollController,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: estimatedContentWidth,
+                    child: textFieldWidget,
+                  ),
+                );
+              }
+
               return PrimaryScrollController.none(
                 child: RawScrollbar(
                   controller: widget.scrollController,
@@ -11660,29 +11723,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 viewportWidth: viewportWidth,
                                 editorStyle: editorStyle,
                               ),
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          maxLines: null,
-                          expands: true,
-                          scrollController: widget.scrollController,
-                          style: editorStyle,
-                          cursorColor: colorScheme.primary,
-                          contextMenuBuilder: (context0, state0) =>
-                              const SizedBox.shrink(),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.only(
-                              top: _editorTextPaddingTop,
-                              bottom: _editorTextPaddingBottom,
-                              left: _editorTextPaddingLeft,
-                              right: _editorTextPaddingRight,
-                            ),
-                            isDense: true,
-                            isCollapsed: true,
-                          ),
-                          onChanged: widget.onChanged,
-                        ),
+                        child: textFieldWidget,
                       ),
                     ),
                   ),
@@ -11751,6 +11792,16 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
         oldWidget.language != widget.language) {
       _lineSpanCache.clear();
       _lineHighlighter = null;
+    }
+    // Handle font size changes: clear caches and re-sync scroll positions
+    if (oldWidget.fontSize != widget.fontSize) {
+      _lineSpanCache.clear();
+      _lineHighlighter = null;
+      // Proportionally adjust scroll position based on font size change ratio
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _syncLineNumbers();
+      });
     }
   }
 
@@ -11886,6 +11937,8 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                     child: ScrollConfiguration(
                       behavior: noScrollbarBehavior,
                       child: ListView.builder(
+                        // Key based on fontSize forces rebuild when zoom changes
+                        key: ValueKey('preview-line-numbers-${widget.fontSize}'),
                         controller: _lineNumberScrollController,
                         physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(top: 10, bottom: 10),
@@ -11897,6 +11950,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                             padding: const EdgeInsets.only(right: 14, left: 10),
                             child: Text(
                               '${index + 1}',
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.visible,
                               style: TextStyle(
                                 fontFamily:
                                     'JetBrains Mono, Menlo, Consolas, monospace',
@@ -11929,6 +11985,8 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                             child: SizedBox(
                               width: estimatedContentWidth,
                               child: ListView.builder(
+                                // Key based on fontSize forces rebuild when zoom changes
+                                key: ValueKey('preview-content-${widget.fontSize}'),
                                 controller: widget.scrollController,
                                 padding: const EdgeInsets.only(
                                   top: 10,

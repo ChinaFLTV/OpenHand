@@ -3998,10 +3998,15 @@ class _QueuedMessage {
 }
 
 extension on AppSection {
-  int? get drawerIndex {
+  /// Returns the drawer index for this section, or -1 if this section
+  /// does not correspond to a NavigationDrawerDestination (e.g. workspace
+  /// or hardnessSession which are displayed as thread tiles instead).
+  /// Using -1 instead of null ensures NavigationDrawer deselects all
+  /// destinations when switching to a thread.
+  int get drawerIndex {
     return switch (this) {
-      AppSection.workspace => null,
-      AppSection.hardnessSession => null,
+      AppSection.workspace => -1,
+      AppSection.hardnessSession => -1,
       AppSection.automations => 0,
       AppSection.skills => 1,
       AppSection.memory => 2,

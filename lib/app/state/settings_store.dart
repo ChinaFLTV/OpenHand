@@ -131,6 +131,7 @@ class SettingsStore {
       'mcp_servers_file_path': snapshot.mcpServersFilePath,
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
+      'editor_word_wrap': snapshot.editorWordWrap,
       'editor_lsp_settings': <String, Object?>{
         for (final entry in snapshot.editorLspSettings.entries)
           entry.key: entry.value.toJson(),
@@ -186,6 +187,9 @@ class SettingsStore {
       '${json['user_memory_file_path'] ?? ''}',
       defaultPath: OpenHandPaths.defaultUserMemoryFilePath(),
     );
+    final editorWordWrap = json['editor_word_wrap'] is bool
+        ? json['editor_word_wrap'] as bool
+        : true;
     final editorLspSettings = <String, AiLspLanguageSettings>{};
     final rawEditorLspSettings = json['editor_lsp_settings'];
     if (rawEditorLspSettings is Map) {
@@ -324,6 +328,7 @@ class SettingsStore {
       mcpServersFilePath: mcpServersFilePath,
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
+      editorWordWrap: editorWordWrap,
       editorLspSettings: editorLspSettings,
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,

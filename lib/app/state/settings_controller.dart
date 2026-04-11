@@ -32,6 +32,7 @@ class SettingsController extends ChangeNotifier {
        _mcpServersFilePath = snapshot.mcpServersFilePath,
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
+       _editorWordWrap = snapshot.editorWordWrap,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
        ),
@@ -75,6 +76,7 @@ class SettingsController extends ChangeNotifier {
   String _mcpServersFilePath;
   bool _memoryEnabled;
   String _userMemoryFilePath;
+  bool _editorWordWrap;
   Map<String, AiLspLanguageSettings> _editorLspSettings;
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
@@ -113,6 +115,7 @@ class SettingsController extends ChangeNotifier {
       OpenHandPaths.defaultMcpServersFileLabel;
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
+  bool get editorWordWrap => _editorWordWrap;
   Map<String, AiLspLanguageSettings> get editorLspSettings =>
       _cloneEditorLspSettingsMap(_editorLspSettings);
   AiLspLanguageSettings editorLspSettingsForLanguage(String language) {
@@ -268,6 +271,16 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _userMemoryFilePath = normalizedPath;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateEditorWordWrap(bool value) async {
+    return _commitMutation(() {
+      if (_editorWordWrap == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _editorWordWrap = value;
       return _MutationDisposition.apply;
     });
   }
@@ -688,6 +701,7 @@ class SettingsController extends ChangeNotifier {
       mcpServersFilePath: _mcpServersFilePath,
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
+      editorWordWrap: _editorWordWrap,
       editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
@@ -713,6 +727,7 @@ class SettingsController extends ChangeNotifier {
     _mcpServersFilePath = snapshot.mcpServersFilePath;
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
+    _editorWordWrap = snapshot.editorWordWrap;
     _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;

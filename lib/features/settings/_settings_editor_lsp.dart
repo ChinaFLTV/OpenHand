@@ -89,41 +89,75 @@ extension on _SettingsViewState {
         .where((option) => aiLspBackendsForLanguage(option.id).isNotEmpty)
         .toList(growable: false);
 
-    return _SettingsSubsectionCard(
-      title: _localizedText(
-        context,
-        zh: '语言服务器映射',
-        en: 'Language Server Mappings',
-      ),
-      description: _localizedText(
-        context,
-        zh: '为每种语言指定首选 LSP、SDK 目录、LSP 根路径以及下载入口。列表高度已限制，点击条目会以弹窗方式配置。',
-        en: 'Choose a preferred LSP, SDK directory, LSP root path, and install entry for each language. The list is height-limited and each row opens a configuration dialog.',
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 420),
-        child: PrimaryScrollController.none(
-          child: Scrollbar(
-            controller: _editorLspListScrollController,
-            thumbVisibility: supportedLanguages.length > 6,
-            child: ListView.separated(
-              controller: _editorLspListScrollController,
-              primary: false,
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              itemCount: supportedLanguages.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                return _buildEditorLspLanguageRow(
-                  context,
-                  settingsController,
-                  supportedLanguages[index].id,
-                );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Word Wrap Toggle
+        _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '文本布局',
+            en: 'Text Layout',
+          ),
+          description: _localizedText(
+            context,
+            zh: '控制编辑器中代码文本的布局方式，例如是否自动换行。',
+            en: 'Controls how code text is laid out in the editor, such as word wrapping.',
+          ),
+          child: _ResponsiveSettingRow(
+            title: _localizedText(context, zh: '自动换行', en: 'Word Wrap'),
+            subtitle: _localizedText(
+              context,
+              zh: '启用时，超出编辑器宽度的代码行将自动折行显示；禁用时，需要水平滚动查看长代码行。',
+              en: 'When enabled, lines exceeding editor width wrap automatically; when disabled, horizontal scrolling is needed for long lines.',
+            ),
+            control: Switch(
+              value: settingsController.editorWordWrap,
+              onChanged: (value) async {
+                await settingsController.updateEditorWordWrap(value);
               },
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 16),
+        // Language Server Mappings
+        _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '语言服务器映射',
+            en: 'Language Server Mappings',
+          ),
+          description: _localizedText(
+            context,
+            zh: '为每种语言指定首选 LSP、SDK 目录、LSP 根路径以及下载入口。列表高度已限制，点击条目会以弹窗方式配置。',
+            en: 'Choose a preferred LSP, SDK directory, LSP root path, and install entry for each language. The list is height-limited and each row opens a configuration dialog.',
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 420),
+            child: PrimaryScrollController.none(
+              child: Scrollbar(
+                controller: _editorLspListScrollController,
+                thumbVisibility: supportedLanguages.length > 6,
+                child: ListView.separated(
+                  controller: _editorLspListScrollController,
+                  primary: false,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: supportedLanguages.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    return _buildEditorLspLanguageRow(
+                      context,
+                      settingsController,
+                      supportedLanguages[index].id,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
