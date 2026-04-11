@@ -11677,6 +11677,13 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                     const SizedBox.shrink(),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  filled: false,
+                  fillColor: Colors.transparent,
                   contentPadding: EdgeInsets.only(
                     top: _editorTextPaddingTop,
                     bottom: _editorTextPaddingBottom,
