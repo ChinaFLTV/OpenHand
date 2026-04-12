@@ -31,6 +31,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
   late List<_HeaderEntry> _customHeaderEntries;
+  final ScrollController _chipScrollController = ScrollController();
 
   List<String> get _visibleModelIds => AiModelConfig.normalizeModelIds(<String>[
     ..._availableModelIds,
@@ -99,6 +100,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       entry.keyController.dispose();
       entry.valueController.dispose();
     }
+    _chipScrollController.dispose();
     super.dispose();
   }
 
@@ -489,32 +491,39 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           // Available models chip list
                           if (_visibleModelIds.isNotEmpty)
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxHeight: 160),
-                              child: SingleChildScrollView(
-                                child: Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: _visibleModelIds
-                                      .map((id) {
-                                        final isActive = id == _activeModelId;
-                                        return _AiProviderModelChip(
-                                          modelId: id,
-                                          isActive: isActive,
-                                          enabled: !_isSaving,
-                                          tooltip: isActive
-                                              ? _localizedText(
-                                                  zh: '当前活跃模型',
-                                                  en: 'Currently active model',
-                                                )
-                                              : _localizedText(
-                                                  zh: '点击切换为活跃模型',
-                                                  en: 'Click to set as active model',
-                                                ),
-                                          onPressed: () => _selectModelId(id),
-                                          onDeleted: () => _removeModelId(id),
-                                        );
-                                      })
-                                      .toList(growable: false),
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              child: RepaintBoundary(
+                                child: Scrollbar(
+                                  controller: _chipScrollController,
+                                  thumbVisibility: _visibleModelIds.length > 30,
+                                  child: SingleChildScrollView(
+                                    controller: _chipScrollController,
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: _visibleModelIds
+                                          .map((id) {
+                                            final isActive = id == _activeModelId;
+                                            return _AiProviderModelChip(
+                                              modelId: id,
+                                              isActive: isActive,
+                                              enabled: !_isSaving,
+                                              tooltip: isActive
+                                                  ? _localizedText(
+                                                      zh: '当前活跃模型',
+                                                      en: 'Currently active model',
+                                                    )
+                                                  : _localizedText(
+                                                      zh: '点击切换为活跃模型',
+                                                      en: 'Click to set as active model',
+                                                    ),
+                                              onPressed: () => _selectModelId(id),
+                                              onDeleted: () => _removeModelId(id),
+                                            );
+                                          })
+                                          .toList(growable: false),
+                                    ),
+                                  ),
                                 ),
                               ),
                             )

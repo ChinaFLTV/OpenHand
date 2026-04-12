@@ -170,7 +170,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   /// Expand parent directories to make the active file visible in the tree
   /// (similar to IntelliJ IDEA's "scroll from source" behaviour).
+  int _revealEpoch = 0;
+
   Future<void> _revealActiveFile() async {
+    final epoch = ++_revealEpoch;
     final active = widget.activeFilePath;
     if (active == null || !active.startsWith(widget.rootPath)) return;
     final relative = p.relative(active, from: widget.rootPath);
@@ -180,18 +183,21 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     _FileNode current = _rootNode;
     for (var i = 0; i < segments.length - 1; i++) {
       if (!current.childrenLoaded) await _loadChildren(current);
+      if (!mounted || epoch != _revealEpoch) return;
       final seg = segments[i];
       final match = current.children.where((c) => c.name == seg);
       if (match.isEmpty) return;
       current = match.first;
       current.isExpanded = true;
     }
-    if (!mounted) return;
+    // Ensure the last directory's children are loaded so the file is visible.
+    if (!current.childrenLoaded) await _loadChildren(current);
+    if (!mounted || epoch != _revealEpoch) return;
     setState(() {
       _selectedNodePath = active;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || epoch != _revealEpoch) return;
       _scrollNodeIntoView(active);
     });
   }
@@ -1377,9 +1383,10 @@ class _CodeEditorView extends StatefulWidget {
   State<_CodeEditorView> createState() => _CodeEditorViewState();
 }
 
-class _CodeEditorViewState extends State<_CodeEditorView> {
+class _CodeEditorViewState extends State<_CodeEditorView>
+    with TickerProviderStateMixin {
   static const Duration _editorLspDiagnosticsDebounce = Duration(
-    milliseconds: 420,
+    milliseconds: 200,
   );
   static const Duration _editorLspSymbolsDebounce = Duration(milliseconds: 260);
 
@@ -1441,6 +1448,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   final Set<String> _diagnosticsLoadingFiles = <String>{};
   final Set<String> _diagnosticsStaleFiles = <String>{};
 
+  /// Files that received a text change while a diagnostic refresh was already
+  /// in-flight.  After the current refresh completes a re-fetch is queued so
+  /// the latest content is always diagnosed.
+  final Set<String> _diagnosticsPendingRefresh = <String>{};
+
   // ── LSP action results ──
   bool _lspResultBarVisible = false;
   bool _lspResultLoading = false;
@@ -1469,8 +1481,6 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   Timer? _completionDebounceTimer;
   String _completionPrefix = '';
   int _completionRequestEpoch = 0;
-  OverlayEntry? _completionOverlayEntry;
-  final LayerLink _completionLayerLink = LayerLink();
 
   @override
   void initState() {
@@ -1478,6 +1488,8 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     _symbolController.addListener(_applySymbolFilter);
     AiLspClientService.instance.workspaceEditHandler =
         _applyIncomingWorkspaceEdit;
+    AiLspClientService.instance.diagnosticsPushCallback =
+        _handlePushedDiagnostics;
     _syncProjectLspOverrideSettings();
     unawaited(_ensureLspBackend(widget.activeFilePath));
   }
@@ -1502,6 +1514,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       _lspBackendByFile.remove(removedFile);
       _diagnosticsByFile.remove(removedFile);
       _diagnosticsStaleFiles.remove(removedFile);
+      _diagnosticsPendingRefresh.remove(removedFile);
       unawaited(
         AiLspClientService.instance.closeDocument(
           filePath: removedFile,
@@ -1616,6 +1629,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     _lspDiagnosticsTimers.clear();
     _lspBackendRequests.clear();
     _lspBackendLoadingFiles.clear();
+    _diagnosticsPendingRefresh.clear();
     if (!mounted) {
       _lspBackendByFile.clear();
       _diagnosticsByFile.clear();
@@ -1766,6 +1780,51 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     });
   }
 
+  /// Called by the LSP push callback whenever the server publishes fresh
+  /// diagnostics for a file.  This is the IDEA-style reactive update path:
+  /// the server tells us when diagnostics are ready, rather than polling.
+  void _handlePushedDiagnostics(
+    String filePath,
+    List<AiLspDiagnostic> diagnostics,
+  ) {
+    if (!mounted) return;
+    // Only update files that are currently open in the editor.
+    if (!_textControllers.containsKey(filePath)) return;
+    setState(() {
+      _diagnosticsByFile[filePath] = diagnostics
+          .map(
+            (item) => _EditorDiagnostic(
+              severity: switch (item.severity) {
+                1 => 'ERROR',
+                2 => 'WARNING',
+                _ => 'INFO',
+              },
+              code: item.code ?? item.source ?? 'lsp',
+              message: item.message,
+              line: item.range.start.line,
+              column: item.range.start.character,
+              endLine: item.range.end.line,
+              endColumn: item.range.end.character,
+              length: math.max(
+                1,
+                item.range.start.line == item.range.end.line
+                    ? item.range.end.character - item.range.start.character
+                    : 1,
+              ),
+            ),
+          )
+          .toList(growable: false);
+      _diagnosticsStaleFiles.remove(filePath);
+      _diagnosticsLoadingFiles.remove(filePath);
+    });
+    // Sync diagnostics into the text controller for inline decorations.
+    final controller = _textControllers[filePath];
+    if (controller != null) {
+      controller.diagnostics =
+          _diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[];
+    }
+  }
+
   void _maybeApplyPendingNavigation() {
     final pending = _pendingNavigationLocation;
     if (pending == null || pending.filePath != widget.activeFilePath) {
@@ -1785,10 +1844,20 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   }
 
   void _showSymbolBar() {
+    // Toggle: if already visible in document-symbol mode, hide it.
+    if (_symbolBarVisible && !_workspaceSymbolMode) {
+      _hideSymbolBar();
+      return;
+    }
     _openSymbolBar(workspace: false);
   }
 
   void _showWorkspaceSymbolBar() {
+    // Toggle: if already visible in workspace-symbol mode, hide it.
+    if (_symbolBarVisible && _workspaceSymbolMode) {
+      _hideSymbolBar();
+      return;
+    }
     _openSymbolBar(workspace: true);
   }
 
@@ -3736,6 +3805,9 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
   Future<void> _refreshDiagnostics(String filePath) async {
     if (_diagnosticsLoadingFiles.contains(filePath)) {
+      // A refresh is already in-flight.  Queue a re-fetch so the latest
+      // content is diagnosed once the current request completes.
+      _diagnosticsPendingRefresh.add(filePath);
       return;
     }
     final resolution = await _ensureLspBackend(filePath);
@@ -3749,7 +3821,9 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       });
       return;
     }
-    setState(() => _diagnosticsLoadingFiles.add(filePath));
+    if (mounted) {
+      setState(() => _diagnosticsLoadingFiles.add(filePath));
+    }
     try {
       final controller = _textControllers[filePath];
       final diagnostics = await AiLspClientService.instance.diagnosticsForFile(
@@ -3795,6 +3869,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         _diagnosticsLoadingFiles.remove(filePath);
         _diagnosticsByFile.remove(filePath);
       });
+    }
+
+    // If new changes arrived while we were busy, immediately re-fetch.
+    if (_diagnosticsPendingRefresh.remove(filePath)) {
+      unawaited(_refreshDiagnostics(filePath));
     }
   }
 
@@ -4146,6 +4225,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
     _symbolController.removeListener(_applySymbolFilter);
     _symbolRefreshTimer?.cancel();
     AiLspClientService.instance.workspaceEditHandler = null;
+    AiLspClientService.instance.diagnosticsPushCallback = null;
     AiLspClientService.instance.updateProjectLanguageSettingsOverride(null);
     for (final timer in _lspDiagnosticsTimers.values) {
       timer.cancel();
@@ -5138,7 +5218,7 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
           border: Border(
-            bottom: BorderSide(
+            top: BorderSide(
               color: colorScheme.outlineVariant.withValues(alpha: 0.25),
               width: 0.5,
             ),
@@ -5339,15 +5419,28 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
   void _triggerCompletion() {
     _completionDebounceTimer?.cancel();
-    _completionDebounceTimer = Timer(const Duration(milliseconds: 280), () {
+
+    // Check if the character just typed is a trigger character
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller != null) {
+      final offset = controller.selection.baseOffset;
+      if (offset > 0 && offset <= controller.text.length) {
+        final ch = controller.text[offset - 1];
+        if (ch == '.' || ch == ':' || ch == '(' || ch == '<') {
+          // Trigger immediately for trigger characters
+          _requestCompletion();
+          return;
+        }
+      }
+    }
+
+    _completionDebounceTimer = Timer(const Duration(milliseconds: 150), () {
       if (!mounted) return;
       _requestCompletion();
     });
   }
 
   void _dismissCompletionOverlay() {
-    _completionOverlayEntry?.remove();
-    _completionOverlayEntry = null;
     if (_completionVisible) {
       setState(() => _completionVisible = false);
     }
@@ -5356,12 +5449,27 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
   Future<void> _requestCompletion() async {
     final filePath = widget.activeFilePath;
     final controller = _textControllers[filePath];
-    if (controller == null) return;
+    if (controller == null) {
+      debugPrint('[EditorCompletion] _requestCompletion: no controller for $filePath');
+      return;
+    }
     final offset = controller.selection.baseOffset;
-    if (offset < 0) return;
+    // Guard against invalid or unset selection (-1) and offset beyond text.
+    if (offset < 0) {
+      debugPrint('[EditorCompletion] _requestCompletion: invalid selection offset=$offset');
+      return;
+    }
 
     // Compute current line and column
     final text = controller.text;
+    // Skip completion request if text is empty or offset exceeds length
+    // (can happen briefly during rapid edits).
+    if (text.isEmpty || offset > text.length) {
+      debugPrint('[EditorCompletion] _requestCompletion: empty or offset beyond text '
+          '(textLen=${text.length}, offset=$offset)');
+      return;
+    }
+
     var line = 1;
     var col = 1;
     for (var i = 0; i < offset && i < text.length; i++) {
@@ -5388,6 +5496,10 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
     final epoch = ++_completionRequestEpoch;
 
+    debugPrint('[EditorCompletion] _requestCompletion: sending LSP completion '
+        '(file=$filePath, line=$line, col=$col, prefix="$prefix", '
+        'textLen=${text.length}, epoch=$epoch)');
+
     try {
       final items = await AiLspClientService.instance.completion(
         filePath: filePath,
@@ -5395,7 +5507,13 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         character: col,
         documentText: text,
       );
-      if (!mounted || epoch != _completionRequestEpoch) return;
+      if (!mounted || epoch != _completionRequestEpoch) {
+        debugPrint('[EditorCompletion] _requestCompletion: stale response '
+            '(epoch=$epoch, current=$_completionRequestEpoch, mounted=$mounted)');
+        return;
+      }
+      debugPrint('[EditorCompletion] _requestCompletion: received ${items.length} items '
+          '(epoch=$epoch)');
       _completionItems = items;
       _filterCompletionItems();
       if (_filteredCompletionItems.isNotEmpty) {
@@ -5403,7 +5521,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       } else {
         _dismissCompletionOverlay();
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[EditorCompletion] _requestCompletion: ERROR $e '
+          '(file=$filePath, epoch=$epoch)');
+      // Completion request failed (e.g. LSP backend unavailable or timeout).
+      // Silently dismiss overlay; the status bar already shows backend status.
       if (mounted && epoch == _completionRequestEpoch) {
         _dismissCompletionOverlay();
       }
@@ -6192,10 +6314,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      constraints: const BoxConstraints(maxHeight: 220),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
         border: Border(
-          bottom: BorderSide(
+          top: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.25),
             width: 0.5,
           ),
@@ -6242,149 +6365,177 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
             ],
           ),
           const SizedBox(height: 6),
-          if (isResolvingBackend)
-            Row(
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isZh ? '正在连接 LSP 后端…' : 'Resolving LSP backend…',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            )
-          else if (!supportsDiagnostics)
-            _buildDiagnosticsHint(
-              colorScheme,
-              _diagnosticsUnavailableMessage(filePath),
-            )
-          else if (isLoading)
-            Row(
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isZh ? '正在等待 LSP 诊断结果…' : 'Waiting for LSP diagnostics…',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            )
-          else ...[
-            if (isStale)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: _buildDiagnosticsHint(
-                  colorScheme,
-                  isZh
-                      ? '编辑内容已经变化，诊断会按当前文本继续刷新。'
-                      : 'The editor text changed; diagnostics will keep refreshing against the current content.',
-                ),
-              ),
-            if (diagnostics.isEmpty)
-              Text(
-                isZh ? '未发现诊断问题。' : 'No diagnostics found.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 190),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: diagnostics.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
-                  ),
-                  itemBuilder: (context, index) {
-                    final diagnostic = diagnostics[index];
-                    final severityColor = _diagnosticSeverityColor(
-                      colorScheme,
-                      diagnostic,
-                    );
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          _jumpToLineColumn(
-                            diagnostic.line,
-                            column: diagnostic.column,
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                diagnostic.isError
-                                    ? Icons.error_outline_rounded
-                                    : diagnostic.isWarning
-                                    ? Icons.warning_amber_rounded
-                                    : Icons.info_outline_rounded,
-                                size: 16,
-                                color: severityColor,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      diagnostic.message,
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${diagnostic.code}  •  ${diagnostic.line}:${diagnostic.column}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: colorScheme.onSurfaceVariant,
-                                        fontFamily: 'SF Mono, Menlo, monospace',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
+          Flexible(child: _buildDiagnosticsContent(
+            colorScheme: colorScheme,
+            isZh: isZh,
+            filePath: filePath,
+            supportsDiagnostics: supportsDiagnostics,
+            diagnostics: diagnostics,
+            isLoading: isLoading,
+            isResolvingBackend: isResolvingBackend,
+            isStale: isStale,
+          )),
         ],
       ),
+    );
+  }
+
+  Widget _buildDiagnosticsContent({
+    required ColorScheme colorScheme,
+    required bool isZh,
+    required String filePath,
+    required bool supportsDiagnostics,
+    required List<_EditorDiagnostic> diagnostics,
+    required bool isLoading,
+    required bool isResolvingBackend,
+    required bool isStale,
+  }) {
+    if (isResolvingBackend) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isZh ? '正在连接 LSP 后端…' : 'Resolving LSP backend…',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+    if (!supportsDiagnostics) {
+      return _buildDiagnosticsHint(
+        colorScheme,
+        _diagnosticsUnavailableMessage(filePath),
+      );
+    }
+    if (isLoading) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isZh ? '正在等待 LSP 诊断结果…' : 'Waiting for LSP diagnostics…',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isStale)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: _buildDiagnosticsHint(
+              colorScheme,
+              isZh
+                  ? '编辑内容已经变化，诊断会按当前文本继续刷新。'
+                  : 'The editor text changed; diagnostics will keep refreshing against the current content.',
+            ),
+          ),
+        if (diagnostics.isEmpty)
+          Text(
+            isZh ? '未发现诊断问题。' : 'No diagnostics found.',
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: diagnostics.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+              ),
+              itemBuilder: (context, index) {
+                final diagnostic = diagnostics[index];
+                final severityColor = _diagnosticSeverityColor(
+                  colorScheme,
+                  diagnostic,
+                );
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _jumpToLineColumn(
+                        diagnostic.line,
+                        column: diagnostic.column,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            diagnostic.isError
+                                ? Icons.error_outline_rounded
+                                : diagnostic.isWarning
+                                ? Icons.warning_amber_rounded
+                                : Icons.info_outline_rounded,
+                            size: 16,
+                            color: severityColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  diagnostic.message,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${diagnostic.code}  •  ${diagnostic.line}:${diagnostic.column}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontFamily: 'SF Mono, Menlo, monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 
@@ -6406,10 +6557,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      constraints: const BoxConstraints(maxHeight: 260),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.95),
         border: Border(
-          bottom: BorderSide(
+          top: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.25),
             width: 0.5,
           ),
@@ -7178,6 +7330,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                     ),
                     onTap: () {
                       setState(() {
+                        if (_diagnosticsBarVisible) {
+                          // Toggle off — dismiss the panel.
+                          _diagnosticsBarVisible = false;
+                          return;
+                        }
                         _diagnosticsBarVisible = true;
                         _symbolBarVisible = false;
                         _projectToolchainBarVisible = false;
@@ -7186,9 +7343,11 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                         _replaceBarVisible = false;
                         _goToLineVisible = false;
                       });
-                      unawaited(
-                        _maybeRefreshDiagnostics(widget.activeFilePath),
-                      );
+                      if (_diagnosticsBarVisible) {
+                        unawaited(
+                          _maybeRefreshDiagnostics(widget.activeFilePath),
+                        );
+                      }
                     },
                     active: _diagnosticsBarVisible,
                     foregroundColor: _diagnosticsStatusColor(
@@ -8873,17 +9032,32 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                     color: colorScheme.outlineVariant.withValues(alpha: 0.25),
                   ),
                   // ── Find / Replace bar ──
-                  _buildFindBar(colorScheme),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: _buildFindBar(colorScheme),
+                    ),
+                  ),
                   // ── Go-to-Line bar ──
-                  _buildGoToLineBar(colorScheme),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: _buildGoToLineBar(colorScheme),
+                    ),
+                  ),
                   // ── Symbol navigation bar ──
-                  _buildSymbolBar(colorScheme),
-                  // ── Project toolchain bar ──
-                  _buildProjectToolchainBar(colorScheme),
-                  // ── Diagnostics bar ──
-                  _buildDiagnosticsBar(colorScheme),
-                  // ── LSP result bar ──
-                  _buildLspResultBar(colorScheme),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.bottomCenter,
+                      child: _buildSymbolBar(colorScheme),
+                    ),
+                  ),
                   // ── Code content ──
                   Expanded(
                     child: ClipRect(
@@ -8901,6 +9075,32 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                  // ── Bottom tool panels (IDEA-style: above status bar) ──
+                  // Wrapped in AnimatedSize for smooth slide-in / slide-out.
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _buildProjectToolchainBar(colorScheme),
+                    ),
+                  ),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _buildDiagnosticsBar(colorScheme),
+                    ),
+                  ),
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _buildLspResultBar(colorScheme),
                     ),
                   ),
                   // ── Status bar ──
@@ -8989,9 +9189,30 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
         codeTheme: context.watch<SettingsController>().editorCodeTheme,
         onOpenFullEditor: () {
           if (!mounted) return;
+          debugPrint('[EditorHighlight] onOpenFullEditor called for $filePath '
+              '(textLen=${textController.text.length}, '
+              'lines=${textController.lineCount}, '
+              'lang=$language, '
+              'highlighter=${textController.highlighter != null ? "SET" : "NULL"}, '
+              'forceFullEditorBefore=${textController.forceFullEditorHighlighting})');
+          textController.forceFullEditorHighlighting = true;
+          textController.invalidateHighlightCache();
           setState(() => _forcedFullEditorFiles.add(filePath));
         },
       );
+    }
+
+    // Ensure the highlighting flag stays in sync when the full editor is forced
+    // open for a large file (e.g. after hot reload or widget rebuild).
+    if (textController.useVirtualizedPreview &&
+        _forcedFullEditorFiles.contains(filePath)) {
+      if (!textController.forceFullEditorHighlighting) {
+        debugPrint('[EditorHighlight] re-syncing forceFullEditorHighlighting for $filePath '
+            '(textLen=${textController.text.length}, lines=${textController.lineCount}, '
+            'highlighter=${textController.highlighter != null ? "SET" : "NULL"})');
+        textController.forceFullEditorHighlighting = true;
+        textController.invalidateHighlightCache();
+      }
     }
 
     final Widget editorBody = Focus(
@@ -9188,26 +9409,90 @@ class _CodeEditorViewState extends State<_CodeEditorView> {
       ),
     );
 
-    // Wrap the editor with the completion overlay
-    if (_completionVisible && _filteredCompletionItems.isNotEmpty) {
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          editorBody,
-          Positioned(
-            left: 60,
-            top: (_cursorLine * _fontSize * _editorLineHeight).clamp(0, 200),
-            child: _CompletionOverlay(
-              items: _filteredCompletionItems,
-              selectedIndex: _completionSelectedIndex,
-              onSelected: _applyCompletionItem,
-              onDismissed: _dismissCompletionOverlay,
+    // Always wrap with a stable Stack so toggling the completion overlay
+    // does not restructure the widget tree (which would reset scroll position).
+    final showCompletion =
+        _completionVisible && _filteredCompletionItems.isNotEmpty;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final children = <Widget>[editorBody];
+
+        if (showCompletion) {
+          final lineCount = textController.lineCount;
+          final hasAnyDiagnostics =
+              (_diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[])
+                  .isNotEmpty;
+          final gutterWidth = _editorEditableGutterWidth(
+            lineCount: lineCount,
+            fontSize: _fontSize,
+            hasDiagnostics: hasAnyDiagnostics,
+          );
+          // Measure monospace character width
+          final charPainter = TextPainter(
+            text: TextSpan(
+              text: 'X',
+              style: _editorBaseStyleForSize(_fontSize),
             ),
-          ),
-        ],
-      );
-    }
-    return editorBody;
+            textDirection: TextDirection.ltr,
+            maxLines: 1,
+          )..layout();
+          final charWidth = charPainter.width;
+          charPainter.dispose();
+
+          final lineExtent = _fontSize * _editorLineHeight;
+          const textPaddingLeft = 8.0;
+          const textPaddingTop = 10.0;
+
+          final scrollOffset = scrollController.hasClients
+              ? scrollController.offset
+              : 0.0;
+
+          final cursorLeft =
+              gutterWidth + textPaddingLeft + (_cursorColumn - 1) * charWidth;
+          final cursorTop =
+              textPaddingTop + (_cursorLine - 1) * lineExtent - scrollOffset;
+
+          const overlayMaxHeight = 240.0;
+          const overlayWidth = 360.0;
+
+          // Default: show below cursor
+          var overlayTop = cursorTop + lineExtent;
+          // If popup would overflow bottom, flip above cursor
+          if (overlayTop + overlayMaxHeight > constraints.maxHeight &&
+              cursorTop - overlayMaxHeight > 0) {
+            overlayTop = cursorTop - overlayMaxHeight;
+          }
+          // Clamp so it stays within bounds
+          overlayTop = overlayTop.clamp(0.0, constraints.maxHeight - 40);
+
+          // Clamp horizontal position
+          var overlayLeft = cursorLeft;
+          if (overlayLeft + overlayWidth > constraints.maxWidth) {
+            overlayLeft = (constraints.maxWidth - overlayWidth)
+                .clamp(0.0, double.infinity);
+          }
+
+          children.add(
+            Positioned(
+              left: overlayLeft,
+              top: overlayTop,
+              child: _CompletionOverlay(
+                items: _filteredCompletionItems,
+                selectedIndex: _completionSelectedIndex,
+                onSelected: _applyCompletionItem,
+                onDismissed: _dismissCompletionOverlay,
+              ),
+            ),
+          );
+        }
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: children,
+        );
+      },
+    );
   }
 }
 
@@ -10764,7 +11049,7 @@ double _measureEditorLineNumberTextWidth({
       text: List<String>.filled(digits, '8').join(),
       style: TextStyle(
         fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
-        fontSize: fontSize - 1,
+        fontSize: fontSize,
         height: _editorLineHeight,
       ),
     ),
@@ -10824,6 +11109,15 @@ class _EditorScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     return child;
+  }
+
+  // Work around a Flutter framework bug on macOS where trackpad events can
+  // arrive with non‑monotonic timestamps, causing an assertion failure in
+  // IOSScrollViewFlingVelocityTracker.  Using the basic VelocityTracker
+  // avoids that assertion while keeping fling behaviour functional.
+  @override
+  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
+    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
   }
 }
 
@@ -10941,6 +11235,16 @@ class _HighlightingTextController extends TextEditingController {
   String? language;
   static const int _plainTextCacheHash = -1;
 
+  /// When true, override the normal highlighting size limits and use deferred
+  /// highlighting so that large files opened via "Open Full Editor" still get
+  /// syntax colouring without blocking the initial render.
+  bool forceFullEditorHighlighting = false;
+
+  /// Tracks whether the initial highlight for a forced-open large file has
+  /// been performed.  After the first successful highlight, subsequent edits
+  /// are deferred to keep typing smooth.
+  bool _forceHighlightInitialDone = false;
+
   // ── Highlight cache ──
   TextSpan? _cachedSpan;
   String? _lastText;
@@ -10953,6 +11257,21 @@ class _HighlightingTextController extends TextEditingController {
   int _diagnosticsRevision = 0;
   int _lineCount = 1;
   int _longestLineLength = 0;
+
+  // ── Line offset index for O(log n) lookups ──
+  /// Stores the character offset where each line starts (index 0 = line 0 = 0).
+  List<int> _lineOffsets = const <int>[0];
+
+  // ── Viewport-based highlighting for very large files ──
+  /// Number of lines to highlight around the cursor for viewport mode.
+  static const _viewportHighlightLines = 400;
+  /// Buffer lines above/below the visible window so scrolling feels seamless.
+  static const _viewportBufferLines = 100;
+  /// Cached viewport range to avoid re-highlighting when cursor stays nearby.
+  int _viewportStartLine = -1;
+  int _viewportEndLine = -1;
+  /// Cached cursor line for the viewport cache-hit check (avoids re-scanning).
+  int _cachedCursorLine = 0;
   List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
 
   set foldedLineRanges(List<_FoldableRegion> value) {
@@ -10968,6 +11287,11 @@ class _HighlightingTextController extends TextEditingController {
 
   /// Beyond this line count, skip syntax highlighting entirely.
   static const _maxHighlightLines = 1800;
+
+  /// Absolute hard ceiling for forced full-editor highlighting.
+  /// Files exceeding this are too large even for deferred parsing.
+  static const _absoluteMaxHighlightLength = 512 * 1024;
+  static const _absoluteMaxHighlightLines = 12000;
 
   /// Beyond this size, defer the expensive initial highlight parse.
   static const _deferHighlightLength = 36 * 1024;
@@ -10994,13 +11318,39 @@ class _HighlightingTextController extends TextEditingController {
     return _cachedLines!;
   }
 
-  bool get _disableHighlighting =>
-      text.length > _maxHighlightLength || _lineCount > _maxHighlightLines;
+  /// Whether the file is so large that even forced full-editor mode must use
+  /// viewport-based highlighting (only the visible region is highlighted).
+  bool get _useViewportHighlighting {
+    if (!forceFullEditorHighlighting) return false;
+    return text.length > _absoluteMaxHighlightLength ||
+        _lineCount > _absoluteMaxHighlightLines;
+  }
 
-  bool get _deferHighlighting =>
-      !_disableHighlighting &&
-      (text.length > _deferHighlightLength ||
-          _lineCount > _deferHighlightLines);
+  bool get _disableHighlighting {
+    if (forceFullEditorHighlighting) {
+      // Never fully disable when force is on — very large files use viewport
+      // highlighting instead.
+      return false;
+    }
+    return text.length > _maxHighlightLength || _lineCount > _maxHighlightLines;
+  }
+
+  bool get _deferHighlighting {
+    if (_disableHighlighting) return false;
+    if (forceFullEditorHighlighting) {
+      // For very large files (>100 KB / >2500 lines), always defer — even the
+      // first render — to prevent a multi-second UI freeze while the highlight
+      // parser runs synchronously on the main isolate.
+      if (text.length > 100 * 1024 || _lineCount > 2500) {
+        return true;
+      }
+      // Smaller forced-open files: highlight synchronously on the first render
+      // so colours appear immediately, then defer subsequent edits.
+      return _forceHighlightInitialDone;
+    }
+    return text.length > _deferHighlightLength ||
+        _lineCount > _deferHighlightLines;
+  }
 
   set diagnostics(List<_EditorDiagnostic> value) {
     if (identical(_diagnostics, value)) {
@@ -11017,6 +11367,11 @@ class _HighlightingTextController extends TextEditingController {
   set value(TextEditingValue newValue) {
     final previousText = value.text;
     super.value = newValue;
+    // Update cached cursor line for viewport highlighting (cheap binary search).
+    if (_useViewportHighlighting) {
+      _cachedCursorLine = _lineIndexForOffset(
+          newValue.selection.baseOffset.clamp(0, newValue.text.length));
+    }
     if (newValue.text == previousText && newValue.text == _lastMeasuredText) {
       return;
     }
@@ -11039,21 +11394,43 @@ class _HighlightingTextController extends TextEditingController {
             (deferHighlighting &&
                 _lastHighlighterHash == _plainTextCacheHash)) &&
         _lastDiagnosticsRevision == _diagnosticsRevision) {
-      return _cachedSpan!;
+      // For viewport-mode highlighting, still check if cursor has moved
+      // outside the previously highlighted window so we can re-highlight.
+      if (_useViewportHighlighting) {
+        _cachedCursorLine = _lineIndexForOffset(
+            selection.baseOffset.clamp(0, text.length));
+        if (_cachedCursorLine < _viewportStartLine + _viewportBufferLines ||
+            _cachedCursorLine > _viewportEndLine - _viewportBufferLines) {
+          // Cursor moved outside buffer — fall through to re-schedule.
+        } else {
+          return _cachedSpan!;
+        }
+      } else {
+        return _cachedSpan!;
+      }
     }
     if (highlighter == null || _disableHighlighting) {
       return _cachePlainTextSpan(style);
+    }
+    // ── Viewport-based highlighting for very large forced files ──
+    if (_useViewportHighlighting) {
+      _scheduleViewportHighlight(style);
+      return _cachedSpan ?? _cachePlainTextSpan(style);
     }
     if (deferHighlighting) {
       _scheduleDelayedHighlight();
       return _cachePlainTextSpan(style);
     }
     _rebuildHighlight();
+    if (forceFullEditorHighlighting) {
+      _forceHighlightInitialDone = true;
+    }
     return _cachedSpan ?? _cachePlainTextSpan(style);
   }
 
   void _rebuildHighlight() {
     if (highlighter == null) return;
+    try {
     final highlighted = highlighter!.build(
       text,
       language: language,
@@ -11069,6 +11446,10 @@ class _HighlightingTextController extends TextEditingController {
     _lastText = text;
     _lastHighlighterHash = identityHashCode(highlighter);
     _lastDiagnosticsRevision = _diagnosticsRevision;
+    } catch (e, stack) {
+      debugPrint('[EditorHighlight] _rebuildHighlight: EXCEPTION $e');
+      debugPrint('[EditorHighlight] stack: $stack');
+    }
   }
 
   TextSpan _cachePlainTextSpan(TextStyle? style) {
@@ -11088,8 +11469,14 @@ class _HighlightingTextController extends TextEditingController {
 
   void _scheduleDelayedHighlight() {
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+    // Use a longer delay for very large files to avoid excessive CPU while
+    // the user is actively typing.
+    final delay = forceFullEditorHighlighting && _lineCount > 3000
+        ? const Duration(milliseconds: 600)
+        : const Duration(milliseconds: 350);
+    _debounceTimer = Timer(delay, () {
       if (highlighter == null || _disableHighlighting) return;
+      _rebuildHighlight();
       _rebuildHighlight();
       notifyListeners();
     });
@@ -11106,13 +11493,18 @@ class _HighlightingTextController extends TextEditingController {
     var computedLineCount = 1;
     var currentLineLength = 0;
     var longestLineLength = 0;
-    for (final codeUnit in currentText.codeUnits) {
+    // Build line-offset index in a single pass.
+    final offsets = <int>[0];
+    final codeUnits = currentText.codeUnits;
+    for (var i = 0; i < codeUnits.length; i++) {
+      final codeUnit = codeUnits[i];
       if (codeUnit == 10) {
         computedLineCount += 1;
         if (currentLineLength > longestLineLength) {
           longestLineLength = currentLineLength;
         }
         currentLineLength = 0;
+        offsets.add(i + 1);
         continue;
       }
       if (codeUnit != 13) {
@@ -11124,6 +11516,7 @@ class _HighlightingTextController extends TextEditingController {
     }
     _lineCount = math.max(1, computedLineCount);
     _longestLineLength = longestLineLength;
+    _lineOffsets = offsets;
   }
 
   void invalidateHighlightCache() {
@@ -11132,6 +11525,116 @@ class _HighlightingTextController extends TextEditingController {
     _lastText = null;
     _lastHighlighterHash = null;
     _lastDiagnosticsRevision = null;
+    _viewportStartLine = -1;
+    _viewportEndLine = -1;
+  }
+
+  // ── Viewport highlighting helpers ──
+
+  /// Returns the line index (0-based) for a given character [offset].
+  /// Uses a binary search over the pre-built [_lineOffsets] index (O(log n)).
+  int _lineIndexForOffset(int offset) {
+    if (offset <= 0) return 0;
+    final clamped = offset.clamp(0, text.length);
+    // Binary search: find the last entry in _lineOffsets that is <= clamped.
+    var lo = 0;
+    var hi = _lineOffsets.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) >> 1;
+      if (_lineOffsets[mid] <= clamped) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return lo;
+  }
+
+  /// Returns the character offset where [lineIndex] (0-based) starts.
+  /// Uses the pre-built [_lineOffsets] index (O(1)).
+  int _offsetForLine(int lineIndex) {
+    if (lineIndex <= 0) return 0;
+    if (lineIndex >= _lineOffsets.length) return text.length;
+    return _lineOffsets[lineIndex];
+  }
+
+  /// Schedule (or immediately perform) viewport-based highlighting for the
+  /// window of lines around the current cursor position.
+  void _scheduleViewportHighlight(TextStyle? style) {
+    final cursorLine = _cachedCursorLine;
+
+    // Check if the cursor is still within the already-highlighted viewport
+    // buffer zone — if so, reuse the cached span.
+    if (_cachedSpan != null &&
+        _lastText == text &&
+        cursorLine >= _viewportStartLine + _viewportBufferLines &&
+        cursorLine <= _viewportEndLine - _viewportBufferLines &&
+        _lastHighlighterHash == identityHashCode(highlighter) &&
+        _lastDiagnosticsRevision == _diagnosticsRevision) {
+      return;
+    }
+
+    // Compute the new viewport window.
+    const halfWindow = _viewportHighlightLines ~/ 2;
+    final startLine = math.max(0, cursorLine - halfWindow);
+    final endLine = math.min(_lineCount - 1, cursorLine + halfWindow);
+
+    // Debounce to avoid re-highlighting every frame during fast scrolling.
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 80), () {
+      if (highlighter == null) return;
+      _rebuildViewportHighlight(style, startLine, endLine);
+      notifyListeners();
+    });
+  }
+
+  /// Builds a composite TextSpan: plain-before + highlighted-window + plain-after.
+  void _rebuildViewportHighlight(TextStyle? style, int startLine, int endLine) {
+    try {
+      final windowStart = _offsetForLine(startLine);
+      final windowEnd = endLine >= _lineCount - 1
+          ? text.length
+          : _offsetForLine(endLine + 1);
+      final windowText = text.substring(windowStart, windowEnd);
+
+      final highlighted = highlighter!.build(
+        windowText,
+        language: language,
+        allowAutoDetection: language == null,
+      );
+
+      final children = <InlineSpan>[];
+      // Plain text before the highlighted window.
+      if (windowStart > 0) {
+        children.add(TextSpan(
+          text: text.substring(0, windowStart),
+          style: style,
+        ));
+      }
+      // The highlighted window.
+      children.add(highlighted);
+      // Plain text after the highlighted window.
+      if (windowEnd < text.length) {
+        children.add(TextSpan(
+          text: text.substring(windowEnd),
+          style: style,
+        ));
+      }
+
+      final composedSpan = TextSpan(style: style, children: children);
+      _cachedSpan = _diagnostics.isEmpty
+          ? composedSpan
+          : _applyEditorDiagnosticDecorationsToTextSpan(
+              composedSpan, text, _diagnostics);
+      _lastText = text;
+      _lastHighlighterHash = identityHashCode(highlighter);
+      _lastDiagnosticsRevision = _diagnosticsRevision;
+      _viewportStartLine = startLine;
+      _viewportEndLine = endLine;
+    } catch (e, stack) {
+      debugPrint('[EditorHighlight] viewport highlight EXCEPTION: $e');
+      debugPrint('[EditorHighlight] stack: $stack');
+    }
   }
 
   @override
@@ -11218,6 +11721,14 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   String? _resolvedDiagnosticRangesText;
   List<_EditorDiagnostic>? _resolvedDiagnosticRangesDiagnostics;
 
+  // ── Word-wrap per-line height cache ──
+  // When word wrap is on, each logical line may occupy multiple visual lines.
+  // We measure the wrapped heights so that line-number items match the text.
+  List<double>? _wrappedLineHeights;
+  String? _wrappedLineHeightsText;
+  double? _wrappedLineHeightsWidth;
+  double? _wrappedLineHeightsFontSize;
+
   double get _lineExtent => widget.fontSize * _editorLineHeight;
 
   _EditorDiagnostic? _primaryDiagnosticForLine(int lineNumber) {
@@ -11276,6 +11787,48 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     );
   }
 
+  /// Compute per-logical-line wrapped heights using [TextPainter] so that
+  /// line-number items match the actual rendered text when word wrap is on.
+  List<double> _computeWrappedLineHeights(double textLayoutWidth) {
+    final text = widget.controller.text;
+    if (_wrappedLineHeights != null &&
+        _wrappedLineHeightsText == text &&
+        _wrappedLineHeightsWidth == textLayoutWidth &&
+        _wrappedLineHeightsFontSize == widget.fontSize) {
+      return _wrappedLineHeights!;
+    }
+    final editorStyle = _resolvedEditorStyle();
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: editorStyle),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: textLayoutWidth);
+
+    final metrics = painter.computeLineMetrics();
+    final lineHeights = <double>[];
+    double currentLogicalLineHeight = 0;
+    for (final metric in metrics) {
+      currentLogicalLineHeight += metric.height;
+      if (metric.hardBreak) {
+        lineHeights.add(math.max(currentLogicalLineHeight, _lineExtent));
+        currentLogicalLineHeight = 0;
+      }
+    }
+    // Handle last line if no trailing newline
+    if (currentLogicalLineHeight > 0) {
+      lineHeights.add(math.max(currentLogicalLineHeight, _lineExtent));
+    }
+    // Guarantee at least one entry
+    if (lineHeights.isEmpty) {
+      lineHeights.add(_lineExtent);
+    }
+    painter.dispose();
+    _wrappedLineHeights = lineHeights;
+    _wrappedLineHeightsText = text;
+    _wrappedLineHeightsWidth = textLayoutWidth;
+    _wrappedLineHeightsFontSize = widget.fontSize;
+    return lineHeights;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -11283,6 +11836,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     _horizontalScrollController = ScrollController();
     widget.scrollController.addListener(_syncLineNumbers);
     widget.controller.addListener(_handleSelectionChange);
+    // Note: The highlighter is set in didChangeDependencies, which is called
+    // after initState but before build. This ensures the Theme.of(context)
+    // is available for determining dark/light surface colors.
   }
 
   @override
@@ -11310,7 +11866,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       oldWidget.scrollController.removeListener(_syncLineNumbers);
       widget.scrollController.addListener(_syncLineNumbers);
     }
-    if (oldWidget.controller != widget.controller) {
+    final controllerChanged = oldWidget.controller != widget.controller;
+    if (controllerChanged) {
       oldWidget.controller.removeListener(_handleSelectionChange);
       widget.controller.addListener(_handleSelectionChange);
       _hoverTextPainter = null;
@@ -11318,10 +11875,17 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _resolvedDiagnosticRangesCache = null;
       _resolvedDiagnosticRangesText = null;
       _resolvedDiagnosticRangesDiagnostics = null;
+      _wrappedLineHeights = null;
       _removeDiagnosticTooltip();
     }
-    if (oldWidget.fontSize != widget.fontSize ||
+    // Re-apply highlighter when controller changes or font/theme changes.
+    // Without this, switching files leaves the new controller without a
+    // highlighter and buildTextSpan falls back to plain text rendering.
+    if (controllerChanged ||
+        oldWidget.fontSize != widget.fontSize ||
         oldWidget.codeTheme != widget.codeTheme) {
+      // Invalidate wrapped line height cache on font change.
+      _wrappedLineHeights = null;
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
         darkSurface: _darkSurface,
@@ -11350,9 +11914,24 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
   void _syncLineNumbers() {
     if (!_lineNumberScrollController.hasClients) return;
+    if (!widget.scrollController.hasClients) return;
     final offset = widget.scrollController.offset;
-    final max = _lineNumberScrollController.position.maxScrollExtent;
-    _lineNumberScrollController.jumpTo(offset.clamp(0.0, max));
+    final textMax = widget.scrollController.position.maxScrollExtent;
+    final lineMax = _lineNumberScrollController.position.maxScrollExtent;
+
+    double targetOffset;
+    // When word wrap is active the text area can be taller than the line-number
+    // list (wrapped lines occupy extra visual height).  Use proportional sync
+    // so both columns reach the end simultaneously.
+    if (widget.wordWrap &&
+        textMax > 0 &&
+        lineMax > 0 &&
+        (textMax - lineMax).abs() > _lineExtent) {
+      targetOffset = offset * (lineMax / textMax);
+    } else {
+      targetOffset = offset;
+    }
+    _lineNumberScrollController.jumpTo(targetOffset.clamp(0.0, lineMax));
     if (_hoveredTextDiagnosticOffset != null) {
       _scheduleDiagnosticTooltipUpdate();
     }
@@ -11363,8 +11942,17 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     super.didChangeDependencies();
     final brightness = Theme.of(context).brightness;
     final darkSurface = brightness == Brightness.dark;
-    if (widget.controller.highlighter == null || darkSurface != _darkSurface) {
-      _darkSurface = darkSurface;
+    // Always update _darkSurface first, then check if highlighter needs refresh.
+    final needsHighlighterRefresh =
+        widget.controller.highlighter == null || darkSurface != _darkSurface;
+    _darkSurface = darkSurface;
+    if (needsHighlighterRefresh) {
+      debugPrint('[EditorHighlight] didChangeDependencies: re-creating highlighter '
+          '(darkSurface=$darkSurface, '
+          'forceFullEditor=${widget.controller.forceFullEditorHighlighting}, '
+          'lang=${widget.controller.language}, '
+          'textLen=${widget.controller.text.length}, '
+          'lines=${widget.controller.lineCount})');
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
         darkSurface: darkSurface,
@@ -11990,6 +12578,20 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    
+    // Safety check: Ensure highlighter is set. This handles edge cases where
+    // didChangeDependencies may not have run yet or was bypassed somehow.
+    if (widget.controller.highlighter == null) {
+      final brightness = Theme.of(context).brightness;
+      _darkSurface = brightness == Brightness.dark;
+      widget.controller.highlighter = _CodeSyntaxHighlighter(
+        baseStyle: _resolvedEditorStyle(),
+        darkSurface: _darkSurface,
+        codeTheme: widget.codeTheme,
+      );
+      widget.controller.invalidateHighlightCache();
+    }
+    
     final lineCount = widget.controller.lineCount;
     final hasAnyDiagnostics = widget.diagnosticsByLine.isNotEmpty;
     final lineNumberWidth = _editorEditableGutterWidth(
@@ -12000,6 +12602,21 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final editorStyle = _resolvedEditorStyle();
 
     const noScrollbarBehavior = _EditorScrollBehavior();
+
+    return LayoutBuilder(
+      builder: (context, outerConstraints) {
+      // Compute per-line wrapped heights when word wrap is enabled and the
+      // file is not too large for a full text layout measurement.
+      List<double>? wrappedHeights;
+      if (widget.wordWrap && widget.controller.text.length < 100 * 1024) {
+        final textLayoutWidth = outerConstraints.maxWidth -
+            lineNumberWidth -
+            _editorTextPaddingLeft -
+            _editorTextPaddingRight;
+        if (textLayoutWidth > 0) {
+          wrappedHeights = _computeWrappedLineHeights(textLayoutWidth);
+        }
+      }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -12018,15 +12635,23 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
           child: ScrollConfiguration(
             behavior: noScrollbarBehavior,
             child: ListView.builder(
-              // Key based on fontSize forces rebuild when zoom changes
-              key: ValueKey('line-numbers-${widget.fontSize}'),
+              // Key based on fontSize + wordWrap forces rebuild when zoom or
+              // wrap mode changes
+              key: ValueKey('line-numbers-${widget.fontSize}-${widget.wordWrap}'),
               controller: _lineNumberScrollController,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.only(top: 10, bottom: 10),
               itemCount: lineCount,
-              itemExtent: _lineExtent,
+              // Use fixed extent when word wrap is off (fast scroll); when on,
+              // use wrapped per-line heights for exact alignment.
+              itemExtent: wrappedHeights != null ? null : _lineExtent,
               itemBuilder: (context, index) {
                 final lineNumber = index + 1;
+                final itemHeight = wrappedHeights != null
+                    ? (index < wrappedHeights.length
+                        ? wrappedHeights[index]
+                        : _lineExtent)
+                    : null;
                 final diagnostics =
                     widget.diagnosticsByLine[lineNumber] ??
                     const <_EditorDiagnostic>[];
@@ -12108,7 +12733,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 style: TextStyle(
                                   fontFamily:
                                       'JetBrains Mono, Menlo, Consolas, monospace',
-                                  fontSize: widget.fontSize - 1,
+                                  fontSize: widget.fontSize,
                                   height: _editorLineHeight,
                                   fontWeight: hasDiagnostics
                                       ? FontWeight.w600
@@ -12164,6 +12789,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
                 if (hasDiagnostics && tooltip.isNotEmpty) {
                   lineWidget = Tooltip(message: tooltip, child: lineWidget);
+                }
+                // When using computed wrapped heights, constrain each item to
+                // the corresponding text line's visual height.
+                if (itemHeight != null) {
+                  return SizedBox(height: itemHeight, child: lineWidget);
                 }
                 return lineWidget;
               },
@@ -12262,6 +12892,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         ),
       ],
     );
+    }, // LayoutBuilder builder
+    );
   }
 }
 
@@ -12346,9 +12978,10 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
 
   void _syncLineNumbers() {
     if (!_lineNumberScrollController.hasClients) return;
+    if (!widget.scrollController.hasClients) return;
     final offset = widget.scrollController.offset;
-    final max = _lineNumberScrollController.position.maxScrollExtent;
-    _lineNumberScrollController.jumpTo(offset.clamp(0.0, max));
+    final lineMax = _lineNumberScrollController.position.maxScrollExtent;
+    _lineNumberScrollController.jumpTo(offset.clamp(0.0, lineMax));
   }
 
   TextSpan _highlightLine(int index) {
@@ -12488,7 +13121,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                               style: TextStyle(
                                 fontFamily:
                                     'JetBrains Mono, Menlo, Consolas, monospace',
-                                fontSize: widget.fontSize - 1,
+                                fontSize: widget.fontSize,
                                 height: _editorLineHeight,
                                 color: colorScheme.onSurfaceVariant.withValues(
                                   alpha: 0.48,

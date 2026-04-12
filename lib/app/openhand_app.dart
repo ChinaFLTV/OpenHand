@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -41,7 +42,21 @@ class _OpenHandAppState extends State<OpenHandApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       themeAnimationCurve: Curves.easeOutCubic,
       themeAnimationDuration: const Duration(milliseconds: 220),
+      scrollBehavior: const _SafeScrollBehavior(),
       home: widget.home,
     );
+  }
+}
+
+/// Work around a Flutter framework bug on macOS where trackpad pointer events
+/// can arrive with non‑monotonic timestamps, causing an assertion failure in
+/// [IOSScrollViewFlingVelocityTracker].  Using the basic [VelocityTracker]
+/// avoids that assertion while keeping fling/scroll behaviour functional.
+class _SafeScrollBehavior extends MaterialScrollBehavior {
+  const _SafeScrollBehavior();
+
+  @override
+  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
+    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
   }
 }

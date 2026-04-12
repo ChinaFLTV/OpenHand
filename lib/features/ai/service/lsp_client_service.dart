@@ -249,7 +249,19 @@ class AiLspClientService {
       const <String, AiLspLanguageSettings>{};
   Future<bool> Function(AiLspWorkspaceEdit edit)? _workspaceEditHandler;
 
-  static const Duration _diagnosticsWait = Duration(milliseconds: 650);
+  /// Callback invoked whenever the LSP server pushes fresh diagnostics for a
+  /// file.  The editor registers this to apply real-time diagnostic updates
+  /// without polling.
+  void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
+      _diagnosticsPushCallback;
+
+  set diagnosticsPushCallback(
+    void Function(String filePath, List<AiLspDiagnostic> diagnostics)? cb,
+  ) {
+    _diagnosticsPushCallback = cb;
+  }
+
+  static const Duration _diagnosticsWait = Duration(milliseconds: 400);
 
   set workspaceEditHandler(
     Future<bool> Function(AiLspWorkspaceEdit edit)? handler,
@@ -761,20 +773,26 @@ class AiLspClientService {
       return const <AiLspDiagnostic>[];
     }
     final session = await _getOrCreateSession(backend);
-    final diagnosticsFuture = waitForPublish
-        ? session.waitForDiagnostics(filePath, timeout: _diagnosticsWait)
-        : Future<List<AiLspDiagnostic>>.value(
-            session.diagnosticsForFile(filePath),
-          );
-    await session.ensureDocumentSynced(
+
+    // Sync document first so we know whether content actually changed.
+    final didChange = await session.ensureDocumentSynced(
       filePath: filePath,
       language: backend.language,
       text: documentText,
     );
+
     if (!waitForPublish) {
       return session.diagnosticsForFile(filePath);
     }
-    return diagnosticsFuture;
+
+    // If the document content didn't change, return cached diagnostics
+    // immediately — no need to wait for the server.
+    if (!didChange) {
+      return session.diagnosticsForFile(filePath);
+    }
+
+    // Content changed — wait for the server to publish fresh diagnostics.
+    return session.waitForDiagnostics(filePath, timeout: _diagnosticsWait);
   }
 
   Future<void> closeDocument({
@@ -1520,7 +1538,10 @@ class _AiLspSession {
     await Future<void>.delayed(const Duration(milliseconds: 350));
   }
 
-  Future<void> ensureDocumentSynced({
+  /// Syncs the document with the LSP server.  Returns `true` if the content
+  /// was actually changed (a `didOpen` or `didChange` notification was sent),
+  /// `false` if the text was identical and no notification was needed.
+  Future<bool> ensureDocumentSynced({
     required String filePath,
     required String language,
     String? text,
@@ -1543,12 +1564,14 @@ class _AiLspSession {
           'text': currentText,
         },
       });
+      // Invalidate cached diagnostics — server will publish fresh ones.
+      _diagnosticsByUri.remove(uri);
       touch();
-      return;
+      return true;
     }
     if (existing.text == currentText) {
       touch();
-      return;
+      return false;
     }
     existing
       ..text = currentText
@@ -1562,7 +1585,11 @@ class _AiLspSession {
         <String, Object?>{'text': currentText},
       ],
     });
+    // Invalidate cached diagnostics so the next `waitForDiagnostics`
+    // actually waits for fresh results from the server.
+    _diagnosticsByUri.remove(uri);
     touch();
+    return true;
   }
 
   Future<void> closeDocument(String filePath) async {
@@ -1957,6 +1984,16 @@ class _AiLspSession {
     final completer = _pendingDiagnostics.remove(uri);
     if (completer != null && !completer.isCompleted) {
       completer.complete(List<AiLspDiagnostic>.unmodifiable(diagnostics));
+    }
+
+    // Push real-time diagnostics to the editor if a listener is registered.
+    final pushCb = AiLspClientService.instance._diagnosticsPushCallback;
+    if (pushCb != null) {
+      // Convert URI back to file path for the editor.
+      final parsed = Uri.tryParse(uri);
+      if (parsed != null && parsed.scheme == 'file') {
+        pushCb(parsed.toFilePath(), diagnostics);
+      }
     }
   }
 

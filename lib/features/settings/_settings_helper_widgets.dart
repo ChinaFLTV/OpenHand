@@ -718,35 +718,64 @@ class _AiModelTile extends StatelessWidget {
                 ],
               ),
               // Show available models as small chips; active model is highlighted.
+              // When a provider has many models, truncate to avoid excessive
+              // card height and reduce widget-build cost during scrolling.
               if (allModels.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: allModels
-                      .map((id) {
-                        final isActive = id == model.modelId;
-                        return _AiProviderModelChip(
-                          modelId: id,
-                          isActive: isActive,
-                          compact: true,
-                          tooltip: isActive
-                              ? _localizedText(
-                                  context,
-                                  zh: '当前活跃模型',
-                                  en: 'Currently active model',
-                                )
-                              : _localizedText(
-                                  context,
-                                  zh: '点击切换为活跃模型',
-                                  en: 'Click to set as active model',
-                                ),
-                          onPressed: isActive
-                              ? () {}
-                              : () => onActiveModelChanged(id),
-                        );
-                      })
-                      .toList(growable: false),
+                RepaintBoundary(
+                  child: Builder(builder: (ctx) {
+                    const maxVisible = 20;
+                    final activeId = model.modelId;
+                    // Ensure the active model always appears first.
+                    final ordered = <String>[
+                      if (allModels.contains(activeId)) activeId,
+                      ...allModels.where((id) => id != activeId),
+                    ];
+                    final visible = ordered.length <= maxVisible
+                        ? ordered
+                        : ordered.sublist(0, maxVisible);
+                    final hiddenCount = ordered.length - visible.length;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        for (final id in visible)
+                          _AiProviderModelChip(
+                            modelId: id,
+                            isActive: id == activeId,
+                            compact: true,
+                            tooltip: id == activeId
+                                ? _localizedText(
+                                    ctx,
+                                    zh: '当前活跃模型',
+                                    en: 'Currently active model',
+                                  )
+                                : _localizedText(
+                                    ctx,
+                                    zh: '点击切换为活跃模型',
+                                    en: 'Click to set as active model',
+                                  ),
+                            onPressed: id == activeId
+                                ? () {}
+                                : () => onActiveModelChanged(id),
+                          ),
+                        if (hiddenCount > 0)
+                          Tooltip(
+                            message: _localizedText(
+                              ctx,
+                              zh: '还有 $hiddenCount 个模型，点击编辑查看全部',
+                              en: '$hiddenCount more models – edit to see all',
+                            ),
+                            child: Chip(
+                              avatar: const Icon(Icons.more_horiz_rounded, size: 16),
+                              label: Text('+$hiddenCount'),
+                              visualDensity: VisualDensity.compact,
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                      ],
+                    );
+                  }),
                 ),
               ],
             ],
