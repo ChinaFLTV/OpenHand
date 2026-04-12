@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -7,6 +9,7 @@ import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
 // 2026-04-01 01:21:38 从 AiToolRuntimeService._executeGrepTool 提取
+// 2026-04-13 修复：rg 命令路径解析、工作目录设置、边界条件处理
 class AiGrepTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.grep;
@@ -15,14 +18,30 @@ class AiGrepTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
+
+    // 参数解析
     final pattern = '${args['pattern'] ?? ''}'.trim();
     if (pattern.isEmpty) {
       return AiToolUtils.invalidResult('Grep', 'Grep requires pattern.');
     }
-    final path = AiToolUtils.resolvePath('${args['path'] ?? ''}'.trim());
+
+    // 路径解析和验证
+    final rawPath = '${args['path'] ?? ''}'.trim();
+    final path = rawPath.isEmpty
+        ? AiToolUtils.defaultWorkingDirectory()
+        : (p.isAbsolute(rawPath) ? p.normalize(rawPath) : p.normalize(p.join(AiToolUtils.defaultWorkingDirectory(), rawPath)));
+
+    // 验证路径存在性
+    final pathType = FileSystemEntity.typeSync(path);
+    if (pathType == FileSystemEntityType.notFound) {
+      return AiToolUtils.invalidResult(
+        'Grep',
+        'Path does not exist: $path',
+      );
+    }
+
     final glob = '${args['glob'] ?? ''}'.trim();
-    final outputMode =
-        '${args['output_mode'] ?? 'files_with_matches'}'.trim();
+    final outputMode = '${args['output_mode'] ?? 'files_with_matches'}'.trim();
     final before = AiToolUtils.readInt(args['-B']);
     final after = AiToolUtils.readInt(args['-A']);
     final contextLines = AiToolUtils.readInt(args['-C']);
@@ -32,6 +51,23 @@ class AiGrepTool extends AiTool {
     final headLimit = AiToolUtils.readInt(args['head_limit']);
     final multiline = args['multiline'] == true;
 
+    // 查找 rg 可执行文件（使用共享工具方法）
+    final rgPath = await AiToolUtils.resolveRipgrepPath();
+    if (rgPath == null) {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.failed,
+        command: 'Grep $pattern',
+        workingDirectory: path,
+        stdout: '',
+        stderr: 'ripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
+        durationMs: startedAt.elapsedMilliseconds,
+        exitCode: 127,
+        resultText:
+            'status: failed\nexit_code: 127\nstdout:\n\nstderr:\nripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
+      );
+    }
+
+    // 构建 rg 参数列表
     final rgArgs = <String>[];
     switch (outputMode) {
       case 'content':
@@ -51,9 +87,27 @@ class AiGrepTool extends AiTool {
     if (type.isNotEmpty) rgArgs..add('--type')..add(type);
     if (glob.isNotEmpty) rgArgs..add('--glob')..add(glob);
     if (multiline) rgArgs..add('-U')..add('--multiline-dotall');
-    rgArgs..add(pattern)..add(path);
 
-    final rgResult = await _runProcess('rg', rgArgs);
+    // 确定搜索目标和工作目录
+    final String workingDir;
+    final String searchTarget;
+    if (pathType == FileSystemEntityType.directory) {
+      // 目录：设置为工作目录，搜索 '.'
+      workingDir = path;
+      searchTarget = '.';
+    } else {
+      // 文件：父目录为工作目录，搜索文件名
+      workingDir = p.dirname(path);
+      searchTarget = p.basename(path);
+    }
+    rgArgs..add(pattern)..add(searchTarget);
+
+    // 执行 rg 命令（使用共享工具方法）
+    final rgResult = await AiToolUtils.runProcessSafely(
+      rgPath,
+      rgArgs,
+      workingDirectory: workingDir,
+    );
     if (rgResult.exitCode == 0 ||
         (rgResult.exitCode == 1 && rgResult.stdout.trim().isEmpty)) {
       var output = rgResult.stdout.trimRight();
@@ -72,25 +126,43 @@ class AiGrepTool extends AiTool {
         workingDirectory: path,
       );
     }
+
+    // 处理执行失败
+    final stderrText = rgResult.stderr.trimRight();
+    final stdoutText = rgResult.stdout.trimRight();
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.failed,
       command: 'Grep $pattern',
       workingDirectory: path,
-      stdout: rgResult.stdout,
-      stderr: rgResult.stderr,
+      stdout: stdoutText,
+      stderr: stderrText,
       durationMs: startedAt.elapsedMilliseconds,
       exitCode: rgResult.exitCode,
-      resultText:
-          'status: failed\nexit_code: ${rgResult.exitCode}\nstdout:\n${rgResult.stdout.trimRight()}\nstderr:\n${rgResult.stderr.trimRight()}'
-              .trim(),
+      resultText: _buildFailureResultText(
+        exitCode: rgResult.exitCode,
+        stdout: stdoutText,
+        stderr: stderrText,
+      ),
     );
   }
 
-  Future<ProcessResult> _runProcess(String executable, List<String> args) async {
-    try {
-      return await Process.run(executable, args);
-    } on ProcessException catch (error) {
-      return ProcessResult(0, 127, '', error.message);
+  /// 构建失败结果文本，提供更清晰的错误信息。
+  String _buildFailureResultText({
+    required int exitCode,
+    required String stdout,
+    required String stderr,
+  }) {
+    final buffer = StringBuffer('status: failed\nexit_code: $exitCode');
+    if (stdout.isNotEmpty) {
+      buffer..writeln()..write('stdout:\n')..write(stdout);
     }
+    if (stderr.isNotEmpty) {
+      buffer..writeln()..write('stderr:\n')..write(stderr);
+    }
+    // 为常见错误码添加提示
+    if (exitCode == 2) {
+      buffer..writeln()..write('hint: Exit code 2 typically indicates a syntax error in the regex pattern.');
+    }
+    return buffer.toString().trim();
   }
 }

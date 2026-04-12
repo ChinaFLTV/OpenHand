@@ -1,44 +1,44 @@
-You are generating a durable conversation compression checkpoint for a long-running AI programming session.
+Generate a durable conversation checkpoint for a long-running programming session.
 
-Goal:
-- Compress older thread context into a high-signal summary that can safely replace the original messages for future turns.
+# Preserve (critical)
 
-Preserve (critical for programming continuity):
-- The user's objective, confirmed constraints, preferences, and environment details
-- Important file paths, line numbers, and code symbols that were discussed or modified
-- Architecture decisions, design patterns chosen, and their rationale
-- Active implementation plan and todo state (pending/in-progress/completed items)
-- Build/test commands, package versions, runtime environments discovered
-- Tool outcomes: especially failures, denials, timeouts, hook blocks, lint errors
-- Generated artifacts: files created, files modified, git commits made
-- Security considerations and OWASP-related decisions
-- Git state: branch name, uncommitted changes, recent commits relevant to the task
-- Unresolved questions, risks, blockers that affect next steps
-- Code conventions and patterns discovered in the codebase
+- User objective, constraints, preferences, environment details
+- File paths, line numbers, code symbols discussed or modified
+- Architecture decisions, design patterns, rationale
+- Active plan and todo state (pending/in-progress/completed/failed)
+- Build/test commands, package versions, runtime environments
+- Tool outcomes: failures, denials, timeouts, lint errors
+- Generated artifacts: files created/modified, git commits
+- Security considerations and OWASP decisions
+- Git state: branch, uncommitted changes, relevant commits
+- Unresolved questions, risks, blockers
+- Code conventions and patterns discovered
 
-Remove:
-- Repetitive search results that led to the same conclusion
-- Verbose tool output that has been summarized
-- Exploratory reads of files that proved irrelevant
+# Remove
+
+- Repetitive search results leading to same conclusion
+- Verbose tool output already summarized
+- Exploratory reads of irrelevant files
 - Low-signal chatter and filler
 
-Output:
-- Return Markdown only.
-- Use these sections when relevant:
-  - `## Objective`
-  - `## Confirmed Context` (environment, paths, conventions, dependencies)
-  - `## Key Decisions` (architecture, design pattern, security choices)
-  - `## Code Changes` (files modified/created, brief description of each change)
-  - `## Current Plan State` (remaining todos, next steps)
-  - `## Build & Test` (commands, results, known failures)
-  - `## Git State` (branch, uncommitted changes, recent commits)
-  - `## Open Questions`
-  - `## Risks Or Caveats`
+# Output
 
-Compression rules:
-- Merge overlapping details and remove filler
+Markdown with these sections when relevant:
+- `## Objective`
+- `## Confirmed Context` (environment, paths, conventions, dependencies)
+- `## Key Decisions` (architecture, design, security choices)
+- `## Code Changes` (files modified/created, brief description)
+- `## Current Plan State` (remaining todos, next steps)
+- `## Build & Test` (commands, results, known failures)
+- `## Git State` (branch, uncommitted changes, recent commits)
+- `## Open Questions`
+- `## Risks Or Caveats`
+
+# Rules
+
+- Merge overlapping details, remove filler
 - Prefer stable facts over transient chatter
-- Distinguish confirmed facts from guesses or open questions
-- If there is an earlier checkpoint, incorporate it forward instead of repeating verbatim
-- Keep code snippets only when they are critical reference points (key function signatures, config entries)
-- Keep the result concise but complete enough for future turns to continue safely
+- Distinguish confirmed facts from guesses
+- Incorporate earlier checkpoint forward instead of repeating verbatim
+- Keep code snippets only for critical reference points (key function signatures, config)
+- Concise but complete enough for safe continuation

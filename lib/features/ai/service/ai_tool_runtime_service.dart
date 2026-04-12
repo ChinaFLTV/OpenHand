@@ -4,6 +4,8 @@ import 'dart:io';
 // 2026-04-01 02:29:02
 // 变更1：移除 _legacyBashAlias 硬编码（已由 AiBashTool.aliases + AiToolRegistry 接管）
 // 变更2：增加工具输出 budget 截断保护（_maxToolOutputChars = 200000 字符）
+// 2026-04-12
+// 变更3：集成 AiFileTrackerService + AiFileHistoryService (参考 opencode_workflow_analysis.md)
 
 
 import 'package:http/http.dart' as http;
@@ -21,6 +23,8 @@ import '../tools/ai_tool_utils.dart';
 import 'ai_bash_tool_service.dart';
 import 'ai_chat_service.dart';
 import 'ai_claude_hook_service.dart';
+import 'ai_file_history_service.dart';
+import 'ai_file_tracker_service.dart';
 import 'ai_protocol_adapter.dart';
 
 enum AiRuntimeToolSource { builtin, mcp, skill }
@@ -156,14 +160,16 @@ class AiToolRuntimeService {
     required AiChatClient backgroundChatClient,
     http.Client? httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
+    AiFileTrackerService? fileTrackerService,
+    AiFileHistoryService? fileHistoryService,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
        _backgroundChatClient = backgroundChatClient,
        _httpClient = httpClient ?? http.Client(),
-       _hostLookup =
-           hostLookup ??
-           ((host) => InternetAddress.lookup(host)) {
+       _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
+       _fileTracker = fileTrackerService ?? AiFileTrackerService(),
+       _fileHistory = fileHistoryService ?? AiFileHistoryService() {
     // 2026-04-01 02:02:39 初始化完整服务依赖注入的多态工具注册中心
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
@@ -181,6 +187,16 @@ class AiToolRuntimeService {
   final http.Client _httpClient;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   late final AiToolRegistry _toolRegistry;
+  
+  // 2026-04-12: 文件追踪和历史版本服务
+  final AiFileTrackerService _fileTracker;
+  final AiFileHistoryService _fileHistory;
+  
+  /// 获取文件追踪服务（供外部访问，如会话重置时清理）
+  AiFileTrackerService get fileTracker => _fileTracker;
+  
+  /// 获取文件历史服务（供外部访问，如回滚功能）
+  AiFileHistoryService get fileHistory => _fileHistory;
 
   static const int _maxToolNameLength = 64;
 
@@ -532,6 +548,7 @@ class AiToolRuntimeService {
       );
     }
     // 2026-04-01 优先通过多态 Registry 路由（轻量工具已迁移）
+    // 2026-04-12 通过 metadata 传递文件追踪和历史服务（遵循 AiToolExecutionContext 冻结约束）
     final registryContext = AiToolExecutionContext(
       sessionId: sessionId,
       catalog: catalog,
@@ -544,6 +561,10 @@ class AiToolRuntimeService {
       confirmWriteCommand: confirmWriteCommand,
       cancelSignal: cancelSignal,
       onBashUpdate: onBashUpdate,
+      metadata: <String, Object?>{
+        'file_tracker': _fileTracker,
+        'file_history': _fileHistory,
+      },
     );
     final registryResult = await _toolRegistry.tryExecute(registryContext, kind);
     if (registryResult != null) return registryResult;

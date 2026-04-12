@@ -197,11 +197,26 @@ class AiPromptBuilder {
       'environment': runtimeContext.toJson(),
     };
 
+    final isProgrammingExpert =
+        templateBundle.template.id == 'programming_expert';
+    final promptMetadata = isProgrammingExpert
+        ? _buildCompactPromptMetadata(
+            session: session,
+            runtimeContext: runtimeContext,
+            repositorySnapshot: repositorySnapshot,
+            availableToolNames: availableToolNames,
+            model: model,
+            todoReminder: todoReminder,
+            planModeReminder: planModeReminder,
+          )
+        : metadata;
+
     final messages = <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
-        content:
-            '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}${_renderRuntimeEnvironmentSnapshot(runtimeContext, repositorySnapshot)}',
+        content: isProgrammingExpert
+            ? '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}'
+            : '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}${_renderRuntimeEnvironmentSnapshot(runtimeContext, repositorySnapshot)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
@@ -211,14 +226,16 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [1.5] Current Runtime Tool Catalog (authoritative)\n\n${_renderRuntimeToolCatalog(availableTools)}',
+            '# [1.5] Current Runtime Tool Catalog (authoritative)\n\n${_renderRuntimeToolCatalog(availableTools, compact: isProgrammingExpert)}',
       ),
-      if (todoReminder != null)
+      // For programming_expert, reminders are folded into the compact
+      // metadata JSON to reduce system message count and API overhead.
+      if (todoReminder != null && !isProgrammingExpert)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# System Reminder\n\n$todoReminder',
         ),
-      if (planModeReminder != null)
+      if (planModeReminder != null && !isProgrammingExpert)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
@@ -226,22 +243,26 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Session Metadata (ephemeral)\n\n```json\n${const JsonEncoder.withIndent('  ').convert(metadata)}\n```',
+            '# [2] Session Metadata (ephemeral)\n\n```json\n${const JsonEncoder.withIndent('  ').convert(promptMetadata)}\n```',
       ),
       AiChatTurn(
         role: AiChatRole.system,
-        content:
-            '# [3] User Memory (long-term facts)\n\n'
-            'IMPORTANT: Integrate memory facts naturally into your responses. '
-            'Do NOT explicitly state or hint that information comes from memory, '
-            'saved notes, or prior records. Use memory content as if it is common '
-            'knowledge you already possess.\n\n'
-            '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
+        content: isProgrammingExpert
+            ? '# [3] User Memory\n\n'
+                'Integrate memory facts naturally — do not hint at their source.\n\n'
+                '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
+            : '# [3] User Memory (long-term facts)\n\n'
+                'IMPORTANT: Integrate memory facts naturally into your responses. '
+                'Do NOT explicitly state or hint that information comes from memory, '
+                'saved notes, or prior records. Use memory content as if it is common '
+                'knowledge you already possess.\n\n'
+                '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
-        content:
-            '# [4] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
+        content: isProgrammingExpert
+            ? '# [4] Conversation Summary\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
+            : '# [4] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
       ),
       ...historyTurns,
       ...latestUserTurns,
@@ -364,7 +385,123 @@ class AiPromptBuilder {
     return buffer.toString().trimRight();
   }
 
-  String _renderRuntimeToolCatalog(List<AiToolDefinition> availableTools) {
+  /// Builds a compact metadata dict for the programming_expert template.
+  ///
+  /// This reduces token overhead by ~40% compared to the full metadata format:
+  /// - Eliminates the `environment` duplication
+  /// - Removes debug/internal fields (session timestamps, IDs, token counts)
+  /// - Removes computable fields (tool count, prompt message counts)
+  /// - Conditionally includes fields only when populated (git, todos, plan)
+  /// - Folds system reminders (todo, plan) into metadata instead of separate
+  ///   system messages, reducing per-message API overhead.
+  ///
+  /// 2026-04-13: Enhanced clarity for working_directory/project_root:
+  /// - Renamed 'cwd' to 'working_directory' for clarity
+  /// - Added 'project_root' as alias for tool path resolution context
+  Map<String, Object?> _buildCompactPromptMetadata({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiRepositorySnapshot? repositorySnapshot,
+    required List<String> availableToolNames,
+    required AiModelConfig model,
+    String? todoReminder,
+    String? planModeReminder,
+  }) {
+    final workingDirectory = runtimeContext.workingDirectory.trim().isEmpty
+        ? '${runtimeContext.toJson()['application_directory'] ?? ''}'.trim()
+        : runtimeContext.workingDirectory.trim();
+
+    final compact = <String, Object?>{
+      'session': <String, Object?>{
+        'title': session.title,
+        'mode': session.mode.storageValue,
+      },
+      // 2026-04-13: Use explicit field names for AI clarity
+      'context': <String, Object?>{
+        'working_directory': workingDirectory,
+        'project_root': workingDirectory, // Alias for tool path resolution
+        'platform': runtimeContext.platformName,
+        'date': runtimeContext.todayLocalDate,
+        'timezone': runtimeContext.timeZoneName,
+      },
+      'limits': <String, Object?>{
+        'tools_per_round': runtimeContext.singleRoundToolCallLimit,
+        'rounds': runtimeContext.sequentialToolRoundLimit,
+      },
+      'tools': availableToolNames,
+      if (runtimeContext.writeCommandConfirmationEnabled)
+        'write_cmd_confirm': true,
+    };
+
+    if (repositorySnapshot != null && repositorySnapshot.isGitRepository) {
+      final gitInfo = <String, Object?>{};
+      if (repositorySnapshot.currentBranch.trim().isNotEmpty) {
+        gitInfo['branch'] = repositorySnapshot.currentBranch;
+      }
+      if (repositorySnapshot.mainBranch.trim().isNotEmpty) {
+        gitInfo['main'] = repositorySnapshot.mainBranch;
+      }
+      if (repositorySnapshot.statusSnapshot.trim().isNotEmpty) {
+        gitInfo['status'] = repositorySnapshot.statusSnapshot.trim();
+      }
+      if (repositorySnapshot.recentCommits.isNotEmpty) {
+        gitInfo['recent_commits'] = repositorySnapshot.recentCommits;
+      }
+      if (gitInfo.isNotEmpty) {
+        compact['git'] = gitInfo;
+      }
+    }
+
+    if (session.todoItems.isNotEmpty) {
+      compact['todos'] = session.todoItems
+          .map((item) => item.toJson())
+          .toList(growable: false);
+    }
+
+    if (session.mode == AiSessionMode.plan || session.awaitingPlanApproval) {
+      compact['plan'] = <String, Object?>{
+        'active': session.mode == AiSessionMode.plan,
+        'awaiting_approval': session.awaitingPlanApproval,
+        if (session.pendingPlan != null &&
+            session.pendingPlan!.trim().isNotEmpty)
+          'pending_plan': session.pendingPlan!.trim(),
+      };
+    }
+
+    if (runtimeContext.allowCommandRules.isNotEmpty) {
+      compact['allow_cmd_rules'] = runtimeContext.allowCommandRules
+          .map((rule) {
+            final note = rule.note.trim();
+            return note.isEmpty
+                ? '${rule.matchMode.storageValue}:${rule.pattern}'
+                : '${rule.matchMode.storageValue}:${rule.pattern} ($note)';
+          })
+          .toList(growable: false);
+    }
+
+    if (runtimeContext.workspaceInstructionDocuments.isNotEmpty) {
+      compact['workspace_instructions'] = runtimeContext
+          .workspaceInstructionDocuments
+          .map((item) => item.path)
+          .toList(growable: false);
+    }
+
+    // Fold system reminders into metadata so they don't require separate
+    // system messages, saving per-turn API overhead.
+    if (todoReminder != null && todoReminder.isNotEmpty) {
+      compact['system_reminder'] = todoReminder;
+    }
+    if (planModeReminder != null && planModeReminder.isNotEmpty) {
+      compact['plan_reminder'] = planModeReminder;
+    }
+
+    return compact;
+  }
+
+  String _renderRuntimeToolCatalog(
+    List<AiToolDefinition> availableTools, {
+    bool compact = false,
+  }) {
     final visibleTools = availableTools
         .where((tool) => tool.name.trim().isNotEmpty)
         .toList(growable: false);
@@ -388,62 +525,95 @@ class AiPromptBuilder {
         )
         .toList(growable: false);
 
-    final buffer = StringBuffer()
-      ..writeln(
-        'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
-      )
-      ..writeln()
-      ..writeln(
-        'Capability invocation priority: Skill > MCP > Builtin. '
-        'When a task matches an available skill, use the skill tool first. '
-        'If no skill matches but a relevant MCP tool exists, prefer the MCP tool. '
-        'Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.',
+    final buffer = StringBuffer();
+    if (compact) {
+      buffer.writeln(
+        'Authoritative tool list for this turn. Absent tools are unavailable.',
       );
+    } else {
+      buffer
+        ..writeln(
+          'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
+        )
+        ..writeln()
+        ..writeln(
+          'Capability invocation priority: Skill > MCP > Builtin. '
+          'When a task matches an available skill, use the skill tool first. '
+          'If no skill matches but a relevant MCP tool exists, prefer the MCP tool. '
+          'Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.',
+        );
+    }
     if (skillTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln('## Skill Tools (highest priority)');
+        ..writeln(compact ? '## Skills' : '## Skill Tools (highest priority)');
       for (final tool in skillTools) {
-        _renderToolEntry(buffer, tool);
+        _renderToolEntry(buffer, tool, compact: compact);
       }
     }
     if (mcpTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln('## MCP Tools (medium priority)');
+        ..writeln(compact ? '## MCP' : '## MCP Tools (medium priority)');
       for (final tool in mcpTools) {
-        _renderToolEntry(buffer, tool);
+        _renderToolEntry(buffer, tool, compact: compact);
       }
     }
     if (builtinTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln('## Builtin Tools (baseline)');
+        ..writeln(compact ? '## Builtin' : '## Builtin Tools (baseline)');
       for (final tool in builtinTools) {
-        _renderToolEntry(buffer, tool);
+        // For programming_expert compact mode, builtin tools use ultra-compact
+        // entries: 80-char descriptions, no args listing.  Full parameter
+        // schemas are already sent via the API tools array.
+        _renderToolEntry(buffer, tool, compact: compact, builtinCompact: compact);
       }
     }
     return buffer.toString().trimRight();
   }
 
-  void _renderToolEntry(StringBuffer buffer, AiToolDefinition tool) {
-    final description = _truncateToolDescription(tool.description);
+  void _renderToolEntry(
+    StringBuffer buffer,
+    AiToolDefinition tool, {
+    bool compact = false,
+    bool builtinCompact = false,
+  }) {
+    if (builtinCompact) {
+      final description = _truncateToolDescription(
+        tool.description,
+        maxCharacters: 80,
+      );
+      buffer
+        ..writeln()
+        ..writeln('- ${tool.name}: $description');
+      return;
+    }
+    final description = compact
+        ? _truncateToolDescription(tool.description, maxCharacters: 120)
+        : _truncateToolDescription(tool.description);
     final requiredArguments = _toolArgumentNames(
       tool.parameters,
       requiredOnly: true,
-    );
-    final optionalArguments = _toolArgumentNames(
-      tool.parameters,
-      requiredOnly: false,
     );
     buffer
       ..writeln()
       ..write('- ${tool.name}: $description');
     if (requiredArguments.isNotEmpty) {
-      buffer.write(' Required args: ${requiredArguments.join(', ')}.');
+      buffer.write(
+        compact
+            ? ' Args: ${requiredArguments.join(', ')}.'
+            : ' Required args: ${requiredArguments.join(', ')}.',
+      );
     }
-    if (optionalArguments.isNotEmpty) {
-      buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
+    if (!compact) {
+      final optionalArguments = _toolArgumentNames(
+        tool.parameters,
+        requiredOnly: false,
+      );
+      if (optionalArguments.isNotEmpty) {
+        buffer.write(' Optional args: ${optionalArguments.join(', ')}.');
+      }
     }
     buffer.writeln();
   }
@@ -547,13 +717,16 @@ class AiPromptBuilder {
     required List<AiSessionMessage> messagesToCompress,
     required AiSessionMessage? previousCompressionPoint,
   }) {
+    final isProgrammingExpert = template.id == 'programming_expert';
     final payload = <String, Object?>{
-      'session_id': session.id,
       'session_title': session.title,
-      'template_id': template.id,
       'template_name': template.name,
+      if (!isProgrammingExpert) 'session_id': session.id,
+      if (!isProgrammingExpert) 'template_id': template.id,
       'locale_tag': runtimeContext.localeTag,
-      'compression_threshold_chars': runtimeContext.compressionThresholdChars,
+      if (!isProgrammingExpert)
+        'compression_threshold_chars':
+            runtimeContext.compressionThresholdChars,
       'previous_checkpoint_present': previousCompressionPoint != null,
       'messages_to_compress_count': messagesToCompress.length,
     };
@@ -566,11 +739,18 @@ class AiPromptBuilder {
     final previousCheckpointText = previousCompressionPoint == null
         ? 'No earlier checkpoint.'
         : previousCompressionPoint.content;
+    // For programming_expert, use a minimal system identity instead of the
+    // full system_instructions to save ~500 tokens per compression.  The
+    // compression task only needs summarization guidance, not tool policies,
+    // search strategy, Git rules, etc.
+    final compressionSystemContent = isProgrammingExpert
+        ? 'You are OpenHand Programming Expert. Summarize the conversation transcript for a long-running coding session checkpoint.'
+        : templateBundle.systemInstructions;
     return <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# Compression System Instructions\n\n${templateBundle.systemInstructions}',
+            '# Compression System Instructions\n\n$compressionSystemContent',
       ),
       AiChatTurn(
         role: AiChatRole.system,

@@ -2,12 +2,15 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../service/ai_file_history_service.dart';
+import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
 // 2026-04-01 01:21:38 从 AiToolRuntimeService._executeWriteTool 提取
+// 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
 class AiWriteTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.write;
@@ -23,14 +26,39 @@ class AiWriteTool extends AiTool {
     }
     final content = '${args['content'] ?? ''}';
     final file = File(filePath);
+    final fileExists = await file.exists();
+    
+    // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
+    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
+    
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'Write',
       filePath: filePath,
       previouslyReadFiles: context.previouslyReadFiles,
-      requireExistingFileRead: await file.exists(),
+      requireExistingFileRead: fileExists,
+      fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
+    
+    // 2026-04-12: 保存历史版本（仅对已存在的文件）
+    String? versionId;
+    if (fileExists) {
+      versionId = await AiToolUtils.saveFileVersionBeforeMutation(
+        filePath: filePath,
+        sessionId: context.sessionId,
+        toolCallId: context.toolCall.id,
+        fileHistory: fileHistory,
+      );
+    }
+    
     await AiToolUtils.writeTextFileSafely(file, content);
+    
+    // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
+    await AiToolUtils.updateTrackerAfterMutation(
+      filePath: filePath,
+      fileTracker: fileTracker,
+    );
     
     // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
@@ -62,6 +90,7 @@ class AiWriteTool extends AiTool {
         'file_mutation_path': filePath,
         'file_mutation_content_char_count': content.length,
         'file_mutation_verified': verificationPassed,
+        if (versionId != null) 'file_mutation_history_version_id': versionId,
       },
     );
   }

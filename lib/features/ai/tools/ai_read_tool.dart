@@ -1,10 +1,12 @@
 // 2026-04-01 02:02:39 从 AiToolRuntimeService._executeReadTool 完整迁移
+// 2026-04-12 添加文件追踪器支持 (参考 opencode_workflow_analysis.md)
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
 import '../service/ai_claude_hook_service.dart';
+import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_file_read_renderer.dart';
 import 'ai_tool.dart';
@@ -34,6 +36,10 @@ class AiReadTool extends AiTool {
     if (!await file.exists()) {
       return AiToolUtils.invalidResult('Read', 'File does not exist: $filePath');
     }
+    
+    // 2026-04-12: 从 metadata 获取追踪服务
+    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
+    
     final offset = AiToolUtils.readInt(args['offset']);
     final limit = AiToolUtils.readInt(args['limit']) ?? AiToolUtils.defaultReadLimit;
     if (limit <= 0) {
@@ -41,6 +47,10 @@ class AiReadTool extends AiTool {
     }
     final renderedRead = await _renderer.render(file, filePath);
     final rawContent = renderedRead.content;
+    
+    // 2026-04-12: 记录文件读取时间（用于脏写检测）
+    await fileTracker?.recordFileRead(filePath);
+    
     if (rawContent.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'Read $filePath',

@@ -1864,62 +1864,64 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
         // pointer events so that the chip and underlying widgets remain
         // interactive (e.g. clicking the chip still opens Finder).
         child: IgnorePointer(
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  overlayContext,
-                ).colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Theme.of(overlayContext).dividerColor,
+          child: FadeInOverlayContent(
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    overlayContext,
+                  ).colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(overlayContext).dividerColor,
+                  ),
                 ),
-              ),
-              width: 320,
-              child: FutureBuilder<FileStat>(
-                future: FileStat.stat(resolvedPath),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox(
-                      height: 40,
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
-                  final stat = snapshot.data!;
-                  final theme = Theme.of(context);
-                  final colorScheme = theme.colorScheme;
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        resolvedPath,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
+                width: 320,
+                child: FutureBuilder<FileStat>(
+                  future: FileStat.stat(resolvedPath),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      _StatRow(
-                        _localizedText(context, zh: '类型', en: 'Type'),
-                        stat.type.toString(),
-                      ),
-                      _StatRow(
-                        _localizedText(context, zh: '大小', en: 'Size'),
-                        '${stat.size} bytes',
-                      ),
-                      _StatRow(
-                        _localizedText(context, zh: '修改于', en: 'Modified'),
-                        '${stat.modified}',
-                      ),
-                    ],
-                  );
-                },
+                      );
+                    }
+                    final stat = snapshot.data!;
+                    final theme = Theme.of(context);
+                    final colorScheme = theme.colorScheme;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          resolvedPath,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _StatRow(
+                          _localizedText(context, zh: '类型', en: 'Type'),
+                          stat.type.toString(),
+                        ),
+                        _StatRow(
+                          _localizedText(context, zh: '大小', en: 'Size'),
+                          '${stat.size} bytes',
+                        ),
+                        _StatRow(
+                          _localizedText(context, zh: '修改于', en: 'Modified'),
+                          '${stat.modified}',
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),

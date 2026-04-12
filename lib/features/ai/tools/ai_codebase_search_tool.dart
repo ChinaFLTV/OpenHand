@@ -242,6 +242,7 @@ class AiCodebaseSearchTool extends AiTool {
     return fragments.where((f) => seen.add(f.toLowerCase())).toList();
   }
 
+  // 2026-04-13: 修复 rg 命令路径解析问题，使用共享工具方法
   Future<List<_SearchResult>> _ripgrepSearch(
     String searchRoot,
     String pattern,
@@ -250,6 +251,13 @@ class AiCodebaseSearchTool extends AiTool {
     int maxResults = 20,
     bool caseInsensitive = true,
   }) async {
+    // 先检查 ripgrep 是否可用
+    final rgPath = await AiToolUtils.resolveRipgrepPath();
+    if (rgPath == null) {
+      // ripgrep 不可用，静默返回空结果（CodebaseSearch 有多个信号源）
+      return const <_SearchResult>[];
+    }
+
     final args = <String>[
       '--json',
       '-C', '$contextLines',
@@ -258,15 +266,15 @@ class AiCodebaseSearchTool extends AiTool {
       '--type-add', 'code:*.{dart,ts,tsx,js,jsx,py,go,rs,java,kt,swift,c,cpp,h,hpp,cs,rb,php,yaml,yml,json,toml,md}',
       '--type', 'code',
       pattern,
-      searchRoot,
+      '.', // 在工作目录中搜索
     ];
 
-    ProcessResult result;
-    try {
-      result = await Process.run('rg', args);
-    } on ProcessException {
-      return const <_SearchResult>[];
-    }
+    // 使用共享工具方法执行进程
+    final result = await AiToolUtils.runProcessSafely(
+      rgPath,
+      args,
+      workingDirectory: searchRoot,
+    );
 
     if (result.exitCode != 0 && result.exitCode != 1) {
       return const <_SearchResult>[];

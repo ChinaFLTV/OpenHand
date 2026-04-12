@@ -2,12 +2,15 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../service/ai_file_history_service.dart';
+import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
 // 2026-04-01 01:21:38 从 AiToolRuntimeService._executeEditTool 提取
+// 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
 class AiEditTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.edit;
@@ -30,12 +33,27 @@ class AiEditTool extends AiTool {
     if (!await file.exists()) {
       return AiToolUtils.invalidResult('Edit', 'File does not exist: $filePath');
     }
+    
+    // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
+    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
+    
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'Edit',
       filePath: filePath,
       previouslyReadFiles: context.previouslyReadFiles,
+      fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
+    
+    // 2026-04-12: 保存历史版本（在修改前）
+    final versionId = await AiToolUtils.saveFileVersionBeforeMutation(
+      filePath: filePath,
+      sessionId: context.sessionId,
+      toolCallId: context.toolCall.id,
+      fileHistory: fileHistory,
+    );
+    
     final String content;
     try {
       content = await file.readAsString();
@@ -56,6 +74,12 @@ class AiEditTool extends AiTool {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
     }
     await AiToolUtils.writeTextFileSafely(file, replacement.content);
+    
+    // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
+    await AiToolUtils.updateTrackerAfterMutation(
+      filePath: filePath,
+      fileTracker: fileTracker,
+    );
     
     // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
@@ -93,6 +117,7 @@ class AiEditTool extends AiTool {
         'file_mutation_replace_all': replaceAll,
         'file_mutation_replacement_count': replacementCount,
         'file_mutation_verified': verificationPassed,
+        if (versionId != null) 'file_mutation_history_version_id': versionId,
       },
     );
   }

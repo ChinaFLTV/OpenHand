@@ -2512,7 +2512,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     required _PreparedWorkspaceEdit preparedEdit,
     String? description,
   }) {
-    return showDialog<bool>(
+    return showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
@@ -2840,7 +2840,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Future<String?> _promptRenameSymbol(String initialValue) async {
     final controller = TextEditingController(text: initialValue);
     final focusNode = FocusNode();
-    final result = await showDialog<String>(
+    final result = await showAnimatedDialog<String>(
       context: context,
       builder: (dialogContext) {
         final colorScheme = Theme.of(dialogContext).colorScheme;
@@ -8453,7 +8453,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
     final fileName = p.basename(filePath);
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final result = await showDialog<_UnsavedCloseAction>(
+    final result = await showAnimatedDialog<_UnsavedCloseAction>(
       context: context,
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
@@ -9421,7 +9421,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }) async {
     if (!mounted || actions.isEmpty) return;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final selected = await showDialog<AiLspCodeAction>(
+    final selected = await showAnimatedDialog<AiLspCodeAction>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -13452,8 +13452,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       final overlay = Overlay.of(context, rootOverlay: true);
       if (_diagnosticTooltipEntry == null) {
         _diagnosticTooltipEntry = OverlayEntry(
-          builder: (overlayContext) =>
-              _buildDiagnosticTooltipOverlay(overlayContext),
+          builder: (overlayContext) => FadeInOverlayContent(
+            child: _buildDiagnosticTooltipOverlay(overlayContext),
+          ),
         );
         overlay.insert(_diagnosticTooltipEntry!);
         return;

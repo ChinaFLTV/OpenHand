@@ -164,12 +164,11 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     );
     final runLabel = _localizedText(context, zh: '运行', en: 'Run');
     final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
-    return Container(
-      width: double.infinity,
+    // Use ClipRRect for corner clipping to avoid ghosting artifacts
+    // from overlapping border + background rendering at rounded corners.
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: palette.containerColor,
         borderRadius: _borderRadius18,
-        border: Border.all(color: palette.borderColor),
         boxShadow: [
           BoxShadow(
             color: palette.shadowColor,
@@ -178,94 +177,106 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            decoration: BoxDecoration(
-              color: palette.headerColor,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(17),
-              ),
-              border: Border(bottom: BorderSide(color: palette.dividerColor)),
-            ),
-            child: Row(
-              children: [
-                if (effectiveLanguage != null)
-                  _buildHeaderPill(
-                    label: effectiveLanguage,
-                    icon: Icons.code_rounded,
-                    backgroundColor: palette.badgeColor,
-                    foregroundColor: palette.badgeTextColor,
-                  )
-                else
-                  const SizedBox(height: 32),
-                const Spacer(),
-                _buildHeaderPill(
-                  label: copyLabel,
-                  icon: _copied
-                      ? Icons.check_rounded
-                      : Icons.content_copy_rounded,
-                  backgroundColor: palette.actionColor,
-                  foregroundColor: palette.actionTextColor,
-                  onTap: _copyCodeBlock,
-                ),
-                const SizedBox(width: 8),
-                _buildHeaderPill(
-                  label: downloadLabel,
-                  icon: _downloaded
-                      ? Icons.check_rounded
-                      : Icons.download_rounded,
-                  backgroundColor: palette.actionColor,
-                  foregroundColor: palette.actionTextColor,
-                  onTap: () => _downloadCodeBlock(effectiveLanguage),
-                ),
-                if (isHtmlLanguage) ...[
-                  const SizedBox(width: 8),
-                  _buildHeaderPill(
-                    label: runLabel,
-                    icon: Icons.play_arrow_rounded,
-                    backgroundColor: palette.actionColor,
-                    foregroundColor: palette.actionTextColor,
-                    onTap: _runHtmlPreview,
+      child: ClipRRect(
+        borderRadius: _borderRadius18,
+        child: Container(
+          decoration: BoxDecoration(
+            color: palette.containerColor,
+            // Border is drawn inside the clipped region to avoid double-line
+            // artifacts at corners.
+            border: Border.all(color: palette.borderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: palette.headerColor,
+                  border: Border(
+                    bottom: BorderSide(color: palette.dividerColor),
                   ),
-                ],
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: palette.bodyColor,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: palette.bodyBorderColor),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: widget.wrapLines
-                    ? (widget.selectable
-                          ? SelectableText.rich(
-                              _highlightedSpan ?? const TextSpan(),
-                            )
-                          : RichText(
-                              text: _highlightedSpan ?? const TextSpan(),
-                            ))
-                    : SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: widget.selectable
-                            ? SelectableText.rich(
-                                _highlightedSpan ?? const TextSpan(),
-                              )
-                            : RichText(
-                                text: _highlightedSpan ?? const TextSpan(),
-                              ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  child: Row(
+                    children: [
+                      if (effectiveLanguage != null)
+                        _buildHeaderPill(
+                          label: effectiveLanguage,
+                          icon: Icons.code_rounded,
+                          backgroundColor: palette.badgeColor,
+                          foregroundColor: palette.badgeTextColor,
+                        )
+                      else
+                        const SizedBox(height: 32),
+                      const Spacer(),
+                      _buildHeaderPill(
+                        label: copyLabel,
+                        icon: _copied
+                            ? Icons.check_rounded
+                            : Icons.content_copy_rounded,
+                        backgroundColor: palette.actionColor,
+                        foregroundColor: palette.actionTextColor,
+                        onTap: _copyCodeBlock,
                       ),
+                      const SizedBox(width: 8),
+                      _buildHeaderPill(
+                        label: downloadLabel,
+                        icon: _downloaded
+                            ? Icons.check_rounded
+                            : Icons.download_rounded,
+                        backgroundColor: palette.actionColor,
+                        foregroundColor: palette.actionTextColor,
+                        onTap: () => _downloadCodeBlock(effectiveLanguage),
+                      ),
+                      if (isHtmlLanguage) ...[
+                        const SizedBox(width: 8),
+                        _buildHeaderPill(
+                          label: runLabel,
+                          icon: Icons.play_arrow_rounded,
+                          backgroundColor: palette.actionColor,
+                          foregroundColor: palette.actionTextColor,
+                          onTap: _runHtmlPreview,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: palette.bodyColor,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: palette.bodyBorderColor),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: widget.wrapLines
+                        ? (widget.selectable
+                              ? SelectableText.rich(
+                                  _highlightedSpan ?? const TextSpan(),
+                                )
+                              : RichText(
+                                  text: _highlightedSpan ?? const TextSpan(),
+                                ))
+                        : SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: widget.selectable
+                                ? SelectableText.rich(
+                                    _highlightedSpan ?? const TextSpan(),
+                                  )
+                                : RichText(
+                                    text: _highlightedSpan ?? const TextSpan(),
+                                  ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -469,7 +480,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   }
 
   void _runHtmlPreview() {
-    showDialog<void>(
+    showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => _HtmlPreviewDialog(
         htmlContent: widget.content,

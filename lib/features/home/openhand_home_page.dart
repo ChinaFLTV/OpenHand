@@ -31,6 +31,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
+import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';

@@ -106,3 +106,38 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# === Vendor Dependencies (ripgrep) ===
+# 2026-04-13: 复制嵌入的 ripgrep 二进制文件到应用目录
+# 检测 CPU 架构并选择正确的二进制
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if("${CMAKE_SYSTEM_PROCESSOR}" MATCHES "ARM64|aarch64")
+    set(VENDOR_ARCH "arm64")
+  else()
+    set(VENDOR_ARCH "x64")
+  endif()
+else()
+  set(VENDOR_ARCH "x64")
+endif()
+
+set(VENDOR_PLATFORM "${VENDOR_ARCH}-win32")
+set(VENDOR_RIPGREP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/ripgrep/${VENDOR_PLATFORM}")
+
+# 复制 ripgrep 可执行文件
+if(EXISTS "${VENDOR_RIPGREP_DIR}/rg.exe")
+  install(FILES "${VENDOR_RIPGREP_DIR}/rg.exe"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/vendor/ripgrep/${VENDOR_PLATFORM}"
+    COMPONENT Runtime)
+  message(STATUS "Will install ripgrep from: ${VENDOR_RIPGREP_DIR}/rg.exe")
+else()
+  message(WARNING "ripgrep binary not found: ${VENDOR_RIPGREP_DIR}/rg.exe")
+endif()
+
+# 复制许可证文件
+set(VENDOR_RIPGREP_COPYING "${CMAKE_CURRENT_SOURCE_DIR}/../vendor/ripgrep/COPYING")
+if(EXISTS "${VENDOR_RIPGREP_COPYING}")
+  install(FILES "${VENDOR_RIPGREP_COPYING}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/vendor/ripgrep"
+    COMPONENT Runtime)
+endif()
+

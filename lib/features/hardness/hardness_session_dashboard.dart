@@ -16,6 +16,7 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
+import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
@@ -7728,7 +7729,7 @@ class _HeChangedFilesList extends StatelessWidget {
   }
 
   void _showDiffDialog(BuildContext context, HardnessChangedFile file) {
-    showDialog(
+    showAnimatedDialog(
       context: context,
       builder: (ctx) => _HeFileDiffDialog(file: file, isZh: isZh),
     );
@@ -8870,66 +8871,68 @@ class _HeFileHoverPopupState extends State<_HeFileHoverPopup> {
         left: targetLeft,
         top: targetTop,
         child: IgnorePointer(
-          child: Material(
-            elevation: 4,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  overlayContext,
-                ).colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Theme.of(overlayContext).dividerColor,
+          child: FadeInOverlayContent(
+            child: Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    overlayContext,
+                  ).colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Theme.of(overlayContext).dividerColor,
+                  ),
                 ),
-              ),
-              width: 320,
-              child: FutureBuilder<FileStat>(
-                future: FileStat.stat(resolvedPath),
-                builder: (ctx, snapshot) {
-                  final theme = Theme.of(ctx);
-                  final colorScheme = theme.colorScheme;
-                  final isZhLocale =
-                      Localizations.localeOf(ctx).languageCode == 'zh';
+                width: 320,
+                child: FutureBuilder<FileStat>(
+                  future: FileStat.stat(resolvedPath),
+                  builder: (ctx, snapshot) {
+                    final theme = Theme.of(ctx);
+                    final colorScheme = theme.colorScheme;
+                    final isZhLocale =
+                        Localizations.localeOf(ctx).languageCode == 'zh';
 
-                  if (!snapshot.hasData) {
-                    return const SizedBox(
-                      height: 40,
-                      child: Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    );
-                  }
-
-                  final stat = snapshot.data!;
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        resolvedPath,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
+                    if (!snapshot.hasData) {
+                      return const SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      _HeStatRow(
-                        isZhLocale ? '类型' : 'Type',
-                        stat.type.toString(),
-                      ),
-                      _HeStatRow(
-                        isZhLocale ? '大小' : 'Size',
-                        '${stat.size} bytes',
-                      ),
-                      _HeStatRow(
-                        isZhLocale ? '修改于' : 'Modified',
-                        '${stat.modified}',
-                      ),
-                    ],
-                  );
-                },
+                      );
+                    }
+
+                    final stat = snapshot.data!;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          resolvedPath,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _HeStatRow(
+                          isZhLocale ? '类型' : 'Type',
+                          stat.type.toString(),
+                        ),
+                        _HeStatRow(
+                          isZhLocale ? '大小' : 'Size',
+                          '${stat.size} bytes',
+                        ),
+                        _HeStatRow(
+                          isZhLocale ? '修改于' : 'Modified',
+                          '${stat.modified}',
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
