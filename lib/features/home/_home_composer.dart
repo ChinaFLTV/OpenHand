@@ -447,8 +447,38 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     await widget.onSend();
   }
 
-  List<Widget> _buildModelMenuItems(BuildContext context) {
-    final items = <Widget>[];
+  void _showModelMenu(BuildContext btnContext) {
+    final button = btnContext.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(btnContext).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final items = _buildModelPopupItems(btnContext);
+    if (items.isEmpty) return;
+    showAnimatedMenu<(String, String)>(
+      context: btnContext,
+      position: position,
+      items: items,
+    ).then((value) {
+      if (!mounted || value == null) return;
+      widget.onModelSelected(value.$1, value.$2);
+    });
+  }
+
+  List<PopupMenuEntry<(String, String)>> _buildModelPopupItems(
+    BuildContext context,
+  ) {
+    final items = <PopupMenuEntry<(String, String)>>[];
     final selectedId = widget.selectedModel?.id;
     final selectedModelId = widget.selectedModel?.modelId;
     for (final provider in widget.availableModels) {
@@ -458,44 +488,47 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         final isActive =
             provider.id == selectedId && provider.modelId == selectedModelId;
         items.add(
-          MenuItemButton(
-            leadingIcon: Icon(
-              isActive
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
+          PopupMenuItem<(String, String)>(
+            value: (provider.id, provider.modelId),
+            child: Row(
+              children: [
+                Icon(
+                  isActive
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(provider.providerLabel)),
+              ],
             ),
-            onPressed: () =>
-                widget.onModelSelected(provider.id, provider.modelId),
-            child: Text(provider.providerLabel),
           ),
         );
       } else {
         // Provider with models — show group header + sub-items.
         items.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: Text(
-              '${provider.providerLabel}  (${provider.protocolType.storageValue})',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          PopupMenuSectionHeader<(String, String)>(
+            label:
+                '${provider.providerLabel}  (${provider.protocolType.storageValue})',
           ),
         );
         for (final modelId in allIds) {
           final isActive =
               provider.id == selectedId && modelId == selectedModelId;
           items.add(
-            MenuItemButton(
-              leadingIcon: Icon(
-                isActive
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 18,
+            PopupMenuItem<(String, String)>(
+              value: (provider.id, modelId),
+              child: Row(
+                children: [
+                  Icon(
+                    isActive
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(modelId)),
+                ],
               ),
-              onPressed: () => widget.onModelSelected(provider.id, modelId),
-              child: Text(modelId),
             ),
           );
         }
@@ -813,24 +846,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                MenuAnchor(
-                  style: MenuStyle(
-                    maximumSize: WidgetStatePropertyAll(
-                      Size(360, MediaQuery.sizeOf(context).height * 0.5),
-                    ),
-                  ),
-                  menuChildren: _buildModelMenuItems(context),
-                  builder: (context, controller, child) {
+                Builder(
+                  builder: (btnContext) {
                     return OutlinedButton.icon(
                       onPressed: widget.availableModels.isEmpty
                           ? null
-                          : () {
-                              if (controller.isOpen) {
-                                controller.close();
-                                return;
-                              }
-                              controller.open();
-                            },
+                          : () => _showModelMenu(btnContext),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 52),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1075,7 +1096,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 }
 
-class _ComposerFullAccessModeButton extends StatelessWidget {
+class _ComposerFullAccessModeButton extends StatefulWidget {
   const _ComposerFullAccessModeButton({
     required this.fullAccess,
     required this.enabled,
@@ -1087,100 +1108,139 @@ class _ComposerFullAccessModeButton extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
+  State<_ComposerFullAccessModeButton> createState() =>
+      _ComposerFullAccessModeButtonState();
+}
+
+class _ComposerFullAccessModeButtonState
+    extends State<_ComposerFullAccessModeButton> {
+  void _showAccessMenu() {
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showAnimatedMenu<bool>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem<bool>(
+          value: false,
+          child: Row(
+            children: [
+              const Icon(Icons.admin_panel_settings_outlined, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(context, zh: '默认权限', en: 'Default Access'),
+                ),
+              ),
+              if (!widget.fullAccess)
+                const Icon(Icons.check_rounded, size: 20)
+              else
+                const SizedBox(width: 20),
+            ],
+          ),
+        ),
+        PopupMenuItem<bool>(
+          value: true,
+          child: Row(
+            children: [
+              const Icon(Icons.gpp_maybe_outlined, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(
+                    context,
+                    zh: '完全访问权限',
+                    en: 'Full Access',
+                  ),
+                ),
+              ),
+              if (widget.fullAccess)
+                const Icon(Icons.check_rounded, size: 20)
+              else
+                const SizedBox(width: 20),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (!mounted || value == null) return;
+      widget.onChanged(value);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final modeLabel = fullAccess
+    final modeLabel = widget.fullAccess
         ? _localizedText(context, zh: '完全访问权限', en: 'Full Access')
         : _localizedText(context, zh: '默认权限', en: 'Default Access');
-    final backgroundColor = !enabled
+    final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
-        : fullAccess
+        : widget.fullAccess
         ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
         : colorScheme.surfaceContainerHighest;
-    final foregroundColor = !enabled
+    final foregroundColor = !widget.enabled
         ? colorScheme.onSurface.withValues(alpha: 0.38)
-        : fullAccess
+        : widget.fullAccess
         ? const Color(0xFFF59E0B)
         : colorScheme.onSurfaceVariant;
-    final borderColor = !enabled
+    final borderColor = !widget.enabled
         ? colorScheme.outlineVariant.withValues(alpha: 0.48)
-        : fullAccess
+        : widget.fullAccess
         ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
         : colorScheme.outlineVariant;
 
-    return MenuAnchor(
-      builder: (context, controller, child) {
-        return OutlinedButton(
-          onPressed: enabled
-              ? () {
-                  if (controller.isOpen) {
-                    controller.close();
-                  } else {
-                    controller.open();
-                  }
-                }
-              : null,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 52),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            backgroundColor: backgroundColor,
-            foregroundColor: foregroundColor,
-            side: BorderSide(color: borderColor),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+    return OutlinedButton(
+      onPressed: widget.enabled ? _showAccessMenu : null,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        backgroundColor: backgroundColor,
+        foregroundColor: foregroundColor,
+        side: BorderSide(color: borderColor),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            widget.fullAccess
+                ? Icons.gpp_maybe_outlined
+                : Icons.admin_panel_settings_outlined,
+            size: 18,
+            color: foregroundColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            modeLabel,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                fullAccess
-                    ? Icons.gpp_maybe_outlined
-                    : Icons.admin_panel_settings_outlined,
-                size: 18,
-                color: foregroundColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                modeLabel,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: foregroundColor,
-              ),
-            ],
+          const SizedBox(width: 4),
+          Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 18,
+            color: foregroundColor,
           ),
-        );
-      },
-      menuChildren: [
-        MenuItemButton(
-          leadingIcon: const Icon(
-            Icons.admin_panel_settings_outlined,
-            size: 20,
-          ),
-          trailingIcon: !fullAccess
-              ? const Icon(Icons.check_rounded, size: 20)
-              : const SizedBox(width: 20),
-          onPressed: () => onChanged(false),
-          child: Text(
-            _localizedText(context, zh: '默认权限', en: 'Default Access'),
-          ),
-        ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.gpp_maybe_outlined, size: 20),
-          trailingIcon: fullAccess
-              ? const Icon(Icons.check_rounded, size: 20)
-              : const SizedBox(width: 20),
-          onPressed: () => onChanged(true),
-          child: Text(_localizedText(context, zh: '完全访问权限', en: 'Full Access')),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1377,98 +1437,147 @@ class _ComposerCreationModeButtonState
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.creationMode != _CreationMode.none;
-    return MenuAnchor(
-      builder: (context, controller, child) {
-        return Tooltip(
-          message: _localizedText(context, zh: '创建', en: 'Create'),
-          child: SizedBox(
-            width: 52,
-            height: 52,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              child: FilledButton(
-                onPressed: () {
-                  // When active, toggle off instead of opening the menu.
-                  if (isActive) {
-                    _deferModeChange(_CreationMode.none);
-                    return;
-                  }
-                  if (controller.isOpen) {
-                    controller.close();
-                  } else {
-                    controller.open();
-                  }
-                },
-                style: FilledButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(52, 52),
-                  backgroundColor: isActive
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHighest,
-                  foregroundColor: isActive
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurface,
-                  side: isActive
-                      ? null
-                      : BorderSide(color: colorScheme.outlineVariant),
-                ),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  ),
-                  child: Icon(
-                    _iconForMode(widget.creationMode),
-                    key: ValueKey<_CreationMode>(widget.creationMode),
-                  ),
-                ),
+    return Tooltip(
+      message: _localizedText(context, zh: '创建', en: 'Create'),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          child: FilledButton(
+            onPressed: () {
+              // When active, toggle off instead of opening the menu.
+              if (isActive) {
+                _deferModeChange(_CreationMode.none);
+                return;
+              }
+              _showCreationMenu();
+            },
+            style: FilledButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(52, 52),
+              backgroundColor: isActive
+                  ? colorScheme.primary
+                  : colorScheme.surfaceContainerHighest,
+              foregroundColor: isActive
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurface,
+              side: isActive
+                  ? null
+                  : BorderSide(color: colorScheme.outlineVariant),
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              ),
+              child: Icon(
+                _iconForMode(widget.creationMode),
+                key: ValueKey<_CreationMode>(widget.creationMode),
               ),
             ),
           ),
-        );
-      },
-      menuChildren: [
-        MenuItemButton(
-          leadingIcon: Icon(
-            Icons.image_outlined,
-            size: 20,
-            color: widget.creationMode == _CreationMode.image
-                ? Theme.of(context).colorScheme.primary
-                : null,
-          ),
-          trailingIcon: widget.creationMode == _CreationMode.image
-              ? Icon(
+        ),
+      ),
+    );
+  }
+
+  void _showCreationMenu() {
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final colorScheme = Theme.of(context).colorScheme;
+    showAnimatedMenu<_CreationMode>(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem<_CreationMode>(
+          value: _CreationMode.image,
+          child: Row(
+            children: [
+              Icon(
+                Icons.image_outlined,
+                size: 20,
+                color: widget.creationMode == _CreationMode.image
+                    ? colorScheme.primary
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(context, zh: '创建图片', en: 'Create Image'),
+                ),
+              ),
+              if (widget.creationMode == _CreationMode.image)
+                Icon(
                   Icons.check_rounded,
                   size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                )
-              : null,
-          onPressed: () => _selectMode(_CreationMode.image),
-          child: Text(_localizedText(context, zh: '创建图片', en: 'Create Image')),
-        ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.videocam_outlined, size: 20),
-          onPressed: () => _selectMode(_CreationMode.video),
-          child: Text(
-            _localizedText(context, zh: '视频生成', en: 'Generate Video'),
+                  color: colorScheme.primary,
+                ),
+            ],
           ),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.audiotrack_outlined, size: 20),
-          onPressed: () => _selectMode(_CreationMode.audio),
-          child: Text(
-            _localizedText(context, zh: '音频生成', en: 'Generate Audio'),
+        PopupMenuItem<_CreationMode>(
+          value: _CreationMode.video,
+          child: Row(
+            children: [
+              const Icon(Icons.videocam_outlined, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(context, zh: '视频生成', en: 'Generate Video'),
+                ),
+              ),
+            ],
           ),
         ),
-        MenuItemButton(
-          leadingIcon: const Icon(Icons.travel_explore_rounded, size: 20),
-          onPressed: () => _selectMode(_CreationMode.deepResearch),
-          child: Text(_localizedText(context, zh: '深度研究', en: 'Deep Research')),
+        PopupMenuItem<_CreationMode>(
+          value: _CreationMode.audio,
+          child: Row(
+            children: [
+              const Icon(Icons.audiotrack_outlined, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(context, zh: '音频生成', en: 'Generate Audio'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<_CreationMode>(
+          value: _CreationMode.deepResearch,
+          child: Row(
+            children: [
+              const Icon(Icons.travel_explore_rounded, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _localizedText(context, zh: '深度研究', en: 'Deep Research'),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
-    );
+    ).then((value) {
+      if (!mounted || value == null) return;
+      _selectMode(value);
+    });
   }
 }
 

@@ -496,6 +496,44 @@ class _AnimatedPopupMenuButtonState<T>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PopupMenuSectionHeader — non-interactive section label for grouped menus
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A non-selectable section header for use in [showAnimatedMenu] item lists.
+class PopupMenuSectionHeader<T> extends PopupMenuEntry<T> {
+  const PopupMenuSectionHeader({super.key, required this.label});
+
+  final String label;
+
+  @override
+  double get height => 32;
+
+  @override
+  bool represents(T? value) => false;
+
+  @override
+  State<PopupMenuSectionHeader<T>> createState() =>
+      _PopupMenuSectionHeaderState<T>();
+}
+
+class _PopupMenuSectionHeaderState<T>
+    extends State<PopupMenuSectionHeader<T>> {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      child: Text(
+        widget.label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Material defaults (simplified from Flutter framework)
 // ─────────────────────────────────────────────────────────────────────────────
 

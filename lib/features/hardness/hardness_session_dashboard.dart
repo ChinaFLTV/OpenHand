@@ -15,6 +15,7 @@ import 'package:provider/provider.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
@@ -6633,27 +6634,87 @@ class _HeComposer extends StatelessWidget {
     }
 
     // The permission button — active, not disabled.
+    final buttonFg = fullAccessPermission
+        ? const Color(0xFFF59E0B)
+        : colorScheme.onSurfaceVariant;
+    final buttonBg = fullAccessPermission
+        ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
+        : colorScheme.surfaceContainerHighest;
+    final buttonBorderColor = fullAccessPermission
+        ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+        : colorScheme.outlineVariant;
     final permissionButton = SizedBox(
       height: 52,
-      child: MenuAnchor(
-        builder: (context, controller, child) {
-          final buttonFg = fullAccessPermission
-              ? const Color(0xFFF59E0B)
-              : colorScheme.onSurfaceVariant;
-          final buttonBg = fullAccessPermission
-              ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
-              : colorScheme.surfaceContainerHighest;
-          final buttonBorderColor = fullAccessPermission
-              ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
-              : colorScheme.outlineVariant;
-
+      child: Builder(
+        builder: (btnContext) {
           return OutlinedButton(
             onPressed: () {
-              if (controller.isOpen) {
-                controller.close();
-              } else {
-                controller.open();
-              }
+              final button =
+                  btnContext.findRenderObject()! as RenderBox;
+              final overlay = Navigator.of(btnContext)
+                  .overlay!
+                  .context
+                  .findRenderObject()! as RenderBox;
+              final position = RelativeRect.fromRect(
+                Rect.fromPoints(
+                  button.localToGlobal(Offset.zero, ancestor: overlay),
+                  button.localToGlobal(
+                    button.size.bottomRight(Offset.zero),
+                    ancestor: overlay,
+                  ),
+                ),
+                Offset.zero & overlay.size,
+              );
+              showAnimatedMenu<bool>(
+                context: btnContext,
+                position: position,
+                items: [
+                  PopupMenuItem<bool>(
+                    value: false,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isZh ? '默认权限' : 'Default Access',
+                          ),
+                        ),
+                        if (!fullAccessPermission)
+                          const Icon(Icons.check_rounded, size: 20)
+                        else
+                          const SizedBox(width: 20),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<bool>(
+                    value: true,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.gpp_maybe_outlined,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            isZh ? '完全访问权限' : 'Full Access',
+                          ),
+                        ),
+                        if (fullAccessPermission)
+                          const Icon(Icons.check_rounded, size: 20)
+                        else
+                          const SizedBox(width: 20),
+                      ],
+                    ),
+                  ),
+                ],
+              ).then((value) {
+                if (value != null) onToggleFullAccessPermission(value);
+              });
             },
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -6693,27 +6754,6 @@ class _HeComposer extends StatelessWidget {
             ),
           );
         },
-        menuChildren: [
-          MenuItemButton(
-            leadingIcon: const Icon(
-              Icons.admin_panel_settings_outlined,
-              size: 20,
-            ),
-            trailingIcon: !fullAccessPermission
-                ? const Icon(Icons.check_rounded, size: 20)
-                : const SizedBox(width: 20),
-            onPressed: () => onToggleFullAccessPermission(false),
-            child: Text(isZh ? '默认权限' : 'Default Access'),
-          ),
-          MenuItemButton(
-            leadingIcon: const Icon(Icons.gpp_maybe_outlined, size: 20),
-            trailingIcon: fullAccessPermission
-                ? const Icon(Icons.check_rounded, size: 20)
-                : const SizedBox(width: 20),
-            onPressed: () => onToggleFullAccessPermission(true),
-            child: Text(isZh ? '完全访问权限' : 'Full Access'),
-          ),
-        ],
       ),
     );
 

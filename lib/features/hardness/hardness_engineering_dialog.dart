@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
@@ -1919,7 +1920,7 @@ class _ScanChip extends StatelessWidget {
 // MenuAnchor-based model selector (consistent with composer model selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MenuAnchorModelSelector extends StatelessWidget {
+class _MenuAnchorModelSelector extends StatefulWidget {
   const _MenuAnchorModelSelector({
     required this.label,
     required this.settingsModels,
@@ -1936,72 +1937,89 @@ class _MenuAnchorModelSelector extends StatelessWidget {
   final void Function(String? configId, String? modelId) onChanged;
   final bool enabled;
 
+  @override
+  State<_MenuAnchorModelSelector> createState() =>
+      _MenuAnchorModelSelectorState();
+}
+
+class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
+  bool _menuOpen = false;
+
   String? get _displayLabel {
-    final id = selectedAiModelConfigId?.trim();
+    final id = widget.selectedAiModelConfigId?.trim();
     if (id == null || id.isEmpty) return null;
     final config =
-        settingsModels.where((m) => m.id == id).firstOrNull;
+        widget.settingsModels.where((m) => m.id == id).firstOrNull;
     if (config == null) return null;
-    final modelId = selectedUrlModeModelId?.trim();
+    final modelId = widget.selectedUrlModeModelId?.trim();
     if (modelId != null && modelId.isNotEmpty) return modelId;
     if (config.modelId.trim().isNotEmpty) return config.modelId;
     return config.providerLabel;
   }
 
-  List<Widget> _buildMenuChildren(BuildContext context) {
-    final items = <Widget>[];
-    final activeConfigId = selectedAiModelConfigId?.trim();
-    final activeModelId = selectedUrlModeModelId?.trim();
-    for (final config in settingsModels) {
+  List<PopupMenuEntry<(String?, String?)>> _buildPopupItems(
+    BuildContext context,
+  ) {
+    final items = <PopupMenuEntry<(String?, String?)>>[];
+    final activeConfigId = widget.selectedAiModelConfigId?.trim();
+    final activeModelId = widget.selectedUrlModeModelId?.trim();
+    for (final config in widget.settingsModels) {
       final allIds = config.allModelIds;
       if (allIds.isEmpty) {
         final isActive = config.id == activeConfigId &&
             config.modelId == (activeModelId ?? config.modelId);
         items.add(
-          MenuItemButton(
-            leadingIcon: Icon(
-              isActive
-                  ? Icons.check_circle_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              size: 18,
-            ),
-            onPressed: () => onChanged(config.id, config.modelId),
-            child: Text(
-              '${config.providerLabel} (${config.protocolType.storageValue})',
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13),
+          PopupMenuItem<(String?, String?)>(
+            value: (config.id, config.modelId),
+            child: Row(
+              children: [
+                Icon(
+                  isActive
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${config.providerLabel} (${config.protocolType.storageValue})',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
             ),
           ),
         );
       } else {
         items.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: Text(
-              config.providerLabel,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
+          PopupMenuSectionHeader<(String?, String?)>(
+            label: config.providerLabel,
           ),
         );
         for (final modelId in allIds) {
           final isActive =
               config.id == activeConfigId && modelId == activeModelId;
           items.add(
-            MenuItemButton(
-              leadingIcon: Icon(
-                isActive
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 18,
-              ),
-              onPressed: () => onChanged(config.id, modelId),
-              child: Text(
-                modelId,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13),
+            PopupMenuItem<(String?, String?)>(
+              value: (config.id, modelId),
+              child: Row(
+                children: [
+                  Icon(
+                    isActive
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      modelId,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
               ),
             ),
           );
@@ -2011,61 +2029,76 @@ class _MenuAnchorModelSelector extends StatelessWidget {
     return items;
   }
 
+  void _showMenu() {
+    final button = context.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final items = _buildPopupItems(context);
+    if (items.isEmpty) return;
+
+    setState(() => _menuOpen = true);
+    showAnimatedMenu<(String?, String?)>(
+      context: context,
+      position: position,
+      items: items,
+    ).then((value) {
+      if (mounted) setState(() => _menuOpen = false);
+      if (!mounted || value == null) return;
+      widget.onChanged(value.$1, value.$2);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return MenuAnchor(
-      style: MenuStyle(
-        maximumSize: WidgetStatePropertyAll(
-          Size(360, MediaQuery.sizeOf(context).height * 0.5),
+    return GestureDetector(
+      onTap: (widget.enabled && widget.settingsModels.isNotEmpty)
+          ? _showMenu
+          : null,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: widget.label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          isDense: true,
+          suffixIcon: Icon(
+            _menuOpen
+                ? Icons.arrow_drop_up_rounded
+                : Icons.arrow_drop_down_rounded,
+            size: 20,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 24,
+            minHeight: 24,
+          ),
+        ),
+        child: Text(
+          _displayLabel ?? (widget.enabled ? widget.label : '—'),
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: widget.enabled
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
-      menuChildren: _buildMenuChildren(context),
-      builder: (context, controller, child) {
-        return GestureDetector(
-          onTap: (enabled && settingsModels.isNotEmpty)
-              ? () {
-                  if (controller.isOpen) {
-                    controller.close();
-                  } else {
-                    controller.open();
-                  }
-                }
-              : null,
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: label,
-              border: const OutlineInputBorder(),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              isDense: true,
-              suffixIcon: Icon(
-                controller.isOpen
-                    ? Icons.arrow_drop_up_rounded
-                    : Icons.arrow_drop_down_rounded,
-                size: 20,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              suffixIconConstraints: const BoxConstraints(
-                minWidth: 24,
-                minHeight: 24,
-              ),
-            ),
-            child: Text(
-              _displayLabel ?? (enabled ? label : '—'),
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 13,
-                color: enabled
-                    ? colorScheme.onSurface
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

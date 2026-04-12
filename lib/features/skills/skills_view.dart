@@ -50,6 +50,67 @@ class SkillsView extends StatefulWidget {
   State<SkillsView> createState() => _SkillsViewState();
 }
 
+/// A [PopupMenuEntry] that displays an emoji grid.  Each emoji button
+/// calls [Navigator.pop] with its value so the result is returned via
+/// [showAnimatedMenu].
+class _EmojiGridPopupEntry extends PopupMenuEntry<String> {
+  const _EmojiGridPopupEntry({
+    required this.emojis,
+    this.selectedEmoji,
+  });
+
+  final List<String> emojis;
+  final String? selectedEmoji;
+
+  @override
+  double get height => 200;
+
+  @override
+  bool represents(String? value) => emojis.contains(value);
+
+  @override
+  State<_EmojiGridPopupEntry> createState() => _EmojiGridPopupEntryState();
+}
+
+class _EmojiGridPopupEntryState extends State<_EmojiGridPopupEntry> {
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: SizedBox(
+        width: 320,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: widget.emojis
+              .map(
+                (emoji) => TextButton(
+                  onPressed: () => Navigator.of(context).pop(emoji),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: EdgeInsets.zero,
+                    backgroundColor: emoji == widget.selectedEmoji
+                        ? colorScheme.primaryContainer
+                        : colorScheme.surfaceContainerHigh,
+                    foregroundColor: colorScheme.onSurface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    emoji,
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
+}
+
 class _SkillsViewState extends State<SkillsView> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -521,7 +582,6 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _contentController;
-  final MenuController _emojiMenuController = MenuController();
   String? _selectedEmoji;
   Uint8List? _selectedImageBytes;
   String? _existingIconPath;
@@ -648,87 +708,28 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    MenuAnchor(
-                                      controller: _emojiMenuController,
-                                      menuChildren: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: SizedBox(
-                                            width: 320,
-                                            child: Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: _skillEmojiOptions
-                                                  .map(
-                                                    (emoji) => TextButton(
-                                                      onPressed: _isSaving
-                                                          ? null
-                                                          : () {
-                                                              field.didChange(
-                                                                true,
-                                                              );
-                                                              setState(() {
-                                                                _selectedEmoji =
-                                                                    emoji;
-                                                                _selectedImageBytes =
-                                                                    null;
-                                                                _existingIconPath =
-                                                                    null;
-                                                                _existingIconKind =
-                                                                    null;
-                                                                _errorMessage =
-                                                                    null;
-                                                              });
-                                                              _emojiMenuController
-                                                                  .close();
-                                                            },
-                                                      style: TextButton.styleFrom(
-                                                        minimumSize: const Size(
-                                                          48,
-                                                          48,
-                                                        ),
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            emoji ==
-                                                                _selectedEmoji
-                                                            ? colorScheme
-                                                                  .primaryContainer
-                                                            : colorScheme
-                                                                  .surfaceContainerHigh,
-                                                        foregroundColor:
-                                                            colorScheme
-                                                                .onSurface,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                14,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      child: Text(
-                                                        emoji,
-                                                        style: const TextStyle(
-                                                          fontSize: 24,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  )
-                                                  .toList(growable: false),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      builder: (context, controller, child) {
+                                    Builder(
+                                      builder: (btnContext) {
                                         return OutlinedButton.icon(
                                           onPressed: _isSaving
                                               ? null
                                               : () {
-                                                  if (controller.isOpen) {
-                                                    controller.close();
-                                                    return;
-                                                  }
-                                                  controller.open();
+                                                  _showEmojiMenu(
+                                                    btnContext,
+                                                    onSelected: (emoji) {
+                                                      field.didChange(true);
+                                                      setState(() {
+                                                        _selectedEmoji = emoji;
+                                                        _selectedImageBytes =
+                                                            null;
+                                                        _existingIconPath =
+                                                            null;
+                                                        _existingIconKind =
+                                                            null;
+                                                        _errorMessage = null;
+                                                      });
+                                                    },
+                                                  );
                                                 },
                                           icon: const Icon(
                                             Icons.emoji_emotions_outlined,
@@ -969,6 +970,39 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     return const _SkillEmojiGlyph(emoji: '🙂', fontSize: 28);
   }
 
+  void _showEmojiMenu(
+    BuildContext btnContext, {
+    required ValueChanged<String> onSelected,
+  }) {
+    final button = btnContext.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(btnContext).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    showAnimatedMenu<String>(
+      context: btnContext,
+      position: position,
+      items: [
+        _EmojiGridPopupEntry(
+          emojis: _skillEmojiOptions,
+          selectedEmoji: _selectedEmoji,
+        ),
+      ],
+    ).then((emoji) {
+      if (!mounted || emoji == null) return;
+      onSelected(emoji);
+    });
+  }
+
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {
     final selectedFile = await openFile(
       acceptedTypeGroups: const <XTypeGroup>[
@@ -983,7 +1017,6 @@ class _EditSkillDialogState extends State<_EditSkillDialog> {
     }
 
     try {
-      _emojiMenuController.close();
       final sourceBytes = await selectedFile.readAsBytes();
       if (!mounted) {
         return;
@@ -1027,7 +1060,6 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
-  final MenuController _emojiMenuController = MenuController();
   String? _selectedEmoji;
   Uint8List? _selectedImageBytes;
   bool _isSaving = false;
@@ -1151,81 +1183,23 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    MenuAnchor(
-                                      controller: _emojiMenuController,
-                                      menuChildren: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(12),
-                                          child: SizedBox(
-                                            width: 320,
-                                            child: Wrap(
-                                              spacing: 8,
-                                              runSpacing: 8,
-                                              children: _skillEmojiOptions
-                                                  .map(
-                                                    (emoji) => TextButton(
-                                                      onPressed: _isSaving
-                                                          ? null
-                                                          : () {
-                                                              field.didChange(
-                                                                true,
-                                                              );
-                                                              setState(() {
-                                                                _selectedEmoji =
-                                                                    emoji;
-                                                                _selectedImageBytes =
-                                                                    null;
-                                                              });
-                                                              _emojiMenuController
-                                                                  .close();
-                                                            },
-                                                      style: TextButton.styleFrom(
-                                                        minimumSize: const Size(
-                                                          48,
-                                                          48,
-                                                        ),
-                                                        padding:
-                                                            EdgeInsets.zero,
-                                                        backgroundColor:
-                                                            emoji ==
-                                                                selectedEmoji
-                                                            ? colorScheme
-                                                                  .primaryContainer
-                                                            : colorScheme
-                                                                  .surfaceContainerHigh,
-                                                        foregroundColor:
-                                                            colorScheme
-                                                                .onSurface,
-                                                        shape: RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                14,
-                                                              ),
-                                                        ),
-                                                      ),
-                                                      child: Text(
-                                                        emoji,
-                                                        style: const TextStyle(
-                                                          fontSize: 24,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  )
-                                                  .toList(growable: false),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                      builder: (context, controller, child) {
+                                    Builder(
+                                      builder: (btnContext) {
                                         return OutlinedButton.icon(
                                           onPressed: _isSaving
                                               ? null
                                               : () {
-                                                  if (controller.isOpen) {
-                                                    controller.close();
-                                                    return;
-                                                  }
-                                                  controller.open();
+                                                  _showEmojiMenu(
+                                                    btnContext,
+                                                    onSelected: (emoji) {
+                                                      field.didChange(true);
+                                                      setState(() {
+                                                        _selectedEmoji = emoji;
+                                                        _selectedImageBytes =
+                                                            null;
+                                                      });
+                                                    },
+                                                  );
                                                 },
                                           icon: const Icon(
                                             Icons.emoji_emotions_outlined,
@@ -1375,6 +1349,39 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
     }
   }
 
+  void _showEmojiMenu(
+    BuildContext btnContext, {
+    required ValueChanged<String> onSelected,
+  }) {
+    final button = btnContext.findRenderObject()! as RenderBox;
+    final overlay =
+        Navigator.of(btnContext).overlay!.context.findRenderObject()!
+            as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+    showAnimatedMenu<String>(
+      context: btnContext,
+      position: position,
+      items: [
+        _EmojiGridPopupEntry(
+          emojis: _skillEmojiOptions,
+          selectedEmoji: _selectedEmoji,
+        ),
+      ],
+    ).then((emoji) {
+      if (!mounted || emoji == null) return;
+      onSelected(emoji);
+    });
+  }
+
   Future<void> _pickLocalImage(FormFieldState<bool> field) async {
     final selectedFile = await openFile(
       acceptedTypeGroups: const <XTypeGroup>[
@@ -1389,7 +1396,6 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog> {
     }
 
     try {
-      _emojiMenuController.close();
       final sourceBytes = await selectedFile.readAsBytes();
       if (!mounted) {
         return;
