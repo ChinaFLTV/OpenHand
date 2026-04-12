@@ -209,6 +209,8 @@ class AiAttachmentService {
     };
   }
 
+  static const int _maxImageRawBytes = 50 * 1024 * 1024;
+
   Future<AiMessageAttachment> _importImageAttachment({
     required File sourceFile,
     required Directory targetDirectory,
@@ -217,6 +219,13 @@ class AiAttachmentService {
     required String Function() idGenerator,
     required int promptCharacterLimit,
   }) async {
+    final fileStat = await sourceFile.stat();
+    if (fileStat.size > _maxImageRawBytes) {
+      throw AiAttachmentException(
+        'Image file is too large (${aiFormatBytes(fileStat.size)}). '
+        'Maximum supported size is ${aiFormatBytes(_maxImageRawBytes)}.',
+      );
+    }
     final extension = p.extension(sourceName).toLowerCase();
     final sourceBytes = await sourceFile.readAsBytes();
     final decodedImage = extension == '.svg'

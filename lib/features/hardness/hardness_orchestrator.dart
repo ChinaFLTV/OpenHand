@@ -2142,6 +2142,13 @@ class HardnessOrchestrator extends ChangeNotifier {
               .timeout(const Duration(seconds: 2))
               .catchError((_) => -1);
         }
+        // Drain remaining buffered output before propagating the timeout.
+        // catchError ensures we don't fail if the streams errored (e.g.
+        // after SIGKILL).
+        await Future.wait([
+          stdoutFuture.catchError((_) {}),
+          stderrFuture.catchError((_) {}),
+        ]).timeout(const Duration(seconds: 5), onTimeout: () => []);
         rethrow; // Propagated as TimeoutException → _runPhase catch block.
       }
 

@@ -258,9 +258,11 @@ class AiWebFetchTool extends AiTool {
       if (!completer.isCompleted) completer.complete(result);
     }
 
-    final subscription = response.stream.listen(
+    late final StreamSubscription<List<int>> subscription;
+    subscription = response.stream.listen(
       (chunk) {
         if (buffer.length + chunk.length > _maxResponseBytes) {
+          subscription.cancel().ignore();
           complete(const _BodyReadResult(
               errorMessage:
                   'WebFetch refused to download the response because it exceeded the $_maxResponseBytes-byte safety limit.'));

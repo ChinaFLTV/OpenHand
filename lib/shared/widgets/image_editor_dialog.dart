@@ -200,14 +200,19 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool get _canEdit => _orientedImage != null && _previewBytes != null;
 
   void _loadImage() {
-    final decodedImage = img.decodeImage(widget.imageBytes);
-    if (decodedImage == null) {
-      return;
+    try {
+      final decodedImage = img.decodeImage(widget.imageBytes);
+      if (decodedImage == null) {
+        return;
+      }
+      final bakedImage = img.bakeOrientation(decodedImage);
+      _orientedImage = bakedImage;
+      _previewBytes = Uint8List.fromList(img.encodePng(bakedImage));
+      _cropRect = null;
+    } catch (_) {
+      // Corrupt or unsupported image data — leave state as null so the
+      // UI shows the "load failed" placeholder.
     }
-    final bakedImage = img.bakeOrientation(decodedImage);
-    _orientedImage = bakedImage;
-    _previewBytes = Uint8List.fromList(img.encodePng(bakedImage));
-    _cropRect = null;
   }
 
   Widget _buildPreviewPanel(BuildContext context) {

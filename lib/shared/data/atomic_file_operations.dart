@@ -11,19 +11,38 @@ import 'dart:io';
 /// Call this once for each critical file **before** reading it at startup.
 /// It is safe to call even when no leftover artifacts exist.
 Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
-  // Clean up orphaned .tmp files from interrupted atomic writes.
   final tempFile = File('${targetFile.path}.tmp');
+
+  if (await targetFile.exists()) {
+    // Target is intact — clean up any orphaned .tmp file.
+    if (await tempFile.exists()) {
+      try {
+        await tempFile.delete();
+      } on FileSystemException {
+        // Best-effort cleanup; ignore if the file cannot be deleted.
+      }
+    }
+    return;
+  }
+
+  // Target is missing — try restoring from the .tmp file first (this
+  // covers the case where the process crashed after writing the .tmp file
+  // but before renaming it to the target).
   if (await tempFile.exists()) {
     try {
-      await tempFile.delete();
+      await tempFile.rename(targetFile.path);
+      return;
     } on FileSystemException {
-      // Best-effort cleanup; ignore if the file cannot be deleted.
+      // .tmp rename failed — fall through to try the .bak file.
+      try {
+        await tempFile.delete();
+      } on FileSystemException {
+        // Best-effort cleanup.
+      }
     }
   }
 
-  if (await targetFile.exists()) {
-    return;
-  }
+  // Restore from backup if available.
   final backupFile = File('${targetFile.path}.bak');
   if (await backupFile.exists()) {
     await backupFile.rename(targetFile.path);
@@ -58,12 +77,23 @@ Future<void> writeFileAtomically(File targetFile, String content) async {
       await backupFile.delete();
     }
   } catch (_) {
-    if (await tempFile.exists()) {
-      await tempFile.delete();
+    // Best-effort cleanup: remove temp and restore backup. Errors during
+    // cleanup must not prevent the backup restoration or shadow the
+    // original exception.
+    try {
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+    } on FileSystemException {
+      // Ignore cleanup failure.
     }
     if (movedExistingFile && await backupFile.exists()) {
-      if (await targetFile.exists()) {
-        await targetFile.delete();
+      try {
+        if (await targetFile.exists()) {
+          await targetFile.delete();
+        }
+      } on FileSystemException {
+        // Ignore — proceed with restoration attempt anyway.
       }
       await backupFile.rename(targetFile.path);
     }
@@ -81,14 +111,18 @@ Future<void> openDirectoryInFileManager(Directory directory) async {
   }
 
   late final ProcessResult result;
-  if (Platform.isMacOS) {
-    result = await Process.run('open', <String>[directory.path]);
-  } else if (Platform.isWindows) {
-    result = await Process.run('explorer', <String>[directory.path]);
-  } else if (Platform.isLinux) {
-    result = await Process.run('xdg-open', <String>[directory.path]);
-  } else {
-    throw const FileSystemException('Unsupported platform.');
+  try {
+    if (Platform.isMacOS) {
+      result = await Process.run('open', <String>[directory.path]);
+    } else if (Platform.isWindows) {
+      result = await Process.run('explorer', <String>[directory.path]);
+    } else if (Platform.isLinux) {
+      result = await Process.run('xdg-open', <String>[directory.path]);
+    } else {
+      throw const FileSystemException('Unsupported platform.');
+    }
+  } on ProcessException catch (error) {
+    throw FileSystemException(error.message);
   }
 
   // Windows explorer.exe always returns exit code 1 even on success,

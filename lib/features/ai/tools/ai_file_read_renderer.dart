@@ -73,7 +73,12 @@ class AiFileReadRenderer {
   }
 
   Future<String> _renderNotebookForRead(File file) async {
-    final decoded = jsonDecode(await file.readAsString());
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(await file.readAsString());
+    } catch (_) {
+      return '';
+    }
     if (decoded is! Map) return '';
     final notebook = Map<String, Object?>.from(decoded);
     final rawCells = notebook['cells'];

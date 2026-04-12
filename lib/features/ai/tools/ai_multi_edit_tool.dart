@@ -35,8 +35,19 @@ class AiMultiEditTool extends AiTool {
       requireExistingFileRead: await file.exists(),
     );
     if (readValidation != null) return readValidation;
-    var content = await file.exists() ? await file.readAsString() : '';
-    var isCreatingFile = !await file.exists();
+    final bool fileExists = await file.exists();
+    final String initialContent;
+    if (fileExists) {
+      try {
+        initialContent = await file.readAsString();
+      } on FormatException {
+        return AiToolUtils.invalidResult('MultiEdit', 'File does not appear to be a valid text file: $filePath');
+      }
+    } else {
+      initialContent = '';
+    }
+    var content = initialContent;
+    var isCreatingFile = !fileExists;
     for (final rawEdit in edits) {
       if (rawEdit is! Map) {
         return AiToolUtils.invalidResult('MultiEdit', 'Each edit must be an object.');

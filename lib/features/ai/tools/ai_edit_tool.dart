@@ -36,7 +36,12 @@ class AiEditTool extends AiTool {
       previouslyReadFiles: context.previouslyReadFiles,
     );
     if (readValidation != null) return readValidation;
-    final content = await file.readAsString();
+    final String content;
+    try {
+      content = await file.readAsString();
+    } on FormatException {
+      return AiToolUtils.invalidResult('Edit', 'File does not appear to be a valid text file: $filePath');
+    }
     final replacement = AiToolUtils.replaceOnceOrAll(
       content: content,
       oldString: oldString,

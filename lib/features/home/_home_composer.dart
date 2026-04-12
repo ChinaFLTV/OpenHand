@@ -342,13 +342,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       final cursor = widget.controller.selection.baseOffset
           .clamp(0, widget.controller.text.length);
       _atMentionSuppressListener = true;
-      widget.controller.text = widget.controller.text.replaceRange(
-        _atMentionTriggerOffset, cursor, '',
-      );
-      widget.controller.selection = TextSelection.collapsed(
-        offset: _atMentionTriggerOffset,
-      );
-      _atMentionSuppressListener = false;
+      try {
+        widget.controller.text = widget.controller.text.replaceRange(
+          _atMentionTriggerOffset, cursor, '',
+        );
+        widget.controller.selection = TextSelection.collapsed(
+          offset: _atMentionTriggerOffset,
+        );
+      } finally {
+        _atMentionSuppressListener = false;
+      }
     }
     setState(() {
       _projectFileReferences = [..._projectFileReferences, item];
@@ -375,13 +378,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       final start = _atMentionTriggerOffset + 1;
       if (start <= cursor) {
         _atMentionSuppressListener = true;
-        widget.controller.text = widget.controller.text.replaceRange(
-          start, cursor, '',
-        );
-        widget.controller.selection = TextSelection.collapsed(
-          offset: start,
-        );
-        _atMentionSuppressListener = false;
+        try {
+          widget.controller.text = widget.controller.text.replaceRange(
+            start, cursor, '',
+          );
+          widget.controller.selection = TextSelection.collapsed(
+            offset: start,
+          );
+        } finally {
+          _atMentionSuppressListener = false;
+        }
       }
     }
     _performAtMentionSearch(root, '');
@@ -416,16 +422,19 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       return '@${r.relativePath}$suffix';
     }).join(' ');
     _atMentionSuppressListener = true;
-    final currentText = widget.controller.text;
-    if (currentText.trim().isEmpty) {
-      widget.controller.text = refs;
-    } else {
-      widget.controller.text = '$refs\n$currentText';
+    try {
+      final currentText = widget.controller.text;
+      if (currentText.trim().isEmpty) {
+        widget.controller.text = refs;
+      } else {
+        widget.controller.text = '$refs\n$currentText';
+      }
+      widget.controller.selection = TextSelection.collapsed(
+        offset: widget.controller.text.length,
+      );
+    } finally {
+      _atMentionSuppressListener = false;
     }
-    widget.controller.selection = TextSelection.collapsed(
-      offset: widget.controller.text.length,
-    );
-    _atMentionSuppressListener = false;
     setState(() {
       _projectFileReferences = [];
     });
