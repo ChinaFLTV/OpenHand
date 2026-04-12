@@ -66,6 +66,14 @@ String _editorLspLanguageLabel(BuildContext context, String language) {
   return normalized.toUpperCase();
 }
 
+String _editorIndentSpacesLabel(BuildContext context, int spaces) {
+  return _localizedText(
+    context,
+    zh: '$spaces 个空格',
+    en: spaces == 1 ? '1 space' : '$spaces spaces',
+  );
+}
+
 enum _EditorLspConfigAction { save, install, reset, uninstall }
 
 class _EditorLspConfigDialogResult {
@@ -94,11 +102,7 @@ extension on _SettingsViewState {
       children: [
         // Word Wrap Toggle
         _SettingsSubsectionCard(
-          title: _localizedText(
-            context,
-            zh: '文本布局',
-            en: 'Text Layout',
-          ),
+          title: _localizedText(context, zh: '文本布局', en: 'Text Layout'),
           description: _localizedText(
             context,
             zh: '控制编辑器中代码文本的布局方式，例如是否自动换行。',
@@ -120,13 +124,44 @@ extension on _SettingsViewState {
           ),
         ),
         const SizedBox(height: 16),
+        _SettingsSubsectionCard(
+          title: _localizedText(context, zh: '缩进', en: 'Indentation'),
+          description: _localizedText(
+            context,
+            zh: '控制编辑器在按下 Tab 时使用的空格数量。默认是 4 个空格；Shift+Tab 会按同样的宽度反向减少缩进。',
+            en: 'Controls how many spaces the editor uses when Tab is pressed. The default is 4 spaces; Shift+Tab removes indentation by the same width.',
+          ),
+          child: _ResponsiveSettingRow(
+            title: _localizedText(context, zh: 'Tab 等效空格数', en: 'Tab Size'),
+            subtitle: _localizedText(
+              context,
+              zh: '代码编辑器会把 Tab 转换为空格，并按这个宽度进行整行缩进或反向缩进。',
+              en: 'The code editor converts Tab into spaces and uses this width for both indentation and outdent operations.',
+            ),
+            control: DropdownButton<int>(
+              value: settingsController.editorIndentSpaces,
+              underline: const SizedBox.shrink(),
+              borderRadius: BorderRadius.circular(12),
+              items: editorIndentSpaceOptions
+                  .map(
+                    (spaces) => DropdownMenuItem<int>(
+                      value: spaces,
+                      child: Text(_editorIndentSpacesLabel(context, spaces)),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) async {
+                if (value != null) {
+                  await settingsController.updateEditorIndentSpaces(value);
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         // Code Theme
         _SettingsSubsectionCard(
-          title: _localizedText(
-            context,
-            zh: '代码主题',
-            en: 'Code Theme',
-          ),
+          title: _localizedText(context, zh: '代码主题', en: 'Code Theme'),
           description: _localizedText(
             context,
             zh: '选择编辑器中代码的配色方案。',
@@ -143,19 +178,22 @@ extension on _SettingsViewState {
               value: settingsController.editorCodeTheme,
               underline: const SizedBox.shrink(),
               borderRadius: BorderRadius.circular(12),
-              items: EditorCodeTheme.values.map((theme) {
-                final languageCode =
-                    Localizations.localeOf(context).languageCode;
-                final darkSurface =
-                    Theme.of(context).brightness == Brightness.dark;
-                final label = languageCode.startsWith('zh')
-                    ? theme.labelZh(darkSurface)
-                    : theme.labelEn(darkSurface);
-                return DropdownMenuItem<EditorCodeTheme>(
-                  value: theme,
-                  child: Text(label),
-                );
-              }).toList(growable: false),
+              items: EditorCodeTheme.values
+                  .map((theme) {
+                    final languageCode = Localizations.localeOf(
+                      context,
+                    ).languageCode;
+                    final darkSurface =
+                        Theme.of(context).brightness == Brightness.dark;
+                    final label = languageCode.startsWith('zh')
+                        ? theme.labelZh(darkSurface)
+                        : theme.labelEn(darkSurface);
+                    return DropdownMenuItem<EditorCodeTheme>(
+                      value: theme,
+                      child: Text(label),
+                    );
+                  })
+                  .toList(growable: false),
               onChanged: (value) async {
                 if (value != null) {
                   await settingsController.updateEditorCodeTheme(value);
@@ -164,6 +202,8 @@ extension on _SettingsViewState {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        _buildEditorShortcutBindingsSection(context, settingsController),
         const SizedBox(height: 16),
         // Language Server Mappings
         _SettingsSubsectionCard(
@@ -189,7 +229,8 @@ extension on _SettingsViewState {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   itemCount: supportedLanguages.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     return _buildEditorLspLanguageRow(
                       context,
@@ -203,6 +244,60 @@ extension on _SettingsViewState {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEditorShortcutBindingsSection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    final bindings = settingsController.editorShortcutBindings;
+    return _SettingsSubsectionCard(
+      title: _localizedText(context, zh: '编辑器快捷键', en: 'Editor Shortcuts'),
+      description: _localizedText(
+        context,
+        zh: '这些绑定仅在代码编辑器获得焦点时生效，用于补全、签名提示、导航和常见符号操作。再次按下同一个面板类快捷键会关闭对应工具面板。',
+        en: 'These bindings apply only while the code editor is focused. They control completion, signature help, navigation, and common symbol actions. Pressing the same panel shortcut again closes the corresponding tool panel.',
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 520),
+        child: Scrollbar(
+          controller: _editorShortcutListScrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _editorShortcutListScrollController,
+            child: Column(
+              children: EditorShortcutAction.values
+                  .map(
+                    (action) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ShortcutBindingTile(
+                        actionStorageKey:
+                            editorShortcutActionStorageKey(action),
+                        title: _editorShortcutActionTitle(context, action),
+                        subtitle:
+                            _editorShortcutActionSubtitle(context, action),
+                        value: formatShortcutLabel(
+                          bindings[action] ?? const <int>[],
+                        ),
+                        onRecord: () =>
+                            _showEditorShortcutRecorderDialog(context, action),
+                        onReset: () async {
+                          final saved = await settingsController
+                              .resetEditorShortcutBinding(action);
+                          if (!context.mounted || saved) {
+                            return;
+                          }
+                          _showPersistenceFailureSnackBar(context);
+                        },
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+        ),
+      ),
     );
   }
 

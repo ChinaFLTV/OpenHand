@@ -13,6 +13,8 @@ import '../../app/model/app_language.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/model/editor_code_theme.dart';
+import '../../app/model/editor_indent.dart';
+import '../../app/model/editor_shortcut.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
@@ -58,6 +60,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _memoryFileController;
   late final FocusNode _memoryFileFocusNode;
   late final ScrollController _editorLspListScrollController;
+  late final ScrollController _shortcutListScrollController;
+  late final ScrollController _editorShortcutListScrollController;
   late final TextEditingController _compressionThresholdController;
   late final FocusNode _compressionThresholdFocusNode;
   late final TextEditingController _toolCallLimitController;
@@ -74,6 +78,8 @@ class _SettingsViewState extends State<SettingsView> {
     _memoryFileController = TextEditingController();
     _memoryFileFocusNode = FocusNode();
     _editorLspListScrollController = ScrollController();
+    _shortcutListScrollController = ScrollController();
+    _editorShortcutListScrollController = ScrollController();
     _compressionThresholdController = TextEditingController();
     _compressionThresholdFocusNode = FocusNode();
     _toolCallLimitController = TextEditingController();
@@ -89,6 +95,8 @@ class _SettingsViewState extends State<SettingsView> {
     _memoryFileController.dispose();
     _memoryFileFocusNode.dispose();
     _editorLspListScrollController.dispose();
+    _shortcutListScrollController.dispose();
+    _editorShortcutListScrollController.dispose();
     _compressionThresholdController.dispose();
     _compressionThresholdFocusNode.dispose();
     _toolCallLimitController.dispose();
@@ -772,30 +780,45 @@ class _SettingsViewState extends State<SettingsView> {
         zh: '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。',
         en: 'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.',
       ),
-      child: Column(
-        children: OpenHandShortcutAction.values
-            .map(
-              (action) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ShortcutBindingTile(
-                  actionStorageKey: openHandShortcutActionStorageKey(action),
-                  title: _shortcutActionTitle(context, action),
-                  subtitle: _shortcutActionSubtitle(context, action),
-                  value: formatShortcutLabel(bindings[action] ?? const <int>[]),
-                  onRecord: () => _showShortcutRecorderDialog(context, action),
-                  onReset: () async {
-                    final saved = await settingsController.resetShortcutBinding(
-                      action,
-                    );
-                    if (!context.mounted || saved) {
-                      return;
-                    }
-                    _showPersistenceFailureSnackBar(context);
-                  },
-                ),
-              ),
-            )
-            .toList(growable: false),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 520),
+        child: Scrollbar(
+          controller: _shortcutListScrollController,
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _shortcutListScrollController,
+            child: Column(
+              children: OpenHandShortcutAction.values
+                  .map(
+                    (action) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ShortcutBindingTile(
+                        actionStorageKey:
+                            openHandShortcutActionStorageKey(action),
+                        title: _shortcutActionTitle(context, action),
+                        subtitle: _shortcutActionSubtitle(context, action),
+                        value: formatShortcutLabel(
+                          bindings[action] ?? const <int>[],
+                        ),
+                        onRecord: () =>
+                            _showShortcutRecorderDialog(context, action),
+                        onReset: () async {
+                          final saved =
+                              await settingsController.resetShortcutBinding(
+                            action,
+                          );
+                          if (!context.mounted || saved) {
+                            return;
+                          }
+                          _showPersistenceFailureSnackBar(context);
+                        },
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1643,6 +1666,46 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  Future<void> _showEditorShortcutRecorderDialog(
+    BuildContext context,
+    EditorShortcutAction action,
+  ) async {
+    final settingsController = context.read<SettingsController>();
+    final shortcutBinding = await showAnimatedDialog<List<int>>(
+      context: context,
+      builder: (dialogContext) {
+        return _ShortcutRecorderDialog(
+          title: _editorShortcutActionTitle(dialogContext, action),
+          initialKeyIds:
+              settingsController.editorShortcutBindings[action] ??
+              const <int>[],
+        );
+      },
+    );
+    if (!context.mounted || shortcutBinding == null) {
+      return;
+    }
+    final saved = await settingsController.updateEditorShortcutBinding(
+      action,
+      shortcutBinding,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '编辑器快捷键已更新。',
+        en: 'The editor shortcut has been updated.',
+      ),
+    );
+  }
+
   String _shortcutActionTitle(
     BuildContext context,
     OpenHandShortcutAction action,
@@ -1686,6 +1749,89 @@ class _SettingsViewState extends State<SettingsView> {
     };
   }
 
+  String _editorShortcutActionTitle(
+    BuildContext context,
+    EditorShortcutAction action,
+  ) {
+    return switch (action) {
+      EditorShortcutAction.saveFile => _localizedText(
+        context,
+        zh: '保存文件',
+        en: 'Save File',
+      ),
+      EditorShortcutAction.triggerCompletion => _localizedText(
+        context,
+        zh: '触发智能补全',
+        en: 'Trigger Completion',
+      ),
+      EditorShortcutAction.showSignatureHelp => _localizedText(
+        context,
+        zh: '显示签名帮助',
+        en: 'Show Signature Help',
+      ),
+      EditorShortcutAction.find => _localizedText(
+        context,
+        zh: '查找',
+        en: 'Find',
+      ),
+      EditorShortcutAction.replace => _localizedText(
+        context,
+        zh: '查找替换',
+        en: 'Find and Replace',
+      ),
+      EditorShortcutAction.goToLine => _localizedText(
+        context,
+        zh: '跳转到行',
+        en: 'Go to Line',
+      ),
+      EditorShortcutAction.showDocumentSymbols => _localizedText(
+        context,
+        zh: '文档符号',
+        en: 'Document Symbols',
+      ),
+      EditorShortcutAction.showWorkspaceSymbols => _localizedText(
+        context,
+        zh: '全局符号',
+        en: 'Workspace Symbols',
+      ),
+      EditorShortcutAction.goToDefinition => _localizedText(
+        context,
+        zh: '跳转到定义',
+        en: 'Go to Definition',
+      ),
+      EditorShortcutAction.findReferences => _localizedText(
+        context,
+        zh: '查找引用',
+        en: 'Find References',
+      ),
+      EditorShortcutAction.goToImplementation => _localizedText(
+        context,
+        zh: '跳转到实现',
+        en: 'Go to Implementation',
+      ),
+      EditorShortcutAction.showHoverInfo => _localizedText(
+        context,
+        zh: '显示悬浮信息',
+        en: 'Show Hover Info',
+      ),
+      EditorShortcutAction.renameSymbol => _localizedText(
+        context,
+        zh: '重命名符号',
+        en: 'Rename Symbol',
+      ),
+      EditorShortcutAction.showCodeActions => _localizedText(
+        context,
+        zh: '代码操作',
+        en: 'Code Actions',
+      ),
+      EditorShortcutAction.formatDocument => _localizedText(
+        context,
+        zh: '格式化文档',
+        en: 'Format Document',
+      ),
+    };
+  }
+
   String _shortcutActionSubtitle(
     BuildContext context,
     OpenHandShortcutAction action,
@@ -1725,6 +1871,92 @@ class _SettingsViewState extends State<SettingsView> {
         context,
         zh: '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。',
         en: 'Defaults to Ctrl + Down and wraps to the start of the session list.',
+      ),
+    };
+  }
+
+  String _editorShortcutActionSubtitle(
+    BuildContext context,
+    EditorShortcutAction action,
+  ) {
+    final defaultLabel = formatShortcutLabel(
+      defaultEditorShortcutBindings()[action] ?? const <int>[],
+    );
+    return switch (action) {
+      EditorShortcutAction.saveFile => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，保存当前正在编辑的文件。',
+        en: 'Defaults to $defaultLabel and saves the current file.',
+      ),
+      EditorShortcutAction.triggerCompletion => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，主动弹出智能补全候选列表。',
+        en: 'Defaults to $defaultLabel and opens the completion popup on demand.',
+      ),
+      EditorShortcutAction.showSignatureHelp => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，显示当前调用位置的方法签名、参数解释和文档摘要。',
+        en: 'Defaults to $defaultLabel and shows method signatures, parameter details, and summary docs for the current call site.',
+      ),
+      EditorShortcutAction.find => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，打开或关闭查找面板。',
+        en: 'Defaults to $defaultLabel and toggles the find panel.',
+      ),
+      EditorShortcutAction.replace => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，打开或关闭替换面板。',
+        en: 'Defaults to $defaultLabel and toggles the replace panel.',
+      ),
+      EditorShortcutAction.goToLine => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，打开或关闭跳转到行面板。',
+        en: 'Defaults to $defaultLabel and toggles the go-to-line panel.',
+      ),
+      EditorShortcutAction.showDocumentSymbols => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，打开或关闭当前文件的符号列表。',
+        en: 'Defaults to $defaultLabel and toggles the symbol list for the current file.',
+      ),
+      EditorShortcutAction.showWorkspaceSymbols => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，打开或关闭全局符号检索面板。',
+        en: 'Defaults to $defaultLabel and toggles the workspace symbol search panel.',
+      ),
+      EditorShortcutAction.goToDefinition => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，跳转到当前符号定义。',
+        en: 'Defaults to $defaultLabel and jumps to the current symbol definition.',
+      ),
+      EditorShortcutAction.findReferences => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，查找当前符号的引用位置。',
+        en: 'Defaults to $defaultLabel and finds references for the current symbol.',
+      ),
+      EditorShortcutAction.goToImplementation => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，跳转到当前符号的实现位置。',
+        en: 'Defaults to $defaultLabel and jumps to the current implementation.',
+      ),
+      EditorShortcutAction.showHoverInfo => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，显示当前位置的类型或文档信息。',
+        en: 'Defaults to $defaultLabel and shows type or documentation info at the current position.',
+      ),
+      EditorShortcutAction.renameSymbol => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，发起当前符号重命名。',
+        en: 'Defaults to $defaultLabel and starts rename for the current symbol.',
+      ),
+      EditorShortcutAction.showCodeActions => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，显示可用的代码操作列表。',
+        en: 'Defaults to $defaultLabel and shows available code actions.',
+      ),
+      EditorShortcutAction.formatDocument => _localizedText(
+        context,
+        zh: '默认 $defaultLabel，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。',
+        en: 'Defaults to $defaultLabel and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.',
       ),
     };
   }

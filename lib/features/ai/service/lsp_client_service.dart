@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
@@ -95,6 +96,70 @@ class AiLspHoverResult {
 
   String get renderedText =>
       markdown?.trim().isNotEmpty == true ? markdown! : plainText;
+}
+
+class AiLspParameterInformation {
+  const AiLspParameterInformation({
+    required this.label,
+    this.labelStart,
+    this.labelEnd,
+    this.documentationPlainText = '',
+    this.documentationMarkdown,
+  });
+
+  final String label;
+  final int? labelStart;
+  final int? labelEnd;
+  final String documentationPlainText;
+  final String? documentationMarkdown;
+
+  bool get hasExplicitOffsets =>
+      labelStart != null && labelEnd != null && labelEnd! > labelStart!;
+}
+
+class AiLspSignatureInformation {
+  const AiLspSignatureInformation({
+    required this.label,
+    this.documentationPlainText = '',
+    this.documentationMarkdown,
+    this.parameters = const <AiLspParameterInformation>[],
+  });
+
+  final String label;
+  final String documentationPlainText;
+  final String? documentationMarkdown;
+  final List<AiLspParameterInformation> parameters;
+}
+
+class AiLspSignatureHelp {
+  const AiLspSignatureHelp({
+    this.signatures = const <AiLspSignatureInformation>[],
+    this.activeSignature = 0,
+    this.activeParameter = 0,
+  });
+
+  final List<AiLspSignatureInformation> signatures;
+  final int activeSignature;
+  final int activeParameter;
+
+  bool get isEmpty => signatures.isEmpty;
+
+  AiLspSignatureInformation? get selectedSignature {
+    if (signatures.isEmpty) {
+      return null;
+    }
+    final index = activeSignature.clamp(0, signatures.length - 1);
+    return signatures[index];
+  }
+
+  AiLspParameterInformation? get selectedParameter {
+    final signature = selectedSignature;
+    if (signature == null || signature.parameters.isEmpty) {
+      return null;
+    }
+    final index = activeParameter.clamp(0, signature.parameters.length - 1);
+    return signature.parameters[index];
+  }
 }
 
 class AiLspDocumentSymbol {
@@ -253,7 +318,7 @@ class AiLspClientService {
   /// file.  The editor registers this to apply real-time diagnostic updates
   /// without polling.
   void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
-      _diagnosticsPushCallback;
+  _diagnosticsPushCallback;
 
   set diagnosticsPushCallback(
     void Function(String filePath, List<AiLspDiagnostic> diagnostics)? cb,
@@ -384,8 +449,7 @@ class AiLspClientService {
           executablePath: configuredExecutablePath,
           configuredInstallRoot: configuredRoot,
           configuredVersion: configuredSettings?.version.trim(),
-          configuredSdkPath:
-              configuredSdk.isNotEmpty ? configuredSdk : null,
+          configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
           arguments: candidate.arguments,
         );
       }
@@ -398,8 +462,7 @@ class AiLspClientService {
         executable: candidate.executable,
         configuredInstallRoot: configuredRoot,
         configuredVersion: configuredSettings?.version.trim(),
-        configuredSdkPath:
-            configuredSdk.isNotEmpty ? configuredSdk : null,
+        configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
         arguments: candidate.arguments,
       );
     }
@@ -412,8 +475,7 @@ class AiLspClientService {
         backendId: candidate.id,
         displayName: candidate.displayName,
         executable: candidate.executable,
-        configuredSdkPath:
-            configuredSdk.isNotEmpty ? configuredSdk : null,
+        configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
         arguments: candidate.arguments,
       );
     }
@@ -427,8 +489,7 @@ class AiLspClientService {
       executablePath: executablePath,
       configuredInstallRoot: configuredSettings?.rootPath.trim(),
       configuredVersion: configuredSettings?.version.trim(),
-      configuredSdkPath:
-          configuredSdk.isNotEmpty ? configuredSdk : null,
+      configuredSdkPath: configuredSdk.isNotEmpty ? configuredSdk : null,
       arguments: candidate.arguments,
     );
   }
@@ -615,6 +676,8 @@ class AiLspClientService {
     required int character,
     String? language,
     String? documentText,
+    String? triggerCharacter,
+    bool isRetrigger = false,
   }) async {
     final backend = await resolveBackendForFile(
       filePath: filePath,
@@ -633,8 +696,42 @@ class AiLspClientService {
       filePath: filePath,
       line: line,
       character: character,
+      triggerCharacter: triggerCharacter,
+      isRetrigger: isRetrigger,
     );
     return parseCompletionItems(result);
+  }
+
+  Future<AiLspSignatureHelp?> signatureHelp({
+    required String filePath,
+    required int line,
+    required int character,
+    String? language,
+    String? documentText,
+    String? triggerCharacter,
+    bool isRetrigger = false,
+  }) async {
+    final backend = await resolveBackendForFile(
+      filePath: filePath,
+      language: language,
+    );
+    if (!backend.isAvailable) {
+      return null;
+    }
+    final session = await _getOrCreateSession(backend);
+    await session.ensureDocumentSynced(
+      filePath: filePath,
+      language: backend.language,
+      text: documentText,
+    );
+    final result = await session.signatureHelp(
+      filePath: filePath,
+      line: line,
+      character: character,
+      triggerCharacter: triggerCharacter,
+      isRetrigger: isRetrigger,
+    );
+    return parseSignatureHelp(result);
   }
 
   Future<List<AiLspDocumentSymbol>> documentSymbols({
@@ -679,6 +776,34 @@ class AiLspClientService {
       diagnostics: diagnostics,
     );
     return parseCodeActions(result);
+  }
+
+  Future<List<AiLspTextEdit>> formatDocument({
+    required String filePath,
+    required int tabSize,
+    String? language,
+    String? documentText,
+    bool insertSpaces = true,
+  }) async {
+    final backend = await resolveBackendForFile(
+      filePath: filePath,
+      language: language,
+    );
+    if (!backend.isAvailable) {
+      return const <AiLspTextEdit>[];
+    }
+    final session = await _getOrCreateSession(backend);
+    await session.ensureDocumentSynced(
+      filePath: filePath,
+      language: backend.language,
+      text: documentText,
+    );
+    final result = await session.formatDocument(
+      filePath: filePath,
+      tabSize: tabSize,
+      insertSpaces: insertSpaces,
+    );
+    return _parseTextEdits(result);
   }
 
   Future<AiLspCodeAction> resolveCodeAction({
@@ -1134,6 +1259,43 @@ class AiLspClientService {
     );
   }
 
+  static AiLspSignatureHelp? parseSignatureHelp(Object? result) {
+    if (result is! Map<String, Object?>) {
+      return null;
+    }
+    final rawSignatures = result['signatures'];
+    if (rawSignatures is! List) {
+      return null;
+    }
+    final signatures = rawSignatures
+        .whereType<Map<String, Object?>>()
+        .map(_parseSignatureInformation)
+        .whereType<AiLspSignatureInformation>()
+        .toList(growable: false);
+    if (signatures.isEmpty) {
+      return null;
+    }
+    final maxSignatureIndex = signatures.length - 1;
+    final activeSignature = ((result['activeSignature'] as int?) ?? 0).clamp(
+      0,
+      maxSignatureIndex,
+    );
+    final selectedSignature = signatures[activeSignature];
+    final maxParameterIndex = math.max(
+      0,
+      selectedSignature.parameters.length - 1,
+    );
+    final activeParameter = ((result['activeParameter'] as int?) ?? 0).clamp(
+      0,
+      maxParameterIndex,
+    );
+    return AiLspSignatureHelp(
+      signatures: List<AiLspSignatureInformation>.unmodifiable(signatures),
+      activeSignature: activeSignature,
+      activeParameter: activeParameter,
+    );
+  }
+
   static List<AiLspCodeAction> parseCodeActions(Object? result) {
     if (result is! List) {
       return const <AiLspCodeAction>[];
@@ -1177,16 +1339,73 @@ class AiLspClientService {
       if (raw is! Map<String, Object?>) continue;
       final label = raw['label'];
       if (label == null) continue;
-      completions.add(AiLspCompletionItem(
-        label: '$label',
-        kind: raw['kind'] is int ? raw['kind'] as int : null,
-        detail: raw['detail']?.toString(),
-        insertText: raw['insertText']?.toString(),
-        filterText: raw['filterText']?.toString(),
-        sortText: raw['sortText']?.toString(),
-      ));
+      completions.add(
+        AiLspCompletionItem(
+          label: '$label',
+          kind: raw['kind'] is int ? raw['kind'] as int : null,
+          detail: raw['detail']?.toString(),
+          insertText: raw['insertText']?.toString(),
+          filterText: raw['filterText']?.toString(),
+          sortText: raw['sortText']?.toString(),
+        ),
+      );
     }
     return List<AiLspCompletionItem>.unmodifiable(completions);
+  }
+
+  static AiLspSignatureInformation? _parseSignatureInformation(
+    Map<String, Object?> raw,
+  ) {
+    final label = '${raw['label'] ?? ''}'.trim();
+    if (label.isEmpty) {
+      return null;
+    }
+    final documentation = _parseRichTextDocumentation(raw['documentation']);
+    final parameters =
+        (raw['parameters'] as List?)
+            ?.whereType<Map<String, Object?>>()
+            .map(_parseParameterInformation)
+            .whereType<AiLspParameterInformation>()
+            .toList(growable: false) ??
+        const <AiLspParameterInformation>[];
+    return AiLspSignatureInformation(
+      label: label,
+      documentationPlainText: documentation.plainText,
+      documentationMarkdown: documentation.markdown,
+      parameters: List<AiLspParameterInformation>.unmodifiable(parameters),
+    );
+  }
+
+  static AiLspParameterInformation? _parseParameterInformation(
+    Map<String, Object?> raw,
+  ) {
+    final labelValue = raw['label'];
+    String label = '';
+    int? labelStart;
+    int? labelEnd;
+    if (labelValue is String) {
+      label = labelValue.trim();
+    } else if (labelValue is List && labelValue.length >= 2) {
+      final start = labelValue.first;
+      final end = labelValue[1];
+      if (start is num && end is num) {
+        labelStart = start.toInt();
+        labelEnd = end.toInt();
+      }
+    }
+    final documentation = _parseRichTextDocumentation(raw['documentation']);
+    if (label.isEmpty &&
+        labelStart == null &&
+        documentation.plainText.isEmpty) {
+      return null;
+    }
+    return AiLspParameterInformation(
+      label: label,
+      labelStart: labelStart,
+      labelEnd: labelEnd,
+      documentationPlainText: documentation.plainText,
+      documentationMarkdown: documentation.markdown,
+    );
   }
 
   static List<AiLspTextEdit> _parseTextEdits(Object? result) {
@@ -1399,6 +1618,29 @@ class AiLspClientService {
     ];
   }
 
+  static ({String plainText, String? markdown}) _parseRichTextDocumentation(
+    Object? contents,
+  ) {
+    final parts = _flattenHoverContents(contents);
+    if (parts.isEmpty) {
+      return (plainText: '', markdown: null);
+    }
+    final markdownParts = parts
+        .map((part) => part.markdown.trim())
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    final plainParts = parts
+        .map((part) => part.plainText.trim())
+        .where((part) => part.isNotEmpty)
+        .toList(growable: false);
+    return (
+      plainText: plainParts.join('\n\n').trim(),
+      markdown: markdownParts.isEmpty
+          ? null
+          : markdownParts.join('\n\n').trim(),
+    );
+  }
+
   static String _stripMarkdownFences(String value) {
     return value
         .replaceAll(RegExp(r'^```[\w-]*\n'), '')
@@ -1487,6 +1729,15 @@ class _AiLspSession {
               'insertReplaceSupport': false,
             },
             'contextSupport': true,
+          },
+          'signatureHelp': <String, Object?>{
+            'contextSupport': true,
+            'signatureInformation': <String, Object?>{
+              'documentationFormat': <String>['markdown', 'plaintext'],
+              'parameterInformation': <String, Object?>{
+                'labelOffsetSupport': true,
+              },
+            },
           },
           'rename': <String, Object?>{'prepareSupport': true},
           'codeAction': <String, Object?>{
@@ -1613,15 +1864,53 @@ class _AiLspSession {
     required String filePath,
     required int line,
     required int character,
+    String? triggerCharacter,
+    bool isRetrigger = false,
   }) async {
     touch();
+    final trimmedTriggerCharacter = triggerCharacter?.trim();
     return _sendRequest('textDocument/completion', <String, Object?>{
-      'textDocument': <String, Object?>{
-        'uri': Uri.file(filePath).toString(),
-      },
+      'textDocument': <String, Object?>{'uri': Uri.file(filePath).toString()},
       'position': <String, Object?>{
         'line': line - 1,
         'character': character - 1,
+      },
+      'context': <String, Object?>{
+        'triggerKind':
+            trimmedTriggerCharacter == null || trimmedTriggerCharacter.isEmpty
+            ? 1
+            : (isRetrigger ? 3 : 2),
+        if (trimmedTriggerCharacter != null &&
+            trimmedTriggerCharacter.isNotEmpty)
+          'triggerCharacter': trimmedTriggerCharacter,
+      },
+    });
+  }
+
+  Future<Object?> signatureHelp({
+    required String filePath,
+    required int line,
+    required int character,
+    String? triggerCharacter,
+    bool isRetrigger = false,
+  }) async {
+    touch();
+    final trimmedTriggerCharacter = triggerCharacter?.trim();
+    return _sendRequest('textDocument/signatureHelp', <String, Object?>{
+      'textDocument': <String, Object?>{'uri': Uri.file(filePath).toString()},
+      'position': <String, Object?>{
+        'line': line - 1,
+        'character': character - 1,
+      },
+      'context': <String, Object?>{
+        'triggerKind':
+            trimmedTriggerCharacter == null || trimmedTriggerCharacter.isEmpty
+            ? 1
+            : (isRetrigger ? 3 : 2),
+        if (trimmedTriggerCharacter != null &&
+            trimmedTriggerCharacter.isNotEmpty)
+          'triggerCharacter': trimmedTriggerCharacter,
+        'isRetrigger': isRetrigger,
       },
     });
   }
@@ -1697,6 +1986,21 @@ class _AiLspSession {
               },
             )
             .toList(growable: false),
+      },
+    });
+  }
+
+  Future<Object?> formatDocument({
+    required String filePath,
+    required int tabSize,
+    required bool insertSpaces,
+  }) async {
+    touch();
+    return _sendRequest('textDocument/formatting', <String, Object?>{
+      'textDocument': <String, Object?>{'uri': Uri.file(filePath).toString()},
+      'options': <String, Object?>{
+        'tabSize': tabSize,
+        'insertSpaces': insertSpaces,
       },
     });
   }

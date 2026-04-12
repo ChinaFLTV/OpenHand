@@ -10,8 +10,10 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
-import '../model/editor_code_theme.dart';
 import '../model/dialog_animation_settings.dart';
+import '../model/editor_code_theme.dart';
+import '../model/editor_indent.dart';
+import '../model/editor_shortcut.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
@@ -34,9 +36,13 @@ class SettingsController extends ChangeNotifier {
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
+      _editorIndentSpaces = snapshot.editorIndentSpaces,
        _editorCodeTheme = snapshot.editorCodeTheme,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
+       ),
+       _editorShortcutBindings = _cloneEditorShortcutBindings(
+         snapshot.editorShortcutBindings,
        ),
        _aiMessageCompressionThresholdChars =
            snapshot.aiMessageCompressionThresholdChars,
@@ -79,8 +85,10 @@ class SettingsController extends ChangeNotifier {
   bool _memoryEnabled;
   String _userMemoryFilePath;
   bool _editorWordWrap;
+  int _editorIndentSpaces;
   EditorCodeTheme _editorCodeTheme;
   Map<String, AiLspLanguageSettings> _editorLspSettings;
+  Map<EditorShortcutAction, List<int>> _editorShortcutBindings;
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
   int _aiSequentialToolRoundLimit;
@@ -119,9 +127,12 @@ class SettingsController extends ChangeNotifier {
   bool get memoryEnabled => _memoryEnabled;
   String get userMemoryFilePath => _userMemoryFilePath;
   bool get editorWordWrap => _editorWordWrap;
+  int get editorIndentSpaces => _editorIndentSpaces;
   EditorCodeTheme get editorCodeTheme => _editorCodeTheme;
   Map<String, AiLspLanguageSettings> get editorLspSettings =>
       _cloneEditorLspSettingsMap(_editorLspSettings);
+  Map<EditorShortcutAction, List<int>> get editorShortcutBindings =>
+      _cloneEditorShortcutBindings(_editorShortcutBindings);
   AiLspLanguageSettings editorLspSettingsForLanguage(String language) {
     return _editorLspSettings[normalizeAiLspLanguage(language)] ??
         const AiLspLanguageSettings();
@@ -285,6 +296,17 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _editorWordWrap = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateEditorIndentSpaces(int value) async {
+    final normalizedValue = normalizeEditorIndentSpaces(value);
+    return _commitMutation(() {
+      if (_editorIndentSpaces == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _editorIndentSpaces = normalizedValue;
       return _MutationDisposition.apply;
     });
   }
@@ -657,6 +679,34 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
+  Future<bool> updateEditorShortcutBinding(
+    EditorShortcutAction action,
+    List<int> keyIds,
+  ) async {
+    final normalizedKeyIds = normalizeShortcutKeyIds(keyIds);
+    if (!isValidShortcutBinding(normalizedKeyIds)) {
+      return false;
+    }
+    return _commitMutation(() {
+      final currentKeyIds = _editorShortcutBindings[action] ?? const <int>[];
+      if (_sameIntList(currentKeyIds, normalizedKeyIds)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _editorShortcutBindings = <EditorShortcutAction, List<int>>{
+        ..._editorShortcutBindings,
+        action: normalizedKeyIds,
+      };
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> resetEditorShortcutBinding(EditorShortcutAction action) async {
+    return updateEditorShortcutBinding(
+      action,
+      defaultEditorShortcutBindings()[action] ?? const <int>[],
+    );
+  }
+
   Future<bool> updateDialogAnimationSettings(
     DialogAnimationSettings value,
   ) async {
@@ -716,8 +766,12 @@ class SettingsController extends ChangeNotifier {
       memoryEnabled: _memoryEnabled,
       userMemoryFilePath: _userMemoryFilePath,
       editorWordWrap: _editorWordWrap,
+      editorIndentSpaces: _editorIndentSpaces,
       editorCodeTheme: _editorCodeTheme,
       editorLspSettings: _cloneEditorLspSettingsMap(_editorLspSettings),
+      editorShortcutBindings: _cloneEditorShortcutBindings(
+        _editorShortcutBindings,
+      ),
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
@@ -743,8 +797,12 @@ class SettingsController extends ChangeNotifier {
     _memoryEnabled = snapshot.memoryEnabled;
     _userMemoryFilePath = snapshot.userMemoryFilePath;
     _editorWordWrap = snapshot.editorWordWrap;
+    _editorIndentSpaces = snapshot.editorIndentSpaces;
     _editorCodeTheme = snapshot.editorCodeTheme;
     _editorLspSettings = _cloneEditorLspSettingsMap(snapshot.editorLspSettings);
+    _editorShortcutBindings = _cloneEditorShortcutBindings(
+      snapshot.editorShortcutBindings,
+    );
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
@@ -813,6 +871,15 @@ Map<OpenHandShortcutAction, List<int>> _cloneShortcutBindings(
   Map<OpenHandShortcutAction, List<int>> bindings,
 ) {
   return <OpenHandShortcutAction, List<int>>{
+    for (final entry in bindings.entries)
+      entry.key: List<int>.from(entry.value, growable: false),
+  };
+}
+
+Map<EditorShortcutAction, List<int>> _cloneEditorShortcutBindings(
+  Map<EditorShortcutAction, List<int>> bindings,
+) {
+  return <EditorShortcutAction, List<int>>{
     for (final entry in bindings.entries)
       entry.key: List<int>.from(entry.value, growable: false),
   };

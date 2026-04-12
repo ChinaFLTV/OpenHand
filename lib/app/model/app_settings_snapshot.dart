@@ -7,6 +7,8 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/editor_code_theme.dart';
+import '../model/editor_indent.dart';
+import '../model/editor_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../theme/openhand_theme_preset.dart';
 import 'openhand_shortcut.dart';
@@ -23,8 +25,10 @@ class AppSettingsSnapshot {
       memoryEnabled: true,
       userMemoryFilePath: OpenHandPaths.defaultUserMemoryFilePath(),
       editorWordWrap: true,
+      editorIndentSpaces: defaultEditorIndentSpaces,
       editorCodeTheme: EditorCodeTheme.materialYou,
       editorLspSettings: const <String, AiLspLanguageSettings>{},
+      editorShortcutBindings: defaultEditorShortcutBindings(),
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
@@ -50,8 +54,10 @@ class AppSettingsSnapshot {
     required this.memoryEnabled,
     required this.userMemoryFilePath,
     required this.editorWordWrap,
+    required this.editorIndentSpaces,
     required this.editorCodeTheme,
     required this.editorLspSettings,
+    required this.editorShortcutBindings,
     required this.aiMessageCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
@@ -79,8 +85,10 @@ class AppSettingsSnapshot {
   final bool memoryEnabled;
   final String userMemoryFilePath;
   final bool editorWordWrap;
+  final int editorIndentSpaces;
   final EditorCodeTheme editorCodeTheme;
   final Map<String, AiLspLanguageSettings> editorLspSettings;
+  final Map<EditorShortcutAction, List<int>> editorShortcutBindings;
   final int aiMessageCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
@@ -104,8 +112,10 @@ class AppSettingsSnapshot {
     bool? memoryEnabled,
     String? userMemoryFilePath,
     bool? editorWordWrap,
+    int? editorIndentSpaces,
     EditorCodeTheme? editorCodeTheme,
     Map<String, AiLspLanguageSettings>? editorLspSettings,
+    Map<EditorShortcutAction, List<int>>? editorShortcutBindings,
     int? aiMessageCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
@@ -130,8 +140,11 @@ class AppSettingsSnapshot {
       memoryEnabled: memoryEnabled ?? this.memoryEnabled,
       userMemoryFilePath: userMemoryFilePath ?? this.userMemoryFilePath,
       editorWordWrap: editorWordWrap ?? this.editorWordWrap,
+      editorIndentSpaces: editorIndentSpaces ?? this.editorIndentSpaces,
       editorCodeTheme: editorCodeTheme ?? this.editorCodeTheme,
       editorLspSettings: editorLspSettings ?? this.editorLspSettings,
+      editorShortcutBindings:
+          editorShortcutBindings ?? this.editorShortcutBindings,
       aiMessageCompressionThresholdChars:
           aiMessageCompressionThresholdChars ??
           this.aiMessageCompressionThresholdChars,

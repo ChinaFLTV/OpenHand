@@ -1406,6 +1406,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   /// Mutable font size for pinch / Cmd+scroll zoom.
   double _fontSize = _editorFontSizeDefault;
+
   /// Visual scale applied via Transform.scale during continuous zoom gestures.
   /// 1.0 means no transform; >1 means zoom-in, <1 means zoom-out.
   double _zoomVisualScale = 1.0;
@@ -1481,6 +1482,16 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Timer? _completionDebounceTimer;
   String _completionPrefix = '';
   int _completionRequestEpoch = 0;
+  String? _lastCompletionRequestFilePath;
+  int _lastCompletionRequestOffset = -1;
+  int _lastCompletionRequestRevision = -1;
+  AiLspSignatureHelp? _signatureHelp;
+  bool _signatureHelpVisible = false;
+  Timer? _signatureHelpDebounceTimer;
+  int _signatureHelpRequestEpoch = 0;
+  String? _lastSignatureHelpRequestFilePath;
+  int _lastSignatureHelpRequestOffset = -1;
+  int _lastSignatureHelpRequestRevision = -1;
 
   @override
   void initState() {
@@ -1558,14 +1569,20 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   void _zoomIn() {
     _commitZoomScale();
     setState(() {
-      _fontSize = (_fontSize + 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
+      _fontSize = (_fontSize + 0.5).clamp(
+        _editorFontSizeMin,
+        _editorFontSizeMax,
+      );
     });
   }
 
   void _zoomOut() {
     _commitZoomScale();
     setState(() {
-      _fontSize = (_fontSize - 0.5).clamp(_editorFontSizeMin, _editorFontSizeMax);
+      _fontSize = (_fontSize - 0.5).clamp(
+        _editorFontSizeMin,
+        _editorFontSizeMax,
+      );
     });
   }
 
@@ -1579,22 +1596,30 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   void _zoomByScale(double scaleDelta) {
     final effectiveNewSize = (_fontSize * _zoomVisualScale * scaleDelta);
     // Clamp the visual scale so the effective font size stays within bounds.
-    final clampedSize = effectiveNewSize.clamp(_editorFontSizeMin, _editorFontSizeMax);
+    final clampedSize = effectiveNewSize.clamp(
+      _editorFontSizeMin,
+      _editorFontSizeMax,
+    );
     setState(() {
       _zoomVisualScale = clampedSize / _fontSize;
     });
     // Schedule a commit: when the gesture settles, apply the real font size
     // change once (re-highlights only once instead of every frame).
     _zoomCommitTimer?.cancel();
-    _zoomCommitTimer = Timer(const Duration(milliseconds: 180), _commitZoomScale);
+    _zoomCommitTimer = Timer(
+      const Duration(milliseconds: 180),
+      _commitZoomScale,
+    );
   }
 
   /// Collapse `_zoomVisualScale` into `_fontSize` for a real layout update.
   void _commitZoomScale() {
     _zoomCommitTimer?.cancel();
     if ((_zoomVisualScale - 1.0).abs() < 0.001) return;
-    final committed = (_fontSize * _zoomVisualScale)
-        .clamp(_editorFontSizeMin, _editorFontSizeMax);
+    final committed = (_fontSize * _zoomVisualScale).clamp(
+      _editorFontSizeMin,
+      _editorFontSizeMax,
+    );
     setState(() {
       _fontSize = committed;
       _zoomVisualScale = 1.0;
@@ -1709,36 +1734,16 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return completer.future;
   }
 
-  int _offsetForLineColumn(String text, int line, int column) {
-    final targetLine = math.max(1, line);
-    final targetColumn = math.max(1, column);
-    var currentLine = 1;
-    var currentColumn = 1;
-    for (var index = 0; index < text.length; index++) {
-      if (currentLine == targetLine && currentColumn == targetColumn) {
-        return index;
-      }
-      if (text.codeUnitAt(index) == 10) {
-        if (currentLine == targetLine) {
-          return index;
-        }
-        currentLine += 1;
-        currentColumn = 1;
-      } else {
-        currentColumn += 1;
-      }
-    }
-    return text.length;
+  int _offsetForLineColumn(
+    _HighlightingTextController controller,
+    int line,
+    int column,
+  ) {
+    return controller._offsetForLineColumn(line, column);
   }
 
-  int _lineForOffset(String text, int offset) {
-    var line = 1;
-    for (var index = 0; index < offset && index < text.length; index++) {
-      if (text.codeUnitAt(index) == 10) {
-        line += 1;
-      }
-    }
-    return line;
+  int _lineForOffset(_HighlightingTextController controller, int offset) {
+    return controller._lineIndexForOffset(offset) + 1;
   }
 
   void _scrollToLine(String filePath, int line) {
@@ -1766,7 +1771,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (controller == null) {
       return;
     }
-    final offset = _offsetForLineColumn(controller.text, line, column);
+    final offset = _offsetForLineColumn(controller, line, column);
     controller.selection = TextSelection.collapsed(offset: offset);
     _updateCursorPosition(controller);
     _focusNodes[filePath]?.requestFocus();
@@ -1871,6 +1876,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
     _scheduleSymbolRefresh(immediate: true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2242,19 +2250,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     await _navigateToLspLocation(location);
   }
 
-  AiLspPosition _positionForOffset(String text, int offset) {
-    final boundedOffset = offset.clamp(0, text.length);
-    var line = 1;
-    var column = 1;
-    for (var index = 0; index < boundedOffset; index++) {
-      if (text.codeUnitAt(index) == 10) {
-        line += 1;
-        column = 1;
-      } else {
-        column += 1;
-      }
-    }
-    return AiLspPosition(line: line, character: column);
+  AiLspPosition _positionForOffset(
+    _HighlightingTextController controller,
+    int offset,
+  ) {
+    final position = controller._lineColumnForOffset(offset);
+    return AiLspPosition(line: position.line, character: position.column);
   }
 
   AiLspRange _selectionRangeForController(
@@ -2266,8 +2267,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final startOffset = math.min(base, extent);
     final endOffset = math.max(base, extent);
     return AiLspRange(
-      start: _positionForOffset(controller.text, startOffset),
-      end: _positionForOffset(controller.text, endOffset),
+      start: _positionForOffset(controller, startOffset),
+      end: _positionForOffset(controller, endOffset),
     );
   }
 
@@ -2412,7 +2413,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         controller.value = controller.value.copyWith(
           text: newText,
           selection: TextSelection.collapsed(offset: collapsedOffset),
-          composing: TextRange.empty,
         );
         _fileContents[filePath] = newText;
         if (filePath == activeFilePath) {
@@ -3897,6 +3897,26 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return null;
   }
 
+  String? _documentLspPreconditionMessage(String filePath) {
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return _localizedText(
+        context,
+        zh: '当前文件尚未完成加载，暂时无法执行文档级编辑操作。',
+        en: 'The current file is still loading, so document-level edit actions are not available yet.',
+      );
+    }
+    if (controller.useVirtualizedPreview &&
+        !_forcedFullEditorFiles.contains(filePath)) {
+      return _localizedText(
+        context,
+        zh: '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。',
+        en: 'This file is still in large-file preview mode. Open the full editor before formatting.',
+      );
+    }
+    return null;
+  }
+
   String _lspUnavailableMessage(AiLspBackendResolution resolution) {
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     return switch (resolution.availability) {
@@ -3935,6 +3955,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
   }
 
@@ -3956,6 +3979,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
   }
 
@@ -3981,6 +4007,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
     if (locations.isNotEmpty) {
       unawaited(_loadLspLocationPreviews(locations, previewEpoch));
@@ -4009,6 +4038,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
   }
 
@@ -4033,6 +4065,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _findBarVisible = false;
       _replaceBarVisible = false;
       _goToLineVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
   }
 
@@ -4048,6 +4083,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _lspResultPreviewLoading = false;
       _lspResultPreviews = const <String, _EditorLocationPreview>{};
       _lspHoverResult = null;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
   }
 
@@ -4079,6 +4116,107 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return null;
     }
     return resolution;
+  }
+
+  Future<void> _formatDocument(String filePath) async {
+    final title = _localizedText(context, zh: '格式化文档', en: 'Format Document');
+    final precondition = _documentLspPreconditionMessage(filePath);
+    if (precondition != null) {
+      _showLspMessage(title: title, message: precondition);
+      return;
+    }
+
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      _showLspMessage(
+        title: title,
+        message: _localizedText(
+          context,
+          zh: '当前文件尚未准备好，稍后再试。',
+          en: 'The current file is not ready yet. Try again in a moment.',
+        ),
+      );
+      return;
+    }
+
+    _showLspLoading(title);
+    try {
+      final resolution = await _ensureLspBackend(filePath);
+      if (!mounted) {
+        return;
+      }
+      if (!resolution.isAvailable) {
+        _showLspMessage(
+          title: title,
+          message: _lspUnavailableMessage(resolution),
+        );
+        return;
+      }
+
+      final edits = await AiLspClientService.instance.formatDocument(
+        filePath: filePath,
+        language: resolution.language,
+        documentText: controller.text,
+        tabSize: context.read<SettingsController>().editorIndentSpaces,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (edits.isEmpty) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '格式化器没有返回可应用的修改。',
+            en: 'The formatter did not return any edits to apply.',
+          ),
+        );
+        return;
+      }
+
+      final nextText = _applyTextEdits(controller.text, edits);
+      if (nextText == controller.text) {
+        _showLspMessage(
+          title: title,
+          message: _localizedText(
+            context,
+            zh: '格式化结果与当前内容一致，没有产生新的文本变更。',
+            en: 'Formatting produced the same content, so no text changed.',
+          ),
+        );
+        return;
+      }
+
+      final currentSelection = controller.selection;
+      _commitProgrammaticEditorValueChange(
+        filePath,
+        controller,
+        TextEditingValue(
+          text: nextText,
+          selection: currentSelection.copyWith(
+            baseOffset: currentSelection.baseOffset.clamp(0, nextText.length),
+            extentOffset: currentSelection.extentOffset.clamp(
+              0,
+              nextText.length,
+            ),
+          ),
+        ),
+        dismissCompletionOverlay: true,
+      );
+      _showLspMessage(
+        title: title,
+        message: _localizedText(
+          context,
+          zh: '已应用 ${edits.length} 处格式化修改。',
+          en: 'Applied ${edits.length} formatting edits.',
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showLspMessage(title: title, message: '$error');
+    }
   }
 
   Future<void> _goToDefinitionAtCursor() async {
@@ -4221,6 +4359,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   void dispose() {
     _zoomCommitTimer?.cancel();
     _completionDebounceTimer?.cancel();
+    _signatureHelpDebounceTimer?.cancel();
     _dismissCompletionOverlay();
     _symbolController.removeListener(_applySymbolFilter);
     _symbolRefreshTimer?.cancel();
@@ -4260,6 +4399,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   // ── Find & Replace ──
 
   void _showFind() {
+    if (_findBarVisible && !_replaceBarVisible) {
+      _hideFindBar();
+      return;
+    }
     setState(() {
       _findBarVisible = true;
       _replaceBarVisible = false;
@@ -4268,6 +4411,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _projectToolchainBarVisible = false;
       _diagnosticsBarVisible = false;
       _lspResultBarVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _findFocusNode.requestFocus();
@@ -4275,6 +4421,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   void _showFindAndReplace() {
+    if (_findBarVisible && _replaceBarVisible) {
+      _hideFindBar();
+      return;
+    }
     setState(() {
       _findBarVisible = true;
       _replaceBarVisible = true;
@@ -4283,6 +4433,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _projectToolchainBarVisible = false;
       _diagnosticsBarVisible = false;
       _lspResultBarVisible = false;
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _findFocusNode.requestFocus();
@@ -4358,10 +4511,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _updateCursorPosition(controller);
     final focusNode = _focusNodes[widget.activeFilePath];
     focusNode?.requestFocus();
-    _scrollToLine(
-      widget.activeFilePath,
-      _lineForOffset(controller.text, offset),
-    );
+    _scrollToLine(widget.activeFilePath, _lineForOffset(controller, offset));
   }
 
   void _replaceCurrent() {
@@ -4420,6 +4570,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   void _showGoToLine() {
     final controller = _textControllers[widget.activeFilePath];
+    if (_goToLineVisible) {
+      setState(() => _goToLineVisible = false);
+      return;
+    }
     setState(() {
       _goToLineVisible = true;
       _findBarVisible = false;
@@ -4429,6 +4583,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _diagnosticsBarVisible = false;
       _lspResultBarVisible = false;
       _goToLineController.text = '';
+      _completionVisible = false;
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _goToLineFocusNode.requestFocus();
@@ -5234,169 +5391,175 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     child: Text(
                       isZh ? '项目级 LSP 状态' : 'Project LSP Status',
                       style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              _FindBarButton(
-                icon: Icons.refresh_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '重新解析当前文件后端',
-                  en: 'Re-resolve the backend for the current file',
-                ),
-                onPressed: () {
-                  unawaited(
-                    _ensureLspBackend(widget.activeFilePath, force: true),
-                  );
-                },
-                colorScheme: colorScheme,
-              ),
-              _FindBarButton(
-                icon: Icons.hub_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '查看后端详情',
-                  en: 'Inspect backend details',
-                ),
-                onPressed: () {
-                  unawaited(_showLspBackendStatusForActiveFile());
-                },
-                colorScheme: colorScheme,
-              ),
-              _FindBarButton(
-                icon: Icons.close_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭 (Esc)',
-                  en: 'Close (Esc)',
-                ),
-                onPressed: () {
-                  setState(() => _projectToolchainBarVisible = false);
-                },
-                colorScheme: colorScheme,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (isResolving)
-            Row(
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isZh
-                      ? '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…'
-                      : 'Rebinding the LSP backend for the current file after the project change or config update…',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            )
-          else ...[
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: isZh ? '项目语言' : 'Project language',
-              value: _programmingLanguageLabel(context, widget.projectLanguage),
-            ),
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: isZh ? '当前文件语言' : 'Current file',
-              value: _programmingLanguageLabel(context, effectiveFileLanguage),
-            ),
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: isZh ? '模式' : 'Mode',
-              value: modeValue,
-              valueColor: hasProjectOverride
-                  ? colorScheme.primary
-                  : colorScheme.onSurface,
-            ),
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: 'SDK',
-              value: sdkValue,
-              valueColor: widget.projectSdkPath.trim().isNotEmpty
-                  ? colorScheme.primary
-                  : colorScheme.onSurface,
-            ),
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: 'LSP',
-              value: lspValue,
-              valueColor: widget.projectLspPath.trim().isNotEmpty
-                  ? colorScheme.primary
-                  : colorScheme.onSurface,
-            ),
-            _buildProjectToolchainInfoRow(
-              colorScheme: colorScheme,
-              label: isZh ? '当前后端' : 'Effective backend',
-              value: backendValue,
-              valueColor: resolution?.isAvailable == true
-                  ? colorScheme.onSurface
-                  : (resolution == null
-                        ? colorScheme.onSurfaceVariant
-                        : colorScheme.error),
-            ),
-            if (resolution?.isAvailable == true)
-              _buildProjectToolchainInfoRow(
-                colorScheme: colorScheme,
-                label: isZh ? '工作区' : 'Workspace',
-                value: OpenHandPaths.shortenHomePath(resolution!.rootPath),
-              ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLowest.withValues(
-                  alpha: 0.92,
-                ),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.22),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isZh ? '来源树' : 'Source Tree',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  _buildProjectToolchainSourceTreeNode(
+                  _FindBarButton(
+                    icon: Icons.refresh_rounded,
+                    tooltip: _localizedText(
+                      context,
+                      zh: '重新解析当前文件后端',
+                      en: 'Re-resolve the backend for the current file',
+                    ),
+                    onPressed: () {
+                      unawaited(
+                        _ensureLspBackend(widget.activeFilePath, force: true),
+                      );
+                    },
                     colorScheme: colorScheme,
-                    node: sourceTree,
+                  ),
+                  _FindBarButton(
+                    icon: Icons.hub_rounded,
+                    tooltip: _localizedText(
+                      context,
+                      zh: '查看后端详情',
+                      en: 'Inspect backend details',
+                    ),
+                    onPressed: () {
+                      unawaited(_showLspBackendStatusForActiveFile());
+                    },
+                    colorScheme: colorScheme,
+                  ),
+                  _FindBarButton(
+                    icon: Icons.close_rounded,
+                    tooltip: _localizedText(
+                      context,
+                      zh: '关闭 (Esc)',
+                      en: 'Close (Esc)',
+                    ),
+                    onPressed: () {
+                      setState(() => _projectToolchainBarVisible = false);
+                    },
+                    colorScheme: colorScheme,
                   ),
                 ],
               ),
-            ),
-            if (resolution != null && !resolution.isAvailable)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: _buildDiagnosticsHint(
-                  colorScheme,
-                  _lspUnavailableMessage(resolution),
+              const SizedBox(height: 6),
+              if (isResolving)
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isZh
+                          ? '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…'
+                          : 'Rebinding the LSP backend for the current file after the project change or config update…',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: isZh ? '项目语言' : 'Project language',
+                  value: _programmingLanguageLabel(
+                    context,
+                    widget.projectLanguage,
+                  ),
                 ),
-              ),
-          ],
-        ],
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: isZh ? '当前文件语言' : 'Current file',
+                  value: _programmingLanguageLabel(
+                    context,
+                    effectiveFileLanguage,
+                  ),
+                ),
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: isZh ? '模式' : 'Mode',
+                  value: modeValue,
+                  valueColor: hasProjectOverride
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                ),
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: 'SDK',
+                  value: sdkValue,
+                  valueColor: widget.projectSdkPath.trim().isNotEmpty
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                ),
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: 'LSP',
+                  value: lspValue,
+                  valueColor: widget.projectLspPath.trim().isNotEmpty
+                      ? colorScheme.primary
+                      : colorScheme.onSurface,
+                ),
+                _buildProjectToolchainInfoRow(
+                  colorScheme: colorScheme,
+                  label: isZh ? '当前后端' : 'Effective backend',
+                  value: backendValue,
+                  valueColor: resolution?.isAvailable == true
+                      ? colorScheme.onSurface
+                      : (resolution == null
+                            ? colorScheme.onSurfaceVariant
+                            : colorScheme.error),
+                ),
+                if (resolution?.isAvailable == true)
+                  _buildProjectToolchainInfoRow(
+                    colorScheme: colorScheme,
+                    label: isZh ? '工作区' : 'Workspace',
+                    value: OpenHandPaths.shortenHomePath(resolution!.rootPath),
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerLowest.withValues(
+                      alpha: 0.92,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isZh ? '来源树' : 'Source Tree',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _buildProjectToolchainSourceTreeNode(
+                        colorScheme: colorScheme,
+                        node: sourceTree,
+                      ),
+                    ],
+                  ),
+                ),
+                if (resolution != null && !resolution.isAvailable)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: _buildDiagnosticsHint(
+                      colorScheme,
+                      _lspUnavailableMessage(resolution),
+                    ),
+                  ),
+              ],
+            ],
           ),
         ),
       ),
@@ -5413,75 +5576,579 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     setState(() => _goToLineVisible = false);
   }
 
+  EditorShortcutAction? _matchEditorShortcutAction(
+    Map<EditorShortcutAction, List<int>> bindings,
+    Set<int> pressedKeyIds,
+  ) {
+    if (pressedKeyIds.isEmpty) {
+      return null;
+    }
+    for (final action in EditorShortcutAction.values) {
+      final shortcutKeyIds = normalizeShortcutKeyIds(
+        bindings[action] ?? const <int>[],
+      );
+      if (shortcutKeyIds.isEmpty ||
+          shortcutKeyIds.length != pressedKeyIds.length) {
+        continue;
+      }
+      if (pressedKeyIds.containsAll(shortcutKeyIds)) {
+        return action;
+      }
+    }
+    return null;
+  }
+
+  Set<int> _pressedShortcutKeyIdsForEvent(KeyEvent event) {
+    return normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+  }
+
+  KeyEventResult _handleEditorShortcutKeyEvent(
+    String filePath,
+    KeyEvent event,
+  ) {
+    if (_handleCompletionKeyEvent(event)) {
+      return KeyEventResult.handled;
+    }
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (_handleEditorAutoIndentKeyEvent(filePath, event)) {
+      return KeyEventResult.handled;
+    }
+    if (_handleEditorCommentToggleKeyEvent(filePath, event)) {
+      return KeyEventResult.handled;
+    }
+    if (_handleEditorIndentationKeyEvent(filePath, event)) {
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_completionVisible) {
+        _dismissCompletionOverlay();
+        return KeyEventResult.handled;
+      }
+      if (_signatureHelpVisible) {
+        _hideSignatureHelpOverlay();
+        return KeyEventResult.handled;
+      }
+      if (_findBarVisible) {
+        _hideFindBar();
+        return KeyEventResult.handled;
+      }
+      if (_symbolBarVisible) {
+        _hideSymbolBar();
+        return KeyEventResult.handled;
+      }
+      if (_goToLineVisible ||
+          _diagnosticsBarVisible ||
+          _projectToolchainBarVisible ||
+          _lspResultBarVisible) {
+        setState(() {
+          _goToLineVisible = false;
+          _diagnosticsBarVisible = false;
+          _projectToolchainBarVisible = false;
+          _lspResultBarVisible = false;
+          _lspResultLoading = false;
+          _lspResultTitle = '';
+          _lspResultMessage = null;
+          _lspResultLocations = const <AiLspLocation>[];
+          _lspResultCodeActions = const <AiLspCodeAction>[];
+          _lspResultPreviewLoading = false;
+          _lspResultPreviews = const <String, _EditorLocationPreview>{};
+          _lspHoverResult = null;
+        });
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.f12) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        unawaited(_toggleFindReferencesAtCursor());
+      } else {
+        unawaited(_toggleDefinitionAtCursor());
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f2) {
+      _performEditorShortcutAction(EditorShortcutAction.renameSymbol, filePath);
+      return KeyEventResult.handled;
+    }
+
+    final settingsController = context.read<SettingsController>();
+    final action = _matchEditorShortcutAction(
+      settingsController.editorShortcutBindings,
+      _pressedShortcutKeyIdsForEvent(event),
+    );
+    if (action != null) {
+      _performEditorShortcutAction(action, filePath);
+      return KeyEventResult.handled;
+    }
+
+    final metaPressed =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (!metaPressed) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.minus) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _foldAll(filePath);
+      } else {
+        _foldAtCursor(filePath);
+      }
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.equal) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _unfoldAll(filePath);
+      } else {
+        _unfoldAtCursor(filePath);
+      }
+      return KeyEventResult.handled;
+    }
+    if (HardwareKeyboard.instance.isAltPressed) {
+      if (event.logicalKey == LogicalKeyboardKey.keyM) {
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.function'),
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyV) {
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.variable'),
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyC) {
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.constant'),
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyN) {
+        unawaited(_executeRefactorCodeAction(filePath, 'refactor.inline'));
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  bool _handleEditorIndentationKeyEvent(String filePath, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.tab) {
+      return false;
+    }
+    if (!(_focusNodes[filePath]?.hasFocus ?? false)) {
+      return false;
+    }
+    if (HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isAltPressed) {
+      return false;
+    }
+
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return true;
+    }
+    final settingsController = context.read<SettingsController>();
+    if (controller.selection.isCollapsed) {
+      final matchedAction = _matchEditorShortcutAction(
+        settingsController.editorShortcutBindings,
+        _pressedShortcutKeyIdsForEvent(event),
+      );
+      if (matchedAction != null) {
+        return false;
+      }
+    }
+    final edit = applyEditorIndentation(
+      text: controller.text,
+      selection: controller.selection,
+      indentSpaces: settingsController.editorIndentSpaces,
+      outdent: HardwareKeyboard.instance.isShiftPressed,
+    );
+    if (!edit.didChange) {
+      return true;
+    }
+
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: edit.text,
+        selection: edit.selection,
+      ),
+      dismissCompletionOverlay: true,
+    );
+    return true;
+  }
+
+  bool _handleEditorAutoIndentKeyEvent(String filePath, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.enter &&
+        event.logicalKey != LogicalKeyboardKey.numpadEnter) {
+      return false;
+    }
+    if (!(_focusNodes[filePath]?.hasFocus ?? false)) {
+      return false;
+    }
+    if (HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isAltPressed) {
+      return false;
+    }
+
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return true;
+    }
+    final edit = applyEditorAutoIndentNewline(
+      text: controller.text,
+      selection: controller.selection,
+      indentSpaces: context.read<SettingsController>().editorIndentSpaces,
+      language: _resolvedLanguageForFile(filePath),
+    );
+    if (!edit.didChange) {
+      return true;
+    }
+
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: edit.text,
+        selection: edit.selection,
+      ),
+      dismissCompletionOverlay: true,
+    );
+    return true;
+  }
+
+  bool _handleEditorCommentToggleKeyEvent(String filePath, KeyEvent event) {
+    if (event.logicalKey != LogicalKeyboardKey.slash &&
+        event.logicalKey != LogicalKeyboardKey.numpadDivide) {
+      return false;
+    }
+    if (!(_focusNodes[filePath]?.hasFocus ?? false)) {
+      return false;
+    }
+    final primaryModifier =
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+    if (!primaryModifier || HardwareKeyboard.instance.isAltPressed) {
+      return false;
+    }
+
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return true;
+    }
+    final commentStyle = editorCommentStyleForLanguage(
+      _resolvedLanguageForFile(filePath),
+    );
+    final title = _localizedText(context, zh: '切换注释', en: 'Toggle Comment');
+    if (commentStyle == null) {
+      _showLspMessage(
+        title: title,
+        message: _localizedText(
+          context,
+          zh: '当前语言暂未配置注释策略，无法执行注释切换。',
+          en: 'This language does not have a configured comment strategy yet, so comment toggling is unavailable.',
+        ),
+      );
+      return true;
+    }
+
+    final edit = applyEditorToggleComment(
+      text: controller.text,
+      selection: controller.selection,
+      commentStyle: commentStyle,
+    );
+    if (!edit.didChange) {
+      return true;
+    }
+
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: edit.text,
+        selection: edit.selection,
+      ),
+      dismissCompletionOverlay: true,
+    );
+    return true;
+  }
+
+  void _performEditorShortcutAction(
+    EditorShortcutAction action,
+    String filePath,
+  ) {
+    switch (action) {
+      case EditorShortcutAction.saveFile:
+        _saveFile(filePath);
+      case EditorShortcutAction.triggerCompletion:
+        _requestCompletion(explicit: true);
+      case EditorShortcutAction.showSignatureHelp:
+        unawaited(_toggleSignatureHelp());
+      case EditorShortcutAction.find:
+        _showFind();
+      case EditorShortcutAction.replace:
+        _showFindAndReplace();
+      case EditorShortcutAction.goToLine:
+        _showGoToLine();
+      case EditorShortcutAction.showDocumentSymbols:
+        _showSymbolBar();
+      case EditorShortcutAction.showWorkspaceSymbols:
+        _showWorkspaceSymbolBar();
+      case EditorShortcutAction.goToDefinition:
+        unawaited(_toggleDefinitionAtCursor());
+      case EditorShortcutAction.findReferences:
+        unawaited(_toggleFindReferencesAtCursor());
+      case EditorShortcutAction.goToImplementation:
+        unawaited(_toggleImplementationAtCursor());
+      case EditorShortcutAction.showHoverInfo:
+        unawaited(_toggleHoverAtCursor());
+      case EditorShortcutAction.renameSymbol:
+        unawaited(_renameSymbolAtCursor());
+      case EditorShortcutAction.showCodeActions:
+        unawaited(_toggleCodeActionsAtCursor());
+      case EditorShortcutAction.formatDocument:
+        unawaited(_formatDocument(filePath));
+    }
+  }
+
+  bool _isLocationResultPanelOpen(String title) {
+    return _lspResultBarVisible &&
+        !_lspResultLoading &&
+        _lspResultTitle == title &&
+        _lspResultLocations.isNotEmpty;
+  }
+
+  Future<void> _toggleDefinitionAtCursor() async {
+    final title = _localizedText(context, zh: '定义跳转', en: 'Go to Definition');
+    if (_isLocationResultPanelOpen(title)) {
+      _hideLspResultBar();
+      return;
+    }
+    await _goToDefinitionAtCursor();
+  }
+
+  Future<void> _toggleFindReferencesAtCursor() async {
+    final title = _localizedText(context, zh: '引用查找', en: 'Find References');
+    if (_isLocationResultPanelOpen(title)) {
+      _hideLspResultBar();
+      return;
+    }
+    await _findReferencesAtCursor();
+  }
+
+  Future<void> _toggleImplementationAtCursor() async {
+    final title = _localizedText(
+      context,
+      zh: '跳转到实现',
+      en: 'Go to Implementation',
+    );
+    if (_isLocationResultPanelOpen(title)) {
+      _hideLspResultBar();
+      return;
+    }
+    await _goToImplementationAtCursor();
+  }
+
+  Future<void> _toggleHoverAtCursor() async {
+    if (_lspResultBarVisible && !_lspResultLoading && _lspHoverResult != null) {
+      _hideLspResultBar();
+      return;
+    }
+    await _showHoverAtCursor();
+  }
+
+  Future<void> _toggleCodeActionsAtCursor() async {
+    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
+    if (_lspResultBarVisible &&
+        !_lspResultLoading &&
+        _lspResultTitle == title &&
+        _lspResultCodeActions.isNotEmpty) {
+      _hideLspResultBar();
+      return;
+    }
+    await _showCodeActionsAtCursor();
+  }
+
+  void _hideSignatureHelpOverlay() {
+    _signatureHelpDebounceTimer?.cancel();
+    _signatureHelpRequestEpoch += 1;
+    if (!mounted) {
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
+      return;
+    }
+    if (!_signatureHelpVisible && _signatureHelp == null) {
+      return;
+    }
+    setState(() {
+      _signatureHelpVisible = false;
+      _signatureHelp = null;
+    });
+  }
+
+  Future<void> _toggleSignatureHelp({bool explicit = true}) async {
+    if (_signatureHelpVisible) {
+      _hideSignatureHelpOverlay();
+      return;
+    }
+    _triggerSignatureHelp(explicit: explicit);
+  }
+
+  void _triggerSignatureHelp({
+    bool explicit = false,
+    String? triggerCharacter,
+  }) {
+    _signatureHelpDebounceTimer?.cancel();
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+    final offset = controller.selection.baseOffset;
+    if (offset < 0 || offset > controller.text.length) {
+      return;
+    }
+    if (!explicit && !_signatureHelpVisible && triggerCharacter == null) {
+      return;
+    }
+    final delay = explicit
+        ? Duration.zero
+        : (controller.useReducedInteractionMode
+              ? const Duration(milliseconds: 220)
+              : const Duration(milliseconds: 120));
+    if (delay == Duration.zero) {
+      unawaited(
+        _requestSignatureHelp(
+          explicit: explicit,
+          triggerCharacter: triggerCharacter,
+          isRetrigger: _signatureHelpVisible,
+        ),
+      );
+      return;
+    }
+    _signatureHelpDebounceTimer = Timer(delay, () {
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        _requestSignatureHelp(
+          explicit: explicit,
+          triggerCharacter: triggerCharacter,
+          isRetrigger: _signatureHelpVisible,
+        ),
+      );
+    });
+  }
+
+  Future<void> _requestSignatureHelp({
+    bool explicit = false,
+    String? triggerCharacter,
+    bool isRetrigger = false,
+  }) async {
+    final filePath = widget.activeFilePath;
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      _hideSignatureHelpOverlay();
+      return;
+    }
+    final offset = controller.selection.baseOffset;
+    if (offset < 0 || offset > controller.text.length) {
+      _hideSignatureHelpOverlay();
+      return;
+    }
+
+    final revision = controller.textRevision;
+    if (!explicit &&
+        _lastSignatureHelpRequestFilePath == filePath &&
+        _lastSignatureHelpRequestOffset == offset &&
+        _lastSignatureHelpRequestRevision == revision) {
+      return;
+    }
+    _lastSignatureHelpRequestFilePath = filePath;
+    _lastSignatureHelpRequestOffset = offset;
+    _lastSignatureHelpRequestRevision = revision;
+
+    final title = _localizedText(context, zh: '参数信息', en: 'Signature Help');
+    final precondition = _cursorLspPreconditionMessage(filePath);
+    if (precondition != null) {
+      if (explicit && mounted) {
+        _showLspMessage(title: title, message: precondition);
+      }
+      _hideSignatureHelpOverlay();
+      return;
+    }
+
+    final resolution = await _ensureLspBackend(filePath);
+    if (!resolution.isAvailable) {
+      if (explicit && mounted) {
+        _showLspMessage(
+          title: title,
+          message: _lspUnavailableMessage(resolution),
+        );
+      }
+      _hideSignatureHelpOverlay();
+      return;
+    }
+
+    final position = controller._lineColumnForOffset(offset);
+    final epoch = ++_signatureHelpRequestEpoch;
+    try {
+      final help = await AiLspClientService.instance.signatureHelp(
+        filePath: filePath,
+        line: position.line,
+        character: position.column,
+        language: resolution.language,
+        documentText: controller.text,
+        triggerCharacter: triggerCharacter,
+        isRetrigger: isRetrigger,
+      );
+      if (!mounted || epoch != _signatureHelpRequestEpoch) {
+        return;
+      }
+      if (help == null || help.isEmpty || help.selectedSignature == null) {
+        if (explicit) {
+          _showLspMessage(
+            title: title,
+            message: _localizedText(
+              context,
+              zh: '当前光标位置没有可显示的参数签名信息。',
+              en: 'There is no signature help available at the current cursor position.',
+            ),
+          );
+        }
+        _hideSignatureHelpOverlay();
+        return;
+      }
+      setState(() {
+        _signatureHelp = help;
+        _signatureHelpVisible = true;
+      });
+    } catch (error) {
+      if (!mounted || epoch != _signatureHelpRequestEpoch) {
+        return;
+      }
+      if (explicit) {
+        _showLspMessage(title: title, message: '$error');
+      }
+      _hideSignatureHelpOverlay();
+    }
+  }
+
   // ── Cursor position tracking ──
 
   // ── Code Completion (Autocomplete) ──
 
-  void _triggerCompletion() {
-    _completionDebounceTimer?.cancel();
-
-    // Check if the character just typed is a trigger character
-    final controller = _textControllers[widget.activeFilePath];
-    if (controller != null) {
-      final offset = controller.selection.baseOffset;
-      if (offset > 0 && offset <= controller.text.length) {
-        final ch = controller.text[offset - 1];
-        if (ch == '.' || ch == ':' || ch == '(' || ch == '<') {
-          // Trigger immediately for trigger characters
-          _requestCompletion();
-          return;
-        }
-      }
-    }
-
-    _completionDebounceTimer = Timer(const Duration(milliseconds: 150), () {
-      if (!mounted) return;
-      _requestCompletion();
-    });
-  }
-
-  void _dismissCompletionOverlay() {
-    if (_completionVisible) {
-      setState(() => _completionVisible = false);
-    }
-  }
-
-  Future<void> _requestCompletion() async {
-    final filePath = widget.activeFilePath;
-    final controller = _textControllers[filePath];
-    if (controller == null) {
-      debugPrint('[EditorCompletion] _requestCompletion: no controller for $filePath');
-      return;
-    }
-    final offset = controller.selection.baseOffset;
-    // Guard against invalid or unset selection (-1) and offset beyond text.
-    if (offset < 0) {
-      debugPrint('[EditorCompletion] _requestCompletion: invalid selection offset=$offset');
-      return;
-    }
-
-    // Compute current line and column
-    final text = controller.text;
-    // Skip completion request if text is empty or offset exceeds length
-    // (can happen briefly during rapid edits).
-    if (text.isEmpty || offset > text.length) {
-      debugPrint('[EditorCompletion] _requestCompletion: empty or offset beyond text '
-          '(textLen=${text.length}, offset=$offset)');
-      return;
-    }
-
-    var line = 1;
-    var col = 1;
-    for (var i = 0; i < offset && i < text.length; i++) {
-      if (text.codeUnitAt(i) == 10) {
-        line++;
-        col = 1;
-      } else {
-        col++;
-      }
-    }
-
-    // Extract the word prefix being typed
+  String _identifierPrefixAtOffset(String text, int offset) {
     var prefixStart = offset;
     while (prefixStart > 0) {
       final ch = text.codeUnitAt(prefixStart - 1);
@@ -5491,14 +6158,157 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         break;
       }
     }
-    final prefix = text.substring(prefixStart, offset);
+    return text.substring(prefixStart, offset);
+  }
+
+  String? _completionTriggerCharacterAtOffset(String text, int offset) {
+    if (offset <= 0 || offset > text.length) {
+      return null;
+    }
+    final previousChar = text.codeUnitAt(offset - 1);
+    if (!_isCompletionTriggerCharacter(previousChar)) {
+      return null;
+    }
+    return String.fromCharCode(previousChar);
+  }
+
+  String? _signatureTriggerCharacterAtOffset(String text, int offset) {
+    if (offset <= 0 || offset > text.length) {
+      return null;
+    }
+    final previousChar = text.codeUnitAt(offset - 1);
+    if (!_isSignatureTriggerCharacter(previousChar)) {
+      return null;
+    }
+    return String.fromCharCode(previousChar);
+  }
+
+  bool _shouldAutoTriggerCompletion(
+    _HighlightingTextController controller, {
+    required String prefix,
+    required String? triggerCharacter,
+  }) {
+    if (triggerCharacter != null) {
+      return true;
+    }
+    if (_completionVisible) {
+      return prefix.isNotEmpty;
+    }
+    if (controller.preferExplicitCompletion) {
+      return prefix.length >= 2;
+    }
+    if (controller.useReducedInteractionMode) {
+      return prefix.isNotEmpty;
+    }
+    return true;
+  }
+
+  void _triggerCompletion() {
+    _completionDebounceTimer?.cancel();
+
+    final controller = _textControllers[widget.activeFilePath];
+    if (controller == null) {
+      return;
+    }
+
+    final offset = controller.selection.baseOffset;
+    final text = controller.text;
+    if (offset < 0 || offset > text.length || text.isEmpty) {
+      _dismissCompletionOverlay();
+      return;
+    }
+
+    final triggerCharacter = _completionTriggerCharacterAtOffset(text, offset);
+    if (triggerCharacter != null) {
+      _requestCompletion(
+        explicit: true,
+        triggerCharacter: triggerCharacter,
+        isRetrigger: _completionVisible,
+      );
+      return;
+    }
+
+    final prefix = _identifierPrefixAtOffset(text, offset);
+    if (!_shouldAutoTriggerCompletion(
+      controller,
+      prefix: prefix,
+      triggerCharacter: triggerCharacter,
+    )) {
+      _dismissCompletionOverlay();
+      return;
+    }
+
+    final debounce = controller.useReducedInteractionMode
+        ? const Duration(milliseconds: 260)
+        : const Duration(milliseconds: 150);
+    _completionDebounceTimer = Timer(debounce, () {
+      if (!mounted) return;
+      _requestCompletion(isRetrigger: _completionVisible);
+    });
+  }
+
+  void _dismissCompletionOverlay() {
+    if (_completionVisible) {
+      setState(() => _completionVisible = false);
+    }
+  }
+
+  Future<void> _requestCompletion({
+    bool explicit = false,
+    String? triggerCharacter,
+    bool isRetrigger = false,
+  }) async {
+    final filePath = widget.activeFilePath;
+    final controller = _textControllers[filePath];
+    if (controller == null) {
+      return;
+    }
+    final offset = controller.selection.baseOffset;
+    // Guard against invalid or unset selection (-1) and offset beyond text.
+    if (offset < 0) {
+      return;
+    }
+
+    // Compute current line and column
+    final text = controller.text;
+    // Skip completion request if text is empty or offset exceeds length
+    // (can happen briefly during rapid edits).
+    if (text.isEmpty || offset > text.length) {
+      return;
+    }
+
+    final position = controller._lineColumnForOffset(offset);
+    final line = position.line;
+    final col = position.column;
+
+    final normalizedTriggerCharacter = triggerCharacter?.trim().isEmpty == true
+        ? null
+        : triggerCharacter;
+    final prefix = _identifierPrefixAtOffset(text, offset);
     _completionPrefix = prefix;
 
-    final epoch = ++_completionRequestEpoch;
+    if (!explicit &&
+        !_shouldAutoTriggerCompletion(
+          controller,
+          prefix: prefix,
+          triggerCharacter: normalizedTriggerCharacter,
+        )) {
+      _dismissCompletionOverlay();
+      return;
+    }
 
-    debugPrint('[EditorCompletion] _requestCompletion: sending LSP completion '
-        '(file=$filePath, line=$line, col=$col, prefix="$prefix", '
-        'textLen=${text.length}, epoch=$epoch)');
+    final revision = controller.textRevision;
+    if (!explicit &&
+        _lastCompletionRequestFilePath == filePath &&
+        _lastCompletionRequestOffset == offset &&
+        _lastCompletionRequestRevision == revision) {
+      return;
+    }
+    _lastCompletionRequestFilePath = filePath;
+    _lastCompletionRequestOffset = offset;
+    _lastCompletionRequestRevision = revision;
+
+    final epoch = ++_completionRequestEpoch;
 
     try {
       final items = await AiLspClientService.instance.completion(
@@ -5506,14 +6316,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         line: line,
         character: col,
         documentText: text,
+        triggerCharacter: normalizedTriggerCharacter,
+        isRetrigger: isRetrigger,
       );
       if (!mounted || epoch != _completionRequestEpoch) {
-        debugPrint('[EditorCompletion] _requestCompletion: stale response '
-            '(epoch=$epoch, current=$_completionRequestEpoch, mounted=$mounted)');
         return;
       }
-      debugPrint('[EditorCompletion] _requestCompletion: received ${items.length} items '
-          '(epoch=$epoch)');
       _completionItems = items;
       _filterCompletionItems();
       if (_filteredCompletionItems.isNotEmpty) {
@@ -5521,9 +6329,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       } else {
         _dismissCompletionOverlay();
       }
-    } catch (e) {
-      debugPrint('[EditorCompletion] _requestCompletion: ERROR $e '
-          '(file=$filePath, epoch=$epoch)');
+    } catch (_) {
       // Completion request failed (e.g. LSP backend unavailable or timeout).
       // Silently dismiss overlay; the status bar already shows backend status.
       if (mounted && epoch == _completionRequestEpoch) {
@@ -5564,7 +6370,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
     final text = controller.text;
     var prefixStart = offset;
-    while (prefixStart > 0 && _isIdentifierChar(text.codeUnitAt(prefixStart - 1))) {
+    while (prefixStart > 0 &&
+        _isIdentifierChar(text.codeUnitAt(prefixStart - 1))) {
       prefixStart--;
     }
 
@@ -5574,19 +6381,44 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final newText = '$before$insertText$after';
     final newOffset = prefixStart + insertText.length;
 
-    controller.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: newOffset),
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newOffset),
+      ),
+      dismissCompletionOverlay: true,
     );
-    _dismissCompletionOverlay();
-    // Mark file dirty & refresh diagnostics
-    if (mounted) {
-      setState(() {
-        _fileDirty[filePath] = true;
-        _diagnosticsStaleFiles.add(filePath);
-      });
-      _scheduleDiagnosticsRefresh(filePath);
-      _updateCursorPosition(controller);
+  }
+
+  void _commitProgrammaticEditorValueChange(
+    String filePath,
+    _HighlightingTextController controller,
+    TextEditingValue value, {
+    bool dismissCompletionOverlay = false,
+  }) {
+    controller.value = value;
+    if (dismissCompletionOverlay) {
+      _dismissCompletionOverlay();
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _fileDirty[filePath] = true;
+      _diagnosticsStaleFiles.add(filePath);
+    });
+    _scheduleDiagnosticsRefresh(filePath);
+    _updateCursorPosition(controller);
+    if (_findBarVisible && _findController.text.isNotEmpty) {
+      _updateFindMatches(_findController.text);
+    }
+    if (_symbolBarVisible) {
+      _scheduleSymbolRefresh();
+    }
+    if (_signatureHelpVisible) {
+      _triggerSignatureHelp();
     }
   }
 
@@ -5626,6 +6458,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         (ch >= 48 && ch <= 57) || // 0-9
         ch == 95 || // _
         ch == 36; // $
+  }
+
+  static bool _isCompletionTriggerCharacter(int ch) {
+    return ch == 46 || ch == 58 || ch == 40 || ch == 60;
+  }
+
+  static bool _isSignatureTriggerCharacter(int ch) {
+    return ch == 40 || ch == 44;
   }
 
   static IconData _completionItemKindIcon(int? kind) {
@@ -5678,17 +6518,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   void _updateCursorPosition(_HighlightingTextController controller) {
     final offset = controller.selection.baseOffset;
     if (offset < 0) return;
-    final text = controller.text;
-    var line = 1;
-    var col = 1;
-    for (var i = 0; i < offset && i < text.length; i++) {
-      if (text.codeUnitAt(i) == 10) {
-        line++;
-        col = 1;
-      } else {
-        col++;
-      }
-    }
+    final position = controller._lineColumnForOffset(offset);
+    final line = position.line;
+    final col = position.column;
     if (_cursorLine != line || _cursorColumn != col) {
       setState(() {
         _cursorLine = line;
@@ -6365,16 +7197,18 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ],
           ),
           const SizedBox(height: 6),
-          Flexible(child: _buildDiagnosticsContent(
-            colorScheme: colorScheme,
-            isZh: isZh,
-            filePath: filePath,
-            supportsDiagnostics: supportsDiagnostics,
-            diagnostics: diagnostics,
-            isLoading: isLoading,
-            isResolvingBackend: isResolvingBackend,
-            isStale: isStale,
-          )),
+          Flexible(
+            child: _buildDiagnosticsContent(
+              colorScheme: colorScheme,
+              isZh: isZh,
+              filePath: filePath,
+              supportsDiagnostics: supportsDiagnostics,
+              diagnostics: diagnostics,
+              isLoading: isLoading,
+              isResolvingBackend: isResolvingBackend,
+              isStale: isStale,
+            ),
+          ),
         ],
       ),
     );
@@ -6404,10 +7238,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           const SizedBox(width: 8),
           Text(
             isZh ? '正在连接 LSP 后端…' : 'Resolving LSP backend…',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
         ],
       );
@@ -6432,10 +7263,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           const SizedBox(width: 8),
           Text(
             isZh ? '正在等待 LSP 诊断结果…' : 'Waiting for LSP diagnostics…',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
         ],
       );
@@ -6457,10 +7285,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         if (diagnostics.isEmpty)
           Text(
             isZh ? '未发现诊断问题。' : 'No diagnostics found.',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           )
         else
           Flexible(
@@ -6549,6 +7374,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final hasCodeActions = _lspResultCodeActions.isNotEmpty;
     final hover = _lspHoverResult;
     final message = _lspResultMessage;
+    final hasScrollableContent = hover != null || hasLocations || hasCodeActions;
     final resultCount = hasLocations
         ? _lspResultLocations.length
         : hasCodeActions
@@ -6568,6 +7394,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
@@ -6646,287 +7473,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           else ...[
             if (message != null) ...[
               _buildDiagnosticsHint(colorScheme, message),
-              if (hover != null || hasLocations || hasCodeActions)
-                const SizedBox(height: 8),
+              if (hasScrollableContent) const SizedBox(height: 8),
             ],
-            if (hover != null)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: SingleChildScrollView(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerLowest.withValues(
-                        alpha: 0.9,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: colorScheme.outlineVariant.withValues(
-                          alpha: 0.2,
-                        ),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: hover.markdown?.trim().isNotEmpty == true
-                        ? _SafeMarkdownBody(
-                            data: hover.markdown!,
-                            selectable: true,
-                            parseKey: hover.markdown!,
-                            styleSheet: _buildLspHoverMarkdownStyleSheet(
-                              theme,
-                              colorScheme,
-                            ),
-                          )
-                        : SelectableText(
-                            hover.renderedText,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.45,
-                              color: colorScheme.onSurface,
-                              fontFamily:
-                                  'JetBrains Mono, Menlo, Consolas, monospace',
-                            ),
-                          ),
-                  ),
-                ),
-              )
-            else if (hasCodeActions)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _lspResultCodeActions.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
-                  ),
-                  itemBuilder: (context, index) {
-                    final action = _lspResultCodeActions[index];
-                    final isDisabled = action.isDisabled;
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: isDisabled
-                            ? null
-                            : () {
-                                unawaited(_applyCodeAction(action));
-                              },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                _codeActionIcon(action),
-                                size: 16,
-                                color: isDisabled
-                                    ? colorScheme.onSurfaceVariant.withValues(
-                                        alpha: 0.45,
-                                      )
-                                    : colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            action.title,
-                                            style: TextStyle(
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.w600,
-                                              color: isDisabled
-                                                  ? colorScheme.onSurfaceVariant
-                                                  : colorScheme.onSurface,
-                                            ),
-                                          ),
-                                        ),
-                                        if (action.isPreferred)
-                                          Icon(
-                                            Icons.star_rounded,
-                                            size: 14,
-                                            color: colorScheme.primary,
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      _codeActionSummary(action),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDisabled
-                                            ? colorScheme.onSurfaceVariant
-                                                  .withValues(alpha: 0.7)
-                                            : colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            else if (hasLocations)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _lspResultLocations.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.15),
-                  ),
-                  itemBuilder: (context, index) {
-                    final location = _lspResultLocations[index];
-                    final displayPath = _displayPathForLspLocation(location);
-                    final preview =
-                        _lspResultPreviews[_locationPreviewKey(location)];
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          unawaited(_navigateToLspLocation(location));
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 2,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.place_outlined,
-                                size: 16,
-                                color: colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p.basename(location.filePath),
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '$displayPath  •  ${location.line}:${location.character}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: colorScheme.onSurfaceVariant,
-                                        fontFamily: 'SF Mono, Menlo, monospace',
-                                      ),
-                                    ),
-                                    if (preview != null) ...[
-                                      const SizedBox(height: 6),
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme
-                                              .surfaceContainerLowest
-                                              .withValues(alpha: 0.9),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          border: Border.all(
-                                            color: colorScheme.outlineVariant
-                                                .withValues(alpha: 0.18),
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            for (final line in preview.lines)
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 1,
-                                                    ),
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 34,
-                                                      child: Text(
-                                                        '${line.lineNumber}',
-                                                        textAlign:
-                                                            TextAlign.right,
-                                                        style: TextStyle(
-                                                          fontSize: 10.5,
-                                                          color:
-                                                              line.isHighlight
-                                                              ? colorScheme
-                                                                    .primary
-                                                              : colorScheme
-                                                                    .onSurfaceVariant,
-                                                          fontFamily:
-                                                              'SF Mono, Menlo, monospace',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        line.text.isEmpty
-                                                            ? ' '
-                                                            : line.text,
-                                                        style: TextStyle(
-                                                          fontSize: 11.5,
-                                                          fontWeight:
-                                                              line.isHighlight
-                                                              ? FontWeight.w600
-                                                              : FontWeight.w400,
-                                                          color:
-                                                              line.isHighlight
-                                                              ? colorScheme
-                                                                    .onSurface
-                                                              : colorScheme
-                                                                    .onSurfaceVariant,
-                                                          fontFamily:
-                                                              'JetBrains Mono, Menlo, Consolas, monospace',
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+            if (hasScrollableContent)
+              Flexible(
+                child: _buildLspScrollableContent(
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  hover: hover,
                 ),
               )
             else if (message == null)
@@ -6942,6 +7496,263 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildLspScrollableContent({
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    required AiLspHoverResult? hover,
+  }) {
+    if (hover != null) {
+      return SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLowest.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+              width: 0.5,
+            ),
+          ),
+          child: hover.markdown?.trim().isNotEmpty == true
+              ? _SafeMarkdownBody(
+                  data: hover.markdown!,
+                  selectable: true,
+                  parseKey: hover.markdown!,
+                  styleSheet: _buildLspHoverMarkdownStyleSheet(
+                    theme,
+                    colorScheme,
+                  ),
+                )
+              : SelectableText(
+                  hover.renderedText,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    color: colorScheme.onSurface,
+                    fontFamily:
+                        'JetBrains Mono, Menlo, Consolas, monospace',
+                  ),
+                ),
+        ),
+      );
+    }
+
+    if (_lspResultCodeActions.isNotEmpty) {
+      return ListView.separated(
+        padding: EdgeInsets.zero,
+        itemCount: _lspResultCodeActions.length,
+        separatorBuilder: (_, _) => Divider(
+          height: 1,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+        ),
+        itemBuilder: (context, index) {
+          final action = _lspResultCodeActions[index];
+          final isDisabled = action.isDisabled;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      unawaited(_applyCodeAction(action));
+                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _codeActionIcon(action),
+                      size: 16,
+                      color: isDisabled
+                          ? colorScheme.onSurfaceVariant.withValues(alpha: 0.45)
+                          : colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  action.title,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDisabled
+                                        ? colorScheme.onSurfaceVariant
+                                        : colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              if (action.isPreferred)
+                                Icon(
+                                  Icons.star_rounded,
+                                  size: 14,
+                                  color: colorScheme.primary,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _codeActionSummary(action),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDisabled
+                                  ? colorScheme.onSurfaceVariant.withValues(
+                                      alpha: 0.7,
+                                    )
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: _lspResultLocations.length,
+      separatorBuilder: (_, _) => Divider(
+        height: 1,
+        color: colorScheme.outlineVariant.withValues(alpha: 0.15),
+      ),
+      itemBuilder: (context, index) {
+        final location = _lspResultLocations[index];
+        final displayPath = _displayPathForLspLocation(location);
+        final preview = _lspResultPreviews[_locationPreviewKey(location)];
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              unawaited(_navigateToLspLocation(location));
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          p.basename(location.filePath),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$displayPath  •  ${location.line}:${location.character}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: colorScheme.onSurfaceVariant,
+                            fontFamily: 'SF Mono, Menlo, monospace',
+                          ),
+                        ),
+                        if (preview != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerLowest
+                                  .withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: colorScheme.outlineVariant.withValues(
+                                  alpha: 0.18,
+                                ),
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final line in preview.lines)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 1,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 34,
+                                          child: Text(
+                                            '${line.lineNumber}',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              color: line.isHighlight
+                                                  ? colorScheme.primary
+                                                  : colorScheme
+                                                        .onSurfaceVariant,
+                                              fontFamily:
+                                                  'SF Mono, Menlo, monospace',
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            line.text.isEmpty ? ' ' : line.text,
+                                            style: TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: line.isHighlight
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w400,
+                                              color: line.isHighlight
+                                                  ? colorScheme.onSurface
+                                                  : colorScheme
+                                                        .onSurfaceVariant,
+                                              fontFamily:
+                                                  'JetBrains Mono, Menlo, Consolas, monospace',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -7206,6 +8017,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   // ── Status bar UI ──
 
   Widget _buildStatusBar(ColorScheme colorScheme) {
+    final settingsController = context.watch<SettingsController>();
     final language = _resolvedLanguageForFile(widget.activeFilePath);
     final zoomPct = (_fontSize / _editorFontSizeDefault * 100).round();
     final diagnosticsLabel = _diagnosticsStatusLabel(
@@ -7233,6 +8045,17 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       context,
       zh: '代码操作',
       en: 'Code Actions',
+    );
+    final formatTitle = _localizedText(
+      context,
+      zh: '格式化文档',
+      en: 'Format Document',
+    );
+    final formatShortcut = formatShortcutLabel(
+      settingsController.editorShortcutBindings[
+            EditorShortcutAction.formatDocument
+          ] ??
+          const <int>[],
     );
     final hoverTitle = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');
     final backendTitle = _localizedText(
@@ -7502,6 +8325,23 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultTitle == codeActionsTitle,
                     foregroundColor: lspActionColor,
                   ),
+                  const SizedBox(width: 4),
+                  _buildStatusChip(
+                    colorScheme: colorScheme,
+                    icon: Icons.auto_fix_high_rounded,
+                    label: _localizedText(context, zh: '格式化', en: 'Format'),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '格式化当前文件 ($formatShortcut)',
+                      en: 'Format the current file ($formatShortcut)',
+                    ),
+                    onTap: () {
+                      unawaited(_formatDocument(widget.activeFilePath));
+                    },
+                    active:
+                        _lspResultBarVisible && _lspResultTitle == formatTitle,
+                    foregroundColor: lspActionColor,
+                  ),
                 ],
               ),
             ),
@@ -7598,8 +8438,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               child: Text(isZh ? '取消' : 'Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.of(dialogContext)
-                  .pop(_UnsavedCloseAction.discard),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(_UnsavedCloseAction.discard),
               child: Text(
                 isZh ? '不保存' : "Don't Save",
                 style: TextStyle(color: colorScheme.error),
@@ -7887,10 +8727,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   static const _ctxOpenInExplorer = 'open_in_explorer';
   static const _ctxCopyPath = 'copy_path';
 
-  void _showEditorCodeContextMenu(
-    String filePath,
-    Offset globalPosition,
-  ) {
+  void _showEditorCodeContextMenu(String filePath, Offset globalPosition) {
     unawaited(_showEditorCodeContextMenuAsync(filePath, globalPosition));
   }
 
@@ -7945,7 +8782,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             Icon(icon, size: 18, color: iconColor),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(label, style: textColor != null ? TextStyle(color: textColor) : null),
+              child: Text(
+                label,
+                style: textColor != null ? TextStyle(color: textColor) : null,
+              ),
             ),
             if (shortcut != null) shortcutLabel(shortcut),
             if (hasSubmenu) submenuIndicator(),
@@ -8129,10 +8969,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   shortcut,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -8199,11 +9038,17 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       case 'code_actions':
         unawaited(_showCodeActionsAtCursor());
       case 'extract_method':
-        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.function'));
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.function'),
+        );
       case 'extract_variable':
-        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.variable'));
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.variable'),
+        );
       case 'extract_constant':
-        unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.constant'));
+        unawaited(
+          _executeRefactorCodeAction(filePath, 'refactor.extract.constant'),
+        );
       case 'inline':
         unawaited(_executeRefactorCodeAction(filePath, 'refactor.inline'));
       case 'change_signature':
@@ -8242,10 +9087,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   shortcut,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -8342,10 +9186,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   shortcut,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.5),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                 ),
               ),
@@ -8635,17 +9478,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       selection.end,
     );
     Clipboard.setData(ClipboardData(text: selectedText));
-    controller.text = controller.text.replaceRange(
-      selection.start,
-      selection.end,
-      '',
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: controller.text.replaceRange(selection.start, selection.end, ''),
+        selection: TextSelection.collapsed(offset: selection.start),
+      ),
     );
-    controller.selection = TextSelection.collapsed(offset: selection.start);
-    setState(() {
-      _fileDirty[filePath] = true;
-      _diagnosticsStaleFiles.add(filePath);
-    });
-    _scheduleDiagnosticsRefresh(filePath);
   }
 
   void _editorClipboardCopy(String filePath) {
@@ -8666,18 +9506,19 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text == null || data!.text!.isEmpty) return;
     final selection = controller.selection;
-    controller.text = controller.text.replaceRange(
-      selection.start,
-      selection.end,
-      data.text!,
-    );
     final newOffset = selection.start + data.text!.length;
-    controller.selection = TextSelection.collapsed(offset: newOffset);
-    setState(() {
-      _fileDirty[filePath] = true;
-      _diagnosticsStaleFiles.add(filePath);
-    });
-    _scheduleDiagnosticsRefresh(filePath);
+    _commitProgrammaticEditorValueChange(
+      filePath,
+      controller,
+      TextEditingValue(
+        text: controller.text.replaceRange(
+          selection.start,
+          selection.end,
+          data.text!,
+        ),
+        selection: TextSelection.collapsed(offset: newOffset),
+      ),
+    );
   }
 
   void _editorSelectAll(String filePath) {
@@ -8735,7 +9576,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           final startLine = braceStack.removeLast();
           final endLine = i + 1;
           if (endLine > startLine + 1) {
-            regions.add(_FoldableRegion(startLine: startLine, endLine: endLine));
+            regions.add(
+              _FoldableRegion(startLine: startLine, endLine: endLine),
+            );
           }
         }
       }
@@ -8758,11 +9601,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         inBlockComment = false;
         final endLine = i + 1;
         if (endLine > blockCommentStart + 1) {
-          regions.add(_FoldableRegion(
-            startLine: blockCommentStart,
-            endLine: endLine,
-            isComment: true,
-          ));
+          regions.add(
+            _FoldableRegion(
+              startLine: blockCommentStart,
+              endLine: endLine,
+              isComment: true,
+            ),
+          );
         }
       }
       // Consecutive line doc comments (///)
@@ -8773,21 +9618,25 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         consecutiveDocCount++;
       } else {
         if (consecutiveDocCount > 2) {
-          regions.add(_FoldableRegion(
-            startLine: consecutiveDocStart,
-            endLine: consecutiveDocStart + consecutiveDocCount - 1,
-            isComment: true,
-          ));
+          regions.add(
+            _FoldableRegion(
+              startLine: consecutiveDocStart,
+              endLine: consecutiveDocStart + consecutiveDocCount - 1,
+              isComment: true,
+            ),
+          );
         }
         consecutiveDocCount = 0;
       }
     }
     if (consecutiveDocCount > 2) {
-      regions.add(_FoldableRegion(
-        startLine: consecutiveDocStart,
-        endLine: consecutiveDocStart + consecutiveDocCount - 1,
-        isComment: true,
-      ));
+      regions.add(
+        _FoldableRegion(
+          startLine: consecutiveDocStart,
+          endLine: consecutiveDocStart + consecutiveDocCount - 1,
+          isComment: true,
+        ),
+      );
     }
 
     regions.sort((a, b) => a.startLine.compareTo(b.startLine));
@@ -8857,8 +9706,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   void _foldComments(String filePath) {
     final regions = _foldableRegionsForFile(filePath);
-    final commentRegions =
-        regions.where((r) => r.isComment).toList(growable: false);
+    final commentRegions = regions
+        .where((r) => r.isComment)
+        .toList(growable: false);
     if (commentRegions.isEmpty) return;
     final folded = _foldedRegions.putIfAbsent(filePath, () => <int>{});
     setState(() {
@@ -8871,8 +9721,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   void _unfoldComments(String filePath) {
     final regions = _foldableRegionsForFile(filePath);
-    final commentStarts =
-        regions.where((r) => r.isComment).map((r) => r.startLine).toSet();
+    final commentStarts = regions
+        .where((r) => r.isComment)
+        .map((r) => r.startLine)
+        .toSet();
     final folded = _foldedRegions[filePath];
     if (folded == null || folded.isEmpty) return;
     setState(() => folded.removeWhere((line) => commentStarts.contains(line)));
@@ -8905,212 +9757,222 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _loadFile(widget.activeFilePath);
     }
 
-    return Column(
-      children: [
-        // ── Tab bar — fully rounded pill container ──
-        Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: const BorderRadius.all(Radius.circular(22)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: ReorderableListView(
-                  scrollDirection: Axis.horizontal,
-                  buildDefaultDragHandles: false,
-                  proxyDecorator: (child, index, animation) {
-                    return Material(
-                      elevation: 6,
-                      color: Colors.transparent,
-                      shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
-                      borderRadius: _borderRadius999,
-                      child: child,
-                    );
-                  },
-                  onReorder: widget.onReorderTabs,
-                  padding: const EdgeInsets.only(
-                    left: 6,
-                    top: 5,
-                    bottom: 5,
-                    right: 2,
+    return Focus(
+      onKeyEvent: (_, event) =>
+          _handleEditorShortcutKeyEvent(widget.activeFilePath, event),
+      child: Column(
+        children: [
+          // ── Tab bar — fully rounded pill container ──
+          Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: const BorderRadius.all(Radius.circular(22)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ReorderableListView(
+                    scrollDirection: Axis.horizontal,
+                    buildDefaultDragHandles: false,
+                    proxyDecorator: (child, index, animation) {
+                      return Material(
+                        elevation: 6,
+                        color: Colors.transparent,
+                        shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
+                        borderRadius: _borderRadius999,
+                        child: child,
+                      );
+                    },
+                    onReorder: widget.onReorderTabs,
+                    padding: const EdgeInsets.only(
+                      left: 6,
+                      top: 5,
+                      bottom: 5,
+                      right: 2,
+                    ),
+                    children: [
+                      for (var i = 0; i < widget.openFiles.length; i++)
+                        _EditorTab(
+                          key: ValueKey<String>(widget.openFiles[i]),
+                          index: i,
+                          fileName: p.basename(widget.openFiles[i]),
+                          filePath: widget.openFiles[i],
+                          isActive:
+                              widget.openFiles[i] == widget.activeFilePath,
+                          isDirty: _fileDirty[widget.openFiles[i]] == true,
+                          onTap: () =>
+                              widget.onTabSelected(widget.openFiles[i]),
+                          onClose: () => _confirmCloseTab(widget.openFiles[i]),
+                          onShowMenu: (position) {
+                            unawaited(
+                              _showEditorTabMenu(widget.openFiles[i], position),
+                            );
+                          },
+                        ),
+                    ],
                   ),
-                  children: [
-                    for (var i = 0; i < widget.openFiles.length; i++)
-                      _EditorTab(
-                        key: ValueKey<String>(widget.openFiles[i]),
-                        index: i,
-                        fileName: p.basename(widget.openFiles[i]),
-                        filePath: widget.openFiles[i],
-                        isActive: widget.openFiles[i] == widget.activeFilePath,
-                        isDirty: _fileDirty[widget.openFiles[i]] == true,
-                        onTap: () => widget.onTabSelected(widget.openFiles[i]),
-                        onClose: () => _confirmCloseTab(widget.openFiles[i]),
-                        onShowMenu: (position) {
-                          unawaited(
-                            _showEditorTabMenu(widget.openFiles[i], position),
-                          );
-                        },
-                      ),
-                  ],
                 ),
-              ),
-              // Save button
-              if (_fileDirty[widget.activeFilePath] == true) ...[
-                _EditorActionButton(
-                  tooltip: _localizedText(context, zh: '保存文件', en: 'Save file'),
-                  icon: Icons.save_rounded,
-                  color: colorScheme.primary,
-                  onPressed: () => _saveFile(widget.activeFilePath),
-                ),
-              ],
-              // File explorer toggle button
-              if (widget.onToggleFileExplorer != null)
+                // Save button
+                if (_fileDirty[widget.activeFilePath] == true) ...[
+                  _EditorActionButton(
+                    tooltip: _localizedText(
+                      context,
+                      zh: '保存文件',
+                      en: 'Save file',
+                    ),
+                    icon: Icons.save_rounded,
+                    color: colorScheme.primary,
+                    onPressed: () => _saveFile(widget.activeFilePath),
+                  ),
+                ],
+                // File explorer toggle button
+                if (widget.onToggleFileExplorer != null)
+                  _EditorActionButton(
+                    tooltip: _localizedText(
+                      context,
+                      zh: widget.fileExplorerVisible ? '隐藏文件浏览器' : '显示文件浏览器',
+                      en: widget.fileExplorerVisible
+                          ? 'Hide file browser'
+                          : 'Show file browser',
+                    ),
+                    icon: widget.fileExplorerVisible
+                        ? Icons.folder_open_rounded
+                        : Icons.folder_rounded,
+                    color: widget.fileExplorerVisible
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                    onPressed: widget.onToggleFileExplorer!,
+                  ),
+                // Close all button
                 _EditorActionButton(
                   tooltip: _localizedText(
                     context,
-                    zh: widget.fileExplorerVisible ? '隐藏文件浏览器' : '显示文件浏览器',
-                    en: widget.fileExplorerVisible
-                        ? 'Hide file browser'
-                        : 'Show file browser',
+                    zh: '关闭编辑器，返回会话',
+                    en: 'Close editor, return to session',
                   ),
-                  icon: widget.fileExplorerVisible
-                      ? Icons.folder_open_rounded
-                      : Icons.folder_rounded,
-                  color: widget.fileExplorerVisible
-                      ? colorScheme.primary
-                      : colorScheme.onSurfaceVariant,
-                  onPressed: widget.onToggleFileExplorer!,
+                  icon: Icons.close_rounded,
+                  color: colorScheme.onSurfaceVariant,
+                  onPressed: widget.onCloseAll,
                 ),
-              // Close all button
-              _EditorActionButton(
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭编辑器，返回会话',
-                  en: 'Close editor, return to session',
-                ),
-                icon: Icons.close_rounded,
-                color: colorScheme.onSurfaceVariant,
-                onPressed: widget.onCloseAll,
-              ),
-              const SizedBox(width: 6),
-            ],
+                const SizedBox(width: 6),
+              ],
+            ),
           ),
-        ),
-        // ── Gap between tab bar and editor ──
-        const SizedBox(height: 6),
-        // ── Editor content — rounded outer shell, square code area ──
-        Expanded(
-          child: _EditorZoomWrapper(
-            onZoomIn: _zoomIn,
-            onZoomOut: _zoomOut,
-            onZoomReset: _zoomReset,
-            onZoomByScale: _zoomByScale,
-            child: Container(
-              width: double.infinity,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: const BorderRadius.all(Radius.circular(16)),
-                border: Border.all(
-                  color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  width: 0.5,
+          // ── Gap between tab bar and editor ──
+          const SizedBox(height: 6),
+          // ── Editor content — rounded outer shell, square code area ──
+          Expanded(
+            child: _EditorZoomWrapper(
+              onZoomIn: _zoomIn,
+              onZoomOut: _zoomOut,
+              onZoomReset: _zoomReset,
+              onZoomByScale: _zoomByScale,
+              child: Container(
+                width: double.infinity,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: const BorderRadius.all(Radius.circular(16)),
+                  border: Border.all(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                    width: 0.5,
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  // ── Breadcrumb path bar ──
-                  _EditorBreadcrumb(
-                    filePath: widget.activeFilePath,
-                    onNavigateToFile: widget.onTabSelected,
-                  ),
-                  // ── Divider ──
-                  Divider(
-                    height: 0.5,
-                    thickness: 0.5,
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.25),
-                  ),
-                  // ── Find / Replace bar ──
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.bottomCenter,
-                      child: _buildFindBar(colorScheme),
+                child: Column(
+                  children: [
+                    // ── Breadcrumb path bar ──
+                    _EditorBreadcrumb(
+                      filePath: widget.activeFilePath,
+                      onNavigateToFile: widget.onTabSelected,
                     ),
-                  ),
-                  // ── Go-to-Line bar ──
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.bottomCenter,
-                      child: _buildGoToLineBar(colorScheme),
+                    // ── Divider ──
+                    Divider(
+                      height: 0.5,
+                      thickness: 0.5,
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.25),
                     ),
-                  ),
-                  // ── Symbol navigation bar ──
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.bottomCenter,
-                      child: _buildSymbolBar(colorScheme),
+                    // ── Find / Replace bar ──
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _buildFindBar(colorScheme),
+                      ),
                     ),
-                  ),
-                  // ── Code content ──
-                  Expanded(
-                    child: ClipRect(
-                      child: ColoredBox(
-                        color: colorScheme.surface,
-                        child: RepaintBoundary(
-                          child: Transform.scale(
-                            scale: _zoomVisualScale,
-                            alignment: Alignment.topLeft,
-                            child: _buildEditorContent(
-                              widget.activeFilePath,
-                              theme,
-                              colorScheme,
+                    // ── Go-to-Line bar ──
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _buildGoToLineBar(colorScheme),
+                      ),
+                    ),
+                    // ── Symbol navigation bar ──
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _buildSymbolBar(colorScheme),
+                      ),
+                    ),
+                    // ── Code content ──
+                    Expanded(
+                      child: ClipRect(
+                        child: ColoredBox(
+                          color: colorScheme.surface,
+                          child: RepaintBoundary(
+                            child: Transform.scale(
+                              scale: _zoomVisualScale,
+                              alignment: Alignment.topLeft,
+                              child: _buildEditorContent(
+                                widget.activeFilePath,
+                                theme,
+                                colorScheme,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  // ── Bottom tool panels (IDEA-style: above status bar) ──
-                  // Wrapped in AnimatedSize for smooth slide-in / slide-out.
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _buildProjectToolchainBar(colorScheme),
+                    // ── Bottom tool panels (IDEA-style: above status bar) ──
+                    // Wrapped in AnimatedSize for smooth slide-in / slide-out.
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: _buildProjectToolchainBar(colorScheme),
+                      ),
                     ),
-                  ),
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _buildDiagnosticsBar(colorScheme),
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: _buildDiagnosticsBar(colorScheme),
+                      ),
                     ),
-                  ),
-                  ClipRect(
-                    child: AnimatedSize(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutCubic,
-                      alignment: Alignment.topCenter,
-                      child: _buildLspResultBar(colorScheme),
+                    ClipRect(
+                      child: AnimatedSize(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: _buildLspResultBar(colorScheme),
+                      ),
                     ),
-                  ),
-                  // ── Status bar ──
-                  _buildStatusBar(colorScheme),
-                ],
+                    // ── Status bar ──
+                    _buildStatusBar(colorScheme),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -9189,12 +10051,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         codeTheme: context.watch<SettingsController>().editorCodeTheme,
         onOpenFullEditor: () {
           if (!mounted) return;
-          debugPrint('[EditorHighlight] onOpenFullEditor called for $filePath '
-              '(textLen=${textController.text.length}, '
-              'lines=${textController.lineCount}, '
-              'lang=$language, '
-              'highlighter=${textController.highlighter != null ? "SET" : "NULL"}, '
-              'forceFullEditorBefore=${textController.forceFullEditorHighlighting})');
           textController.forceFullEditorHighlighting = true;
           textController.invalidateHighlightCache();
           setState(() => _forcedFullEditorFiles.add(filePath));
@@ -9207,146 +10063,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (textController.useVirtualizedPreview &&
         _forcedFullEditorFiles.contains(filePath)) {
       if (!textController.forceFullEditorHighlighting) {
-        debugPrint('[EditorHighlight] re-syncing forceFullEditorHighlighting for $filePath '
-            '(textLen=${textController.text.length}, lines=${textController.lineCount}, '
-            'highlighter=${textController.highlighter != null ? "SET" : "NULL"})');
         textController.forceFullEditorHighlighting = true;
         textController.invalidateHighlightCache();
       }
     }
 
     final Widget editorBody = Focus(
-      onKeyEvent: (_, event) {
-        // Handle completion navigation keys first
-        if (_handleCompletionKeyEvent(event)) {
-          return KeyEventResult.handled;
-        }
-        if (event is! KeyDownEvent) return KeyEventResult.ignored;
-        // Escape — no meta required
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          if (_completionVisible) {
-            _dismissCompletionOverlay();
-            return KeyEventResult.handled;
-          }
-          if (_findBarVisible ||
-              _goToLineVisible ||
-              _symbolBarVisible ||
-              _diagnosticsBarVisible ||
-              _lspResultBarVisible) {
-            _hideFindBar();
-            setState(() {
-              _goToLineVisible = false;
-              _symbolBarVisible = false;
-              _diagnosticsBarVisible = false;
-              _lspResultBarVisible = false;
-            });
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.f12) {
-          if (HardwareKeyboard.instance.isShiftPressed) {
-            unawaited(_findReferencesAtCursor());
-          } else {
-            unawaited(_goToDefinitionAtCursor());
-          }
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.f2) {
-          unawaited(_renameSymbolAtCursor());
-          return KeyEventResult.handled;
-        }
-        final meta =
-            HardwareKeyboard.instance.isControlPressed ||
-            HardwareKeyboard.instance.isMetaPressed;
-        if (!meta) return KeyEventResult.ignored;
-        if (event.logicalKey == LogicalKeyboardKey.keyS) {
-          _saveFile(filePath);
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.space) {
-          // Ctrl/Cmd+Space — trigger completion explicitly
-          _requestCompletion();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyF) {
-          _showFind();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyH) {
-          _showFindAndReplace();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyG) {
-          _showGoToLine();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyB) {
-          if (HardwareKeyboard.instance.isShiftPressed &&
-              HardwareKeyboard.instance.isAltPressed) {
-            unawaited(_goToImplementationAtCursor());
-          } else if (HardwareKeyboard.instance.isShiftPressed) {
-            unawaited(_findReferencesAtCursor());
-          } else {
-            unawaited(_goToDefinitionAtCursor());
-          }
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyI) {
-          unawaited(_showHoverAtCursor());
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyT) {
-          _showWorkspaceSymbolBar();
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.period) {
-          unawaited(_showCodeActionsAtCursor());
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.keyO &&
-            HardwareKeyboard.instance.isShiftPressed) {
-          _showSymbolBar();
-          return KeyEventResult.handled;
-        }
-        // ── Folding shortcuts ──
-        if (event.logicalKey == LogicalKeyboardKey.minus) {
-          if (HardwareKeyboard.instance.isShiftPressed) {
-            _foldAll(filePath);
-          } else {
-            _foldAtCursor(filePath);
-          }
-          return KeyEventResult.handled;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.equal) {
-          if (HardwareKeyboard.instance.isShiftPressed) {
-            _unfoldAll(filePath);
-          } else {
-            _unfoldAtCursor(filePath);
-          }
-          return KeyEventResult.handled;
-        }
-        // ── Refactor shortcuts (⌥⌘ combos) ──
-        if (HardwareKeyboard.instance.isAltPressed) {
-          if (event.logicalKey == LogicalKeyboardKey.keyM) {
-            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.function'));
-            return KeyEventResult.handled;
-          }
-          if (event.logicalKey == LogicalKeyboardKey.keyV) {
-            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.variable'));
-            return KeyEventResult.handled;
-          }
-          if (event.logicalKey == LogicalKeyboardKey.keyC) {
-            unawaited(_executeRefactorCodeAction(filePath, 'refactor.extract.constant'));
-            return KeyEventResult.handled;
-          }
-          if (event.logicalKey == LogicalKeyboardKey.keyN) {
-            unawaited(_executeRefactorCodeAction(filePath, 'refactor.inline'));
-            return KeyEventResult.handled;
-          }
-        }
-        return KeyEventResult.ignored;
-      },
+      onKeyEvent: (_, event) => _handleEditorShortcutKeyEvent(filePath, event),
       child: _SyntaxHighlightEditor(
         controller: textController,
         scrollController: scrollController,
@@ -9374,10 +10097,22 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           }
           // Trigger LSP completion on text changes
           _triggerCompletion();
+          final signatureTriggerCharacter = _signatureTriggerCharacterAtOffset(
+            textController.text,
+            textController.selection.baseOffset,
+          );
+          if (signatureTriggerCharacter != null) {
+            _triggerSignatureHelp(triggerCharacter: signatureTriggerCharacter);
+          } else if (_signatureHelpVisible) {
+            _triggerSignatureHelp();
+          }
         },
         onSelectionChanged: () {
           if (!mounted) return;
           _updateCursorPosition(textController);
+          if (_signatureHelpVisible) {
+            _triggerSignatureHelp();
+          }
         },
         onDiagnosticLineRequested: (lineNumber) {
           final diagnostics =
@@ -9413,12 +10148,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     // does not restructure the widget tree (which would reset scroll position).
     final showCompletion =
         _completionVisible && _filteredCompletionItems.isNotEmpty;
+    final showSignatureHelp =
+        _signatureHelpVisible && _signatureHelp?.selectedSignature != null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final children = <Widget>[editorBody];
 
-        if (showCompletion) {
+        if (showCompletion || showSignatureHelp) {
           final lineCount = textController.lineCount;
           final hasAnyDiagnostics =
               (_diagnosticsByFile[filePath] ?? const <_EditorDiagnostic>[])
@@ -9453,44 +10190,92 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           final cursorTop =
               textPaddingTop + (_cursorLine - 1) * lineExtent - scrollOffset;
 
-          const overlayMaxHeight = 240.0;
-          const overlayWidth = 360.0;
+          double? completionOverlayTop;
+          double? completionOverlayLeft;
 
-          // Default: show below cursor
-          var overlayTop = cursorTop + lineExtent;
-          // If popup would overflow bottom, flip above cursor
-          if (overlayTop + overlayMaxHeight > constraints.maxHeight &&
-              cursorTop - overlayMaxHeight > 0) {
-            overlayTop = cursorTop - overlayMaxHeight;
-          }
-          // Clamp so it stays within bounds
-          overlayTop = overlayTop.clamp(0.0, constraints.maxHeight - 40);
+          if (showCompletion) {
+            const overlayMaxHeight = 240.0;
+            const overlayWidth = 360.0;
 
-          // Clamp horizontal position
-          var overlayLeft = cursorLeft;
-          if (overlayLeft + overlayWidth > constraints.maxWidth) {
-            overlayLeft = (constraints.maxWidth - overlayWidth)
-                .clamp(0.0, double.infinity);
-          }
+            // Default: show below cursor
+            var overlayTop = cursorTop + lineExtent;
+            // If popup would overflow bottom, flip above cursor
+            if (overlayTop + overlayMaxHeight > constraints.maxHeight &&
+                cursorTop - overlayMaxHeight > 0) {
+              overlayTop = cursorTop - overlayMaxHeight;
+            }
+            // Clamp so it stays within bounds
+            overlayTop = overlayTop.clamp(0.0, constraints.maxHeight - 40);
 
-          children.add(
-            Positioned(
-              left: overlayLeft,
-              top: overlayTop,
-              child: _CompletionOverlay(
-                items: _filteredCompletionItems,
-                selectedIndex: _completionSelectedIndex,
-                onSelected: _applyCompletionItem,
-                onDismissed: _dismissCompletionOverlay,
+            // Clamp horizontal position
+            var overlayLeft = cursorLeft;
+            if (overlayLeft + overlayWidth > constraints.maxWidth) {
+              overlayLeft = (constraints.maxWidth - overlayWidth).clamp(
+                0.0,
+                double.infinity,
+              );
+            }
+
+            completionOverlayTop = overlayTop;
+            completionOverlayLeft = overlayLeft;
+            children.add(
+              Positioned(
+                left: overlayLeft,
+                top: overlayTop,
+                child: _CompletionOverlay(
+                  items: _filteredCompletionItems,
+                  selectedIndex: _completionSelectedIndex,
+                  onSelected: _applyCompletionItem,
+                  onDismissed: _dismissCompletionOverlay,
+                ),
               ),
-            ),
-          );
+            );
+          }
+
+          if (showSignatureHelp) {
+            const signatureMaxHeight = 220.0;
+            const signatureWidth = 420.0;
+            final signature = _signatureHelp!;
+            var signatureTop = completionOverlayTop != null
+                ? completionOverlayTop - signatureMaxHeight - 8
+                : cursorTop + lineExtent + 8;
+            if (completionOverlayTop == null &&
+                signatureTop + signatureMaxHeight > constraints.maxHeight &&
+                cursorTop - signatureMaxHeight - 8 > 0) {
+              signatureTop = cursorTop - signatureMaxHeight - 8;
+            }
+            if (signatureTop < 0) {
+              final fallbackTop = completionOverlayTop == null
+                  ? cursorTop + lineExtent + 8
+                  : completionOverlayTop + 240 + 8;
+              signatureTop = math.min(
+                math.max(0.0, fallbackTop),
+                math.max(0.0, constraints.maxHeight - 40),
+              );
+            }
+
+            var signatureLeft = completionOverlayLeft ?? cursorLeft;
+            if (signatureLeft + signatureWidth > constraints.maxWidth) {
+              signatureLeft = math.max(
+                0.0,
+                constraints.maxWidth - signatureWidth,
+              );
+            }
+
+            children.add(
+              Positioned(
+                left: signatureLeft,
+                top: signatureTop,
+                child: _SignatureHelpOverlay(
+                  help: signature,
+                  onDismissed: _hideSignatureHelpOverlay,
+                ),
+              ),
+            );
+          }
         }
 
-        return Stack(
-          clipBehavior: Clip.none,
-          children: children,
-        );
+        return Stack(clipBehavior: Clip.none, children: children);
       },
     );
   }
@@ -9545,8 +10330,9 @@ class _CompletionOverlay extends StatelessWidget {
             itemBuilder: (context, index) {
               final item = displayItems[index];
               final isSelected = index == selectedIndex;
-              final kindLabel =
-                  _CodeEditorViewState._completionItemKindLabel(item.kind);
+              final kindLabel = _CodeEditorViewState._completionItemKindLabel(
+                item.kind,
+              );
               return InkWell(
                 onTap: () => onSelected(item),
                 child: Container(
@@ -9573,8 +10359,9 @@ class _CompletionOverlay extends StatelessWidget {
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontFamily: 'JetBrains Mono',
                             fontSize: 12.5,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             color: isSelected
                                 ? colorScheme.onPrimaryContainer
                                 : colorScheme.onSurface,
@@ -9590,8 +10377,9 @@ class _CompletionOverlay extends StatelessWidget {
                             item.detail!,
                             style: theme.textTheme.bodySmall?.copyWith(
                               fontSize: 11,
-                              color: colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -9606,9 +10394,9 @@ class _CompletionOverlay extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                colorScheme.secondaryContainer
-                                    .withValues(alpha: 0.5),
+                            color: colorScheme.secondaryContainer.withValues(
+                              alpha: 0.5,
+                            ),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -9627,6 +10415,244 @@ class _CompletionOverlay extends StatelessWidget {
               );
             },
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SignatureHelpOverlay extends StatelessWidget {
+  const _SignatureHelpOverlay({required this.help, required this.onDismissed});
+
+  final AiLspSignatureHelp help;
+  final VoidCallback onDismissed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final signature = help.selectedSignature;
+    if (signature == null) {
+      return const SizedBox.shrink();
+    }
+    final parameter = help.selectedParameter;
+    final signatureDoc = signature.documentationPlainText.trim();
+    final parameterDoc = parameter?.documentationPlainText.trim() ?? '';
+    final hasParameterChips = signature.parameters.isNotEmpty;
+
+    return Material(
+      elevation: 10,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.28),
+      borderRadius: BorderRadius.circular(12),
+      color: colorScheme.surfaceContainerHighest,
+      child: Container(
+        constraints: const BoxConstraints(
+          maxWidth: 460,
+          minWidth: 260,
+          maxHeight: 280,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.34),
+            width: 0.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isZh ? '参数签名' : 'Signature Help',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (help.signatures.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Text(
+                          '${help.activeSignature + 1}/${help.signatures.length}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: onDismissed,
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SelectableText.rich(
+                  TextSpan(
+                    children: _buildSignatureLabelSpans(
+                      signature: signature,
+                      activeParameterIndex: help.activeParameter,
+                      theme: theme,
+                      colorScheme: colorScheme,
+                    ),
+                  ),
+                ),
+                if (hasParameterChips) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < signature.parameters.length;
+                        index++
+                      )
+                        _SignatureParameterChip(
+                          label: signature.parameters[index].label,
+                          active: index == help.activeParameter,
+                        ),
+                    ],
+                  ),
+                ],
+                if (parameterDoc.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    isZh ? '当前参数' : 'Parameter',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    parameterDoc,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.45,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+                if (signatureDoc.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    isZh ? '文档说明' : 'Documentation',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    signatureDoc,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.45,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static List<InlineSpan> _buildSignatureLabelSpans({
+    required AiLspSignatureInformation signature,
+    required int activeParameterIndex,
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final baseStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: 'JetBrains Mono',
+      fontSize: 12.5,
+      height: 1.4,
+      color: colorScheme.onSurface,
+    );
+    final activeStyle = baseStyle?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: colorScheme.primary,
+      backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.42),
+    );
+    if (signature.parameters.isEmpty ||
+        activeParameterIndex < 0 ||
+        activeParameterIndex >= signature.parameters.length) {
+      return <InlineSpan>[TextSpan(text: signature.label, style: baseStyle)];
+    }
+    final parameter = signature.parameters[activeParameterIndex];
+    int? start = parameter.labelStart;
+    int? end = parameter.labelEnd;
+    if (!(parameter.hasExplicitOffsets &&
+        start! >= 0 &&
+        end! <= signature.label.length &&
+        end > start)) {
+      start = signature.label.indexOf(parameter.label);
+      end = start < 0 ? null : start + parameter.label.length;
+    }
+    if (end == null || start < 0 || end > signature.label.length) {
+      return <InlineSpan>[TextSpan(text: signature.label, style: baseStyle)];
+    }
+    return <InlineSpan>[
+      if (start > 0)
+        TextSpan(text: signature.label.substring(0, start), style: baseStyle),
+      TextSpan(text: signature.label.substring(start, end), style: activeStyle),
+      if (end < signature.label.length)
+        TextSpan(text: signature.label.substring(end), style: baseStyle),
+    ];
+  }
+}
+
+class _SignatureParameterChip extends StatelessWidget {
+  const _SignatureParameterChip({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final backgroundColor = active
+        ? colorScheme.primaryContainer.withValues(alpha: 0.7)
+        : colorScheme.surfaceContainerLow;
+    final foregroundColor = active
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active
+              ? colorScheme.primary.withValues(alpha: 0.2)
+              : colorScheme.outlineVariant.withValues(alpha: 0.2),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: foregroundColor,
+          fontWeight: active ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
     );
@@ -11031,6 +12057,7 @@ const double _editorFontSizeDefault = 13.0;
 const double _editorFontSizeMin = 8.0;
 const double _editorFontSizeMax = 32.0;
 const double _editorLineHeight = 1.55;
+const double _editorMaxEstimatedContentWidth = 32000.0;
 
 TextStyle _editorBaseStyleForSize(double fontSize) => TextStyle(
   fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
@@ -11207,7 +12234,8 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
               // Convert scroll delta to scale factor for smooth zoom
               // Sensitivity: 120 scroll units = ~10% zoom
               const scrollSensitivity = 0.001;
-              final scaleFactor = 1.0 - (event.scrollDelta.dy * scrollSensitivity);
+              final scaleFactor =
+                  1.0 - (event.scrollDelta.dy * scrollSensitivity);
               widget.onZoomByScale(scaleFactor.clamp(0.9, 1.1));
             }
           } else if (event is PointerScaleEvent) {
@@ -11255,6 +12283,7 @@ class _HighlightingTextController extends TextEditingController {
   List<String>? _cachedLines;
   List<_EditorDiagnostic> _diagnostics = const <_EditorDiagnostic>[];
   int _diagnosticsRevision = 0;
+  int _textRevision = 0;
   int _lineCount = 1;
   int _longestLineLength = 0;
 
@@ -11265,11 +12294,14 @@ class _HighlightingTextController extends TextEditingController {
   // ── Viewport-based highlighting for very large files ──
   /// Number of lines to highlight around the cursor for viewport mode.
   static const _viewportHighlightLines = 400;
+
   /// Buffer lines above/below the visible window so scrolling feels seamless.
   static const _viewportBufferLines = 100;
+
   /// Cached viewport range to avoid re-highlighting when cursor stays nearby.
   int _viewportStartLine = -1;
   int _viewportEndLine = -1;
+
   /// Cached cursor line for the viewport cache-hit check (avoids re-scanning).
   int _cachedCursorLine = 0;
   List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
@@ -11297,6 +12329,22 @@ class _HighlightingTextController extends TextEditingController {
   static const _deferHighlightLength = 36 * 1024;
   static const _deferHighlightLines = 900;
 
+  /// Large interactive editor features become expensive well before the
+  /// virtualized preview threshold.
+  static const _reducedInteractivityLength = 80 * 1024;
+  static const _reducedInteractivityLines = 1800;
+  static const _reducedInteractivityLineLength = 1600;
+
+  /// For very large documents, keep completion explicit instead of firing on
+  /// every edit.
+  static const _explicitCompletionLength = 128 * 1024;
+  static const _explicitCompletionLines = 2800;
+  static const _explicitCompletionLineLength = 2200;
+
+  /// Measuring wrapped line heights requires a full-document layout pass.
+  static const _preciseWrapMeasureLength = 72 * 1024;
+  static const _preciseWrapMeasureLines = 1400;
+
   /// Large documents switch to a virtualized preview by default.
   static const _previewLength = 160 * 1024;
   static const _previewLines = 3200;
@@ -11305,8 +12353,27 @@ class _HighlightingTextController extends TextEditingController {
 
   int get longestLineLength => _longestLineLength;
 
+  int get textRevision => _textRevision;
+
   bool get useVirtualizedPreview =>
       text.length >= _previewLength || _lineCount >= _previewLines;
+
+  bool get useReducedInteractionMode =>
+      text.length >= _reducedInteractivityLength ||
+      _lineCount >= _reducedInteractivityLines ||
+      _longestLineLength >= _reducedInteractivityLineLength;
+
+  bool get preferExplicitCompletion =>
+      text.length >= _explicitCompletionLength ||
+      _lineCount >= _explicitCompletionLines ||
+      _longestLineLength >= _explicitCompletionLineLength;
+
+  bool get supportsPreciseWrappedLineHeights =>
+      text.length < _preciseWrapMeasureLength &&
+      _lineCount < _preciseWrapMeasureLines &&
+      _longestLineLength < _reducedInteractivityLineLength;
+
+  bool get supportsDiagnosticHoverTooltips => !useReducedInteractionMode;
 
   List<String> get previewLines {
     _cachedLines ??= () {
@@ -11370,7 +12437,8 @@ class _HighlightingTextController extends TextEditingController {
     // Update cached cursor line for viewport highlighting (cheap binary search).
     if (_useViewportHighlighting) {
       _cachedCursorLine = _lineIndexForOffset(
-          newValue.selection.baseOffset.clamp(0, newValue.text.length));
+        newValue.selection.baseOffset.clamp(0, newValue.text.length),
+      );
     }
     if (newValue.text == previousText && newValue.text == _lastMeasuredText) {
       return;
@@ -11398,7 +12466,8 @@ class _HighlightingTextController extends TextEditingController {
       // outside the previously highlighted window so we can re-highlight.
       if (_useViewportHighlighting) {
         _cachedCursorLine = _lineIndexForOffset(
-            selection.baseOffset.clamp(0, text.length));
+          selection.baseOffset.clamp(0, text.length),
+        );
         if (_cachedCursorLine < _viewportStartLine + _viewportBufferLines ||
             _cachedCursorLine > _viewportEndLine - _viewportBufferLines) {
           // Cursor moved outside buffer — fall through to re-schedule.
@@ -11431,25 +12500,22 @@ class _HighlightingTextController extends TextEditingController {
   void _rebuildHighlight() {
     if (highlighter == null) return;
     try {
-    final highlighted = highlighter!.build(
-      text,
-      language: language,
-      allowAutoDetection: language == null,
-    );
-    _cachedSpan = _diagnostics.isEmpty
-        ? highlighted
-        : _applyEditorDiagnosticDecorationsToTextSpan(
-            highlighted,
-            text,
-            _diagnostics,
-          );
-    _lastText = text;
-    _lastHighlighterHash = identityHashCode(highlighter);
-    _lastDiagnosticsRevision = _diagnosticsRevision;
-    } catch (e, stack) {
-      debugPrint('[EditorHighlight] _rebuildHighlight: EXCEPTION $e');
-      debugPrint('[EditorHighlight] stack: $stack');
-    }
+      final highlighted = highlighter!.build(
+        text,
+        language: language,
+        allowAutoDetection: language == null,
+      );
+      _cachedSpan = _diagnostics.isEmpty
+          ? highlighted
+          : _applyEditorDiagnosticDecorationsToTextSpan(
+              highlighted,
+              text,
+              _diagnostics,
+            );
+      _lastText = text;
+      _lastHighlighterHash = identityHashCode(highlighter);
+      _lastDiagnosticsRevision = _diagnosticsRevision;
+    } catch (_) {}
   }
 
   TextSpan _cachePlainTextSpan(TextStyle? style) {
@@ -11477,13 +12543,13 @@ class _HighlightingTextController extends TextEditingController {
     _debounceTimer = Timer(delay, () {
       if (highlighter == null || _disableHighlighting) return;
       _rebuildHighlight();
-      _rebuildHighlight();
       notifyListeners();
     });
   }
 
   void _handleTextChanged(String currentText) {
     _lastMeasuredText = currentText;
+    _textRevision += 1;
     _cachedLines = null;
     _updateDocumentMetrics(currentText);
     invalidateHighlightCache();
@@ -11558,6 +12624,34 @@ class _HighlightingTextController extends TextEditingController {
     return _lineOffsets[lineIndex];
   }
 
+  ({int line, int column}) _lineColumnForOffset(int offset) {
+    final clampedOffset = offset.clamp(0, text.length);
+    final lineIndex = _lineIndexForOffset(clampedOffset);
+    final lineStart = _offsetForLine(lineIndex);
+    return (line: lineIndex + 1, column: clampedOffset - lineStart + 1);
+  }
+
+  int _offsetForLineColumn(int line, int column) {
+    if (text.isEmpty) {
+      return 0;
+    }
+    final lineIndex = math.max(0, math.min(_lineCount - 1, line - 1));
+    final lineStart = _offsetForLine(lineIndex);
+    var lineEnd = lineIndex + 1 >= _lineOffsets.length
+        ? text.length
+        : _offsetForLine(lineIndex + 1);
+    while (lineEnd > lineStart) {
+      final trailingCodeUnit = text.codeUnitAt(lineEnd - 1);
+      if (trailingCodeUnit == 10 || trailingCodeUnit == 13) {
+        lineEnd -= 1;
+        continue;
+      }
+      break;
+    }
+    final columnOffset = math.max(0, column - 1);
+    return math.min(lineStart + columnOffset, lineEnd);
+  }
+
   /// Schedule (or immediately perform) viewport-based highlighting for the
   /// window of lines around the current cursor position.
   void _scheduleViewportHighlight(TextStyle? style) {
@@ -11606,35 +12700,31 @@ class _HighlightingTextController extends TextEditingController {
       final children = <InlineSpan>[];
       // Plain text before the highlighted window.
       if (windowStart > 0) {
-        children.add(TextSpan(
-          text: text.substring(0, windowStart),
-          style: style,
-        ));
+        children.add(
+          TextSpan(text: text.substring(0, windowStart), style: style),
+        );
       }
       // The highlighted window.
       children.add(highlighted);
       // Plain text after the highlighted window.
       if (windowEnd < text.length) {
-        children.add(TextSpan(
-          text: text.substring(windowEnd),
-          style: style,
-        ));
+        children.add(TextSpan(text: text.substring(windowEnd), style: style));
       }
 
       final composedSpan = TextSpan(style: style, children: children);
       _cachedSpan = _diagnostics.isEmpty
           ? composedSpan
           : _applyEditorDiagnosticDecorationsToTextSpan(
-              composedSpan, text, _diagnostics);
+              composedSpan,
+              text,
+              _diagnostics,
+            );
       _lastText = text;
       _lastHighlighterHash = identityHashCode(highlighter);
       _lastDiagnosticsRevision = _diagnosticsRevision;
       _viewportStartLine = startLine;
       _viewportEndLine = endLine;
-    } catch (e, stack) {
-      debugPrint('[EditorHighlight] viewport highlight EXCEPTION: $e');
-      debugPrint('[EditorHighlight] stack: $stack');
-    }
+    } catch (_) {}
   }
 
   @override
@@ -11854,7 +12944,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
   void _handleSelectionChange() {
     widget.onSelectionChanged?.call();
-    if (_hoveredTextDiagnosticOffset != null) {
+    if (_hoveredTextDiagnosticOffset != null &&
+        widget.controller.supportsDiagnosticHoverTooltips) {
       _scheduleDiagnosticTooltipUpdate();
     }
   }
@@ -11895,7 +12986,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _hoverTextPainter = null;
       _hoverTextPainterText = null;
       _hoverTextPainterWidth = null;
-      if (_hoveredTextDiagnosticOffset != null) {
+      if (_hoveredTextDiagnosticOffset != null &&
+          widget.controller.supportsDiagnosticHoverTooltips) {
         _scheduleDiagnosticTooltipUpdate();
       }
       // Re-sync line numbers after font size change to ensure alignment
@@ -11932,7 +13024,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       targetOffset = offset;
     }
     _lineNumberScrollController.jumpTo(targetOffset.clamp(0.0, lineMax));
-    if (_hoveredTextDiagnosticOffset != null) {
+    if (_hoveredTextDiagnosticOffset != null &&
+        widget.controller.supportsDiagnosticHoverTooltips) {
       _scheduleDiagnosticTooltipUpdate();
     }
   }
@@ -11947,12 +13040,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         widget.controller.highlighter == null || darkSurface != _darkSurface;
     _darkSurface = darkSurface;
     if (needsHighlighterRefresh) {
-      debugPrint('[EditorHighlight] didChangeDependencies: re-creating highlighter '
-          '(darkSurface=$darkSurface, '
-          'forceFullEditor=${widget.controller.forceFullEditorHighlighting}, '
-          'lang=${widget.controller.language}, '
-          'textLen=${widget.controller.text.length}, '
-          'lines=${widget.controller.lineCount})');
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
         darkSurface: darkSurface,
@@ -11963,7 +13050,8 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _hoverTextPainterText = null;
       _hoverTextPainterWidth = null;
       _diagnosticTooltipEntry?.markNeedsBuild();
-      if (_hoveredTextDiagnosticOffset != null) {
+      if (_hoveredTextDiagnosticOffset != null &&
+          widget.controller.supportsDiagnosticHoverTooltips) {
         _scheduleDiagnosticTooltipUpdate();
       }
     }
@@ -12578,7 +13666,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     // Safety check: Ensure highlighter is set. This handles edge cases where
     // didChangeDependencies may not have run yet or was bypassed somehow.
     if (widget.controller.highlighter == null) {
@@ -12591,7 +13679,13 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       );
       widget.controller.invalidateHighlightCache();
     }
-    
+
+    final supportsDiagnosticHoverTooltips =
+        widget.controller.supportsDiagnosticHoverTooltips;
+    if (!supportsDiagnosticHoverTooltips && _diagnosticTooltipEntry != null) {
+      _removeDiagnosticTooltip();
+    }
+
     final lineCount = widget.controller.lineCount;
     final hasAnyDiagnostics = widget.diagnosticsByLine.isNotEmpty;
     final lineNumberWidth = _editorEditableGutterWidth(
@@ -12605,294 +13699,310 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
     return LayoutBuilder(
       builder: (context, outerConstraints) {
-      // Compute per-line wrapped heights when word wrap is enabled and the
-      // file is not too large for a full text layout measurement.
-      List<double>? wrappedHeights;
-      if (widget.wordWrap && widget.controller.text.length < 100 * 1024) {
-        final textLayoutWidth = outerConstraints.maxWidth -
-            lineNumberWidth -
-            _editorTextPaddingLeft -
-            _editorTextPaddingRight;
-        if (textLayoutWidth > 0) {
-          wrappedHeights = _computeWrappedLineHeights(textLayoutWidth);
+        // Compute per-line wrapped heights when word wrap is enabled and the
+        // file is not too large for a full text layout measurement.
+        List<double>? wrappedHeights;
+        if (widget.wordWrap &&
+            widget.controller.supportsPreciseWrappedLineHeights) {
+          final textLayoutWidth =
+              outerConstraints.maxWidth -
+              lineNumberWidth -
+              _editorTextPaddingLeft -
+              _editorTextPaddingRight;
+          if (textLayoutWidth > 0) {
+            wrappedHeights = _computeWrappedLineHeights(textLayoutWidth);
+          }
         }
-      }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Gutter: line numbers (no scrollbar) ──
-        Container(
-          width: lineNumberWidth,
-          decoration: BoxDecoration(
-            border: Border(
-              right: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-                width: 0.5,
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Gutter: line numbers (no scrollbar) ──
+            Container(
+              width: lineNumberWidth,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+                    width: 0.5,
+                  ),
+                ),
               ),
-            ),
-          ),
-          child: ScrollConfiguration(
-            behavior: noScrollbarBehavior,
-            child: ListView.builder(
-              // Key based on fontSize + wordWrap forces rebuild when zoom or
-              // wrap mode changes
-              key: ValueKey('line-numbers-${widget.fontSize}-${widget.wordWrap}'),
-              controller: _lineNumberScrollController,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(top: 10, bottom: 10),
-              itemCount: lineCount,
-              // Use fixed extent when word wrap is off (fast scroll); when on,
-              // use wrapped per-line heights for exact alignment.
-              itemExtent: wrappedHeights != null ? null : _lineExtent,
-              itemBuilder: (context, index) {
-                final lineNumber = index + 1;
-                final itemHeight = wrappedHeights != null
-                    ? (index < wrappedHeights.length
-                        ? wrappedHeights[index]
-                        : _lineExtent)
-                    : null;
-                final diagnostics =
-                    widget.diagnosticsByLine[lineNumber] ??
-                    const <_EditorDiagnostic>[];
-                final primaryDiagnostic = _primaryDiagnosticForLine(lineNumber);
-                final hasDiagnostics = primaryDiagnostic != null;
-                final lineIsActive = widget.activeLine == lineNumber;
-                final showQuickFix =
-                    hasDiagnostics &&
-                    widget.onDiagnosticQuickFixRequested != null &&
-                    (lineIsActive || _hoveredGutterLine == lineNumber);
-                final accentColor = hasDiagnostics
-                    ? _diagnosticColor(colorScheme, primaryDiagnostic)
-                    : colorScheme.onSurfaceVariant;
-                final tooltip = _diagnosticsTooltip(diagnostics);
+              child: ScrollConfiguration(
+                behavior: noScrollbarBehavior,
+                child: ListView.builder(
+                  // Key based on fontSize + wordWrap forces rebuild when zoom or
+                  // wrap mode changes
+                  key: ValueKey(
+                    'line-numbers-${widget.fontSize}-${widget.wordWrap}',
+                  ),
+                  controller: _lineNumberScrollController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 10, bottom: 10),
+                  itemCount: lineCount,
+                  // Use fixed extent when word wrap is off (fast scroll); when on,
+                  // use wrapped per-line heights for exact alignment.
+                  itemExtent: wrappedHeights != null ? null : _lineExtent,
+                  itemBuilder: (context, index) {
+                    final lineNumber = index + 1;
+                    final itemHeight = wrappedHeights != null
+                        ? (index < wrappedHeights.length
+                              ? wrappedHeights[index]
+                              : _lineExtent)
+                        : null;
+                    final diagnostics =
+                        widget.diagnosticsByLine[lineNumber] ??
+                        const <_EditorDiagnostic>[];
+                    final primaryDiagnostic = _primaryDiagnosticForLine(
+                      lineNumber,
+                    );
+                    final hasDiagnostics = primaryDiagnostic != null;
+                    final lineIsActive = widget.activeLine == lineNumber;
+                    final showQuickFix =
+                        hasDiagnostics &&
+                        widget.onDiagnosticQuickFixRequested != null &&
+                        (lineIsActive || _hoveredGutterLine == lineNumber);
+                    final accentColor = hasDiagnostics
+                        ? _diagnosticColor(colorScheme, primaryDiagnostic)
+                        : colorScheme.onSurfaceVariant;
+                    final tooltip = _diagnosticsTooltip(diagnostics);
 
-                Widget lineWidget = MouseRegion(
-                  onEnter: hasDiagnostics
-                      ? (_) {
-                          if (_hoveredGutterLine != lineNumber) {
-                            setState(() => _hoveredGutterLine = lineNumber);
-                          }
-                        }
-                      : null,
-                  onExit: hasDiagnostics
-                      ? (_) {
-                          if (_hoveredGutterLine == lineNumber) {
-                            setState(() => _hoveredGutterLine = null);
-                          }
-                        }
-                      : null,
-                  child: Material(
-                    color: hasDiagnostics && (lineIsActive || showQuickFix)
-                        ? accentColor.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    child: InkWell(
-                      onTap: hasDiagnostics
-                          ? () => widget.onDiagnosticLineRequested?.call(
-                              lineNumber,
-                            )
+                    Widget lineWidget = MouseRegion(
+                      onEnter: hasDiagnostics
+                          ? (_) {
+                              if (_hoveredGutterLine != lineNumber) {
+                                setState(() => _hoveredGutterLine = lineNumber);
+                              }
+                            }
                           : null,
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          left: 8,
-                          right: hasAnyDiagnostics ? 6 : 14,
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 12,
-                              child: hasDiagnostics
-                                  ? Center(
-                                      child: Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: accentColor,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: accentColor.withValues(
-                                                alpha: 0.2,
-                                              ),
-                                              blurRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : null,
+                      onExit: hasDiagnostics
+                          ? (_) {
+                              if (_hoveredGutterLine == lineNumber) {
+                                setState(() => _hoveredGutterLine = null);
+                              }
+                            }
+                          : null,
+                      child: Material(
+                        color: hasDiagnostics && (lineIsActive || showQuickFix)
+                            ? accentColor.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        child: InkWell(
+                          onTap: hasDiagnostics
+                              ? () => widget.onDiagnosticLineRequested?.call(
+                                  lineNumber,
+                                )
+                              : null,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: 8,
+                              right: hasAnyDiagnostics ? 6 : 14,
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '$lineNumber',
-                                textAlign: TextAlign.right,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.visible,
-                                style: TextStyle(
-                                  fontFamily:
-                                      'JetBrains Mono, Menlo, Consolas, monospace',
-                                  fontSize: widget.fontSize,
-                                  height: _editorLineHeight,
-                                  fontWeight: hasDiagnostics
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: hasDiagnostics
-                                      ? accentColor
-                                      : colorScheme.onSurfaceVariant.withValues(
-                                          alpha: 0.48,
-                                        ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 12,
+                                  child: hasDiagnostics
+                                      ? Center(
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: accentColor,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: accentColor.withValues(
+                                                    alpha: 0.2,
+                                                  ),
+                                                  blurRadius: 4,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        )
+                                      : null,
                                 ),
-                              ),
-                            ),
-                            if (hasAnyDiagnostics) ...[
-                              const SizedBox(width: 4),
-                              SizedBox(
-                                width: 18,
-                                child: AnimatedOpacity(
-                                  duration: const Duration(milliseconds: 140),
-                                  opacity: showQuickFix ? 1 : 0,
-                                  child: IgnorePointer(
-                                    ignoring: !showQuickFix,
-                                    child: Tooltip(
-                                      message: _localizedText(
-                                        context,
-                                        zh: '显示该诊断行的快速修复',
-                                        en: 'Show quick fixes for this diagnostic line',
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '$lineNumber',
+                                    textAlign: TextAlign.right,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.visible,
+                                    style: TextStyle(
+                                      fontFamily:
+                                          'JetBrains Mono, Menlo, Consolas, monospace',
+                                      fontSize: widget.fontSize,
+                                      height: _editorLineHeight,
+                                      fontWeight: hasDiagnostics
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
+                                      color: hasDiagnostics
+                                          ? accentColor
+                                          : colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.48),
+                                    ),
+                                  ),
+                                ),
+                                if (hasAnyDiagnostics) ...[
+                                  const SizedBox(width: 4),
+                                  SizedBox(
+                                    width: 18,
+                                    child: AnimatedOpacity(
+                                      duration: const Duration(
+                                        milliseconds: 140,
                                       ),
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTapDown: (details) => widget
-                                            .onDiagnosticQuickFixRequested
-                                            ?.call(
-                                              lineNumber,
-                                              details.globalPosition,
+                                      opacity: showQuickFix ? 1 : 0,
+                                      child: IgnorePointer(
+                                        ignoring: !showQuickFix,
+                                        child: Tooltip(
+                                          message: _localizedText(
+                                            context,
+                                            zh: '显示该诊断行的快速修复',
+                                            en: 'Show quick fixes for this diagnostic line',
+                                          ),
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTapDown: (details) => widget
+                                                .onDiagnosticQuickFixRequested
+                                                ?.call(
+                                                  lineNumber,
+                                                  details.globalPosition,
+                                                ),
+                                            child: const Icon(
+                                              Icons.lightbulb_outline_rounded,
+                                              size: 15,
+                                              color: Color(0xFFB7791F),
                                             ),
-                                        child: const Icon(
-                                          Icons.lightbulb_outline_rounded,
-                                          size: 15,
-                                          color: Color(0xFFB7791F),
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ],
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+
+                    if (hasDiagnostics && tooltip.isNotEmpty) {
+                      lineWidget = Tooltip(message: tooltip, child: lineWidget);
+                    }
+                    // When using computed wrapped heights, constrain each item to
+                    // the corresponding text line's visual height.
+                    if (itemHeight != null) {
+                      return SizedBox(height: itemHeight, child: lineWidget);
+                    }
+                    return lineWidget;
+                  },
+                ),
+              ),
+            ),
+            // ── Code area — with optional horizontal scroll ──
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final viewportWidth = constraints.maxWidth;
+                  final estimatedContentWidth = widget.wordWrap
+                      ? viewportWidth
+                      : math.min(
+                          _editorMaxEstimatedContentWidth,
+                          math.max(
+                            viewportWidth,
+                            widget.controller.longestLineLength *
+                                    (widget.fontSize * 0.62) +
+                                _editorTextPaddingLeft +
+                                _editorTextPaddingRight +
+                                48,
+                          ),
+                        );
+
+                  Widget textFieldWidget = TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    maxLines: null,
+                    expands: true,
+                    scrollController: widget.scrollController,
+                    smartDashesType: SmartDashesType.disabled,
+                    smartQuotesType: SmartQuotesType.disabled,
+                    style: editorStyle,
+                    cursorColor: colorScheme.primary,
+                    contextMenuBuilder: (context0, state0) =>
+                        const SizedBox.shrink(),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      filled: false,
+                      fillColor: Colors.transparent,
+                      contentPadding: EdgeInsets.only(
+                        top: _editorTextPaddingTop,
+                        bottom: _editorTextPaddingBottom,
+                        left: _editorTextPaddingLeft,
+                        right: _editorTextPaddingRight,
+                      ),
+                      isDense: true,
+                      isCollapsed: true,
+                    ),
+                    onChanged: widget.onChanged,
+                  );
+
+                  // When word wrap is disabled, wrap in horizontal scroll
+                  if (!widget.wordWrap) {
+                    textFieldWidget = SingleChildScrollView(
+                      controller: _horizontalScrollController,
+                      scrollDirection: Axis.horizontal,
+                      child: SizedBox(
+                        width: estimatedContentWidth,
+                        child: textFieldWidget,
+                      ),
+                    );
+                  }
+
+                  return PrimaryScrollController.none(
+                    child: RawScrollbar(
+                      controller: widget.scrollController,
+                      thumbVisibility: true,
+                      thickness: 9,
+                      radius: const Radius.circular(999),
+                      notificationPredicate: (notification) =>
+                          notification.metrics.axis == Axis.vertical,
+                      child: ScrollConfiguration(
+                        behavior: noScrollbarBehavior,
+                        child: GestureDetector(
+                          onSecondaryTapDown: widget.onSecondaryTapDown,
+                          child: MouseRegion(
+                            key: _textViewportKey,
+                            onExit: (_) => _scheduleDiagnosticTooltipHide(),
+                            onHover:
+                                widget.diagnostics.isEmpty ||
+                                    !supportsDiagnosticHoverTooltips
+                                ? null
+                                : (event) => _handleTextHover(
+                                    event,
+                                    viewportWidth: viewportWidth,
+                                    editorStyle: editorStyle,
+                                  ),
+                            child: textFieldWidget,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-
-                if (hasDiagnostics && tooltip.isNotEmpty) {
-                  lineWidget = Tooltip(message: tooltip, child: lineWidget);
-                }
-                // When using computed wrapped heights, constrain each item to
-                // the corresponding text line's visual height.
-                if (itemHeight != null) {
-                  return SizedBox(height: itemHeight, child: lineWidget);
-                }
-                return lineWidget;
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ),
-        // ── Code area — with optional horizontal scroll ──
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final viewportWidth = constraints.maxWidth;
-              final estimatedContentWidth = widget.wordWrap
-                  ? viewportWidth
-                  : math.max(
-                      viewportWidth,
-                      widget.controller.longestLineLength *
-                              (widget.fontSize * 0.62) +
-                          _editorTextPaddingLeft +
-                          _editorTextPaddingRight +
-                          48,
-                    );
-
-              Widget textFieldWidget = TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                maxLines: null,
-                expands: true,
-                scrollController: widget.scrollController,
-                style: editorStyle,
-                cursorColor: colorScheme.primary,
-                contextMenuBuilder: (context0, state0) =>
-                    const SizedBox.shrink(),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
-                  filled: false,
-                  fillColor: Colors.transparent,
-                  contentPadding: EdgeInsets.only(
-                    top: _editorTextPaddingTop,
-                    bottom: _editorTextPaddingBottom,
-                    left: _editorTextPaddingLeft,
-                    right: _editorTextPaddingRight,
-                  ),
-                  isDense: true,
-                  isCollapsed: true,
-                ),
-                onChanged: widget.onChanged,
-              );
-
-              // When word wrap is disabled, wrap in horizontal scroll
-              if (!widget.wordWrap) {
-                textFieldWidget = SingleChildScrollView(
-                  controller: _horizontalScrollController,
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: estimatedContentWidth,
-                    child: textFieldWidget,
-                  ),
-                );
-              }
-
-              return PrimaryScrollController.none(
-                child: RawScrollbar(
-                  controller: widget.scrollController,
-                  thumbVisibility: true,
-                  thickness: 9,
-                  radius: const Radius.circular(999),
-                  notificationPredicate: (notification) =>
-                      notification.metrics.axis == Axis.vertical,
-                  child: ScrollConfiguration(
-                    behavior: noScrollbarBehavior,
-                    child: GestureDetector(
-                      onSecondaryTapDown: widget.onSecondaryTapDown,
-                      child: MouseRegion(
-                        key: _textViewportKey,
-                        onExit: (_) => _scheduleDiagnosticTooltipHide(),
-                        onHover: widget.diagnostics.isEmpty
-                            ? null
-                            : (event) => _handleTextHover(
-                                event,
-                                viewportWidth: viewportWidth,
-                                editorStyle: editorStyle,
-                              ),
-                        child: textFieldWidget,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-    }, // LayoutBuilder builder
+          ],
+        );
+      }, // LayoutBuilder builder
     );
   }
 }
@@ -12925,6 +14035,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   final Map<int, TextSpan> _lineSpanCache = {};
   _CodeSyntaxHighlighter? _lineHighlighter;
   bool _darkSurface = false;
+  static const int _plainPreviewLineLength = 2048;
 
   double get _lineExtent => widget.fontSize * _editorLineHeight;
   static const int _lineSpanCacheLimit = 600;
@@ -12985,19 +14096,22 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   }
 
   TextSpan _highlightLine(int index) {
-    final cached = _lineSpanCache[index];
+    final cached = _lineSpanCache.remove(index);
     if (cached != null) {
+      _lineSpanCache[index] = cached;
       return cached;
     }
     final line = widget.controller.previewLines[index];
-    _lineHighlighter ??= _CodeSyntaxHighlighter(
-      baseStyle: _resolvedEditorStyle(),
-      darkSurface: _darkSurface,
-      codeTheme: widget.codeTheme,
-    );
+    final editorStyle = _resolvedEditorStyle();
     final span = line.isEmpty
-        ? TextSpan(text: ' ', style: _resolvedEditorStyle())
-        : _lineHighlighter!.build(
+        ? TextSpan(text: ' ', style: editorStyle)
+        : line.length >= _plainPreviewLineLength
+        ? TextSpan(text: line, style: editorStyle)
+        : (_lineHighlighter ??= _CodeSyntaxHighlighter(
+            baseStyle: editorStyle,
+            darkSurface: _darkSurface,
+            codeTheme: widget.codeTheme,
+          )).build(
             line,
             language: widget.language,
             allowAutoDetection: widget.language == null,
@@ -13079,10 +14193,14 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final estimatedContentWidth = math.max(
-                constraints.maxWidth,
-                widget.controller.longestLineLength * (widget.fontSize * 0.68) +
-                    32,
+              final estimatedContentWidth = math.min(
+                _editorMaxEstimatedContentWidth,
+                math.max(
+                  constraints.maxWidth,
+                  widget.controller.longestLineLength *
+                          (widget.fontSize * 0.68) +
+                      32,
+                ),
               );
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -13103,7 +14221,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                       behavior: noScrollbarBehavior,
                       child: ListView.builder(
                         // Key based on fontSize forces rebuild when zoom changes
-                        key: ValueKey('preview-line-numbers-${widget.fontSize}'),
+                        key: ValueKey(
+                          'preview-line-numbers-${widget.fontSize}',
+                        ),
                         controller: _lineNumberScrollController,
                         physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(top: 10, bottom: 10),
@@ -13151,7 +14271,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                               width: estimatedContentWidth,
                               child: ListView.builder(
                                 // Key based on fontSize forces rebuild when zoom changes
-                                key: ValueKey('preview-content-${widget.fontSize}'),
+                                key: ValueKey(
+                                  'preview-content-${widget.fontSize}',
+                                ),
                                 controller: widget.scrollController,
                                 padding: const EdgeInsets.only(
                                   top: 10,

@@ -10,8 +10,10 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
 import '../model/app_settings_snapshot.dart';
-import '../model/editor_code_theme.dart';
 import '../model/dialog_animation_settings.dart';
+import '../model/editor_code_theme.dart';
+import '../model/editor_indent.dart';
+import '../model/editor_shortcut.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
 import '../support/url_validation.dart';
@@ -133,10 +135,19 @@ class SettingsStore {
       'memory_enabled': snapshot.memoryEnabled,
       'user_memory_file_path': snapshot.userMemoryFilePath,
       'editor_word_wrap': snapshot.editorWordWrap,
+      'editor_indent_spaces': normalizeEditorIndentSpaces(
+        snapshot.editorIndentSpaces,
+      ),
       'editor_code_theme': snapshot.editorCodeTheme.storageValue,
       'editor_lsp_settings': <String, Object?>{
         for (final entry in snapshot.editorLspSettings.entries)
           entry.key: entry.value.toJson(),
+      },
+      'editor_shortcut_bindings': <String, List<int>>{
+        for (final entry in snapshot.editorShortcutBindings.entries)
+          editorShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(
+            entry.value,
+          ),
       },
       'ai_message_compression_threshold_chars':
           snapshot.aiMessageCompressionThresholdChars,
@@ -192,6 +203,9 @@ class SettingsStore {
     final editorWordWrap = json['editor_word_wrap'] is bool
         ? json['editor_word_wrap'] as bool
         : true;
+    final editorIndentSpaces = normalizeEditorIndentSpaces(
+      (json['editor_indent_spaces'] as num?)?.toInt(),
+    );
     final editorCodeTheme = EditorCodeTheme.fromStorage(
       '${json['editor_code_theme'] ?? ''}',
     );
@@ -209,6 +223,31 @@ class SettingsStore {
           );
         } catch (_) {}
       }
+    }
+    final rawEditorShortcutBindings = json['editor_shortcut_bindings'];
+    var editorShortcutBindings = defaultEditorShortcutBindings();
+    if (rawEditorShortcutBindings is Map) {
+      final parsed = <EditorShortcutAction, List<int>>{};
+      for (final entry in rawEditorShortcutBindings.entries) {
+        final action = editorShortcutActionFromStorageKey('${entry.key}');
+        if (action == null) {
+          continue;
+        }
+        final value = entry.value;
+        if (value is! List) {
+          continue;
+        }
+        final normalized = normalizeShortcutKeyIds(
+          value.whereType<num>().map((item) => item.toInt()),
+        );
+        if (isValidShortcutBinding(normalized)) {
+          parsed[action] = normalized;
+        }
+      }
+      editorShortcutBindings = <EditorShortcutAction, List<int>>{
+        ...defaultEditorShortcutBindings(),
+        ...parsed,
+      };
     }
     final aiMessageCompressionThresholdChars =
         json['ai_message_compression_threshold_chars'] is int &&
@@ -334,8 +373,10 @@ class SettingsStore {
       memoryEnabled: memoryEnabled,
       userMemoryFilePath: userMemoryFilePath,
       editorWordWrap: editorWordWrap,
+      editorIndentSpaces: editorIndentSpaces,
       editorCodeTheme: editorCodeTheme,
       editorLspSettings: editorLspSettings,
+      editorShortcutBindings: editorShortcutBindings,
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
