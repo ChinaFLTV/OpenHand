@@ -36,6 +36,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   final FocusNode _searchFocusNode = FocusNode();
   List<_FileNode> _searchResults = const [];
   bool _searchLoading = false;
+  Timer? _searchDebounce;
 
   // Track the currently selected node in the tree (for "Expand Selected").
   String? _selectedNodePath;
@@ -89,6 +90,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _treeScrollController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -99,19 +101,26 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     setState(() {
       _searchActive = !_searchActive;
       if (!_searchActive) {
+        _searchDebounce?.cancel();
         _searchController.clear();
         _searchResults = const [];
         _searchLoading = false;
-      } else {
-        // Focus the search field after the frame.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _searchFocusNode.requestFocus();
-        });
       }
     });
+    if (_searchActive) {
+      // Schedule focus request in the next frame after the TextField is
+      // inserted into the widget tree.  Using a double post-frame callback
+      // improves reliability on macOS where the platform text-input channel
+      // sometimes misses the first attach cycle.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_searchActive) return;
+        _searchFocusNode.requestFocus();
+      });
+    }
   }
 
-  Future<void> _performSearch(String query) async {
+  void _onSearchChanged(String query) {
+    _searchDebounce?.cancel();
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) {
       setState(() {
@@ -120,7 +129,33 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       });
       return;
     }
-    setState(() => _searchLoading = true);
+    // Show loading indicator immediately but debounce the actual I/O scan
+    // to avoid excessive rebuilds (which can disconnect the macOS text-input
+    // channel when keystrokes arrive faster than setState flushes).
+    if (!_searchLoading && mounted) {
+      setState(() => _searchLoading = true);
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (mounted) {
+        _performSearch(trimmed);
+      }
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _searchResults = const [];
+          _searchLoading = false;
+        });
+      }
+      return;
+    }
+    if (mounted) {
+      setState(() => _searchLoading = true);
+    }
     final results = <_FileNode>[];
     await _searchDirectory(Directory(widget.rootPath), trimmed, results, 0);
     if (!mounted) return;
@@ -763,8 +798,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               child: TextField(
                 controller: _searchController,
                 focusNode: _searchFocusNode,
+                autofocus: true,
                 style: theme.textTheme.bodySmall,
-                onChanged: _performSearch,
+                onChanged: _onSearchChanged,
                 decoration: InputDecoration(
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(
@@ -798,7 +834,8 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                       ? GestureDetector(
                           onTap: () {
                             _searchController.clear();
-                            _performSearch('');
+                            _onSearchChanged('');
+                            _searchFocusNode.requestFocus();
                           },
                           child: Padding(
                             padding: const EdgeInsets.only(right: 4),

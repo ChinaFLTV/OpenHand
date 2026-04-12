@@ -172,6 +172,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   Future<void> _performAtMentionSearch(String rootPath, String query) async {
+    if (!mounted) return;
     setState(() => _atMentionLoading = true);
     final basePath = _atMentionCurrentDirectory.isEmpty
         ? rootPath

@@ -42,6 +42,10 @@ class AiEditTool extends AiTool {
     } on FormatException {
       return AiToolUtils.invalidResult('Edit', 'File does not appear to be a valid text file: $filePath');
     }
+    
+    // 计算替换次数
+    final matchCount = RegExp(RegExp.escape(oldString)).allMatches(content).length;
+    
     final replacement = AiToolUtils.replaceOnceOrAll(
       content: content,
       oldString: oldString,
@@ -52,9 +56,31 @@ class AiEditTool extends AiTool {
       return AiToolUtils.invalidResult('Edit', replacement.errorMessage);
     }
     await AiToolUtils.writeTextFileSafely(file, replacement.content);
+    
+    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    final String verificationContent;
+    try {
+      verificationContent = await file.readAsString();
+    } catch (e) {
+      return AiToolUtils.invalidResult('Edit', 'File was written but verification read failed: $e');
+    }
+    final verificationPassed = verificationContent.contains(newString);
+    if (!verificationPassed && newString.isNotEmpty) {
+      return AiToolUtils.invalidResult(
+        'Edit', 
+        'File was written but verification failed: new_string not found in file after write. '
+        'This may indicate a write permission issue or concurrent modification.',
+      );
+    }
+    
+    final replacementCount = replaceAll ? matchCount : 1;
+    final outputMessage = replaceAll
+        ? 'Updated $filePath (replaced $replacementCount occurrence${replacementCount > 1 ? 's' : ''}, verified)'
+        : 'Updated $filePath (verified)';
+    
     return AiToolUtils.simpleSuccessResult(
       command: 'Edit $filePath',
-      output: 'Updated $filePath',
+      output: outputMessage,
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
@@ -65,6 +91,8 @@ class AiEditTool extends AiTool {
         'file_mutation_old_string_char_count': oldString.length,
         'file_mutation_new_string_char_count': newString.length,
         'file_mutation_replace_all': replaceAll,
+        'file_mutation_replacement_count': replacementCount,
+        'file_mutation_verified': verificationPassed,
       },
     );
   }

@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 import 'package:uuid/uuid.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
@@ -1255,24 +1256,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (focusContext == null) {
       return false;
     }
-    // Check the focused widget itself.
-    if (focusContext.widget is EditableText ||
-        focusContext.widget is TextField ||
-        focusContext.widget is TextFormField) {
+    try {
+      // Check the focused widget itself.
+      if (focusContext.widget is EditableText ||
+          focusContext.widget is TextField ||
+          focusContext.widget is TextFormField) {
+        return true;
+      }
+      // Check whether the focused widget lives inside an editable text widget
+      // (e.g. the internal Focus node created by EditableText).
+      if (focusContext.findAncestorWidgetOfExactType<EditableText>() != null ||
+          focusContext.findAncestorWidgetOfExactType<TextField>() != null) {
+        return true;
+      }
+      // NOTE: Do NOT walk child elements here.  The previous recursive visitor
+      // found TextField / EditableText widgets that merely *exist* in the
+      // subtree (e.g. the composer sitting inside the Scaffold) even when they
+      // do not hold focus, causing false positives that silently block all
+      // shortcuts when focus is on the global shortcut node or any other
+      // non-editable widget.
+    } catch (_) {
+      // If any error occurs during focus context inspection, assume focus
+      // is on an editable field to avoid blocking text input.
       return true;
     }
-    // Check whether the focused widget lives inside an editable text widget
-    // (e.g. the internal Focus node created by EditableText).
-    if (focusContext.findAncestorWidgetOfExactType<EditableText>() != null ||
-        focusContext.findAncestorWidgetOfExactType<TextField>() != null) {
-      return true;
-    }
-    // NOTE: Do NOT walk child elements here.  The previous recursive visitor
-    // found TextField / EditableText widgets that merely *exist* in the
-    // subtree (e.g. the composer sitting inside the Scaffold) even when they
-    // do not hold focus, causing false positives that silently block all
-    // shortcuts when focus is on the global shortcut node or any other
-    // non-editable widget.
     return false;
   }
 
@@ -1564,9 +1571,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || peConfig == null) {
         return false;
       }
+      // Build runtime context with the PE project root as the working
+      // directory so the AI's tool calls (Read, Glob, Grep, Bash, etc.)
+      // resolve relative paths against the user's project, not the
+      // OpenHand application directory.
+      final peRuntimeContext = await _buildRuntimeContext(
+        workingDirectory: peConfig.projectRoot,
+      );
+      if (!mounted) {
+        return false;
+      }
       final created = await _createSession(
         templateId: templateId,
-        runtimeContext: runtimeContext,
+        runtimeContext: peRuntimeContext,
       );
       if (created && mounted) {
         final currentSession = sessionController.currentSession;
@@ -2256,7 +2273,34 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         prompt = result.toPrompt();
         _replaceComposerText(prompt);
       }
-      runtimeContext = await _buildRuntimeContext();
+      // Programming Expert: show project config dialog so the AI knows
+      // the correct working directory and project context.
+      _ProgrammingExpertConfig? peConfig;
+      if (templateId == 'programming_expert') {
+        final recentPathCache = _collectProgrammingExpertRecentPaths(
+          sessionController.sessions,
+        );
+        final settingsController2 = context.read<SettingsController>();
+        final currentWorkspacePath =
+            _preferredProgrammingExpertProjectRootCandidate(
+              sessionController: sessionController,
+            ) ??
+            '';
+        peConfig = await showAnimatedDialog<_ProgrammingExpertConfig>(
+          context: context,
+          builder: (context) => _ProgrammingExpertProjectDialog(
+            settingsController: settingsController2,
+            recentPathCache: recentPathCache,
+            currentWorkspacePath: currentWorkspacePath,
+          ),
+        );
+        if (!mounted || peConfig == null) {
+          return;
+        }
+      }
+      runtimeContext = await _buildRuntimeContext(
+        workingDirectory: peConfig?.projectRoot,
+      );
       if (!mounted) {
         return;
       }
@@ -2268,6 +2312,26 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
+      }
+      // After creating a PE session, persist the project config into metadata.
+      if (peConfig != null) {
+        final currentSession = sessionController.currentSession;
+        if (currentSession != null) {
+          await sessionController.updateSessionMetadata(
+            currentSession.id,
+            <String, Object?>{
+              'programming_expert_config': <String, Object?>{
+                'project_root': peConfig.projectRoot,
+                'language': peConfig.language,
+                'sdk_path': peConfig.sdkPath,
+                'lsp_path': peConfig.lspPath,
+              },
+            },
+          );
+        }
+        if (!mounted) {
+          return;
+        }
       }
     }
     final targetSessionId = sessionController.currentSessionId;
@@ -2362,7 +2426,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
     _scheduleScrollToBottom(force: true);
     try {
-      runtimeContext ??= await _buildRuntimeContext();
+      if (runtimeContext == null) {
+        // For Programming Expert sessions, use the project root as the
+        // working directory so tool calls resolve against the loaded project.
+        final peProjectRoot = _programmingExpertProjectRoot(initialSession);
+        runtimeContext = await _buildRuntimeContext(
+          workingDirectory: peProjectRoot,
+        );
+      }
       if (!mounted) {
         return;
       }

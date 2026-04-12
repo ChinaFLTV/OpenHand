@@ -31,9 +31,28 @@ class AiWriteTool extends AiTool {
     );
     if (readValidation != null) return readValidation;
     await AiToolUtils.writeTextFileSafely(file, content);
+    
+    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    final String verificationContent;
+    try {
+      verificationContent = await file.readAsString();
+    } catch (e) {
+      return AiToolUtils.invalidResult('Write', 'File was written but verification read failed: $e');
+    }
+    final verificationPassed = verificationContent == content;
+    final charCountMatches = verificationContent.length == content.length;
+    if (!verificationPassed && !charCountMatches) {
+      return AiToolUtils.invalidResult(
+        'Write', 
+        'File was written but verification failed: content mismatch. '
+        'Expected ${content.length} chars, got ${verificationContent.length} chars. '
+        'This may indicate a write permission issue or concurrent modification.',
+      );
+    }
+    
     return AiToolUtils.simpleSuccessResult(
       command: 'Write $filePath',
-      output: 'Wrote ${content.length} characters to $filePath',
+      output: 'Wrote ${content.length} characters to $filePath (verified)',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
@@ -42,6 +61,7 @@ class AiWriteTool extends AiTool {
         'file_mutation_kind': 'write',
         'file_mutation_path': filePath,
         'file_mutation_content_char_count': content.length,
+        'file_mutation_verified': verificationPassed,
       },
     );
   }

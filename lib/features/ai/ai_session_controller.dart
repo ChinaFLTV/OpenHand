@@ -2122,14 +2122,26 @@ class AiSessionController extends ChangeNotifier {
       materializePendingReasoningPreview();
       final didCancelStream =
           result.wasCancelled || _isStopRequestedForSession(workingSession.id);
+      // Always preserve the intermediate assistant narration if it has
+      // meaningful content after sanitization.  Previous versions removed this
+      // message when tool calls were present, which caused the AI's chain-of-
+      // thought reasoning and narration to be lost from the conversation
+      // transcript.  Users reported this as "messages being unexpectedly lost".
+      //
+      // The sanitizer already strips raw <tool_call>/<tool_result> XML markup,
+      // so what remains is the actual narration text that should be preserved.
+      final sanitizedReply = _sanitizeVisibleModelContent(result.reply);
+      final hasMeaningfulNarration = sanitizedReply.trim().isNotEmpty;
       final shouldPersistIntermediateAssistantNarration =
-          result.toolCalls.isEmpty || didCancelStream;
+          hasMeaningfulNarration || didCancelStream;
       if (shouldPersistIntermediateAssistantNarration) {
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
           result.reply,
         );
       } else {
+        // Only remove the intermediate message if it's truly empty after
+        // sanitization (e.g., the AI only produced tool calls with no text).
         if (assistantMessageId != null) {
           streamedSession = _removeMessagesByIds(
             streamedSession,

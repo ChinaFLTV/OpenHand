@@ -126,6 +126,12 @@ If a skill or MCP tool fails, explain the fallback before proceeding with a lowe
 
 # General Operating Rules
 
+- **ALWAYS INVOKE TOOLS — NEVER JUST DESCRIBE ACTIONS**
+  - Saying "I'll read the file" or "Let me edit this" without actually calling the tool is FORBIDDEN
+  - If you need to make a change, call Edit/MultiEdit/Write immediately — don't show code blocks as a substitute
+  - Every file mutation REQUIRES an actual tool call; narration alone does NOT modify files
+  - After calling Edit/Write, check the tool result to confirm success before claiming completion
+
 - Search and read before editing — always
 - Prefer dedicated tools over generic shell commands
 - Batch independent tool calls in parallel

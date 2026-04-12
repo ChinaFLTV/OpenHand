@@ -327,7 +327,7 @@ String _sanitizeVisibleModelContent(String value) {
   }
   if (cursor >= lines.length ||
       !AiSessionController._internalPromptLeakHeaders.contains(lines[cursor].trim())) {
-    return sanitizeVisibleDsmlContent(normalized);
+    return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(normalized));
   }
   while (cursor < lines.length) {
     final trimmed = lines[cursor].trim();
@@ -339,10 +339,47 @@ String _sanitizeVisibleModelContent(String value) {
   }
   final sanitized = lines.skip(cursor).join('\n').trimLeft();
   if (sanitized.length == normalized.length) {
-    return sanitizeVisibleDsmlContent(normalized);
+    return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(normalized));
   }
-  return sanitizeVisibleDsmlContent(sanitized);
+  return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(sanitized));
 }
+
+/// Strip raw `<tool_call>…</tool_call>` and `<tool_result>…</tool_result>`
+/// markup that some models echo verbatim in their text output alongside
+/// native API tool-call events.  Without this filter the tags appear as ugly
+/// raw XML in the chat bubble.
+String _stripRawToolCallMarkup(String value) {
+  if (!_rawToolCallPresencePattern.hasMatch(value)) {
+    return value;
+  }
+  var stripped = value
+      .replaceAll(_rawToolCallBlockPattern, '')
+      .replaceAll(_rawToolResultBlockPattern, '')
+      .replaceAll(_rawToolCallLooseTagPattern, '');
+  // Collapse excessive blank lines left behind after stripping.
+  stripped = stripped
+      .replaceAll(_excessiveNewlinePatternToolCall, '\n\n')
+      .trim();
+  return stripped;
+}
+
+final RegExp _rawToolCallPresencePattern = RegExp(
+  r'<\s*/?\s*tool_(?:call|result)\b',
+  caseSensitive: false,
+);
+final RegExp _rawToolCallBlockPattern = RegExp(
+  r'<\s*tool_call\b[^>]*>[\s\S]*?<\s*/\s*tool_call\s*>',
+  caseSensitive: false,
+);
+final RegExp _rawToolResultBlockPattern = RegExp(
+  r'<\s*tool_result\b[^>]*>[\s\S]*?<\s*/\s*tool_result\s*>',
+  caseSensitive: false,
+);
+final RegExp _rawToolCallLooseTagPattern = RegExp(
+  r'<\s*/?\s*tool_(?:call|result)\b[^>]*>',
+  caseSensitive: false,
+);
+final RegExp _excessiveNewlinePatternToolCall = RegExp(r'\n{3,}');
 
 String _renderToolCallContent({
   required String name,

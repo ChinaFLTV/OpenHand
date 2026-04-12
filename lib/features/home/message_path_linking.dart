@@ -17,6 +17,22 @@ final RegExp _detectedStandaloneFileNamePattern = RegExp(
   r'''^(?:\.[^\s<>()[\]{}'"*?:;|/`]+|[^\s<>()[\]{}'"*?:;|/`]+\.[a-zA-Z0-9]+)$''',
 );
 
+/// Matches strings that begin with a domain-qualified path segment, e.g.
+/// `gitee.com/org/repo`, `github.com/user/project`, `golang.org/x/tools`.
+/// These are Go/Java/Maven-style import paths and should NOT be treated as
+/// local file paths.  The pattern requires a domain with a TLD-like suffix
+/// (2+ letters after the final dot) followed by `/`.
+///
+/// Examples that match:
+/// - `github.com/user/project` (domain.TLD/path)
+/// - `gitee.com/org/repo` (domain.TLD/path)
+/// - `golang.org/x/tools` (domain.TLD/path)
+/// - `git.zuoyebang.cc/org/repo` (subdomain.domain.TLD/path)
+/// - `pkg.go.dev/golang.org/x/tools` (multi-level domain)
+final RegExp _domainQualifiedPathPattern = RegExp(
+  r'^[A-Za-z0-9][-A-Za-z0-9]*(?:\.[A-Za-z0-9][-A-Za-z0-9]*)*\.[A-Za-z]{2,}/',
+);
+
 List<String> messageFilePathRoots(
   AiSessionEnvironment environment, {
   String? workingDirectory,
@@ -123,6 +139,12 @@ bool looksLikeAbsoluteMessagePath(String path) {
 bool looksLikeResolvableMessagePath(String path) {
   final normalized = path.trim();
   if (normalized.isEmpty) {
+    return false;
+  }
+  // Reject strings that look like domain-qualified package/import paths
+  // (e.g. "gitee.com/org/repo/pkg" or "github.com/user/project") — these
+  // are not local file system paths and should never become capsules.
+  if (_domainQualifiedPathPattern.hasMatch(normalized)) {
     return false;
   }
   if (normalized == '~' ||

@@ -28,6 +28,7 @@ dependencies:
   sqflite_common_ffi: ^2.3.4
   sqlite3_flutter_libs: ^0.5.28
   sqflite_common: ^2.5.5
+  webview_flutter: ^4.10.0
 
   intl: any
 dev_dependencies:

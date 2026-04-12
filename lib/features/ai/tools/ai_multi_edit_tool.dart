@@ -73,9 +73,26 @@ class AiMultiEditTool extends AiTool {
       content = replacement.content;
     }
     await AiToolUtils.writeTextFileSafely(file, content);
+    
+    // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
+    final String verificationContent;
+    try {
+      verificationContent = await file.readAsString();
+    } catch (e) {
+      return AiToolUtils.invalidResult('MultiEdit', 'File was written but verification read failed: $e');
+    }
+    final verificationPassed = verificationContent == content;
+    if (!verificationPassed) {
+      return AiToolUtils.invalidResult(
+        'MultiEdit', 
+        'File was written but verification failed: content mismatch after write. '
+        'This may indicate a write permission issue or concurrent modification.',
+      );
+    }
+    
     return AiToolUtils.simpleSuccessResult(
       command: 'MultiEdit $filePath',
-      output: 'Updated $filePath',
+      output: 'Updated $filePath with ${edits.length} edit${edits.length > 1 ? 's' : ''} (verified)',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,
@@ -84,6 +101,7 @@ class AiMultiEditTool extends AiTool {
         'file_mutation_kind': 'multi_edit',
         'file_mutation_path': filePath,
         'file_mutation_edit_count': edits.length,
+        'file_mutation_verified': verificationPassed,
       },
     );
   }

@@ -85,7 +85,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   TextSpan? _highlightedSpan;
   int? _highlightSignature;
   bool _copied = false;
+  bool _downloaded = false;
   Timer? _copiedResetTimer;
+  Timer? _downloadedResetTimer;
   _CodeBlockPalette? _cachedPalette;
   int? _cachedPaletteSignature;
 
@@ -117,6 +119,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (oldWidget.content != widget.content) {
       _copiedResetTimer?.cancel();
       _copied = false;
+      _downloadedResetTimer?.cancel();
+      _downloaded = false;
     }
     _ensureHighlightedSpan();
   }
@@ -124,6 +128,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   @override
   void dispose() {
     _copiedResetTimer?.cancel();
+    _downloadedResetTimer?.cancel();
     super.dispose();
   }
 
@@ -152,6 +157,13 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       zh: _copied ? '已复制' : '复制',
       en: _copied ? 'Copied' : 'Copy',
     );
+    final downloadLabel = _localizedText(
+      context,
+      zh: _downloaded ? '已下载' : '下载',
+      en: _downloaded ? 'Downloaded' : 'Download',
+    );
+    final runLabel = _localizedText(context, zh: '运行', en: 'Run');
+    final isHtmlLanguage = _isHtmlLanguage(effectiveLanguage);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -199,6 +211,26 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                   foregroundColor: palette.actionTextColor,
                   onTap: _copyCodeBlock,
                 ),
+                const SizedBox(width: 8),
+                _buildHeaderPill(
+                  label: downloadLabel,
+                  icon: _downloaded
+                      ? Icons.check_rounded
+                      : Icons.download_rounded,
+                  backgroundColor: palette.actionColor,
+                  foregroundColor: palette.actionTextColor,
+                  onTap: () => _downloadCodeBlock(effectiveLanguage),
+                ),
+                if (isHtmlLanguage) ...[
+                  const SizedBox(width: 8),
+                  _buildHeaderPill(
+                    label: runLabel,
+                    icon: Icons.play_arrow_rounded,
+                    backgroundColor: palette.actionColor,
+                    foregroundColor: palette.actionTextColor,
+                    onTap: _runHtmlPreview,
+                  ),
+                ],
               ],
             ),
           ),
@@ -369,6 +401,81 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           ),
         );
     }
+  }
+
+  void _downloadCodeBlock(String? language) {
+    _downloadedResetTimer?.cancel();
+    unawaited(_performCodeBlockDownload(language));
+  }
+
+  Future<void> _performCodeBlockDownload(String? language) async {
+    final extension = _getFileExtensionForLanguage(language);
+    final suggestedName = 'code_block$extension';
+    try {
+      final selectedLocation = await getSaveLocation(
+        suggestedName: suggestedName,
+      );
+      final selectedPath = selectedLocation?.path;
+      if (!mounted || selectedPath == null || selectedPath.isEmpty) {
+        return;
+      }
+      final file = File(selectedPath);
+      await file.writeAsString(widget.content);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _downloaded = true;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '代码已下载为 ${p.basename(selectedPath)}',
+                en: 'Code downloaded as ${p.basename(selectedPath)}',
+              ),
+            ),
+          ),
+        );
+      _downloadedResetTimer = Timer(const Duration(milliseconds: 1600), () {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _downloaded = false;
+        });
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              _localizedText(
+                context,
+                zh: '下载失败。',
+                en: 'Download failed.',
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  void _runHtmlPreview() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => _HtmlPreviewDialog(
+        htmlContent: widget.content,
+        theme: widget.theme,
+      ),
+    );
   }
 }
 
@@ -805,3 +912,514 @@ String? _normalizeCodeLanguage(String? language) {
   };
 }
 
+bool _isHtmlLanguage(String? language) {
+  final normalized = (language ?? '').trim().toLowerCase();
+  return normalized == 'html' || normalized == 'htm';
+}
+
+String _getFileExtensionForLanguage(String? language) {
+  final normalized = (language ?? '').trim().toLowerCase();
+  if (normalized.isEmpty) {
+    return '.txt';
+  }
+  return switch (normalized) {
+    'javascript' || 'js' => '.js',
+    'typescript' || 'ts' => '.ts',
+    'python' || 'py' => '.py',
+    'java' => '.java',
+    'kotlin' || 'kt' => '.kt',
+    'swift' => '.swift',
+    'go' || 'golang' => '.go',
+    'rust' || 'rs' => '.rs',
+    'c' => '.c',
+    'cpp' || 'c++' || 'cxx' => '.cpp',
+    'csharp' || 'cs' || 'c#' => '.cs',
+    'ruby' || 'rb' => '.rb',
+    'php' => '.php',
+    'html' || 'htm' => '.html',
+    'css' => '.css',
+    'scss' => '.scss',
+    'sass' => '.sass',
+    'less' => '.less',
+    'json' => '.json',
+    'xml' => '.xml',
+    'yaml' || 'yml' => '.yaml',
+    'markdown' || 'md' => '.md',
+    'sql' => '.sql',
+    'bash' || 'shell' || 'sh' || 'zsh' => '.sh',
+    'powershell' || 'ps1' => '.ps1',
+    'dart' => '.dart',
+    'lua' => '.lua',
+    'perl' || 'pl' => '.pl',
+    'r' => '.r',
+    'scala' => '.scala',
+    'groovy' => '.groovy',
+    'julia' || 'jl' => '.jl',
+    'elixir' || 'ex' => '.ex',
+    'erlang' || 'erl' => '.erl',
+    'haskell' || 'hs' => '.hs',
+    'clojure' || 'clj' => '.clj',
+    'fsharp' || 'fs' || 'f#' => '.fs',
+    'ocaml' || 'ml' => '.ml',
+    'objective-c' || 'objc' || 'm' => '.m',
+    'vue' => '.vue',
+    'jsx' => '.jsx',
+    'tsx' => '.tsx',
+    'svelte' => '.svelte',
+    'graphql' || 'gql' => '.graphql',
+    'protobuf' || 'proto' => '.proto',
+    'toml' => '.toml',
+    'ini' || 'cfg' => '.ini',
+    'dockerfile' => '.dockerfile',
+    'makefile' || 'make' => '.makefile',
+    'cmake' => '.cmake',
+    'nginx' => '.conf',
+    'apache' => '.conf',
+    _ => '.$normalized',
+  };
+}
+
+class _HtmlPreviewDialog extends StatefulWidget {
+  const _HtmlPreviewDialog({
+    required this.htmlContent,
+    required this.theme,
+  });
+
+  final String htmlContent;
+  final ThemeData theme;
+
+  @override
+  State<_HtmlPreviewDialog> createState() => _HtmlPreviewDialogState();
+}
+
+class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
+  bool _isCleaning = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    final titleText = isZh ? 'HTML 预览' : 'HTML Preview';
+    final closeText = isZh ? '关闭' : 'Close';
+    final openInBrowserText = isZh ? '在浏览器中打开' : 'Open in Browser';
+    final cleanupText = isZh ? '清理缓存' : 'Clean Cache';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: math.min(MediaQuery.of(context).size.width * 0.85, 1200.0),
+        height: math.min(MediaQuery.of(context).size.height * 0.85, 900.0),
+        decoration: BoxDecoration(
+          color: widget.theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: widget.theme.colorScheme.shadow.withValues(alpha: 0.2),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: widget.theme.colorScheme.surfaceContainerHigh,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: widget.theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.html_rounded,
+                    color: widget.theme.colorScheme.primary,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    titleText,
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: _isCleaning ? null : _cleanupTempHtmlFiles,
+                    icon: _isCleaning
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cleaning_services_rounded, size: 18),
+                    label: Text(cleanupText),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => _openInBrowser(context),
+                    icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                    label: Text(openInBrowserText),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: Text(closeText),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(20),
+                ),
+                child: _HtmlWebViewPreview(htmlContent: widget.htmlContent),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _cleanupTempHtmlFiles() async {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    setState(() {
+      _isCleaning = true;
+    });
+    try {
+      final tempDir = Directory.systemTemp;
+      int deletedCount = 0;
+      await for (final entity in tempDir.list()) {
+        if (entity is Directory && p.basename(entity.path).startsWith('openhand_html_')) {
+          try {
+            await entity.delete(recursive: true);
+            deletedCount++;
+          } catch (_) {
+            // Ignore individual deletion errors.
+          }
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCleaning = false;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh
+                  ? '已清理 $deletedCount 个临时 HTML 缓存目录。'
+                  : 'Cleaned $deletedCount temporary HTML cache directories.',
+            ),
+          ),
+        );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCleaning = false;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh ? '清理缓存失败: $e' : 'Failed to clean cache: $e',
+            ),
+          ),
+        );
+    }
+  }
+
+  Future<void> _openInBrowser(BuildContext context) async {
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+    try {
+      final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
+      final htmlFile = File(p.join(tempDir.path, 'preview.html'));
+      await htmlFile.writeAsString(widget.htmlContent);
+      final uri = Uri.file(htmlFile.path);
+      if (Platform.isMacOS) {
+        await Process.run('open', [uri.toFilePath()]);
+      } else if (Platform.isWindows) {
+        await Process.run('start', ['', uri.toFilePath()], runInShell: true);
+      } else if (Platform.isLinux) {
+        await Process.run('xdg-open', [uri.toFilePath()]);
+      }
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              isZh ? '无法在浏览器中打开。' : 'Could not open in browser.',
+            ),
+          ),
+        );
+    }
+  }
+}
+
+class _HtmlWebViewPreview extends StatefulWidget {
+  const _HtmlWebViewPreview({required this.htmlContent});
+
+  final String htmlContent;
+
+  @override
+  State<_HtmlWebViewPreview> createState() => _HtmlWebViewPreviewState();
+}
+
+class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
+  WebViewController? _webViewController;
+  String? _tempFilePath;
+  bool _isLoading = true;
+  String? _errorMessage;
+  double _loadingProgress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeWebView();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HtmlWebViewPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.htmlContent != widget.htmlContent) {
+      _cleanupTempFile();
+      _webViewController = null;
+      _initializeWebView();
+    }
+  }
+
+  @override
+  void dispose() {
+    _cleanupTempFile();
+    super.dispose();
+  }
+
+  Future<void> _initializeWebView() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _loadingProgress = 0;
+    });
+    
+    try {
+      if (!mounted) return;
+
+      // Initialize WebViewController with platform-safe configuration.
+      final controller = WebViewController();
+      
+      // Set JavaScript mode (safe on all platforms).
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      
+      // Set navigation delegate for progress and error handling.
+      await controller.setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) {
+              setState(() {
+                _loadingProgress = progress / 100.0;
+              });
+            }
+          },
+          onPageStarted: (url) {
+            if (mounted) {
+              setState(() {
+                _isLoading = true;
+              });
+            }
+          },
+          onPageFinished: (url) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          },
+          onWebResourceError: (error) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = error.description;
+                _isLoading = false;
+              });
+            }
+          },
+        ),
+      );
+
+      if (!mounted) return;
+
+      // Load HTML content directly (more compatible across platforms).
+      await controller.loadHtmlString(widget.htmlContent);
+
+      if (!mounted) return;
+
+      setState(() {
+        _webViewController = controller;
+        // Note: _isLoading will be set to false by onPageFinished callback.
+      });
+    } catch (e) {
+      if (!mounted) return;
+      
+      // If direct HTML loading fails, try with file-based approach.
+      await _tryLoadFromFile();
+    }
+  }
+
+  Future<void> _tryLoadFromFile() async {
+    try {
+      // Create temp HTML file as fallback.
+      final tempDir = await Directory.systemTemp.createTemp('openhand_html_');
+      final htmlFile = File(p.join(tempDir.path, 'preview.html'));
+      await htmlFile.writeAsString(widget.htmlContent);
+      _tempFilePath = htmlFile.path;
+
+      if (!mounted) return;
+
+      final controller = WebViewController();
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            if (mounted) {
+              setState(() {
+                _loadingProgress = progress / 100.0;
+              });
+            }
+          },
+          onPageFinished: (url) {
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          },
+          onWebResourceError: (error) {
+            if (mounted) {
+              setState(() {
+                _errorMessage = error.description;
+                _isLoading = false;
+              });
+            }
+          },
+        ),
+      );
+
+      await controller.loadFile(_tempFilePath!);
+
+      if (!mounted) return;
+
+      setState(() {
+        _webViewController = controller;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _cleanupTempFile() async {
+    if (_tempFilePath != null) {
+      try {
+        final file = File(_tempFilePath!);
+        if (await file.exists()) {
+          await file.parent.delete(recursive: true);
+        }
+      } catch (_) {
+        // Ignore cleanup errors.
+      }
+      _tempFilePath = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                color: theme.colorScheme.error,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isZh ? '加载预览失败' : 'Failed to load preview',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: theme.textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_webViewController == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(
+              isZh ? '正在初始化预览...' : 'Initializing preview...',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        WebViewWidget(controller: _webViewController!),
+        if (_isLoading)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              value: _loadingProgress > 0 ? _loadingProgress : null,
+              backgroundColor: theme.colorScheme.surfaceContainerLow,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                theme.colorScheme.primary,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
