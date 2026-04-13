@@ -2707,9 +2707,29 @@ class _HePhaseCard extends StatefulWidget {
 }
 
 class _HePhaseCardState extends State<_HePhaseCard> {
+  static const _expandSwitchDuration = Duration(milliseconds: 280);
+
   @override
   void didUpdateWidget(covariant _HePhaseCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+  }
+
+  String _collapsedPreviewLine(List<String> lines) {
+    return lines.lastWhere((line) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) return false;
+      if (trimmed.startsWith('✓ ') ||
+          trimmed.startsWith('✗ ') ||
+          trimmed.startsWith('▶ ') ||
+          trimmed.startsWith('⚠ ') ||
+          trimmed.startsWith('ℹ ')) {
+        return false;
+      }
+      if (trimmed.startsWith('【') && trimmed.endsWith('】')) {
+        return false;
+      }
+      return true;
+    }, orElse: () => '');
   }
 
   /// Returns the HardnessRoleConfig that drives this phase.
@@ -2794,6 +2814,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final phaseIcon = _phaseIcons[log.phase] ?? Icons.timelapse_rounded;
     final phaseName = isZh ? log.phase.displayNameZh : log.phase.displayNameEn;
     final roleConfig = _roleConfig();
+    final collapsedPreviewLine = _collapsedPreviewLine(log.lines);
 
     // Animate color & border transitions when status changes (e.g. pending →
     // running → completed). AnimatedContainer handles backgroundColor and
@@ -2905,86 +2926,155 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               ),
             ],
 
-            // ── Expandable log section ────────────────────────────────────
-            if (widget.expanded) ...[
-              const SizedBox(height: 12),
-              _HeLogSection(
-                log: log,
-                isZh: isZh,
-                onCopy: widget.onCopyLog,
-                filePathRoots: widget.filePathRoots,
-              ),
-              // ── File changes list ─────────────────────────────────────
-              if (log.changedFiles.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _HeChangedFilesList(files: log.changedFiles, isZh: isZh),
-              ],
-            ] else if (log.lines.isNotEmpty) ...[
-              // Collapsed preview: last meaningful log line.
-              // Skip UI-decoration lines (✓ ✗ ▶ ⚠ ℹ prefixes) and manual
-              // input headers (【…】) so internal status markers never leak
-              // into the preview.
-              Builder(
-                builder: (context) {
-                  final previewLine = log.lines.lastWhere((l) {
-                    final t = l.trim();
-                    if (t.isEmpty) return false;
-                    if (t.startsWith('✓ ') ||
-                        t.startsWith('✗ ') ||
-                        t.startsWith('▶ ') ||
-                        t.startsWith('⚠ ') ||
-                        t.startsWith('ℹ ')) {
-                      return false;
-                    }
-                    if (t.startsWith('【') && t.endsWith('】')) return false;
-                    return true;
-                  }, orElse: () => '');
-                  if (previewLine.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      previewLine,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'monospace',
-                        color: textColor.withValues(alpha: 0.60),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-
-            // ── Failure hint beneath expanded failed cards ────────────────
-            if (isFailed && widget.expanded) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.error_outline_rounded,
-                    size: 14,
-                    color: colorScheme.error,
+            AnimatedSwitcher(
+              duration: _expandSwitchDuration,
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              transitionBuilder: (child, animation) {
+                final fade = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                );
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, -0.04),
+                  end: Offset.zero,
+                ).animate(fade);
+                final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      isZh
-                          ? '本阶段执行失败，请检查上方日志以了解详情。'
-                          : 'This phase failed. Review the log above for details.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.error,
+                );
+                return ClipRect(
+                  child: FadeTransition(
+                    opacity: fade,
+                    child: SizeTransition(
+                      sizeFactor: fade,
+                      axisAlignment: -1,
+                      child: SlideTransition(
+                        position: slide,
+                        child: ScaleTransition(
+                          scale: scale,
+                          alignment: Alignment.topCenter,
+                          child: child,
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ],
+                );
+              },
+              child: widget.expanded
+                  ? KeyedSubtree(
+                      key: ValueKey<String>(
+                        'he-phase-expanded-${log.phase.name}',
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _HePhaseExpandedBody(
+                          log: log,
+                          isZh: isZh,
+                          onCopyLog: widget.onCopyLog,
+                          filePathRoots: widget.filePathRoots,
+                        ),
+                      ),
+                    )
+                  : collapsedPreviewLine.isNotEmpty
+                  ? KeyedSubtree(
+                      key: ValueKey<String>(
+                        'he-phase-collapsed-${log.phase.name}',
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          collapsedPreviewLine,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontFamily: 'monospace',
+                            color: textColor.withValues(alpha: 0.60),
+                          ),
+                        ),
+                      ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey<String>('he-phase-collapsed-empty'),
+                    ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _HePhaseExpandedBody extends StatelessWidget {
+  const _HePhaseExpandedBody({
+    required this.log,
+    required this.isZh,
+    required this.onCopyLog,
+    this.filePathRoots = const [],
+  });
+
+  final HardnessPhaseLog log;
+  final bool isZh;
+  final VoidCallback onCopyLog;
+  final List<String> filePathRoots;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isFailed = log.status == HardnessPhaseStatus.failed;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HeLogSection(
+          log: log,
+          isZh: isZh,
+          onCopy: onCopyLog,
+          filePathRoots: filePathRoots,
+        ),
+        if (log.changedFiles.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _HeChangedFilesList(files: log.changedFiles, isZh: isZh),
+        ],
+        if (isFailed) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 14,
+                color: colorScheme.error,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  isZh
+                      ? '本阶段执行失败，请检查上方日志以了解详情。'
+                      : 'This phase failed. Review the log above for details.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

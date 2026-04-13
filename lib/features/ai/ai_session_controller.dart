@@ -550,6 +550,8 @@ class AiSessionController extends ChangeNotifier {
     final template = _templateRepository.resolveTemplate(templateId);
     final now = _clock().toUtc();
     _lastErrorMessage = null;
+    // 2026-04-14: 创建新会话时清理文件追踪器，避免跨会话的脏写检测误判
+    _toolRuntimeService.fileTracker.clearAllTracking();
     final session = AiSession(
       id: _idGenerator(),
       title: _defaultNewSessionTitle,

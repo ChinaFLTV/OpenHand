@@ -83,8 +83,8 @@ class AiWriteTool extends AiTool {
       return AiToolUtils.invalidResult('Write', 'File was written but verification read failed: $e');
     }
     final verificationPassed = verificationContent == content;
-    final charCountMatches = verificationContent.length == content.length;
-    if (!verificationPassed && !charCountMatches) {
+    // 2026-04-14: 修复验证逻辑 - 只要内容不匹配就报错（之前错误地要求同时满足字符数不匹配）
+    if (!verificationPassed) {
       return AiToolUtils.invalidResult(
         'Write', 
         'File was written but verification failed: content mismatch. '

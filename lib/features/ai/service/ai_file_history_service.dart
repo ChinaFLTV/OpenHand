@@ -203,7 +203,11 @@ class AiFileHistoryService {
     // 返回路径最后一段 + hash，便于人工识别
     final basename = p.basenameWithoutExtension(path);
     final safeBasename = basename.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    return '${safeBasename.substring(0, safeBasename.length.clamp(0, 20))}_$hash';
+    // 2026-04-14: 修复边界条件 - 当 basename 为空时使用 'file' 作为前缀
+    final prefix = safeBasename.isEmpty 
+        ? 'file' 
+        : safeBasename.substring(0, safeBasename.length.clamp(0, 20));
+    return '${prefix}_$hash';
   }
 
   /// 读取指定版本的文件内容
