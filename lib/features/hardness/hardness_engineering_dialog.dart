@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
-import '../../shared/widgets/animated_menu.dart';
+import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
@@ -1957,102 +1957,15 @@ class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
     return config.providerLabel;
   }
 
-  List<PopupMenuEntry<(String?, String?)>> _buildPopupItems(
-    BuildContext context,
-  ) {
-    final items = <PopupMenuEntry<(String?, String?)>>[];
-    final activeConfigId = widget.selectedAiModelConfigId?.trim();
-    final activeModelId = widget.selectedUrlModeModelId?.trim();
-    for (final config in widget.settingsModels) {
-      final allIds = config.allModelIds;
-      if (allIds.isEmpty) {
-        final isActive = config.id == activeConfigId &&
-            config.modelId == (activeModelId ?? config.modelId);
-        items.add(
-          PopupMenuItem<(String?, String?)>(
-            value: (config.id, config.modelId),
-            child: Row(
-              children: [
-                Icon(
-                  isActive
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  size: 18,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${config.providerLabel} (${config.protocolType.storageValue})',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        items.add(
-          PopupMenuSectionHeader<(String?, String?)>(
-            label: config.providerLabel,
-          ),
-        );
-        for (final modelId in allIds) {
-          final isActive =
-              config.id == activeConfigId && modelId == activeModelId;
-          items.add(
-            PopupMenuItem<(String?, String?)>(
-              value: (config.id, modelId),
-              child: Row(
-                children: [
-                  Icon(
-                    isActive
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      modelId,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-      }
-    }
-    return items;
-  }
-
   void _showMenu() {
-    final button = context.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()!
-            as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    final items = _buildPopupItems(context);
-    if (items.isEmpty) return;
+    if (!widget.enabled || widget.settingsModels.isEmpty) return;
 
     setState(() => _menuOpen = true);
-    showAnimatedMenu<(String?, String?)>(
+    showModelSearchSelector(
       context: context,
-      position: position,
-      items: items,
+      models: widget.settingsModels,
+      selectedConfigId: widget.selectedAiModelConfigId,
+      selectedModelId: widget.selectedUrlModeModelId,
     ).then((value) {
       if (mounted) setState(() => _menuOpen = false);
       if (!mounted || value == null) return;

@@ -348,14 +348,26 @@ String _sanitizeVisibleModelContent(String value) {
 /// markup that some models echo verbatim in their text output alongside
 /// native API tool-call events.  Without this filter the tags appear as ugly
 /// raw XML in the chat bubble.
+///
+/// 2026-04-13 Also strips internal "Tool call: ToolName" labels that some
+/// models output as reasoning artifacts. These are prompt-history notation
+/// and should not appear in user-facing content.
 String _stripRawToolCallMarkup(String value) {
-  if (!_rawToolCallPresencePattern.hasMatch(value)) {
-    return value;
+  var stripped = value;
+  
+  // 1. Strip XML-style tool_call / tool_result blocks.
+  if (_rawToolCallPresencePattern.hasMatch(stripped)) {
+    stripped = stripped
+        .replaceAll(_rawToolCallBlockPattern, '')
+        .replaceAll(_rawToolResultBlockPattern, '')
+        .replaceAll(_rawToolCallLooseTagPattern, '');
   }
-  var stripped = value
-      .replaceAll(_rawToolCallBlockPattern, '')
-      .replaceAll(_rawToolResultBlockPattern, '')
-      .replaceAll(_rawToolCallLooseTagPattern, '');
+
+  // 2. Strip "Tool call: ToolName" internal label lines.
+  // This catches lines like "Tool call: Bash" or "[tool_call]" that
+  // some models emit as reasoning artifacts.
+  stripped = stripped.replaceAll(_internalToolCallLabelLinePattern, '');
+
   // Collapse excessive blank lines left behind after stripping.
   stripped = stripped
       .replaceAll(_excessiveNewlinePatternToolCall, '\n\n')
@@ -380,6 +392,20 @@ final RegExp _rawToolCallLooseTagPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _excessiveNewlinePatternToolCall = RegExp(r'\n{3,}');
+
+/// 2026-04-13 Pattern to match internal "Tool call: ToolName" label lines.
+/// Matches lines like:
+///   - "Tool call: Bash"
+///   - "Tool call: Read -> /path/file"
+///   - "Tool call: Write (payload omitted from prompt history)"
+///   - "[tool_call]"
+///
+/// These are prompt-history notation that some models echo back in text output.
+final RegExp _internalToolCallLabelLinePattern = RegExp(
+  r'^[ \t]*(?:Tool call:\s+\w+.*|\[tool_call\])[ \t]*$',
+  multiLine: true,
+  caseSensitive: false,
+);
 
 String _renderToolCallContent({
   required String name,

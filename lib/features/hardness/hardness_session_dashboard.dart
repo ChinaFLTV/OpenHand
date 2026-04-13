@@ -17,6 +17,7 @@ import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
 import '../home/message_path_linking.dart';
@@ -34,6 +35,13 @@ final RegExp _logLevelPattern = RegExp(
 
 // Matches terminal separator lines (any run of dashes/equals/underscores).
 final RegExp _heSeparatorLinePattern = RegExp(r'^[-=_]{3,}$');
+
+// Matches <tool_calls>…</tool_calls> XML blocks that some models embed
+// alongside native tool_calls.  Stripped to avoid raw XML in the UI.
+final RegExp _heInlineToolCallsXmlPattern = RegExp(
+  r'<tool_calls>\s*[\s\S]*?</tool_calls>',
+  multiLine: true,
+);
 
 // Matches the setext-style == / ^^ underline that the md parser turns into
 // an H1/H2.  Both styles are escaped so they render as plain text.
@@ -169,105 +177,6 @@ String? _hePreferredAiModelConfigId({
   return settingsModels.isEmpty ? null : settingsModels.first.id;
 }
 
-/// Encodes (providerConfigId, modelId) as a compound dropdown key.
-String _heEncodeModelKey(String configId, String modelId) =>
-    '$configId\t$modelId';
-
-/// Decodes a compound key back to (providerConfigId, modelId).
-(String configId, String modelId)? _heDecodeModelKey(String? key) {
-  if (key == null) return null;
-  final parts = key.split('\t');
-  if (parts.length != 2) return null;
-  return (parts[0], parts[1]);
-}
-
-List<DropdownMenuItem<String>> _heAiModelConfigDropdownItems(
-  BuildContext context, {
-  required List<AiModelConfig> settingsModels,
-  required String? configuredId,
-  required String? configuredModelId,
-  required bool isZh,
-}) {
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
-  final items = <DropdownMenuItem<String>>[];
-  final trimmedConfiguredId = configuredId?.trim();
-  final hasConfiguredId =
-      trimmedConfiguredId != null && trimmedConfiguredId.isNotEmpty;
-  final hasMatchingConfig =
-      hasConfiguredId &&
-      settingsModels.any((item) => item.id == trimmedConfiguredId);
-
-  if (hasConfiguredId && !hasMatchingConfig) {
-    final deletedModelId = configuredModelId?.trim() ?? '';
-    items.add(
-      DropdownMenuItem<String>(
-        value: _heEncodeModelKey(trimmedConfiguredId, deletedModelId),
-        child: Text(
-          isZh
-              ? '已删除配置 · $trimmedConfiguredId'
-              : 'Deleted config · $trimmedConfiguredId',
-          style: theme.textTheme.bodySmall?.copyWith(color: colorScheme.error),
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-
-  for (final config in settingsModels) {
-    final allIds = config.allModelIds;
-    if (allIds.isEmpty) {
-      items.add(
-        DropdownMenuItem<String>(
-          value: _heEncodeModelKey(config.id, config.modelId),
-          child: Text(
-            _heAiModelConfigLabel(config),
-            style: theme.textTheme.bodySmall,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      );
-    } else {
-      for (final modelId in allIds) {
-        items.add(
-          DropdownMenuItem<String>(
-            value: _heEncodeModelKey(config.id, modelId),
-            child: Text(
-              '$modelId  (${config.providerLabel})',
-              style: theme.textTheme.bodySmall,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        );
-      }
-    }
-  }
-
-  return items;
-}
-
-String? _heResolvedAiModelConfigDropdownValue(
-  List<DropdownMenuItem<String>> items,
-  String? configuredId,
-  String? configuredModelId,
-) {
-  final trimmedConfiguredId = configuredId?.trim();
-  if (trimmedConfiguredId == null || trimmedConfiguredId.isEmpty) {
-    return null;
-  }
-  final trimmedModelId = configuredModelId?.trim() ?? '';
-  final key = _heEncodeModelKey(trimmedConfiguredId, trimmedModelId);
-  if (items.any((item) => item.value == key)) return key;
-  // Try matching just by config ID (any model within).
-  return items
-      .where((item) {
-        final decoded = _heDecodeModelKey(item.value);
-        return decoded != null && decoded.$1 == trimmedConfiguredId;
-      })
-      .firstOrNull
-      ?.value;
-}
-
 // =============================================================================
 // Sub-conversation segment model & parser
 //
@@ -385,12 +294,28 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
   for (final raw in rawLines) {
     final trimmed = raw.trim();
 
-    // Strip UI decoration lines.
+    // Strip UI decoration lines (but NOT ⚙ which marks tool calls).
     if (trimmed.isNotEmpty &&
         (trimmed.startsWith('▶ ') ||
             trimmed.startsWith('✓ ') ||
             trimmed.startsWith('✗ ') ||
             trimmed.startsWith('⚠ '))) {
+      continue;
+    }
+
+    // 2026-04-13: Detect tool call markers: ⚙ 工具调用：{ToolName}
+    // These are emitted by HardnessApiPhaseRunner.
+    if (trimmed.startsWith('⚙ 工具调用：') ||
+        trimmed.startsWith('⚙ Tool call: ')) {
+      flushCurrent();
+      inUserInputSection = false;
+      final toolName = trimmed.startsWith('⚙ 工具调用：')
+          ? trimmed.substring('⚙ 工具调用：'.length).trim()
+          : trimmed.substring('⚙ Tool call: '.length).trim();
+      current = _HeOutputSegment(
+        kind: _HeSegmentKind.toolCall,
+        roleLabel: toolName.isEmpty ? 'Tool' : toolName,
+      );
       continue;
     }
 
@@ -492,6 +417,38 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
           roleLabel: seg.roleLabel,
           lines: seg.lines,
         );
+      }
+    }
+  }
+
+  // Post-processing: strip <tool_calls>…</tool_calls> XML that some models
+  // embed in the text reply alongside native tool_calls.  These are
+  // duplicate representations and would otherwise render as raw XML.
+  for (var i = 0; i < segments.length; i++) {
+    final seg = segments[i];
+    if (seg.kind == _HeSegmentKind.output ||
+        seg.kind == _HeSegmentKind.assistant ||
+        seg.kind == _HeSegmentKind.thinking) {
+      final joined = seg.lines.join('\n');
+      if (joined.contains('<tool_calls>')) {
+        final stripped = joined
+            .replaceAll(
+              _heInlineToolCallsXmlPattern,
+              '',
+            )
+            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+            .trim();
+        if (stripped.isEmpty) {
+          // The entire segment was just XML tool calls — remove it.
+          segments.removeAt(i);
+          i--;
+        } else {
+          segments[i] = _HeOutputSegment(
+            kind: seg.kind,
+            roleLabel: seg.roleLabel,
+            lines: stripped.split('\n'),
+          );
+        }
       }
     }
   }
@@ -3550,6 +3507,12 @@ class _HeSubConversationView extends StatefulWidget {
 
 class _HeSubConversationViewState extends State<_HeSubConversationView> {
   List<_HeOutputSegment>? _segments;
+  bool _showAllSegments = false;
+
+  // Show at most this many segments initially; the rest hidden behind a
+  // "show more" button. This avoids laying out hundreds of segment widgets
+  // inside a shrinkWrap ListView — the chief source of scroll jank.
+  static const int _initialVisibleCount = 20;
 
   @override
   void initState() {
@@ -3560,7 +3523,10 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
   @override
   void didUpdateWidget(_HeSubConversationView old) {
     super.didUpdateWidget(old);
-    if (old.lines != widget.lines) _parseSegments();
+    if (old.lines != widget.lines) {
+      _showAllSegments = false;
+      _parseSegments();
+    }
   }
 
   void _parseSegments() {
@@ -3615,18 +3581,72 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: segments.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) => _HeSegmentMiniCard(
-        segment: segments[index],
-        isZh: widget.isZh,
-        theme: widget.theme,
-        colorScheme: colorScheme,
-        filePathRoots: widget.filePathRoots,
-      ),
+    final needsTruncation =
+        !_showAllSegments && segments.length > _initialVisibleCount;
+    final hiddenCount = needsTruncation
+        ? segments.length - _initialVisibleCount
+        : 0;
+    final visibleSegments = needsTruncation
+        ? segments.sublist(segments.length - _initialVisibleCount)
+        : segments;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (needsTruncation)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: colorScheme.surface.withValues(alpha: 0.82),
+              borderRadius: _br16,
+              child: InkWell(
+                onTap: () => setState(() => _showAllSegments = true),
+                borderRadius: _br16,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.isZh
+                              ? '展开更早的 $hiddenCount 条子消息'
+                              : 'Show $hiddenCount earlier sub-messages',
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11.5,
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        for (var i = 0; i < visibleSegments.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          RepaintBoundary(
+            child: _HeSegmentMiniCard(
+              segment: visibleSegments[i],
+              isZh: widget.isZh,
+              theme: widget.theme,
+              colorScheme: colorScheme,
+              filePathRoots: widget.filePathRoots,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -3763,45 +3783,48 @@ class _HeStreamingSubConversationState
     required bool animateLast,
   }) {
     final colorScheme = widget.colorScheme;
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: segments.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final card = _HeSegmentMiniCard(
-          segment: segments[index],
-          isZh: widget.isZh,
-          theme: widget.theme,
-          colorScheme: colorScheme,
-          filePathRoots: widget.filePathRoots,
-          isStreaming: animateLast && index == segments.length - 1,
-        );
-        if (!animateLast || index != segments.length - 1) {
-          return card;
-        }
-        return TweenAnimationBuilder<double>(
-          key: ValueKey<int>(_contentRevision),
-          tween: Tween<double>(begin: 0.0, end: 1.0),
-          duration: const Duration(milliseconds: 420),
-          curve: Curves.easeOutBack,
-          builder: (_, value, child) {
-            final clamped = value.clamp(0.0, 1.0);
-            return Opacity(
-              opacity: clamped,
-              child: Transform.translate(
-                offset: Offset(0.0, 12.0 * (1.0 - clamped)),
-                child: Transform.scale(
-                  scale: 0.96 + 0.04 * clamped,
-                  alignment: Alignment.bottomCenter,
-                  child: child,
-                ),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < segments.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          () {
+            final card = _HeSegmentMiniCard(
+              segment: segments[i],
+              isZh: widget.isZh,
+              theme: widget.theme,
+              colorScheme: colorScheme,
+              filePathRoots: widget.filePathRoots,
+              isStreaming: animateLast && i == segments.length - 1,
             );
-          },
-          child: card,
-        );
-      },
+            final wrapped = RepaintBoundary(child: card);
+            if (!animateLast || i != segments.length - 1) {
+              return wrapped;
+            }
+            return TweenAnimationBuilder<double>(
+              key: ValueKey<int>(_contentRevision),
+              tween: Tween<double>(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 420),
+              curve: Curves.easeOutBack,
+              builder: (_, value, child) {
+                final clamped = value.clamp(0.0, 1.0);
+                return Opacity(
+                  opacity: clamped,
+                  child: Transform.translate(
+                    offset: Offset(0.0, 12.0 * (1.0 - clamped)),
+                    child: Transform.scale(
+                      scale: 0.96 + 0.04 * clamped,
+                      alignment: Alignment.bottomCenter,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: wrapped,
+            );
+          }(),
+        ],
+      ],
     );
   }
 
@@ -4164,6 +4187,126 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
   }
 }
 
+// ── Structured API tool call metadata ────────────────────────────────────
+//
+// HardnessApiPhaseRunner emits two markers inside a toolCall segment:
+//   📥 {args JSON}
+//   📤 status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ...
+// This class extracts those markers, removes them from the segment lines,
+// and makes the structured data available to the tool trace card.
+// ─────────────────────────────────────────────────────────────────────────
+
+final RegExp _heApiArgsMarker = RegExp(r'^\s*📥\s+(.+)$');
+final RegExp _heApiStatusMarker = RegExp(r'^\s*📤\s+(.+)$');
+
+class _HeApiToolCallMeta {
+  const _HeApiToolCallMeta({
+    required this.argumentsJson,
+    required this.status,
+    required this.durationMs,
+    required this.exitCode,
+    required this.command,
+    required this.workingDirectory,
+  });
+
+  final String argumentsJson;
+  final String status;
+  final int durationMs;
+  final int? exitCode;
+  final String command;
+  final String workingDirectory;
+
+  /// Scans [lines] for 📥/📤 markers, removes them in-place, and returns
+  /// the extracted metadata. Returns `null` if no markers were found.
+  static _HeApiToolCallMeta? tryExtract(List<String> lines) {
+    String? argsRaw;
+    String? statusLine;
+    int? argsIndex;
+    int? statusIndex;
+
+    for (var i = 0; i < lines.length; i++) {
+      if (argsRaw == null) {
+        final m = _heApiArgsMarker.firstMatch(lines[i]);
+        if (m != null) {
+          argsRaw = m.group(1)!.trim();
+          argsIndex = i;
+          continue;
+        }
+      }
+      if (statusLine == null) {
+        final m = _heApiStatusMarker.firstMatch(lines[i]);
+        if (m != null) {
+          statusLine = m.group(1)!.trim();
+          statusIndex = i;
+          continue;
+        }
+      }
+      if (argsRaw != null && statusLine != null) break;
+    }
+
+    if (argsRaw == null && statusLine == null) return null;
+
+    // Remove marker lines from the list (in reverse order to keep indices
+    // stable).
+    final indicesToRemove = <int>[
+      if (statusIndex != null) statusIndex,
+      if (argsIndex != null) argsIndex,
+    ]..sort((a, b) => b.compareTo(a));
+    for (final idx in indicesToRemove) {
+      lines.removeAt(idx);
+    }
+
+    // Parse arguments JSON — pretty-print for display.
+    var argumentsJson = '';
+    if (argsRaw != null && argsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(argsRaw);
+        argumentsJson = const JsonEncoder.withIndent('  ').convert(decoded);
+      } catch (_) {
+        argumentsJson = argsRaw;
+      }
+    }
+
+    // Parse status line: "status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ..."
+    var status = '';
+    var durationMs = 0;
+    int? exitCode;
+    var command = '';
+    var workingDirectory = '';
+
+    if (statusLine != null) {
+      final parts = statusLine.split('|').map((s) => s.trim()).toList();
+      for (final part in parts) {
+        if (part.startsWith('status:')) {
+          status = _heNormalizeToolStatus(
+            part.substring('status:'.length).trim(),
+          );
+        } else if (part.endsWith('ms')) {
+          final digits = part.replaceAll(RegExp(r'[^0-9]'), '');
+          durationMs = int.tryParse(digits) ?? 0;
+        } else if (part.startsWith('exit:')) {
+          exitCode = int.tryParse(
+            part.substring('exit:'.length).trim(),
+          );
+        } else if (part.startsWith('cmd:')) {
+          command = part.substring('cmd:'.length).trim();
+        } else if (part.startsWith('cwd:')) {
+          workingDirectory = part.substring('cwd:'.length).trim();
+        }
+      }
+    }
+
+    return _HeApiToolCallMeta(
+      argumentsJson: argumentsJson,
+      status: status,
+      durationMs: durationMs,
+      exitCode: exitCode,
+      command: command,
+      workingDirectory: workingDirectory,
+    );
+  }
+}
+
 final RegExp _heToolStatusPattern = RegExp(
   r'\b(succeeded|failed|timed out|timed-out|cancelled|canceled|denied|rejected|blocked)(?:\s+in\s+([0-9]+(?:\.[0-9]+)?(?:ms|s|sec|secs|m|min|mins)))?\b',
   caseSensitive: false,
@@ -4270,14 +4413,23 @@ class _HeStructuredToolTrace {
     required bool isStreaming,
   }) {
     final lines = List<String>.from(segment.lines);
+
+    // ── Try extracting structured markers emitted by HardnessApiPhaseRunner ──
+    // Format:  📥 {json}          ← tool arguments
+    //          📤 status: ... | duration | exit: N | cmd: ... | cwd: ...
+    //          {output lines...}
+    final apiMeta = _HeApiToolCallMeta.tryExtract(lines);
+
     final firstContentIndex = _heIndexOfFirstMeaningfulLine(lines);
     final firstContentLine = firstContentIndex >= 0
         ? lines[firstContentIndex].trim()
         : '';
-    final parsedHeader = _HeParsedToolHeader.tryParse(
-      firstContentLine,
-      isStreaming: isStreaming,
-    );
+    final parsedHeader = apiMeta != null
+        ? null // Skip CLI header parsing when structured API markers exist.
+        : _HeParsedToolHeader.tryParse(
+            firstContentLine,
+            isStreaming: isStreaming,
+          );
     final presentation = _heToolPresentationForSegment(
       segment,
       parsedHeader,
@@ -4285,7 +4437,11 @@ class _HeStructuredToolTrace {
     );
 
     final outputLines = <String>[];
-    if (parsedHeader != null) {
+    if (apiMeta != null) {
+      // Structured API path — remaining lines (after marker extraction) are
+      // pure tool output.
+      outputLines.addAll(lines);
+    } else if (parsedHeader != null) {
       if (parsedHeader.inlineResult.isNotEmpty) {
         outputLines.add(parsedHeader.inlineResult);
       }
@@ -4294,11 +4450,20 @@ class _HeStructuredToolTrace {
       }
     } else if (segment.kind == _HeSegmentKind.toolResult) {
       outputLines.addAll(lines);
+    } else if (segment.kind == _HeSegmentKind.toolCall && lines.isNotEmpty) {
+      outputLines.addAll(lines);
     }
 
     final outputText = _heNormalizeToolText(outputLines.join('\n'));
-    final exitCode = _heExtractToolExitCode(outputLines);
-    var status = parsedHeader?.status ?? '';
+    final exitCode = apiMeta?.exitCode ??
+        _heExtractToolExitCode(outputLines);
+    var status = apiMeta?.status ?? parsedHeader?.status ?? '';
+    
+    // If no status from header, try to extract from output lines.
+    if (status.isEmpty) {
+      status = _heExtractStatusFromLines(outputLines);
+    }
+    
     if (status.isEmpty && isStreaming) {
       status = 'running';
     }
@@ -4328,11 +4493,12 @@ class _HeStructuredToolTrace {
         ? outputText
         : '';
 
-    final argumentsText = _heBuildStructuredToolArguments(
-      segment,
-      parsedHeader,
-    );
-    final durationMs = parsedHeader?.durationMs ?? 0;
+    final argumentsText = apiMeta?.argumentsJson ??
+        _heBuildStructuredToolArguments(segment, parsedHeader);
+    final command = apiMeta?.command ?? parsedHeader?.command ?? '';
+    final workingDirectory = apiMeta?.workingDirectory ??
+        parsedHeader?.workingDirectory ?? '';
+    final durationMs = apiMeta?.durationMs ?? parsedHeader?.durationMs ?? 0;
     final actionLabel = _heToolActionLabel(
       isZh: isZh,
       status: status,
@@ -4346,8 +4512,8 @@ class _HeStructuredToolTrace {
       presentation: presentation,
       status: status,
       durationMs: durationMs,
-      command: parsedHeader?.command ?? '',
-      workingDirectory: parsedHeader?.workingDirectory ?? '',
+      command: command,
+      workingDirectory: workingDirectory,
       argumentsText: argumentsText,
       stdout: _heFormatStructuredToolContent(stdout),
       stderr: _heFormatStructuredToolContent(stderr),
@@ -4357,7 +4523,7 @@ class _HeStructuredToolTrace {
       headerLabel: '${presentation.label} · $actionLabel$durationSuffix',
       outcomeLabel: _heToolOutcomeLabel(isZh: isZh, status: status),
       inputPreview: _heBuildStructuredToolInputPreview(
-        command: parsedHeader?.command ?? '',
+        command: command,
         argumentsText: argumentsText,
       ),
       outputPreview: _heBuildStructuredToolOutputPreview(
@@ -4419,8 +4585,8 @@ class _HeStructuredToolTraceCard extends StatefulWidget {
 
 class _HeStructuredToolTraceCardState
     extends State<_HeStructuredToolTraceCard> {
-  bool _inputExpanded = true;
-  bool _outputExpanded = true;
+  bool _inputExpanded = false;
+  bool _outputExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -4876,7 +5042,11 @@ _HeToolPresentation _heToolPresentationForSegment(
 }) {
   final role = (segment.roleLabel ?? '').trim().toLowerCase();
   final command = (parsedHeader?.command ?? '').toLowerCase();
-  if (role == 'exec' ||
+  
+  // 2026-04-13: Match roleLabel set by _heParseOutputSegments for
+  // tool calls detected via '⚙ 工具调用：{ToolName}' format.
+  if (role == 'bash' ||
+      role == 'exec' ||
       command.contains('/bin/zsh') ||
       command.contains('/bin/bash') ||
       command.contains(' zsh ') ||
@@ -4885,6 +5055,48 @@ _HeToolPresentation _heToolPresentationForSegment(
       label: 'Bash',
       icon: Icons.terminal_rounded,
       isCommandLike: true,
+    );
+  }
+  if (role == 'ls' || role == 'listdir' || role == 'list_dir') {
+    return const _HeToolPresentation(
+      label: 'LS',
+      icon: Icons.folder_open_rounded,
+      isCommandLike: false,
+    );
+  }
+  if (role == 'read' || role == 'readfile' || role == 'read_file') {
+    return const _HeToolPresentation(
+      label: 'Read',
+      icon: Icons.description_outlined,
+      isCommandLike: false,
+    );
+  }
+  if (role == 'write' || role == 'writefile' || role == 'write_file') {
+    return _HeToolPresentation(
+      label: isZh ? '写入' : 'Write',
+      icon: Icons.edit_document,
+      isCommandLike: false,
+    );
+  }
+  if (role == 'edit' || role == 'editfile' || role == 'edit_file') {
+    return _HeToolPresentation(
+      label: isZh ? '编辑' : 'Edit',
+      icon: Icons.edit_note_rounded,
+      isCommandLike: false,
+    );
+  }
+  if (role == 'grep' || role == 'grepsearch' || role == 'grep_search') {
+    return const _HeToolPresentation(
+      label: 'Grep',
+      icon: Icons.search_rounded,
+      isCommandLike: false,
+    );
+  }
+  if (role == 'semantic' || role == 'semanticsearch' || role == 'semantic_search') {
+    return _HeToolPresentation(
+      label: isZh ? '语义搜索' : 'Semantic Search',
+      icon: Icons.travel_explore_rounded,
+      isCommandLike: false,
     );
   }
   if (segment.kind == _HeSegmentKind.toolResult || role == 'tool') {
@@ -4899,6 +5111,14 @@ _HeToolPresentation _heToolPresentationForSegment(
       label: isZh ? '工具' : 'Tool',
       icon: Icons.build_circle_outlined,
       isCommandLike: false,
+    );
+  }
+  // Use roleLabel as-is if it looks like a tool name.
+  if (role.isNotEmpty && role.length <= 20) {
+    return _HeToolPresentation(
+      label: segment.roleLabel!.trim(),
+      icon: Icons.build_circle_outlined,
+      isCommandLike: segment.kind == _HeSegmentKind.toolCall,
     );
   }
   return _HeToolPresentation(
@@ -4973,11 +5193,14 @@ String _heBuildStructuredToolOutputPreview({
 String _heNormalizeToolStatus(String rawStatus) {
   switch (rawStatus.trim().toLowerCase()) {
     case 'succeeded':
+    case 'success':
       return 'success';
     case 'failed':
+    case 'invalid_arguments':
       return 'failed';
     case 'timed out':
     case 'timed-out':
+    case 'timed_out':
       return 'timed_out';
     case 'cancelled':
     case 'canceled':
@@ -5133,6 +5356,23 @@ int? _heExtractToolExitCode(List<String> lines) {
     }
   }
   return null;
+}
+
+/// 2026-04-13: Extracts status from tool output lines.
+/// Matches patterns like 'status: denied', 'status: success', etc.
+final RegExp _heToolOutputStatusPattern = RegExp(
+  r'^\s*status\s*:\s*(\w+)',
+  caseSensitive: false,
+);
+
+String _heExtractStatusFromLines(List<String> lines) {
+  for (final line in lines) {
+    final match = _heToolOutputStatusPattern.firstMatch(line);
+    if (match != null) {
+      return _heNormalizeToolStatus(match.group(1) ?? '');
+    }
+  }
+  return '';
 }
 
 String _heFormatStructuredToolContent(String rawContent) {
@@ -7363,18 +7603,6 @@ class _HePendingPhaseEditor extends StatelessWidget {
       configuredId: roleConfig.aiModelConfigId,
       fallbackId: settingsController?.selectedAiModelId,
     );
-    final aiModelConfigItems = _heAiModelConfigDropdownItems(
-      context,
-      settingsModels: settingsModels,
-      configuredId: roleConfig.aiModelConfigId,
-      configuredModelId: roleConfig.urlModeModelId,
-      isZh: isZh,
-    );
-    final selectedAiModelConfigId = _heResolvedAiModelConfigDropdownValue(
-      aiModelConfigItems,
-      roleConfig.aiModelConfigId,
-      roleConfig.urlModeModelId,
-    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -7434,46 +7662,13 @@ class _HePendingPhaseEditor extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (roleConfig.isUrlMode)
-            DropdownButtonFormField<String>(
-              key: const ValueKey<String>('he-api-model-config-dropdown'),
-              initialValue: selectedAiModelConfigId,
-              decoration: InputDecoration(
-                labelText: isZh ? 'API 模型' : 'API Model',
-                helperText: settingsModels.isEmpty
-                    ? (isZh
-                          ? '请先在设置中配置 API 模型提供商，然后在这里选择。'
-                          : 'Configure API model providers in Settings first, then choose one here.')
-                    : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
-                    ? (isZh
-                          ? '当前配置已在设置中删除，请重新选择有效模型。'
-                          : 'The current config was deleted from Settings. Choose a valid model.')
-                    : null,
-                helperMaxLines: 2,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              style: theme.textTheme.bodySmall,
-              items: aiModelConfigItems,
-              onChanged: settingsModels.isEmpty
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-                      final decoded = _heDecodeModelKey(value);
-                      if (decoded != null) {
-                        onChanged(
-                          roleConfig.copyWith(
-                            aiModelConfigId: decoded.$1,
-                            urlModeModelId: decoded.$2,
-                          ),
-                        );
-                      }
-                    },
+            _HeUrlModelField(
+              settingsModels: settingsModels,
+              roleConfig: roleConfig,
+              isZh: isZh,
+              hasConfiguredAiModelConfig: hasConfiguredAiModelConfig,
+              hasMatchingAiModelConfig: hasMatchingAiModelConfig,
+              onChanged: onChanged,
             )
           else
             Row(
@@ -7617,6 +7812,104 @@ class _HeModelDropdown extends StatelessWidget {
         if (value == null) return;
         onChanged(roleConfig.copyWith(modelId: value));
       },
+    );
+  }
+}
+
+// =============================================================================
+// _HeUrlModelField — tap-to-search URL/API model selector for pending phases
+// =============================================================================
+
+class _HeUrlModelField extends StatelessWidget {
+  const _HeUrlModelField({
+    required this.settingsModels,
+    required this.roleConfig,
+    required this.isZh,
+    required this.hasConfiguredAiModelConfig,
+    required this.hasMatchingAiModelConfig,
+    required this.onChanged,
+  });
+
+  final List<AiModelConfig> settingsModels;
+  final HardnessRoleConfig roleConfig;
+  final bool isZh;
+  final bool hasConfiguredAiModelConfig;
+  final bool hasMatchingAiModelConfig;
+  final ValueChanged<HardnessRoleConfig> onChanged;
+
+  String? get _displayLabel {
+    final id = roleConfig.aiModelConfigId?.trim();
+    if (id == null || id.isEmpty) return null;
+    final config = settingsModels.where((m) => m.id == id).firstOrNull;
+    if (config == null) return null;
+    final modelId = roleConfig.urlModeModelId?.trim();
+    if (modelId != null && modelId.isNotEmpty) return modelId;
+    if (config.modelId.trim().isNotEmpty) return config.modelId;
+    return config.providerLabel;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final label = _displayLabel;
+    return GestureDetector(
+      onTap: settingsModels.isEmpty
+          ? null
+          : () async {
+              final result = await showModelSearchSelector(
+                context: context,
+                models: settingsModels,
+                selectedConfigId: roleConfig.aiModelConfigId,
+                selectedModelId: roleConfig.urlModeModelId,
+              );
+              if (result != null) {
+                onChanged(roleConfig.copyWith(
+                  aiModelConfigId: result.$1,
+                  urlModeModelId: result.$2,
+                ));
+              }
+            },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: isZh ? 'API 模型' : 'API Model',
+          helperText: settingsModels.isEmpty
+              ? (isZh
+                    ? '请先在设置中配置 API 模型提供商。'
+                    : 'Configure API model providers in Settings first.')
+              : (hasConfiguredAiModelConfig && !hasMatchingAiModelConfig)
+              ? (isZh
+                    ? '当前配置已删除，请重新选择。'
+                    : 'Current config was deleted. Choose another.')
+              : null,
+          helperMaxLines: 2,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          suffixIcon: Icon(
+            Icons.arrow_drop_down_rounded,
+            size: 20,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 24,
+            minHeight: 24,
+          ),
+        ),
+        child: Text(
+          label ?? (isZh ? '选择模型…' : 'Select model…'),
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: label != null
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

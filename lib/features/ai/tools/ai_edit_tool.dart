@@ -11,6 +11,7 @@ import 'ai_tool_utils.dart';
 
 // 2026-04-01 01:21:38 从 AiToolRuntimeService._executeEditTool 提取
 // 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
+// 2026-04-13 添加写操作权限确认检查（安全加固）
 class AiEditTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.edit;
@@ -19,19 +20,33 @@ class AiEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final filePath = AiToolUtils.requireAbsoluteFilePath('${args['file_path'] ?? ''}'.trim());
+    final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     final oldString = '${args['old_string'] ?? ''}';
     final newString = '${args['new_string'] ?? ''}';
     final replaceAll = args['replace_all'] == true;
-    if (filePath == null) {
-      return AiToolUtils.invalidResult('Edit', 'Edit requires an absolute file_path.');
+    if (rawFilePath.isEmpty) {
+      return AiToolUtils.invalidResult('Edit', 'Edit requires a non-empty file_path.');
     }
+    final filePath = AiToolUtils.resolvePath(rawFilePath);
     if (oldString == newString) {
       return AiToolUtils.invalidResult('Edit', 'old_string and new_string must differ.');
     }
     final file = File(filePath);
     if (!await file.exists()) {
       return AiToolUtils.invalidResult('Edit', 'File does not exist: $filePath');
+    }
+    
+    // 2026-04-13: 写操作权限确认检查
+    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+      toolName: 'Edit',
+      operationDescription: 'Replace "${oldString.length > 50 ? '${oldString.substring(0, 50)}...' : oldString}" with new content',
+      targetPath: filePath,
+      requireWriteConfirmation: context.requireWriteCommandConfirmation,
+      confirmWriteCommand: context.confirmWriteCommand,
+      cancelSignal: context.cancelSignal,
+    );
+    if (confirmationResult != null) {
+      return confirmationResult;
     }
     
     // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）

@@ -650,6 +650,140 @@ class AiToolUtils {
       return ProcessResult(0, 1, '', 'Unexpected error: $error');
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 2026-04-13 写操作权限确认支持
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// 写操作权限确认超时时间（5分钟）。
+  static const int _writeConfirmationTimeoutMs = 300000;
+
+  /// 请求用户确认写操作。
+  ///
+  /// 当 [requireWriteConfirmation] 为 true 且 [confirmWriteCommand] 回调存在时，
+  /// 会向用户请求写操作审批。
+  ///
+  /// 如果用户批准或不需要确认，返回 null。
+  /// 如果用户拒绝、超时或取消，返回相应的错误结果。
+  static Future<AiToolExecutionResult?> requestWriteConfirmation({
+    required String toolName,
+    required String operationDescription,
+    required String targetPath,
+    required bool requireWriteConfirmation,
+    required Future<bool> Function(BashCommandApprovalRequest request)?
+        confirmWriteCommand,
+    Future<void>? cancelSignal,
+  }) async {
+    // 如果不需要写确认，直接通过
+    if (!requireWriteConfirmation) {
+      return null;
+    }
+
+    // 如果需要确认但没有确认回调，这是一个配置错误，拒绝执行
+    if (confirmWriteCommand == null) {
+      return rejectedWriteResult(
+        toolName: toolName,
+        targetPath: targetPath,
+        reason: '需要写操作确认但未提供确认回调，操作已拒绝执行。',
+      );
+    }
+
+    final workingDirectory = p.dirname(targetPath);
+    final request = BashCommandApprovalRequest(
+      command: '$toolName $targetPath\n$operationDescription',
+      workingDirectory: workingDirectory,
+      isWriteCommand: true,
+    );
+
+    late final _WriteConfirmationOutcome outcome;
+    try {
+      final approvalFuture = confirmWriteCommand(request)
+          .timeout(
+            const Duration(milliseconds: _writeConfirmationTimeoutMs),
+          )
+          .then<_WriteConfirmationOutcome>(
+            (approved) => approved
+                ? const _WriteConfirmationOutcome.approved()
+                : const _WriteConfirmationOutcome.rejected(),
+          );
+
+      if (cancelSignal == null) {
+        outcome = await approvalFuture;
+      } else {
+        outcome = await Future.any<_WriteConfirmationOutcome>([
+          approvalFuture,
+          cancelSignal.then(
+            (_) => const _WriteConfirmationOutcome.cancelled(),
+          ),
+        ]);
+      }
+    } on TimeoutException {
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.rejected,
+        command: '$toolName $targetPath',
+        workingDirectory: workingDirectory,
+        stdout: '',
+        stderr: '写操作确认超时，用户未在规定时间内批准执行。',
+        durationMs: 0,
+        resultText: 'status: rejected\nreason: Write confirmation timed out.',
+        isWriteCommand: true,
+      );
+    }
+
+    if (outcome.cancelled) {
+      return cancelledResult(
+        command: '$toolName $targetPath',
+        durationMs: 0,
+        metadata: <String, Object?>{'write_confirmation_cancelled': true},
+      );
+    }
+
+    if (!outcome.approved) {
+      return rejectedWriteResult(
+        toolName: toolName,
+        targetPath: targetPath,
+        reason: '用户拒绝了写操作确认请求。',
+      );
+    }
+
+    // 用户已批准
+    return null;
+  }
+
+  /// 生成写操作被拒绝的结果。
+  static AiToolExecutionResult rejectedWriteResult({
+    required String toolName,
+    required String targetPath,
+    required String reason,
+  }) {
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.rejected,
+      command: '$toolName $targetPath',
+      workingDirectory: p.dirname(targetPath),
+      stdout: '',
+      stderr: reason,
+      durationMs: 0,
+      resultText: 'status: rejected\nreason: $reason',
+      isWriteCommand: true,
+      writeAnalysisReason: 'builtin file mutation tool requires confirmation',
+    );
+  }
+}
+
+/// 2026-04-13 写确认结果内部类型。
+class _WriteConfirmationOutcome {
+  const _WriteConfirmationOutcome.approved()
+      : approved = true,
+        cancelled = false;
+  const _WriteConfirmationOutcome.rejected()
+      : approved = false,
+        cancelled = false;
+  const _WriteConfirmationOutcome.cancelled()
+      : approved = false,
+        cancelled = true;
+
+  final bool approved;
+  final bool cancelled;
 }
 
 class ReplacementResult {

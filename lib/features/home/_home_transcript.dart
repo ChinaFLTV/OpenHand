@@ -316,13 +316,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (_windowStartIndex <= 0 || _loadingOlderMessages) {
       return;
     }
+
+    // Remember current scroll metrics so we can restore visual position later.
+    final scrollController = widget.controller;
+    final hadClients = scrollController.hasClients;
+    final currentOffset = hadClients ? scrollController.offset : 0.0;
+    final currentMaxExtent = hadClients
+        ? scrollController.position.maxScrollExtent
+        : 0.0;
+
     setState(() {
       _loadingOlderMessages = true;
     });
+
     await Future<void>.delayed(const Duration(milliseconds: 16));
     if (!mounted) {
       return;
     }
+
     setState(() {
       _windowStartIndex = math.max(
         0,
@@ -331,6 +342,30 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
       _loadingOlderMessages = false;
     });
+
+    // After the frame rebuilds with new items at the top, adjust scroll offset
+    // so the user sees the same content as before (the "Load earlier" button's
+    // position just replaced by older messages, but the later messages stay
+    // in view).
+    if (hadClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !scrollController.hasClients) return;
+
+        // New content was prepended. The maxScrollExtent has increased by the
+        // total height of the new items. To keep the user viewing the same
+        // messages, we need to jump forward by that delta.
+        final newMaxExtent = scrollController.position.maxScrollExtent;
+        final delta = newMaxExtent - currentMaxExtent;
+
+        if (delta > 0) {
+          final targetOffset = (currentOffset + delta).clamp(
+            0.0,
+            newMaxExtent,
+          );
+          scrollController.jumpTo(targetOffset);
+        }
+      });
+    }
   }
 
   Future<void> _runDeleteAction(

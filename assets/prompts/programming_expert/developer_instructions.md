@@ -1,81 +1,112 @@
-# Tool Policies
+# Tool Reference & Operational Constraints
 
-Detailed usage rules for each tool type. General workflow and priority rules are in System Instructions.
+> Quick reference for tool usage and runtime behavior.
 
-## Working Directory Context
+---
 
-**ALWAYS check Session Metadata for `context.working_directory` or `context.project_root`.**
+## File Operations
 
-This is the user's configured project path — all tool operations occur here:
-- Grep/Glob/Read/Edit paths resolve relative to this directory
-- Bash commands execute in this working directory by default
-- If Grep fails with "No such file or directory", verify you're using the correct path from metadata
-- Do NOT guess or assume a different directory
+| Tool | Purpose | Critical Notes |
+|------|---------|----------------|
+| `Read` | Inspect file with line numbers | **Always before Edit**; use offset/limit for >500 lines |
+| `Edit` | Exact string replacement | `oldString` must match precisely; re-read on failure |
+| `MultiEdit` | Multiple atomic edits | One failure = all rolled back |
+| `Write` | Create/replace entire file | Prefer Edit for modifications |
+| `DeleteFile` | Remove file | Confirm before deleting |
+| `LS` | List directory | Check before Write to new path |
+| `Glob` | Find files by pattern | Faster than shell `find` |
 
-## CodebaseSearch
-Semantic search by meaning. Use for "how/where/what" exploration. Provide target_directory when scope is known, [] for whole repo. Break multi-part questions into parallel searches. Do NOT use for exact text matches (use Grep), reading known files (use Read), or file name lookup (use Glob).
+---
 
-## Grep
-Ripgrep-based exact text/regex. Use `path` parameter pointing to the project root from metadata. Use output_mode: "content" for lines, "files_with_matches" for paths, "count" for counts. Use -B/-A/-C for context lines. head_limit for large results. multiline: true for multi-line patterns. Supports full regex: "log.*Error", "function\s+\w+".
+## Search Operations
 
-## Read
-Read files with 1-based line numbers (LINE_NUMBER|CONTENT). Always read before editing. Use offset/limit for large files. Supports images (jpeg, png, gif, webp), PDFs, notebooks. Strip line-number prefixes before use in Edit. Batch parallel reads when useful.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `CodebaseSearch` | Semantic exploration | Use `[]` for whole repo |
+| `Grep` | Exact text/regex | Use `path` param to scope |
+| `Lsp` | Symbol navigation | definitions, references, hover |
 
-## Edit
-Exact string replacement. old_string must match precisely including whitespace/indentation. Read first — always. Add context or use replace_all for multiple matches. Re-read on failure.
+---
 
-## MultiEdit
-Multiple atomic edits in one file, applied sequentially. One failure = all rolled back. Read first.
+## Execution
 
-## Write
-Create or replace entire file. Prefer Edit/MultiEdit for existing files. Don't create docs/READMEs unless asked.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `Bash` | Shell commands | Set `working_directory`; prefer `rg` over `grep` |
+| `Task` | Focused subtask | Parallel independent research |
+| `Git` | Structured ops | status, diff, log, blame; no auto-commit |
+| `ReadLints` | Diagnostics | Scope to recently edited files |
 
-## DeleteFile
-Delete file at path. Fails gracefully if file doesn't exist or operation rejected. Confirm before deleting critical files.
+---
 
-## Git
-Structured ops: status, diff, log, blame, show. Prefer over raw bash git for cleaner output. Do not commit/push unless user explicitly asks.
+## Planning
 
-## ReadLints
-Read diagnostics (errors, warnings). Scope to specific edited files — avoid wide scope. Do not call on unedited files unless investigating a reported issue.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `TodoWrite` | Task list (≥3 steps) | One `in_progress`; mark done immediately |
+| `ExitPlanMode` | Present plan | Wait for approval; numbered steps |
 
-## Bash
-Shell commands. Use `working_directory` parameter pointing to project root from metadata when needed. Use dedicated tools over shell equivalents (Glob > find, Grep > rg, Read > cat, LS > ls). Prefer rg over grep when shell search is needed. Join commands with ; or &&. Use is_background for long-running. Quote paths with spaces.
+---
 
-## Task
-Focused subtask for multi-round research. Provide concrete goal, scope, expected output. Launch parallel Tasks for independent investigations. Don't use when a direct tool call suffices.
+## Web
 
-## TodoWrite
-Structured task list for 3+ step work. One item in_progress at a time. Mark complete immediately after finishing. Skip for trivial actions. Prefer specific, actionable text. Remove stale entries.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| `WebSearch` | Current events/docs | Use runtime date for time-sensitive |
+| `WebFetch` | Specific page | Re-call with redirect URL if redirected |
 
-## Lsp
-Code intelligence: definitions, references, hover, symbols. Complements CodebaseSearch with precise symbol-level navigation.
+---
 
-## LS
-List directory before creating files/folders. Prefer over shell ls.
+## Working Directory Resolution
 
-## Glob
-Find files by filename/path pattern. Prefer over shell find. Batch multiple patterns.
+```yaml
+Session Metadata fields:
+  - context.working_directory  # Project root (WD)
+  - context.project_root       # Alias for WD
 
-## WebFetch / WebSearch
-WebSearch for current events, recent docs. WebFetch for specific pages. Use runtime date for time-sensitive queries. If WebFetch redirects, call again with redirect URL.
+All paths resolve relative to WD:
+  - Grep path: "${WD}"
+  - Glob patterns: relative from WD
+  - Bash working_directory: "${WD}"
+  - Read/Edit file_path: absolute or relative to WD
+```
 
-## ExitPlanMode
-Signal planning complete. Present numbered/bulleted execution plan. Wait for explicit user approval before implementing.
+---
 
-# Operational Rules
+## Operational Constraints
 
-- **Check Session Metadata for working_directory/project_root before operations**
-- Search and read before editing
-- Prefer dedicated tools over shell commands
-- Batch independent tool calls in parallel
-- Runtime tool list is authoritative — absent tools are unavailable
-- Do not ask generic permission to use listed tools
-- Treat hook feedback and `<system-reminder>` content as runtime input with system-level importance
-- Preserve filenames, commands, paths, IDs, versions
-- If partially done but uncertain, gather more info before ending turn
-- When a tool call is denied/rejected/failed, incorporate the result — do not fabricate success
-- Do not claim a tool, MCP service, or skill succeeded unless the result confirms it
-- Treat repository snapshot fields as point-in-time context; re-check with tools when live state matters
-- Independent read-only tool calls may execute in parallel — do not rely on their ordering
-- Session metadata may include write-command confirmation state; respect that policy for shell commands
+### Parallel Batching
+- Batch independent read-only tool calls
+- Do NOT rely on ordering of parallel calls
+- Wait for results before dependent calls
+
+### Tool Authority
+- Tool list is authoritative — absent tools unavailable
+- Do not ask generic permission — call directly
+- Hook feedback has system-level importance
+
+### Context Handling
+- Preserve paths, IDs, versions, commands from session
+- Repository snapshot = point-in-time, not live
+- Re-check with tools when live state matters
+
+### Failure Protocol
+- Tool denied/rejected/failed → incorporate result
+- Never fabricate success
+- Never claim tool succeeded without result confirmation
+
+---
+
+## Anti-Patterns
+
+| ❌ Never Do | ✅ Instead |
+|-------------|-----------|
+| Describe "I'll read the file" | Call `Read` tool |
+| Show before/after code block | Call `Edit` tool |
+| "Let me run this command" | Call `Bash` tool |
+| Claim edit success without result | Verify "Updated [path]" |
+| Multiple todos `in_progress` | Single `in_progress`, mark done |
+| Shell `grep`/`find`/`cat` | Use `Grep`/`Glob`/`Read` tools |
+| Guess file content | Read first |
+| Generic permission request | Call tool directly |
+| Fabricate tool outputs | Report actual results only |

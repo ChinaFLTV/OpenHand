@@ -9,7 +9,9 @@ import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session_runtime_context.dart';
 import 'hardness_api_phase_runner.dart';
 import 'hardness_cli_catalog.dart';
+import 'hardness_prompt_builder.dart';
 import 'model/hardness_phase.dart';
+import 'model/hardness_phase_context_config.dart';
 import 'model/hardness_role_config.dart';
 import 'model/hardness_session_config.dart';
 
@@ -1361,6 +1363,33 @@ class HardnessOrchestrator extends ChangeNotifier {
       if (result.success) {
         log.exitCode = 0;
         log.status = HardnessPhaseStatus.completed;
+
+        // ── Post-completion artifact verification ──────────────────────
+        // Phases with mandatory output files (metaCollection, planning,
+        // reviewing) must actually produce them. A "success" from the
+        // API runner only means the model replied — it doesn't guarantee
+        // the expected files were written.
+        final missingArtifacts = _checkMandatoryArtifacts(log.phase);
+        if (missingArtifacts.isNotEmpty) {
+          _appendLine(log, '');
+          _appendLine(
+            log,
+            '⚠ 阶段产物验证失败：以下必需文件未被创建：',
+          );
+          for (final path in missingArtifacts) {
+            _appendLine(log, '  • $path');
+          }
+          _appendLine(log, '');
+          _appendLine(
+            log,
+            '✗ 本阶段被判定为失败，因为模型未能生成预期的输出产物。'
+            '常见原因：Write 工具未被正确调用、工具调用被跳过、'
+            '或模型在上下文中迷失了输出路径。',
+          );
+          log.status = HardnessPhaseStatus.failed;
+          log.exitCode = 1;
+          _errorMessage = '阶段产物验证失败：必需文件未生成。';
+        }
       } else {
         log.exitCode = 1;
         _appendLine(log, '');
@@ -1544,6 +1573,26 @@ class HardnessOrchestrator extends ChangeNotifier {
         await _appendCliFailureDiagnostics(log, cliEntry.executable);
       } else {
         log.status = HardnessPhaseStatus.completed;
+
+        // ── Post-completion artifact verification (CLI path) ──────────
+        final missingArtifacts = _checkMandatoryArtifacts(log.phase);
+        if (missingArtifacts.isNotEmpty) {
+          _appendLine(log, '');
+          _appendLine(
+            log,
+            '⚠ 阶段产物验证失败：以下必需文件未被创建：',
+          );
+          for (final path in missingArtifacts) {
+            _appendLine(log, '  • $path');
+          }
+          _appendLine(log, '');
+          _appendLine(
+            log,
+            '✗ 本阶段被判定为失败，因为 CLI 未能生成预期的输出产物。',
+          );
+          log.status = HardnessPhaseStatus.failed;
+          _errorMessage = '阶段产物验证失败：必需文件未生成。';
+        }
       }
     } on ProcessException catch (e) {
       if (_isDisposed) return;
@@ -1677,6 +1726,7 @@ class HardnessOrchestrator extends ChangeNotifier {
 
   Future<String> _buildPhasePrompt(HardnessPhase phase) async {
     final steeringDir = p.join(config.persistenceDirectory, 'steering');
+    final contextConfig = getPhaseContextConfig(phase);
 
     String readIfExists(String path) {
       try {
@@ -1687,42 +1737,51 @@ class HardnessOrchestrator extends ChangeNotifier {
       }
     }
 
-    final archContent = readIfExists(
-      p.join(steeringDir, 'meta', 'architecture.md'),
-    );
-    final convContent = readIfExists(
-      p.join(steeringDir, 'meta', 'conventions.md'),
-    );
+    // 按阶段配置条件加载上下文
+    final archContent = contextConfig.includeArchitecture
+        ? readIfExists(p.join(steeringDir, 'meta', 'architecture.md'))
+        : '';
+    final convContent = contextConfig.includeConventions
+        ? readIfExists(p.join(steeringDir, 'meta', 'conventions.md'))
+        : '';
 
     // Latest handoff document.
     String handoffContent = '';
-    try {
-      final handoffDir = Directory(p.join(steeringDir, 'handoff'));
-      if (handoffDir.existsSync()) {
-        final files = handoffDir.listSync().whereType<File>().toList()
-          ..sort((a, b) => a.path.compareTo(b.path));
-        if (files.isNotEmpty) handoffContent = files.last.readAsStringSync();
-      }
-    } catch (_) {}
-
-    // All lesson files combined.
-    String lessonsContent = '';
-    try {
-      final lessonDir = Directory(p.join(steeringDir, 'lesson'));
-      if (lessonDir.existsSync()) {
-        final files = lessonDir.listSync().whereType<File>().toList();
-        if (files.isNotEmpty) {
-          lessonsContent = files
-              .map((f) => f.readAsStringSync())
-              .join('\n\n---\n\n');
+    if (contextConfig.includeHandoff) {
+      try {
+        final handoffDir = Directory(p.join(steeringDir, 'handoff'));
+        if (handoffDir.existsSync()) {
+          final files = handoffDir.listSync().whereType<File>().toList()
+            ..sort((a, b) => a.path.compareTo(b.path));
+          if (files.isNotEmpty) handoffContent = files.last.readAsStringSync();
         }
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
-    // Latest plan (needed for implementing and reviewing phases).
+    // Load lessons based on config mode.
+    String lessonsContent = '';
+    if (contextConfig.lessonsMode != HardnessLessonInclusionMode.none) {
+      try {
+        final lessonDir = Directory(p.join(steeringDir, 'lesson'));
+        if (lessonDir.existsSync()) {
+          final files = lessonDir.listSync().whereType<File>().toList();
+          if (files.isNotEmpty) {
+            final fullContent = files
+                .map((f) => f.readAsStringSync())
+                .join('\n\n---\n\n');
+            // Use summary mode for lessons when configured
+            lessonsContent =
+                contextConfig.lessonsMode == HardnessLessonInclusionMode.summary
+                    ? hardnessPromptBuilder.renderLessonsSummary(fullContent)
+                    : fullContent;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Latest plan (based on config).
     String planContent = '';
-    if (phase == HardnessPhase.implementing ||
-        phase == HardnessPhase.reviewing) {
+    if (contextConfig.includePlan) {
       try {
         final planDir = Directory(p.join(steeringDir, 'plan'));
         if (planDir.existsSync()) {
@@ -1733,12 +1792,9 @@ class HardnessOrchestrator extends ChangeNotifier {
       } catch (_) {}
     }
 
-    // Latest reviewer feedback (included in planning/implementing during retry).
+    // Latest reviewer feedback (based on config + retry state).
     String feedbackContent = '';
-    if (_reviewRetryCount > 0 &&
-        (phase == HardnessPhase.planning ||
-            phase == HardnessPhase.implementing ||
-            phase == HardnessPhase.reviewing)) {
+    if (contextConfig.includeFeedback || _reviewRetryCount > 0) {
       try {
         final feedbackDir = Directory(p.join(steeringDir, 'feedback'));
         if (feedbackDir.existsSync()) {
@@ -1764,18 +1820,12 @@ class HardnessOrchestrator extends ChangeNotifier {
           '用户判定：$verdictLabel\n\n$manualPhaseInputContent';
     }
 
+    // 构建阶段提示词（语言策略已在系统指令中定义，此处仅引用）
     final sb = StringBuffer()
       ..writeln('# Hardness Engineering - ${phase.displayNameZh}阶段')
       ..writeln()
-      ..writeln('## 语言要求（强制）')
-      ..writeln(
-        '1. 你在本阶段的所有自然语言输出、分析结论、执行计划、评审报告，以及写入 steering 目录的全部 Markdown 文档，都必须使用简体中文。',
-      )
-      ..writeln(
-        '2. 禁止使用英文标题、英文小节、英文说明或英文总结，除非内容本身是代码、命令、路径、文件名、接口名、配置键名、日志原文或其他必须保留的技术标识。',
-      )
-      ..writeln('3. PASS / FAIL、CLI 名称、模型名、代码片段、命令、路径、文件名等技术标识允许保留原文。')
-      ..writeln('4. 若需要引用英文原文，请仅保留最小必要范围，并在上下文中使用简体中文解释。')
+      ..writeln()
+      ..writeln('> 遵循系统语言策略：所有输出使用简体中文，技术标识保留原文。')
       ..writeln()
       ..writeln('## 任务')
       ..writeln(config.task)
@@ -1784,12 +1834,10 @@ class HardnessOrchestrator extends ChangeNotifier {
       ..writeln(config.workingDirectory)
       ..writeln()
       ..writeln('## 运行时约束')
-      ..writeln('1. 你当前运行在无交互的 CLI 自动化会话中。OpenHand 已在阶段边界完成审批，本阶段内部不再逐条等待人工批准。')
+      ..writeln('1. 无交互 CLI 自动化会话，阶段内无需等待人工批准。')
       ..writeln(_phaseDirectoryPermissionConstraint(phase))
-      ..writeln(
-        '3. 需要修改文件或执行命令时，请直接使用当前会话内可用的工具完成；不要把主任务转交给子代理，也不要反复尝试当前会话未注册的工具。',
-      )
-      ..writeln('4. 若某条路径或工具不可用，请立即输出具体阻塞原因与替代方案，不要空转重试。')
+      ..writeln('3. 直接使用会话内可用工具；不要转交子代理或尝试未注册工具。')
+      ..writeln('4. 若路径或工具不可用，立即报告阻塞原因与替代方案。')
       ..writeln();
 
     if (archContent.isNotEmpty) {
@@ -1898,10 +1946,11 @@ class HardnessOrchestrator extends ChangeNotifier {
        - README 或配置文件中可确认的构建、测试、Lint 命令
        - 明确存在的限制、规则或易错点
 
-    将文件保存到：
+    分析完成后，你**必须**调用 Write 工具将文件写入以下路径（使用绝对路径）：
     - $meta/architecture.md
     - $meta/conventions.md
 
+    **重要**：不要仅仅描述分析结果——你必须实际调用 Write 工具将两个文件分别写入磁盘。未成功写入将导致阶段失败。
     要求准确、克制、基于事实。项目中不存在的信息不得臆测。''',
 
       HardnessPhase.reading =>
@@ -1938,10 +1987,11 @@ class HardnessOrchestrator extends ChangeNotifier {
     - 不要编写或生成任何代码到项目中——所有实施工作必须留给实施者（Implementer）在下一阶段完成
     - 你的唯一输出产物是保存到持久化目录中的计划文件
 
-    计划完成后，请将完整 Markdown 文件保存到：
+    计划完成后，你**必须**调用 Write 工具将完整计划写入以下路径（注意使用绝对路径）：
     $planDir/plan-$ts.md
 
-    计划文件必须以任务描述开头，并包含全部执行步骤。''',
+    计划文件必须以任务描述开头，并包含全部执行步骤。
+    **重要**：不要仅仅描述计划内容——你必须实际调用 Write 工具将文件写入磁盘。未调用 Write 将导致阶段失败。''',
 
       HardnessPhase.implementing =>
         '''你是本任务的实施者（Implementer）。
@@ -1967,34 +2017,21 @@ class HardnessOrchestrator extends ChangeNotifier {
     **关键要求：你处于一个全新且独立的会话中，与实施者完全隔离。**
     你不知道实施者的推理过程，也不能假设任何步骤已经被正确完成。
     你必须仅基于原始需求、上方执行计划以及项目当前真实代码状态进行验收。
-    不要默认实现正确，必须从零开始逐项核验。
 
-    **评审独立性声明：**
-    - 你与实施者是完全不同的独立 Agent，即使底层使用的是同一个模型
-    - 你不拥有实施者的对话历史、内部推理或记忆
-    - 你在评判时必须保持客观中立，不得因为"自己可能做过这些改动"而倾向于给出高分
-    - 如果代码存在问题，你必须如实指出并判定 FAIL，无论改动看起来多么"合理"
-    - 判定标准唯一且客观：是否忠实地完成了计划中的每一个步骤及其验收标准
-    ${_reviewRetryCount > 0 ? '\n**注意：这是第 $_reviewRetryCount 次重试验收。上一轮或更早的验收已经发现问题，请重点检查这些问题是否已被真正修复。**\n' : ''}
+    **评审独立性**：你与实施者完全隔离，必须从零核验每个步骤。
+    ${_reviewRetryCount > 0 ? '\n**注意**：第 $_reviewRetryCount 次重试，重点检查之前的问题是否修复。\n' : ''}
     ${_manualPhaseMissionAddendum(HardnessPhase.reviewing)}
-    请将当前实现与原始需求及上方执行计划逐项对照。
 
-    必须验证以下内容：
-    1. 所有计划步骤均已完成，并满足对应验收标准
-    2. 没有引入回归问题（如可行，应运行相关测试）
-    3. 代码质量与项目约定保持一致
-    4. 边界情况与错误路径得到了恰当处理
-    5. 没有引入明显的安全风险
+    验证内容：
+    1. 所有计划步骤已完成且满足验收标准
+    2. 无回归问题（如可行，运行相关测试）
+    3. 代码质量符合项目约定
+    4. 边界与错误处理得当
+    5. 无明显安全风险
 
-    请输出一份结构化验收报告：
-    - 第一行必须写 **PASS** 或 **FAIL**
-    - 除第一行 verdict 外，其余正文、标题、问题描述、修复建议必须全部使用简体中文
-    - 列出带有具体文件引用的发现
-    - 若为 FAIL：列出验收通过前必须修复的具体问题
-    - 若为 FAIL：每个问题都必须具体、可执行，并指向精确文件路径
-
-    将完整报告保存到：
-    $feedbackDir/feedback-$ts.md''',
+    输出格式：首行 **PASS** 或 **FAIL**，后续为具体发现与问题。
+    你**必须**调用 Write 工具将验收报告写入（使用绝对路径）：$feedbackDir/feedback-$ts.md
+    **重要**：不要仅仅描述验收结论——你必须实际调用 Write 工具将报告写入磁盘。未成功写入将导致阶段失败。''',
     };
   }
 
@@ -2399,6 +2436,46 @@ class HardnessOrchestrator extends ChangeNotifier {
 
   void _appendLine(HardnessPhaseLog log, String line) {
     log.lines.add(line);
+  }
+
+  /// Checks whether the mandatory output artifacts for a phase exist.
+  ///
+  /// Returns a list of missing file paths (empty list = all present).
+  /// Phases with no mandatory artifacts (reading, implementing) always
+  /// return an empty list.
+  List<String> _checkMandatoryArtifacts(HardnessPhase phase) {
+    final steeringDir = p.join(config.persistenceDirectory, 'steering');
+    final missing = <String>[];
+
+    switch (phase) {
+      case HardnessPhase.metaCollection:
+        final archPath = p.join(steeringDir, 'meta', 'architecture.md');
+        final convPath = p.join(steeringDir, 'meta', 'conventions.md');
+        if (!File(archPath).existsSync()) missing.add(archPath);
+        if (!File(convPath).existsSync()) missing.add(convPath);
+      case HardnessPhase.planning:
+        final planDir = Directory(p.join(steeringDir, 'plan'));
+        final hasPlanFile = planDir.existsSync() &&
+            planDir.listSync().whereType<File>().any(
+                  (f) => f.path.endsWith('.md'),
+                );
+        if (!hasPlanFile) {
+          missing.add('${planDir.path}/*.md (no plan file found)');
+        }
+      case HardnessPhase.reviewing:
+        final feedbackDir = Directory(p.join(steeringDir, 'feedback'));
+        final hasFeedbackFile = feedbackDir.existsSync() &&
+            feedbackDir.listSync().whereType<File>().any(
+                  (f) => f.path.endsWith('.md'),
+                );
+        if (!hasFeedbackFile) {
+          missing.add('${feedbackDir.path}/*.md (no feedback file found)');
+        }
+      case HardnessPhase.reading:
+      case HardnessPhase.implementing:
+        break; // No mandatory artifacts
+    }
+    return missing;
   }
 
   /// POSIX single-quote a string, safely escaping embedded single quotes.

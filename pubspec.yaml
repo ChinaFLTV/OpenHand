@@ -39,3 +39,8 @@ flutter:
   generate: true
   assets:
     - assets/prompts/
+
+# Use system SQLite on macOS (avoids downloading from GitHub).
+hooks:
+  sqlite3:
+    source: system

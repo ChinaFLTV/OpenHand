@@ -11,6 +11,7 @@ import 'ai_tool_utils.dart';
 
 // 2026-04-01 01:21:38 从 AiToolRuntimeService._executeMultiEditTool 提取
 // 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
+// 2026-04-13 添加写操作权限确认检查（安全加固）
 class AiMultiEditTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.multiEdit;
@@ -19,12 +20,12 @@ class AiMultiEditTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final filePath = AiToolUtils.requireAbsoluteFilePath(
-        '${args['file_path'] ?? ''}'.trim());
-    if (filePath == null) {
+    final rawFilePath = '${args['file_path'] ?? ''}'.trim();
+    if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult(
-          'MultiEdit', 'MultiEdit requires an absolute file_path.');
+          'MultiEdit', 'MultiEdit requires a non-empty file_path.');
     }
+    final filePath = AiToolUtils.resolvePath(rawFilePath);
     final edits = args['edits'];
     if (edits is! List || edits.isEmpty) {
       return AiToolUtils.invalidResult(
@@ -32,6 +33,19 @@ class AiMultiEditTool extends AiTool {
     }
     final file = File(filePath);
     final bool fileExists = await file.exists();
+    
+    // 2026-04-13: 写操作权限确认检查
+    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+      toolName: 'MultiEdit',
+      operationDescription: 'Apply ${edits.length} edit${edits.length > 1 ? 's' : ''} to file',
+      targetPath: filePath,
+      requireWriteConfirmation: context.requireWriteCommandConfirmation,
+      confirmWriteCommand: context.confirmWriteCommand,
+      cancelSignal: context.cancelSignal,
+    );
+    if (confirmationResult != null) {
+      return confirmationResult;
+    }
     
     // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
     final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;

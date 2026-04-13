@@ -443,6 +443,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
+// 2026-04-13: Added tap handler to show file diff dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
 String _fileMutationPath(AiSessionMessage message) =>
@@ -512,56 +513,83 @@ class _FileMutationRow extends StatelessWidget {
     // Extract a shorter display path.
     final displayPath = _shortenFilePath(mutPath);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.78),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: const BorderRadius.all(Radius.circular(16)),
+        onTap: mutPath.isNotEmpty
+            ? () => _showFileDiffDialog(context, mutPath, mutKind)
+            : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surface.withValues(alpha: 0.78),
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.difference_rounded,
+                size: 14,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _localizedText(context, zh: '文件变动', en: 'Changed File'),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(icon, size: 14, color: iconColor),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  displayPath,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: _borderRadius999,
+                ),
+                child: Text(
+                  kindLabel,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: iconColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.difference_rounded,
-            size: 14,
-            color: colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            _localizedText(context, zh: '文件变动', en: 'Changed File'),
-            style: theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Icon(icon, size: 14, color: iconColor),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              displayPath,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              borderRadius: _borderRadius999,
-            ),
-            child: Text(
-              kindLabel,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: iconColor,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
+    );
+  }
+
+  void _showFileDiffDialog(BuildContext context, String filePath, String kind) {
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    showAnimatedDialog(
+      context: context,
+      builder: (ctx) => _FileDiffDialog(
+        filePath: filePath,
+        changeKind: kind,
+        isZh: isZh,
       ),
     );
   }
@@ -574,6 +602,291 @@ class _FileMutationRow extends StatelessWidget {
     final parts = normalised.split('/');
     if (parts.length <= 3) return normalised;
     return '.../${parts.sublist(parts.length - 3).join('/')}';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _FileDiffDialog — displays file content diff when file change card is tapped
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FileDiffDialog extends StatefulWidget {
+  const _FileDiffDialog({
+    required this.filePath,
+    required this.changeKind,
+    required this.isZh,
+  });
+
+  final String filePath;
+  final String changeKind;
+  final bool isZh;
+
+  @override
+  State<_FileDiffDialog> createState() => _FileDiffDialogState();
+}
+
+class _FileDiffDialogState extends State<_FileDiffDialog> {
+  bool _loading = true;
+  String? _beforeContent;
+  String? _afterContent;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiff();
+  }
+
+  Future<void> _loadDiff() async {
+    try {
+      // Create a new instance since AiFileHistoryService is not a singleton.
+      final historyService = AiFileHistoryService();
+      final versions = await historyService.getVersionHistory(widget.filePath);
+
+      if (versions.isEmpty) {
+        // No history, try to read current file content as 'after'.
+        final file = File(widget.filePath);
+        if (await file.exists()) {
+          final content = await file.readAsString();
+          if (!mounted) return;
+          setState(() {
+            _beforeContent = null;
+            _afterContent = content;
+            _loading = false;
+          });
+        } else {
+          if (!mounted) return;
+          setState(() {
+            _error = widget.isZh ? '没有保存的版本历史' : 'No saved version history';
+            _loading = false;
+          });
+        }
+        return;
+      }
+
+      // Get oldest version as "before" and read current file as "after".
+      // This shows what changed from the saved snapshot to current state.
+      final oldest = versions.last;
+
+      final (beforeContent, _) = await historyService.readVersionContent(
+        filePath: widget.filePath,
+        versionId: oldest.versionId,
+      );
+
+      // Read current file content as "after"
+      String? afterContent;
+      final currentFile = File(widget.filePath);
+      if (await currentFile.exists()) {
+        afterContent = await currentFile.readAsString();
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _beforeContent = beforeContent;
+        _afterContent = afterContent;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Dialog(
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(24)),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 840, maxHeight: 640),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(24)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
+                color: colorScheme.surfaceContainerLow,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.difference_rounded,
+                      color: colorScheme.primary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.isZh ? '文件变更对比' : 'File Diff',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _FileMutationRow._shortenFilePath(widget.filePath),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: widget.isZh ? '关闭' : 'Close',
+                    ),
+                  ],
+                ),
+              ),
+
+              // Diff content
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                _error!,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          )
+                        : _buildDiffView(theme, colorScheme),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiffView(ThemeData theme, ColorScheme colorScheme) {
+    // Compute line-by-line diff.
+    final diff = _computeSimpleDiff(_beforeContent ?? '', _afterContent ?? '');
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: SelectableText.rich(
+        TextSpan(
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: 'monospace',
+            height: 1.6,
+          ),
+          children: diff.map((line) {
+            Color? bgColor;
+            Color? textColor;
+            if (line.startsWith('+')) {
+              bgColor = colorScheme.primaryContainer.withValues(alpha: 0.35);
+              textColor = colorScheme.onPrimaryContainer;
+            } else if (line.startsWith('-')) {
+              bgColor = colorScheme.errorContainer.withValues(alpha: 0.35);
+              textColor = colorScheme.onErrorContainer;
+            } else if (line.startsWith('@@')) {
+              textColor = colorScheme.primary;
+            }
+            return TextSpan(
+              text: '$line\n',
+              style: TextStyle(
+                backgroundColor: bgColor,
+                color: textColor,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  /// Compute a simple unified diff from before/after content.
+  List<String> _computeSimpleDiff(String before, String after) {
+    final beforeLines = const LineSplitter().convert(before);
+    final afterLines = const LineSplitter().convert(after);
+    final result = <String>[];
+
+    // Simple LCS-based diff (good enough for small files).
+    final lcs = _longestCommonSubsequence(beforeLines, afterLines);
+
+    int bi = 0, ai = 0, li = 0;
+    while (bi < beforeLines.length || ai < afterLines.length) {
+      if (li < lcs.length &&
+          bi < beforeLines.length &&
+          ai < afterLines.length &&
+          beforeLines[bi] == lcs[li] &&
+          afterLines[ai] == lcs[li]) {
+        result.add('  ${lcs[li]}');
+        bi++;
+        ai++;
+        li++;
+      } else {
+        // Removed lines from before
+        while (bi < beforeLines.length &&
+            (li >= lcs.length || beforeLines[bi] != lcs[li])) {
+          result.add('- ${beforeLines[bi]}');
+          bi++;
+        }
+        // Added lines in after
+        while (ai < afterLines.length &&
+            (li >= lcs.length || afterLines[ai] != lcs[li])) {
+          result.add('+ ${afterLines[ai]}');
+          ai++;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /// Compute LCS for line-by-line comparison.
+  List<String> _longestCommonSubsequence(
+      List<String> a, List<String> b) {
+    final m = a.length, n = b.length;
+    final dp = List.generate(m + 1, (_) => List.filled(n + 1, 0));
+
+    for (int i = 1; i <= m; i++) {
+      for (int j = 1; j <= n; j++) {
+        if (a[i - 1] == b[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = dp[i - 1][j] > dp[i][j - 1] ? dp[i - 1][j] : dp[i][j - 1];
+        }
+      }
+    }
+
+    // Backtrack to find LCS
+    final lcs = <String>[];
+    int i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (a[i - 1] == b[j - 1]) {
+        lcs.insert(0, a[i - 1]);
+        i--;
+        j--;
+      } else if (dp[i - 1][j] > dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+    return lcs;
   }
 }
 

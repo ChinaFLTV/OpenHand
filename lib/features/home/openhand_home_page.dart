@@ -32,6 +32,7 @@ import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
@@ -45,6 +46,7 @@ import '../ai/model/ai_session_runtime_context.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../ai/service/ai_file_history_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
@@ -663,6 +665,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
+    // 2026-04-13: Flush pending Hardness session state to disk whenever the
+    // app enters background / inactive states. This ensures the session record
+    // survives if the OS terminates the process before dispose() runs.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      final pendingHardnessRecord = _persistedHardnessSession;
+      if (pendingHardnessRecord != null) {
+        // Cancel debounced timer and flush immediately.
+        _hardnessSessionSaveTimer?.cancel();
+        _hardnessSessionSaveTimer = null;
+        unawaited(
+          _hardnessSessionStore.save(pendingHardnessRecord).catchError((_) {}),
+        );
+      }
+    }
     if (state != AppLifecycleState.resumed) {
       return;
     }
@@ -930,6 +949,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
     }
     _activeComposerSessionId = nextSessionId;
+
+    // 2026-04-13 BUG FIX: 当目标会话正在发送消息时，不要恢复草稿内容。
+    // 草稿是在 _submitTextToSession 中保存的，用于发送失败后恢复用户输入。
+    // 但在正常发送过程中，AiSessionController 状态变化会触发本方法被调用，
+    // 如果此时恢复草稿，就会出现消息已发送但输入框仍显示消息内容的问题。
+    final isTargetSessionSubmitting =
+        nextSessionId != null && _submittingSessionId == nextSessionId;
+    if (isTargetSessionSubmitting) {
+      return;
+    }
 
     final nextDraft =
         _composerDraftsBySessionId[_composerDraftKeyForSessionId(
@@ -1640,7 +1669,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         createdAt: now,
         updatedAt: now,
       );
-      unawaited(_hardnessSessionStore.save(record).catchError((_) {}));
+      // 2026-04-13: Await initial save to ensure the record is persisted
+      // before starting the orchestrator, preventing data loss if the app
+      // closes before the async save completes.
+      try {
+        await _hardnessSessionStore.save(record);
+      } catch (_) {
+        // Log but continue - failing to persist should not block execution.
+      }
       orchestrator.addListener(_onHardnessOrchestratorChanged);
       _cacheHardnessShellState(orchestrator);
       setState(() {
@@ -1768,34 +1804,43 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// Loads the last-persisted Hardness Engineering session record from disk
   /// and displays it in the navigation sidebar.
   Future<void> _loadPersistedHardnessSession() async {
-    final record = await _hardnessSessionStore.load();
-    if (!mounted || record == null) return;
-    final migratedRecord = _migrateLegacyHardnessAutoRewrittenModels(record);
-    final effectiveRecord = _normalizeRestoredHardnessRecord(migratedRecord);
-    if (effectiveRecord != record) {
-      _scheduleHardnessSessionSave(effectiveRecord, immediate: true);
+    try {
+      final record = await _hardnessSessionStore.load();
+      if (!mounted || record == null) {
+        debugPrint('[HE Restore] No persisted session found or widget unmounted');
+        return;
+      }
+      debugPrint('[HE Restore] Loaded record id=${record.id} title="${record.title}" status=${record.statusValue}');
+      final migratedRecord = _migrateLegacyHardnessAutoRewrittenModels(record);
+      final effectiveRecord = _normalizeRestoredHardnessRecord(migratedRecord);
+      if (effectiveRecord != record) {
+        _scheduleHardnessSessionSave(effectiveRecord, immediate: true);
+      }
+      _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
+      final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
+      restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
+      restoredOrchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+      _wireHardnessApiMode(restoredOrchestrator);
+      restoredOrchestrator.restoreSnapshot(
+        status: effectiveRecord.status,
+        phaseLogs: effectiveRecord.phaseLogs,
+        errorMessage: effectiveRecord.errorMessage,
+        currentPhase: effectiveRecord.currentPhase,
+        manualPhaseInputRequested: effectiveRecord.manualPhaseInputRequested,
+        queuedManualPhaseInput: effectiveRecord.queuedManualPhaseInput,
+        queuedManualPhaseInputPhase: effectiveRecord.queuedManualPhaseInputPhase,
+      );
+      restoredOrchestrator.addListener(_onHardnessOrchestratorChanged);
+      _cacheHardnessShellState(restoredOrchestrator);
+      setState(() {
+        _persistedHardnessSession = effectiveRecord;
+        _activeHardnessConfig = effectiveRecord.config;
+        _activeHardnessOrchestrator = restoredOrchestrator;
+      });
+      debugPrint('[HE Restore] Session restored successfully');
+    } catch (e, st) {
+      debugPrint('[HE Restore] Failed to restore session: $e\n$st');
     }
-    _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
-    final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
-    restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
-    restoredOrchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
-    _wireHardnessApiMode(restoredOrchestrator);
-    restoredOrchestrator.restoreSnapshot(
-      status: effectiveRecord.status,
-      phaseLogs: effectiveRecord.phaseLogs,
-      errorMessage: effectiveRecord.errorMessage,
-      currentPhase: effectiveRecord.currentPhase,
-      manualPhaseInputRequested: effectiveRecord.manualPhaseInputRequested,
-      queuedManualPhaseInput: effectiveRecord.queuedManualPhaseInput,
-      queuedManualPhaseInputPhase: effectiveRecord.queuedManualPhaseInputPhase,
-    );
-    restoredOrchestrator.addListener(_onHardnessOrchestratorChanged);
-    _cacheHardnessShellState(restoredOrchestrator);
-    setState(() {
-      _persistedHardnessSession = effectiveRecord;
-      _activeHardnessConfig = effectiveRecord.config;
-      _activeHardnessOrchestrator = restoredOrchestrator;
-    });
   }
 
   /// Called whenever the active [HardnessOrchestrator] notifies listeners.

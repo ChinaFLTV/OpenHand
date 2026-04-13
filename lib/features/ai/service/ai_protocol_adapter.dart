@@ -541,7 +541,35 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     if (message is! Map<String, Object?>) {
       throw const FormatException('Missing response message.');
     }
-    return _extractOpenAiContentWithMedia(message['content']);
+
+    // Try extracting from 'content' first.
+    final content = message['content'];
+    final contentText = await _extractOpenAiContentWithMediaSafe(content);
+    if (contentText.isNotEmpty) {
+      return contentText;
+    }
+
+    // Fallback: for reasoning models (e.g., deepseek-expert-reasoner),
+    // check 'reasoning_content' if 'content' is empty. Some reasoning models
+    // embed DSML tool calls in reasoning_content instead of using native
+    // tool_calls — return reasoning_content to let the DSML parser extract them.
+    final reasoningContent = message['reasoning_content'];
+    if (reasoningContent != null) {
+      final reasoningText =
+          await _extractOpenAiContentWithMediaSafe(reasoningContent);
+      if (reasoningText.isNotEmpty) {
+        return reasoningText;
+      }
+    }
+
+    // If native tool_calls exist, it's valid to have empty text content.
+    // Return empty string to allow tool call processing to proceed.
+    final toolCalls = message['tool_calls'];
+    if (toolCalls is List && toolCalls.isNotEmpty) {
+      return '';
+    }
+
+    throw const FormatException('Empty assistant response text.');
   }
 
   @override
@@ -1395,6 +1423,17 @@ abstract final class AiProtocolRegistry {
 
   static AiProtocolAdapter adapterFor(AiProtocolType protocolType) {
     return _adapters[protocolType] ?? _adapters[AiProtocolType.openai]!;
+  }
+}
+
+/// Extracts text and non-text content parts (images, audio) from OpenAI-compatible
+/// (images, audio) that some OpenAI-compatible APIs return in assistants.
+/// Returns empty string instead of throwing if content is empty/null.
+Future<String> _extractOpenAiContentWithMediaSafe(Object? rawContent) async {
+  try {
+    return await _extractOpenAiContentWithMedia(rawContent);
+  } on FormatException {
+    return '';
   }
 }
 

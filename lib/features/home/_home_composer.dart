@@ -449,93 +449,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   }
 
   void _showModelMenu(BuildContext btnContext) {
-    final button = btnContext.findRenderObject()! as RenderBox;
-    final overlay =
-        Navigator.of(btnContext).overlay!.context.findRenderObject()!
-            as RenderBox;
-    final position = RelativeRect.fromRect(
-      Rect.fromPoints(
-        button.localToGlobal(Offset.zero, ancestor: overlay),
-        button.localToGlobal(
-          button.size.bottomRight(Offset.zero),
-          ancestor: overlay,
-        ),
-      ),
-      Offset.zero & overlay.size,
-    );
-
-    final items = _buildModelPopupItems(btnContext);
-    if (items.isEmpty) return;
-    showAnimatedMenu<(String, String)>(
+    showModelSearchSelector(
       context: btnContext,
-      position: position,
-      items: items,
+      models: widget.availableModels,
+      selectedConfigId: widget.selectedModel?.id,
+      selectedModelId: widget.selectedModel?.modelId,
     ).then((value) {
       if (!mounted || value == null) return;
       widget.onModelSelected(value.$1, value.$2);
     });
-  }
-
-  List<PopupMenuEntry<(String, String)>> _buildModelPopupItems(
-    BuildContext context,
-  ) {
-    final items = <PopupMenuEntry<(String, String)>>[];
-    final selectedId = widget.selectedModel?.id;
-    final selectedModelId = widget.selectedModel?.modelId;
-    for (final provider in widget.availableModels) {
-      final allIds = provider.allModelIds;
-      if (allIds.isEmpty) {
-        // Provider with no discovered models — show as single entry.
-        final isActive =
-            provider.id == selectedId && provider.modelId == selectedModelId;
-        items.add(
-          PopupMenuItem<(String, String)>(
-            value: (provider.id, provider.modelId),
-            child: Row(
-              children: [
-                Icon(
-                  isActive
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(provider.providerLabel)),
-              ],
-            ),
-          ),
-        );
-      } else {
-        // Provider with models — show group header + sub-items.
-        items.add(
-          PopupMenuSectionHeader<(String, String)>(
-            label:
-                '${provider.providerLabel}  (${provider.protocolType.storageValue})',
-          ),
-        );
-        for (final modelId in allIds) {
-          final isActive =
-              provider.id == selectedId && modelId == selectedModelId;
-          items.add(
-            PopupMenuItem<(String, String)>(
-              value: (provider.id, modelId),
-              child: Row(
-                children: [
-                  Icon(
-                    isActive
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(modelId)),
-                ],
-              ),
-            ),
-          );
-        }
-      }
-    }
-    return items;
   }
 
   @override

@@ -68,6 +68,19 @@ class AiDeleteFileTool extends AiTool {
       );
     }
 
+    // 2026-04-13: 写操作权限确认检查（删除为不可逆破坏性操作）
+    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+      toolName: 'DeleteFile',
+      operationDescription: 'Delete file (irreversible)',
+      targetPath: filePath,
+      requireWriteConfirmation: context.requireWriteCommandConfirmation,
+      confirmWriteCommand: context.confirmWriteCommand,
+      cancelSignal: context.cancelSignal,
+    );
+    if (confirmationResult != null) {
+      return confirmationResult;
+    }
+
     try {
       await file.delete();
       return AiToolUtils.simpleSuccessResult(

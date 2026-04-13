@@ -208,6 +208,43 @@ class AiFileHistoryService {
     return '${safeBasename.substring(0, safeBasename.length.clamp(0, 20))}_$hash';
   }
 
+  /// 读取指定版本的文件内容
+  ///
+  /// 返回 (内容, 元数据)，如果版本不存在则返回 (null, null)
+  Future<(String?, FileVersionInfo?)> readVersionContent({
+    required String filePath,
+    required String versionId,
+  }) async {
+    try {
+      final historyDir = await _getHistoryDir();
+      final normalizedPath = p.normalize(filePath);
+      final pathHash = _hashPath(normalizedPath);
+      final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
+
+      final contentFile = File(p.join(fileHistoryDir.path, '$versionId.content'));
+      if (!await contentFile.exists()) {
+        return (null, null);
+      }
+
+      final content = await contentFile.readAsString();
+
+      // 尝试读取元数据
+      FileVersionInfo? metadata;
+      final metaFile = File(p.join(fileHistoryDir.path, '$versionId.meta.json'));
+      if (await metaFile.exists()) {
+        try {
+          final metaContent = await metaFile.readAsString();
+          final meta = jsonDecode(metaContent) as Map<String, Object?>;
+          metadata = FileVersionInfo.fromJson(meta);
+        } catch (_) {}
+      }
+
+      return (content, metadata);
+    } catch (e) {
+      return (null, null);
+    }
+  }
+
   /// 清理指定会话的所有历史记录
   Future<void> clearSessionHistory(String sessionId) async {
     try {

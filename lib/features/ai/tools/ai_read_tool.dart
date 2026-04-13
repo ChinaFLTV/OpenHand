@@ -26,12 +26,11 @@ class AiReadTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final filePath = AiToolUtils.requireAbsoluteFilePath(
-      '${args['file_path'] ?? ''}'.trim(),
-    );
-    if (filePath == null) {
-      return AiToolUtils.invalidResult('Read', 'Read requires an absolute file_path.');
+    final rawFilePath = '${args['file_path'] ?? ''}'.trim();
+    if (rawFilePath.isEmpty) {
+      return AiToolUtils.invalidResult('Read', 'Read requires a non-empty file_path.');
     }
+    final filePath = AiToolUtils.resolvePath(rawFilePath);
     final file = File(filePath);
     if (!await file.exists()) {
       return AiToolUtils.invalidResult('Read', 'File does not exist: $filePath');

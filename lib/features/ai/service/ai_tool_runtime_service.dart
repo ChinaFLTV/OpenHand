@@ -1091,12 +1091,20 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.glob,
       name: 'Glob',
-      description: 'Match file paths against a glob pattern.',
+      description:
+          'Match file paths against a glob pattern. Returns matching file paths.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'pattern': <String, Object?>{'type': 'string'},
-          'path': <String, Object?>{'type': 'string'},
+          'pattern': <String, Object?>{
+            'type': 'string',
+            'description': 'The glob pattern to match (e.g. "*.md", "**/*.dart").',
+          },
+          'path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The directory to search in. Defaults to the working directory.',
+          },
         },
         'required': <String>['pattern'],
         'additionalProperties': false,
@@ -1171,14 +1179,19 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.ls,
       name: 'LS',
-      description: 'List files and directories under a path.',
+      description:
+          'List files and directories under a path. Returns names and types.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'path': <String, Object?>{'type': 'string'},
+          'path': <String, Object?>{
+            'type': 'string',
+            'description': 'The absolute directory path to list.',
+          },
           'ignore': <String, Object?>{
             'type': 'array',
             'items': <String, Object?>{'type': 'string'},
+            'description': 'Patterns of file/directory names to ignore.',
           },
         },
         'required': <String>['path'],
@@ -1202,13 +1215,25 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.read,
       name: 'Read',
-      description: 'Read a local file from disk.',
+      description:
+          'Read a local file from disk. The file_path MUST be an absolute path (starting with /).',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'file_path': <String, Object?>{'type': 'string'},
-          'offset': <String, Object?>{'type': 'integer'},
-          'limit': <String, Object?>{'type': 'integer'},
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The absolute file path to read (must start with /).',
+          },
+          'offset': <String, Object?>{
+            'type': 'integer',
+            'description': 'Line offset to start reading from (0-based).',
+          },
+          'limit': <String, Object?>{
+            'type': 'integer',
+            'description':
+                'Maximum number of lines to read. Defaults to 2000.',
+          },
         },
         'required': <String>['file_path'],
         'additionalProperties': false,
@@ -1217,14 +1242,30 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.edit,
       name: 'Edit',
-      description: 'Perform an exact string replacement in a file.',
+      description:
+          'Perform an exact string replacement in a file. '
+          'The file_path MUST be an absolute path (starting with /).',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'file_path': <String, Object?>{'type': 'string'},
-          'old_string': <String, Object?>{'type': 'string'},
-          'new_string': <String, Object?>{'type': 'string'},
-          'replace_all': <String, Object?>{'type': 'boolean'},
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The absolute file path to edit (must start with /).',
+          },
+          'old_string': <String, Object?>{
+            'type': 'string',
+            'description': 'The exact text to find and replace.',
+          },
+          'new_string': <String, Object?>{
+            'type': 'string',
+            'description': 'The replacement text.',
+          },
+          'replace_all': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'If true, replace all occurrences. Defaults to false (first match only).',
+          },
         },
         'required': <String>['file_path', 'old_string', 'new_string'],
         'additionalProperties': false,
@@ -1233,11 +1274,17 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.multiEdit,
       name: 'MultiEdit',
-      description: 'Perform multiple exact string replacements in a file.',
+      description:
+          'Perform multiple exact string replacements in a file. '
+          'The file_path MUST be an absolute path (starting with /).',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'file_path': <String, Object?>{'type': 'string'},
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The absolute file path to edit (must start with /).',
+          },
           'edits': <String, Object?>{
             'type': 'array',
             'items': <String, Object?>{
@@ -1259,12 +1306,21 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.write,
       name: 'Write',
-      description: 'Write a file to disk.',
+      description:
+          'Create or overwrite a file on disk. The file_path MUST be an absolute path (starting with /). '
+          'Parent directories are created automatically if they do not exist.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
-          'file_path': <String, Object?>{'type': 'string'},
-          'content': <String, Object?>{'type': 'string'},
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'The absolute file path to write to (must start with /). Example: /Users/name/project/file.md',
+          },
+          'content': <String, Object?>{
+            'type': 'string',
+            'description': 'The full content to write to the file.',
+          },
         },
         'required': <String>['file_path', 'content'],
         'additionalProperties': false,

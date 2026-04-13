@@ -197,9 +197,11 @@ class AiPromptBuilder {
       'environment': runtimeContext.toJson(),
     };
 
-    final isProgrammingExpert =
+    // 2026-04-13: default template also uses compact metadata format to reduce
+    // token overhead by ~40%. This follows the refactoring proposal.
+    final isCompactTemplate = templateBundle.template.id == 'default' ||
         templateBundle.template.id == 'programming_expert';
-    final promptMetadata = isProgrammingExpert
+    final promptMetadata = isCompactTemplate
         ? _buildCompactPromptMetadata(
             session: session,
             runtimeContext: runtimeContext,
@@ -214,7 +216,7 @@ class AiPromptBuilder {
     final messages = <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
-        content: isProgrammingExpert
+        content: isCompactTemplate
             ? '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}'
             : '# [0] System Instructions\n\n${templateBundle.systemInstructions}${_renderWorkspaceInstructions(runtimeContext)}${_renderRuntimeEnvironmentSnapshot(runtimeContext, repositorySnapshot)}',
       ),
@@ -226,16 +228,16 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [1.5] Current Runtime Tool Catalog (authoritative)\n\n${_renderRuntimeToolCatalog(availableTools, compact: isProgrammingExpert)}',
+            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate)}',
       ),
-      // For programming_expert, reminders are folded into the compact
-      // metadata JSON to reduce system message count and API overhead.
-      if (todoReminder != null && !isProgrammingExpert)
+      // For compact templates, reminders are folded into the metadata JSON
+      // to reduce system message count and API overhead.
+      if (todoReminder != null && !isCompactTemplate)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# System Reminder\n\n$todoReminder',
         ),
-      if (planModeReminder != null && !isProgrammingExpert)
+      if (planModeReminder != null && !isCompactTemplate)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# Plan Mode Reminder\n\n$planModeReminder',
@@ -243,15 +245,15 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Session Metadata (ephemeral)\n\n```json\n${const JsonEncoder.withIndent('  ').convert(promptMetadata)}\n```',
+            '# [3] Session State\n\n```json\n${const JsonEncoder.withIndent('  ').convert(promptMetadata)}\n```',
       ),
       AiChatTurn(
         role: AiChatRole.system,
-        content: isProgrammingExpert
-            ? '# [3] User Memory\n\n'
+        content: isCompactTemplate
+            ? '# [4] User Memory\n\n'
                 'Integrate memory facts naturally — do not hint at their source.\n\n'
                 '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
-            : '# [3] User Memory (long-term facts)\n\n'
+            : '# [4] User Memory (long-term facts)\n\n'
                 'IMPORTANT: Integrate memory facts naturally into your responses. '
                 'Do NOT explicitly state or hint that information comes from memory, '
                 'saved notes, or prior records. Use memory content as if it is common '
@@ -260,9 +262,9 @@ class AiPromptBuilder {
       ),
       AiChatTurn(
         role: AiChatRole.system,
-        content: isProgrammingExpert
-            ? '# [4] Conversation Summary\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
-            : '# [4] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
+        content: isCompactTemplate
+            ? '# [5] Conversation Context\n\n${_renderCompressionSummary(session, latestCompressionPoint)}'
+            : '# [5] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
       ),
       ...historyTurns,
       ...latestUserTurns,

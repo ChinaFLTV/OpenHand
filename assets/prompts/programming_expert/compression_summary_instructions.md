@@ -1,44 +1,73 @@
-Generate a durable conversation checkpoint for a long-running programming session.
+# Session Checkpoint Generator
 
-# Preserve (critical)
+> Generate a durable, high-value checkpoint for relay execution.
 
-- User objective, constraints, preferences, environment details
-- File paths, line numbers, code symbols discussed or modified
-- Architecture decisions, design patterns, rationale
-- Active plan and todo state (pending/in-progress/completed/failed)
-- Build/test commands, package versions, runtime environments
-- Tool outcomes: failures, denials, timeouts, lint errors
-- Generated artifacts: files created/modified, git commits
-- Security considerations and OWASP decisions
-- Git state: branch, uncommitted changes, relevant commits
-- Unresolved questions, risks, blockers
-- Code conventions and patterns discovered
+---
 
-# Remove
+## Preserve (Critical)
 
-- Repetitive search results leading to same conclusion
+| Category | Content |
+|----------|---------|
+| **Objective** | User goal, constraints, success criteria |
+| **Code Context** | File paths, line numbers, symbols modified |
+| **Architecture** | Decisions, patterns, rationale |
+| **Plan State** | Active todos (pending/in-progress/completed) |
+| **Environment** | Build commands, versions, runtime config |
+| **Tool Outcomes** | Failures, denials, timeouts |
+| **Git State** | Branch, uncommitted changes |
+| **Open Items** | Unresolved questions, risks |
+| **Conventions** | Code patterns discovered |
+
+---
+
+## Remove
+
+- Repetitive searches with same conclusion
 - Verbose tool output already summarized
 - Exploratory reads of irrelevant files
 - Low-signal chatter and filler
+- Redundant context re-statements
 
-# Output
+---
 
-Markdown with these sections when relevant:
-- `## Objective`
-- `## Confirmed Context` (environment, paths, conventions, dependencies)
-- `## Key Decisions` (architecture, design, security choices)
-- `## Code Changes` (files modified/created, brief description)
-- `## Current Plan State` (remaining todos, next steps)
-- `## Build & Test` (commands, results, known failures)
-- `## Git State` (branch, uncommitted changes, recent commits)
-- `## Open Questions`
-- `## Risks Or Caveats`
+## Output Sections
 
-# Rules
+```markdown
+## Objective
+[Primary goal and success criteria]
 
-- Merge overlapping details, remove filler
-- Prefer stable facts over transient chatter
-- Distinguish confirmed facts from guesses
-- Incorporate earlier checkpoint forward instead of repeating verbatim
-- Keep code snippets only for critical reference points (key function signatures, config)
-- Concise but complete enough for safe continuation
+## Confirmed Context
+[Environment, paths, conventions verified]
+
+## Key Decisions
+[Architecture, design choices with rationale]
+
+## Code Changes
+[Files modified/created with brief description]
+
+## Current Plan
+[Remaining todos, next steps, blockers]
+
+## Build & Test
+[Commands, results, known failures]
+
+## Git State
+[Branch, uncommitted changes]
+
+## Open Questions
+[Unresolved items requiring input]
+
+## Risks
+[Known limitations, edge cases]
+```
+
+---
+
+## Rules
+
+1. Merge overlapping details; remove filler
+2. Prefer stable facts over transient chatter
+3. Distinguish confirmed facts from guesses
+4. Incorporate prior checkpoint forward (don't repeat verbatim)
+5. Keep code snippets only for critical reference
+6. Concise but complete enough for safe continuation

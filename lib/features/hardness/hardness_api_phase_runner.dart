@@ -14,6 +14,7 @@ import '../ai/service/ai_prompt_template_repository.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
 import 'hardness_orchestrator.dart';
+import 'hardness_prompt_builder.dart';
 import 'model/hardness_phase.dart';
 
 /// Result of a single API-based Hardness phase execution.
@@ -114,10 +115,10 @@ class HardnessApiPhaseRunner {
             toolsByName: <String, AiResolvedTool>{},
           );
 
-    // Filter tools based on phase constraints.
-    final phaseToolCatalog = _filterToolsForPhase(
+    // Filter tools based on phase constraints using HE-specific affinity.
+    final phaseToolCatalog = hardnessPromptBuilder.filterToolsForPhase(
       phase: phase,
-      baseCatalog: toolCatalog,
+      catalog: toolCatalog,
     );
 
     if (toolCatalog.notices.isNotEmpty) {
@@ -132,7 +133,7 @@ class HardnessApiPhaseRunner {
       'hardness_engineering',
     );
 
-    // Build conversation context.
+    // Build conversation context with HE-optimized structure.
     final systemContent = StringBuffer()
       ..writeln('# [0] System Instructions')
       ..writeln()
@@ -142,34 +143,40 @@ class HardnessApiPhaseRunner {
       ..writeln()
       ..writeln(templateBundle.developerInstructions)
       ..writeln()
-      ..writeln('# Runtime Environment')
+      ..writeln('# 运行时环境')
       ..writeln()
-      ..writeln('Working directory: ${runtimeContext.workingDirectory}')
-      ..writeln('Platform: ${runtimeContext.platformName}')
-      ..writeln('Today: ${runtimeContext.todayLocalDate}')
-      ..writeln('Time zone: ${runtimeContext.timeZoneName}');
+      ..writeln('工作目录：${runtimeContext.workingDirectory}')
+      ..writeln('平台：${runtimeContext.platformName}')
+      ..writeln('日期：${runtimeContext.todayLocalDate}')
+      ..writeln('时区：${runtimeContext.timeZoneName}');
 
     // Inject memory if enabled.
     if (runtimeContext.memoryEnabled && runtimeContext.memoryEntries.isNotEmpty) {
       systemContent
         ..writeln()
-        ..writeln('# User Memory (long-term facts)')
+        ..writeln('# 用户记忆')
         ..writeln();
       for (final entry in runtimeContext.memoryEntries) {
         systemContent.writeln('- ${entry.preview}');
       }
     }
 
-    // Available tool catalog description for the model.
+    // Render compressed tool catalog for HE phases.
     if (phaseToolCatalog.definitions.isNotEmpty) {
       systemContent
         ..writeln()
-        ..writeln('# Available Tools')
+        ..writeln(hardnessPromptBuilder.renderCompactToolCatalog(
+          tools: phaseToolCatalog.definitions,
+          phase: phase,
+        ));
+    }
+
+    // Inject compact XML tool instructions only if the model doesn't
+    // support native tool calls (e.g., CLI mode fallback).
+    if (hardnessPromptBuilder.shouldInjectXmlInstructions(adapter)) {
+      systemContent
         ..writeln()
-        ..writeln(
-          'You have ${phaseToolCatalog.definitions.length} tools available. '
-          'Use them to complete your assigned phase task.',
-        );
+        ..writeln(hardnessPromptBuilder.compactXmlToolInstructions);
     }
 
     // ── Reviewer isolation reinforcement ──────────────────────────────────
@@ -179,15 +186,13 @@ class HardnessApiPhaseRunner {
     if (phase == HardnessPhase.reviewing) {
       systemContent
         ..writeln()
-        ..writeln('# Agent Isolation Notice')
+        ..writeln('# 代理隔离声明')
         ..writeln()
         ..writeln(
-          'You are running as an **isolated reviewer agent**. '
-          'This session has NO shared state with the implementing agent. '
-          'You must evaluate the code solely based on the execution plan, '
-          'original requirements, and the actual state of the codebase. '
-          'Do NOT assume any implementation step was completed correctly — '
-          'verify each one independently by reading the relevant files.',
+          '你正在作为 **独立的验收代理** 运行。'
+          '本会话与实施代理 **没有任何共享状态**。'
+          '你必须仅基于执行计划、原始需求和代码库的真实状态进行评估。'
+          '**不要假设任何实施步骤已正确完成** — 请逐一独立验证。',
         );
     }
 
@@ -298,14 +303,41 @@ class HardnessApiPhaseRunner {
         }
 
         // Emit the model's text reply.
-        final reply = completion.reply.trim();
+        // When the model provides native tool_calls alongside inline XML,
+        // strip the duplicate XML.  When native tool_calls is empty but
+        // the text contains <tool_calls> XML, parse the XML to recover
+        // the tool calls instead of discarding them.
+        var toolCalls = completion.toolCalls;
+        String reply;
+        if (toolCalls.isNotEmpty) {
+          // Native tool calls present — strip duplicate XML from text.
+          reply = _stripInlineToolCallsXml(completion.reply.trim());
+        } else {
+          // No native tool calls — try parsing XML tool calls from text.
+          final rawReply = completion.reply.trim();
+          final parsedXmlCalls = _parseXmlToolCalls(rawReply);
+          if (parsedXmlCalls.isNotEmpty) {
+            toolCalls = parsedXmlCalls;
+            reply = _stripInlineToolCallsXml(rawReply);
+            emit('');
+            emit('ℹ 从模型文本回复中解析出 ${parsedXmlCalls.length} 个 XML 工具调用。');
+          } else {
+            reply = rawReply;
+          }
+        }
+
         if (reply.isNotEmpty) {
+          // Emit a role marker before the reply so the sub-conversation
+          // parser creates a separate card instead of merging the reply
+          // into the previous tool-call segment.
+          if (toolRound > 0) {
+            emit('');
+            emit('assistant');
+          }
           for (final line in reply.split('\n')) {
             emit(line);
           }
         }
-
-        final toolCalls = completion.toolCalls;
 
         // No tool calls → phase complete.
         if (toolCalls.isEmpty) {
@@ -336,6 +368,19 @@ class HardnessApiPhaseRunner {
           emit('');
           emit('⚙ 工具调用：${toolCall.name}');
 
+          // Emit structured tool arguments so the phase card can render
+          // them separately from the tool output.
+          final argsMap = _tryDecodeJsonMap(toolCall.arguments);
+          if (argsMap.isNotEmpty) {
+            try {
+              emit(
+                '  📥 ${const JsonEncoder().convert(argsMap)}',
+              );
+            } catch (_) {
+              emit('  📥 ${toolCall.arguments.trim()}');
+            }
+          }
+
           final result = await _toolRuntimeService.execute(
             sessionId: phaseSessionId,
             catalog: phaseToolCatalog,
@@ -350,12 +395,28 @@ class HardnessApiPhaseRunner {
 
           // Track read files for deduplication.
           if (toolCall.name.toLowerCase().contains('read')) {
-            final args = _tryDecodeJsonMap(toolCall.arguments);
+            final args = argsMap.isNotEmpty
+                ? argsMap
+                : _tryDecodeJsonMap(toolCall.arguments);
             final filePath = args['file_path'] ?? args['path'];
             if (filePath is String && filePath.isNotEmpty) {
               previouslyReadFiles.add(filePath);
             }
           }
+
+          // Emit structured status metadata for the phase card.
+          final statusLabel = result.status.storageValue;
+          final durLabel = '${result.durationMs}ms';
+          final exitLabel = result.exitCode != null
+              ? ' | exit: ${result.exitCode}'
+              : '';
+          final cmdLabel = result.command.isNotEmpty
+              ? ' | cmd: ${result.command}'
+              : '';
+          final cwdLabel = result.workingDirectory.isNotEmpty
+              ? ' | cwd: ${result.workingDirectory}'
+              : '';
+          emit('  📤 status: $statusLabel | $durLabel$exitLabel$cmdLabel$cwdLabel');
 
           final toolOutput = result.toToolOutput();
           // Show abbreviated tool output in the log.
@@ -404,18 +465,44 @@ class HardnessApiPhaseRunner {
       );
     }
 
-    // If no meaningful output was produced, treat as failure.
+    // 2026-04-13 Enhanced substantive output detection:
+    // - Tool execution outputs (indented with "  ") count as substantive
+    // - Pure status lines (ℹ, ⚙, ⚠) alone do not count
+    // - Empty or whitespace-only lines do not count
+    // - Any other text from the model counts as substantive
     final hasSubstantiveOutput = outputLines.any((line) {
       final trimmed = line.trim();
-      return trimmed.isNotEmpty &&
-          !trimmed.startsWith('ℹ ') &&
-          !trimmed.startsWith('⚙ ') &&
-          !trimmed.startsWith('⚠ ');
+      if (trimmed.isEmpty) return false;
+      // System status markers are not substantive on their own
+      if (trimmed.startsWith('ℹ ') ||
+          trimmed.startsWith('⚙ ') ||
+          trimmed.startsWith('⚠ ') ||
+          trimmed.startsWith('✓ ') ||
+          trimmed.startsWith('✗ ')) {
+        return false;
+      }
+      // Tool execution output (indented) containing actual content counts
+      if (line.startsWith('  ')) {
+        return trimmed.isNotEmpty;
+      }
+      // Regular model text output is substantive
+      return true;
     });
 
     if (!hasSubstantiveOutput) {
       emit('');
-      emit('✗ API 会话未产生有效输出。请检查模型配置与 API 连接状态。');
+      // 2026-04-13 Enhanced diagnostic message
+      final mcpNoticeCount =
+          outputLines.where((l) => l.trim().startsWith('ℹ MCP ')).length;
+      if (mcpNoticeCount > 0) {
+        emit(
+            '⚠ 检测到 $mcpNoticeCount 条 MCP 服务异常提示，但这不是导致失败的直接原因。');
+      }
+      emit('✗ API 会话未产生有效输出。可能原因：');
+      emit('  • 模型配置无效或 API 密钥过期');
+      emit('  • 网络连接问题或 API 端点不可达');
+      emit('  • 模型响应超时或返回了空内容');
+      emit('  • 检查上方日志获取更多诊断信息');
       return HardnessApiPhaseResult(
         success: false,
         outputLines: outputLines,
@@ -429,61 +516,72 @@ class HardnessApiPhaseRunner {
     );
   }
 
-  /// Filters the tool catalog based on phase constraints.
-  /// Read-only phases (reading, planning, reviewing, metaCollection) exclude
-  /// file-writing tools to prevent premature implementation.
-  AiResolvedToolCatalog _filterToolsForPhase({
-    required HardnessPhase phase,
-    required AiResolvedToolCatalog baseCatalog,
-  }) {
-    // Implementing phase gets full tool access.
-    if (phase == HardnessPhase.implementing) {
-      return baseCatalog;
-    }
-
-    // Other phases only get read-only tools + bash (with deny rules for writes).
-    final readOnlyExcludeBuiltins = <AiBuiltinToolKind>{
-      AiBuiltinToolKind.edit,
-      AiBuiltinToolKind.multiEdit,
-      AiBuiltinToolKind.write,
-      AiBuiltinToolKind.notebookEdit,
-    };
-
-    final filteredDefinitions = <AiToolDefinition>[];
-    final filteredToolsByName = <String, AiResolvedTool>{};
-
-    for (final entry in baseCatalog.toolsByName.entries) {
-      final tool = entry.value;
-      if (tool.source == AiRuntimeToolSource.builtin &&
-          readOnlyExcludeBuiltins.contains(tool.builtinKind)) {
-        continue;
-      }
-      filteredToolsByName[entry.key] = tool;
-      filteredDefinitions.add(tool.definition);
-    }
-
-    return AiResolvedToolCatalog(
-      definitions: filteredDefinitions,
-      toolsByName: filteredToolsByName,
-      notices: baseCatalog.notices,
-    );
-  }
-
   /// Returns deny rules appropriate for the phase.
-  /// Read-only phases deny all write-like bash commands.
+  /// Read-only phases deny destructive/modifying bash commands that could
+  /// alter the project codebase. Safe operations like `mkdir` and `touch`
+  /// are allowed since they don't destroy existing content and may be
+  /// needed to create steering directory structures.
   List<AiDenyCommandRule> _denyRulesForPhase(HardnessPhase phase) {
     if (phase == HardnessPhase.implementing) {
       return const <AiDenyCommandRule>[];
     }
-    // Read-only phases: deny file-modifying commands.
+    // Read-only phases: deny destructive/code-modifying commands.
+    // Allow mkdir/touch for creating steering directory structure.
     return const <AiDenyCommandRule>[
       AiDenyCommandRule(
         id: 'hardness_readonly_phase',
-        pattern: r'^(rm|mv|cp|mkdir|touch|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
+        pattern: r'^(rm|mv|cp|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
         matchMode: AiDenyCommandMatchMode.regex,
         note: '当前阶段为只读阶段，不允许执行修改文件系统的命令。',
       ),
     ];
+  }
+
+  static final RegExp _inlineToolCallsXmlPattern = RegExp(
+    r'<tool_calls>\s*[\s\S]*?</tool_calls>',
+    multiLine: true,
+  );
+
+  /// Strips `<tool_calls>…</tool_calls>` XML blocks from the model's text
+  /// reply.  These are duplicate representations of tool calls that are
+  /// already available via the native `tool_calls` array and should not be
+  /// rendered as visible text.
+  static String _stripInlineToolCallsXml(String text) {
+    if (!text.contains('<tool_calls>')) return text;
+    return text
+        .replaceAll(_inlineToolCallsXmlPattern, '')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+  }
+
+  /// XML tool call item pattern: matches individual `<tool_call>` blocks.
+  static final RegExp _xmlToolCallItemPattern = RegExp(
+    r'<tool_call>\s*<tool_name>\s*(.*?)\s*</tool_name>\s*<parameters>\s*([\s\S]*?)\s*</parameters>\s*</tool_call>',
+    multiLine: true,
+  );
+
+  /// Parses `<tool_calls>` XML from the model's text reply into a list of
+  /// [AiToolCall] objects.  Returns an empty list if no valid XML tool
+  /// calls are found.
+  ///
+  /// This is the fallback path for models that emit tool calls as XML text
+  /// rather than through the native function-calling API.
+  static List<AiToolCall> _parseXmlToolCalls(String text) {
+    if (!text.contains('<tool_calls>')) return const <AiToolCall>[];
+    final calls = <AiToolCall>[];
+    var counter = 0;
+    for (final match in _xmlToolCallItemPattern.allMatches(text)) {
+      final name = match.group(1)?.trim() ?? '';
+      final params = match.group(2)?.trim() ?? '{}';
+      if (name.isEmpty) continue;
+      counter++;
+      calls.add(AiToolCall(
+        id: 'xml_tc_$counter',
+        name: name,
+        arguments: params,
+      ));
+    }
+    return calls;
   }
 
   /// Sanitizes an error message by masking any auth tokens or API keys that

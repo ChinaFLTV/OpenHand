@@ -45,6 +45,19 @@ class AiNotebookEditTool extends AiTool {
           'NotebookEdit cell_type must be code, markdown, or raw when provided.');
     }
     
+    // 2026-04-13: 写操作权限确认检查
+    final confirmationResult = await AiToolUtils.requestWriteConfirmation(
+      toolName: 'NotebookEdit',
+      operationDescription: '$editMode cell in notebook',
+      targetPath: notebookPath,
+      requireWriteConfirmation: context.requireWriteCommandConfirmation,
+      confirmWriteCommand: context.confirmWriteCommand,
+      cancelSignal: context.cancelSignal,
+    );
+    if (confirmationResult != null) {
+      return confirmationResult;
+    }
+    
     // 2026-04-12: 从 metadata 获取追踪服务
     final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
     final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
