@@ -1,6 +1,3 @@
-// 2026-04-01 02:29:02
-// 参照 Claude Code Tool.ts 的 fail-closed 原则，为 AiTool 增加安全防护栏属性。
-// 2026-04-01 10:31:10 P1-3: 增加权限门 checkPermissions + AiToolPermissionResult。
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool_execution_context.dart';
 

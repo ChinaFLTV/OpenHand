@@ -1,5 +1,3 @@
-// 2026-04-01 02:02:39 从 AiToolRuntimeService._executeTaskTool 迁移
-// Task 工具需要注入 AiChatClient 和 AiClaudeHookService。
 import 'dart:async';
 import 'dart:convert';
 

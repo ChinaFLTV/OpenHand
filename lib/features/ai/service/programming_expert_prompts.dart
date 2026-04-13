@@ -1,6 +1,3 @@
-// 2026-04-13 编程专家线程模板 — 内嵌兜底提示词
-// 当 assets/prompts/programming_expert/ 下的 .md 文件无法加载时使用。
-// 2026-04-13 v3.0 Token-Optimized Agent Loop Protocol - 结构化重构，与default/hardness_engineering/machine_expert彻底切割。
 
 const String programmingExpertSystemInstructions = r'''
 # Programming Expert — Full-Stack AI Coding Agent

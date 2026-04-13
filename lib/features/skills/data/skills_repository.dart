@@ -65,7 +65,6 @@ class SkillsRepository {
         skills.add(await _parseSkill(file, storagePath));
         loadedSkillDirectories.add(normalizedDirectoryPath);
       } catch (e) {
-        debugPrint('SkillsRepository: failed to parse skill at ${file.path}: $e');
         continue;
       }
     }
@@ -487,7 +486,6 @@ class SkillsRepository {
         iconKind: icon?.kind,
       );
     } catch (e) {
-      debugPrint('SkillsRepository: failed to load OpenAI metadata for $directoryPath: $e');
       return null;
     }
   }
@@ -531,7 +529,6 @@ class SkillsRepository {
         ),
       );
     } catch (e) {
-      debugPrint('SkillsRepository: failed to read metadata document in $directoryPath: $e');
       return null;
     }
   }

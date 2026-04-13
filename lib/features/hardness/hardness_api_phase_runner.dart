@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../ai/model/ai_deny_command_rule.dart';
@@ -326,11 +325,22 @@ class HardnessApiPhaseRunner {
           }
         }
 
+        // Emit reasoning / thinking content as a separate segment so
+        // the dashboard renders it as an independent thinking card.
+        final reasoning = completion.reasoningContent;
+        if (reasoning != null && reasoning.trim().isNotEmpty) {
+          emit('');
+          emit('thinking');
+          for (final line in reasoning.split('\n')) {
+            emit(line);
+          }
+        }
+
         if (reply.isNotEmpty) {
           // Emit a role marker before the reply so the sub-conversation
           // parser creates a separate card instead of merging the reply
           // into the previous tool-call segment.
-          if (toolRound > 0) {
+          if (toolRound > 0 || (reasoning != null && reasoning.trim().isNotEmpty)) {
             emit('');
             emit('assistant');
           }
@@ -452,10 +462,8 @@ class HardnessApiPhaseRunner {
           }
         }
       }
-    } catch (e, st) {
+    } catch (e) {
       final safeError = _sanitizeError('$e', model);
-      debugPrint('HardnessApiPhaseRunner error: $safeError');
-      debugPrint('Stack trace: $st');
       emit('');
       emit('✗ 执行错误：$safeError');
       return HardnessApiPhaseResult(

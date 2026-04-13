@@ -1,5 +1,3 @@
-// 2026-04-01 02:02:39 从 AiToolRuntimeService._executeReadTool 完整迁移
-// 2026-04-12 添加文件追踪器支持 (参考 opencode_workflow_analysis.md)
 import 'dart:convert';
 import 'dart:io';
 

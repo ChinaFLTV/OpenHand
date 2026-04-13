@@ -1,6 +1,3 @@
-// 2026-04-01 02:02:39 从 AiToolRuntimeService Bash 分支迁移
-// 2026-04-01 02:29:02 增加 isDestructive、interruptBehavior、aliases 覆盖
-// Bash 工具需要注入 AiBashToolService 和 AiClaudeHookService。
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_claude_hook_service.dart';
 import '../service/ai_tool_runtime_service.dart';

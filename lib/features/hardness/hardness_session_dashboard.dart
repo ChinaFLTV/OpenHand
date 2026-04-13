@@ -251,10 +251,24 @@ class _HeOutputSegment {
   bool get isEmpty => lines.every((l) => l.trim().isEmpty);
 }
 
+String _heSegmentWidgetKey(_HeOutputSegment segment, int index) {
+  final firstNonEmpty = segment.lines.firstWhere(
+    (line) => line.trim().isNotEmpty,
+    orElse: () => '',
+  );
+  return [
+    index,
+    segment.kind.name,
+    segment.roleLabel ?? '',
+    firstNonEmpty.hashCode,
+  ].join('|');
+}
+
 /// Role markers emitted by various CLI tools that signal a new conversation turn.
 const Set<String> _heRoleMarkers = {
   'user',
   'codex',
+  'thinking',
   'assistant',
   'exec',
   'function',
@@ -265,6 +279,7 @@ const Set<String> _heRoleMarkers = {
 _HeSegmentKind _kindFromRoleMarker(String marker) => switch (marker) {
   'assistant' => _HeSegmentKind.assistant,
   'codex' => _HeSegmentKind.thinking,
+  'thinking' => _HeSegmentKind.thinking,
   'exec' => _HeSegmentKind.toolCall,
   'function' => _HeSegmentKind.toolCall,
   'tool' => _HeSegmentKind.toolResult,
@@ -568,6 +583,127 @@ const _br18 = BorderRadius.all(Radius.circular(18));
 const _br16 = BorderRadius.all(Radius.circular(16));
 const _br12 = BorderRadius.all(Radius.circular(12));
 const _br999 = BorderRadius.all(Radius.circular(999));
+
+/// Builds a markdown stylesheet whose colours are derived from the actual
+/// [cardBg] colour rather than from the app theme.  This is critical for
+/// always-dark cards (e.g. reasoning/thinking) that sit inside a light-theme
+/// app — without it, code blocks, inline code, links, blockquotes, etc. use
+/// light-mode colours on a dark background and become unreadable.
+///
+/// The logic mirrors [_MessageMarkdownThemeData.fromMessageBubble] used by the
+/// default thread template.
+MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
+  ThemeData theme,
+  ColorScheme colorScheme,
+  Color cardBg,
+  Color? explicitTextColor,
+) {
+  final bubbleIsDark =
+      ThemeData.estimateBrightnessForColor(cardBg) == Brightness.dark;
+  final overlayBase = bubbleIsDark ? Colors.white : Colors.black;
+  final textColor = explicitTextColor ??
+      (bubbleIsDark ? Colors.white : colorScheme.onSurface);
+  final subtleSurface = Color.alphaBlend(
+    overlayBase.withValues(alpha: bubbleIsDark ? 0.06 : 0.035),
+    cardBg,
+  );
+  final elevatedSurface = Color.alphaBlend(
+    overlayBase.withValues(alpha: bubbleIsDark ? 0.11 : 0.06),
+    cardBg,
+  );
+  final accentColor = bubbleIsDark
+      ? Color.lerp(colorScheme.primaryContainer, Colors.white, 0.08) ??
+            colorScheme.primaryContainer
+      : colorScheme.primary;
+  final linkColor = bubbleIsDark
+      ? Color.lerp(accentColor, Colors.white, 0.08) ?? accentColor
+      : accentColor;
+  final borderColor = Color.alphaBlend(
+    overlayBase.withValues(alpha: bubbleIsDark ? 0.18 : 0.12),
+    cardBg,
+  );
+  final quoteSurface = Color.alphaBlend(
+    accentColor.withValues(alpha: bubbleIsDark ? 0.22 : 0.10),
+    elevatedSurface,
+  );
+  final secondaryTextColor = textColor.withValues(
+    alpha: bubbleIsDark ? 0.92 : 0.88,
+  );
+
+  final body = (theme.textTheme.bodyMedium ?? const TextStyle()).copyWith(
+    color: textColor,
+    height: 1.65,
+  );
+
+  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+    p: body,
+    h1: (theme.textTheme.headlineSmall ?? const TextStyle()).copyWith(
+      color: textColor,
+      fontWeight: FontWeight.w800,
+      height: 1.35,
+    ),
+    h2: (theme.textTheme.titleLarge ?? const TextStyle()).copyWith(
+      color: textColor,
+      fontWeight: FontWeight.w700,
+      height: 1.35,
+    ),
+    h3: (theme.textTheme.titleMedium ?? const TextStyle()).copyWith(
+      color: textColor,
+      fontWeight: FontWeight.w700,
+      height: 1.35,
+    ),
+    h4: (theme.textTheme.titleSmall ?? const TextStyle()).copyWith(
+      color: textColor,
+      fontWeight: FontWeight.w600,
+    ),
+    code: TextStyle(
+      fontFamily: 'monospace',
+      fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) * 0.93,
+      color: textColor,
+      backgroundColor: subtleSurface,
+    ),
+    codeblockPadding: const EdgeInsets.all(12),
+    codeblockDecoration: BoxDecoration(
+      color: bubbleIsDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : subtleSurface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: borderColor),
+    ),
+    blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+    blockquoteDecoration: BoxDecoration(
+      color: quoteSurface,
+      borderRadius: _br16,
+      border: Border(left: BorderSide(color: accentColor, width: 3)),
+    ),
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(top: BorderSide(color: borderColor)),
+    ),
+    tableBorder: TableBorder.symmetric(
+      inside: BorderSide(color: borderColor),
+      outside: BorderSide(color: borderColor),
+    ),
+    tableCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+    tableCellsDecoration: BoxDecoration(color: subtleSurface),
+    tableHeadCellsPadding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+    tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
+    tableColumnWidth: const IntrinsicColumnWidth(),
+    strong: body.copyWith(fontWeight: FontWeight.w700),
+    em: body.copyWith(fontStyle: FontStyle.italic),
+    blockquote: body.copyWith(color: secondaryTextColor),
+    listBullet: body.copyWith(
+      color: secondaryTextColor,
+      fontWeight: FontWeight.w700,
+    ),
+    listBulletPadding: const EdgeInsets.only(right: 8),
+    a: body.copyWith(
+      color: linkColor,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: linkColor.withValues(alpha: 0.6),
+    ),
+  );
+}
 
 const Color _hePendingTone = Color(0xFF818A98);
 const Color _heRunningTone = Color(0xFF2D63B8);
@@ -1172,8 +1308,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
               : 'Failed to submit the manual input. Try again.',
         );
       }
-    } catch (error, stackTrace) {
-      debugPrint('Manual phase input submission failed: $error\n$stackTrace');
+    } catch (error) {
       if (!mounted) {
         return;
       }
@@ -1219,10 +1354,7 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
               : 'Failed to submit the review verdict. Try again.',
         );
       }
-    } catch (error, stackTrace) {
-      debugPrint(
-        'Manual review verdict submission failed: $error\n$stackTrace',
-      );
+    } catch (error) {
       if (!mounted) {
         return;
       }
@@ -3508,6 +3640,9 @@ class _HeSubConversationView extends StatefulWidget {
 class _HeSubConversationViewState extends State<_HeSubConversationView> {
   List<_HeOutputSegment>? _segments;
   bool _showAllSegments = false;
+  int _lastSegmentCount = 0;
+  int _contentRevision = 0;
+  bool _hasParsedOnce = false;
 
   // Show at most this many segments initially; the rest hidden behind a
   // "show more" button. This avoids laying out hundreds of segment widgets
@@ -3532,11 +3667,25 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
   void _parseSegments() {
     if (widget.lines.length > 3000) {
       compute(_heParseOutputSegmentsIsolate, widget.lines).then((result) {
-        if (mounted) setState(() => _segments = result);
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _applyParsedSegments(result);
+        });
       });
     } else {
-      _segments = _heParseOutputSegments(widget.lines);
+      _applyParsedSegments(_heParseOutputSegments(widget.lines));
     }
+  }
+
+  void _applyParsedSegments(List<_HeOutputSegment> result) {
+    if (_hasParsedOnce && result.length > _lastSegmentCount) {
+      _contentRevision++;
+    }
+    _segments = result;
+    _lastSegmentCount = result.length;
+    _hasParsedOnce = true;
   }
 
   @override
@@ -3636,15 +3785,28 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
           ),
         for (var i = 0; i < visibleSegments.length; i++) ...[
           if (i > 0) const SizedBox(height: 8),
-          RepaintBoundary(
-            child: _HeSegmentMiniCard(
-              segment: visibleSegments[i],
-              isZh: widget.isZh,
-              theme: widget.theme,
-              colorScheme: colorScheme,
-              filePathRoots: widget.filePathRoots,
-            ),
-          ),
+          () {
+            final segmentKey = _heSegmentWidgetKey(visibleSegments[i], i);
+            final card = RepaintBoundary(
+              child: _HeSegmentMiniCard(
+                key: ValueKey<String>(segmentKey),
+                segment: visibleSegments[i],
+                isZh: widget.isZh,
+                theme: widget.theme,
+                colorScheme: colorScheme,
+                filePathRoots: widget.filePathRoots,
+              ),
+            );
+            final shouldAnimateIn =
+                _contentRevision > 0 && i == visibleSegments.length - 1;
+            if (!shouldAnimateIn) {
+              return card;
+            }
+            return _HeAnimatedSegmentEntry(
+              key: ValueKey<String>('he-sub-entry-$_contentRevision-$segmentKey'),
+              child: card,
+            );
+          }(),
         ],
       ],
     );
@@ -3790,6 +3952,7 @@ class _HeStreamingSubConversationState
           if (i > 0) const SizedBox(height: 8),
           () {
             final card = _HeSegmentMiniCard(
+              key: ValueKey<String>(_heSegmentWidgetKey(segments[i], i)),
               segment: segments[i],
               isZh: widget.isZh,
               theme: widget.theme,
@@ -3801,25 +3964,10 @@ class _HeStreamingSubConversationState
             if (!animateLast || i != segments.length - 1) {
               return wrapped;
             }
-            return TweenAnimationBuilder<double>(
-              key: ValueKey<int>(_contentRevision),
-              tween: Tween<double>(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeOutBack,
-              builder: (_, value, child) {
-                final clamped = value.clamp(0.0, 1.0);
-                return Opacity(
-                  opacity: clamped,
-                  child: Transform.translate(
-                    offset: Offset(0.0, 12.0 * (1.0 - clamped)),
-                    child: Transform.scale(
-                      scale: 0.96 + 0.04 * clamped,
-                      alignment: Alignment.bottomCenter,
-                      child: child,
-                    ),
-                  ),
-                );
-              },
+            return _HeAnimatedSegmentEntry(
+              key: ValueKey<String>(
+                'he-stream-entry-$_contentRevision-${_heSegmentWidgetKey(segments[i], i)}',
+              ),
               child: wrapped,
             );
           }(),
@@ -3959,6 +4107,7 @@ class _HeStreamingSubConversationState
 
 class _HeSegmentMiniCard extends StatefulWidget {
   const _HeSegmentMiniCard({
+    super.key,
     required this.segment,
     required this.isZh,
     required this.theme,
@@ -3979,9 +4128,17 @@ class _HeSegmentMiniCard extends StatefulWidget {
 }
 
 class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
-  bool _expanded = true;
+  late bool _expanded = widget.segment.kind != _HeSegmentKind.thinking;
 
   static const _maxPreviewChars = 600;
+
+  @override
+  void didUpdateWidget(covariant _HeSegmentMiniCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.segment.kind != widget.segment.kind) {
+      _expanded = widget.segment.kind != _HeSegmentKind.thinking;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4036,11 +4193,9 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       _HeSegmentKind.thinking => (
         Icons.psychology_alt_outlined,
         widget.isZh ? '思考' : 'Thinking',
-        isDark ? const Color(0xFF18181B) : colorScheme.surfaceContainerHighest,
-        isDark
-            ? Colors.white.withValues(alpha: 0.10)
-            : colorScheme.outlineVariant.withValues(alpha: 0.20),
-        isDark ? Colors.white.withValues(alpha: 0.87) : colorScheme.onSurface,
+        const Color(0xFF18181B),
+        Colors.white.withValues(alpha: 0.10),
+        Colors.white,
         18.0,
       ),
       _HeSegmentKind.toolCall || _HeSegmentKind.toolResult => (
@@ -4096,8 +4251,10 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       return _HeCommandStrip(command: seg.lines.join('\n'));
     }
 
+    final isThinking = seg.kind == _HeSegmentKind.thinking;
     final body = seg.markdownBody;
-    final needsCollapse = body.length > _maxPreviewChars && !widget.isStreaming;
+    final needsCollapse =
+        isThinking || (body.length > _maxPreviewChars && !widget.isStreaming);
 
     return Container(
       decoration: BoxDecoration(
@@ -4106,72 +4263,146 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
         border: Border.all(color: cardBorder),
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: isDark ? 0.04 : 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: colorScheme.shadow.withValues(
+              alpha: isDark
+                  ? (isThinking ? 0.06 : 0.04)
+                  : (isThinking ? 0.04 : 0.03),
+            ),
+            blurRadius: isThinking ? 12 : 8,
+            offset: Offset(0, isThinking ? 3 : 2),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(isThinking ? 18 : 14),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header row ────────────────────────────────────────────
-            InkWell(
-              onTap: needsCollapse
-                  ? () => setState(() => _expanded = !_expanded)
-                  : null,
-              borderRadius: _br999,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 14,
-                      color: cardText.withValues(alpha: 0.72),
+            // ── Header ────────────────────────────────────────────────
+            if (isThinking)
+              // Thinking pill header — matches default thread style.
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  borderRadius: _br999,
+                  overlayColor: WidgetStatePropertyAll<Color>(
+                    Colors.white.withValues(alpha: 0.03),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: widget.theme.textTheme.labelMedium?.copyWith(
-                        color: cardText.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w700,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: _br999,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12),
                       ),
                     ),
-                    if (needsCollapse) ...[
-                      const SizedBox(width: 4),
-                      AnimatedRotation(
-                        turns: _expanded ? 0.5 : 0,
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        child: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: cardText.withValues(alpha: 0.50),
-                          size: 16,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          icon,
+                          size: 18,
+                          color: cardText.withValues(alpha: 0.88),
                         ),
-                      ),
-                    ],
-                  ],
+                        const SizedBox(width: 8),
+                        Text(
+                          label,
+                          style:
+                              widget.theme.textTheme.labelLarge?.copyWith(
+                                color: cardText.withValues(alpha: 0.88),
+                              ),
+                        ),
+                        const SizedBox(width: 6),
+                        AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: cardText.withValues(alpha: 0.78),
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // ── Body ──────────────────────────────────────────────────
-            if (body.isNotEmpty)
-              _HeSegmentBody(
-                content: body,
-                expanded: _expanded || !needsCollapse,
-                isZh: widget.isZh,
-                theme: widget.theme,
-                colorScheme: colorScheme,
-                textColor: cardText,
-                filePathRoots: widget.filePathRoots,
-                onExpand: () => setState(() => _expanded = true),
               )
             else
+              InkWell(
+                onTap: needsCollapse
+                    ? () => setState(() => _expanded = !_expanded)
+                    : null,
+                borderRadius: _br999,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: cardText.withValues(alpha: 0.72),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label,
+                        style: widget.theme.textTheme.labelMedium?.copyWith(
+                          color: cardText.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (needsCollapse) ...[
+                        const SizedBox(width: 4),
+                        AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          child: Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: cardText.withValues(alpha: 0.50),
+                            size: 16,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            // ── Body ──────────────────────────────────────────────────
+            if (body.isNotEmpty) ...[
+              SizedBox(height: isThinking ? 10 : 8),
+              if (isThinking)
+                _HeThinkingSegmentBody(
+                  content: body,
+                  expanded: _expanded,
+                  isStreaming: widget.isStreaming,
+                  theme: widget.theme,
+                  colorScheme: colorScheme,
+                  textColor: cardText,
+                  cardBackground: cardBg,
+                  filePathRoots: widget.filePathRoots,
+                )
+              else
+                _HeSegmentBody(
+                  content: body,
+                  expanded: _expanded || !needsCollapse,
+                  isZh: widget.isZh,
+                  theme: widget.theme,
+                  colorScheme: colorScheme,
+                  textColor: cardText,
+                  filePathRoots: widget.filePathRoots,
+                  onExpand: () => setState(() => _expanded = true),
+                  cardBackground: isThinking ? cardBg : null,
+                )
+            ] else
               Text(
                 widget.isZh ? '（无内容）' : '(empty)',
                 style: TextStyle(
@@ -4182,6 +4413,67 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HeAnimatedSegmentEntry extends StatefulWidget {
+  const _HeAnimatedSegmentEntry({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_HeAnimatedSegmentEntry> createState() =>
+      _HeAnimatedSegmentEntryState();
+}
+
+class _HeAnimatedSegmentEntryState extends State<_HeAnimatedSegmentEntry>
+    with SingleTickerProviderStateMixin {
+  static const _entranceDuration = Duration(milliseconds: 420);
+
+  late final AnimationController _entranceCtrl;
+  late final Animation<double> _opacity;
+  late final Animation<double> _scale;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceCtrl = AnimationController(
+      duration: _entranceDuration,
+      vsync: this,
+    );
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceCtrl,
+        curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
+      ),
+    );
+    _scale = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutBack),
+    );
+    _slide = Tween<Offset>(begin: const Offset(0.0, 0.04), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutCubic),
+        );
+    _entranceCtrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scale,
+        alignment: Alignment.topCenter,
+        child: SlideTransition(position: _slide, child: widget.child),
       ),
     );
   }
@@ -5632,6 +5924,7 @@ class _HeSegmentBody extends StatelessWidget {
     required this.textColor,
     required this.onExpand,
     this.filePathRoots = const [],
+    this.cardBackground,
   });
 
   final String content;
@@ -5642,6 +5935,7 @@ class _HeSegmentBody extends StatelessWidget {
   final Color textColor;
   final VoidCallback onExpand;
   final List<String> filePathRoots;
+  final Color? cardBackground;
 
   static const int _previewChars = 500;
 
@@ -5671,42 +5965,350 @@ class _HeSegmentBody extends StatelessWidget {
             colorScheme: colorScheme,
             filePathRoots: filePathRoots,
             textColor: textColor,
+            cardBackground: cardBackground,
           ),
         if (!expanded) ...[
           const SizedBox(height: 4),
           GestureDetector(
             onTap: onExpand,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: _br16,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.expand_more_rounded,
-                    size: 14,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isZh ? '展开全部' : 'Show full content',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.primary,
+            child: Builder(builder: (context) {
+              final onDark = cardBackground != null &&
+                  ThemeData.estimateBrightnessForColor(cardBackground!) ==
+                      Brightness.dark;
+              final expandBg = onDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : colorScheme.surfaceContainerHighest;
+              final expandFg = onDark
+                  ? Colors.white.withValues(alpha: 0.88)
+                  : colorScheme.primary;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                decoration: BoxDecoration(
+                  color: expandBg,
+                  borderRadius: _br16,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.expand_more_rounded,
+                      size: 14,
+                      color: expandFg,
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isZh ? '展开全部' : 'Show full content',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: expandFg,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ),
         ],
       ],
     );
+  }
+}
+
+class _HeThinkingSegmentBody extends StatelessWidget {
+  const _HeThinkingSegmentBody({
+    required this.content,
+    required this.expanded,
+    required this.isStreaming,
+    required this.theme,
+    required this.colorScheme,
+    required this.textColor,
+    required this.cardBackground,
+    this.filePathRoots = const [],
+  });
+
+  final String content;
+  final bool expanded;
+  final bool isStreaming;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+  final Color textColor;
+  final Color cardBackground;
+  final List<String> filePathRoots;
+
+  static const double _previewHeight = 142;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveContent = content.isEmpty ? ' ' : content;
+    final parseKey = [
+      effectiveContent.hashCode,
+      filePathRoots.join('\u0000').hashCode,
+    ].join('|');
+
+    if (isStreaming) {
+      return _HeStreamingThinkingBody(
+        content: effectiveContent,
+        expanded: expanded,
+        theme: theme,
+        colorScheme: colorScheme,
+        textColor: textColor,
+        cardBackground: cardBackground,
+        filePathRoots: filePathRoots,
+        parseKey: parseKey,
+      );
+    }
+
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOutCubic,
+        alignment: Alignment.topLeft,
+        child: expanded
+            ? KeyedSubtree(
+                key: const ValueKey<String>('he-thinking-expanded'),
+                child: _HeSafeMarkdownBody(
+                  content: effectiveContent,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  filePathRoots: filePathRoots,
+                  textColor: textColor,
+                  cardBackground: cardBackground,
+                ),
+              )
+            : KeyedSubtree(
+                key: const ValueKey<String>('he-thinking-preview'),
+                child: _HeMarkdownPreviewBody(
+                  content: effectiveContent,
+                  maxHeight: _previewHeight,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  textColor: textColor,
+                  cardBackground: cardBackground,
+                  filePathRoots: filePathRoots,
+                  parseKey: '$parseKey|preview',
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _HeStreamingThinkingBody extends StatelessWidget {
+  const _HeStreamingThinkingBody({
+    required this.content,
+    required this.expanded,
+    required this.theme,
+    required this.colorScheme,
+    required this.textColor,
+    required this.cardBackground,
+    required this.filePathRoots,
+    required this.parseKey,
+  });
+
+  final String content;
+  final bool expanded;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+  final Color textColor;
+  final Color cardBackground;
+  final List<String> filePathRoots;
+  final String parseKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: expanded
+            ? KeyedSubtree(
+                key: const ValueKey<String>('he-thinking-streaming-expanded'),
+                child: _HeSafeMarkdownBody(
+                  content: content,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  filePathRoots: filePathRoots,
+                  textColor: textColor,
+                  cardBackground: cardBackground,
+                ),
+              )
+            : KeyedSubtree(
+                key: const ValueKey<String>('he-thinking-streaming-preview'),
+                child: _HeMarkdownPreviewBody(
+                  content: content,
+                  maxHeight: _HeThinkingSegmentBody._previewHeight,
+                  theme: theme,
+                  colorScheme: colorScheme,
+                  textColor: textColor,
+                  cardBackground: cardBackground,
+                  filePathRoots: filePathRoots,
+                  parseKey: '$parseKey|streaming-preview',
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _HeMarkdownPreviewBody extends StatefulWidget {
+  const _HeMarkdownPreviewBody({
+    required this.content,
+    required this.maxHeight,
+    required this.theme,
+    required this.colorScheme,
+    required this.textColor,
+    required this.cardBackground,
+    required this.filePathRoots,
+    required this.parseKey,
+  });
+
+  final String content;
+  final double maxHeight;
+  final ThemeData theme;
+  final ColorScheme colorScheme;
+  final Color textColor;
+  final Color cardBackground;
+  final List<String> filePathRoots;
+  final String parseKey;
+
+  @override
+  State<_HeMarkdownPreviewBody> createState() => _HeMarkdownPreviewBodyState();
+}
+
+class _HeMarkdownPreviewBodyState extends State<_HeMarkdownPreviewBody> {
+  double? _contentHeight;
+
+  @override
+  void didUpdateWidget(covariant _HeMarkdownPreviewBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.parseKey != widget.parseKey) {
+      _contentHeight = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final measuredHeight = _contentHeight;
+    final effectiveHeight = measuredHeight == null
+        ? widget.maxHeight
+        : (measuredHeight < widget.maxHeight
+              ? measuredHeight
+              : widget.maxHeight);
+    final showFade =
+        measuredHeight != null && measuredHeight > widget.maxHeight + 0.5;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final constrainedWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        return SizedBox(
+          height: effectiveHeight,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.topLeft,
+                    minWidth: constrainedWidth,
+                    maxWidth: constrainedWidth,
+                    minHeight: 0,
+                    maxHeight: double.infinity,
+                    child: _HeMeasureSize(
+                      onChange: (size) {
+                        if (!mounted) {
+                          return;
+                        }
+                        final nextHeight = size.height;
+                        final currentHeight = _contentHeight;
+                        if (currentHeight != null &&
+                            (currentHeight - nextHeight).abs() < 0.5) {
+                          return;
+                        }
+                        setState(() {
+                          _contentHeight = nextHeight;
+                        });
+                      },
+                      child: IgnorePointer(
+                        child: _HeSafeMarkdownBody(
+                          content: widget.content,
+                          theme: widget.theme,
+                          colorScheme: widget.colorScheme,
+                          filePathRoots: widget.filePathRoots,
+                          textColor: widget.textColor,
+                          cardBackground: widget.cardBackground,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              if (showFade)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      height: 26,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            widget.cardBackground.withValues(alpha: 0),
+                            widget.cardBackground.withValues(alpha: 0.96),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeMeasureSize extends SingleChildRenderObjectWidget {
+  const _HeMeasureSize({required this.onChange, required super.child});
+
+  final ValueChanged<Size> onChange;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _HeRenderMeasureSize(onChange);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _HeRenderMeasureSize renderObject,
+  ) {
+    renderObject.onChange = onChange;
+  }
+}
+
+class _HeRenderMeasureSize extends RenderProxyBox {
+  _HeRenderMeasureSize(this.onChange);
+
+  ValueChanged<Size> onChange;
+  Size? _oldSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final newSize = child?.size;
+    if (_oldSize == newSize || newSize == null) {
+      return;
+    }
+    _oldSize = newSize;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onChange(newSize));
   }
 }
 
@@ -5830,6 +6432,7 @@ class _HeSafeMarkdownBody extends StatefulWidget {
     required this.colorScheme,
     this.filePathRoots = const [],
     this.textColor,
+    this.cardBackground,
   });
 
   final String content;
@@ -5837,6 +6440,11 @@ class _HeSafeMarkdownBody extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
   final Color? textColor;
+
+  /// When non-null, overrides the markdown colour palette so that text,
+  /// code blocks, blockquotes, etc. are legible on this background colour
+  /// (e.g. the always-dark thinking card).
+  final Color? cardBackground;
 
   @override
   State<_HeSafeMarkdownBody> createState() => _HeSafeMarkdownBodyState();
@@ -5874,6 +6482,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       widget.colorScheme.surface.toARGB32(),
       widget.colorScheme.primary.toARGB32(),
       widget.textColor?.toARGB32(),
+      widget.cardBackground?.toARGB32(),
       widget.filePathRoots.join('\u0000'),
     ]);
 
@@ -5893,9 +6502,25 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
   }
 
   void _parseMarkdown(String source) {
-    final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
-      widget.theme,
-    ).merge(_heBuildMarkdownStyleSheet(widget.theme, widget.colorScheme));
+    final MarkdownStyleSheet effectiveStyleSheet;
+    final bg = widget.cardBackground;
+    final darkSurface =
+        bg != null &&
+        ThemeData.estimateBrightnessForColor(bg) == Brightness.dark;
+    if (bg != null) {
+      effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
+        widget.theme,
+      ).merge(_heBuildDarkAwareMarkdownStyleSheet(
+        widget.theme,
+        widget.colorScheme,
+        bg,
+        widget.textColor,
+      ));
+    } else {
+      effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
+        widget.theme,
+      ).merge(_heBuildMarkdownStyleSheet(widget.theme, widget.colorScheme));
+    }
 
     final inlineSyntaxes = widget.filePathRoots.isNotEmpty
         ? <md.InlineSyntax>[
@@ -5905,7 +6530,10 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         : const <md.InlineSyntax>[];
 
     final builders = <String, MarkdownElementBuilder>{
-      'pre': _HeDiffBuilder(colorScheme: widget.colorScheme),
+      'pre': _HeDiffBuilder(
+        colorScheme: widget.colorScheme,
+        darkSurface: darkSurface,
+      ),
       if (widget.filePathRoots.isNotEmpty) ...{
         'openhand-file-resolved': _HeFilePathBuilder(
           textColor: widget.textColor ?? widget.colorScheme.onSurface,
@@ -6289,9 +6917,10 @@ class _LogLine extends StatelessWidget {
 // =============================================================================
 
 class _HeDiffBuilder extends MarkdownElementBuilder {
-  _HeDiffBuilder({required this.colorScheme});
+  _HeDiffBuilder({required this.colorScheme, this.darkSurface = false});
 
   final ColorScheme colorScheme;
+  final bool darkSurface;
 
   static final _diffLangRe = RegExp(
     r'\blanguage-(diff|patch|udiff)\b',
@@ -6337,7 +6966,11 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
     final rawText = buf.toString();
     if (rawText.isEmpty) return null;
 
-    return _HeDiffBlock(rawDiff: rawText, colorScheme: colorScheme);
+    return _HeDiffBlock(
+      rawDiff: rawText,
+      colorScheme: colorScheme,
+      darkSurface: darkSurface,
+    );
   }
 }
 
@@ -6346,10 +6979,15 @@ class _HeDiffBuilder extends MarkdownElementBuilder {
 // =============================================================================
 
 class _HeDiffBlock extends StatelessWidget {
-  const _HeDiffBlock({required this.rawDiff, required this.colorScheme});
+  const _HeDiffBlock({
+    required this.rawDiff,
+    required this.colorScheme,
+    this.darkSurface = false,
+  });
 
   final String rawDiff;
   final ColorScheme colorScheme;
+  final bool darkSurface;
 
   static const _addedBg = Color(0xFF1A3D1A);
   static const _addedBgLight = Color(0xFFE6F4E6);
@@ -6360,7 +6998,8 @@ class _HeDiffBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark =
+        darkSurface || Theme.of(context).brightness == Brightness.dark;
     final lines = rawDiff.split('\n');
 
     // Remove a trailing empty line that the Markdown parser often appends.
@@ -6372,10 +7011,14 @@ class _HeDiffBlock extends StatelessWidget {
         width: double.infinity,
         margin: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
           borderRadius: _br16,
           border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.40),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.16)
+                : colorScheme.outlineVariant.withValues(alpha: 0.40),
           ),
         ),
         child: ClipRRect(

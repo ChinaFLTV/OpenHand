@@ -8,8 +8,6 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
-// 2026-04-01 01:21:38 从 AiToolRuntimeService._executeGrepTool 提取
-// 2026-04-13 修复：rg 命令路径解析、工作目录设置、边界条件处理
 class AiGrepTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.grep;

@@ -1,13 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-// 2026-04-01 02:29:02
-// 变更1：移除 _legacyBashAlias 硬编码（已由 AiBashTool.aliases + AiToolRegistry 接管）
-// 变更2：增加工具输出 budget 截断保护（_maxToolOutputChars = 200000 字符）
-// 2026-04-12
-// 变更3：集成 AiFileTrackerService + AiFileHistoryService (参考 opencode_workflow_analysis.md)
-
-
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 

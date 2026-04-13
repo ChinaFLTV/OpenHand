@@ -7,7 +7,6 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
-// 2026-04-01 01:21:38 从 AiToolRuntimeService._executeGlobTool 提取
 class AiGlobTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.glob;

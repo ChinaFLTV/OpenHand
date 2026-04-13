@@ -724,12 +724,11 @@ class HardnessOrchestrator extends ChangeNotifier {
       } else {
         _status = HardnessOrchestratorStatus.completed;
       }
-    } catch (e, st) {
+    } catch (e) {
       if (_isDisposed) return;
       _recordUnhandledPhaseError(activeLog, e);
       _status = HardnessOrchestratorStatus.failed;
       _errorMessage = e.toString();
-      debugPrint('HardnessOrchestrator unhandled error: $e\n$st');
     }
 
     _currentPhase = null;
@@ -967,11 +966,10 @@ class HardnessOrchestrator extends ChangeNotifier {
           return;
         }
       }
-    } catch (e, st) {
+    } catch (e) {
       if (_isDisposed) return;
       _recordUnhandledPhaseError(freshLog, e);
       _errorMessage = e.toString();
-      debugPrint('HardnessOrchestrator reExecutePhase error: $e\n$st');
     }
 
     // Determine overall status from all phase logs.
@@ -1400,7 +1398,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         log.status = HardnessPhaseStatus.failed;
         _errorMessage = result.errorMessage ?? 'API 阶段执行失败';
       }
-    } catch (e, st) {
+    } catch (e) {
       if (_isDisposed) return;
       // Sanitize error to avoid leaking auth tokens from model config.
       var safeError = '$e';
@@ -1410,8 +1408,6 @@ class HardnessOrchestrator extends ChangeNotifier {
       }
       _appendLine(log, '');
       _appendLine(log, '✗ API 执行错误：$safeError');
-      debugPrint('Phase ${log.phase} API error: $safeError');
-      debugPrint('Stack trace: $st');
       log.status = HardnessPhaseStatus.failed;
       _errorMessage = safeError;
     } finally {
@@ -1612,11 +1608,10 @@ class HardnessOrchestrator extends ChangeNotifier {
       _appendLine(log, '✗ 超时：${e.message}');
       log.status = HardnessPhaseStatus.failed;
       await _appendCliFailureDiagnostics(log, cliEntry.executable);
-    } catch (e, st) {
+    } catch (e) {
       if (_isDisposed) return;
       _appendLine(log, '');
       _appendLine(log, '✗ 执行错误：$e');
-      debugPrint('Phase ${log.phase} error: $e\n$st');
       log.status = HardnessPhaseStatus.failed;
       await _appendCliFailureDiagnostics(log, cliEntry.executable);
     } finally {
@@ -2218,7 +2213,7 @@ class HardnessOrchestrator extends ChangeNotifier {
       await file.writeAsString(log.lines.join('\n'));
       log.savedLogPath = file.path;
     } catch (e) {
-      debugPrint('Failed to save phase log: $e');
+      // Silently fail if unable to save log
     }
   }
 
@@ -2541,7 +2536,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('Snapshot error: $e');
+      // Silently fail on snapshot errors
     }
     return result;
   }

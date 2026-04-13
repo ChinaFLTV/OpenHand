@@ -35,12 +35,18 @@ abstract class AiChatClient {
 class AiChatCompletion {
   const AiChatCompletion({
     required this.reply,
+    this.reasoningContent,
     this.usage,
     this.rawResponse,
     this.toolCalls = const <AiToolCall>[],
   });
 
   final String reply;
+
+  /// Reasoning / thinking content from models that support extended thinking
+  /// (e.g., deepseek-expert-reasoner). Null when not available.
+  final String? reasoningContent;
+
   final AiTokenUsage? usage;
   final String? rawResponse;
   final List<AiToolCall> toolCalls;
@@ -167,8 +173,19 @@ class AiChatService implements AiChatClient {
         final parsedReply = await adapter.parseAssistantMessage(response.body);
         final parsedToolCalls = adapter.parseToolCalls(response.body);
         final dsmlExtraction = extractDsmlToolCalls(parsedReply);
+        // Extract reasoning_content separately (for reasoning models like
+        // deepseek-expert-reasoner that return thinking in a dedicated field).
+        final reasoningText = _extractReasoningContent(response.body);
+        // When the model's `content` field is empty, parseAssistantMessage
+        // falls back to `reasoning_content`, which means parsedReply IS the
+        // reasoning text.  Deduplicate: keep reasoning separate and clear
+        // the reply so the UI doesn't show the same text in both a thinking
+        // card and an assistant card.
+        final replyIsReasoning = reasoningText != null &&
+            parsedReply.trim() == reasoningText.trim();
         return AiChatCompletion(
-          reply: dsmlExtraction.sanitizedText,
+          reply: replyIsReasoning ? '' : dsmlExtraction.sanitizedText,
+          reasoningContent: reasoningText,
           usage: adapter.parseUsage(response.body),
           rawResponse: response.body,
           toolCalls: parsedToolCalls.isNotEmpty
@@ -187,6 +204,24 @@ class AiChatService implements AiChatClient {
     } on TlsException catch (error) {
       throw AiChatException('TLS error: ${error.message}');
     }
+  }
+
+  /// Extracts `reasoning_content` from an OpenAI-compatible response body.
+  /// Returns null if not present or empty.
+  static String? _extractReasoningContent(String rawResponse) {
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is! Map<String, Object?>) return null;
+      final choices = decoded['choices'];
+      if (choices is! List || choices.isEmpty) return null;
+      final message = (choices.first as Map<String, Object?>?)?['message'];
+      if (message is! Map<String, Object?>) return null;
+      final reasoning = message['reasoning_content'];
+      if (reasoning is String && reasoning.trim().isNotEmpty) {
+        return reasoning.trim();
+      }
+    } catch (_) {}
+    return null;
   }
 
   @override

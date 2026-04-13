@@ -426,12 +426,10 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
           'try\ntell application "$appName" to get id\nend try',
         ]).timeout(const Duration(seconds: 4));
         if (result.exitCode != 0 && result.stderr.toString().isNotEmpty) {
-          debugPrint(
-            'Permission interaction failed or denied for $appName: ${result.stderr}',
-          );
+          // Permission interaction failed or denied
         }
       } catch (e) {
-        debugPrint('Error triggering osascript permission: $e');
+        // Error triggering osascript permission
       } finally {
         if (mounted) {
           setState(() {

@@ -9,9 +9,6 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
-// 2026-04-01 01:21:38 从 AiToolRuntimeService._executeEditTool 提取
-// 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
-// 2026-04-13 添加写操作权限确认检查（安全加固）
 class AiEditTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.edit;

@@ -1,6 +1,3 @@
-// 2026-04-01 02:29:02
-// 接口冻结约束：禁止直接向 AiToolExecutionContext 添加新字段。
-// 若需扩展上下文数据，必须通过 [metadata] Map 承接，避免接口爆炸（参照 CC ToolUseContext 的前车之鉴）。
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
 import '../service/ai_bash_tool_service.dart';

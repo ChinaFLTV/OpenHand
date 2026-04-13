@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../shared/data/database_service.dart';
@@ -21,30 +20,24 @@ class HardnessSessionStore {
     try {
       final rows = await _db.query('hardness_sessions', limit: 1);
       if (rows.isEmpty) {
-        debugPrint('[HardnessSessionStore] load: no rows found');
         return null;
       }
       final dataJson = rows.first['data_json'] as String?;
       if (dataJson == null || dataJson.isEmpty) {
-        debugPrint('[HardnessSessionStore] load: data_json is null or empty');
         return null;
       }
       final decoded = jsonDecode(dataJson);
       if (decoded is! Map) {
-        debugPrint('[HardnessSessionStore] load: decoded JSON is not a Map');
         return null;
       }
       final record = HardnessSessionRecord.fromJson(
         Map<String, Object?>.from(decoded),
       );
-      debugPrint('[HardnessSessionStore] load: successfully loaded record id=${record.id}');
       return record;
-    } on FormatException catch (e) {
+    } on FormatException {
       // Corrupted JSON - treat as missing record rather than crashing.
-      debugPrint('[HardnessSessionStore] load: JSON parse error: $e');
       return null;
     } catch (e) {
-      debugPrint('[HardnessSessionStore] load: unexpected error: $e');
       rethrow;
     }
   }
@@ -75,9 +68,7 @@ class HardnessSessionStore {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       });
-      debugPrint('[HardnessSessionStore] save: successfully saved record id=${record.id}');
     } catch (e) {
-      debugPrint('[HardnessSessionStore] save: error saving record: $e');
       rethrow;
     }
   }
@@ -85,6 +76,5 @@ class HardnessSessionStore {
   /// Removes the persisted record.
   Future<void> clear() async {
     await _db.delete('hardness_sessions');
-    debugPrint('[HardnessSessionStore] clear: deleted all records');
   }
 }

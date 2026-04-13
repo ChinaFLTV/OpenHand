@@ -1,5 +1,3 @@
-// 2026-04-12 实现 OpenCode 历史版本机制
-// 参考: docs/opencode_workflow_analysis.md - 历史版本支持回滚
 import 'dart:convert';
 import 'dart:io';
 

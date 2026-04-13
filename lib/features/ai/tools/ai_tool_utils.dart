@@ -10,8 +10,6 @@ import '../service/ai_file_history_service.dart';
 import '../service/ai_file_tracker_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 
-// 2026-04-01 01:21:38 提取自 AiToolRuntimeService 的共享工具函数
-// 2026-04-12 添加脏写检测和历史版本支持 (参考 opencode_workflow_analysis.md)
 class AiToolUtils {
   AiToolUtils._();
 

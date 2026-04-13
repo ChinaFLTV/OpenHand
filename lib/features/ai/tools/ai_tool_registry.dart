@@ -1,10 +1,3 @@
-// 2026-04-01 02:02:39
-// 2026-04-01 02:29:02 register() 升级：自动处理 AiTool.aliases 别名，移除硬编码 _legacyBashAlias 依赖
-// 2026-04-01 10:31:10 P1-3: tryExecute 集成权限门，在 execute 前调用 checkPermissions
-// AiToolRegistry — 多态工具调度中心（完整版，含服务依赖注册）
-// 用法：
-//   final registry = AiToolRegistry.withServiceDependencies(...)
-//   final result = await registry.tryExecute(context, kind)
 import 'dart:io';
 
 import 'package:http/http.dart' as http;

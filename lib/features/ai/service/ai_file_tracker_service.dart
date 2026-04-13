@@ -1,5 +1,3 @@
-// 2026-04-12 实现 OpenCode 脏写检测机制
-// 参考: docs/opencode_workflow_analysis.md - 文件追踪器 lastReadTime vs modTime
 import 'dart:io';
 
 import 'package:path/path.dart' as p;

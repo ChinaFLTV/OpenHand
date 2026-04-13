@@ -443,7 +443,6 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
-// 2026-04-13: Added tap handler to show file diff dialog
 // ─────────────────────────────────────────────────────────────────────────────
 
 String _fileMutationPath(AiSessionMessage message) =>

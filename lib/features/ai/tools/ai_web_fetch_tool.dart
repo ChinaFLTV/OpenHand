@@ -1,5 +1,3 @@
-// 2026-04-01 02:02:39 从 AiToolRuntimeService._executeWebFetchTool 迁移
-// WebFetch 需要注入 http.Client 和 AiChatClient。
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -15,7 +13,6 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
 
-// 2026-04-01 02:02:39
 class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
     required AiChatClient backgroundChatClient,

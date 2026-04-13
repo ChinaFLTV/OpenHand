@@ -1,8 +1,3 @@
-// 2026-04-01 02:02:39
-// AiFileReadRenderer — 文件内容渲染器
-// 职责：将文件渲染为 RenderedReadContent，供 AiReadTool 使用。
-// 从 AiToolRuntimeService._renderReadForFile / _renderXxxReadContent 提取。
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';

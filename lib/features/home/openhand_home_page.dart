@@ -1807,10 +1807,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       final record = await _hardnessSessionStore.load();
       if (!mounted || record == null) {
-        debugPrint('[HE Restore] No persisted session found or widget unmounted');
         return;
       }
-      debugPrint('[HE Restore] Loaded record id=${record.id} title="${record.title}" status=${record.statusValue}');
       final migratedRecord = _migrateLegacyHardnessAutoRewrittenModels(record);
       final effectiveRecord = _normalizeRestoredHardnessRecord(migratedRecord);
       if (effectiveRecord != record) {
@@ -1837,9 +1835,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _activeHardnessConfig = effectiveRecord.config;
         _activeHardnessOrchestrator = restoredOrchestrator;
       });
-      debugPrint('[HE Restore] Session restored successfully');
-    } catch (e, st) {
-      debugPrint('[HE Restore] Failed to restore session: $e\n$st');
+    } catch (e) {
+      // Silently fail on restore errors
     }
   }
 
