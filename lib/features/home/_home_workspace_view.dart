@@ -10,6 +10,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.transcriptPreparing,
     required this.selectedModel,
     required this.availableModels,
+    required this.recentModelSelections,
     required this.onModelSelected,
     required this.composerFocusNode,
     required this.composerHeight,
@@ -66,6 +67,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool transcriptPreparing;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
   final void Function(String providerConfigId, String modelId) onModelSelected;
   final FocusNode composerFocusNode;
   final double composerHeight;
@@ -240,6 +242,7 @@ class _WorkspaceView extends StatelessWidget {
                     controller: draftController,
                     selectedModel: selectedModel,
                     availableModels: availableModels,
+                    recentModelSelections: recentModelSelections,
                     onModelSelected: onModelSelected,
                     focusNode: composerFocusNode,
                     composerHeight: effectiveComposerHeight,

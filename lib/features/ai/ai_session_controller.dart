@@ -197,6 +197,16 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _reasoningStreamPreviewThrottle = Duration(
     milliseconds: 160,
   );
+
+  /// Maximum number of consecutive auto-continuations when the model keeps
+  /// hitting its output token limit (finish_reason: "length" / "max_tokens").
+  /// This prevents infinite loops when the model is stuck in a truncation cycle.
+  static const int _maxTruncationContinuations = 5;
+
+  /// Tracks how many consecutive times the current conversation loop has
+  /// auto-continued due to model output truncation.  Reset to zero once the
+  /// model completes normally or produces tool calls.
+  var _truncationContinuationCount = 0;
   static const Set<String> _planModePlanningToolAllowlist = <String>{
     'task',
     'glob',
@@ -1553,8 +1563,9 @@ class AiSessionController extends ChangeNotifier {
     if (!hasNewAttachments && !hasExistingAttachments) {
       return true;
     }
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    return adapter.supportsAttachmentsForModel(model);
+    // Even when a model does not support native image parts, the prompt builder
+    // can still include attachment summaries/text extracts safely.
+    return true;
   }
 
   int _characterCountForMessageContent(
@@ -1618,6 +1629,7 @@ class AiSessionController extends ChangeNotifier {
       session.id,
       'assistant_conversation_start model=${model.modelId} latest_user_message_id=${latestUserMessageId ?? ''}',
     );
+    _truncationContinuationCount = 0;
     final templateBundle = await _templateRepository.loadBundle(
       session.templateId,
     );
@@ -2162,7 +2174,7 @@ class AiSessionController extends ChangeNotifier {
       flushPreview('stream_completed');
       _debugSessionLog(
         workingSession.id,
-        'stream_completed cancelled=${result.wasCancelled} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
+        'stream_completed cancelled=${result.wasCancelled} finish_reason=${result.finishReason ?? 'unknown'} truncated=${result.wasTruncated} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
       );
 
       if (didCancelStream) {
@@ -2262,6 +2274,115 @@ class AiSessionController extends ChangeNotifier {
       }
 
       if (result.toolCalls.isEmpty) {
+        // ── Auto-continuation for truncated model output ──────────────────
+        // When the model hit its max output token limit (finish_reason ==
+        // "length" / "max_tokens") and produced no tool calls, it was likely
+        // cut off mid-thought.  Rather than silently stopping and forcing
+        // the user to manually type "继续", we automatically inject a
+        // continuation prompt and loop back.  A safety counter prevents
+        // infinite truncation loops.
+        if (result.wasTruncated &&
+            !didCancelStream &&
+            !workingSession.awaitingPlanApproval) {
+          _truncationContinuationCount += 1;
+          if (_truncationContinuationCount <= _maxTruncationContinuations) {
+            _debugSessionLog(
+              workingSession.id,
+              'auto_continue_truncated round=${toolRoundCount + 1} '
+              'truncation_count=$_truncationContinuationCount '
+              'finish_reason=${result.finishReason}',
+            );
+            // Add a status message so the user can see that auto-
+            // continuation happened, then loop back to the stream.
+            final statusMessage = AiSessionMessage.status(
+              id: _idGenerator(),
+              content:
+                  '[运行时 Notice] 模型输出被截断 (finish_reason: ${result.finishReason})，正在自动续接…',
+              createdAt: _clock().toUtc(),
+              metadata: const <String, Object?>{
+                'auto_truncation_continue': true,
+              },
+            );
+            workingSession = _rebuildSession(
+              workingSession.copyWith(
+                updatedAt: statusMessage.createdAt,
+                messages: <AiSessionMessage>[
+                  ...workingSession.messages,
+                  statusMessage,
+                ],
+              ),
+            );
+            final truncCommitted = await _commitSessionLocked(workingSession);
+            if (!truncCommitted) {
+              _setLastSendErrorMessage(
+                workingSession.id,
+                'Failed to persist the truncation continuation state.',
+              );
+              return false;
+            }
+            toolRoundCount += 1;
+            activeLatestUserMessageId = null;
+            continue;
+          }
+          _debugSessionLog(
+            workingSession.id,
+            'truncation_continuation_limit_reached '
+            'count=$_truncationContinuationCount '
+            'limit=$_maxTruncationContinuations',
+          );
+        }
+        // Reset the truncation counter once the model finishes normally.
+        _truncationContinuationCount = 0;
+
+        // ── Detect anomalous empty replies ────────────────────────────────
+        // When the model produces NO visible content, NO reasoning, and NO
+        // tool calls, and the stream was not cancelled, this is almost
+        // certainly an error condition (content filter, empty API response,
+        // abnormal stream close, rate limiting, etc.).  Rather than silently
+        // returning success and making the user wonder what happened, we
+        // surface an explicit error.
+        final hasReply = sanitizedReply.trim().isNotEmpty;
+        final hasReasoning = result.reasoning.trim().isNotEmpty;
+        final isEmptyResponse = !hasReply && !hasReasoning && !didCancelStream;
+        if (isEmptyResponse && !workingSession.awaitingPlanApproval) {
+          // On the first round this is clearly anomalous — the model had
+          // nothing to say in response to the user's message.  On subsequent
+          // rounds an empty reply is suspicious if finishReason is absent
+          // (abnormal stream close) or 'stop' with no content.
+          final treatAsError = toolRoundCount == 0 ||
+              result.finishReason == null ||
+              result.finishReason!.isEmpty;
+          if (treatAsError) {
+            final errorDetail = result.finishReason == null
+                ? 'The model returned an empty response and the stream closed without a finish reason. '
+                    'This may indicate a network interruption, an API error, or a content filter.'
+                : 'The model returned an empty response '
+                    '(finish_reason: ${result.finishReason}). '
+                    'This may indicate a content filter or an API-side issue.';
+            _debugSessionLog(
+              workingSession.id,
+              'empty_response_detected round=${toolRoundCount + 1} '
+              'finish_reason=${result.finishReason ?? 'null'} '
+              'has_reply=$hasReply has_reasoning=$hasReasoning',
+            );
+            await _emitStopFailureHook(
+              sessionId: workingSession.id,
+              stage: 'chat_stream',
+              detail: errorDetail,
+            );
+            final erroredSession = _appendError(
+              workingSession,
+              stage: 'chat_stream',
+              message: errorDetail,
+              detail: errorDetail,
+            );
+            await _commitSessionLocked(_rebuildSession(erroredSession));
+            _setLastSendErrorMessage(workingSession.id, errorDetail);
+            notifyListeners();
+            return false;
+          }
+        }
+
         final settledPlanSession = _archiveCompletedPlanStateIfNeeded(
           workingSession,
         );
@@ -2289,6 +2410,9 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       }
+      // Model produced tool calls — reset the truncation counter since
+      // the model is making normal progress.
+      _truncationContinuationCount = 0;
       toolCallCount += result.toolCalls.length;
       if (toolCallCount > singleRoundToolCallLimit) {
         _debugSessionLog(

@@ -58,11 +58,16 @@ class SettingsController extends ChangeNotifier {
        ),
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
+       _recentModelSelections = List<RecentModelSelection>.from(
+         snapshot.recentModelSelections,
+       ),
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _menuAnimationSettings = snapshot.menuAnimationSettings,
        _panelAnimationSettings = snapshot.panelAnimationSettings,
        _persistenceIssue = persistenceIssue;
+
+      static const int _maxRecentModelSelections = 10;
   static const Uuid _uuid = Uuid();
 
   static Future<SettingsController> create({SettingsStore? store}) async {
@@ -97,6 +102,7 @@ class SettingsController extends ChangeNotifier {
   List<AiDenyCommandRule> _aiDenyCommandRules;
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
+  List<RecentModelSelection> _recentModelSelections;
   Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
   DialogAnimationSettings _dialogAnimationSettings;
   DialogAnimationSettings _menuAnimationSettings;
@@ -172,6 +178,8 @@ class SettingsController extends ChangeNotifier {
   List<AiModelConfig> get aiModels =>
       List<AiModelConfig>.unmodifiable(_aiModels);
   String? get selectedAiModelId => _selectedAiModelId;
+  List<RecentModelSelection> get recentModelSelections =>
+      List<RecentModelSelection>.unmodifiable(_recentModelSelections);
   Map<OpenHandShortcutAction, List<int>> get shortcutBindings =>
       _cloneShortcutBindings(_shortcutBindings);
   DialogAnimationSettings get dialogAnimationSettings =>
@@ -509,6 +517,10 @@ class SettingsController extends ChangeNotifier {
       }
       final nextSelectedModelId = _selectedAiModelId ?? normalizedValue.id;
       _aiModels = updatedModels;
+      _recentModelSelections = _sanitizeRecentModelSelections(
+        _recentModelSelections,
+        updatedModels,
+      );
       _selectedAiModelId =
           updatedModels.any((item) => item.id == nextSelectedModelId)
           ? nextSelectedModelId
@@ -524,6 +536,10 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiModels = updatedModels;
+      _recentModelSelections = _sanitizeRecentModelSelections(
+        _recentModelSelections,
+        updatedModels,
+      );
       if (_selectedAiModelId == id) {
         _selectedAiModelId = _aiModels.isEmpty ? null : _aiModels.first.id;
       }
@@ -616,15 +632,48 @@ class SettingsController extends ChangeNotifier {
         modelId: normalizedModelId,
       );
       _aiModels = updatedModels;
+      _recentModelSelections = _sanitizeRecentModelSelections(
+        _recentModelSelections,
+        updatedModels,
+      );
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> addRecentModelSelection(String configId, String modelId) async {
+    final normalizedConfigId = configId.trim();
+    final normalizedModelId = modelId.trim();
+    if (normalizedConfigId.isEmpty || normalizedModelId.isEmpty) {
+      return false;
+    }
+    return _commitMutation(() {
+      final exists = _aiModels.any(
+        (item) =>
+            item.id == normalizedConfigId &&
+            item.allModelIds.contains(normalizedModelId),
+      );
+      if (!exists) {
+        return _MutationDisposition.successNoChange;
+      }
+      final next = <RecentModelSelection>[
+        RecentModelSelection(
+          configId: normalizedConfigId,
+          modelId: normalizedModelId,
+        ),
+        ..._recentModelSelections,
+      ];
+      final sanitized = _sanitizeRecentModelSelections(next, _aiModels);
+      if (_sameRecentSelectionList(sanitized, _recentModelSelections)) {
+        return _MutationDisposition.successNoChange;
+      }
+      _recentModelSelections = sanitized;
       return _MutationDisposition.apply;
     });
   }
 
   /// Returns a flattened list of (providerConfigId, modelId) pairs for the
   /// model selector UI. Each entry represents one selectable model across all
-  /// providers. Providers with no models (empty modelId and empty
-  /// availableModelIds) are represented by a single entry using the provider
-  /// displayName.
+  /// providers. Providers with no available models are skipped.
   List<({String providerConfigId, String modelId, String providerLabel})>
   get flatModelEntries {
     final entries =
@@ -632,20 +681,14 @@ class SettingsController extends ChangeNotifier {
     for (final config in _aiModels) {
       final allIds = config.allModelIds;
       if (allIds.isEmpty) {
-        // Provider with no models — show placeholder.
+        continue;
+      }
+      for (final modelId in allIds) {
         entries.add((
           providerConfigId: config.id,
-          modelId: '',
+          modelId: modelId,
           providerLabel: config.providerLabel,
         ));
-      } else {
-        for (final modelId in allIds) {
-          entries.add((
-            providerConfigId: config.id,
-            modelId: modelId,
-            providerLabel: config.providerLabel,
-          ));
-        }
       }
     }
     return entries;
@@ -780,6 +823,9 @@ class SettingsController extends ChangeNotifier {
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
+      recentModelSelections: List<RecentModelSelection>.from(
+        _recentModelSelections,
+      ),
       shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
       dialogAnimationSettings: _dialogAnimationSettings,
       menuAnimationSettings: _menuAnimationSettings,
@@ -817,6 +863,10 @@ class SettingsController extends ChangeNotifier {
     );
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
     _selectedAiModelId = snapshot.selectedAiModelId;
+    _recentModelSelections = _sanitizeRecentModelSelections(
+      snapshot.recentModelSelections,
+      _aiModels,
+    );
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;
@@ -856,6 +906,55 @@ class SettingsController extends ChangeNotifier {
       }
     });
     return completer.future;
+  }
+
+  List<RecentModelSelection> _sanitizeRecentModelSelections(
+    List<RecentModelSelection> candidates,
+    List<AiModelConfig> models,
+  ) {
+    if (candidates.isEmpty || models.isEmpty) {
+      return const <RecentModelSelection>[];
+    }
+    final allowed = <String, Set<String>>{
+      for (final model in models) model.id: model.allModelIds.toSet(),
+    };
+    final dedupKeys = <String>{};
+    final result = <RecentModelSelection>[];
+    for (final item in candidates) {
+      final configId = item.configId.trim();
+      final modelId = item.modelId.trim();
+      if (configId.isEmpty || modelId.isEmpty) {
+        continue;
+      }
+      final allowedModels = allowed[configId];
+      if (allowedModels == null || !allowedModels.contains(modelId)) {
+        continue;
+      }
+      final key = '$configId::$modelId';
+      if (!dedupKeys.add(key)) {
+        continue;
+      }
+      result.add(RecentModelSelection(configId: configId, modelId: modelId));
+      if (result.length >= _maxRecentModelSelections) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  bool _sameRecentSelectionList(
+    List<RecentModelSelection> left,
+    List<RecentModelSelection> right,
+  ) {
+    if (left.length != right.length) {
+      return false;
+    }
+    for (var i = 0; i < left.length; i++) {
+      if (left[i] != right[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

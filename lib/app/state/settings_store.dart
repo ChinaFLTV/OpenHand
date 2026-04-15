@@ -162,6 +162,9 @@ class SettingsStore {
           .map((item) => item.toJson())
           .toList(growable: false),
       'selected_ai_model_id': snapshot.selectedAiModelId ?? '',
+      'recent_model_selections': snapshot.recentModelSelections
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'shortcut_bindings': <String, List<int>>{
         for (final entry in snapshot.shortcutBindings.entries)
           openHandShortcutActionStorageKey(entry.key): normalizeShortcutKeyIds(
@@ -323,6 +326,24 @@ class SettingsStore {
       selectedAiModelId = aiModels.isEmpty ? '' : aiModels.first.id;
     }
 
+    // Recent model selections.
+    final rawRecentSelections = json['recent_model_selections'];
+    final recentModelSelections = <RecentModelSelection>[];
+    if (rawRecentSelections is List) {
+      for (final item in rawRecentSelections) {
+        if (item is Map) {
+          try {
+            final entry = RecentModelSelection.fromJson(
+              Map<String, Object?>.from(item),
+            );
+            if (entry.configId.isNotEmpty && entry.modelId.isNotEmpty) {
+              recentModelSelections.add(entry);
+            }
+          } catch (_) {}
+        }
+      }
+    }
+
     // Shortcut bindings.
     final rawBindings = json['shortcut_bindings'];
     var shortcutBindings = defaultOpenHandShortcutBindings();
@@ -385,6 +406,7 @@ class SettingsStore {
       aiDenyCommandRules: aiDenyCommandRules,
       aiModels: aiModels,
       selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
+      recentModelSelections: recentModelSelections,
       shortcutBindings: shortcutBindings,
       dialogAnimationSettings: dialogAnimationSettings,
       menuAnimationSettings: menuAnimationSettings,

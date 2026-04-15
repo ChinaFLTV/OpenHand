@@ -8,6 +8,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.controller,
     required this.selectedModel,
     required this.availableModels,
+    required this.recentModelSelections,
     required this.onModelSelected,
     required this.focusNode,
     required this.composerHeight,
@@ -44,6 +45,7 @@ class _ComposerPanel extends StatefulWidget {
   final TextEditingController controller;
   final AiModelConfig? selectedModel;
   final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
   final void Function(String providerConfigId, String modelId) onModelSelected;
   final FocusNode focusNode;
   final double composerHeight;
@@ -452,6 +454,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     showModelSearchSelector(
       context: btnContext,
       models: widget.availableModels,
+      recentSelections: widget.recentModelSelections,
       selectedConfigId: widget.selectedModel?.id,
       selectedModelId: widget.selectedModel?.modelId,
     ).then((value) {

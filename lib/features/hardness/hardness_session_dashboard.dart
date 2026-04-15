@@ -8585,6 +8585,10 @@ class _HeUrlModelField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
     final label = _displayLabel;
     return GestureDetector(
       onTap: settingsModels.isEmpty
@@ -8593,10 +8597,16 @@ class _HeUrlModelField extends StatelessWidget {
               final result = await showModelSearchSelector(
                 context: context,
                 models: settingsModels,
+                recentSelections:
+                    settingsController?.recentModelSelections ?? const [],
                 selectedConfigId: roleConfig.aiModelConfigId,
                 selectedModelId: roleConfig.urlModeModelId,
               );
               if (result != null) {
+                settingsController?.addRecentModelSelection(
+                  result.$1,
+                  result.$2,
+                );
                 onChanged(roleConfig.copyWith(
                   aiModelConfigId: result.$1,
                   urlModeModelId: result.$2,

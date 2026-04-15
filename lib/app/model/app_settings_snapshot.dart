@@ -38,6 +38,7 @@ class AppSettingsSnapshot {
       aiDenyCommandRules: const <AiDenyCommandRule>[],
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
+      recentModelSelections: const <RecentModelSelection>[],
       shortcutBindings: defaultOpenHandShortcutBindings(),
       dialogAnimationSettings: const DialogAnimationSettings(),
       menuAnimationSettings: const DialogAnimationSettings(),
@@ -66,6 +67,7 @@ class AppSettingsSnapshot {
     required this.aiDenyCommandRules,
     required this.aiModels,
     required this.selectedAiModelId,
+    required this.recentModelSelections,
     required this.shortcutBindings,
     required this.dialogAnimationSettings,
     required this.menuAnimationSettings,
@@ -97,6 +99,7 @@ class AppSettingsSnapshot {
   final List<AiDenyCommandRule> aiDenyCommandRules;
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
+  final List<RecentModelSelection> recentModelSelections;
   final Map<OpenHandShortcutAction, List<int>> shortcutBindings;
   final DialogAnimationSettings dialogAnimationSettings;
   final DialogAnimationSettings menuAnimationSettings;
@@ -124,6 +127,7 @@ class AppSettingsSnapshot {
     List<AiDenyCommandRule>? aiDenyCommandRules,
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
+    List<RecentModelSelection>? recentModelSelections,
     Map<OpenHandShortcutAction, List<int>>? shortcutBindings,
     DialogAnimationSettings? dialogAnimationSettings,
     DialogAnimationSettings? menuAnimationSettings,
@@ -161,6 +165,8 @@ class AppSettingsSnapshot {
       selectedAiModelId: clearSelectedAiModelId
           ? null
           : selectedAiModelId ?? this.selectedAiModelId,
+      recentModelSelections:
+          recentModelSelections ?? this.recentModelSelections,
       shortcutBindings: shortcutBindings ?? this.shortcutBindings,
       dialogAnimationSettings:
           dialogAnimationSettings ?? this.dialogAnimationSettings,
@@ -170,4 +176,39 @@ class AppSettingsSnapshot {
           panelAnimationSettings ?? this.panelAnimationSettings,
     );
   }
+}
+
+/// A recently selected model entry for quick access in the model selector.
+class RecentModelSelection {
+  const RecentModelSelection({
+    required this.configId,
+    required this.modelId,
+  });
+
+  factory RecentModelSelection.fromJson(Map<String, Object?> json) {
+    return RecentModelSelection(
+      configId: '${json['config_id'] ?? ''}'.trim(),
+      modelId: '${json['model_id'] ?? ''}'.trim(),
+    );
+  }
+
+  final String configId;
+  final String modelId;
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'config_id': configId,
+      'model_id': modelId,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RecentModelSelection &&
+        other.configId == configId &&
+        other.modelId == modelId;
+  }
+
+  @override
+  int get hashCode => Object.hash(configId, modelId);
 }

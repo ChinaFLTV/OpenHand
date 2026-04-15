@@ -1960,15 +1960,22 @@ class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
   void _showMenu() {
     if (!widget.enabled || widget.settingsModels.isEmpty) return;
 
+    final settingsController = context
+        .findAncestorStateOfType<_HardnessEngineeringDialogState>()
+        ?.widget
+        .settingsController;
+
     setState(() => _menuOpen = true);
     showModelSearchSelector(
       context: context,
       models: widget.settingsModels,
+      recentSelections: settingsController?.recentModelSelections ?? const [],
       selectedConfigId: widget.selectedAiModelConfigId,
       selectedModelId: widget.selectedUrlModeModelId,
     ).then((value) {
       if (mounted) setState(() => _menuOpen = false);
       if (!mounted || value == null) return;
+      settingsController?.addRecentModelSelection(value.$1, value.$2);
       widget.onChanged(value.$1, value.$2);
     });
   }

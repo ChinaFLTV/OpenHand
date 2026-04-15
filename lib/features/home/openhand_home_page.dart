@@ -20,6 +20,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../app/model/app_info.dart';
+import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/model/editor_code_theme.dart';
 import '../../app/model/editor_shortcut.dart';
@@ -2597,11 +2598,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _selectedModelSupportsAttachments(AiModelConfig? model) {
-    if (model == null) {
-      return false;
-    }
-    final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    return adapter.supportsAttachmentsForModel(model);
+    return model != null;
   }
 
   Future<void> _pickComposerAttachments() async {
@@ -3913,8 +3910,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         transcriptPreparing: transcriptPreparing,
         selectedModel: settingsController.selectedAiModel,
         availableModels: settingsController.aiModels,
+        recentModelSelections: settingsController.recentModelSelections,
         onModelSelected: (providerConfigId, modelId) {
           settingsController.updateProviderActiveModel(
+            providerConfigId,
+            modelId,
+          );
+          settingsController.addRecentModelSelection(
             providerConfigId,
             modelId,
           );

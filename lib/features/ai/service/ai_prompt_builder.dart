@@ -1008,9 +1008,7 @@ class AiPromptBuilder {
       return const <AiChatContentPart>[];
     }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    if (!adapter.supportsAttachmentsForModel(model)) {
-      return const <AiChatContentPart>[];
-    }
+    final supportsInlineImages = adapter.supportsAttachmentsForModel(model);
     final parts = <AiChatContentPart>[];
     for (final attachment in attachments) {
       if (attachment.isImage) {
@@ -1038,6 +1036,16 @@ class AiPromptBuilder {
             parts.add(
               AiChatContentPart.text(
                 '[Attachment]\nImage attachment: ${attachment.name} is unavailable in local storage.',
+              ),
+            );
+          }
+          continue;
+        }
+        if (!supportsInlineImages) {
+          if (detailText.isEmpty) {
+            parts.add(
+              AiChatContentPart.text(
+                '[Attachment]\nImage attachment: ${attachment.name}.',
               ),
             );
           }

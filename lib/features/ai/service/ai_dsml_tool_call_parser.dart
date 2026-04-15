@@ -6,10 +6,16 @@ class AiDsmlToolCallExtractionResult {
   const AiDsmlToolCallExtractionResult({
     required this.sanitizedText,
     required this.toolCalls,
+    this.hasTrailingIncompleteMarkup = false,
   });
 
   final String sanitizedText;
   final List<AiToolCall> toolCalls;
+
+  /// True when the input text contained an opening DSML/tool-call tag that
+  /// was never closed — a strong signal that the model output was truncated
+  /// mid–tool call.
+  final bool hasTrailingIncompleteMarkup;
 }
 
 AiDsmlToolCallExtractionResult extractDsmlToolCalls(
@@ -59,9 +65,18 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
       ),
     );
   }
+  // Detect trailing incomplete DSML markup (opening tag without matching close).
+  // This happens when the model output is truncated mid–tool call.
+  final lastMatchEnd = invokeMatches.isEmpty
+      ? 0
+      : invokeMatches.last.end;
+  final remaining = canonical.substring(lastMatchEnd);
+  final hasTrailingIncomplete = _trailingIncompleteDsmlPattern.hasMatch(remaining);
+
   return AiDsmlToolCallExtractionResult(
     sanitizedText: sanitizeVisibleDsmlContent(value),
     toolCalls: toolCalls,
+    hasTrailingIncompleteMarkup: hasTrailingIncomplete,
   );
 }
 
@@ -86,6 +101,15 @@ String sanitizeVisibleDsmlContent(String value) {
 }
 
 final RegExp _excessiveNewlinePattern = RegExp(r'\n{3,}');
+
+/// Matches an opening `<DSML:invoke` or `<DSML:function_calls` tag that
+/// appears after the last successfully matched complete invoke block.
+/// Presence of this pattern indicates the model was truncated mid–tool call.
+final RegExp _trailingIncompleteDsmlPattern = RegExp(
+  r'<DSML:(?:invoke|function_calls)\b',
+  caseSensitive: false,
+);
+
 final RegExp _dsmlTagPrefixPattern = RegExp(
   r'<\s*(/?)\s*[|｜]\s*DSML\s*[|｜]\s*',
   caseSensitive: false,

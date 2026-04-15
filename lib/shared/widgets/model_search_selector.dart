@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import 'animated_dialog.dart';
 
@@ -30,27 +31,36 @@ Future<(String, String)?> showModelSearchSelector({
   required List<AiModelConfig> models,
   String? selectedConfigId,
   String? selectedModelId,
+  List<RecentModelSelection> recentSelections = const <RecentModelSelection>[],
 }) async {
   // Build flat list of entries grouped by provider.
+  // Skip providers that have no models at all (empty allModelIds).
   final entries = <ModelEntry>[];
   for (final config in models) {
     final allIds = config.allModelIds;
     if (allIds.isEmpty) {
+      // Provider has no models — hide from the selector.
+      continue;
+    }
+    for (final modelId in allIds) {
       entries.add(ModelEntry(
         configId: config.id,
-        modelId: config.modelId,
+        modelId: modelId,
         providerLabel: config.providerLabel,
         protocolLabel: config.protocolType.storageValue,
       ));
-    } else {
-      for (final modelId in allIds) {
-        entries.add(ModelEntry(
-          configId: config.id,
-          modelId: modelId,
-          providerLabel: config.providerLabel,
-          protocolLabel: config.protocolType.storageValue,
-        ));
-      }
+    }
+  }
+
+  // Build recent entries from persisted selections, validating against current
+  // provider configs to prune stale entries.
+  final recentEntries = <ModelEntry>[];
+  for (final recent in recentSelections) {
+    final match = entries.where(
+      (e) => e.configId == recent.configId && e.modelId == recent.modelId,
+    );
+    if (match.isNotEmpty) {
+      recentEntries.add(match.first);
     }
   }
 
@@ -58,6 +68,7 @@ Future<(String, String)?> showModelSearchSelector({
     context: context,
     builder: (_) => _ModelSearchDialog(
       entries: entries,
+      recentEntries: recentEntries,
       selectedConfigId: selectedConfigId,
       selectedModelId: selectedModelId,
     ),
@@ -67,11 +78,13 @@ Future<(String, String)?> showModelSearchSelector({
 class _ModelSearchDialog extends StatefulWidget {
   const _ModelSearchDialog({
     required this.entries,
+    required this.recentEntries,
     this.selectedConfigId,
     this.selectedModelId,
   });
 
   final List<ModelEntry> entries;
+  final List<ModelEntry> recentEntries;
   final String? selectedConfigId;
   final String? selectedModelId;
 
@@ -128,6 +141,17 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       final key = '${entry.providerLabel}  (${entry.protocolLabel})';
       (grouped[key] ??= []).add(entry);
     }
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final recentFiltered = isSearching
+        ? const <ModelEntry>[]
+        : widget.recentEntries
+              .where((entry) => _filtered.any(
+                    (item) =>
+                        item.configId == entry.configId &&
+                        item.modelId == entry.modelId,
+                  ))
+              .toList(growable: false);
+    final hasAnyModels = widget.entries.isNotEmpty;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -196,7 +220,19 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
             const SizedBox(height: 4),
             // ─── Model list ───
             Flexible(
-              child: _filtered.isEmpty
+              child: !hasAnyModels
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          isZh ? '暂无可用模型' : 'No available models',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  : _filtered.isEmpty
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -208,45 +244,86 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                         ),
                       ),
                     )
-                  : ListView.builder(
+                  : ListView(
                       padding: const EdgeInsets.only(bottom: 8),
-                      itemCount: grouped.length,
-                      itemBuilder: (context, groupIndex) {
-                        final groupKey = grouped.keys.elementAt(groupIndex);
-                        final groupEntries = grouped[groupKey]!;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Provider header.
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16, 8, 16, 2,
-                              ),
-                              child: Text(
-                                groupKey,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                      children: [
+                        if (recentFiltered.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                            child: Text(
+                              isZh ? '最近使用' : 'Recent',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            // Model items.
-                            for (final entry in groupEntries)
-                              _ModelTile(
-                                entry: entry,
-                                isActive:
-                                    entry.configId ==
-                                        widget.selectedConfigId &&
-                                    entry.modelId == widget.selectedModelId,
-                                onTap: () {
-                                  Navigator.of(context)
-                                      .pop((entry.configId, entry.modelId));
-                                },
-                              ),
-                          ],
-                        );
-                      },
+                          ),
+                          for (final entry in recentFiltered)
+                            _ModelTile(
+                              entry: entry,
+                              isActive:
+                                  entry.configId == widget.selectedConfigId &&
+                                  entry.modelId == widget.selectedModelId,
+                              onTap: () {
+                                Navigator.of(context)
+                                    .pop((entry.configId, entry.modelId));
+                              },
+                            ),
+                          const SizedBox(height: 4),
+                        ],
+                        for (var groupIndex = 0;
+                            groupIndex < grouped.length;
+                            groupIndex++) ...[
+                          Builder(
+                            builder: (context) {
+                              final groupKey = grouped.keys.elementAt(
+                                groupIndex,
+                              );
+                              final groupEntries = grouped[groupKey]!;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Provider header.
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      8,
+                                      16,
+                                      2,
+                                    ),
+                                    child: Text(
+                                      groupKey,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color:
+                                                colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  // Model items.
+                                  for (final entry in groupEntries)
+                                    _ModelTile(
+                                      entry: entry,
+                                      isActive:
+                                          entry.configId ==
+                                              widget.selectedConfigId &&
+                                          entry.modelId ==
+                                              widget.selectedModelId,
+                                      onTap: () {
+                                        Navigator.of(context).pop((
+                                          entry.configId,
+                                          entry.modelId,
+                                        ));
+                                      },
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ],
                     ),
             ),
           ],

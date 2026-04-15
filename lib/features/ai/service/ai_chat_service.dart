@@ -104,6 +104,7 @@ class AiChatStreamResult {
     this.wasCancelled = false,
     this.usage,
     this.rawResponse,
+    this.finishReason,
   });
 
   final String reply;
@@ -112,6 +113,24 @@ class AiChatStreamResult {
   final bool wasCancelled;
   final AiTokenUsage? usage;
   final String? rawResponse;
+
+  /// The reason the model stopped generating.
+  ///
+  /// Common values:
+  ///   - `'stop'` / `'end_turn'` — normal completion
+  ///   - `'length'` / `'max_tokens'` — output truncated due to token limit
+  ///   - `'tool_calls'` / `'tool_use'` — model requested tool execution
+  ///   - `null` — unknown or not reported
+  final String? finishReason;
+
+  /// Whether the model output was truncated due to reaching the max output
+  /// token limit.  This is a common cause of "silent stops" where the model
+  /// appears to have finished but actually ran out of output budget.
+  bool get wasTruncated {
+    if (finishReason == null) return false;
+    final normalized = finishReason!.trim().toLowerCase();
+    return normalized == 'length' || normalized == 'max_tokens';
+  }
 }
 
 class AiChatStreamingResponse {
@@ -331,6 +350,7 @@ class AiChatService implements AiChatClient {
     final rawResponseBuffer = StringBuffer();
     final toolCalls = <int, _MutableToolCall>{};
     AiTokenUsage? usage;
+    String? finishReason;
     final lineBuffer = StringBuffer();
     StreamSubscription<String>? responseSubscription;
     Timer? idleWarningTimer;
@@ -398,6 +418,15 @@ class AiChatService implements AiChatClient {
           )
           .where((item) => item.name.trim().isNotEmpty)
           .toList(growable: false);
+      // If the DSML parser detected incomplete markup AND finishReason was
+      // not already set, infer truncation.  Some API providers (especially
+      // third-party) may omit finish_reason, so the incomplete markup acts
+      // as a reliable fallback signal.
+      final effectiveFinishReason =
+          dsmlExtraction.hasTrailingIncompleteMarkup && finishReason == null
+              ? 'length'
+              : finishReason;
+
       resultCompleter.complete(
         AiChatStreamResult(
           reply: dsmlExtraction.sanitizedText,
@@ -408,10 +437,11 @@ class AiChatService implements AiChatClient {
           wasCancelled: wasCancelled,
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
+          finishReason: effectiveFinishReason,
         ),
       );
       _debugAiStreamLog(
-        'model=${model.modelId} stream_complete reason=$reason cancelled=$wasCancelled reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${resolvedToolCalls.length}',
+        'model=${model.modelId} stream_complete reason=$reason cancelled=$wasCancelled finish_reason=${effectiveFinishReason ?? 'unknown'} trailing_incomplete_dsml=${dsmlExtraction.hasTrailingIncompleteMarkup} reply_chars=${textBuffer.length} reasoning_chars=${reasoningBuffer.length} tool_calls=${resolvedToolCalls.length}',
       );
       if (!eventController.isClosed) {
         unawaited(eventController.close());
@@ -451,6 +481,44 @@ class AiChatService implements AiChatClient {
         return;
       }
 
+      // ── Detect in-stream error objects ──────────────────────────────────
+      // Some API providers (especially third-party OpenAI-compatible ones)
+      // return 200 OK but send error objects within the SSE data stream,
+      // e.g. {"error": {"message": "Rate limit exceeded", ...}}.
+      // Without this check, such errors are silently discarded and the
+      // stream closes with an empty response.
+      final errorField = decoded['error'];
+      if (errorField != null) {
+        String errorMessage;
+        if (errorField is Map<String, Object?>) {
+          errorMessage =
+              '${errorField['message'] ?? errorField['msg'] ?? ''}'.trim();
+          if (errorMessage.isEmpty) {
+            errorMessage = '$errorField';
+          }
+        } else {
+          errorMessage = '$errorField';
+        }
+        if (errorMessage.isNotEmpty) {
+          idleWarningTimer?.cancel();
+          idleWarningTimer = null;
+          _debugAiStreamLog(
+            'model=${model.modelId} in_stream_error error=$errorMessage',
+          );
+          if (!resultCompleter.isCompleted) {
+            resultCompleter.completeError(
+              AiChatException('API error: $errorMessage'),
+              StackTrace.current,
+            );
+          }
+          if (!eventController.isClosed) {
+            unawaited(eventController.close());
+          }
+          unawaited(responseSubscription?.cancel());
+          return;
+        }
+      }
+
       // Route to protocol-specific stream handler.
       if (isClaudeProtocol) {
         _processClaudeStreamEvent(
@@ -466,6 +534,7 @@ class AiChatService implements AiChatClient {
           cancelSubscription: () {
             unawaited(responseSubscription?.cancel());
           },
+          setFinishReason: (value) => finishReason = value,
           model: model,
         );
       } else if (isGeminiProtocol) {
@@ -478,6 +547,7 @@ class AiChatService implements AiChatClient {
           setUsage: (value) => usage = value,
           markStreamActivity: markStreamActivity,
           emitEvent: emitEvent,
+          setFinishReason: (value) => finishReason = value,
           model: model,
         );
       } else {
@@ -490,6 +560,7 @@ class AiChatService implements AiChatClient {
           setUsage: (value) => usage = value,
           markStreamActivity: markStreamActivity,
           emitEvent: emitEvent,
+          setFinishReason: (value) => finishReason = value,
           model: model,
         );
       }
@@ -700,6 +771,7 @@ void _processOpenAiStreamEvent(
   required void Function(AiTokenUsage?) setUsage,
   required void Function(String) markStreamActivity,
   required void Function(AiChatStreamEvent) emitEvent,
+  required void Function(String) setFinishReason,
   required AiModelConfig model,
 }) {
   final usageJson = decoded['usage'];
@@ -728,6 +800,17 @@ void _processOpenAiStreamEvent(
   for (final choice in choices) {
     if (choice is! Map<String, Object?>) {
       continue;
+    }
+    // Capture finish_reason from the final chunk – this tells us whether the
+    // model stopped normally ("stop"), was truncated ("length"), or wants
+    // tool execution ("tool_calls").
+    final choiceFinishReason = '${choice['finish_reason'] ?? ''}'.trim();
+    if (choiceFinishReason.isNotEmpty) {
+      setFinishReason(choiceFinishReason);
+      markStreamActivity('finish_reason');
+      _debugAiStreamLog(
+        'model=${model.modelId} finish_reason=$choiceFinishReason',
+      );
     }
     final delta = choice['delta'];
     if (delta is! Map<String, Object?>) {
@@ -817,6 +900,7 @@ void _processClaudeStreamEvent(
   required void Function(AiChatStreamEvent) emitEvent,
   required void Function(String) completeStreamResult,
   required void Function() cancelSubscription,
+  required void Function(String) setFinishReason,
   required AiModelConfig model,
 }) {
   final type = '${decoded['type'] ?? ''}'.trim();
@@ -921,6 +1005,17 @@ void _processClaudeStreamEvent(
 
     case 'message_delta':
       // Final usage and stop_reason.
+      final deltaPayload = decoded['delta'];
+      if (deltaPayload is Map<String, Object?>) {
+        final stopReason = '${deltaPayload['stop_reason'] ?? ''}'.trim();
+        if (stopReason.isNotEmpty) {
+          setFinishReason(stopReason);
+          markStreamActivity('stop_reason');
+          _debugAiStreamLog(
+            'model=${model.modelId} claude_stop_reason=$stopReason',
+          );
+        }
+      }
       final usageJson = decoded['usage'];
       if (usageJson is Map) {
         final usageMap = usageJson is Map<String, Object?>
@@ -949,6 +1044,28 @@ void _processClaudeStreamEvent(
       markStreamActivity('message_stop');
       completeStreamResult('claude_message_stop');
       cancelSubscription();
+
+    case 'error':
+      // Claude sends error events with {"type": "error", "error": {...}}.
+      final errorPayload = decoded['error'];
+      String errorMessage = '';
+      if (errorPayload is Map<String, Object?>) {
+        errorMessage =
+            '${errorPayload['message'] ?? ''}'.trim();
+        if (errorMessage.isEmpty) {
+          errorMessage = '$errorPayload';
+        }
+      } else if (errorPayload != null) {
+        errorMessage = '$errorPayload';
+      }
+      if (errorMessage.isNotEmpty) {
+        _debugAiStreamLog(
+          'model=${model.modelId} claude_error error=$errorMessage',
+        );
+      }
+      // The general in-stream error detection in processEventBlock will
+      // handle this case since the decoded map has an 'error' key.
+      markStreamActivity('error');
 
     default:
       // Unknown event type — log and ignore.
@@ -986,6 +1103,7 @@ void _processGeminiStreamEvent(
   required void Function(AiTokenUsage?) setUsage,
   required void Function(String) markStreamActivity,
   required void Function(AiChatStreamEvent) emitEvent,
+  required void Function(String) setFinishReason,
   required AiModelConfig model,
 }) {
   // Parse usage metadata.
@@ -1012,6 +1130,19 @@ void _processGeminiStreamEvent(
   if (candidates is! List<dynamic>) return;
   for (final candidate in candidates) {
     if (candidate is! Map<String, Object?>) continue;
+    // Capture finishReason from Gemini (e.g. "STOP", "MAX_TOKENS").
+    final geminiFinishReason = '${candidate['finishReason'] ?? ''}'.trim();
+    if (geminiFinishReason.isNotEmpty) {
+      // Normalize Gemini's "MAX_TOKENS" to "length" for consistency.
+      final normalized = geminiFinishReason.toUpperCase() == 'MAX_TOKENS'
+          ? 'length'
+          : geminiFinishReason.toLowerCase();
+      setFinishReason(normalized);
+      markStreamActivity('finish_reason');
+      _debugAiStreamLog(
+        'model=${model.modelId} gemini_finish_reason=$geminiFinishReason',
+      );
+    }
     final content = candidate['content'];
     if (content is! Map<String, Object?>) continue;
     final parts = content['parts'];
