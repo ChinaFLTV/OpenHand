@@ -71,6 +71,7 @@ import '../memory/memory_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
+import '../hooks/hooks_view.dart';
 import 'editor_indentation.dart';
 import 'machine_expert_dialog.dart';
 import 'message_path_linking.dart';
@@ -103,6 +104,7 @@ enum AppSection {
   skills,
   memory,
   mcp,
+  hooks,
   settings,
   hardnessSession,
 }
@@ -3172,6 +3174,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.skills => _localizedText(context, zh: '技能', en: 'Skills'),
       AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
       AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
+      AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -4093,6 +4096,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.skills => const SkillsView(),
       AppSection.memory => const MemoryView(),
       AppSection.mcp => const McpView(),
+      AppSection.hooks => const HooksView(),
       AppSection.settings => const SettingsView(),
       AppSection.hardnessSession =>
         _activeHardnessOrchestrator != null && _activeHardnessConfig != null
@@ -4192,7 +4196,8 @@ extension on AppSection {
       AppSection.skills => 1,
       AppSection.memory => 2,
       AppSection.mcp => 3,
-      AppSection.settings => 4,
+      AppSection.hooks => 4,
+      AppSection.settings => 5,
     };
   }
 }
@@ -4203,7 +4208,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     1 => AppSection.skills,
     2 => AppSection.memory,
     3 => AppSection.mcp,
-    4 => AppSection.settings,
+    4 => AppSection.hooks,
+    5 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

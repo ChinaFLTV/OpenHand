@@ -11,6 +11,7 @@ enum AiSessionMessageKind {
   compressionPoint('compression_point'),
   mcp('mcp'),
   skill('skill'),
+  hook('hook'),
   status('status');
 
   const AiSessionMessageKind(this.storageValue);
@@ -225,6 +226,23 @@ class AiSessionMessage {
     );
   }
 
+  factory AiSessionMessage.hookResult({
+    required String id,
+    required String content,
+    required DateTime createdAt,
+    required Map<String, Object?> metadata,
+  }) {
+    return AiSessionMessage(
+      id: id,
+      kind: AiSessionMessageKind.hook,
+      role: AiSessionMessageRole.tool,
+      content: content.trim(),
+      createdAt: createdAt.toUtc(),
+      characterCount: countCharacters(content),
+      metadata: metadata,
+    );
+  }
+
   factory AiSessionMessage.status({
     required String id,
     required String content,
@@ -292,6 +310,7 @@ class AiSessionMessage {
       AiSessionMessageKind.reasoning => false,
       AiSessionMessageKind.mcp => true,
       AiSessionMessageKind.skill => true,
+      AiSessionMessageKind.hook => true,
       AiSessionMessageKind.status => false,
     };
   }

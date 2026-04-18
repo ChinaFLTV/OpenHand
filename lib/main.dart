@@ -8,6 +8,8 @@ import 'app/state/settings_controller.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
 import 'features/ai/service/lsp_client_service.dart';
+import 'features/hooks/hooks_controller.dart';
+import 'features/hooks/hooks_executor.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
@@ -35,11 +37,14 @@ Future<void> main() async {
 
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
-  final aiSessionControllerFuture = AiSessionController.create(
-    hookService: AiClaudeHookService(),
-  );
+  final hooksControllerFuture = HooksController.create();
 
   final settingsController = await settingsControllerFuture;
+  final hooksController = await hooksControllerFuture;
+  final aiSessionControllerFuture = AiSessionController.create(
+    hookService: AiClaudeHookService(),
+    userHooksExecutor: HooksExecutor(controller: hooksController),
+  );
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,
   );
@@ -69,6 +74,7 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider<SkillsController>.value(value: skillsController),
         ChangeNotifierProvider<McpController>.value(value: mcpController),
+        ChangeNotifierProvider<HooksController>.value(value: hooksController),
         ChangeNotifierProvider<MemoryController>.value(value: memoryController),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,

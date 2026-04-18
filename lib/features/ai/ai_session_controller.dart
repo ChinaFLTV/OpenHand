@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/support/openhand_paths.dart';
+import '../hooks/hooks_executor.dart';
+import '../../app/model/hook_config.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';
@@ -78,6 +80,7 @@ class AiSessionController extends ChangeNotifier {
     required AiAttachmentService attachmentService,
     required String Function() idGenerator,
     required DateTime Function() clock,
+    HooksExecutor? userHooksExecutor,
   }) : _store = store,
        _chatClient = chatClient,
        _backgroundChatClient = backgroundChatClient,
@@ -88,7 +91,8 @@ class AiSessionController extends ChangeNotifier {
        _toolRuntimeService = toolRuntimeService,
        _attachmentService = attachmentService,
        _idGenerator = idGenerator,
-       _clock = clock;
+       _clock = clock,
+       _userHooksExecutor = userHooksExecutor;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _autoTitleSystemPrompt =
       'Generate a concise chat title. Return a single title only. Keep it within 20 characters. No quotes. No markdown.\n'
@@ -141,6 +145,7 @@ class AiSessionController extends ChangeNotifier {
     AiToolRuntimeService? toolRuntimeService,
     AiAttachmentService? attachmentService,
     McpToolDiscoveryService? mcpToolService,
+    HooksExecutor? userHooksExecutor,
     String Function()? idGenerator,
     DateTime Function()? clock,
   }) async {
@@ -162,6 +167,7 @@ class AiSessionController extends ChangeNotifier {
       promptBuilder: promptBuilder ?? const AiPromptBuilder(),
       bashToolService: resolvedBashToolService,
       hookService: resolvedHookService,
+      userHooksExecutor: userHooksExecutor,
       toolRuntimeService:
           toolRuntimeService ??
           AiToolRuntimeService(
@@ -243,6 +249,7 @@ class AiSessionController extends ChangeNotifier {
   final AiPromptBuilder _promptBuilder;
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
+  final HooksExecutor? _userHooksExecutor;
   final AiToolRuntimeService _toolRuntimeService;
   final AiAttachmentService _attachmentService;
   final String Function() _idGenerator;
@@ -1367,6 +1374,15 @@ class AiSessionController extends ChangeNotifier {
             'userPrompt': normalizedContent,
           },
         );
+        await _safeRunUserHook(
+          event: HookEvent.userPromptSubmit,
+          sessionId: session.id,
+          payload: <String, Object?>{
+            'prompt': normalizedContent,
+          },
+        );
+        // Re-read session since _safeRunUserHook may have committed hook messages.
+        session = _sessionById(session.id) ?? session;
         if (userHookResult.blocked) {
           final blockedSession = _appendError(
             session,
@@ -2624,6 +2640,14 @@ class AiSessionController extends ChangeNotifier {
         );
         return null;
       }
+      await _safeRunUserHook(
+        event: HookEvent.preToolUse,
+        sessionId: workingSession.id,
+        payload: <String, Object?>{
+          'tool_name': toolCall.name,
+          'tool_arguments': toolCall.arguments,
+        },
+      );
       final result = await _executeSingleToolCall(
         sessionId: workingSession.id,
         toolCall: toolCall,
@@ -2724,6 +2748,17 @@ class AiSessionController extends ChangeNotifier {
         workingSession.id,
         'tool_execution_finish tool=${toolCall.name} status=${result.status.storageValue}',
       );
+      await _safeRunUserHook(
+        event: HookEvent.postToolUse,
+        sessionId: workingSession.id,
+        payload: <String, Object?>{
+          'tool_name': toolCall.name,
+          'status': result.status.storageValue,
+          'duration_ms': result.durationMs,
+        },
+      );
+      // Re-read session since _safeRunUserHook may have committed new messages.
+      workingSession = _sessionById(workingSession.id) ?? workingSession;
       if (result.status == BashToolExecutionStatus.cancelled ||
           _isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
@@ -5022,6 +5057,15 @@ class AiSessionController extends ChangeNotifier {
       },
       sessionId: session.id,
     );
+    await _safeRunUserHook(
+      event: HookEvent.sessionStart,
+      sessionId: session.id,
+      payload: <String, Object?>{
+        'source': source,
+        'session_title': session.title,
+        'template_id': session.templateId,
+      },
+    );
   }
 
   Future<void> _emitSessionEndHook({
@@ -5037,6 +5081,15 @@ class AiSessionController extends ChangeNotifier {
         'template_id': session.templateId,
       },
       sessionId: session.id,
+    );
+    await _safeRunUserHook(
+      event: HookEvent.sessionEnd,
+      sessionId: session.id,
+      payload: <String, Object?>{
+        'reason': reason,
+        'session_title': session.title,
+        'template_id': session.templateId,
+      },
     );
   }
 
@@ -5099,6 +5152,14 @@ class AiSessionController extends ChangeNotifier {
       },
       sessionId: sessionId,
     );
+    await _safeRunUserHook(
+      event: HookEvent.stop,
+      sessionId: sessionId,
+      payload: <String, Object?>{
+        'reason': reason,
+        'awaiting_user_input': awaitingUserInput,
+      },
+    );
     if (awaitingUserInput) {
       await _safeRunHook(
         eventName: 'Notification',
@@ -5126,6 +5187,11 @@ class AiSessionController extends ChangeNotifier {
       payload: <String, Object?>{'stage': stage, 'detail': detail},
       sessionId: sessionId,
     );
+    await _safeRunUserHook(
+      event: HookEvent.errorOccurred,
+      sessionId: sessionId,
+      payload: <String, Object?>{'stage': stage, 'detail': detail},
+    );
   }
 
   Future<void> _emitCompactHooks({
@@ -5140,6 +5206,13 @@ class AiSessionController extends ChangeNotifier {
       payload: <String, Object?>{'trigger': trigger, ...payload},
       sessionId: sessionId,
     );
+    if (eventName == 'PreCompact') {
+      await _safeRunUserHook(
+        event: HookEvent.preCompact,
+        sessionId: sessionId,
+        payload: <String, Object?>{'trigger': trigger, ...payload},
+      );
+    }
   }
 
   Future<void> _safeRunHook({
@@ -5159,6 +5232,78 @@ class AiSessionController extends ChangeNotifier {
     } catch (_) {
       return;
     }
+  }
+
+  /// Executes user-configured hooks for the given lifecycle event and
+  /// appends visible hook-result messages to the session so users can see
+  /// exactly which hooks ran, their status, and any output — just like
+  /// skill or MCP tool call cards.
+  ///
+  /// This runs independently from [_safeRunHook] which handles the
+  /// Claude-style JSON config hooks. Both systems coexist.
+  Future<void> _safeRunUserHook({
+    required HookEvent event,
+    required String sessionId,
+    Map<String, Object?> payload = const <String, Object?>{},
+  }) async {
+    final executor = _userHooksExecutor;
+    if (executor == null) return;
+    HookExecutionResult result;
+    try {
+      result = await executor.executeEvent(
+        event: event,
+        sessionId: sessionId,
+        payload: payload,
+      );
+    } catch (_) {
+      return;
+    }
+    if (result.hookResults.isEmpty) return;
+
+    // Create one visible message per hook that actually ran.
+    final session = _sessionById(sessionId);
+    if (session == null) return;
+    final newMessages = <AiSessionMessage>[];
+    for (final hookResult in result.hookResults) {
+      final createdAt = _clock().toUtc();
+      final toolInput = hookResult.scriptPath != null &&
+              hookResult.scriptPath!.isNotEmpty
+          ? hookResult.scriptPath!
+          : hookResult.scriptContent != null &&
+              hookResult.scriptContent!.isNotEmpty
+          ? hookResult.scriptContent!
+          : event.storageValue;
+      newMessages.add(
+        AiSessionMessage.hookResult(
+          id: _idGenerator(),
+          content: hookResult.stdout.isNotEmpty
+              ? hookResult.stdout
+              : hookResult.stderr.isNotEmpty
+              ? hookResult.stderr
+              : hookResult.status == 'success'
+              ? 'Hook completed successfully.'
+              : 'Hook finished with status: ${hookResult.status}.',
+          createdAt: createdAt,
+          metadata: <String, Object?>{
+            'tool_source': 'hook',
+            'tool_name': 'hook__${event.storageValue}',
+            'hook_name': hookResult.hookLabel,
+            'hook_event': event.storageValue,
+            'tool_execution_status': hookResult.status,
+            'tool_execution_elapsed_ms': hookResult.elapsedMs,
+            'tool_execution_stdout': hookResult.stdout,
+            'tool_execution_stderr': hookResult.stderr,
+            'tool_arguments': '\$ ${toolInput.trim()}',
+          },
+        ),
+      );
+    }
+    if (newMessages.isEmpty) return;
+    final updatedSession = session.copyWith(
+      updatedAt: newMessages.last.createdAt,
+      messages: <AiSessionMessage>[...session.messages, ...newMessages],
+    );
+    await _commitSessionLocked(updatedSession);
   }
 
   List<String> _readStringList(Object? rawValue) {

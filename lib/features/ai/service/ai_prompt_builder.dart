@@ -944,6 +944,7 @@ class AiPromptBuilder {
         );
       case AiSessionMessageKind.mcp:
       case AiSessionMessageKind.skill:
+      case AiSessionMessageKind.hook:
         return _mapMessageContent(
           role: AiChatRole.assistant,
           content: '[${message.kind.storageValue}] $promptContent',
@@ -1533,7 +1534,8 @@ class AiPromptBuilder {
   bool _isToolResultKind(AiSessionMessageKind kind) {
     return kind == AiSessionMessageKind.tool ||
         kind == AiSessionMessageKind.mcp ||
-        kind == AiSessionMessageKind.skill;
+        kind == AiSessionMessageKind.skill ||
+        kind == AiSessionMessageKind.hook;
   }
 
   List<String> _readStringList(Object? rawValue) {

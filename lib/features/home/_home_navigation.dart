@@ -211,6 +211,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
               label: Text(l10n.mcp),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.webhook_outlined),
+              selectedIcon: const Icon(Icons.webhook_rounded),
+              label: Text(_localizedText(context, zh: 'Hooks', en: 'Hooks')),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),

@@ -1203,6 +1203,14 @@ _ToolCallPresentation _toolCallPresentation(
       icon: Icons.extension_rounded,
     );
   }
+  if (toolSource == 'hook' || normalizedToolName.startsWith('hook__')) {
+    final hookName = '${message.metadata['hook_name'] ?? ''}'.trim();
+    return _ToolCallPresentation(
+      categoryLabel: 'Hook',
+      displayName: hookName.isEmpty ? rawToolName : hookName,
+      icon: Icons.webhook_rounded,
+    );
+  }
   if (toolSource == 'mcp' || normalizedToolName.startsWith('mcp__')) {
     final serverName = '${message.metadata['mcp_server_name'] ?? ''}'.trim();
     final toolName = '${message.metadata['mcp_tool_name'] ?? ''}'.trim();

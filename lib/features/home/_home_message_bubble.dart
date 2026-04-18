@@ -85,7 +85,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
     final isStreamingReasoning = _isStreamingReasoningMessage(message);
-    final isToolCall = message.kind == AiSessionMessageKind.toolCall;
+    final isToolCall = message.kind == AiSessionMessageKind.toolCall ||
+        message.kind == AiSessionMessageKind.hook;
     final isToolResult =
         message.kind == AiSessionMessageKind.tool ||
         message.kind == AiSessionMessageKind.mcp ||

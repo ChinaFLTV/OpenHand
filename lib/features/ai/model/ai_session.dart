@@ -454,7 +454,8 @@ class AiSession {
           }
           if (message.kind != AiSessionMessageKind.tool &&
               message.kind != AiSessionMessageKind.mcp &&
-              message.kind != AiSessionMessageKind.skill) {
+              message.kind != AiSessionMessageKind.skill &&
+              message.kind != AiSessionMessageKind.hook) {
             return true;
           }
           final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
@@ -884,6 +885,9 @@ class AiSessionStatistics {
           mcpMessageCount += 1;
           totalOutputCharacters += message.characterCount;
         case AiSessionMessageKind.skill:
+          skillMessageCount += 1;
+          totalOutputCharacters += message.characterCount;
+        case AiSessionMessageKind.hook:
           skillMessageCount += 1;
           totalOutputCharacters += message.characterCount;
         case AiSessionMessageKind.compressionPoint:

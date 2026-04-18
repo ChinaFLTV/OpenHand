@@ -182,8 +182,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         child: Container(
           decoration: BoxDecoration(
             color: palette.containerColor,
-            // Border is drawn inside the clipped region to avoid double-line
-            // artifacts at corners.
+            borderRadius: _borderRadius18,
             border: Border.all(color: palette.borderColor),
           ),
           child: Column(
@@ -192,6 +191,10 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: palette.headerColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(17),
+                    topRight: Radius.circular(17),
+                  ),
                   border: Border(
                     bottom: BorderSide(color: palette.dividerColor),
                   ),
