@@ -5248,12 +5248,22 @@ class AiSessionController extends ChangeNotifier {
   }) async {
     final executor = _userHooksExecutor;
     if (executor == null) return;
+
+    // Build rich context payload for the hook script.
+    final session = _sessionById(sessionId);
+    final enrichedPayload = _buildHookContextPayload(
+      event: event,
+      sessionId: sessionId,
+      session: session,
+      extra: payload,
+    );
+
     HookExecutionResult result;
     try {
       result = await executor.executeEvent(
         event: event,
         sessionId: sessionId,
-        payload: payload,
+        payload: enrichedPayload,
       );
     } catch (_) {
       return;
@@ -5261,8 +5271,8 @@ class AiSessionController extends ChangeNotifier {
     if (result.hookResults.isEmpty) return;
 
     // Create one visible message per hook that actually ran.
-    final session = _sessionById(sessionId);
-    if (session == null) return;
+    final currentSession = _sessionById(sessionId);
+    if (currentSession == null) return;
     final newMessages = <AiSessionMessage>[];
     for (final hookResult in result.hookResults) {
       final createdAt = _clock().toUtc();
@@ -5299,11 +5309,61 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     if (newMessages.isEmpty) return;
-    final updatedSession = session.copyWith(
+    final updatedSession = currentSession.copyWith(
       updatedAt: newMessages.last.createdAt,
-      messages: <AiSessionMessage>[...session.messages, ...newMessages],
+      messages: <AiSessionMessage>[...currentSession.messages, ...newMessages],
     );
     await _commitSessionLocked(updatedSession);
+  }
+
+  /// Assembles a comprehensive context payload for hook scripts.
+  ///
+  /// The resulting JSON is passed to hooks via the `OPENHAND_HOOK_CONTEXT`
+  /// environment variable and stdin. Scripts can parse it with `jq` or any
+  /// JSON parser.
+  Map<String, Object?> _buildHookContextPayload({
+    required HookEvent event,
+    required String sessionId,
+    required AiSession? session,
+    Map<String, Object?> extra = const <String, Object?>{},
+  }) {
+    final now = _clock().toUtc();
+    final context = <String, Object?>{
+      // ── Event info ──
+      'hook_event': event.storageValue,
+      'timestamp': now.toIso8601String(),
+
+      // ── Session info ──
+      'session_id': sessionId,
+      'session_title': session?.title ?? '',
+      'session_file_path': _store.sessionFilePath(sessionId),
+      'session_created_at': session?.createdAt.toIso8601String() ?? '',
+      'session_updated_at': session?.updatedAt.toIso8601String() ?? '',
+      'session_message_count': session?.messages.length ?? 0,
+      'session_mode': session?.mode.storageValue ?? '',
+
+      // ── Model info ──
+      'model_id': session?.lastUsedModelId ?? '',
+      'model_label': session?.lastUsedModelLabel ?? '',
+
+      // ── Environment ──
+      'environment': session?.environment.toJson() ?? <String, Object?>{},
+
+      // ── Session metadata ──
+      'session_metadata': session?.metadata ?? <String, Object?>{},
+      'last_prompt_metadata': session?.lastPromptMetadata ?? <String, Object?>{},
+
+      // ── Statistics ──
+      'statistics': session?.statistics.toJson() ?? <String, Object?>{},
+
+      // ── Paths (convenience shortcuts) ──
+      'sessions_directory': _store.sessionsDirectoryPath,
+      'working_directory': OpenHandPaths.applicationDirectoryPath(),
+
+      // ── Caller-supplied extra fields (e.g. prompt text, tool info) ──
+      ...extra,
+    };
+    return context;
   }
 
   List<String> _readStringList(Object? rawValue) {

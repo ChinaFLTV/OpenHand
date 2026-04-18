@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
 import 'hooks_controller.dart';
@@ -110,6 +112,7 @@ class HooksExecutor {
       try {
         final result = await _runHookScript(
           hook: hook,
+          sessionId: sessionId,
           payload: effectivePayload,
         );
         stopwatch.stop();
@@ -206,6 +209,7 @@ class HooksExecutor {
 
   Future<_HookScriptResult> _runHookScript({
     required HookEntry hook,
+    required String sessionId,
     required Map<String, Object?> payload,
   }) async {
     final timeout = Duration(
@@ -215,39 +219,100 @@ class HooksExecutor {
     final shellCommand = _buildCommand(hook);
     final workingDirectory = OpenHandPaths.applicationDirectoryPath();
 
-    final process = await Process.start(
-      shellCommand.executable,
-      shellCommand.arguments,
-      workingDirectory: workingDirectory,
-    );
+    // Serialize context JSON — gracefully degrade on failure.
+    String contextJson;
+    try {
+      contextJson = jsonEncode(payload);
+    } catch (_) {
+      contextJson = '{}';
+    }
 
-    final stdoutFuture = _collectTruncated(process.stdout);
-    final stderrFuture = _collectTruncated(process.stderr);
+    // Write context JSON to ~/.openhand/hooks/tmp/{session-id}-{hook-name}-{hook-id}.json
+    // so scripts can safely read it via `jq . "$OPENHAND_HOOK_CONTEXT_FILE"`
+    // without shell escaping issues.
+    File? contextFile;
+    try {
+      final tmpDir = Directory(
+        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+      );
+      await tmpDir.create(recursive: true);
+      final safeName = hook.label
+          .replaceAll(RegExp(r'[^\w\-]'), '_')
+          .toLowerCase()
+          .substring(0, hook.label.length.clamp(0, 32));
+      final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
+      final safeHookId = hook.id.replaceAll(RegExp(r'[^\w\-]'), '-');
+      contextFile = File(
+        p.join(tmpDir.path, '$safeSessionId-$safeName-$safeHookId.json'),
+      );
+      await contextFile.writeAsString(contextJson, flush: true);
+    } catch (_) {
+      // If file creation fails, scripts can still read from stdin.
+      contextFile = null;
+    }
 
-    process.stdin.write(jsonEncode(payload));
-    await process.stdin.close();
+    final environment = <String, String>{
+      'OPENHAND_HOOK_CONTEXT': contextJson,
+      if (contextFile != null)
+        'OPENHAND_HOOK_CONTEXT_FILE': contextFile.path,
+    };
 
     try {
-      final exitCode = await process.exitCode.timeout(timeout);
-      return _HookScriptResult(
-        exitCode: exitCode,
-        stdout: await stdoutFuture,
-        stderr: await stderrFuture,
-        timedOut: false,
+      final process = await Process.start(
+        shellCommand.executable,
+        shellCommand.arguments,
+        workingDirectory: workingDirectory,
+        environment: environment,
       );
-    } on TimeoutException {
-      process.kill(ProcessSignal.sigkill);
+
+      final stdoutFuture = _collectTruncated(process.stdout);
+      final stderrFuture = _collectTruncated(process.stderr);
+
+      // Also write to stdin for scripts that prefer reading from pipe.
       try {
-        await process.exitCode.timeout(const Duration(seconds: 2));
-      } on TimeoutException {
-        // Best-effort cleanup; the process may remain orphaned on some OSes.
+        process.stdin.write(contextJson);
+        await process.stdin.close();
+      } catch (_) {
+        try {
+          await process.stdin.close();
+        } catch (_) {
+          // ignore
+        }
       }
-      return _HookScriptResult(
-        exitCode: null,
-        stdout: await stdoutFuture,
-        stderr: await stderrFuture,
-        timedOut: true,
-      );
+
+      try {
+        final exitCode = await process.exitCode.timeout(timeout);
+        return _HookScriptResult(
+          exitCode: exitCode,
+          stdout: await stdoutFuture,
+          stderr: await stderrFuture,
+          timedOut: false,
+        );
+      } on TimeoutException {
+        process.kill(ProcessSignal.sigkill);
+        try {
+          await process.exitCode.timeout(const Duration(seconds: 2));
+        } on TimeoutException {
+          // Best-effort cleanup; the process may remain orphaned on some OSes.
+        }
+        return _HookScriptResult(
+          exitCode: null,
+          stdout: await stdoutFuture,
+          stderr: await stderrFuture,
+          timedOut: true,
+        );
+      }
+    } finally {
+      // Best-effort cleanup of the temp context file.
+      if (contextFile != null) {
+        try {
+          if (await contextFile.exists()) {
+            await contextFile.delete();
+          }
+        } catch (_) {
+          // ignore
+        }
+      }
     }
   }
 

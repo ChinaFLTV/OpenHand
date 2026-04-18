@@ -33,7 +33,7 @@ class HooksView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isZh ? 'Hooks 管理' : 'Hooks Manager',
+                    'Hooks',
                     style: theme.textTheme.displaySmall,
                   ),
                   const SizedBox(height: 8),
@@ -449,6 +449,21 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                SelectableText(
+                  isZh
+                      ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
+                        '① 临时文件: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
+                        '② stdin 原始字节: jq -r .session_id\n'
+                        '包含 session_id、session_file_path、environment 等字段。'
+                      : 'Context JSON is passed in two safe ways (both work with jq):\n'
+                        '① Temp file: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
+                        '② Raw stdin: jq -r .session_id\n'
+                        'Fields: session_id, session_file_path, environment, etc.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
               ] else ...[
                 TextField(
                   controller: _scriptContentController,
@@ -468,6 +483,21 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                       fontFamily: 'monospace',
                       fontSize: 13,
                     ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SelectableText(
+                  isZh
+                      ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
+                        '① 临时文件: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
+                        '② stdin 原始字节: SID=\$(jq -r .session_id)\n'
+                        '包含 session_id、session_file_path、environment、statistics 等字段。'
+                      : 'Context JSON is passed in two safe ways (both work with jq):\n'
+                        '① Temp file: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
+                        '② Raw stdin: SID=\$(jq -r .session_id)\n'
+                        'Fields: session_id, session_file_path, environment, statistics, etc.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
                 ),
               ],
