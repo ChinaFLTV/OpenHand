@@ -48,6 +48,8 @@ class HookEntryResult {
     required this.elapsedMs,
     this.stdout = '',
     this.stderr = '',
+    this.stdoutFile,
+    this.stderrFile,
     this.scriptPath,
     this.scriptContent,
   });
@@ -60,6 +62,12 @@ class HookEntryResult {
   final int elapsedMs;
   final String stdout;
   final String stderr;
+
+  /// Path to file containing the full (non-truncated) stdout, if truncated.
+  final String? stdoutFile;
+
+  /// Path to file containing the full (non-truncated) stderr, if truncated.
+  final String? stderrFile;
   final String? scriptPath;
   final String? scriptContent;
 }
@@ -128,6 +136,8 @@ class HooksExecutor {
             elapsedMs: stopwatch.elapsedMilliseconds,
             stdout: result.stdout,
             stderr: result.stderr,
+            stdoutFile: result.stdoutFile,
+            stderrFile: result.stderrFile,
             scriptPath: hook.scriptPath,
             scriptContent: hook.scriptContent,
           ));
@@ -145,6 +155,8 @@ class HooksExecutor {
             elapsedMs: stopwatch.elapsedMilliseconds,
             stdout: result.stdout,
             stderr: result.stderr,
+            stdoutFile: result.stdoutFile,
+            stderrFile: result.stderrFile,
             scriptPath: hook.scriptPath,
             scriptContent: hook.scriptContent,
           ));
@@ -163,6 +175,8 @@ class HooksExecutor {
             elapsedMs: stopwatch.elapsedMilliseconds,
             stdout: result.stdout,
             stderr: result.stderr,
+            stdoutFile: result.stdoutFile,
+            stderrFile: result.stderrFile,
             scriptPath: hook.scriptPath,
             scriptContent: hook.scriptContent,
           ));
@@ -176,6 +190,8 @@ class HooksExecutor {
           elapsedMs: stopwatch.elapsedMilliseconds,
           stdout: result.stdout,
           stderr: result.stderr,
+          stdoutFile: result.stdoutFile,
+          stderrFile: result.stderrFile,
           scriptPath: hook.scriptPath,
           scriptContent: hook.scriptContent,
         ));
@@ -265,8 +281,8 @@ class HooksExecutor {
         environment: environment,
       );
 
-      final stdoutFuture = _collectTruncated(process.stdout);
-      final stderrFuture = _collectTruncated(process.stderr);
+      final stdoutFuture = _collectOutput(process.stdout);
+      final stderrFuture = _collectOutput(process.stderr);
 
       // Also write to stdin for scripts that prefer reading from pipe.
       try {
@@ -280,13 +296,39 @@ class HooksExecutor {
         }
       }
 
+      // Resolve collected output.
+      final stdoutOutput = await stdoutFuture;
+      final stderrOutput = await stderrFuture;
+
+      // Save full output to files when truncated.
+      String? stdoutFile;
+      String? stderrFile;
+      if (stdoutOutput.wasTruncated && stdoutOutput.fullText != null) {
+        stdoutFile = await _saveFullOutputFile(
+          content: stdoutOutput.fullText!,
+          sessionId: sessionId,
+          hookLabel: hook.label,
+          suffix: 'stdout.txt',
+        );
+      }
+      if (stderrOutput.wasTruncated && stderrOutput.fullText != null) {
+        stderrFile = await _saveFullOutputFile(
+          content: stderrOutput.fullText!,
+          sessionId: sessionId,
+          hookLabel: hook.label,
+          suffix: 'stderr.txt',
+        );
+      }
+
       try {
         final exitCode = await process.exitCode.timeout(timeout);
         return _HookScriptResult(
           exitCode: exitCode,
-          stdout: await stdoutFuture,
-          stderr: await stderrFuture,
+          stdout: stdoutOutput.text,
+          stderr: stderrOutput.text,
           timedOut: false,
+          stdoutFile: stdoutFile,
+          stderrFile: stderrFile,
         );
       } on TimeoutException {
         process.kill(ProcessSignal.sigkill);
@@ -297,9 +339,11 @@ class HooksExecutor {
         }
         return _HookScriptResult(
           exitCode: null,
-          stdout: await stdoutFuture,
-          stderr: await stderrFuture,
+          stdout: stdoutOutput.text,
+          stderr: stderrOutput.text,
           timedOut: true,
+          stdoutFile: stdoutFile,
+          stderrFile: stderrFile,
         );
       }
     } finally {
@@ -377,11 +421,13 @@ class HooksExecutor {
     );
   }
 
-  Future<String> _collectTruncated(Stream<List<int>> stream) async {
-    final buffer = StringBuffer();
+  Future<_CollectedOutput> _collectOutput(Stream<List<int>> stream) async {
+    final truncatedBuffer = StringBuffer();
+    final fullBuffer = StringBuffer();
     var collected = 0;
     var truncated = false;
     await for (final chunk in stream.transform(utf8.decoder)) {
+      fullBuffer.write(chunk);
       if (truncated) continue;
       final remaining = _maxHookOutputCharacters - collected;
       if (remaining <= 0) {
@@ -389,17 +435,56 @@ class HooksExecutor {
         continue;
       }
       if (chunk.length <= remaining) {
-        buffer.write(chunk);
+        truncatedBuffer.write(chunk);
         collected += chunk.length;
       } else {
-        buffer.write(chunk.substring(0, remaining));
+        truncatedBuffer.write(chunk.substring(0, remaining));
         collected += remaining;
         truncated = true;
       }
     }
-    final text = buffer.toString().trim();
-    if (!truncated) return text;
-    return text.isEmpty ? '...[truncated]' : '$text\n...[truncated]';
+    final fullText = fullBuffer.toString().trim();
+    if (!truncated) {
+      return _CollectedOutput(text: fullText, wasTruncated: false);
+    }
+    final truncatedText = truncatedBuffer.toString().trim();
+    final displayText = truncatedText.isEmpty
+        ? '...[truncated]'
+        : '$truncatedText\n...[truncated]';
+    return _CollectedOutput(
+      text: displayText,
+      fullText: fullText,
+      wasTruncated: true,
+    );
+  }
+
+  /// Save [content] to a file in the hooks tmp directory and return the path.
+  /// Returns `null` if the write fails.
+  Future<String?> _saveFullOutputFile({
+    required String content,
+    required String sessionId,
+    required String hookLabel,
+    required String suffix,
+  }) async {
+    try {
+      final tmpDir = Directory(
+        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+      );
+      await tmpDir.create(recursive: true);
+      final safeName = hookLabel
+          .replaceAll(RegExp(r'[^\w\-]'), '_')
+          .toLowerCase()
+          .substring(0, hookLabel.length.clamp(0, 32));
+      final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
+      final ts = DateTime.now().microsecondsSinceEpoch;
+      final file = File(
+        p.join(tmpDir.path, 'output-$safeSessionId-$safeName-$ts.$suffix'),
+      );
+      await file.writeAsString(content, flush: true);
+      return file.path;
+    } catch (_) {
+      return null;
+    }
   }
 }
 
@@ -409,12 +494,20 @@ class _HookScriptResult {
     required this.stdout,
     required this.stderr,
     required this.timedOut,
+    this.stdoutFile,
+    this.stderrFile,
   });
 
   final int? exitCode;
   final String stdout;
   final String stderr;
   final bool timedOut;
+
+  /// Path to file containing full stdout when it was truncated.
+  final String? stdoutFile;
+
+  /// Path to file containing full stderr when it was truncated.
+  final String? stderrFile;
 }
 
 class _ShellCommand {
@@ -422,4 +515,20 @@ class _ShellCommand {
 
   final String executable;
   final List<String> arguments;
+}
+
+class _CollectedOutput {
+  const _CollectedOutput({
+    required this.text,
+    this.fullText,
+    this.wasTruncated = false,
+  });
+
+  /// Display text (truncated if necessary).
+  final String text;
+
+  /// Full text when truncation occurred; `null` if not truncated.
+  final String? fullText;
+
+  final bool wasTruncated;
 }

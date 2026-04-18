@@ -133,6 +133,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   content: toolCall.formattedStdout,
                   theme: theme,
                   selectable: widget.selectable,
+                  fullContentFile: toolCall.stdoutFile,
                 ),
               if (toolCall.stderr.isNotEmpty) ...[
                 if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
@@ -142,6 +143,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   theme: theme,
                   isError: true,
                   selectable: widget.selectable,
+                  fullContentFile: toolCall.stderrFile,
                 ),
               ],
               if (toolCall.showResultText) ...[
@@ -301,6 +303,7 @@ class _ToolOutputPanel extends StatefulWidget {
     required this.theme,
     required this.selectable,
     this.isError = false,
+    this.fullContentFile,
   });
 
   final String label;
@@ -308,6 +311,9 @@ class _ToolOutputPanel extends StatefulWidget {
   final ThemeData theme;
   final bool selectable;
   final bool isError;
+
+  /// Optional file path containing full (non-truncated) content.
+  final String? fullContentFile;
 
   @override
   State<_ToolOutputPanel> createState() => _ToolOutputPanelState();
@@ -329,6 +335,18 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
     setState(() {
       _isWrapped = !_isWrapped;
     });
+  }
+
+  void _showFullContentDialog(BuildContext context) {
+    showAnimatedDialog(
+      context: context,
+      builder: (_) => _ToolContentFullDialog(
+        label: widget.label,
+        content: widget.content,
+        isError: widget.isError,
+        fullContentFile: widget.fullContentFile,
+      ),
+    );
   }
 
   @override
@@ -419,6 +437,33 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       ),
                     ),
                   ),
+                  if (_isExpanded) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => _showFullContentDialog(context),
+                      icon: const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 14,
+                      ),
+                      label: Text(
+                        _localizedText(
+                          context,
+                          zh: '在弹窗里查看完整内容',
+                          en: 'View in Dialog',
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        minimumSize: const Size(0, 28),
+                        foregroundColor:
+                            widget.theme.colorScheme.tertiary,
+                        textStyle:
+                            widget.theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -438,6 +483,305 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
         ),
       ],
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _ToolContentFullDialog — full-screen dialog showing complete tool output
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ToolContentFullDialog extends StatefulWidget {
+  const _ToolContentFullDialog({
+    required this.label,
+    required this.content,
+    this.isError = false,
+    this.fullContentFile,
+  });
+
+  final String label;
+  final _FormattedToolContent content;
+  final bool isError;
+
+  /// Optional file path containing the full (non-truncated) output.
+  final String? fullContentFile;
+
+  @override
+  State<_ToolContentFullDialog> createState() =>
+      _ToolContentFullDialogState();
+}
+
+class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
+  bool _wrapLines = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final screenSize = MediaQuery.sizeOf(context);
+
+    return Dialog(
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(24)),
+      ),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: math.min(screenSize.width - 48, 960),
+          maxHeight: screenSize.height - 80,
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(24)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Header ──
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 16, 8, 16),
+                color: colorScheme.surfaceContainerLow,
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.isError
+                          ? Icons.error_outline_rounded
+                          : Icons.code_rounded,
+                      color: widget.isError
+                          ? colorScheme.error
+                          : colorScheme.primary,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.label,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: widget.isError
+                              ? colorScheme.error
+                              : colorScheme.onSurface,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _wrapLines = !_wrapLines;
+                        });
+                      },
+                      icon: Icon(
+                        _wrapLines
+                            ? Icons.wrap_text_rounded
+                            : Icons.segment_rounded,
+                        size: 16,
+                      ),
+                      label: Text(
+                        isZh
+                            ? (_wrapLines ? '取消换行' : '自动换行')
+                            : (_wrapLines ? 'Unwrap' : 'Wrap'),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                        textStyle: theme.textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                      tooltip: isZh ? '关闭' : 'Close',
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Body ──
+              Expanded(
+                child: _ToolContentFullDialogBody(
+                  content: widget.content,
+                  isError: widget.isError,
+                  wrapLines: _wrapLines,
+                  fullContentFile: widget.fullContentFile,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders full content inside the dialog. When [fullContentFile] is provided,
+/// reads the file to get non-truncated content. Falls back to in-memory
+/// [content] on any error. Handles empty, loading, and render-failure states.
+class _ToolContentFullDialogBody extends StatefulWidget {
+  const _ToolContentFullDialogBody({
+    required this.content,
+    required this.isError,
+    required this.wrapLines,
+    this.fullContentFile,
+  });
+
+  final _FormattedToolContent content;
+  final bool isError;
+  final bool wrapLines;
+  final String? fullContentFile;
+
+  @override
+  State<_ToolContentFullDialogBody> createState() =>
+      _ToolContentFullDialogBodyState();
+}
+
+class _ToolContentFullDialogBodyState
+    extends State<_ToolContentFullDialogBody> {
+  bool _renderFailed = false;
+  bool _loadingFile = false;
+  _FormattedToolContent? _fileContent;
+  bool _fileLoadAttempted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tryLoadFullContent();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToolContentFullDialogBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fullContentFile != widget.fullContentFile) {
+      _fileLoadAttempted = false;
+      _fileContent = null;
+      _tryLoadFullContent();
+    }
+  }
+
+  Future<void> _tryLoadFullContent() async {
+    final filePath = widget.fullContentFile;
+    if (filePath == null || filePath.isEmpty) return;
+    if (_fileLoadAttempted) return;
+    _fileLoadAttempted = true;
+    setState(() => _loadingFile = true);
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        final raw = await file.readAsString();
+        if (!mounted) return;
+        final formatted = _formatToolContent(raw);
+        setState(() {
+          _fileContent = formatted;
+          _loadingFile = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() => _loadingFile = false);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingFile = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final effectiveContent = _fileContent ?? widget.content;
+    final text = effectiveContent.text;
+
+    if (_loadingFile) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (text.trim().isEmpty) {
+      return Center(
+        child: Text(
+          _localizedText(context, zh: '内容为空', en: 'Empty content'),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    if (_renderFailed) {
+      // Graceful fallback: plain selectable text when highlighted panel fails.
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: SelectableText(
+          text,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: 'monospace',
+            height: 1.5,
+            color: widget.isError
+                ? colorScheme.onErrorContainer
+                : colorScheme.onSurface,
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: _ToolContentSafeRender(
+        onRenderError: () {
+          if (mounted) {
+            // Schedule setState for next frame to avoid build-phase conflicts.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _renderFailed = true);
+            });
+          }
+        },
+        child: _HighlightedCodePanel(
+          content: text,
+          theme: theme,
+          language: effectiveContent.language,
+          selectable: true,
+          baseColor: widget.isError
+              ? colorScheme.onErrorContainer
+              : colorScheme.onSurface,
+          accentColor: widget.isError ? colorScheme.error : null,
+          wrapLines: widget.wrapLines,
+        ),
+      ),
+    );
+  }
+}
+
+/// Error boundary widget: catches render errors in child and calls [onRenderError].
+class _ToolContentSafeRender extends StatefulWidget {
+  const _ToolContentSafeRender({
+    required this.child,
+    required this.onRenderError,
+  });
+
+  final Widget child;
+  final VoidCallback onRenderError;
+
+  @override
+  State<_ToolContentSafeRender> createState() =>
+      _ToolContentSafeRenderState();
+}
+
+class _ToolContentSafeRenderState extends State<_ToolContentSafeRender> {
+  bool _hasError = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return const SizedBox.shrink();
+    }
+    return widget.child;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _hasError = false;
   }
 }
 
@@ -956,6 +1300,8 @@ class _ToolCallViewData {
     required this.statusLabel,
     required this.outcomeLabel,
     required this.resultPreview,
+    this.stdoutFile,
+    this.stderrFile,
   });
 
   factory _ToolCallViewData.from(
@@ -1007,6 +1353,10 @@ class _ToolCallViewData {
         resultText.isNotEmpty ||
         exitCode != null ||
         status.isNotEmpty;
+    final stdoutFile =
+        '${message.metadata['tool_execution_stdout_file'] ?? ''}'.trim();
+    final stderrFile =
+        '${message.metadata['tool_execution_stderr_file'] ?? ''}'.trim();
     final viewData = _ToolCallViewData(
       presentation: presentation,
       status: status,
@@ -1026,6 +1376,8 @@ class _ToolCallViewData {
       defaultExpanded: _shouldDefaultExpandToolStatus(status),
       showResultText: showResultText,
       hasResultContent: hasResultContent,
+      stdoutFile: stdoutFile.isNotEmpty ? stdoutFile : null,
+      stderrFile: stderrFile.isNotEmpty ? stderrFile : null,
       shouldSweepBadge: _shouldSweepToolStatus(status),
       statusIcon: _toolExecutionStatusIcon(status),
       primaryChipLabel: presentation.displayName == presentation.categoryLabel
@@ -1073,6 +1425,12 @@ class _ToolCallViewData {
   final String statusLabel;
   final String outcomeLabel;
   final String resultPreview;
+
+  /// File path containing full stdout when it was truncated at collection time.
+  final String? stdoutFile;
+
+  /// File path containing full stderr when it was truncated at collection time.
+  final String? stderrFile;
 }
 
 String _toolCallName(AiSessionMessage message) =>

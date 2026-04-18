@@ -5303,6 +5303,10 @@ class AiSessionController extends ChangeNotifier {
             'tool_execution_elapsed_ms': hookResult.elapsedMs,
             'tool_execution_stdout': hookResult.stdout,
             'tool_execution_stderr': hookResult.stderr,
+            if (hookResult.stdoutFile != null)
+              'tool_execution_stdout_file': hookResult.stdoutFile,
+            if (hookResult.stderrFile != null)
+              'tool_execution_stderr_file': hookResult.stderrFile,
             'tool_arguments': '\$ ${toolInput.trim()}',
           },
         ),
