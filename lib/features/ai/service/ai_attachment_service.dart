@@ -502,7 +502,14 @@ class AiAttachmentService {
       final latin = latin1.decode(bytes, allowInvalid: true);
       final buffer = StringBuffer();
       final textMatchPattern = RegExp(r'\(([^()]{2,})\)\s*Tj');
+      var matchCount = 0;
       for (final match in textMatchPattern.allMatches(latin)) {
+        matchCount += 1;
+        // Limit the number of regex matches to prevent excessive memory
+        // usage on maliciously crafted PDFs with thousands of text spans.
+        if (matchCount > 10000) {
+          break;
+        }
         final text = _decodePdfString(match.group(1) ?? '');
         if (text.isEmpty) {
           continue;
@@ -811,6 +818,12 @@ class _ZipArchiveReader {
   final ByteData _data;
   Map<String, _ZipEntry>? _entries;
 
+  /// Cumulative limit for total decompressed bytes across all entries to
+  /// prevent zip-bomb attacks where many small entries decompress to a
+  /// very large total size.
+  static const int _maxCumulativeDecompressedBytes = 32 * 1024 * 1024;
+  int _cumulativeDecompressedBytes = 0;
+
   String? readUtf8(String name) {
     final entry = _entryFor(name);
     if (entry == null) {
@@ -877,6 +890,11 @@ class _ZipArchiveReader {
         entry.uncompressedSize > maxEntryBytes) {
       return null;
     }
+    // Check cumulative decompressed size to prevent zip-bomb attacks.
+    if (_cumulativeDecompressedBytes + entry.uncompressedSize >
+        _maxCumulativeDecompressedBytes) {
+      return null;
+    }
     final localHeaderOffset = entry.localHeaderOffset;
     if (_readUint32(localHeaderOffset) != 0x04034b50) {
       return null;
@@ -891,6 +909,7 @@ class _ZipArchiveReader {
     }
     final payload = bytes.sublist(dataOffset, dataEnd);
     if (entry.compressionMethod == 0) {
+      _cumulativeDecompressedBytes += payload.length;
       return Uint8List.fromList(payload);
     }
     if (entry.compressionMethod == 8) {
@@ -899,6 +918,7 @@ class _ZipArchiveReader {
         if (decoded.length > maxEntryBytes) {
           return null;
         }
+        _cumulativeDecompressedBytes += decoded.length;
         return Uint8List.fromList(decoded);
       } on Object {
         return null;

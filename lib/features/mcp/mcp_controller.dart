@@ -80,7 +80,11 @@ class McpController extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _healthCheckTimer?.cancel();
-    _toolDiscoveryService.dispose();
+    try {
+      _toolDiscoveryService.dispose();
+    } catch (_) {
+      // Best-effort cleanup; super.dispose() must still be called.
+    }
     super.dispose();
   }
 

@@ -115,10 +115,23 @@ class AiDeleteFileTool extends AiTool {
     // Block home directory itself
     final home = Platform.environment['HOME'] ?? '';
     if (home.isNotEmpty && normalized == home) return true;
-    // Block critical system directories
-    const criticalPrefixes = <String>['/System', '/usr', '/bin', '/sbin', '/etc'];
+    // Block critical system directories and OS-managed locations
+    const criticalPrefixes = <String>[
+      '/System',
+      '/usr',
+      '/bin',
+      '/sbin',
+      '/etc',
+      '/var',
+      '/Library',
+      '/Volumes',
+      r'C:\Windows',
+      r'C:\Program Files',
+      r'C:\Program Files (x86)',
+    ];
+    final normalizedLower = normalized.toLowerCase();
     for (final prefix in criticalPrefixes) {
-      if (normalized.startsWith(prefix)) return true;
+      if (normalizedLower.startsWith(prefix.toLowerCase())) return true;
     }
     return false;
   }

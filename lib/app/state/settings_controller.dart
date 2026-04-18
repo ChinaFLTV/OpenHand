@@ -876,33 +876,45 @@ class SettingsController extends ChangeNotifier {
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
     final completer = Completer<bool>();
     _mutationQueue = _mutationQueue.catchError((_) {}).then((_) async {
-      final previousSnapshot = _snapshot();
-      final disposition = mutation();
-      if (disposition == _MutationDisposition.successNoChange) {
-        completer.complete(true);
-        return;
-      }
-      if (disposition == _MutationDisposition.reject) {
-        completer.complete(false);
-        return;
-      }
-      notifyListeners();
       try {
-        await _store.save(_snapshot());
-        if (_persistenceIssue != null) {
-          _persistenceIssue = null;
-          notifyListeners();
+        final previousSnapshot = _snapshot();
+        final disposition = mutation();
+        if (disposition == _MutationDisposition.successNoChange) {
+          completer.complete(true);
+          return;
         }
-        completer.complete(true);
-      } catch (error) {
-        _applySnapshot(previousSnapshot);
-        _persistenceIssue = SettingsPersistenceIssue(
-          kind: SettingsPersistenceIssueKind.saveFailed,
-          filePath: _store.settingsFilePath,
-          detail: '$error',
-        );
+        if (disposition == _MutationDisposition.reject) {
+          completer.complete(false);
+          return;
+        }
         notifyListeners();
-        completer.complete(false);
+        try {
+          await _store.save(_snapshot());
+          if (_persistenceIssue != null) {
+            _persistenceIssue = null;
+            notifyListeners();
+          }
+          completer.complete(true);
+        } catch (error) {
+          try {
+            _applySnapshot(previousSnapshot);
+          } catch (_) {
+            // Rollback itself failed – snapshot is inconsistent but we must
+            // still complete the completer to avoid hanging the queue.
+          }
+          _persistenceIssue = SettingsPersistenceIssue(
+            kind: SettingsPersistenceIssueKind.saveFailed,
+            filePath: _store.settingsFilePath,
+            detail: '$error',
+          );
+          notifyListeners();
+          completer.complete(false);
+        }
+      } catch (error) {
+        // mutation() itself threw – complete with false to unblock callers.
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
       }
     });
     return completer.future;

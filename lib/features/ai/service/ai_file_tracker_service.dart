@@ -55,8 +55,11 @@ class AiFileTrackerService {
     final stat = await file.stat();
     final currentModTime = stat.modified;
     
-    // 如果当前 modTime > lastReadTime，说明文件在读取后被修改过
-    if (currentModTime.isAfter(lastReadTime)) {
+    // If the current modTime is after the lastReadTime, the file was modified
+    // externally.  We apply a small tolerance (2 seconds) because some file
+    // systems (e.g. FAT32, HFS+) have limited timestamp resolution and the
+    // modTime written back by our own atomic write may round differently.
+    if (currentModTime.isAfter(lastReadTime.add(const Duration(seconds: 2)))) {
       final timeDiff = currentModTime.difference(lastReadTime);
       return 'File was modified externally after last read (${_formatDuration(timeDiff)} ago). '
              'Re-read the file before editing to avoid overwriting external changes: $filePath';

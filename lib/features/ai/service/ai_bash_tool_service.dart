@@ -983,8 +983,11 @@ class AiBashToolService {
     final buffer = StringBuffer()
       ..writeln('echo __OPENHAND_CMD_START__$markerToken');
     if (workingDirectory.trim().isNotEmpty) {
+      // Double-quote the path to prevent injection via shell metacharacters
+      // (&, |, etc.) that may appear in directory names.
+      final escapedWorkDir = workingDirectory.replaceAll('"', '""');
       buffer
-        ..writeln('cd /d "$workingDirectory" && (')
+        ..writeln('cd /d "$escapedWorkDir" && (')
         ..writeln(command)
         ..writeln(')')
         ..writeln('set __OPENHAND_EXIT_CODE=%errorlevel%');
@@ -1037,7 +1040,19 @@ class AiBashToolService {
     // a temp script file.  The single-quoted heredoc tag ensures the shell
     // performs zero expansion on the script body, preserving all special
     // characters, quotes, variables, and glob patterns literally.
-    final heredocTag = '__OPENHAND_SCRIPT_${markerToken}__';
+    //
+    // To prevent heredoc injection (where the command body itself contains
+    // the heredoc delimiter), we generate a unique tag that is guaranteed
+    // not to appear in the command.  If by some chance the base tag exists
+    // in the command, we append an incrementing suffix until a collision-
+    // free tag is found.
+    var heredocTag = '__OPENHAND_SCRIPT_${markerToken}__';
+    var tagSuffix = 0;
+    while (command.contains(heredocTag)) {
+      tagSuffix += 1;
+      heredocTag = '__OPENHAND_SCRIPT_${markerToken}_$tagSuffix'
+          '__';
+    }
     final tmpScriptPath = '/tmp/.openhand_cmd_$markerToken.sh';
     buffer
       ..writeln('cat > ${_quoteShellString(tmpScriptPath)} << ${_quoteShellString(heredocTag)}')

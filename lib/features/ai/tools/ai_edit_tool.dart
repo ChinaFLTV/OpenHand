@@ -108,6 +108,16 @@ class AiEditTool extends AiTool {
         'This may indicate a write permission issue or concurrent modification.',
       );
     }
+    // Also verify that oldString was fully replaced (should not remain if
+    // oldString != newString and replaceAll was requested, or for single
+    // replacement the match count should have decreased by one).
+    if (oldString != newString && replaceAll && verificationContent.contains(oldString)) {
+      return AiToolUtils.invalidResult(
+        'Edit',
+        'File was written but verification failed: old_string still found in file after replace-all. '
+        'This may indicate a concurrent modification.',
+      );
+    }
     
     final replacementCount = replaceAll ? matchCount : 1;
     final outputMessage = replaceAll

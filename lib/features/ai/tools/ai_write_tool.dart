@@ -25,6 +25,20 @@ class AiWriteTool extends AiTool {
     // than hard-rejecting them — models sometimes omit the leading '/'.
     final filePath = AiToolUtils.resolvePath(rawFilePath);
     final content = '${args['content'] ?? ''}';
+
+    // Guard against excessively large writes that could exhaust memory or
+    // disk space.  10 MB is a generous limit for any single text file an AI
+    // model would reasonably produce.
+    const maxContentBytes = 10 * 1024 * 1024; // 10 MB
+    if (content.length > maxContentBytes) {
+      return AiToolUtils.invalidResult(
+        'Write',
+        'Content exceeds the maximum allowed size '
+        '(${content.length} chars, limit $maxContentBytes). '
+        'Split the output into smaller files.',
+      );
+    }
+
     final file = File(filePath);
     final fileExists = await file.exists();
     
