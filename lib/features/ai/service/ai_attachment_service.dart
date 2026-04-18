@@ -19,8 +19,12 @@ class AiAttachmentException implements Exception {
 }
 
 class AiAttachmentService {
-  AiAttachmentService({required String attachmentsDirectoryPath})
-    : _attachmentsDirectoryPath = attachmentsDirectoryPath;
+  AiAttachmentService({
+    required String attachmentsDirectoryPath,
+    String Function(String sessionId)? perSessionAttachmentsDirectoryPath,
+  }) : _attachmentsDirectoryPath = attachmentsDirectoryPath,
+       _perSessionAttachmentsDirectoryPath =
+           perSessionAttachmentsDirectoryPath;
 
   static const int maxAttachmentPromptCharactersPerFile = 8000;
   static const int maxAttachmentPromptCharactersPerMessage = 32000;
@@ -34,8 +38,27 @@ class AiAttachmentService {
   static const int _maxPdfRawBytes = 2 * 1024 * 1024;
 
   final String _attachmentsDirectoryPath;
+  final String Function(String sessionId)? _perSessionAttachmentsDirectoryPath;
 
   String get attachmentsDirectoryPath => _attachmentsDirectoryPath;
+
+  /// Resolves the directory where new attachments for [sessionId] should be
+  /// written. Returns the per-session directory when a resolver was provided
+  /// at construction time (modern layout:
+  /// `~/.openhand/sessions/{sessionId}/attachments/{messageId}-{attachmentId}.{ext}`),
+  /// otherwise falls back to the legacy per-message subdirectory layout.
+  String _resolveTargetDirectoryPath({
+    required String sessionId,
+    required String messageId,
+  }) {
+    final resolver = _perSessionAttachmentsDirectoryPath;
+    if (resolver != null) {
+      return resolver(sessionId);
+    }
+    return p.join(_attachmentsDirectoryPath, sessionId, messageId);
+  }
+
+  bool get _useModernLayout => _perSessionAttachmentsDirectoryPath != null;
 
   Future<void> deleteMessageAttachments({
     required String sessionId,
@@ -49,6 +72,31 @@ class AiAttachmentService {
       messageId,
       label: 'message id',
     );
+    if (_useModernLayout) {
+      // Modern layout: files live as siblings under `{sessionId}/attachments/`
+      // and are prefixed by `{messageId}-`. Delete only the matching files.
+      final sessionDirPath = _resolveTargetDirectoryPath(
+        sessionId: normalizedSessionId,
+        messageId: normalizedMessageId,
+      );
+      final sessionDir = Directory(sessionDirPath);
+      if (await sessionDir.exists()) {
+        final prefix = '$normalizedMessageId-';
+        await for (final entity in sessionDir.list(followLinks: false)) {
+          if (entity is! File) {
+            continue;
+          }
+          final basename = p.basename(entity.path);
+          if (basename.startsWith(prefix)) {
+            try {
+              await entity.delete();
+            } catch (_) {}
+          }
+        }
+        await _maybeDeleteIfEmpty(sessionDir);
+      }
+      return;
+    }
     final directory = Directory(
       p.join(
         _attachmentsDirectoryPath,
@@ -59,11 +107,21 @@ class AiAttachmentService {
     await _deleteDirectoryIfExists(directory);
   }
 
+  Future<void> _maybeDeleteIfEmpty(Directory directory) async {
+    try {
+      final entries = await directory.list(followLinks: false).take(1).toList();
+      if (entries.isEmpty) {
+        await directory.delete();
+      }
+    } catch (_) {}
+  }
+
   Future<List<AiMessageAttachment>> importAttachments({
     required String sessionId,
     required String messageId,
     required List<String> filePaths,
     required String Function() idGenerator,
+    int? imageSizeLimitBytes,
   }) async {
     final normalizedSessionId = _requireSafeStorageIdentifier(
       sessionId,
@@ -82,16 +140,16 @@ class AiAttachmentService {
       );
     }
     final targetDirectory = Directory(
-      p.join(
-        _attachmentsDirectoryPath,
-        normalizedSessionId,
-        normalizedMessageId,
+      _resolveTargetDirectoryPath(
+        sessionId: normalizedSessionId,
+        messageId: normalizedMessageId,
       ),
     );
     if (!await targetDirectory.exists()) {
       await targetDirectory.create(recursive: true);
     }
     final attachments = <AiMessageAttachment>[];
+    final createdFiles = <File>[];
     var remainingPromptBudget = maxAttachmentPromptCharactersPerMessage;
     try {
       for (var index = 0; index < filePaths.length; index++) {
@@ -135,17 +193,33 @@ class AiAttachmentService {
           sourceFile: sourceFile,
           targetDirectory: targetDirectory,
           sequence: index + 1,
+          messageId: normalizedMessageId,
           idGenerator: idGenerator,
           promptCharacterLimit: filePromptBudget,
+          imageSizeLimitBytes: imageSizeLimitBytes,
         );
         attachments.add(attachment);
+        createdFiles.add(File(attachment.storagePath));
         remainingPromptBudget = math.max(
           0,
           remainingPromptBudget - attachment.promptText.length,
         );
       }
     } on Object {
-      await _deleteDirectoryIfExists(targetDirectory);
+      if (_useModernLayout) {
+        // Only delete the files we just created; do not nuke the entire
+        // per-session directory which may hold attachments from sibling
+        // messages.
+        for (final file in createdFiles) {
+          try {
+            if (await file.exists()) {
+              await file.delete();
+            }
+          } catch (_) {}
+        }
+      } else {
+        await _deleteDirectoryIfExists(targetDirectory);
+      }
       rethrow;
     }
     return attachments;
@@ -155,8 +229,10 @@ class AiAttachmentService {
     required File sourceFile,
     required Directory targetDirectory,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int promptCharacterLimit,
+    int? imageSizeLimitBytes,
   }) async {
     final sourcePath = sourceFile.path;
     final stat = await sourceFile.stat();
@@ -171,14 +247,17 @@ class AiAttachmentService {
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
+        messageId: messageId,
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
+        imageSizeLimitBytes: imageSizeLimitBytes,
       ),
       AiAttachmentKind.text => _importTextAttachment(
         sourceFile: sourceFile,
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
+        messageId: messageId,
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
       ),
@@ -187,6 +266,7 @@ class AiAttachmentService {
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
+        messageId: messageId,
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
       ),
@@ -195,6 +275,7 @@ class AiAttachmentService {
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
+        messageId: messageId,
         idGenerator: idGenerator,
         promptCharacterLimit: promptCharacterLimit,
       ),
@@ -203,6 +284,7 @@ class AiAttachmentService {
         targetDirectory: targetDirectory,
         sourceName: normalizedName,
         sequence: sequence,
+        messageId: messageId,
         idGenerator: idGenerator,
         fileSizeBytes: stat.size,
       ),
@@ -216,8 +298,10 @@ class AiAttachmentService {
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int promptCharacterLimit,
+    int? imageSizeLimitBytes,
   }) async {
     final fileStat = await sourceFile.stat();
     if (fileStat.size > _maxImageRawBytes) {
@@ -227,14 +311,16 @@ class AiAttachmentService {
       );
     }
     final extension = p.extension(sourceName).toLowerCase();
+    final originalSize = fileStat.size;
     final sourceBytes = await sourceFile.readAsBytes();
+    final attachmentId = idGenerator();
     final decodedImage = extension == '.svg'
         ? null
         : img.decodeImage(sourceBytes);
     var outputBytes = Uint8List.fromList(sourceBytes);
     var width = decodedImage?.width;
     var height = decodedImage?.height;
-    var targetName = _targetFileName(sequence, sourceName);
+    var outputExtension = extension;
     if (decodedImage != null) {
       final resizedImage = _resizeImageIfNeeded(decodedImage);
       width = resizedImage.width;
@@ -245,9 +331,30 @@ class AiAttachmentService {
         outputBytes = Uint8List.fromList(
           img.encodeJpg(resizedImage, quality: 86),
         );
-        targetName = _replaceExtension(targetName, '.jpg');
+        outputExtension = '.jpg';
+      }
+      // If the user has set a per-image size cap and we still exceed it,
+      // run a second compression pass that progressively lowers JPEG
+      // quality and then halves the dimensions until we fit.
+      if (imageSizeLimitBytes != null &&
+          imageSizeLimitBytes > 0 &&
+          outputBytes.length > imageSizeLimitBytes) {
+        final compressed = _compressImageToLimit(
+          source: resizedImage,
+          limitBytes: imageSizeLimitBytes,
+        );
+        outputBytes = compressed.bytes;
+        width = compressed.width;
+        height = compressed.height;
+        outputExtension = '.jpg';
       }
     }
+    final targetName = _useModernLayout
+        ? '$messageId-$attachmentId$outputExtension'
+        : _replaceExtension(
+            _targetFileName(sequence, sourceName),
+            outputExtension,
+          );
     final targetFile = File(p.join(targetDirectory.path, targetName));
     await targetFile.writeAsBytes(outputBytes, flush: true);
     final summary = StringBuffer()
@@ -258,8 +365,12 @@ class AiAttachmentService {
     }
     summary.write(').');
     final summaryText = summary.toString();
+    final pixelCount = (width != null && height != null) ? width * height : null;
+    final compressionRatio = originalSize > 0
+        ? outputBytes.length / originalSize
+        : null;
     return AiMessageAttachment(
-      id: idGenerator(),
+      id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: AiAttachmentKind.image,
@@ -269,7 +380,45 @@ class AiAttachmentService {
       summaryText: summaryText,
       width: width,
       height: height,
+      originalSourcePath: sourceFile.path,
+      pixelCount: pixelCount,
+      compressionRatio: compressionRatio,
     );
+  }
+
+  /// Compresses [source] into a JPEG that fits within [limitBytes].
+  ///
+  /// First attempts progressively lower JPEG qualities (92 -> 30 in steps of
+  /// 8). If quality alone is insufficient, halves the dimensions and retries
+  /// until the output fits or the image becomes too small to be useful.
+  ({Uint8List bytes, int width, int height}) _compressImageToLimit({
+    required img.Image source,
+    required int limitBytes,
+  }) {
+    img.Image current = source;
+    Uint8List bytes = Uint8List.fromList(img.encodeJpg(current, quality: 92));
+    if (bytes.length <= limitBytes) {
+      return (bytes: bytes, width: current.width, height: current.height);
+    }
+    for (var quality = 84; quality >= 30; quality -= 8) {
+      bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
+      if (bytes.length <= limitBytes) {
+        return (bytes: bytes, width: current.width, height: current.height);
+      }
+    }
+    while (current.width > 256 && current.height > 256) {
+      current = img.copyResize(
+        current,
+        width: (current.width * 0.75).round(),
+      );
+      for (var quality = 80; quality >= 30; quality -= 10) {
+        bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
+        if (bytes.length <= limitBytes) {
+          return (bytes: bytes, width: current.width, height: current.height);
+        }
+      }
+    }
+    return (bytes: bytes, width: current.width, height: current.height);
   }
 
   Future<AiMessageAttachment> _importTextAttachment({
@@ -277,13 +426,20 @@ class AiAttachmentService {
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int promptCharacterLimit,
   }) async {
+    final attachmentId = idGenerator();
     final targetFile = await _copyFile(
       sourceFile: sourceFile,
       targetDirectory: targetDirectory,
-      targetName: _targetFileName(sequence, sourceName),
+      targetName: _composeTargetName(
+        sequence: sequence,
+        sourceName: sourceName,
+        messageId: messageId,
+        attachmentId: attachmentId,
+      ),
     );
     final rawText = await _readTextFile(
       sourceFile,
@@ -296,7 +452,7 @@ class AiAttachmentService {
       characterLimit: promptCharacterLimit,
     );
     return AiMessageAttachment(
-      id: idGenerator(),
+      id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: AiAttachmentKind.text,
@@ -304,6 +460,7 @@ class AiAttachmentService {
       sizeBytes: await targetFile.length(),
       promptText: promptText,
       summaryText: _summaryFromPrompt(promptText),
+      originalSourcePath: sourceFile.path,
     );
   }
 
@@ -312,13 +469,20 @@ class AiAttachmentService {
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int promptCharacterLimit,
   }) async {
+    final attachmentId = idGenerator();
     final targetFile = await _copyFile(
       sourceFile: sourceFile,
       targetDirectory: targetDirectory,
-      targetName: _targetFileName(sequence, sourceName),
+      targetName: _composeTargetName(
+        sequence: sequence,
+        sourceName: sourceName,
+        messageId: messageId,
+        attachmentId: attachmentId,
+      ),
     );
     final extension = p.extension(sourceName).toLowerCase();
     final excerpt = extension == '.xlsx'
@@ -331,7 +495,7 @@ class AiAttachmentService {
       characterLimit: promptCharacterLimit,
     );
     return AiMessageAttachment(
-      id: idGenerator(),
+      id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: AiAttachmentKind.spreadsheet,
@@ -339,6 +503,7 @@ class AiAttachmentService {
       sizeBytes: await targetFile.length(),
       promptText: promptText,
       summaryText: _summaryFromPrompt(promptText),
+      originalSourcePath: sourceFile.path,
     );
   }
 
@@ -347,13 +512,20 @@ class AiAttachmentService {
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int promptCharacterLimit,
   }) async {
+    final attachmentId = idGenerator();
     final targetFile = await _copyFile(
       sourceFile: sourceFile,
       targetDirectory: targetDirectory,
-      targetName: _targetFileName(sequence, sourceName),
+      targetName: _composeTargetName(
+        sequence: sequence,
+        sourceName: sourceName,
+        messageId: messageId,
+        attachmentId: attachmentId,
+      ),
     );
     final excerpt = await _readPdfPreview(sourceFile, promptCharacterLimit);
     final promptText = _buildDocumentPromptText(
@@ -363,7 +535,7 @@ class AiAttachmentService {
       characterLimit: promptCharacterLimit,
     );
     return AiMessageAttachment(
-      id: idGenerator(),
+      id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: AiAttachmentKind.pdf,
@@ -371,6 +543,7 @@ class AiAttachmentService {
       sizeBytes: await targetFile.length(),
       promptText: promptText,
       summaryText: _summaryFromPrompt(promptText),
+      originalSourcePath: sourceFile.path,
     );
   }
 
@@ -379,18 +552,25 @@ class AiAttachmentService {
     required Directory targetDirectory,
     required String sourceName,
     required int sequence,
+    required String messageId,
     required String Function() idGenerator,
     required int fileSizeBytes,
   }) async {
+    final attachmentId = idGenerator();
     final targetFile = await _copyFile(
       sourceFile: sourceFile,
       targetDirectory: targetDirectory,
-      targetName: _targetFileName(sequence, sourceName),
+      targetName: _composeTargetName(
+        sequence: sequence,
+        sourceName: sourceName,
+        messageId: messageId,
+        attachmentId: attachmentId,
+      ),
     );
     final summaryText =
         'Binary attachment: $sourceName (${aiFormatBytes(fileSizeBytes)}). No structured preview is available in this runtime.';
     return AiMessageAttachment(
-      id: idGenerator(),
+      id: attachmentId,
       name: sourceName,
       storagePath: targetFile.path,
       kind: AiAttachmentKind.binary,
@@ -398,7 +578,24 @@ class AiAttachmentService {
       sizeBytes: await targetFile.length(),
       promptText: summaryText,
       summaryText: summaryText,
+      originalSourcePath: sourceFile.path,
     );
+  }
+
+  /// Builds the on-disk filename for a non-image attachment, preferring the
+  /// modern `<messageId>-<attachmentId>.<ext>` naming when a per-session
+  /// directory resolver was wired up.
+  String _composeTargetName({
+    required int sequence,
+    required String sourceName,
+    required String messageId,
+    required String attachmentId,
+  }) {
+    if (_useModernLayout) {
+      final ext = p.extension(sourceName);
+      return '$messageId-$attachmentId$ext';
+    }
+    return _targetFileName(sequence, sourceName);
   }
 
   img.Image _resizeImageIfNeeded(img.Image source) {

@@ -33,6 +33,7 @@ class AppSettingsSnapshot {
           defaultAiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
+      aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
@@ -62,6 +63,7 @@ class AppSettingsSnapshot {
     required this.aiMessageCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
+    required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
@@ -77,6 +79,16 @@ class AppSettingsSnapshot {
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   static const int defaultAiSingleRoundToolCallLimit = 40;
   static const int defaultAiSequentialToolRoundLimit = 24;
+  /// Default per-image attachment size cap (1 MiB).
+  ///
+  /// When a user attaches an image larger than this threshold, the attachment
+  /// pipeline downscales it before the editor opens so that storage, prompt
+  /// payload and clipboard handoff remain bounded.
+  static const int defaultAiImageSizeLimitBytes = 1024 * 1024;
+  /// Hard floor to prevent users from saving an unusable threshold.
+  static const int minAiImageSizeLimitBytes = 64 * 1024;
+  /// Hard ceiling so a misconfigured value cannot blow up memory at runtime.
+  static const int maxAiImageSizeLimitBytes = 64 * 1024 * 1024;
 
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
@@ -94,6 +106,7 @@ class AppSettingsSnapshot {
   final int aiMessageCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
+  final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
@@ -122,6 +135,7 @@ class AppSettingsSnapshot {
     int? aiMessageCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
+    int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
@@ -156,6 +170,8 @@ class AppSettingsSnapshot {
           aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit:
           aiSequentialToolRoundLimit ?? this.aiSequentialToolRoundLimit,
+      aiImageSizeLimitBytes:
+          aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:
           aiWriteCommandConfirmationEnabled ??
           this.aiWriteCommandConfirmationEnabled,

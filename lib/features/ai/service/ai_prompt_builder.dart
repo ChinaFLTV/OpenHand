@@ -101,6 +101,7 @@ class AiPromptBuilder {
             model: model,
             content:
                 '# [6] Your latest message\n\n${_promptContentForMessage(latestUserMessage)}',
+            isLatestUserMessage: true,
           );
     final todoReminder = _buildTodoWriteReminder(
       session: session,
@@ -963,11 +964,17 @@ class AiPromptBuilder {
     required AiSession session,
     required AiModelConfig model,
     required String content,
+    bool isLatestUserMessage = false,
   }) {
     return _mapMessageContent(
       role: AiChatRole.user,
       content: content,
-      parts: _attachmentPartsForMessage(message, session, model),
+      parts: _attachmentPartsForMessage(
+        message,
+        session,
+        model,
+        isLatestUserMessage: isLatestUserMessage,
+      ),
     );
   }
 
@@ -1001,8 +1008,9 @@ class AiPromptBuilder {
   List<AiChatContentPart> _attachmentPartsForMessage(
     AiSessionMessage message,
     AiSession session,
-    AiModelConfig model,
-  ) {
+    AiModelConfig model, {
+    bool isLatestUserMessage = false,
+  }) {
     final attachments = _readAttachments(message.metadata);
     if (attachments.isEmpty) {
       return const <AiChatContentPart>[];
@@ -1012,6 +1020,18 @@ class AiPromptBuilder {
     final parts = <AiChatContentPart>[];
     for (final attachment in attachments) {
       if (attachment.isImage) {
+        // For non-latest historical user messages we replace the inline
+        // image with a structured text placeholder. This keeps token usage
+        // bounded while preserving the metadata + AI-generated summary so
+        // later turns can reason about the image.
+        if (!isLatestUserMessage) {
+          parts.add(
+            AiChatContentPart.text(
+              _composeImagePlaceholder(attachment),
+            ),
+          );
+          continue;
+        }
         final summaryText = attachment.summaryText.trim();
         final promptText = attachment.promptText.trim();
         final storagePath = attachment.storagePath.trim();
@@ -1066,6 +1086,37 @@ class AiPromptBuilder {
       parts.add(AiChatContentPart.text(promptText));
     }
     return parts;
+  }
+
+  /// Builds the textual placeholder used for image attachments on
+  /// historical (non-latest) user messages.
+  ///
+  /// Format (matches the user-facing spec):
+  /// `[图片附件；图片元数据：{…};图片路径：{abs};原始图片路径：{abs};图片介绍：{summary}]`
+  String _composeImagePlaceholder(AiMessageAttachment attachment) {
+    final metadata = <String, Object?>{
+      'id': attachment.id,
+      'name': attachment.name,
+      'mime_type': attachment.mimeType,
+      'size_bytes': attachment.sizeBytes,
+      if (attachment.pixelCount != null) 'pixel_count': attachment.pixelCount,
+      if (attachment.compressionRatio != null)
+        'compression_ratio': attachment.compressionRatio,
+    };
+    final metadataText = metadata.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    final storagePath = attachment.storagePath.trim().isEmpty
+        ? '(unknown)'
+        : attachment.storagePath.trim();
+    final originalSourcePath = attachment.originalSourcePath?.trim();
+    final originalText =
+        (originalSourcePath == null || originalSourcePath.isEmpty)
+        ? '(unknown)'
+        : originalSourcePath;
+    final summary = attachment.summaryText.trim();
+    final summaryText = summary.isEmpty ? '(待补充)' : summary;
+    return '[图片附件；图片元数据：{$metadataText};图片路径：{$storagePath};原始图片路径：{$originalText};图片介绍：{$summaryText}]';
   }
 
   bool _isTrustedAttachmentStoragePath(

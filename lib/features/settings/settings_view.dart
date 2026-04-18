@@ -68,6 +68,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _toolCallLimitFocusNode;
   late final TextEditingController _sequentialToolRoundLimitController;
   late final FocusNode _sequentialToolRoundLimitFocusNode;
+  late final TextEditingController _imageSizeLimitController;
+  late final FocusNode _imageSizeLimitFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -86,6 +88,8 @@ class _SettingsViewState extends State<SettingsView> {
     _toolCallLimitFocusNode = FocusNode();
     _sequentialToolRoundLimitController = TextEditingController();
     _sequentialToolRoundLimitFocusNode = FocusNode();
+    _imageSizeLimitController = TextEditingController();
+    _imageSizeLimitFocusNode = FocusNode();
   }
 
   @override
@@ -103,6 +107,8 @@ class _SettingsViewState extends State<SettingsView> {
     _toolCallLimitFocusNode.dispose();
     _sequentialToolRoundLimitController.dispose();
     _sequentialToolRoundLimitFocusNode.dispose();
+    _imageSizeLimitController.dispose();
+    _imageSizeLimitFocusNode.dispose();
     super.dispose();
   }
 
@@ -138,6 +144,13 @@ class _SettingsViewState extends State<SettingsView> {
         _sequentialToolRoundLimitController.text !=
             sequentialToolRoundLimitText) {
       _sequentialToolRoundLimitController.text = sequentialToolRoundLimitText;
+    }
+    final imageSizeLimitText = _formatImageSizeLimitInput(
+      settingsController.aiImageSizeLimitBytes,
+    );
+    if (!_imageSizeLimitFocusNode.hasFocus &&
+        _imageSizeLimitController.text != imageSizeLimitText) {
+      _imageSizeLimitController.text = imageSizeLimitText;
     }
 
     return ScrollConfiguration(
@@ -488,6 +501,49 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
+    final imageSizeLimitControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsImageSizeLimitField'),
+          controller: _imageSizeLimitController,
+          focusNode: _imageSizeLimitFocusNode,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+          ],
+          decoration: InputDecoration(
+            labelText: _localizedText(
+              context,
+              zh: '图片大小上限 (MB)',
+              en: 'Image Size Limit (MB)',
+            ),
+            hintText:
+                '${(AppSettingsSnapshot.defaultAiImageSizeLimitBytes / (1024 * 1024)).toStringAsFixed(0)}',
+            helperText: _localizedText(
+              context,
+              zh: '超过该上限的图片将在打开编辑器前自动压缩。',
+              en:
+                  'Images larger than this cap are auto-compressed before the editor opens.',
+            ),
+          ),
+          onSubmitted: (value) => _saveImageSizeLimit(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>('settingsImageSizeLimitSaveButton'),
+            onPressed: () => _saveImageSizeLimit(
+              context,
+              _imageSizeLimitController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
+          ),
+        ),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -606,6 +662,23 @@ class _SettingsViewState extends State<SettingsView> {
                   en: 'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.',
                 ),
                 control: sequentialToolRoundLimitControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '图片大小上限',
+                  en: 'Image Size Limit',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh:
+                      '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。',
+                  en:
+                      'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.',
+                ),
+                control: imageSizeLimitControl,
                 controlMaxWidth: 360,
               ),
             ],
@@ -1271,6 +1344,59 @@ class _SettingsViewState extends State<SettingsView> {
         context,
         zh: '连续工具轮次上限已保存。',
         en: 'The sequential tool round limit has been saved.',
+      ),
+    );
+  }
+
+  /// Renders [bytes] as a human-friendly MB value used by the limit field.
+  ///
+  /// Examples: `1048576 -> '1'`, `1572864 -> '1.5'`. Trims trailing
+  /// zeros so values like `2.0` show as `'2'`.
+  String _formatImageSizeLimitInput(int bytes) {
+    final mb = bytes / (1024 * 1024);
+    final fixed = mb.toStringAsFixed(2);
+    final trimmed = fixed
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+    return trimmed.isEmpty ? '1' : trimmed;
+  }
+
+  Future<void> _saveImageSizeLimit(BuildContext context, String rawValue) async {
+    final parsedValue = double.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue <= 0) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入大于 0 的图片大小上限（单位 MB）。',
+          en: 'Enter an image size limit greater than 0 (in MB).',
+        ),
+      );
+      return;
+    }
+    final bytes = (parsedValue * 1024 * 1024).round();
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiImageSizeLimitBytes(bytes);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _imageSizeLimitController.text = _formatImageSizeLimitInput(
+        context.read<SettingsController>().aiImageSizeLimitBytes,
+      );
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    final effectiveBytes =
+        context.read<SettingsController>().aiImageSizeLimitBytes;
+    _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '图片大小上限已保存。',
+        en: 'The image size limit has been saved.',
       ),
     );
   }

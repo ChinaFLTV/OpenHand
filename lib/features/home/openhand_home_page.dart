@@ -33,6 +33,7 @@ import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
@@ -2081,6 +2082,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiMessageCompressionThresholdChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
+      imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
@@ -2122,6 +2124,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiMessageCompressionThresholdChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
+      imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
@@ -2657,6 +2660,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final nextAttachments = List<_ComposerAttachmentDraft>.from(
       _pendingAttachments,
     );
+    final imageSizeLimitBytes =
+        context.read<SettingsController>().aiImageSizeLimitBytes;
     var addedCount = 0;
     for (final file in pickedFiles) {
       final path = file.path.trim();
@@ -2666,8 +2671,47 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (nextAttachments.length >= aiMessageAttachmentLimit) {
         break;
       }
-      nextAttachments.add(await _ComposerAttachmentDraft.fromPath(path));
-      existingPaths.add(path);
+      var resolvedPath = path;
+      if (aiAttachmentKindForPath(path) == AiAttachmentKind.image) {
+        try {
+          final bytes = await File(path).readAsBytes();
+          if (!mounted) {
+            return;
+          }
+          final editorResult = await showImageEditorDialog(
+            context,
+            imageBytes: bytes,
+            imageSizeLimitBytes: imageSizeLimitBytes,
+          );
+          if (!mounted) {
+            return;
+          }
+          if (editorResult == null) {
+            // User cancelled — drop this image entirely.
+            continue;
+          }
+          // Persist edited bytes to a temp file so the rest of the
+          // attachment pipeline can treat it like any other picked file.
+          final tempDir = await Directory.systemTemp.createTemp(
+            'openhand_edit_',
+          );
+          final ext = editorResult.format;
+          final basename = p.basenameWithoutExtension(path);
+          final tempFile = File(p.join(tempDir.path, '$basename.$ext'));
+          await tempFile.writeAsBytes(editorResult.bytes, flush: true);
+          resolvedPath = tempFile.path;
+        } catch (_) {
+          // Reading or editing failed — fall back to the original picked path.
+          resolvedPath = path;
+        }
+      }
+      if (existingPaths.contains(resolvedPath)) {
+        continue;
+      }
+      nextAttachments.add(
+        await _ComposerAttachmentDraft.fromPath(resolvedPath),
+      );
+      existingPaths.add(resolvedPath);
       addedCount += 1;
     }
     if (!mounted) {

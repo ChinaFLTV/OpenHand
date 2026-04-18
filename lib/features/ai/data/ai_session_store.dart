@@ -65,6 +65,21 @@ class AiSessionStore {
     );
   }
 
+  /// Modern per-session attachments directory used by the new attachment
+  /// storage layout: `~/.openhand/sessions/{sessionId}/attachments/`.
+  ///
+  /// Inside this directory, individual files are named
+  /// `{messageId}-{attachmentId}.{ext}`. Older attachments stored under
+  /// [sessionAttachmentsDirectoryPath] continue to be honored on read because
+  /// each `AiMessageAttachment` carries its full storage path.
+  String perSessionAttachmentsDirectoryPath(String sessionId) {
+    return p.join(
+      _sessionsDirectoryPath,
+      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+      'attachments',
+    );
+  }
+
   /// Retained for backward compatibility (attachment management).
   String sessionFilePath(String sessionId) {
     final normalizedSessionId = _requireSafeStorageIdentifier(

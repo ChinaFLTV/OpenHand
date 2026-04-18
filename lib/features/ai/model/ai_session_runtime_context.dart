@@ -92,6 +92,7 @@ class AiSessionRuntimeContext {
     required this.memoryEntries,
     this.singleRoundToolCallLimit = 40,
     this.sequentialToolRoundLimit = 24,
+    this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.platformName = '',
     this.workingDirectory = '',
@@ -117,6 +118,10 @@ class AiSessionRuntimeContext {
   final List<UserMemoryEntry> memoryEntries;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
+  /// Per-image attachment size cap (bytes). When the user picks an image
+  /// larger than this value, the attachment pipeline auto-compresses it
+  /// before persisting and before the editor opens.
+  final int imageSizeLimitBytes;
   final bool writeCommandConfirmationEnabled;
   final String platformName;
   final String workingDirectory;
@@ -143,6 +148,7 @@ class AiSessionRuntimeContext {
       'compression_threshold_chars': compressionThresholdChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
+      'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,
       'working_directory': workingDirectory,

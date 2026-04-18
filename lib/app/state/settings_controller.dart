@@ -48,6 +48,7 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiMessageCompressionThresholdChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
+       _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
            snapshot.aiWriteCommandConfirmationEnabled,
        _aiAllowCommandRules = List<AiAllowCommandRule>.from(
@@ -97,6 +98,7 @@ class SettingsController extends ChangeNotifier {
   int _aiMessageCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
   int _aiSequentialToolRoundLimit;
+  int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
@@ -160,6 +162,7 @@ class SettingsController extends ChangeNotifier {
       _aiMessageCompressionThresholdChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
+  int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
       _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> get aiAllowCommandRules =>
@@ -396,6 +399,32 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiSequentialToolRoundLimit = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// Updates the per-image attachment size cap (bytes).
+  ///
+  /// Values outside
+  /// `[AppSettingsSnapshot.minAiImageSizeLimitBytes,
+  ///   AppSettingsSnapshot.maxAiImageSizeLimitBytes]`
+  /// are clamped so a misconfigured value cannot break the attachment
+  /// pipeline.
+  Future<bool> updateAiImageSizeLimitBytes(int value) async {
+    final int normalizedValue;
+    if (value <= 0) {
+      normalizedValue = AppSettingsSnapshot.defaultAiImageSizeLimitBytes;
+    } else {
+      normalizedValue = value.clamp(
+        AppSettingsSnapshot.minAiImageSizeLimitBytes,
+        AppSettingsSnapshot.maxAiImageSizeLimitBytes,
+      );
+    }
+    return _commitMutation(() {
+      if (_aiImageSizeLimitBytes == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiImageSizeLimitBytes = normalizedValue;
       return _MutationDisposition.apply;
     });
   }
@@ -818,6 +847,7 @@ class SettingsController extends ChangeNotifier {
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
+      aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
@@ -853,6 +883,7 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiMessageCompressionThresholdChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
+    _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =
         snapshot.aiWriteCommandConfirmationEnabled;
     _aiAllowCommandRules = List<AiAllowCommandRule>.from(

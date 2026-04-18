@@ -48,6 +48,22 @@ class AiMessageAttachment {
       summaryText: '${json['summary_text'] ?? ''}',
       width: _readNullableInt(json['width']),
       height: _readNullableInt(json['height']),
+      originalSourcePath: () {
+        final value = '${json['original_source_path'] ?? ''}'.trim();
+        return value.isEmpty ? null : value;
+      }(),
+      pixelCount: _readNullableInt(json['pixel_count']),
+      compressionRatio: () {
+        final raw = json['compression_ratio'];
+        if (raw is num) {
+          return raw.toDouble();
+        }
+        final text = '${raw ?? ''}'.trim();
+        if (text.isEmpty || text == 'null') {
+          return null;
+        }
+        return double.tryParse(text);
+      }(),
     );
   }
   const AiMessageAttachment({
@@ -61,6 +77,9 @@ class AiMessageAttachment {
     this.summaryText = '',
     this.width,
     this.height,
+    this.originalSourcePath,
+    this.pixelCount,
+    this.compressionRatio,
   });
 
   final String id;
@@ -74,9 +93,56 @@ class AiMessageAttachment {
   final int? width;
   final int? height;
 
+  /// Absolute path to the original (pre-compression / pre-edit) source file the
+  /// user picked, when known. Useful for the `[图片附件；原始图片路径…]`
+  /// history-message placeholder so the model can still reason about provenance
+  /// after the resized copy has replaced the inline image part.
+  final String? originalSourcePath;
+
+  /// Total pixel count (`width * height`) of the stored image, when known.
+  /// Independent of `width` / `height` so callers can populate it when the
+  /// dimensions themselves are unavailable (e.g. SVG, partially decoded).
+  final int? pixelCount;
+
+  /// Ratio of stored size relative to the original source size, in `[0, 1]`.
+  /// `null` for non-image attachments or when the original size is unknown.
+  final double? compressionRatio;
+
   bool get isImage => kind == AiAttachmentKind.image;
 
   String get extension => p.extension(name).toLowerCase();
+
+  AiMessageAttachment copyWith({
+    String? id,
+    String? name,
+    String? storagePath,
+    AiAttachmentKind? kind,
+    String? mimeType,
+    int? sizeBytes,
+    String? promptText,
+    String? summaryText,
+    int? width,
+    int? height,
+    String? originalSourcePath,
+    int? pixelCount,
+    double? compressionRatio,
+  }) {
+    return AiMessageAttachment(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      storagePath: storagePath ?? this.storagePath,
+      kind: kind ?? this.kind,
+      mimeType: mimeType ?? this.mimeType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      promptText: promptText ?? this.promptText,
+      summaryText: summaryText ?? this.summaryText,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      originalSourcePath: originalSourcePath ?? this.originalSourcePath,
+      pixelCount: pixelCount ?? this.pixelCount,
+      compressionRatio: compressionRatio ?? this.compressionRatio,
+    );
+  }
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -90,6 +156,9 @@ class AiMessageAttachment {
       'summary_text': summaryText,
       'width': width,
       'height': height,
+      'original_source_path': originalSourcePath,
+      'pixel_count': pixelCount,
+      'compression_ratio': compressionRatio,
     };
   }
 

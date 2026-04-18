@@ -153,6 +153,7 @@ class SettingsStore {
           snapshot.aiMessageCompressionThresholdChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
+      'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
           snapshot.aiWriteCommandConfirmationEnabled,
       'ai_allow_command_rules': snapshot.aiAllowCommandRules
@@ -267,6 +268,13 @@ class SettingsStore {
             (json['ai_sequential_tool_round_limit'] as int) > 0
         ? json['ai_sequential_tool_round_limit'] as int
         : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
+    final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
+    final aiImageSizeLimitBytes = (rawImageSizeLimit is int && rawImageSizeLimit > 0)
+        ? rawImageSizeLimit.clamp(
+            AppSettingsSnapshot.minAiImageSizeLimitBytes,
+            AppSettingsSnapshot.maxAiImageSizeLimitBytes,
+          )
+        : AppSettingsSnapshot.defaultAiImageSizeLimitBytes;
     final aiWriteCommandConfirmationEnabled =
         json['ai_write_command_confirmation_enabled'] is bool
         ? json['ai_write_command_confirmation_enabled'] as bool
@@ -401,6 +409,7 @@ class SettingsStore {
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
+      aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules,

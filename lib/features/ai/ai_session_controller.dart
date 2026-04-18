@@ -23,6 +23,7 @@ import 'service/ai_bash_tool_service.dart';
 import 'service/ai_chat_service.dart';
 import 'service/ai_claude_hook_service.dart';
 import 'service/ai_dsml_tool_call_parser.dart';
+import 'service/ai_image_summary_extractor.dart';
 import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
@@ -173,6 +174,8 @@ class AiSessionController extends ChangeNotifier {
           attachmentService ??
           AiAttachmentService(
             attachmentsDirectoryPath: resolvedStore.attachmentsDirectoryPath,
+            perSessionAttachmentsDirectoryPath:
+                resolvedStore.perSessionAttachmentsDirectoryPath,
           ),
       idGenerator: idGenerator ?? const Uuid().v4,
       clock: clock ?? () => DateTime.now().toUtc(),
@@ -2149,9 +2152,23 @@ class AiSessionController extends ChangeNotifier {
       final shouldPersistIntermediateAssistantNarration =
           hasMeaningfulNarration || didCancelStream;
       if (shouldPersistIntermediateAssistantNarration) {
+        // Pull `<image_summary attachment_id="…">…</image_summary>` directives
+        // out of the assistant's reply, write the summaries back into the
+        // matching user-message attachments, and persist the cleaned text.
+        final extraction = AiImageSummaryExtractor.extractAndStrip(
+          result.reply,
+        );
+        if (extraction.summariesByAttachmentId.isNotEmpty) {
+          streamedSession = _applyImageSummariesToSession(
+            streamedSession,
+            extraction.summariesByAttachmentId,
+          );
+        }
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
-          result.reply,
+          extraction.summariesByAttachmentId.isEmpty
+              ? result.reply
+              : extraction.strippedContent,
         );
       } else {
         // Only remove the intermediate message if it's truly empty after
@@ -4490,6 +4507,7 @@ class AiSessionController extends ChangeNotifier {
       messageId: userMessageId,
       filePaths: attachmentFilePaths,
       idGenerator: _idGenerator,
+      imageSizeLimitBytes: runtimeContext.imageSizeLimitBytes,
     );
     final attachmentMetadata = attachments.isEmpty
         ? const <String, Object?>{}
@@ -5266,6 +5284,68 @@ class AiSessionController extends ChangeNotifier {
       singleRoundToolCallLimit: runtimeContext.singleRoundToolCallLimit,
       sequentialToolRoundLimit: runtimeContext.sequentialToolRoundLimit,
     );
+  }
+
+  /// Walks every user message in [session] looking for image attachments
+  /// whose ids appear in [summariesByAttachmentId]; for each match it
+  /// rewrites the attachment with the new [AiMessageAttachment.summaryText]
+  /// and returns the updated session. Non-image attachments and unmatched
+  /// ids are left alone.
+  AiSession _applyImageSummariesToSession(
+    AiSession session,
+    Map<String, String> summariesByAttachmentId,
+  ) {
+    if (summariesByAttachmentId.isEmpty) {
+      return session;
+    }
+    final updatedMessages = <AiSessionMessage>[];
+    var sessionChanged = false;
+    for (final message in session.messages) {
+      if (message.kind != AiSessionMessageKind.user) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final raw = message.metadata[aiSessionMessageAttachmentsMetadataKey];
+      if (raw is! List || raw.isEmpty) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final attachments = AiMessageAttachment.listFromMetadata(raw);
+      if (attachments.isEmpty) {
+        updatedMessages.add(message);
+        continue;
+      }
+      var messageChanged = false;
+      final rebuiltAttachments = <AiMessageAttachment>[];
+      for (final attachment in attachments) {
+        final summary = summariesByAttachmentId[attachment.id];
+        if (summary == null || summary.isEmpty || !attachment.isImage) {
+          rebuiltAttachments.add(attachment);
+          continue;
+        }
+        if (attachment.summaryText.trim() == summary.trim()) {
+          rebuiltAttachments.add(attachment);
+          continue;
+        }
+        rebuiltAttachments.add(attachment.copyWith(summaryText: summary));
+        messageChanged = true;
+      }
+      if (!messageChanged) {
+        updatedMessages.add(message);
+        continue;
+      }
+      sessionChanged = true;
+      final newMetadata = <String, Object?>{
+        ...message.metadata,
+        aiSessionMessageAttachmentsMetadataKey:
+            AiMessageAttachment.listToMetadata(rebuiltAttachments),
+      };
+      updatedMessages.add(message.copyWith(metadata: newMetadata));
+    }
+    if (!sessionChanged) {
+      return session;
+    }
+    return session.copyWith(messages: updatedMessages);
   }
 
   AiSession _rebuildSession(
