@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
+import 'openhand_dialog_action_button.dart';
 
 /// Result returned by [showImageEditorDialog] when the user confirms.
 ///
@@ -1246,23 +1247,53 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   // ─────────────── Processing overlay (shown during heavy image ops) ──────
 
-  OverlayEntry? _processingOverlay;
+  BuildContext? _processingDialogContext;
+  bool _processingDialogVisible = false;
+  bool _processingDialogCloseRequested = false;
 
   void _showProcessingOverlay() {
-    _dismissProcessingOverlay();
-    final overlay = Overlay.of(context, rootOverlay: true);
+    if (!mounted || _processingDialogVisible) {
+      return;
+    }
+    _processingDialogVisible = true;
+    _processingDialogCloseRequested = false;
     final processingMessage =
         AppLocalizations.of(context)?.imageEditorProcessing ?? '处理中…';
-    _processingOverlay = OverlayEntry(
-      builder: (ctx) => _ProcessingOverlay(message: processingMessage),
-    );
-    overlay.insert(_processingOverlay!);
+    showAnimatedThemedDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        _processingDialogContext = dialogContext;
+        if (_processingDialogCloseRequested) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!dialogContext.mounted) {
+              return;
+            }
+            Navigator.of(dialogContext, rootNavigator: true).maybePop();
+          });
+        }
+        return PopScope(
+          canPop: false,
+          child: _ProcessingDialog(message: processingMessage),
+        );
+      },
+    ).whenComplete(() {
+      _processingDialogContext = null;
+      _processingDialogVisible = false;
+      _processingDialogCloseRequested = false;
+    });
   }
 
   void _dismissProcessingOverlay() {
-    _processingOverlay?.remove();
-    _processingOverlay?.dispose();
-    _processingOverlay = null;
+    if (!_processingDialogVisible) {
+      return;
+    }
+    final dialogContext = _processingDialogContext;
+    if (dialogContext == null) {
+      _processingDialogCloseRequested = true;
+      return;
+    }
+    Navigator.of(dialogContext, rootNavigator: true).maybePop();
   }
 
   // ──────────────────────────────── Apply (bake edits) / Undo ────────────
@@ -1521,7 +1552,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       Colors.pink,
     ];
 
-    final picked = await showDialog<HSLColor>(
+    final picked = await showAnimatedThemedDialog<HSLColor>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -1534,6 +1565,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             ).toColor();
             return AlertDialog(
               title: Text(l10n.imageEditorWatermarkColorLabel),
+              actionsAlignment: MainAxisAlignment.end,
+              actionsOverflowButtonSpacing: 12,
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               content: SizedBox(
                 width: 420,
                 child: SingleChildScrollView(
@@ -1611,17 +1645,17 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                 ),
               ),
               actions: [
-                TextButton(
+                OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text(l10n.commonCancel),
+                  label: l10n.commonCancel,
                 ),
-                FilledButton(
+                OpenHandDialogActionButton.primary(
                   onPressed: () {
                     Navigator.of(dialogContext).pop(
                       HSLColor.fromAHSL(1, hue, saturation, lightness),
                     );
                   },
-                  child: Text(l10n.commonSave),
+                  label: l10n.commonSave,
                 ),
               ],
             );
@@ -2757,42 +2791,46 @@ img.Color _hueToColorStatic(double hueDeg, double strength) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  Processing overlay
+//  Processing dialog
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// A simple semi-transparent overlay with a centered progress indicator,
-/// shown while the isolate processes the image.
-class _ProcessingOverlay extends StatelessWidget {
-  const _ProcessingOverlay({required this.message});
+/// A compact themed progress dialog used during heavy image processing.
+class _ProcessingDialog extends StatelessWidget {
+  const _ProcessingDialog({required this.message});
 
   final String message;
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: Material(
-        color: Colors.black54,
-        child: Center(
-          child: Card(
-            elevation: 8,
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
+    final colorScheme = Theme.of(context).colorScheme;
+    return Dialog(
+      elevation: 0,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      surfaceTintColor: colorScheme.surfaceTint,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 32,
+          vertical: 24,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2.6),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 36,
-                vertical: 28,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(message),
-                ],
+            const SizedBox(width: 14),
+            Flexible(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-          ),
+          ],
         ),
       ),
     );

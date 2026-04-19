@@ -4,6 +4,13 @@ import 'package:provider/provider.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 
+Color resolveAnimatedDialogBarrierColor(BuildContext context, {Color? override}) {
+  if (override != null) {
+    return override;
+  }
+  return Theme.of(context).colorScheme.scrim.withValues(alpha: 0.54);
+}
+
 /// Shows a dialog with configurable entrance and exit animations.
 ///
 /// When [settings] is null, the animation configuration is automatically
@@ -19,16 +26,19 @@ Future<T?> showAnimatedDialog<T>({
   bool useRootNavigator = true,
   RouteSettings? routeSettings,
 }) {
-  final effectiveSettings = settings ??
-      context.read<SettingsController>().dialogAnimationSettings;
+  final themedBuilder = _wrapDialogBuilderWithTheme(builder);
+  final effectiveSettings = settings ?? _resolveDialogAnimationSettings(context);
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
       effectiveSettings.exitStyle == DialogAnimationStyle.none) {
     return showDialog<T>(
       context: context,
-      builder: builder,
+      builder: themedBuilder,
       barrierDismissible: barrierDismissible,
       barrierLabel: barrierLabel,
-      barrierColor: barrierColor ?? Colors.black54,
+      barrierColor: resolveAnimatedDialogBarrierColor(
+        context,
+        override: barrierColor,
+      ),
       useRootNavigator: useRootNavigator,
       routeSettings: routeSettings,
     );
@@ -39,7 +49,10 @@ Future<T?> showAnimatedDialog<T>({
     barrierDismissible: barrierDismissible,
     barrierLabel: barrierLabel ??
         MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: barrierColor ?? Colors.black54,
+    barrierColor: resolveAnimatedDialogBarrierColor(
+      context,
+      override: barrierColor,
+    ),
     useRootNavigator: useRootNavigator,
     routeSettings: routeSettings,
     transitionDuration: effectiveSettings.duration,
@@ -51,8 +64,61 @@ Future<T?> showAnimatedDialog<T>({
         child: child,
       );
     },
-    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        themedBuilder(context),
   );
+}
+
+DialogAnimationSettings _resolveDialogAnimationSettings(BuildContext context) {
+  try {
+    return context.read<SettingsController>().dialogAnimationSettings;
+  } catch (_) {
+    return const DialogAnimationSettings();
+  }
+}
+
+/// Shows an animated dialog with a themed shell so teams can keep dialog
+/// visuals consistent (Material 3 / Material You expressive) while still
+/// customizing body content.
+Future<T?> showAnimatedThemedDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  DialogAnimationSettings? settings,
+  bool barrierDismissible = true,
+  String? barrierLabel,
+  Color? barrierColor,
+  bool useRootNavigator = true,
+  RouteSettings? routeSettings,
+}) {
+  return showAnimatedDialog<T>(
+    context: context,
+    settings: settings,
+    barrierDismissible: barrierDismissible,
+    barrierLabel: barrierLabel,
+    barrierColor: barrierColor,
+    useRootNavigator: useRootNavigator,
+    routeSettings: routeSettings,
+    builder: builder,
+  );
+}
+
+WidgetBuilder _wrapDialogBuilderWithTheme(WidgetBuilder builder) {
+  return (dialogContext) {
+    final theme = Theme.of(dialogContext);
+    final colorScheme = theme.colorScheme;
+    return Theme(
+      data: theme.copyWith(
+        dialogTheme: theme.dialogTheme.copyWith(
+          backgroundColor: colorScheme.surfaceContainerHigh,
+          surfaceTintColor: colorScheme.surfaceTint,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+        ),
+      ),
+      child: builder(dialogContext),
+    );
+  };
 }
 
 Widget _buildTransition({
