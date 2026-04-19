@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
@@ -681,19 +682,20 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         const SizedBox(height: 4),
         Row(
           children: [
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: watermarkColor,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: colorScheme.outline),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _canEdit ? _showWatermarkColorPickerDialog : null,
+                icon: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: watermarkColor,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: colorScheme.outline),
+                  ),
+                ),
+                label: Text(l10n.imageEditorWatermarkColorLabel),
               ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              l10n.imageEditorWatermarkColorLabel,
-              style: theme.textTheme.titleSmall,
             ),
           ],
         ),
@@ -1022,15 +1024,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(28),
-                child: SizedBox(
-                  width: previewWidth,
-                  height: _previewHeight,
-                  child: ColoredBox(
-                    color: colorScheme.surfaceContainerHigh,
-                    child: previewBody,
-                  ),
+              SizedBox(
+                width: previewWidth,
+                height: _previewHeight,
+                child: ColoredBox(
+                  color: colorScheme.surfaceContainerHigh,
+                  child: previewBody,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1300,6 +1299,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final l10n = AppLocalizations.of(context)!;
     final previewBytes = _previewBytes;
     if (previewBytes == null) return;
+    final watermarkText = _watermarkController.text.trim();
+    final watermarkSize = _watermarkSize;
+    final watermarkOpacity = _watermarkOpacity;
+    final watermarkPosition = _watermarkPosition;
+    final watermarkColor = _currentWatermarkColor;
+    final watermarkTextDirection =
+      Directionality.maybeOf(context) ?? TextDirection.ltr;
 
     final effectivePreviewSize = _previewSize == Size.zero
       ? const Size(_previewMaxWidth, _previewHeight)
@@ -1358,6 +1364,25 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         }
         return;
       }
+
+      final composedBytes = await _composeWatermarkIfNeeded(
+        sourceBytes: result.$1,
+        watermarkText: watermarkText,
+        watermarkSize: watermarkSize,
+        watermarkOpacity: watermarkOpacity,
+        watermarkPosition: watermarkPosition,
+        watermarkColor: watermarkColor,
+        watermarkTextDirection: watermarkTextDirection,
+        outputPng: true,
+        imageSizeLimitBytes: null,
+      );
+      if (composedBytes == null) {
+        if (mounted) {
+          setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+        }
+        return;
+      }
+
       if (!mounted) return;
 
       // Push undo snapshot AFTER successful render (not before) so a failed
@@ -1368,7 +1393,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _undoStack.add((previewBytes, _imageWidth, _imageHeight));
 
       setState(() {
-        _previewBytes = result.$1;
+        _previewBytes = composedBytes;
         _imageWidth = result.$2;
         _imageHeight = result.$3;
         _showOriginalPreview = false;
@@ -1476,6 +1501,308 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       _watermarkSaturation,
       _watermarkLightness,
     ).toColor();
+  }
+
+  Future<void> _showWatermarkColorPickerDialog() async {
+    final l10n = AppLocalizations.of(context)!;
+    var hue = _watermarkHue;
+    var saturation = _watermarkSaturation;
+    var lightness = _watermarkLightness;
+    const presets = <Color>[
+      Colors.white,
+      Colors.black,
+      Colors.red,
+      Colors.orange,
+      Colors.yellow,
+      Colors.green,
+      Colors.cyan,
+      Colors.blue,
+      Colors.purple,
+      Colors.pink,
+    ];
+
+    final picked = await showDialog<HSLColor>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final previewColor = HSLColor.fromAHSL(
+              1,
+              hue,
+              saturation,
+              lightness,
+            ).toColor();
+            return AlertDialog(
+              title: Text(l10n.imageEditorWatermarkColorLabel),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: previewColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final color in presets)
+                            InkWell(
+                              onTap: () {
+                                final hsl = HSLColor.fromColor(color);
+                                setDialogState(() {
+                                  hue = hsl.hue;
+                                  saturation = hsl.saturation;
+                                  lightness = hsl.lightness;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color:
+                                        Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _EditorSlider(
+                        label: l10n.imageEditorWatermarkColorHue,
+                        value: hue,
+                        min: 0,
+                        max: 360,
+                        onChanged: (value) => setDialogState(() => hue = value),
+                      ),
+                      _EditorSlider(
+                        label: l10n.imageEditorWatermarkColorSaturation,
+                        value: saturation,
+                        min: 0,
+                        max: 1,
+                        onChanged:
+                            (value) => setDialogState(() => saturation = value),
+                      ),
+                      _EditorSlider(
+                        label: l10n.imageEditorWatermarkColorLightness,
+                        value: lightness,
+                        min: 0,
+                        max: 1,
+                        onChanged:
+                            (value) => setDialogState(() => lightness = value),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(l10n.commonCancel),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(
+                      HSLColor.fromAHSL(1, hue, saturation, lightness),
+                    );
+                  },
+                  child: Text(l10n.commonSave),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (picked == null || !mounted) return;
+    setState(() {
+      _watermarkHue = picked.hue;
+      _watermarkSaturation = picked.saturation;
+      _watermarkLightness = picked.lightness;
+    });
+  }
+
+  Future<Uint8List?> _composeWatermarkIfNeeded({
+    required Uint8List sourceBytes,
+    required String watermarkText,
+    required double watermarkSize,
+    required double watermarkOpacity,
+    required _WatermarkPosition watermarkPosition,
+    required Color watermarkColor,
+    required TextDirection watermarkTextDirection,
+    required bool outputPng,
+    required int? imageSizeLimitBytes,
+  }) async {
+    if (watermarkText.isEmpty) return sourceBytes;
+
+    ui.Codec? codec;
+    ui.Image? baseImage;
+    ui.Image? composedImage;
+    try {
+      codec = await ui.instantiateImageCodec(sourceBytes);
+      final frame = await codec.getNextFrame();
+      baseImage = frame.image;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      canvas.drawImage(baseImage, Offset.zero, Paint());
+
+      final imageSize = Size(
+        baseImage.width.toDouble(),
+        baseImage.height.toDouble(),
+      );
+      final margin = math.max(
+        12.0,
+        math.min(imageSize.width, imageSize.height) * 0.02,
+      );
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: watermarkText,
+          style: TextStyle(
+            color: watermarkColor.withValues(
+              alpha: watermarkOpacity.clamp(0.0, 1.0),
+            ),
+            fontSize: watermarkSize.clamp(8.0, imageSize.height * 0.5),
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            shadows: const [
+              Shadow(
+                color: Color(0x66000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+        ),
+        textDirection: watermarkTextDirection,
+        maxLines: 6,
+        ellipsis: '…',
+      )..layout(maxWidth: math.max(48.0, imageSize.width - margin * 2));
+
+      final offset = _resolveWatermarkOffset(
+        watermarkPosition: watermarkPosition,
+        imageSize: imageSize,
+        textSize: textPainter.size,
+        margin: margin,
+      );
+      textPainter.paint(canvas, offset);
+
+      final picture = recorder.endRecording();
+      composedImage = await picture.toImage(baseImage.width, baseImage.height);
+      final pngData = await composedImage.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      if (pngData == null) return null;
+      final pngBytes = pngData.buffer.asUint8List();
+
+      if (outputPng) {
+        return pngBytes;
+      }
+
+      final decoded = img.decodeImage(pngBytes);
+      if (decoded == null) return null;
+      return _encodeJpgWithSizeLimit(
+        decoded,
+        imageSizeLimitBytes: imageSizeLimitBytes,
+      );
+    } catch (error, stack) {
+      debugPrint('[ImageEditor] watermark compose failed: $error\n$stack');
+      return null;
+    } finally {
+      codec?.dispose();
+      baseImage?.dispose();
+      composedImage?.dispose();
+    }
+  }
+
+  Offset _resolveWatermarkOffset({
+    required _WatermarkPosition watermarkPosition,
+    required Size imageSize,
+    required Size textSize,
+    required double margin,
+  }) {
+    double x;
+    double y;
+    switch (watermarkPosition) {
+      case _WatermarkPosition.topLeft:
+        x = margin;
+        y = margin;
+      case _WatermarkPosition.topCenter:
+        x = (imageSize.width - textSize.width) / 2;
+        y = margin;
+      case _WatermarkPosition.topRight:
+        x = imageSize.width - textSize.width - margin;
+        y = margin;
+      case _WatermarkPosition.middleLeft:
+        x = margin;
+        y = (imageSize.height - textSize.height) / 2;
+      case _WatermarkPosition.middleCenter:
+        x = (imageSize.width - textSize.width) / 2;
+        y = (imageSize.height - textSize.height) / 2;
+      case _WatermarkPosition.middleRight:
+        x = imageSize.width - textSize.width - margin;
+        y = (imageSize.height - textSize.height) / 2;
+      case _WatermarkPosition.bottomLeft:
+        x = margin;
+        y = imageSize.height - textSize.height - margin;
+      case _WatermarkPosition.bottomCenter:
+        x = (imageSize.width - textSize.width) / 2;
+        y = imageSize.height - textSize.height - margin;
+      case _WatermarkPosition.bottomRight:
+        x = imageSize.width - textSize.width - margin;
+        y = imageSize.height - textSize.height - margin;
+    }
+
+    final clampedX = x.clamp(0.0, math.max(0.0, imageSize.width - textSize.width));
+    final clampedY = y.clamp(0.0, math.max(0.0, imageSize.height - textSize.height));
+    return Offset(clampedX.toDouble(), clampedY.toDouble());
+  }
+
+  Uint8List _encodeJpgWithSizeLimit(
+    img.Image source, {
+    required int? imageSizeLimitBytes,
+  }) {
+    var working = source;
+    var encoded = Uint8List.fromList(img.encodeJpg(working, quality: 92));
+    final limit = imageSizeLimitBytes;
+    if (limit == null || limit <= 0 || encoded.length <= limit) {
+      return encoded;
+    }
+
+    for (var quality = 86; quality >= 30; quality -= 8) {
+      encoded = Uint8List.fromList(img.encodeJpg(working, quality: quality));
+      if (encoded.length <= limit) {
+        return encoded;
+      }
+    }
+
+    while (encoded.length > limit &&
+        working.width > 320 &&
+        working.height > 320) {
+      working = img.copyResize(
+        working,
+        width: (working.width * 0.8).round(),
+      );
+      encoded = Uint8List.fromList(img.encodeJpg(working, quality: 82));
+    }
+    return encoded;
   }
 
   Rect _clampMovedCropRect(Rect candidate, Rect imageRect) {
@@ -1702,6 +2029,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final effectivePreviewSize = _previewSize == Size.zero
       ? const Size(_previewMaxWidth, _previewHeight)
         : _previewSize;
+    final watermarkText = _watermarkController.text.trim();
+    final watermarkSize = _watermarkSize;
+    final watermarkOpacity = _watermarkOpacity;
+    final watermarkPosition = _watermarkPosition;
+    final watermarkColor = _currentWatermarkColor;
+    final watermarkTextDirection =
+      Directionality.maybeOf(context) ?? TextDirection.ltr;
+    final hasWatermark = watermarkText.isNotEmpty;
 
     setState(() {
       _isSaving = true;
@@ -1750,7 +2085,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         isCircle: _aspect == _CropAspect.circle,
         forcePng: false,
         maxOutputLongSide: _maxOutputLongSide,
-        imageSizeLimitBytes: widget.imageSizeLimitBytes,
+        imageSizeLimitBytes: hasWatermark ? null : widget.imageSizeLimitBytes,
       );
 
       final result = await _runRenderInIsolate(params);
@@ -1762,7 +2097,27 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         }
         return null;
       }
-      return result.$1;
+      final composedBytes = await _composeWatermarkIfNeeded(
+        sourceBytes: result.$1,
+        watermarkText: watermarkText,
+        watermarkSize: watermarkSize,
+        watermarkOpacity: watermarkOpacity,
+        watermarkPosition: watermarkPosition,
+        watermarkColor: watermarkColor,
+        watermarkTextDirection: watermarkTextDirection,
+        outputPng: _aspect == _CropAspect.circle,
+        imageSizeLimitBytes: widget.imageSizeLimitBytes,
+      );
+      if (composedBytes == null) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = l10n.imageEditorProcessFailed;
+          });
+        }
+        return null;
+      }
+
+      return composedBytes;
     } catch (error, stack) {
       debugPrint('[ImageEditor] render failed: $error\n$stack');
       if (!mounted) return null;
@@ -2278,17 +2633,8 @@ class _IsolateRenderParams {
     working = img.vignette(working, amount: p.vignette);
   }
 
-  // 3c) Text watermark burn-in.
-  if (p.watermarkText.isNotEmpty) {
-    working = _drawWatermarkStatic(
-      working,
-      p.watermarkText,
-      watermarkSize: p.watermarkSize,
-      opacity: p.watermarkOpacity,
-      position: _watermarkPositionFromIndex(p.watermarkPositionIndex),
-      colorArgb: p.watermarkColorArgb,
-    );
-  }
+  // 3c) Watermark text is composed on the UI isolate with Flutter text
+  // rendering so Unicode/CJK text and arbitrary colors always render.
 
   // 4) Optional circular mask.
   if (p.isCircle) {
@@ -2408,148 +2754,6 @@ img.Color _hueToColorStatic(double hueDeg, double strength) {
     ((g + m) * 255).round().clamp(0, 255),
     ((b + m) * 255).round().clamp(0, 255),
   );
-}
-
-_WatermarkPosition _watermarkPositionFromIndex(int index) {
-  if (index >= 0 && index < _WatermarkPosition.values.length) {
-    return _WatermarkPosition.values[index];
-  }
-  return _WatermarkPosition.bottomRight;
-}
-
-/// Draws watermark text onto [source]. This is a top-level function so it can
-/// run inside an isolate.
-///
-/// The watermark is first rendered via `img.drawString` with the largest
-/// built-in bitmap font (`arial48`), then scaled to the requested
-/// [watermarkSize] and alpha-composited onto [source].
-img.Image _drawWatermarkStatic(
-  img.Image source,
-  String text, {
-  required double watermarkSize,
-  required double opacity,
-  required _WatermarkPosition position,
-  required int colorArgb,
-}) {
-  final font = img.arial48;
-
-  // Calculate actual text width by summing character advances.
-  int textWidth = 0;
-  int textHeight = 0;
-  for (final code in text.codeUnits) {
-    final ch = font.characters[code];
-    if (ch != null) {
-      textWidth += ch.xAdvance;
-      final charH = ch.height + ch.yOffset;
-      if (charH > textHeight) textHeight = charH;
-    } else {
-      // Unknown char — approximate with a space-width estimate.
-      textWidth += font.base ~/ 2;
-    }
-  }
-  if (textWidth < 1) textWidth = 1;
-  if (textHeight < 1) textHeight = font.lineHeight;
-
-  // Add small horizontal padding so glyphs don't clip at the right edge.
-  final stripWidth = (textWidth + font.base).clamp(1, source.width * 4);
-  final stripHeight = math.max(textHeight, font.lineHeight);
-
-  final textColor = img.ColorRgba8(
-    (colorArgb >> 16) & 0xFF,
-    (colorArgb >> 8) & 0xFF,
-    colorArgb & 0xFF,
-    (colorArgb >> 24) & 0xFF,
-  );
-  img.Image strip = img.Image(
-    width: stripWidth,
-    height: stripHeight,
-    numChannels: 4,
-  );
-  img.fill(strip, color: img.ColorRgba8(0, 0, 0, 0));
-  img.drawString(strip, text, font: font, x: 0, y: 0, color: textColor);
-
-  // Scale strip so its height matches watermarkSize.
-  final targetHeight = watermarkSize.round().clamp(8, source.height ~/ 2);
-  final scale = targetHeight / strip.height;
-  final targetWidth = (strip.width * scale).round().clamp(
-    1,
-    source.width - 16,
-  );
-  strip = img.copyResize(
-    strip,
-    width: targetWidth,
-    height: targetHeight,
-    interpolation: img.Interpolation.linear,
-  );
-
-  // Compute anchor.
-  const margin = 16;
-  int ox;
-  int oy;
-  switch (position) {
-    case _WatermarkPosition.topLeft:
-      ox = margin;
-      oy = margin;
-      break;
-    case _WatermarkPosition.topCenter:
-      ox = (source.width - strip.width) ~/ 2;
-      oy = margin;
-      break;
-    case _WatermarkPosition.topRight:
-      ox = source.width - strip.width - margin;
-      oy = margin;
-      break;
-    case _WatermarkPosition.middleLeft:
-      ox = margin;
-      oy = (source.height - strip.height) ~/ 2;
-      break;
-    case _WatermarkPosition.middleCenter:
-      ox = (source.width - strip.width) ~/ 2;
-      oy = (source.height - strip.height) ~/ 2;
-      break;
-    case _WatermarkPosition.middleRight:
-      ox = source.width - strip.width - margin;
-      oy = (source.height - strip.height) ~/ 2;
-      break;
-    case _WatermarkPosition.bottomLeft:
-      ox = margin;
-      oy = source.height - strip.height - margin;
-      break;
-    case _WatermarkPosition.bottomCenter:
-      ox = (source.width - strip.width) ~/ 2;
-      oy = source.height - strip.height - margin;
-      break;
-    case _WatermarkPosition.bottomRight:
-      ox = source.width - strip.width - margin;
-      oy = source.height - strip.height - margin;
-      break;
-  }
-  ox = ox.clamp(0, math.max(0, source.width - strip.width));
-  oy = oy.clamp(0, math.max(0, source.height - strip.height));
-
-  // Alpha compositing.
-  final clampedOpacity = opacity.clamp(0.0, 1.0);
-  final target = source.convert(numChannels: 4);
-  for (var y = 0; y < strip.height && (oy + y) < target.height; y++) {
-    for (var x = 0; x < strip.width && (ox + x) < target.width; x++) {
-      final src = strip.getPixel(x, y);
-      final srcAlpha = (src.a / 255.0) * clampedOpacity;
-      if (srcAlpha <= 0) continue;
-      final dst = target.getPixel(ox + x, oy + y);
-      final outR = src.r * srcAlpha + dst.r * (1 - srcAlpha);
-      final outG = src.g * srcAlpha + dst.g * (1 - srcAlpha);
-      final outB = src.b * srcAlpha + dst.b * (1 - srcAlpha);
-      target.setPixelRgba(
-        ox + x,
-        oy + y,
-        outR.round().clamp(0, 255),
-        outG.round().clamp(0, 255),
-        outB.round().clamp(0, 255),
-        255,
-      );
-    }
-  }
-  return target;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
