@@ -161,6 +161,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   Offset? _resizeDragStartGlobalPosition;
   Rect? _resizeDragStartRect;
 
+  /// Key for the local [ScaffoldMessenger] inside this dialog so that
+  /// snackbars appear within the dialog surface, not behind it.
+  final GlobalKey<ScaffoldMessengerState> _messengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   @override
   void initState() {
     super.initState();
@@ -183,69 +188,76 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     return PopScope(
       canPop: !_isSaving && !_isProcessing,
       child: Dialog(
+        clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 920),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.imageEditorTitle,
-                  style: theme.textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.imageEditorCropHint,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+          child: ScaffoldMessenger(
+            key: _messengerKey,
+            child: Scaffold(
+              backgroundColor: colorScheme.surfaceContainerHigh,
+              body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.imageEditorTitle,
+                    style: theme.textTheme.headlineSmall,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildPreviewPanel(context),
-                        const SizedBox(height: 18),
-                        _buildAspectChips(context),
-                        const SizedBox(height: 12),
-                        _buildTransformActions(context),
-                        const SizedBox(height: 16),
-                        _buildAdjustmentSliders(context),
-                        const SizedBox(height: 8),
-                        _buildAdvancedPanels(context),
-                        if (_statusMessage != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _statusMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            _errorMessage!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.error,
-                            ),
-                          ),
-                        ],
-                      ],
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.imageEditorCropHint,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-                if (_isSaving || _isProcessing) ...[
                   const SizedBox(height: 16),
-                  const LinearProgressIndicator(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildPreviewPanel(context),
+                          const SizedBox(height: 18),
+                          _buildAspectChips(context),
+                          const SizedBox(height: 12),
+                          _buildTransformActions(context),
+                          const SizedBox(height: 16),
+                          _buildAdjustmentSliders(context),
+                          const SizedBox(height: 8),
+                          _buildAdvancedPanels(context),
+                          if (_statusMessage != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _statusMessage!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ],
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _errorMessage!,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.error,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_isSaving || _isProcessing) ...[
+                    const SizedBox(height: 16),
+                    const LinearProgressIndicator(),
+                  ],
+                  const SizedBox(height: 16),
+                  _buildActionBar(context),
                 ],
-                const SizedBox(height: 16),
-                _buildActionBar(context),
-              ],
+              ),
             ),
+          ),
           ),
         ),
       ),
@@ -1073,6 +1085,20 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool get _canResetAll =>
       _hasBakedChanges || _undoStack.isNotEmpty || _hasUnappliedEdits;
 
+  /// Shows a brief [SnackBar] notification at the bottom of the dialog.
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
+    _messengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? colorScheme.error : null,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: isError ? 4 : 2),
+      ),
+    );
+  }
+
   void _loadImage() {
     _loadImageAsync();
   }
@@ -1149,6 +1175,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
         });
+        _showSnackBar(AppLocalizations.of(context)!.imageEditorProcessFailed, isError: true);
         return;
       }
       setState(() {
@@ -1167,6 +1194,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
         });
+        _showSnackBar(AppLocalizations.of(context)!.imageEditorProcessFailed, isError: true);
       }
     } finally {
       _dismissProcessingOverlay();
@@ -1269,13 +1297,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             if (!dialogContext.mounted) {
               return;
             }
-            Navigator.of(dialogContext, rootNavigator: true).maybePop();
+            Navigator.of(dialogContext, rootNavigator: true).pop();
           });
         }
-        return PopScope(
-          canPop: false,
-          child: _ProcessingDialog(message: processingMessage),
-        );
+        return _ProcessingDialog(message: processingMessage);
       },
     ).whenComplete(() {
       _processingDialogContext = null;
@@ -1288,12 +1313,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     if (!_processingDialogVisible) {
       return;
     }
+    _processingDialogVisible = false;
     final dialogContext = _processingDialogContext;
-    if (dialogContext == null) {
+    if (dialogContext == null || !dialogContext.mounted) {
       _processingDialogCloseRequested = true;
       return;
     }
-    Navigator.of(dialogContext, rootNavigator: true).maybePop();
+    _processingDialogContext = null;
+    Navigator.of(dialogContext, rootNavigator: true).pop();
   }
 
   // ──────────────────────────────── Apply (bake edits) / Undo ────────────
@@ -1392,6 +1419,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (result == null) {
         if (mounted) {
           setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+          _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
         }
         return;
       }
@@ -1410,6 +1438,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (composedBytes == null) {
         if (mounted) {
           setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+          _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
         }
         return;
       }
@@ -1433,10 +1462,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _errorMessage = null;
         _statusMessage = l10n.imageEditorApplySuccess;
       });
+      _showSnackBar(l10n.imageEditorApplySuccess);
     } catch (error, stack) {
       debugPrint('[ImageEditor] apply failed: $error\n$stack');
       if (mounted) {
         setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+        _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
       }
     } finally {
       _dismissProcessingOverlay();
@@ -1987,6 +2018,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _statusMessage = l10n.imageEditorSavedTo(location.path);
         _errorMessage = null;
       });
+      _showSnackBar(l10n.imageEditorSavedTo(location.path));
     } catch (error) {
       if (!mounted) {
         return;
@@ -1994,6 +2026,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorSaveFailed(error.toString());
       });
+      _showSnackBar(l10n.imageEditorSaveFailed(error.toString()), isError: true);
     }
   }
 
@@ -2032,12 +2065,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (!mounted) {
         return;
       }
+      final clipMsg = bitmapCopied
+          ? l10n.imageEditorClipboardCopiedBitmap
+          : l10n.imageEditorClipboardCopiedPath(tempFile.path);
       setState(() {
-        _statusMessage = bitmapCopied
-            ? l10n.imageEditorClipboardCopiedBitmap
-            : l10n.imageEditorClipboardCopiedPath(tempFile.path);
+        _statusMessage = clipMsg;
         _errorMessage = null;
       });
+      _showSnackBar(clipMsg);
     } catch (error) {
       if (!mounted) {
         return;
@@ -2045,6 +2080,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorClipboardFailed(error.toString());
       });
+      _showSnackBar(l10n.imageEditorClipboardFailed(error.toString()), isError: true);
     }
   }
 
@@ -2057,6 +2093,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorLoadFailed;
       });
+      _showSnackBar(l10n.imageEditorLoadFailed, isError: true);
       return null;
     }
 
@@ -2128,6 +2165,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           setState(() {
             _errorMessage = l10n.imageEditorProcessFailed;
           });
+          _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
         }
         return null;
       }
@@ -2147,6 +2185,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           setState(() {
             _errorMessage = l10n.imageEditorProcessFailed;
           });
+          _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
         }
         return null;
       }
@@ -2158,6 +2197,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorProcessFailed;
       });
+      _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
       return null;
     } finally {
       _dismissProcessingOverlay();
