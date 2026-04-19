@@ -630,7 +630,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorTitle => '编辑图片';
 
   @override
-  String get imageEditorCropHint => '拖动图片调整方形裁剪区域，并可继续缩放、旋转、调节亮度与对比度。';
+  String get imageEditorCropHint =>
+      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。';
 
   @override
   String get imageEditorZoomLabel => '缩放';
@@ -655,6 +656,87 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get imageEditorProcessFailed => '无法处理所选图片';
+
+  @override
+  String get imageEditorSectionBasic => '基础调整';
+
+  @override
+  String get imageEditorSectionColor => '色彩（色温 / 色调 / 伽马）';
+
+  @override
+  String get imageEditorSectionSplitToning => '色调分离（HSL）';
+
+  @override
+  String get imageEditorSectionDetail => '细节（清晰度 / 锐度 / 降噪 / 颗粒）';
+
+  @override
+  String get imageEditorSectionEffects => '特效（色散 / 扭曲 / 晕影）';
+
+  @override
+  String get imageEditorSectionWatermark => '文字水印 / 标记';
+
+  @override
+  String get imageEditorTemperatureLabel => '色温';
+
+  @override
+  String get imageEditorTintLabel => '色调偏移';
+
+  @override
+  String get imageEditorGammaLabel => '伽马（曲线）';
+
+  @override
+  String get imageEditorShadowHueLabel => '暗部色相';
+
+  @override
+  String get imageEditorShadowStrengthLabel => '暗部强度';
+
+  @override
+  String get imageEditorHighlightHueLabel => '亮部色相';
+
+  @override
+  String get imageEditorHighlightStrengthLabel => '亮部强度';
+
+  @override
+  String get imageEditorClarityLabel => '清晰度';
+
+  @override
+  String get imageEditorSharpnessLabel => '锐度';
+
+  @override
+  String get imageEditorDenoiseLabel => '降噪';
+
+  @override
+  String get imageEditorGrainLabel => '颗粒';
+
+  @override
+  String get imageEditorDispersionLabel => '色散';
+
+  @override
+  String get imageEditorDistortLabel => '扭曲（正值凸出 / 负值拉伸）';
+
+  @override
+  String get imageEditorWatermarkTextLabel => '水印文字';
+
+  @override
+  String get imageEditorWatermarkTextHint => '输入要叠加的文字（留空则不添加）';
+
+  @override
+  String get imageEditorWatermarkSizeLabel => '文字大小';
+
+  @override
+  String get imageEditorWatermarkOpacityLabel => '不透明度';
+
+  @override
+  String get imageEditorWatermarkPositionLabel => '位置';
+
+  @override
+  String get imageEditorWatermarkColorLight => '浅色';
+
+  @override
+  String get imageEditorWatermarkColorDark => '深色';
+
+  @override
+  String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
 
   @override
   String get skillsEditorSave => '保存';
@@ -1099,4 +1181,40 @@ class AppLocalizationsJa extends AppLocalizations {
   String imageEditorClipboardFailed(String error) {
     return '复制失败：$error';
   }
+
+  @override
+  String get imageEditorApplyButton => '应用';
+
+  @override
+  String get imageEditorUndoButton => '回退';
+
+  @override
+  String get imageEditorResetAllButton => '重置全部';
+
+  @override
+  String get imageEditorCompareHold => '按住对比';
+
+  @override
+  String get imageEditorCompareRelease => '松开返回';
+
+  @override
+  String get imageEditorCompareOriginal => '原图';
+
+  @override
+  String get imageEditorWatermarkColorLabel => '文字颜色';
+
+  @override
+  String get imageEditorWatermarkColorHue => '颜色（Hue）';
+
+  @override
+  String get imageEditorWatermarkColorSaturation => '饱和度';
+
+  @override
+  String get imageEditorWatermarkColorLightness => '明度';
+
+  @override
+  String get imageEditorApplySuccess => '调整已应用';
+
+  @override
+  String get imageEditorProcessing => '处理中…';
 }

@@ -385,5 +385,17 @@
   "imageEditorClipboardFailed": "Copy failed: {error}",
   "@imageEditorClipboardFailed": {
     "placeholders": {"error": {"type": "String"}}
-  }
+  },
+  "imageEditorApplyButton": "Apply",
+  "imageEditorUndoButton": "Undo",
+  "imageEditorResetAllButton": "Reset All",
+  "imageEditorCompareHold": "Hold To Compare",
+  "imageEditorCompareRelease": "Release",
+  "imageEditorCompareOriginal": "Original",
+  "imageEditorWatermarkColorLabel": "Text Color",
+  "imageEditorWatermarkColorHue": "Hue",
+  "imageEditorWatermarkColorSaturation": "Saturation",
+  "imageEditorWatermarkColorLightness": "Lightness",
+  "imageEditorApplySuccess": "Adjustments applied",
+  "imageEditorProcessing": "Processing..."
 }

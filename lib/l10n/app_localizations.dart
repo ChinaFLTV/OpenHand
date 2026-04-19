@@ -1309,7 +1309,7 @@ abstract class AppLocalizations {
   /// No description provided for @imageEditorCropHint.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'拖动图片调整方形裁剪区域，并可继续缩放、旋转、调节亮度与对比度。'**
+  /// **'拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。'**
   String get imageEditorCropHint;
 
   /// No description provided for @imageEditorZoomLabel.
@@ -1359,6 +1359,168 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'无法处理所选图片'**
   String get imageEditorProcessFailed;
+
+  /// No description provided for @imageEditorSectionBasic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'基础调整'**
+  String get imageEditorSectionBasic;
+
+  /// No description provided for @imageEditorSectionColor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色彩（色温 / 色调 / 伽马）'**
+  String get imageEditorSectionColor;
+
+  /// No description provided for @imageEditorSectionSplitToning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色调分离（HSL）'**
+  String get imageEditorSectionSplitToning;
+
+  /// No description provided for @imageEditorSectionDetail.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'细节（清晰度 / 锐度 / 降噪 / 颗粒）'**
+  String get imageEditorSectionDetail;
+
+  /// No description provided for @imageEditorSectionEffects.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'特效（色散 / 扭曲 / 晕影）'**
+  String get imageEditorSectionEffects;
+
+  /// No description provided for @imageEditorSectionWatermark.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文字水印 / 标记'**
+  String get imageEditorSectionWatermark;
+
+  /// No description provided for @imageEditorTemperatureLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色温'**
+  String get imageEditorTemperatureLabel;
+
+  /// No description provided for @imageEditorTintLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色调偏移'**
+  String get imageEditorTintLabel;
+
+  /// No description provided for @imageEditorGammaLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'伽马（曲线）'**
+  String get imageEditorGammaLabel;
+
+  /// No description provided for @imageEditorShadowHueLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暗部色相'**
+  String get imageEditorShadowHueLabel;
+
+  /// No description provided for @imageEditorShadowStrengthLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暗部强度'**
+  String get imageEditorShadowStrengthLabel;
+
+  /// No description provided for @imageEditorHighlightHueLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'亮部色相'**
+  String get imageEditorHighlightHueLabel;
+
+  /// No description provided for @imageEditorHighlightStrengthLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'亮部强度'**
+  String get imageEditorHighlightStrengthLabel;
+
+  /// No description provided for @imageEditorClarityLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清晰度'**
+  String get imageEditorClarityLabel;
+
+  /// No description provided for @imageEditorSharpnessLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'锐度'**
+  String get imageEditorSharpnessLabel;
+
+  /// No description provided for @imageEditorDenoiseLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'降噪'**
+  String get imageEditorDenoiseLabel;
+
+  /// No description provided for @imageEditorGrainLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'颗粒'**
+  String get imageEditorGrainLabel;
+
+  /// No description provided for @imageEditorDispersionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色散'**
+  String get imageEditorDispersionLabel;
+
+  /// No description provided for @imageEditorDistortLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扭曲（正值凸出 / 负值拉伸）'**
+  String get imageEditorDistortLabel;
+
+  /// No description provided for @imageEditorWatermarkTextLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'水印文字'**
+  String get imageEditorWatermarkTextLabel;
+
+  /// No description provided for @imageEditorWatermarkTextHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入要叠加的文字（留空则不添加）'**
+  String get imageEditorWatermarkTextHint;
+
+  /// No description provided for @imageEditorWatermarkSizeLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文字大小'**
+  String get imageEditorWatermarkSizeLabel;
+
+  /// No description provided for @imageEditorWatermarkOpacityLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不透明度'**
+  String get imageEditorWatermarkOpacityLabel;
+
+  /// No description provided for @imageEditorWatermarkPositionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'位置'**
+  String get imageEditorWatermarkPositionLabel;
+
+  /// No description provided for @imageEditorWatermarkColorLight.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'浅色'**
+  String get imageEditorWatermarkColorLight;
+
+  /// No description provided for @imageEditorWatermarkColorDark.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'深色'**
+  String get imageEditorWatermarkColorDark;
+
+  /// No description provided for @imageEditorAdvancedApplyHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开面板中的调整会在“保存”时一次性应用到原图。'**
+  String get imageEditorAdvancedApplyHint;
 
   /// No description provided for @skillsEditorSave.
   ///
@@ -2193,6 +2355,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'复制失败：{error}'**
   String imageEditorClipboardFailed(String error);
+
+  /// No description provided for @imageEditorApplyButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用'**
+  String get imageEditorApplyButton;
+
+  /// No description provided for @imageEditorUndoButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'回退'**
+  String get imageEditorUndoButton;
+
+  /// No description provided for @imageEditorResetAllButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置全部'**
+  String get imageEditorResetAllButton;
+
+  /// No description provided for @imageEditorCompareHold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按住对比'**
+  String get imageEditorCompareHold;
+
+  /// No description provided for @imageEditorCompareRelease.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'松开返回'**
+  String get imageEditorCompareRelease;
+
+  /// No description provided for @imageEditorCompareOriginal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原图'**
+  String get imageEditorCompareOriginal;
+
+  /// No description provided for @imageEditorWatermarkColorLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文字颜色'**
+  String get imageEditorWatermarkColorLabel;
+
+  /// No description provided for @imageEditorWatermarkColorHue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'颜色（Hue）'**
+  String get imageEditorWatermarkColorHue;
+
+  /// No description provided for @imageEditorWatermarkColorSaturation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'饱和度'**
+  String get imageEditorWatermarkColorSaturation;
+
+  /// No description provided for @imageEditorWatermarkColorLightness.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'明度'**
+  String get imageEditorWatermarkColorLightness;
+
+  /// No description provided for @imageEditorApplySuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调整已应用'**
+  String get imageEditorApplySuccess;
+
+  /// No description provided for @imageEditorProcessing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'处理中…'**
+  String get imageEditorProcessing;
 }
 
 class _AppLocalizationsDelegate

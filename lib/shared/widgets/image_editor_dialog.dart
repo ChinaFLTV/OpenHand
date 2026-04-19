@@ -1,8 +1,9 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -33,6 +34,19 @@ enum _CropAspect {
   sixteenByNine,
   nineBySixteen,
   circle, // square crop with rounded mask + PNG transparency on save
+}
+
+/// Anchor positions for the optional text watermark.
+enum _WatermarkPosition {
+  topLeft,
+  topCenter,
+  topRight,
+  middleLeft,
+  middleCenter,
+  middleRight,
+  bottomLeft,
+  bottomCenter,
+  bottomRight,
 }
 
 /// Opens the in-app image editor on top of [imageBytes].
@@ -74,11 +88,21 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   static const double _minCropSide = 64;
   static const int _maxOutputLongSide = 2048;
 
-  /// The decoded source image (orientation baked, no edits applied).
-  img.Image? _orientedImage;
+  /// Width / height of the oriented source image. All actual pixel data
+  /// lives exclusively in [_previewBytes] (PNG-encoded) and is only decoded
+  /// inside background isolates — never on the UI thread.
+  int _imageWidth = 0;
+  int _imageHeight = 0;
 
-  /// PNG bytes of [_orientedImage] used purely for on-screen preview.
+  /// PNG bytes of the current source image, used for on-screen preview
+  /// via [Image.memory] and as the input for every isolate render call.
   Uint8List? _previewBytes;
+
+  /// Original oriented source (never mutated after initial load). Used by
+  /// hold-to-compare and reset-all.
+  Uint8List? _originalPreviewBytes;
+  int _originalImageWidth = 0;
+  int _originalImageHeight = 0;
 
   Rect? _cropRect;
   Size _previewSize = Size.zero;
@@ -95,9 +119,40 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool _flipVertical = false;
   _CropAspect _aspect = _CropAspect.freeform;
 
+  // ── Advanced adjustments (applied at save-time through package:image) ──
+  double _temperature = 0.0; // -100..100 (warm/cool)
+  double _tint = 0.0; // -100..100 (green/magenta)
+  double _gamma = 1.0; // 0.5..2.0 (tone curve)
+  double _shadowHue = 210.0; // 0..360 degrees
+  double _shadowStrength = 0.0; // 0..100
+  double _highlightHue = 45.0; // 0..360 degrees
+  double _highlightStrength = 0.0; // 0..100
+  double _clarity = 0.0; // 0..100 (unsharp-like via convolution)
+  double _sharpness = 0.0; // 0..100 (convolution sharpen)
+  double _denoise = 0.0; // 0..100 (gaussian blur radius)
+  double _grain = 0.0; // 0..100 (noise sigma)
+  double _dispersion = 0.0; // 0..20 px channel shift
+  double _distort = 0.0; // -100..100 (negative=stretch, positive=bulge)
+
+  // Watermark / text mark.
+  final TextEditingController _watermarkController = TextEditingController();
+  double _watermarkSize = 48.0; // 12..160 px (rendered size on output)
+  double _watermarkOpacity = 0.85;
+  _WatermarkPosition _watermarkPosition = _WatermarkPosition.bottomRight;
+  double _watermarkHue = 0.0; // 0..360
+  double _watermarkSaturation = 0.0; // 0..1
+  double _watermarkLightness = 0.94; // 0..1
+
   bool _isSaving = false;
+  bool _isProcessing = false;
+  bool _showOriginalPreview = false;
+  bool _hasBakedChanges = false;
   String? _errorMessage;
   String? _statusMessage;
+
+  /// Undo stack: stores (previewBytes, width, height) snapshots.
+  final List<(Uint8List, int, int)> _undoStack = [];
+  static const int _maxUndoDepth = 20;
 
   Offset? _moveDragStartGlobalPosition;
   Rect? _moveDragStartRect;
@@ -111,13 +166,20 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   @override
+  void dispose() {
+    _watermarkController.dispose();
+    _dismissProcessingOverlay();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
     return PopScope(
-      canPop: !_isSaving,
+      canPop: !_isSaving && !_isProcessing,
       child: Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1040, maxHeight: 920),
@@ -150,6 +212,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                         _buildTransformActions(context),
                         const SizedBox(height: 16),
                         _buildAdjustmentSliders(context),
+                        const SizedBox(height: 8),
+                        _buildAdvancedPanels(context),
                         if (_statusMessage != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -172,7 +236,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     ),
                   ),
                 ),
-                if (_isSaving) ...[
+                if (_isSaving || _isProcessing) ...[
                   const SizedBox(height: 16),
                   const LinearProgressIndicator(),
                 ],
@@ -226,38 +290,65 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Widget _buildTransformActions(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Uniform pill-style button styling so every capsule in the row shares
+    // the exact same height, padding and shape, matching the outlined chips
+    // above and giving the whole bar a consistent rhythm.
+    final pillStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      visualDensity: VisualDensity.standard,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: const StadiumBorder(),
+    );
+    Widget pill({
+      required VoidCallback? onPressed,
+      required IconData icon,
+      required String label,
+    }) {
+      return SizedBox(
+        height: 40,
+        child: OutlinedButton.icon(
+          style: pillStyle,
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+        ),
+      );
+    }
+
     return Wrap(
       spacing: 12,
       runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        OutlinedButton.icon(
+        pill(
           onPressed: _canEdit ? () => _rotateImage(-90) : null,
-          icon: const Icon(Icons.rotate_left_rounded),
-          label: Text(l10n.imageEditorRotateLeft),
+          icon: Icons.rotate_left_rounded,
+          label: l10n.imageEditorRotateLeft,
         ),
-        OutlinedButton.icon(
+        pill(
           onPressed: _canEdit ? () => _rotateImage(90) : null,
-          icon: const Icon(Icons.rotate_right_rounded),
-          label: Text(l10n.imageEditorRotateRight),
+          icon: Icons.rotate_right_rounded,
+          label: l10n.imageEditorRotateRight,
         ),
-        OutlinedButton.icon(
+        pill(
           onPressed: _canEdit
               ? () => setState(() => _flipHorizontal = !_flipHorizontal)
               : null,
-          icon: const Icon(Icons.flip_rounded),
-          label: Text(l10n.imageEditorFlipHorizontal),
+          icon: Icons.flip_rounded,
+          label: l10n.imageEditorFlipHorizontal,
         ),
-        OutlinedButton.icon(
+        pill(
           onPressed: _canEdit
               ? () => setState(() => _flipVertical = !_flipVertical)
               : null,
-          icon: const Icon(Icons.swap_vert_rounded),
-          label: Text(l10n.imageEditorFlipVertical),
+          icon: Icons.swap_vert_rounded,
+          label: l10n.imageEditorFlipVertical,
         ),
-        TextButton.icon(
+        pill(
           onPressed: _canEdit ? _resetAdjustments : null,
-          icon: const Icon(Icons.refresh_rounded),
-          label: Text(l10n.imageEditorReset),
+          icon: Icons.refresh_rounded,
+          label: l10n.imageEditorReset,
         ),
       ],
     );
@@ -333,26 +424,387 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     );
   }
 
+  // ─────────────────────────────────────────────────── Advanced panels ─────
+
+  Widget _buildAdvancedPanels(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final hint = Padding(
+      padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
+      child: Text(
+        l10n.imageEditorAdvancedApplyHint,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        hint,
+        _AdvancedSection(
+          title: l10n.imageEditorSectionColor,
+          children: [
+            _EditorSlider(
+              label: l10n.imageEditorTemperatureLabel,
+              value: _temperature,
+              min: -100,
+              max: 100,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _temperature = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorTintLabel,
+              value: _tint,
+              min: -100,
+              max: 100,
+              onChanged: _canEdit ? (v) => setState(() => _tint = v) : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorGammaLabel,
+              value: _gamma,
+              min: 0.5,
+              max: 2.0,
+              onChanged: _canEdit ? (v) => setState(() => _gamma = v) : null,
+            ),
+          ],
+        ),
+        _AdvancedSection(
+          title: l10n.imageEditorSectionSplitToning,
+          children: [
+            _EditorSlider(
+              label: l10n.imageEditorShadowHueLabel,
+              value: _shadowHue,
+              min: 0,
+              max: 360,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _shadowHue = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorShadowStrengthLabel,
+              value: _shadowStrength,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _shadowStrength = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorHighlightHueLabel,
+              value: _highlightHue,
+              min: 0,
+              max: 360,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _highlightHue = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorHighlightStrengthLabel,
+              value: _highlightStrength,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _highlightStrength = v)
+                  : null,
+            ),
+          ],
+        ),
+        _AdvancedSection(
+          title: l10n.imageEditorSectionDetail,
+          children: [
+            _EditorSlider(
+              label: l10n.imageEditorClarityLabel,
+              value: _clarity,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit ? (v) => setState(() => _clarity = v) : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorSharpnessLabel,
+              value: _sharpness,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _sharpness = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorDenoiseLabel,
+              value: _denoise,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit ? (v) => setState(() => _denoise = v) : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorGrainLabel,
+              value: _grain,
+              min: 0,
+              max: 100,
+              onChanged: _canEdit ? (v) => setState(() => _grain = v) : null,
+            ),
+          ],
+        ),
+        _AdvancedSection(
+          title: l10n.imageEditorSectionEffects,
+          children: [
+            _EditorSlider(
+              label: l10n.imageEditorDispersionLabel,
+              value: _dispersion,
+              min: 0,
+              max: 20,
+              onChanged: _canEdit
+                  ? (v) => setState(() => _dispersion = v)
+                  : null,
+            ),
+            _EditorSlider(
+              label: l10n.imageEditorDistortLabel,
+              value: _distort,
+              min: -100,
+              max: 100,
+              onChanged: _canEdit ? (v) => setState(() => _distort = v) : null,
+            ),
+          ],
+        ),
+        _AdvancedSection(
+          title: l10n.imageEditorSectionWatermark,
+          children: [_buildWatermarkEditor(context)],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWatermarkEditor(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final watermarkColor = _currentWatermarkColor;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _watermarkController,
+          enabled: _canEdit,
+          decoration: InputDecoration(
+            labelText: l10n.imageEditorWatermarkTextLabel,
+            hintText: l10n.imageEditorWatermarkTextHint,
+            border: const OutlineInputBorder(),
+          ),
+          onChanged: (_) => setState(() {}),
+          maxLength: 120,
+        ),
+        const SizedBox(height: 8),
+        _EditorSlider(
+          label: l10n.imageEditorWatermarkSizeLabel,
+          value: _watermarkSize,
+          min: 12,
+          max: 160,
+          onChanged: _canEdit
+              ? (v) => setState(() => _watermarkSize = v)
+              : null,
+        ),
+        _EditorSlider(
+          label: l10n.imageEditorWatermarkOpacityLabel,
+          value: _watermarkOpacity,
+          min: 0.1,
+          max: 1.0,
+          onChanged: _canEdit
+              ? (v) => setState(() => _watermarkOpacity = v)
+              : null,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          l10n.imageEditorWatermarkPositionLabel,
+          style: theme.textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        // 3×3 position grid.
+        Column(
+          children: [
+            for (final row in const <List<_WatermarkPosition>>[
+              [
+                _WatermarkPosition.topLeft,
+                _WatermarkPosition.topCenter,
+                _WatermarkPosition.topRight,
+              ],
+              [
+                _WatermarkPosition.middleLeft,
+                _WatermarkPosition.middleCenter,
+                _WatermarkPosition.middleRight,
+              ],
+              [
+                _WatermarkPosition.bottomLeft,
+                _WatermarkPosition.bottomCenter,
+                _WatermarkPosition.bottomRight,
+              ],
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    for (final pos in row) ...[
+                      Expanded(
+                        child: SizedBox(
+                          height: 34,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              backgroundColor: _watermarkPosition == pos
+                                  ? colorScheme.primaryContainer
+                                  : null,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: _canEdit
+                                ? () =>
+                                      setState(() => _watermarkPosition = pos)
+                                : null,
+                            child: Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: _watermarkPosition == pos
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (pos != row.last) const SizedBox(width: 6),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: watermarkColor,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: colorScheme.outline),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              l10n.imageEditorWatermarkColorLabel,
+              style: theme.textTheme.titleSmall,
+            ),
+          ],
+        ),
+        _EditorSlider(
+          label: l10n.imageEditorWatermarkColorHue,
+          value: _watermarkHue,
+          min: 0,
+          max: 360,
+          onChanged: _canEdit
+              ? (v) => setState(() => _watermarkHue = v)
+              : null,
+        ),
+        _EditorSlider(
+          label: l10n.imageEditorWatermarkColorSaturation,
+          value: _watermarkSaturation,
+          min: 0,
+          max: 1,
+          onChanged: _canEdit
+              ? (v) => setState(() => _watermarkSaturation = v)
+              : null,
+        ),
+        _EditorSlider(
+          label: l10n.imageEditorWatermarkColorLightness,
+          value: _watermarkLightness,
+          min: 0,
+          max: 1,
+          onChanged: _canEdit
+              ? (v) => setState(() => _watermarkLightness = v)
+              : null,
+        ),
+      ],
+    );
+  }
+
   Widget _buildActionBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // Keep the left secondary actions and the right primary actions on the
+    // same vertical rhythm: shared height, shared padding, shared stadium
+    // shape for the outlined pair, and a fixed sized slot for each button so
+    // the whole bar looks like one consistent capsule row.
+    const double barHeight = 52;
+    final secondaryStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, barHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      shape: const StadiumBorder(),
+    );
     return Row(
       children: [
-        OutlinedButton.icon(
-          onPressed: _canEdit && !_isSaving ? _handleSaveToFile : null,
-          icon: const Icon(Icons.download_rounded),
-          label: Text(l10n.imageEditorSaveToFile),
+        SizedBox(
+          height: barHeight,
+          child: OutlinedButton.icon(
+            style: secondaryStyle,
+            onPressed: _canEdit && !_isSaving ? _handleSaveToFile : null,
+            icon: const Icon(Icons.download_rounded, size: 18),
+            label: Text(l10n.imageEditorSaveToFile),
+          ),
         ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: _canEdit && !_isSaving ? _handleCopyToClipboard : null,
-          icon: const Icon(Icons.copy_rounded),
-          label: Text(l10n.imageEditorCopyToClipboard),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: barHeight,
+          child: OutlinedButton.icon(
+            style: secondaryStyle,
+            onPressed: _canEdit && !_isSaving ? _handleCopyToClipboard : null,
+            icon: const Icon(Icons.copy_rounded, size: 18),
+            label: Text(l10n.imageEditorCopyToClipboard),
+          ),
         ),
         const Spacer(),
         SizedBox(
+          height: barHeight,
+          child: OutlinedButton.icon(
+            style: secondaryStyle,
+            onPressed: _canEdit && !_isSaving && _hasUnappliedEdits
+                ? _handleApply
+                : null,
+            icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+            label: Text(l10n.imageEditorApplyButton),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: barHeight,
+          child: OutlinedButton.icon(
+            style: secondaryStyle,
+            onPressed: _canEdit && !_isSaving && _canResetAll
+                ? _handleResetAll
+                : null,
+            icon: const Icon(Icons.restart_alt_rounded, size: 18),
+            label: Text(l10n.imageEditorResetAllButton),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          height: barHeight,
+          child: OutlinedButton.icon(
+            style: secondaryStyle,
+            onPressed: _canEdit && !_isSaving && _undoStack.isNotEmpty
+                ? _handleUndo
+                : null,
+            icon: const Icon(Icons.undo_rounded, size: 18),
+            label: Text(l10n.imageEditorUndoButton),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
           width: 132,
-          height: 52,
+          height: barHeight,
           child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
+            ),
             onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
             child: Text(l10n.commonCancel),
           ),
@@ -360,8 +812,11 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         const SizedBox(width: 12),
         SizedBox(
           width: 132,
-          height: 52,
+          height: barHeight,
           child: FilledButton(
+            style: FilledButton.styleFrom(
+              shape: const StadiumBorder(),
+            ),
             onPressed: _canEdit && !_isSaving ? _handleConfirmSave : null,
             child: Text(l10n.commonSave),
           ),
@@ -374,170 +829,236 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   Widget _buildPreviewPanel(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final previewBytes = _previewBytes;
-    final orientedImage = _orientedImage;
+    final colorScheme = Theme.of(context).colorScheme;
+    final showOriginal =
+        _showOriginalPreview &&
+        _originalPreviewBytes != null &&
+        _originalImageWidth > 0 &&
+        _originalImageHeight > 0;
+    final previewBytes = showOriginal ? _originalPreviewBytes : _previewBytes;
+    final previewImageWidth = showOriginal ? _originalImageWidth : _imageWidth;
+    final previewImageHeight = showOriginal ? _originalImageHeight : _imageHeight;
+    final compareEnabled =
+        _canEdit && _originalPreviewBytes != null && _originalImageWidth > 0;
 
     return Center(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final previewWidth = math.min(constraints.maxWidth, _previewMaxWidth);
+          final rawPreviewWidth = math.min(
+            constraints.maxWidth - 116,
+            _previewMaxWidth,
+          );
+          final previewWidth =
+              rawPreviewWidth.clamp(220.0, _previewMaxWidth).toDouble();
           final previewSize = Size(previewWidth, _previewHeight);
           _previewSize = previewSize;
 
-          if (previewBytes == null || orientedImage == null) {
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: SizedBox(
-                width: previewWidth,
-                height: _previewHeight,
-                child: ColoredBox(
-                  color: colorScheme.surfaceContainerHigh,
-                  child: Center(child: Text(l10n.imageEditorLoadFailed)),
+          Widget previewBody;
+          if (previewBytes == null || previewImageWidth == 0) {
+            previewBody = Center(
+              child: _isProcessing
+                  ? const CircularProgressIndicator()
+                  : Text(l10n.imageEditorLoadFailed),
+            );
+          } else {
+            final imageRect = _computeImageRectFor(
+              previewSize,
+              previewImageWidth,
+              previewImageHeight,
+            );
+            final cropRect = _resolvedCropRect(imageRect);
+
+            previewBody = Stack(
+              children: [
+                Positioned.fromRect(
+                  rect: imageRect,
+                  child: showOriginal
+                      ? Image.memory(previewBytes, fit: BoxFit.fill)
+                      : Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..rotateZ(_rotation * math.pi / 180.0)
+                            ..scaleByDouble(
+                              _flipHorizontal ? -1.0 : 1.0,
+                              _flipVertical ? -1.0 : 1.0,
+                              1.0,
+                              1.0,
+                            ),
+                          child: ColorFiltered(
+                            colorFilter: ColorFilter.matrix(
+                              _buildPreviewColorMatrix(),
+                            ),
+                            child: Image.memory(previewBytes, fit: BoxFit.fill),
+                          ),
+                        ),
                 ),
-              ),
+                if (showOriginal)
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.scrim.withValues(alpha: 0.58),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        l10n.imageEditorCompareOriginal,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!showOriginal) ...[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _CropOverlayPainter(
+                          imageRect: imageRect,
+                          cropRect: cropRect,
+                          isCircle: _aspect == _CropAspect.circle,
+                          overlayColor: colorScheme.scrim.withValues(
+                            alpha: 0.32,
+                          ),
+                          borderColor: colorScheme.outline.withValues(
+                            alpha: 0.78,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fromRect(
+                    rect: cropRect,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.move,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          _moveDragStartGlobalPosition = details.globalPosition;
+                          _moveDragStartRect = cropRect;
+                        },
+                        onPanUpdate: (details) {
+                          final startPosition = _moveDragStartGlobalPosition;
+                          final startRect = _moveDragStartRect;
+                          if (startPosition == null || startRect == null) {
+                            return;
+                          }
+                          final delta = details.globalPosition - startPosition;
+                          setState(() {
+                            _cropRect = _clampMovedCropRect(
+                              startRect.shift(delta),
+                              imageRect,
+                            );
+                          });
+                        },
+                        onPanEnd: (_) {
+                          _moveDragStartGlobalPosition = null;
+                          _moveDragStartRect = null;
+                        },
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: cropRect.right - 14,
+                    top: cropRect.bottom - 14,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.resizeUpLeftDownRight,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) {
+                          _resizeDragStartGlobalPosition =
+                              details.globalPosition;
+                          _resizeDragStartRect = cropRect;
+                        },
+                        onPanUpdate: (details) {
+                          final startPosition = _resizeDragStartGlobalPosition;
+                          final startRect = _resizeDragStartRect;
+                          if (startPosition == null || startRect == null) {
+                            return;
+                          }
+                          final delta = details.globalPosition - startPosition;
+                          setState(() {
+                            _cropRect = _resizeCropRect(
+                              startRect,
+                              imageRect,
+                              delta,
+                            );
+                          });
+                        },
+                        onPanEnd: (_) {
+                          _resizeDragStartGlobalPosition = null;
+                          _resizeDragStartRect = null;
+                        },
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colorScheme.surface,
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.open_in_full_rounded,
+                            size: 14,
+                            color: colorScheme.onPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             );
           }
 
-          final imageRect = _computeImageRect(previewSize, orientedImage);
-          final cropRect = _resolvedCropRect(imageRect, orientedImage);
-
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: SizedBox(
-              width: previewWidth,
-              height: _previewHeight,
-              child: ColoredBox(
-                color: colorScheme.surfaceContainerHigh,
-                child: Stack(
-                  children: [
-                    Positioned.fromRect(
-                      rect: imageRect,
-                      child: Transform(
-                        alignment: Alignment.center,
-                        transform: Matrix4.identity()
-                          ..rotateZ(_rotation * math.pi / 180.0)
-                          ..scale(
-                            _flipHorizontal ? -1.0 : 1.0,
-                            _flipVertical ? -1.0 : 1.0,
-                          ),
-                        child: ColorFiltered(
-                          colorFilter: ColorFilter.matrix(
-                            _buildPreviewColorMatrix(),
-                          ),
-                          child: Image.memory(previewBytes, fit: BoxFit.fill),
-                        ),
-                      ),
-                    ),
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _CropOverlayPainter(
-                            imageRect: imageRect,
-                            cropRect: cropRect,
-                            isCircle: _aspect == _CropAspect.circle,
-                            overlayColor: colorScheme.scrim.withValues(
-                              alpha: 0.32,
-                            ),
-                            borderColor: colorScheme.outline.withValues(
-                              alpha: 0.78,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned.fromRect(
-                      rect: cropRect,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.move,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onPanStart: (details) {
-                            _moveDragStartGlobalPosition =
-                                details.globalPosition;
-                            _moveDragStartRect = cropRect;
-                          },
-                          onPanUpdate: (details) {
-                            final startPosition = _moveDragStartGlobalPosition;
-                            final startRect = _moveDragStartRect;
-                            if (startPosition == null || startRect == null) {
-                              return;
-                            }
-                            final delta =
-                                details.globalPosition - startPosition;
-                            setState(() {
-                              _cropRect = _clampMovedCropRect(
-                                startRect.shift(delta),
-                                imageRect,
-                              );
-                            });
-                          },
-                          onPanEnd: (_) {
-                            _moveDragStartGlobalPosition = null;
-                            _moveDragStartRect = null;
-                          },
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: cropRect.right - 14,
-                      top: cropRect.bottom - 14,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.resizeUpLeftDownRight,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onPanStart: (details) {
-                            _resizeDragStartGlobalPosition =
-                                details.globalPosition;
-                            _resizeDragStartRect = cropRect;
-                          },
-                          onPanUpdate: (details) {
-                            final startPosition =
-                                _resizeDragStartGlobalPosition;
-                            final startRect = _resizeDragStartRect;
-                            if (startPosition == null || startRect == null) {
-                              return;
-                            }
-                            final delta =
-                                details.globalPosition - startPosition;
-                            setState(() {
-                              _cropRect = _resizeCropRect(
-                                startRect,
-                                imageRect,
-                                delta,
-                              );
-                            });
-                          },
-                          onPanEnd: (_) {
-                            _resizeDragStartGlobalPosition = null;
-                            _resizeDragStartRect = null;
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: colorScheme.surface,
-                                width: 2,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.open_in_full_rounded,
-                              size: 14,
-                              color: colorScheme.onPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: SizedBox(
+                  width: previewWidth,
+                  height: _previewHeight,
+                  child: ColoredBox(
+                    color: colorScheme.surfaceContainerHigh,
+                    child: previewBody,
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 104,
+                child: Listener(
+                  onPointerDown: compareEnabled
+                      ? (_) => setState(() => _showOriginalPreview = true)
+                      : null,
+                  onPointerUp: compareEnabled
+                      ? (_) => setState(() => _showOriginalPreview = false)
+                      : null,
+                  onPointerCancel: compareEnabled
+                      ? (_) => setState(() => _showOriginalPreview = false)
+                      : null,
+                  child: OutlinedButton.icon(
+                    onPressed: compareEnabled ? () {} : null,
+                    icon: const Icon(Icons.compare_rounded, size: 18),
+                    label: Text(
+                      showOriginal
+                          ? l10n.imageEditorCompareRelease
+                          : l10n.imageEditorCompareHold,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -546,65 +1067,352 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
   // ────────────────────────────────────────────────── State / behaviour ─────
 
-  bool get _canEdit => _orientedImage != null && _previewBytes != null;
+  bool get _canEdit =>
+      _previewBytes != null && _imageWidth > 0 && !_isProcessing;
+
+  bool get _canResetAll =>
+      _hasBakedChanges || _undoStack.isNotEmpty || _hasUnappliedEdits;
 
   void _loadImage() {
+    _loadImageAsync();
+  }
+
+  Future<void> _loadImageAsync() async {
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
     try {
-      final decodedImage = img.decodeImage(widget.imageBytes);
-      if (decodedImage == null) {
+      // Decode on the main thread: a single decode+bake is typically well
+      // under 200ms even for multi-megapixel photos and is far simpler /
+      // more reliable than spawning an isolate (closures around
+      // `Isolate.run` are fragile — if the enclosing scope inadvertently
+      // becomes non-sendable the whole spawn silently fails). Only the
+      // truly heavy pipeline (convolutions, gaussian blur, etc.) still runs
+      // in a background isolate — see `_renderInIsolate`.
+      //
+      // We yield to the event loop once via `Future.microtask` so the
+      // progress indicator has a chance to paint before we block.
+      await Future<void>.delayed(Duration.zero);
+      final decoded = img.decodeImage(widget.imageBytes);
+      if (decoded == null) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
+        });
         return;
       }
-      final bakedImage = img.bakeOrientation(decodedImage);
-      _orientedImage = bakedImage;
-      _previewBytes = Uint8List.fromList(img.encodePng(bakedImage));
-    } catch (_) {
-      // Corrupt or unsupported image — UI shows the load-failed placeholder.
+      final baked = img.bakeOrientation(decoded);
+      final pngBytes = Uint8List.fromList(img.encodePng(baked));
+      if (!mounted) return;
+      setState(() {
+        _previewBytes = pngBytes;
+        _originalPreviewBytes = Uint8List.fromList(pngBytes);
+        _imageWidth = baked.width;
+        _imageHeight = baked.height;
+        _originalImageWidth = baked.width;
+        _originalImageHeight = baked.height;
+        _undoStack.clear();
+        _hasBakedChanges = false;
+        _showOriginalPreview = false;
+        _resetAdjustmentControls(clearMessages: false);
+      });
+    } catch (error, stack) {
+      debugPrint('[ImageEditor] load failed: $error\n$stack');
+      if (mounted) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   void _rotateImage(int angle) {
-    final orientedImage = _orientedImage;
-    if (orientedImage == null) {
-      return;
+    if (_previewBytes == null) return;
+    _rotateImageAsync(angle);
+  }
+
+  Future<void> _rotateImageAsync(int angle) async {
+    final sourceBytes = _previewBytes;
+    if (sourceBytes == null) return;
+    setState(() => _isProcessing = true);
+    _showProcessingOverlay();
+    try {
+      final result = await _runRotateInIsolate(
+        sourceBytes: sourceBytes,
+        angle: angle,
+      );
+      if (!mounted) return;
+      if (result == null) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
+        });
+        return;
+      }
+      setState(() {
+        _previewBytes = result.$1;
+        _imageWidth = result.$2;
+        _imageHeight = result.$3;
+        _cropRect = null;
+        _showOriginalPreview = false;
+        _syncBakedState();
+        _errorMessage = null;
+        _statusMessage = null;
+      });
+    } catch (error, stack) {
+      debugPrint('[ImageEditor] rotate failed: $error\n$stack');
+      if (mounted) {
+        setState(() {
+          _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
+        });
+      }
+    } finally {
+      _dismissProcessingOverlay();
+      if (mounted) setState(() => _isProcessing = false);
     }
-    final rotatedImage = img.copyRotate(orientedImage, angle: angle);
-    setState(() {
-      _orientedImage = rotatedImage;
-      _previewBytes = Uint8List.fromList(img.encodePng(rotatedImage));
-      _cropRect = null;
-      _errorMessage = null;
-      _statusMessage = null;
-    });
   }
 
   void _resetAdjustments() {
     setState(() {
-      _brightness = 1;
-      _contrast = 1;
-      _saturation = 1;
-      _exposure = 0;
-      _hue = 0;
-      _vignette = 0;
-      _rotation = 0;
-      _flipHorizontal = false;
-      _flipVertical = false;
-      _cropRect = null;
-      _aspect = _CropAspect.freeform;
+      _resetAdjustmentControls();
+    });
+  }
+
+  void _handleResetAll() {
+    final original = _originalPreviewBytes;
+    if (original == null) return;
+    setState(() {
+      _previewBytes = Uint8List.fromList(original);
+      _imageWidth = _originalImageWidth;
+      _imageHeight = _originalImageHeight;
+      _undoStack.clear();
+      _showOriginalPreview = false;
+      _hasBakedChanges = false;
+      _resetAdjustmentControls();
+    });
+  }
+
+  void _resetAdjustmentControls({bool clearMessages = true}) {
+    _brightness = 1;
+    _contrast = 1;
+    _saturation = 1;
+    _exposure = 0;
+    _hue = 0;
+    _vignette = 0;
+    _rotation = 0;
+    _flipHorizontal = false;
+    _flipVertical = false;
+    _cropRect = null;
+    _aspect = _CropAspect.freeform;
+
+    _temperature = 0;
+    _tint = 0;
+    _gamma = 1;
+    _shadowHue = 210;
+    _shadowStrength = 0;
+    _highlightHue = 45;
+    _highlightStrength = 0;
+    _clarity = 0;
+    _sharpness = 0;
+    _denoise = 0;
+    _grain = 0;
+    _dispersion = 0;
+    _distort = 0;
+
+    _watermarkController.clear();
+    _watermarkSize = 48;
+    _watermarkOpacity = 0.85;
+    _watermarkPosition = _WatermarkPosition.bottomRight;
+    _watermarkHue = 0;
+    _watermarkSaturation = 0;
+    _watermarkLightness = 0.94;
+
+    if (clearMessages) {
+      _errorMessage = null;
+      _statusMessage = null;
+    }
+  }
+
+  void _syncBakedState() {
+    final current = _previewBytes;
+    final original = _originalPreviewBytes;
+    if (current == null || original == null) {
+      _hasBakedChanges = false;
+      return;
+    }
+    _hasBakedChanges = !listEquals(current, original);
+  }
+
+  // ─────────────── Processing overlay (shown during heavy image ops) ──────
+
+  OverlayEntry? _processingOverlay;
+
+  void _showProcessingOverlay() {
+    _dismissProcessingOverlay();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final processingMessage =
+        AppLocalizations.of(context)?.imageEditorProcessing ?? '处理中…';
+    _processingOverlay = OverlayEntry(
+      builder: (ctx) => _ProcessingOverlay(message: processingMessage),
+    );
+    overlay.insert(_processingOverlay!);
+  }
+
+  void _dismissProcessingOverlay() {
+    _processingOverlay?.remove();
+    _processingOverlay?.dispose();
+    _processingOverlay = null;
+  }
+
+  // ──────────────────────────────── Apply (bake edits) / Undo ────────────
+
+  /// Whether there are non-default adjustments to bake into the preview.
+  bool get _hasUnappliedEdits =>
+      _cropRect != null ||
+      _aspect != _CropAspect.freeform ||
+      _brightness != 1 ||
+      _contrast != 1 ||
+      _saturation != 1 ||
+      _exposure != 0 ||
+      _hue != 0 ||
+      _vignette != 0 ||
+      _rotation.abs() > 0.01 ||
+      _flipHorizontal ||
+      _flipVertical ||
+      _temperature.abs() > 0.5 ||
+      _tint.abs() > 0.5 ||
+      _gamma != 1 ||
+      _shadowStrength > 0 ||
+      _highlightStrength > 0 ||
+      _clarity > 0 ||
+      _sharpness > 0 ||
+      _denoise > 0 ||
+      _grain > 0 ||
+      _dispersion > 0.5 ||
+      _distort.abs() > 1 ||
+      _watermarkController.text.trim().isNotEmpty;
+
+  /// Bake all current adjustments + crop into the preview image, reset sliders,
+  /// push the previous state onto [_undoStack].
+  Future<void> _handleApply() async {
+    final l10n = AppLocalizations.of(context)!;
+    final previewBytes = _previewBytes;
+    if (previewBytes == null) return;
+
+    final effectivePreviewSize = _previewSize == Size.zero
+      ? const Size(_previewMaxWidth, _previewHeight)
+        : _previewSize;
+
+    setState(() => _isProcessing = true);
+    _showProcessingOverlay();
+
+    try {
+      final params = _IsolateRenderParams(
+        imageBytes: previewBytes,
+        previewWidth: effectivePreviewSize.width,
+        previewHeight: effectivePreviewSize.height,
+        hasCropRect: _cropRect != null,
+        cropLeft: _cropRect?.left ?? 0,
+        cropTop: _cropRect?.top ?? 0,
+        cropWidth: _cropRect?.width ?? 0,
+        cropHeight: _cropRect?.height ?? 0,
+        rotation: _rotation,
+        flipHorizontal: _flipHorizontal,
+        flipVertical: _flipVertical,
+        brightness: _brightness,
+        contrast: _contrast,
+        saturation: _saturation,
+        exposure: _exposure,
+        hue: _hue,
+        gamma: _gamma,
+        temperature: _temperature,
+        tint: _tint,
+        shadowHue: _shadowHue,
+        shadowStrength: _shadowStrength,
+        highlightHue: _highlightHue,
+        highlightStrength: _highlightStrength,
+        clarity: _clarity,
+        sharpness: _sharpness,
+        denoise: _denoise,
+        grain: _grain,
+        dispersion: _dispersion,
+        distort: _distort,
+        vignette: _vignette,
+        watermarkText: _watermarkController.text.trim(),
+        watermarkSize: _watermarkSize,
+        watermarkOpacity: _watermarkOpacity,
+        watermarkPositionIndex: _watermarkPosition.index,
+        watermarkColorArgb: _currentWatermarkColor.toARGB32(),
+        isCircle: _aspect == _CropAspect.circle,
+        forcePng: true, // Apply always keeps PNG to avoid JPEG quality loss
+        maxOutputLongSide: null,
+        imageSizeLimitBytes: null,
+      );
+
+      final result = await _runRenderInIsolate(params);
+      if (result == null) {
+        if (mounted) {
+          setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+        }
+        return;
+      }
+      if (!mounted) return;
+
+      // Push undo snapshot AFTER successful render (not before) so a failed
+      // apply doesn't leave a phantom entry in the undo stack.
+      if (_undoStack.length >= _maxUndoDepth) {
+        _undoStack.removeAt(0);
+      }
+      _undoStack.add((previewBytes, _imageWidth, _imageHeight));
+
+      setState(() {
+        _previewBytes = result.$1;
+        _imageWidth = result.$2;
+        _imageHeight = result.$3;
+        _showOriginalPreview = false;
+        _resetAdjustmentControls(clearMessages: false);
+        _syncBakedState();
+        _errorMessage = null;
+        _statusMessage = l10n.imageEditorApplySuccess;
+      });
+    } catch (error, stack) {
+      debugPrint('[ImageEditor] apply failed: $error\n$stack');
+      if (mounted) {
+        setState(() => _errorMessage = l10n.imageEditorProcessFailed);
+      }
+    } finally {
+      _dismissProcessingOverlay();
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  void _handleUndo() {
+    if (_undoStack.isEmpty) return;
+    final (prevBytes, prevWidth, prevHeight) = _undoStack.removeLast();
+    setState(() {
+      _previewBytes = prevBytes;
+      _imageWidth = prevWidth;
+      _imageHeight = prevHeight;
+      _showOriginalPreview = false;
+      _resetAdjustmentControls(clearMessages: false);
+      _syncBakedState();
       _errorMessage = null;
       _statusMessage = null;
     });
   }
 
-  Rect _resolvedCropRect(Rect imageRect, img.Image orientedImage) {
+  Rect _resolvedCropRect(Rect imageRect) {
     final existing = _cropRect;
     if (existing == null) {
-      return _initialCropRect(imageRect, orientedImage);
+      return _initialCropRect(imageRect);
     }
     return _clampMovedCropRect(existing, imageRect);
   }
 
-  Rect _initialCropRect(Rect imageRect, img.Image orientedImage) {
-    final ratio = _targetAspectRatio(orientedImage);
+  Rect _initialCropRect(Rect imageRect) {
+    final ratio = _targetAspectRatio();
     if (ratio == null) {
       // Freeform / original — fill image rect.
       return imageRect;
@@ -626,12 +1434,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   /// For [_CropAspect.original] returns the source image's aspect ratio so the
   /// crop matches the original frame. For [_CropAspect.circle] returns `1.0`
   /// (square) — the round mask is applied at save-time.
-  double? _targetAspectRatio(img.Image orientedImage) {
+  double? _targetAspectRatio() {
     switch (_aspect) {
       case _CropAspect.freeform:
         return null;
       case _CropAspect.original:
-        return orientedImage.width / orientedImage.height;
+        if (_imageHeight == 0) return null;
+        return _imageWidth / _imageHeight;
       case _CropAspect.square:
       case _CropAspect.circle:
         return 1.0;
@@ -646,24 +1455,32 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     }
   }
 
-  Rect _computeImageRect(Size previewSize, img.Image image) {
+  Rect _computeImageRectFor(Size previewSize, int width, int height) {
+    final safeWidth = math.max(1, width);
+    final safeHeight = math.max(1, height);
     final scale = math.min(
-      previewSize.width / image.width,
-      previewSize.height / image.height,
+      previewSize.width / safeWidth,
+      previewSize.height / safeHeight,
     );
-    final fittedWidth = image.width * scale;
-    final fittedHeight = image.height * scale;
+    final fittedWidth = safeWidth * scale;
+    final fittedHeight = safeHeight * scale;
     final left = (previewSize.width - fittedWidth) / 2;
     final top = (previewSize.height - fittedHeight) / 2;
     return Rect.fromLTWH(left, top, fittedWidth, fittedHeight);
   }
 
+  Color get _currentWatermarkColor {
+    return HSLColor.fromAHSL(
+      1,
+      _watermarkHue,
+      _watermarkSaturation,
+      _watermarkLightness,
+    ).toColor();
+  }
+
   Rect _clampMovedCropRect(Rect candidate, Rect imageRect) {
-    final orientedImage = _orientedImage;
-    if (orientedImage == null) {
-      return candidate;
-    }
-    final ratio = _targetAspectRatio(orientedImage);
+    if (_imageWidth == 0) return candidate;
+    final ratio = _targetAspectRatio();
     var width = candidate.width;
     var height = candidate.height;
     final maxWidth = imageRect.width;
@@ -686,11 +1503,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   Rect _resizeCropRect(Rect startRect, Rect imageRect, Offset delta) {
-    final orientedImage = _orientedImage;
-    if (orientedImage == null) {
-      return startRect;
-    }
-    final ratio = _targetAspectRatio(orientedImage);
+    if (_imageWidth == 0) return startRect;
+    final ratio = _targetAspectRatio();
     final dominant = delta.dx.abs() > delta.dy.abs() ? delta.dx : delta.dy;
     final maxWidth = imageRect.right - startRect.left;
     final maxHeight = imageRect.bottom - startRect.top;
@@ -877,180 +1691,89 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   /// [_errorMessage] in-place).
   Future<Uint8List?> _renderOutput() async {
     final l10n = AppLocalizations.of(context)!;
-    final orientedImage = _orientedImage;
-    if (orientedImage == null || _previewSize == Size.zero) {
+    final previewBytes = _previewBytes;
+    if (previewBytes == null) {
       setState(() {
         _errorMessage = l10n.imageEditorLoadFailed;
       });
       return null;
     }
 
+    final effectivePreviewSize = _previewSize == Size.zero
+      ? const Size(_previewMaxWidth, _previewHeight)
+        : _previewSize;
+
     setState(() {
       _isSaving = true;
       _errorMessage = null;
       _statusMessage = null;
     });
+    _showProcessingOverlay();
 
     try {
-      // 1) Compute crop in source-image coordinates from preview-space.
-      final imageRect = _computeImageRect(_previewSize, orientedImage);
-      final cropRect = _resolvedCropRect(imageRect, orientedImage);
-      final cropRegion = _computeCropRegion(orientedImage, imageRect, cropRect);
-
-      // 2) Apply free rotation first (if any), then flips, then crop.
-      img.Image working = orientedImage;
-      if (_rotation.abs() > 0.01) {
-        working = img.copyRotate(working, angle: _rotation);
-      }
-      if (_flipHorizontal) {
-        working = img.flipHorizontal(working);
-      }
-      if (_flipVertical) {
-        working = img.flipVertical(working);
-      }
-
-      // Re-derive crop region against the (possibly rotated/flipped)
-      // working image. To keep the math simple, re-fit crop proportionally.
-      final scaleX = working.width / orientedImage.width;
-      final scaleY = working.height / orientedImage.height;
-      final cropX = (cropRegion.x * scaleX).round().clamp(0, working.width - 1);
-      final cropY = (cropRegion.y * scaleY).round().clamp(0, working.height - 1);
-      final cropW = (cropRegion.width * scaleX)
-          .round()
-          .clamp(1, working.width - cropX);
-      final cropH = (cropRegion.height * scaleY)
-          .round()
-          .clamp(1, working.height - cropY);
-      working = img.copyCrop(
-        working,
-        x: cropX,
-        y: cropY,
-        width: cropW,
-        height: cropH,
-      );
-
-      // 3) Color adjustments (full quality).
-      working = img.adjustColor(
-        working,
+      final params = _IsolateRenderParams(
+        imageBytes: previewBytes,
+        previewWidth: effectivePreviewSize.width,
+        previewHeight: effectivePreviewSize.height,
+        hasCropRect: _cropRect != null,
+        cropLeft: _cropRect?.left ?? 0,
+        cropTop: _cropRect?.top ?? 0,
+        cropWidth: _cropRect?.width ?? 0,
+        cropHeight: _cropRect?.height ?? 0,
+        rotation: _rotation,
+        flipHorizontal: _flipHorizontal,
+        flipVertical: _flipVertical,
         brightness: _brightness,
         contrast: _contrast,
         saturation: _saturation,
         exposure: _exposure,
         hue: _hue,
+        gamma: _gamma,
+        temperature: _temperature,
+        tint: _tint,
+        shadowHue: _shadowHue,
+        shadowStrength: _shadowStrength,
+        highlightHue: _highlightHue,
+        highlightStrength: _highlightStrength,
+        clarity: _clarity,
+        sharpness: _sharpness,
+        denoise: _denoise,
+        grain: _grain,
+        dispersion: _dispersion,
+        distort: _distort,
+        vignette: _vignette,
+        watermarkText: _watermarkController.text.trim(),
+        watermarkSize: _watermarkSize,
+        watermarkOpacity: _watermarkOpacity,
+        watermarkPositionIndex: _watermarkPosition.index,
+        watermarkColorArgb: _currentWatermarkColor.toARGB32(),
+        isCircle: _aspect == _CropAspect.circle,
+        forcePng: false,
+        maxOutputLongSide: _maxOutputLongSide,
+        imageSizeLimitBytes: widget.imageSizeLimitBytes,
       );
-      if (_vignette > 0) {
-        working = img.vignette(working, amount: _vignette);
-      }
 
-      // 4) Optional circular mask (transparent corners → PNG).
-      final isCircle = _aspect == _CropAspect.circle;
-      if (isCircle) {
-        working = _applyCircularMask(working);
-      }
-
-      // 5) Cap longest side to keep file size reasonable.
-      final longSide = math.max(working.width, working.height);
-      if (longSide > _maxOutputLongSide) {
-        if (working.width >= working.height) {
-          working = img.copyResize(working, width: _maxOutputLongSide);
-        } else {
-          working = img.copyResize(working, height: _maxOutputLongSide);
+      final result = await _runRenderInIsolate(params);
+      if (result == null) {
+        if (mounted) {
+          setState(() {
+            _errorMessage = l10n.imageEditorProcessFailed;
+          });
         }
-      }
-
-      // 6) Encode + optionally compress to limit.
-      Uint8List outputBytes;
-      if (isCircle) {
-        outputBytes = Uint8List.fromList(img.encodePng(working));
-      } else {
-        outputBytes = Uint8List.fromList(img.encodeJpg(working, quality: 92));
-        final limit = widget.imageSizeLimitBytes;
-        if (limit != null && limit > 0 && outputBytes.length > limit) {
-          for (var quality = 86; quality >= 30; quality -= 8) {
-            outputBytes = Uint8List.fromList(
-              img.encodeJpg(working, quality: quality),
-            );
-            if (outputBytes.length <= limit) {
-              break;
-            }
-          }
-          // If still too big, downscale progressively.
-          while (outputBytes.length > limit &&
-              working.width > 320 &&
-              working.height > 320) {
-            working = img.copyResize(
-              working,
-              width: (working.width * 0.8).round(),
-            );
-            outputBytes = Uint8List.fromList(
-              img.encodeJpg(working, quality: 82),
-            );
-          }
-        }
-      }
-      return outputBytes;
-    } catch (_) {
-      if (!mounted) {
         return null;
       }
+      return result.$1;
+    } catch (error, stack) {
+      debugPrint('[ImageEditor] render failed: $error\n$stack');
+      if (!mounted) return null;
       setState(() {
         _errorMessage = l10n.imageEditorProcessFailed;
       });
       return null;
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      _dismissProcessingOverlay();
+      if (mounted) setState(() => _isSaving = false);
     }
-  }
-
-  /// Applies a circular alpha mask so corners outside the inscribed circle
-  /// become fully transparent.
-  img.Image _applyCircularMask(img.Image source) {
-    final w = source.width;
-    final h = source.height;
-    final cx = w / 2.0;
-    final cy = h / 2.0;
-    final radius = math.min(cx, cy);
-    final radiusSquared = radius * radius;
-    final result = source.convert(numChannels: 4);
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        final dx = x - cx;
-        final dy = y - cy;
-        if (dx * dx + dy * dy > radiusSquared) {
-          final pixel = result.getPixel(x, y);
-          result.setPixelRgba(x, y, pixel.r, pixel.g, pixel.b, 0);
-        }
-      }
-    }
-    return result;
-  }
-
-  _CropRegion _computeCropRegion(
-    img.Image image,
-    Rect imageRect,
-    Rect cropRect,
-  ) {
-    final scaleX = image.width / imageRect.width;
-    final scaleY = image.height / imageRect.height;
-    final cropX = ((cropRect.left - imageRect.left) * scaleX)
-        .round()
-        .clamp(0, image.width - 1)
-        .toInt();
-    final cropY = ((cropRect.top - imageRect.top) * scaleY)
-        .round()
-        .clamp(0, image.height - 1)
-        .toInt();
-    final cropWidth = (cropRect.width * scaleX)
-        .round()
-        .clamp(1, image.width - cropX)
-        .toInt();
-    final cropHeight = (cropRect.height * scaleY)
-        .round()
-        .clamp(1, image.height - cropY)
-        .toInt();
-    return _CropRegion(x: cropX, y: cropY, width: cropWidth, height: cropHeight);
   }
 }
 
@@ -1092,6 +1815,38 @@ class _EditorSlider extends StatelessWidget {
           ),
           Slider(value: value, min: min, max: max, onChanged: onChanged),
         ],
+      ),
+    );
+  }
+}
+
+/// Collapsible advanced-adjustments section used underneath the basic
+/// sliders. Uses an [ExpansionTile] so the dialog remains scrollable and
+/// each group can be opened independently.
+class _AdvancedSection extends StatelessWidget {
+  const _AdvancedSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          title: Text(title, style: theme.textTheme.titleSmall),
+          children: children,
+        ),
       ),
     );
   }
@@ -1166,16 +1921,676 @@ class _CropOverlayPainter extends CustomPainter {
   }
 }
 
-class _CropRegion {
-  const _CropRegion({
-    required this.x,
-    required this.y,
-    required this.width,
-    required this.height,
+// ═══════════════════════════════════════════════════════════════════════════
+//  Isolate-safe rendering pipeline
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Top-level isolate-safe helper: decode PNG bytes, rotate by [angle]
+/// degrees, re-encode as PNG and return `(pngBytes, width, height)`.
+(Uint8List, int, int)? _rotatePng(Uint8List sourceBytes, int angle) {
+  final decoded = img.decodePng(sourceBytes);
+  if (decoded == null) return null;
+  final rotated = img.copyRotate(decoded, angle: angle);
+  final pngBytes = Uint8List.fromList(img.encodePng(rotated));
+  return (pngBytes, rotated.width, rotated.height);
+}
+
+/// Runs rotation in a background isolate using a pure message payload.
+Future<(Uint8List, int, int)?> _runRotateInIsolate({
+  required Uint8List sourceBytes,
+  required int angle,
+}) {
+  final message = <String, Object>{
+    'sourceBytes': sourceBytes,
+    'angle': angle,
+  };
+  return Isolate.run<(Uint8List, int, int)?>(
+    () => _rotatePngFromMessage(message),
+  );
+}
+
+(Uint8List, int, int)? _rotatePngFromMessage(Map<String, Object> message) {
+  final sourceBytes = message['sourceBytes'] as Uint8List;
+  final angle = message['angle'] as int;
+  return _rotatePng(sourceBytes, angle);
+}
+
+/// Runs the full render pipeline in a background isolate from a map payload.
+Future<(Uint8List, int, int)?> _runRenderInIsolate(_IsolateRenderParams params) {
+  final message = params.toMessage();
+  return Isolate.run<(Uint8List, int, int)?>(
+    () => _renderInIsolateFromMessage(message),
+  );
+}
+
+(Uint8List, int, int)? _renderInIsolateFromMessage(
+  Map<String, Object?> message,
+) {
+  return _renderInIsolate(_IsolateRenderParams.fromMessage(message));
+}
+
+/// All the parameters needed to render an image in a background isolate.
+/// Every field is a primitive / enum / Uint8List — no Widgets or BuildContext.
+class _IsolateRenderParams {
+  _IsolateRenderParams({
+    required this.imageBytes,
+    required this.previewWidth,
+    required this.previewHeight,
+    required this.hasCropRect,
+    required this.cropLeft,
+    required this.cropTop,
+    required this.cropWidth,
+    required this.cropHeight,
+    required this.rotation,
+    required this.flipHorizontal,
+    required this.flipVertical,
+    required this.brightness,
+    required this.contrast,
+    required this.saturation,
+    required this.exposure,
+    required this.hue,
+    required this.gamma,
+    required this.temperature,
+    required this.tint,
+    required this.shadowHue,
+    required this.shadowStrength,
+    required this.highlightHue,
+    required this.highlightStrength,
+    required this.clarity,
+    required this.sharpness,
+    required this.denoise,
+    required this.grain,
+    required this.dispersion,
+    required this.distort,
+    required this.vignette,
+    required this.watermarkText,
+    required this.watermarkSize,
+    required this.watermarkOpacity,
+    required this.watermarkPositionIndex,
+    required this.watermarkColorArgb,
+    required this.isCircle,
+    required this.forcePng,
+    required this.maxOutputLongSide,
+    required this.imageSizeLimitBytes,
   });
 
-  final int x;
-  final int y;
-  final int width;
-  final int height;
+  final Uint8List imageBytes;
+  final double previewWidth;
+  final double previewHeight;
+  final bool hasCropRect;
+  final double cropLeft;
+  final double cropTop;
+  final double cropWidth;
+  final double cropHeight;
+  final double rotation;
+  final bool flipHorizontal;
+  final bool flipVertical;
+  final double brightness;
+  final double contrast;
+  final double saturation;
+  final double exposure;
+  final double hue;
+  final double gamma;
+  final double temperature;
+  final double tint;
+  final double shadowHue;
+  final double shadowStrength;
+  final double highlightHue;
+  final double highlightStrength;
+  final double clarity;
+  final double sharpness;
+  final double denoise;
+  final double grain;
+  final double dispersion;
+  final double distort;
+  final double vignette;
+  final String watermarkText;
+  final double watermarkSize;
+  final double watermarkOpacity;
+  final int watermarkPositionIndex;
+  final int watermarkColorArgb;
+  final bool isCircle;
+  final bool forcePng;
+  final int? maxOutputLongSide;
+  final int? imageSizeLimitBytes;
+
+  Map<String, Object?> toMessage() {
+    return <String, Object?>{
+      'imageBytes': imageBytes,
+      'previewWidth': previewWidth,
+      'previewHeight': previewHeight,
+      'hasCropRect': hasCropRect,
+      'cropLeft': cropLeft,
+      'cropTop': cropTop,
+      'cropWidth': cropWidth,
+      'cropHeight': cropHeight,
+      'rotation': rotation,
+      'flipHorizontal': flipHorizontal,
+      'flipVertical': flipVertical,
+      'brightness': brightness,
+      'contrast': contrast,
+      'saturation': saturation,
+      'exposure': exposure,
+      'hue': hue,
+      'gamma': gamma,
+      'temperature': temperature,
+      'tint': tint,
+      'shadowHue': shadowHue,
+      'shadowStrength': shadowStrength,
+      'highlightHue': highlightHue,
+      'highlightStrength': highlightStrength,
+      'clarity': clarity,
+      'sharpness': sharpness,
+      'denoise': denoise,
+      'grain': grain,
+      'dispersion': dispersion,
+      'distort': distort,
+      'vignette': vignette,
+      'watermarkText': watermarkText,
+      'watermarkSize': watermarkSize,
+      'watermarkOpacity': watermarkOpacity,
+      'watermarkPositionIndex': watermarkPositionIndex,
+      'watermarkColorArgb': watermarkColorArgb,
+      'isCircle': isCircle,
+      'forcePng': forcePng,
+      'maxOutputLongSide': maxOutputLongSide,
+      'imageSizeLimitBytes': imageSizeLimitBytes,
+    };
+  }
+
+  static _IsolateRenderParams fromMessage(Map<String, Object?> message) {
+    return _IsolateRenderParams(
+      imageBytes: message['imageBytes']! as Uint8List,
+      previewWidth: (message['previewWidth']! as num).toDouble(),
+      previewHeight: (message['previewHeight']! as num).toDouble(),
+      hasCropRect: message['hasCropRect']! as bool,
+      cropLeft: (message['cropLeft']! as num).toDouble(),
+      cropTop: (message['cropTop']! as num).toDouble(),
+      cropWidth: (message['cropWidth']! as num).toDouble(),
+      cropHeight: (message['cropHeight']! as num).toDouble(),
+      rotation: (message['rotation']! as num).toDouble(),
+      flipHorizontal: message['flipHorizontal']! as bool,
+      flipVertical: message['flipVertical']! as bool,
+      brightness: (message['brightness']! as num).toDouble(),
+      contrast: (message['contrast']! as num).toDouble(),
+      saturation: (message['saturation']! as num).toDouble(),
+      exposure: (message['exposure']! as num).toDouble(),
+      hue: (message['hue']! as num).toDouble(),
+      gamma: (message['gamma']! as num).toDouble(),
+      temperature: (message['temperature']! as num).toDouble(),
+      tint: (message['tint']! as num).toDouble(),
+      shadowHue: (message['shadowHue']! as num).toDouble(),
+      shadowStrength: (message['shadowStrength']! as num).toDouble(),
+      highlightHue: (message['highlightHue']! as num).toDouble(),
+      highlightStrength: (message['highlightStrength']! as num).toDouble(),
+      clarity: (message['clarity']! as num).toDouble(),
+      sharpness: (message['sharpness']! as num).toDouble(),
+      denoise: (message['denoise']! as num).toDouble(),
+      grain: (message['grain']! as num).toDouble(),
+      dispersion: (message['dispersion']! as num).toDouble(),
+      distort: (message['distort']! as num).toDouble(),
+      vignette: (message['vignette']! as num).toDouble(),
+      watermarkText: (message['watermarkText'] as String?) ?? '',
+      watermarkSize: (message['watermarkSize']! as num).toDouble(),
+      watermarkOpacity: (message['watermarkOpacity']! as num).toDouble(),
+      watermarkPositionIndex: message['watermarkPositionIndex']! as int,
+      watermarkColorArgb: message['watermarkColorArgb']! as int,
+      isCircle: message['isCircle']! as bool,
+      forcePng: message['forcePng']! as bool,
+      maxOutputLongSide: message['maxOutputLongSide'] as int?,
+      imageSizeLimitBytes: message['imageSizeLimitBytes'] as int?,
+    );
+  }
+}
+
+/// Top-level function that runs entirely inside an [Isolate].
+/// Returns (encoded bytes, width, height) or null on failure.
+(Uint8List, int, int)? _renderInIsolate(_IsolateRenderParams p) {
+  final orientedImage = img.decodeImage(p.imageBytes);
+  if (orientedImage == null) return null;
+
+  final previewSize = Size(p.previewWidth, p.previewHeight);
+
+  // 1) Compute crop in source-image coordinates from preview-space.
+  final imageRect = _computeImageRectStatic(previewSize, orientedImage);
+  final cropRect = p.hasCropRect
+      ? Rect.fromLTWH(p.cropLeft, p.cropTop, p.cropWidth, p.cropHeight)
+      : imageRect;
+
+  final scaleX = orientedImage.width / imageRect.width;
+  final scaleY = orientedImage.height / imageRect.height;
+  final cropX = ((cropRect.left - imageRect.left) * scaleX)
+      .round()
+      .clamp(0, orientedImage.width - 1);
+  final cropY = ((cropRect.top - imageRect.top) * scaleY)
+      .round()
+      .clamp(0, orientedImage.height - 1);
+  final cropW = (cropRect.width * scaleX)
+      .round()
+      .clamp(1, orientedImage.width - cropX);
+  final cropH = (cropRect.height * scaleY)
+      .round()
+      .clamp(1, orientedImage.height - cropY);
+
+  // 2) Apply free rotation first (if any), then flips, then crop.
+  img.Image working = orientedImage;
+  if (p.rotation.abs() > 0.01) {
+    working = img.copyRotate(working, angle: p.rotation);
+  }
+  if (p.flipHorizontal) {
+    working = img.flipHorizontal(working);
+  }
+  if (p.flipVertical) {
+    working = img.flipVertical(working);
+  }
+
+  // Re-derive crop region against the (possibly rotated/flipped) working image.
+  final sx = working.width / orientedImage.width;
+  final sy = working.height / orientedImage.height;
+  final cx = (cropX * sx).round().clamp(0, working.width - 1);
+  final cy = (cropY * sy).round().clamp(0, working.height - 1);
+  final cw = (cropW * sx).round().clamp(1, working.width - cx);
+  final ch = (cropH * sy).round().clamp(1, working.height - cy);
+  working = img.copyCrop(working, x: cx, y: cy, width: cw, height: ch);
+
+  // 3) Color adjustments.
+  working = img.adjustColor(
+    working,
+    brightness: p.brightness,
+    contrast: p.contrast,
+    saturation: p.saturation,
+    exposure: p.exposure,
+    hue: p.hue,
+    gamma: p.gamma,
+    blacks: p.shadowStrength > 0
+        ? _hueToColorStatic(p.shadowHue, p.shadowStrength / 100)
+        : null,
+    whites: p.highlightStrength > 0
+        ? _hueToColorStatic(p.highlightHue, p.highlightStrength / 100)
+        : null,
+  );
+
+  // 3a) Temperature / tint via per-channel offset.
+  if (p.temperature.abs() > 0.5 || p.tint.abs() > 0.5) {
+    working = img.colorOffset(
+      working,
+      red: p.temperature * 0.4 - p.tint * 0.2,
+      green: p.tint * 0.4,
+      blue: -p.temperature * 0.4 - p.tint * 0.2,
+    );
+  }
+
+  // 3b) Denoise → clarity → sharpness → grain → chromatic aberration → distort → vignette.
+  if (p.denoise > 0) {
+    final radius = (p.denoise / 100 * 3).round().clamp(1, 4);
+    working = img.gaussianBlur(working, radius: radius);
+  }
+  if (p.clarity > 0) {
+    // Clarity targets mid-frequency local contrast. We use a wider 5x5
+    // unsharp-like kernel for a softer, more natural result.
+    final amount = (p.clarity / 100).clamp(0.0, 1.0);
+    working = img.convolution(
+      working,
+      filter: const <num>[
+        0, -1, -1, -1, 0,
+        -1,  2,  2,  2, -1,
+        -1,  2, 12,  2, -1,
+        -1,  2,  2,  2, -1,
+        0, -1, -1, -1, 0,
+      ],
+      div: 12,
+      amount: amount,
+    );
+  }
+  if (p.sharpness > 0) {
+    // Standard 3×3 sharpen kernel. The `amount` parameter (0..1) blends
+    // between the original image and the sharpened result; at 1.0 the
+    // convolution is fully applied.
+    final amount = (p.sharpness / 100).clamp(0.0, 1.0);
+    working = img.convolution(
+      working,
+      filter: const <num>[0, -1, 0, -1, 5, -1, 0, -1, 0],
+      div: 1,
+      amount: amount,
+    );
+  }
+  if (p.grain > 0) {
+    // `noise` sigma is in pixel-value space (0..255). Scale 0..100 → 0..25.
+    working = img.noise(working, p.grain / 100 * 25);
+  }
+  if (p.dispersion > 0.5) {
+    working = img.chromaticAberration(
+      working,
+      shift: p.dispersion.round().clamp(1, 20),
+    );
+  }
+  if (p.distort.abs() > 1) {
+    if (p.distort > 0) {
+      working = img.bulgeDistortion(
+        working,
+        scale: (p.distort / 100 * 0.8).clamp(0.0, 0.8),
+      );
+    } else if (p.distort < -20) {
+      working = img.stretchDistortion(working);
+    }
+  }
+  if (p.vignette > 0) {
+    working = img.vignette(working, amount: p.vignette);
+  }
+
+  // 3c) Text watermark burn-in.
+  if (p.watermarkText.isNotEmpty) {
+    working = _drawWatermarkStatic(
+      working,
+      p.watermarkText,
+      watermarkSize: p.watermarkSize,
+      opacity: p.watermarkOpacity,
+      position: _watermarkPositionFromIndex(p.watermarkPositionIndex),
+      colorArgb: p.watermarkColorArgb,
+    );
+  }
+
+  // 4) Optional circular mask.
+  if (p.isCircle) {
+    working = _applyCircularMaskStatic(working);
+  }
+
+  // 5) Cap longest side.
+  final maxSide = p.maxOutputLongSide;
+  if (maxSide != null) {
+    final longSide = math.max(working.width, working.height);
+    if (longSide > maxSide) {
+      if (working.width >= working.height) {
+        working = img.copyResize(working, width: maxSide);
+      } else {
+        working = img.copyResize(working, height: maxSide);
+      }
+    }
+  }
+
+  // 6) Encode + optionally compress to limit.
+  Uint8List outputBytes;
+  if (p.isCircle || p.forcePng) {
+    outputBytes = Uint8List.fromList(img.encodePng(working));
+  } else {
+    outputBytes = Uint8List.fromList(img.encodeJpg(working, quality: 92));
+    final limit = p.imageSizeLimitBytes;
+    if (limit != null && limit > 0 && outputBytes.length > limit) {
+      for (var quality = 86; quality >= 30; quality -= 8) {
+        outputBytes = Uint8List.fromList(
+          img.encodeJpg(working, quality: quality),
+        );
+        if (outputBytes.length <= limit) break;
+      }
+      while (outputBytes.length > limit &&
+          working.width > 320 &&
+          working.height > 320) {
+        working = img.copyResize(
+          working,
+          width: (working.width * 0.8).round(),
+        );
+        outputBytes = Uint8List.fromList(img.encodeJpg(working, quality: 82));
+      }
+    }
+  }
+  return (outputBytes, working.width, working.height);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Top-level helper functions (isolate-safe — no `this`, no `BuildContext`)
+// ═══════════════════════════════════════════════════════════════════════════
+
+Rect _computeImageRectStatic(Size previewSize, img.Image image) {
+  final scale = math.min(
+    previewSize.width / image.width,
+    previewSize.height / image.height,
+  );
+  final fittedWidth = image.width * scale;
+  final fittedHeight = image.height * scale;
+  final left = (previewSize.width - fittedWidth) / 2;
+  final top = (previewSize.height - fittedHeight) / 2;
+  return Rect.fromLTWH(left, top, fittedWidth, fittedHeight);
+}
+
+img.Image _applyCircularMaskStatic(img.Image source) {
+  final w = source.width;
+  final h = source.height;
+  final cx = w / 2.0;
+  final cy = h / 2.0;
+  final radius = math.min(cx, cy);
+  final radiusSquared = radius * radius;
+  final result = source.convert(numChannels: 4);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final dx = x - cx;
+      final dy = y - cy;
+      if (dx * dx + dy * dy > radiusSquared) {
+        final pixel = result.getPixel(x, y);
+        result.setPixelRgba(x, y, pixel.r, pixel.g, pixel.b, 0);
+      }
+    }
+  }
+  return result;
+}
+
+img.Color _hueToColorStatic(double hueDeg, double strength) {
+  final h = ((hueDeg % 360) + 360) % 360;
+  final s = strength.clamp(0.0, 1.0);
+  const l = 0.5;
+  final c = (1 - (2 * l - 1).abs()) * s;
+  final hp = h / 60;
+  final x = c * (1 - (hp % 2 - 1).abs());
+  double r = 0;
+  double g = 0;
+  double b = 0;
+  if (hp < 1) {
+    r = c;
+    g = x;
+  } else if (hp < 2) {
+    r = x;
+    g = c;
+  } else if (hp < 3) {
+    g = c;
+    b = x;
+  } else if (hp < 4) {
+    g = x;
+    b = c;
+  } else if (hp < 5) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  final m = l - c / 2;
+  return img.ColorUint8.rgb(
+    ((r + m) * 255).round().clamp(0, 255),
+    ((g + m) * 255).round().clamp(0, 255),
+    ((b + m) * 255).round().clamp(0, 255),
+  );
+}
+
+_WatermarkPosition _watermarkPositionFromIndex(int index) {
+  if (index >= 0 && index < _WatermarkPosition.values.length) {
+    return _WatermarkPosition.values[index];
+  }
+  return _WatermarkPosition.bottomRight;
+}
+
+/// Draws watermark text onto [source]. This is a top-level function so it can
+/// run inside an isolate.
+///
+/// The watermark is first rendered via `img.drawString` with the largest
+/// built-in bitmap font (`arial48`), then scaled to the requested
+/// [watermarkSize] and alpha-composited onto [source].
+img.Image _drawWatermarkStatic(
+  img.Image source,
+  String text, {
+  required double watermarkSize,
+  required double opacity,
+  required _WatermarkPosition position,
+  required int colorArgb,
+}) {
+  final font = img.arial48;
+
+  // Calculate actual text width by summing character advances.
+  int textWidth = 0;
+  int textHeight = 0;
+  for (final code in text.codeUnits) {
+    final ch = font.characters[code];
+    if (ch != null) {
+      textWidth += ch.xAdvance;
+      final charH = ch.height + ch.yOffset;
+      if (charH > textHeight) textHeight = charH;
+    } else {
+      // Unknown char — approximate with a space-width estimate.
+      textWidth += font.base ~/ 2;
+    }
+  }
+  if (textWidth < 1) textWidth = 1;
+  if (textHeight < 1) textHeight = font.lineHeight;
+
+  // Add small horizontal padding so glyphs don't clip at the right edge.
+  final stripWidth = (textWidth + font.base).clamp(1, source.width * 4);
+  final stripHeight = math.max(textHeight, font.lineHeight);
+
+  final textColor = img.ColorRgba8(
+    (colorArgb >> 16) & 0xFF,
+    (colorArgb >> 8) & 0xFF,
+    colorArgb & 0xFF,
+    (colorArgb >> 24) & 0xFF,
+  );
+  img.Image strip = img.Image(
+    width: stripWidth,
+    height: stripHeight,
+    numChannels: 4,
+  );
+  img.fill(strip, color: img.ColorRgba8(0, 0, 0, 0));
+  img.drawString(strip, text, font: font, x: 0, y: 0, color: textColor);
+
+  // Scale strip so its height matches watermarkSize.
+  final targetHeight = watermarkSize.round().clamp(8, source.height ~/ 2);
+  final scale = targetHeight / strip.height;
+  final targetWidth = (strip.width * scale).round().clamp(
+    1,
+    source.width - 16,
+  );
+  strip = img.copyResize(
+    strip,
+    width: targetWidth,
+    height: targetHeight,
+    interpolation: img.Interpolation.linear,
+  );
+
+  // Compute anchor.
+  const margin = 16;
+  int ox;
+  int oy;
+  switch (position) {
+    case _WatermarkPosition.topLeft:
+      ox = margin;
+      oy = margin;
+      break;
+    case _WatermarkPosition.topCenter:
+      ox = (source.width - strip.width) ~/ 2;
+      oy = margin;
+      break;
+    case _WatermarkPosition.topRight:
+      ox = source.width - strip.width - margin;
+      oy = margin;
+      break;
+    case _WatermarkPosition.middleLeft:
+      ox = margin;
+      oy = (source.height - strip.height) ~/ 2;
+      break;
+    case _WatermarkPosition.middleCenter:
+      ox = (source.width - strip.width) ~/ 2;
+      oy = (source.height - strip.height) ~/ 2;
+      break;
+    case _WatermarkPosition.middleRight:
+      ox = source.width - strip.width - margin;
+      oy = (source.height - strip.height) ~/ 2;
+      break;
+    case _WatermarkPosition.bottomLeft:
+      ox = margin;
+      oy = source.height - strip.height - margin;
+      break;
+    case _WatermarkPosition.bottomCenter:
+      ox = (source.width - strip.width) ~/ 2;
+      oy = source.height - strip.height - margin;
+      break;
+    case _WatermarkPosition.bottomRight:
+      ox = source.width - strip.width - margin;
+      oy = source.height - strip.height - margin;
+      break;
+  }
+  ox = ox.clamp(0, math.max(0, source.width - strip.width));
+  oy = oy.clamp(0, math.max(0, source.height - strip.height));
+
+  // Alpha compositing.
+  final clampedOpacity = opacity.clamp(0.0, 1.0);
+  final target = source.convert(numChannels: 4);
+  for (var y = 0; y < strip.height && (oy + y) < target.height; y++) {
+    for (var x = 0; x < strip.width && (ox + x) < target.width; x++) {
+      final src = strip.getPixel(x, y);
+      final srcAlpha = (src.a / 255.0) * clampedOpacity;
+      if (srcAlpha <= 0) continue;
+      final dst = target.getPixel(ox + x, oy + y);
+      final outR = src.r * srcAlpha + dst.r * (1 - srcAlpha);
+      final outG = src.g * srcAlpha + dst.g * (1 - srcAlpha);
+      final outB = src.b * srcAlpha + dst.b * (1 - srcAlpha);
+      target.setPixelRgba(
+        ox + x,
+        oy + y,
+        outR.round().clamp(0, 255),
+        outG.round().clamp(0, 255),
+        outB.round().clamp(0, 255),
+        255,
+      );
+    }
+  }
+  return target;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Processing overlay
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// A simple semi-transparent overlay with a centered progress indicator,
+/// shown while the isolate processes the image.
+class _ProcessingOverlay extends StatelessWidget {
+  const _ProcessingOverlay({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Material(
+        color: Colors.black54,
+        child: Center(
+          child: Card(
+            elevation: 8,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(20)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 36,
+                vertical: 28,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(message),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
