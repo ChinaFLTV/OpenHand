@@ -513,6 +513,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
+  String get aiProtocolHunyuan => '混元 (腾讯)';
+
+  @override
   String get skillsPageTitle => '技能';
 
   @override
@@ -1717,6 +1720,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiProtocolMimo => 'MIMO (小米)';
+
+  @override
+  String get aiProtocolHunyuan => '混元 (腾讯)';
 
   @override
   String get skillsPageTitle => '技能';

@@ -2317,6 +2317,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       return;
     }
+    // Warn (non-blocking) when the user attaches images but the model is
+    // not detected as supporting inline image content.
+    if (pendingAttachments.any(
+      (a) => aiAttachmentKindForPath(a.filePath) == AiAttachmentKind.image,
+    ) && !AiProtocolRegistry.supportsInlineImages(selectedModel)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '⚠️ 当前模型可能不支持直接查看图片，图片将以文字描述形式发送。建议切换到多模态模型。',
+              en: '⚠️ The selected model may not support image viewing. Images will be sent as text descriptions.',
+            ),
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
 
     final sessionController = context.read<AiSessionController>();
     AiSessionRuntimeContext? runtimeContext;

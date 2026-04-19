@@ -188,6 +188,7 @@
   "aiProtocolSeed": "Seed (Doubao)",
   "aiProtocolStepFun": "StepFun",
   "aiProtocolMimo": "MIMO",
+  "aiProtocolHunyuan": "Hunyuan",
   "skillsPageTitle": "Skills",
   "skillsPageSubtitle": "Give OpenHand stronger extensibility with a unified view of installed local skills and templates.",
   "skillsInstalledSectionTitle": "Installed",

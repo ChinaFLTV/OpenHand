@@ -1063,11 +1063,21 @@ class AiPromptBuilder {
           continue;
         }
         if (!supportsInlineImages) {
+          // The current model does not support inline image content.
+          // Provide a clear note so the AI does not hallucinate about the
+          // image and the user can understand why the response is off.
+          const modelWarning =
+              '[⚠️ 当前模型不支持直接查看图片内容，无法分析此图片。'
+              '请切换到支持多模态/视觉的模型（如含有 vl、vision、omni 等关键字的模型）后重试。]';
           if (detailText.isEmpty) {
             parts.add(
               AiChatContentPart.text(
-                '[Attachment]\nImage attachment: ${attachment.name}.',
+                '[Attachment]\nImage attachment: ${attachment.name}.\n$modelWarning',
               ),
+            );
+          } else {
+            parts.add(
+              AiChatContentPart.text(modelWarning),
             );
           }
           continue;
@@ -1133,11 +1143,19 @@ class AiPromptBuilder {
         sessionId.isEmpty) {
       return false;
     }
-    final allowedRoot = p.normalize(
+    final normalizedStoragePath = p.normalize(storagePath);
+    // Legacy layout: {sessionsDir}/attachments/{sessionId}/{messageId}/file
+    final legacyRoot = p.normalize(
       p.join(sessionsDirectoryPath, 'attachments', sessionId),
     );
-    final normalizedStoragePath = p.normalize(storagePath);
-    return p.isWithin(allowedRoot, normalizedStoragePath);
+    if (p.isWithin(legacyRoot, normalizedStoragePath)) {
+      return true;
+    }
+    // Modern layout: {sessionsDir}/{sessionId}/attachments/file
+    final modernRoot = p.normalize(
+      p.join(sessionsDirectoryPath, sessionId, 'attachments'),
+    );
+    return p.isWithin(modernRoot, normalizedStoragePath);
   }
 
   String _renderMessageForCompression(AiSessionMessage message) {

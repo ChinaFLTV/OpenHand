@@ -524,6 +524,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
+  String get aiProtocolHunyuan => '混元 (腾讯)';
+
+  @override
   String get skillsPageTitle => 'Skills';
 
   @override

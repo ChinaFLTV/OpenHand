@@ -40,6 +40,10 @@ flutter:
   assets:
     - assets/prompts/
 
+dependency_overrides:
+  meta: ^1.18.2
+  vector_math: ^2.3.0
+
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:
   sqlite3:

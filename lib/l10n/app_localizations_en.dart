@@ -530,6 +530,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProtocolMimo => 'MIMO';
 
   @override
+  String get aiProtocolHunyuan => 'Hunyuan';
+
+  @override
   String get skillsPageTitle => 'Skills';
 
   @override

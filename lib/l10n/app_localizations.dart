@@ -1078,6 +1078,12 @@ abstract class AppLocalizations {
   /// **'MIMO (小米)'**
   String get aiProtocolMimo;
 
+  /// No description provided for @aiProtocolHunyuan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'混元 (腾讯)'**
+  String get aiProtocolHunyuan;
+
   /// No description provided for @skillsPageTitle.
   ///
   /// In zh_Hans, this message translates to:

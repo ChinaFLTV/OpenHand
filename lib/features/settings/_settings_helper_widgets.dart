@@ -397,19 +397,23 @@ class _AiProviderModelChip extends StatelessWidget {
     required this.modelId,
     required this.isActive,
     required this.onPressed,
+    this.onEdit,
     this.onDeleted,
     this.tooltip,
     this.compact = false,
     this.enabled = true,
+    this.hasProfile = false,
   });
 
   final String modelId;
   final bool isActive;
   final VoidCallback onPressed;
+  final VoidCallback? onEdit;
   final VoidCallback? onDeleted;
   final String? tooltip;
   final bool compact;
   final bool enabled;
+  final bool hasProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -461,78 +465,104 @@ class _AiProviderModelChip extends StatelessWidget {
     final borderColor = isActive
         ? colorScheme.primary.withValues(alpha: isDark ? 0.62 : 0.52)
         : colorScheme.outlineVariant.withValues(alpha: isDark ? 0.76 : 0.94);
-    final fillColor = WidgetStateProperty.resolveWith<Color?>((states) {
-      final selected = states.contains(WidgetState.selected);
-      final pressed = states.contains(WidgetState.pressed);
-      final hovered = states.contains(WidgetState.hovered);
-      final disabled = states.contains(WidgetState.disabled);
-      if (selected) {
-        if (disabled) {
-          return activeBaseColor.withValues(alpha: isDark ? 0.56 : 0.72);
-        }
-        if (pressed) {
-          return activePressedColor;
-        }
-        if (hovered) {
-          return activeHoverColor;
-        }
-        return activeBaseColor;
-      }
-      if (disabled) {
-        return inactiveBaseColor.withValues(alpha: isDark ? 0.42 : 0.72);
-      }
-      if (pressed) {
-        return inactivePressedColor;
-      }
-      if (hovered) {
-        return inactiveHoverColor;
-      }
-      return inactiveBaseColor;
-    });
     final effectiveOnPressed = enabled ? onPressed : null;
+    final effectiveOnEdit = enabled ? onEdit : null;
     final effectiveOnDeleted = enabled ? onDeleted : null;
-    final chip = InputChip(
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
-      mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+    final iconSize = compact ? 14.0 : 16.0;
+
+    // Resolve background color: InputChip's _RenderChip swallows taps from
+    // GestureDetectors nested inside its label, preventing action icons from
+    // firing.  A plain Material + InkWell avoids that gesture-arena conflict
+    // while preserving the same visual appearance.
+    final baseColor = enabled
+        ? (isActive ? activeBaseColor : inactiveBaseColor)
+        : (isActive
+            ? activeBaseColor.withValues(alpha: isDark ? 0.56 : 0.72)
+            : inactiveBaseColor.withValues(alpha: isDark ? 0.42 : 0.72));
+
+    Widget chip = Material(
+      clipBehavior: Clip.antiAlias,
       elevation: 0,
-      pressElevation: isActive ? 0.8 : 0.45,
-      shadowColor: colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
-      selectedShadowColor: colorScheme.primary.withValues(
-        alpha: isDark ? 0.30 : 0.18,
+      shape: StadiumBorder(
+        side: BorderSide(color: borderColor, width: isActive ? 1.15 : 1),
       ),
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
-        vertical: compact ? 4 : 6,
-      ),
-      labelPadding: EdgeInsets.symmetric(horizontal: compact ? 1 : 2),
-      label: Text(
-        modelId,
-        style:
-            (compact ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
-                ?.copyWith(
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: labelColor,
+      color: baseColor,
+      shadowColor: isActive
+          ? colorScheme.primary.withValues(alpha: isDark ? 0.30 : 0.18)
+          : colorScheme.primary.withValues(alpha: isDark ? 0.22 : 0.12),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: effectiveOnPressed,
+        hoverColor: isActive ? activeHoverColor : inactiveHoverColor,
+        highlightColor: isActive ? activePressedColor : inactivePressedColor,
+        splashColor: (isActive ? activePressedColor : inactivePressedColor)
+            .withValues(alpha: 0.32),
+        mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: compact ? 8 : 10,
+            right: (effectiveOnEdit != null || effectiveOnDeleted != null)
+                ? (compact ? 4 : 5)
+                : (compact ? 8 : 10),
+            top: compact ? 4 : 6,
+            bottom: compact ? 4 : 6,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                isActive ? Icons.star_rounded : Icons.smart_toy_outlined,
+                size: compact ? 14 : 16,
+                color: accentColor,
+              ),
+              SizedBox(width: compact ? 5 : 7),
+              Flexible(
+                child: Text(
+                  modelId,
+                  overflow: TextOverflow.ellipsis,
+                  style: (compact
+                          ? theme.textTheme.labelSmall
+                          : theme.textTheme.labelMedium)
+                      ?.copyWith(
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        color: labelColor,
+                      ),
                 ),
+              ),
+              if (effectiveOnEdit != null) ...<Widget>[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: effectiveOnEdit,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Icon(
+                      hasProfile ? Icons.tune_rounded : Icons.tune_outlined,
+                      size: iconSize,
+                      color: hasProfile ? colorScheme.primary : accentColor,
+                    ),
+                  ),
+                ),
+              ],
+              if (effectiveOnDeleted != null) ...<Widget>[
+                const SizedBox(width: 2),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: effectiveOnDeleted,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: iconSize,
+                      color: accentColor,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
-      avatar: Icon(
-        isActive ? Icons.star_rounded : Icons.smart_toy_outlined,
-        size: compact ? 14 : 16,
-        color: accentColor,
-      ),
-      selected: isActive,
-      showCheckmark: false,
-      color: fillColor,
-      side: BorderSide(color: borderColor, width: isActive ? 1.15 : 1),
-      onSelected: effectiveOnPressed == null ? null : (_) => effectiveOnPressed(),
-      onDeleted: effectiveOnDeleted,
-      deleteIcon: effectiveOnDeleted == null
-          ? null
-          : Icon(
-              Icons.close_rounded,
-              size: compact ? 14 : 16,
-              color: accentColor,
-            ),
     );
 
     Widget result = chip;

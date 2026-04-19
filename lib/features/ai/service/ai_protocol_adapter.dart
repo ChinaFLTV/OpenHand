@@ -229,6 +229,9 @@ abstract class AiProtocolAdapter {
   });
 
   bool supportsAttachmentsForModel(AiModelConfig model) {
+    // Check user-configured profile override first.
+    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    if (profileOverride != null) return profileOverride;
     return false;
   }
 
@@ -357,10 +360,18 @@ abstract class AiProtocolAdapter {
 }
 
 class OpenAiProtocolAdapter extends AiProtocolAdapter {
-  const OpenAiProtocolAdapter(this.protocolType);
+  const OpenAiProtocolAdapter(
+    this.protocolType, {
+    this.visionModelPatterns = const <String>[],
+  });
 
   @override
   final AiProtocolType protocolType;
+
+  /// Substring patterns used to detect whether a model ID supports inline
+  /// image attachments. If a model ID contains any of these patterns
+  /// (case-insensitive), the adapter treats it as vision-capable.
+  final List<String> visionModelPatterns;
 
   @override
   String get endpointPath => 'v1/chat/completions';
@@ -402,7 +413,9 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
-    return _supportsOpenAiCompatibleAttachments(protocolType, model.modelId);
+    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    if (profileOverride != null) return profileOverride;
+    return _containsAny(model.modelId, visionModelPatterns);
   }
 
   Future<Map<String, Object?>> _mapOpenAiMessage(AiChatTurn item) async {
@@ -676,6 +689,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
+    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    if (profileOverride != null) return profileOverride;
     return _containsAny(model.modelId, const <String>[
       'claude-3',
       'claude-4',
@@ -1009,6 +1024,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 
   @override
   bool supportsAttachmentsForModel(AiModelConfig model) {
+    final profileOverride = model.profileFor(model.modelId).isMultimodal;
+    if (profileOverride != null) return profileOverride;
     return _containsAny(model.modelId, const <String>[
       'gemini-1.5',
       'gemini-2.0',
@@ -1295,7 +1312,12 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 ///   * Multimodal support depends on the loaded model (e.g. llava,
 ///     llama3.2-vision, moondream).
 class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
-  const OllamaProtocolAdapter() : super(AiProtocolType.ollama);
+  const OllamaProtocolAdapter({
+    List<String> visionModelPatterns = const <String>[],
+  }) : super(
+         AiProtocolType.ollama,
+         visionModelPatterns: visionModelPatterns,
+       );
 
   @override
   Map<String, String> buildHeaders(AiModelConfig model) {
@@ -1378,50 +1400,177 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     return rawResponse.trim();
   }
 
-  @override
-  bool supportsAttachmentsForModel(AiModelConfig model) {
-    return _containsAny(model.modelId, const <String>[
-      'llava',
-      'llama3.2-vision',
-      'moondream',
-      'bakllava',
-      'minicpm-v',
-      'cogvlm',
-      'internvl',
-      'vision',
-    ]);
-  }
 }
 
 abstract final class AiProtocolRegistry {
+  // ─────────────────────────────────────────────────────────────────────────
+  // Vision model detection patterns — per-provider.
+  //
+  // Each list contains case-insensitive substrings that, when found in a
+  // model ID, indicate the model accepts inline image content parts.
+  // Patterns are derived from each provider's official API documentation.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// OpenAI: GPT-4o+, o-series, and common multimodal models served via
+  /// OpenAI-compatible proxy endpoints (Claude, Gemini, open-source VLMs).
+  static const _openaiVisionPatterns = <String>[
+    // Native OpenAI vision models.
+    'gpt-4o', 'gpt-4.1', 'gpt-4.5', 'gpt-5',
+    'o1', 'o3', 'o4',
+    'vision', 'omni',
+    // Claude / Gemini models served through OpenAI-compatible proxies.
+    'claude-3', 'claude-4', 'claude-sonnet', 'claude-opus', 'claude-haiku',
+    'gemini',
+    // Open-source VLMs commonly accessed via OpenAI-compatible APIs.
+    'llava', 'pixtral', 'internvl', 'minicpm-v', 'cogvlm', 'moondream',
+    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
+    'multimodal', 'multi-modal',
+  ];
+
+  /// DeepSeek: Only explicitly vision-capable model IDs.
+  /// Note: deepseek-chat / deepseek-reasoner are text-only per official API.
+  static const _deepseekVisionPatterns = <String>[
+    'vision', 'vl', 'janus',
+    'multimodal', 'multi-modal',
+  ];
+
+  /// Qwen (DashScope): VL / Omni models via OpenAI-compatible endpoint.
+  /// Note: qwen-plus / qwen-max / qwen-turbo without -vl are text-only.
+  static const _qwenVisionPatterns = <String>[
+    'vl', 'omni', 'vision', 'doc',
+  ];
+
+  /// Kimi (Moonshot): Vision and multimodal model IDs.
+  static const _kimiVisionPatterns = <String>[
+    'vision', 'vl',
+    'moonshot-v',
+    'k1.5-vision', 'k2-vision', 'k2.5-vision',
+  ];
+
+  /// GLM (Zhipu BigModel): GLM-4V / GLM-4.5V vision models.
+  static const _glmVisionPatterns = <String>[
+    'glm-4v', 'glm-4.5v', '4v',
+    'vision', 'vl', 'vlm',
+  ];
+
+  /// Grok (xAI): Vision-capable Grok model IDs.
+  static const _grokVisionPatterns = <String>[
+    'vision',
+    'grok-2-vision', 'grok-vision',
+  ];
+
+  /// Ollama: Common local multimodal models.
+  static const _ollamaVisionPatterns = <String>[
+    'llava', 'llama3.2-vision', 'moondream', 'bakllava',
+    'minicpm-v', 'cogvlm', 'internvl',
+    'vision',
+  ];
+
+  /// vLLM: Open-source VLMs served via vLLM.
+  static const _vllmVisionPatterns = <String>[
+    'llava', 'pixtral', 'internvl',
+    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
+    'minicpm-v', 'cogvlm',
+    'vision',
+  ];
+
+  /// SGLang: Open-source VLMs served via SGLang.
+  static const _sglangVisionPatterns = <String>[
+    'llava', 'pixtral', 'internvl',
+    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
+    'vision',
+  ];
+
+  /// Seed / Doubao (Volcengine): Vision models.
+  /// Official API uses standard OpenAI image_url format.
+  static const _seedVisionPatterns = <String>[
+    'vision', 'vl',
+    'doubao-vision', 'doubao-1.5-vision',
+  ];
+
+  /// StepFun: Step vision model IDs.
+  static const _stepfunVisionPatterns = <String>[
+    'step-2v', 'step-1.5v', 'step-1v',
+    'vision', 'vl',
+  ];
+
+  /// MIMO: Vision-capable model IDs.
+  static const _mimoVisionPatterns = <String>[
+    'vision', 'vl',
+  ];
+
+  /// Hunyuan (Tencent): Vision models via OpenAI-compatible endpoint.
+  /// Official API: api.hunyuan.cloud.tencent.com/v1 with image_url format.
+  static const _hunyuanVisionPatterns = <String>[
+    'hunyuan-vision', 'hunyuan-turbos-vision',
+    'vision', 'vl',
+  ];
+
   static final Map<AiProtocolType, AiProtocolAdapter> _adapters =
       <AiProtocolType, AiProtocolAdapter>{
         AiProtocolType.openai: const OpenAiProtocolAdapter(
           AiProtocolType.openai,
+          visionModelPatterns: _openaiVisionPatterns,
         ),
         AiProtocolType.deepseek: const OpenAiProtocolAdapter(
           AiProtocolType.deepseek,
+          visionModelPatterns: _deepseekVisionPatterns,
         ),
-        AiProtocolType.qwen: const OpenAiProtocolAdapter(AiProtocolType.qwen),
-        AiProtocolType.kimi: const OpenAiProtocolAdapter(AiProtocolType.kimi),
-        AiProtocolType.glm: const OpenAiProtocolAdapter(AiProtocolType.glm),
-        AiProtocolType.grok: const OpenAiProtocolAdapter(AiProtocolType.grok),
-        AiProtocolType.ollama: const OllamaProtocolAdapter(),
-        AiProtocolType.vllm: const OpenAiProtocolAdapter(AiProtocolType.vllm),
+        AiProtocolType.qwen: const OpenAiProtocolAdapter(
+          AiProtocolType.qwen,
+          visionModelPatterns: _qwenVisionPatterns,
+        ),
+        AiProtocolType.kimi: const OpenAiProtocolAdapter(
+          AiProtocolType.kimi,
+          visionModelPatterns: _kimiVisionPatterns,
+        ),
+        AiProtocolType.glm: const OpenAiProtocolAdapter(
+          AiProtocolType.glm,
+          visionModelPatterns: _glmVisionPatterns,
+        ),
+        AiProtocolType.grok: const OpenAiProtocolAdapter(
+          AiProtocolType.grok,
+          visionModelPatterns: _grokVisionPatterns,
+        ),
+        AiProtocolType.ollama: const OllamaProtocolAdapter(
+          visionModelPatterns: _ollamaVisionPatterns,
+        ),
+        AiProtocolType.vllm: const OpenAiProtocolAdapter(
+          AiProtocolType.vllm,
+          visionModelPatterns: _vllmVisionPatterns,
+        ),
         AiProtocolType.sglang: const OpenAiProtocolAdapter(
           AiProtocolType.sglang,
+          visionModelPatterns: _sglangVisionPatterns,
         ),
-        AiProtocolType.seed: const OpenAiProtocolAdapter(AiProtocolType.seed),
+        AiProtocolType.seed: const OpenAiProtocolAdapter(
+          AiProtocolType.seed,
+          visionModelPatterns: _seedVisionPatterns,
+        ),
         AiProtocolType.stepfun: const OpenAiProtocolAdapter(
           AiProtocolType.stepfun,
+          visionModelPatterns: _stepfunVisionPatterns,
         ),
-        AiProtocolType.mimo: const OpenAiProtocolAdapter(AiProtocolType.mimo),
+        AiProtocolType.mimo: const OpenAiProtocolAdapter(
+          AiProtocolType.mimo,
+          visionModelPatterns: _mimoVisionPatterns,
+        ),
+        AiProtocolType.hunyuan: const OpenAiProtocolAdapter(
+          AiProtocolType.hunyuan,
+          visionModelPatterns: _hunyuanVisionPatterns,
+        ),
         AiProtocolType.claude: const ClaudeProtocolAdapter(),
         AiProtocolType.gemini: const GeminiProtocolAdapter(),
       };
 
   static AiProtocolAdapter adapterFor(AiProtocolType protocolType) {
     return _adapters[protocolType] ?? _adapters[AiProtocolType.openai]!;
+  }
+
+  /// Returns `true` when [model] is expected to accept inline image content
+  /// parts (e.g. base64-encoded images in the message body).
+  static bool supportsInlineImages(AiModelConfig model) {
+    return adapterFor(model.protocolType).supportsAttachmentsForModel(model);
   }
 }
 
@@ -1561,141 +1710,6 @@ bool _containsAny(String value, List<String> candidates) {
     }
   }
   return false;
-}
-
-bool _supportsOpenAiCompatibleAttachments(
-  AiProtocolType protocolType,
-  String modelId,
-) {
-  final normalized = modelId.trim().toLowerCase();
-  if (normalized.isEmpty) {
-    return false;
-  }
-  return switch (protocolType) {
-    AiProtocolType.openai => _containsAny(normalized, const <String>[
-      'gpt-4o',
-      'gpt-4.1',
-      'gpt-4.5',
-      'gpt-5',
-      'o1',
-      'o3',
-      'o4',
-      'vision',
-      'omni',
-      // Claude models served through OpenAI-compatible proxies/relays.
-      'claude-3',
-      'claude-4',
-      'claude-sonnet',
-      'claude-opus',
-      'claude-haiku',
-      // Gemini models served through OpenAI-compatible proxies/relays.
-      'gemini',
-      // Other common multimodal models accessed via OpenAI-compatible APIs.
-      'llava',
-      'pixtral',
-      'internvl',
-      'minicpm-v',
-      'cogvlm',
-      'moondream',
-      'qwen-vl',
-      'qwen2-vl',
-      'qwen2.5-vl',
-      // Longcat multimodal variants (OpenAI-compatible endpoints).
-      'longcat',
-      'long-cat',
-      // Generic multimodal model naming conventions.
-      'multimodal',
-      'multi-modal',
-      'image',
-      'document',
-      'doc',
-      'pdf',
-      'file',
-    ]),
-    AiProtocolType.deepseek => _containsAny(normalized, const <String>[
-      'vision',
-      'vl',
-      'janus',
-      'multimodal',
-      'multi-modal',
-      'image',
-      'doc',
-      'pdf',
-      'file',
-    ]),
-    AiProtocolType.qwen => _containsAny(normalized, const <String>[
-      'vl',
-      'omni',
-      'vision',
-      'doc',
-      'long',
-    ]),
-    AiProtocolType.kimi => _containsAny(normalized, const <String>[
-      'vision',
-      'vl',
-      'k2v',
-      'k2vv',
-      'moonshot-v',
-    ]),
-    AiProtocolType.glm => _containsAny(normalized, const <String>[
-      'glm-4v',
-      'glm-4.5v',
-      '4v',
-      'vision',
-      'vlm',
-    ]),
-    AiProtocolType.grok => _containsAny(normalized, const <String>[
-      'vision',
-      'grok-2-vision',
-      'grok-vision',
-    ]),
-    AiProtocolType.ollama => _containsAny(normalized, const <String>[
-      'llava',
-      'llama3.2-vision',
-      'moondream',
-      'bakllava',
-      'minicpm-v',
-      'cogvlm',
-      'internvl',
-      'vision',
-    ]),
-    AiProtocolType.vllm => _containsAny(normalized, const <String>[
-      'llava',
-      'pixtral',
-      'internvl',
-      'qwen-vl',
-      'qwen2-vl',
-      'minicpm-v',
-      'cogvlm',
-      'vision',
-    ]),
-    AiProtocolType.sglang => _containsAny(normalized, const <String>[
-      'llava',
-      'pixtral',
-      'internvl',
-      'qwen-vl',
-      'qwen2-vl',
-      'vision',
-    ]),
-    AiProtocolType.seed => _containsAny(normalized, const <String>[
-      'vision',
-      'doubao-vision',
-      'doubao-1.5-vision',
-      'vl',
-    ]),
-    AiProtocolType.stepfun => _containsAny(normalized, const <String>[
-      'step-2v',
-      'step-1.5v',
-      'step-1v',
-      'vision',
-      'vl',
-    ]),
-    AiProtocolType.mimo => _containsAny(normalized, const <String>[
-      'vision',
-      'vl',
-    ]),
-    AiProtocolType.claude || AiProtocolType.gemini => true,
-  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

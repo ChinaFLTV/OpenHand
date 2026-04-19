@@ -77,6 +77,7 @@ class AiImageGenerationService {
       case AiProtocolType.seed:
       case AiProtocolType.stepfun:
       case AiProtocolType.mimo:
+      case AiProtocolType.hunyuan:
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
       case AiProtocolType.ollama:

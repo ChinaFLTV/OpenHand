@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import '../../../l10n/app_localizations.dart';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
 enum AiAuthScheme {
   none('none'),
   bearer('bearer'),
@@ -56,7 +60,8 @@ enum AiProtocolType {
   sglang('sglang'),
   seed('seed'),
   stepfun('stepfun'),
-  mimo('mimo');
+  mimo('mimo'),
+  hunyuan('hunyuan');
 
   const AiProtocolType(this.storageValue);
 
@@ -89,9 +94,215 @@ enum AiProtocolType {
       AiProtocolType.seed => l10n.aiProtocolSeed,
       AiProtocolType.stepfun => l10n.aiProtocolStepFun,
       AiProtocolType.mimo => l10n.aiProtocolMimo,
+      AiProtocolType.hunyuan => l10n.aiProtocolHunyuan,
     };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-model profile (user-configurable metadata)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Input/output modalities a model may support.
+enum AiModelModality {
+  text('text'),
+  image('image'),
+  video('video'),
+  audio('audio');
+
+  const AiModelModality(this.storageValue);
+  final String storageValue;
+
+  static AiModelModality? fromStorage(String? value) {
+    if (value == null) return null;
+    for (final m in values) {
+      if (m.storageValue == value) return m;
+    }
+    return null;
+  }
+}
+
+/// Creative / generative capabilities a model may expose.
+enum AiModelCapability {
+  imageGeneration('image_generation'),
+  videoGeneration('video_generation'),
+  audioGeneration('audio_generation'),
+  pdfGeneration('pdf_generation'),
+  pptGeneration('ppt_generation');
+
+  const AiModelCapability(this.storageValue);
+  final String storageValue;
+
+  static AiModelCapability? fromStorage(String? value) {
+    if (value == null) return null;
+    for (final c in values) {
+      if (c.storageValue == value) return c;
+    }
+    return null;
+  }
+}
+
+/// User-configurable per-model metadata that overrides hardcoded heuristics.
+///
+/// When a field is `null` the system falls back to the default detection logic
+/// (pattern matching on model ID, protocol-level flags, etc.).
+class AiModelProfile {
+  const AiModelProfile({
+    this.displayName,
+    this.description,
+    this.isMultimodal,
+    this.supportedModalities = const <AiModelModality>{},
+    this.maxContextLength,
+    this.maxSummaryLength,
+    this.maxOutputLength,
+    this.maxThinkingLength,
+    this.capabilities = const <AiModelCapability>{},
+  });
+
+  factory AiModelProfile.fromJson(Map<String, Object?> json) {
+    return AiModelProfile(
+      displayName: json['display_name'] as String?,
+      description: json['description'] as String?,
+      isMultimodal: json['is_multimodal'] as bool?,
+      supportedModalities: _parseModalities(json['supported_modalities']),
+      maxContextLength: _readNullablePositiveInt(json['max_context_length']),
+      maxSummaryLength: _readNullablePositiveInt(json['max_summary_length']),
+      maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
+      maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
+      capabilities: _parseCapabilities(json['capabilities']),
+    );
+  }
+
+  /// User-friendly display name (e.g. "GPT-4o" instead of "gpt-4o-2024-11-20").
+  final String? displayName;
+
+  /// Short model description (free-form text).
+  final String? description;
+
+  /// Explicit multimodal toggle. When `null`, inferred from adapter heuristics.
+  final bool? isMultimodal;
+
+  /// Which modalities this model can handle. Empty set = use defaults.
+  final Set<AiModelModality> supportedModalities;
+
+  /// Token limits. `null` means "use provider/adapter defaults".
+  final int? maxContextLength;
+  final int? maxSummaryLength;
+  final int? maxOutputLength;
+  final int? maxThinkingLength;
+
+  /// Creative capabilities this model supports. Empty set = use defaults.
+  final Set<AiModelCapability> capabilities;
+
+  /// Whether user explicitly configured this profile (not just empty defaults).
+  bool get hasUserOverrides =>
+      displayName != null ||
+      description != null ||
+      isMultimodal != null ||
+      supportedModalities.isNotEmpty ||
+      maxContextLength != null ||
+      maxSummaryLength != null ||
+      maxOutputLength != null ||
+      maxThinkingLength != null ||
+      capabilities.isNotEmpty;
+
+  AiModelProfile copyWith({
+    String? displayName,
+    bool clearDisplayName = false,
+    String? description,
+    bool clearDescription = false,
+    bool? isMultimodal,
+    bool clearIsMultimodal = false,
+    Set<AiModelModality>? supportedModalities,
+    int? maxContextLength,
+    bool clearMaxContextLength = false,
+    int? maxSummaryLength,
+    bool clearMaxSummaryLength = false,
+    int? maxOutputLength,
+    bool clearMaxOutputLength = false,
+    int? maxThinkingLength,
+    bool clearMaxThinkingLength = false,
+    Set<AiModelCapability>? capabilities,
+  }) {
+    return AiModelProfile(
+      displayName:
+          clearDisplayName ? null : displayName ?? this.displayName,
+      description:
+          clearDescription ? null : description ?? this.description,
+      isMultimodal:
+          clearIsMultimodal ? null : isMultimodal ?? this.isMultimodal,
+      supportedModalities: supportedModalities ?? this.supportedModalities,
+      maxContextLength: clearMaxContextLength
+          ? null
+          : maxContextLength ?? this.maxContextLength,
+      maxSummaryLength: clearMaxSummaryLength
+          ? null
+          : maxSummaryLength ?? this.maxSummaryLength,
+      maxOutputLength: clearMaxOutputLength
+          ? null
+          : maxOutputLength ?? this.maxOutputLength,
+      maxThinkingLength: clearMaxThinkingLength
+          ? null
+          : maxThinkingLength ?? this.maxThinkingLength,
+      capabilities: capabilities ?? this.capabilities,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (displayName != null) 'display_name': displayName,
+      if (description != null) 'description': description,
+      if (isMultimodal != null) 'is_multimodal': isMultimodal,
+      if (supportedModalities.isNotEmpty)
+        'supported_modalities': supportedModalities
+            .map((m) => m.storageValue)
+            .toList(growable: false),
+      if (maxContextLength != null) 'max_context_length': maxContextLength,
+      if (maxSummaryLength != null) 'max_summary_length': maxSummaryLength,
+      if (maxOutputLength != null) 'max_output_length': maxOutputLength,
+      if (maxThinkingLength != null) 'max_thinking_length': maxThinkingLength,
+      if (capabilities.isNotEmpty)
+        'capabilities': capabilities
+            .map((c) => c.storageValue)
+            .toList(growable: false),
+    };
+  }
+
+  static Set<AiModelModality> _parseModalities(Object? value) {
+    if (value is! List) return const <AiModelModality>{};
+    final result = <AiModelModality>{};
+    for (final item in value) {
+      final m = AiModelModality.fromStorage('$item');
+      if (m != null) result.add(m);
+    }
+    return result;
+  }
+
+  static Set<AiModelCapability> _parseCapabilities(Object? value) {
+    if (value is! List) return const <AiModelCapability>{};
+    final result = <AiModelCapability>{};
+    for (final item in value) {
+      final c = AiModelCapability.fromStorage('$item');
+      if (c != null) result.add(c);
+    }
+    return result;
+  }
+
+  static int? _readNullablePositiveInt(Object? value) {
+    if (value is int) return value > 0 ? value : null;
+    if (value is num) {
+      final n = value.toInt();
+      return n > 0 ? n : null;
+    }
+    final parsed = int.tryParse('${value ?? ''}'.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
 class AiModelConfig {
   factory AiModelConfig.fromJson(Map<String, Object?> json) {
@@ -115,6 +326,7 @@ class AiModelConfig {
       maxTokens: _readNullablePositiveInt(json['max_tokens']),
       temperature: _readNullableDouble(json['temperature']),
       streamEnabled: json['stream_enabled'] as bool? ?? true,
+      modelProfiles: _parseModelProfiles(json['model_profiles']),
     );
   }
   const AiModelConfig({
@@ -132,6 +344,7 @@ class AiModelConfig {
     this.maxTokens,
     this.temperature,
     this.streamEnabled = true,
+    this.modelProfiles = const <String, AiModelProfile>{},
   });
 
   static List<String> normalizeModelIds(Iterable<String> values) {
@@ -178,6 +391,15 @@ class AiModelConfig {
 
   /// Whether to use server-sent events (SSE) streaming for responses.
   final bool streamEnabled;
+
+  /// Per-model user-configurable profiles, keyed by model ID.
+  /// Overrides hardcoded heuristics for vision detection, capabilities, etc.
+  final Map<String, AiModelProfile> modelProfiles;
+
+  /// Returns the [AiModelProfile] for the given [id], or an empty default.
+  AiModelProfile profileFor(String id) {
+    return modelProfiles[id.trim()] ?? const AiModelProfile();
+  }
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);
 
@@ -242,6 +464,7 @@ class AiModelConfig {
     double? temperature,
     bool clearTemperature = false,
     bool? streamEnabled,
+    Map<String, AiModelProfile>? modelProfiles,
   }) {
     return AiModelConfig(
       id: id ?? this.id,
@@ -262,10 +485,17 @@ class AiModelConfig {
       maxTokens: clearMaxTokens ? null : maxTokens ?? this.maxTokens,
       temperature: clearTemperature ? null : temperature ?? this.temperature,
       streamEnabled: streamEnabled ?? this.streamEnabled,
+      modelProfiles: modelProfiles ?? this.modelProfiles,
     );
   }
 
   Map<String, Object?> toJson() {
+    final profilesJson = <String, Object?>{};
+    for (final entry in modelProfiles.entries) {
+      if (entry.value.hasUserOverrides) {
+        profilesJson[entry.key] = entry.value.toJson();
+      }
+    }
     return <String, Object?>{
       'id': id,
       'name': name,
@@ -281,6 +511,7 @@ class AiModelConfig {
       'max_tokens': maxTokens,
       'temperature': temperature,
       'stream_enabled': streamEnabled,
+      if (profilesJson.isNotEmpty) 'model_profiles': profilesJson,
     };
   }
 
@@ -393,5 +624,36 @@ class AiModelConfig {
     final raw = '${value ?? ''}'.trim().toUpperCase();
     if (raw.isEmpty) return 'POST';
     return raw;
+  }
+
+  static Map<String, AiModelProfile> _parseModelProfiles(Object? value) {
+    if (value == null) return const <String, AiModelProfile>{};
+    Map<String, dynamic>? map;
+    if (value is Map) {
+      map = value.cast<String, dynamic>();
+    } else if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return const <String, AiModelProfile>{};
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map) {
+          map = decoded.cast<String, dynamic>();
+        }
+      } catch (_) {
+        // Not valid JSON — ignore.
+      }
+    }
+    if (map == null) return const <String, AiModelProfile>{};
+    final result = <String, AiModelProfile>{};
+    for (final entry in map.entries) {
+      final key = entry.key.trim();
+      if (key.isEmpty) continue;
+      if (entry.value is Map) {
+        result[key] = AiModelProfile.fromJson(
+          (entry.value as Map).cast<String, Object?>(),
+        );
+      }
+    }
+    return result;
   }
 }

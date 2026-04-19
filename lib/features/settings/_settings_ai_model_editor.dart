@@ -30,6 +30,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   String? _scanError;
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
+  late Map<String, AiModelProfile> _modelProfiles;
   late List<_HeaderEntry> _customHeaderEntries;
   final ScrollController _chipScrollController = ScrollController();
 
@@ -73,6 +74,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _activeModelId = widget.initialModel?.modelId.trim().isNotEmpty == true
         ? widget.initialModel!.modelId.trim()
         : null;
+    _modelProfiles = Map<String, AiModelProfile>.of(
+      widget.initialModel?.modelProfiles ?? const <String, AiModelProfile>{},
+    );
     _customHeaderEntries = <_HeaderEntry>[];
     final existingHeaders =
         widget.initialModel?.customHeaders ?? const <String, String>{};
@@ -203,6 +207,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       _availableModelIds = AiModelConfig.normalizeModelIds(
         _availableModelIds.where((id) => id != modelId),
       );
+      _modelProfiles.remove(modelId);
       if (_activeModelId == modelId) {
         _activeModelId = _availableModelIds.isNotEmpty
             ? _availableModelIds.first
@@ -224,6 +229,26 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         ..._availableModelIds,
         trimmedModelId,
       ]);
+    });
+  }
+
+  Future<void> _editModelProfile(String modelId) async {
+    final existing = _modelProfiles[modelId] ?? const AiModelProfile();
+    final result = await showDialog<AiModelProfile>(
+      context: context,
+      builder: (context) => _ModelProfileEditorDialog(
+        modelId: modelId,
+        initialProfile: existing,
+        protocolType: _protocolType,
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (result.hasUserOverrides) {
+        _modelProfiles[modelId] = result;
+      } else {
+        _modelProfiles.remove(modelId);
+      }
     });
   }
 
@@ -508,6 +533,10 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                               modelId: id,
                                               isActive: isActive,
                                               enabled: !_isSaving,
+                                              hasProfile:
+                                                  _modelProfiles[id]
+                                                      ?.hasUserOverrides ==
+                                                  true,
                                               tooltip: isActive
                                                   ? _localizedText(
                                                       zh: '当前活跃模型',
@@ -518,6 +547,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                                       en: 'Click to set as active model',
                                                     ),
                                               onPressed: () => _selectModelId(id),
+                                              onEdit: () => _editModelProfile(id),
                                               onDeleted: () => _removeModelId(id),
                                             );
                                           })
@@ -965,6 +995,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       maxTokens: _parseOptionalPositiveInt(_maxTokensController.text),
       temperature: _parseOptionalDouble(_temperatureController.text),
       streamEnabled: _streamEnabled,
+      modelProfiles: _modelProfiles,
     );
 
     late final bool saved;
@@ -1013,4 +1044,442 @@ class _HeaderEntry {
 
   final TextEditingController keyController;
   final TextEditingController valueController;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-model profile editor dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ModelProfileEditorDialog extends StatefulWidget {
+  const _ModelProfileEditorDialog({
+    required this.modelId,
+    required this.initialProfile,
+    required this.protocolType,
+  });
+
+  final String modelId;
+  final AiModelProfile initialProfile;
+  final AiProtocolType protocolType;
+
+  @override
+  State<_ModelProfileEditorDialog> createState() =>
+      _ModelProfileEditorDialogState();
+}
+
+class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
+  late final TextEditingController _displayNameController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _maxContextLengthController;
+  late final TextEditingController _maxSummaryLengthController;
+  late final TextEditingController _maxOutputLengthController;
+  late final TextEditingController _maxThinkingLengthController;
+  bool? _isMultimodal;
+  late Set<AiModelModality> _supportedModalities;
+  late Set<AiModelCapability> _capabilities;
+
+  String _localizedText({required String zh, required String en}) {
+    final languageCode = Localizations.localeOf(context).languageCode;
+    return languageCode.startsWith('zh') ? zh : en;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final p = widget.initialProfile;
+    final hasExisting = p.hasUserOverrides;
+
+    // Display name: pre-fill with model ID when creating a fresh profile.
+    _displayNameController = TextEditingController(
+      text: p.displayName ?? (hasExisting ? '' : widget.modelId),
+    );
+    _descriptionController = TextEditingController(text: p.description ?? '');
+    _maxContextLengthController = TextEditingController(
+      text: p.maxContextLength?.toString() ?? '',
+    );
+    _maxSummaryLengthController = TextEditingController(
+      text: p.maxSummaryLength?.toString() ?? '',
+    );
+    _maxOutputLengthController = TextEditingController(
+      text: p.maxOutputLength?.toString() ?? '',
+    );
+    _maxThinkingLengthController = TextEditingController(
+      text: p.maxThinkingLength?.toString() ?? '',
+    );
+
+    if (hasExisting) {
+      // User already configured — use their saved values.
+      _isMultimodal = p.isMultimodal;
+      _supportedModalities = Set<AiModelModality>.of(p.supportedModalities);
+      _capabilities = Set<AiModelCapability>.of(p.capabilities);
+    } else {
+      // Fresh profile — try catalog first, fall back to heuristic inference.
+      final catalog = AiModelCatalog.lookup(widget.modelId, widget.protocolType);
+      if (catalog != null) {
+        _displayNameController.text = catalog.displayName ?? widget.modelId;
+        _descriptionController.text = catalog.description ?? '';
+        _isMultimodal = catalog.isMultimodal;
+        _supportedModalities = Set<AiModelModality>.of(catalog.supportedModalities);
+        _capabilities = Set<AiModelCapability>.of(catalog.capabilities);
+        if (catalog.maxContextLength != null) {
+          _maxContextLengthController.text = catalog.maxContextLength.toString();
+        }
+        if (catalog.maxOutputLength != null) {
+          _maxOutputLengthController.text = catalog.maxOutputLength.toString();
+        }
+        if (catalog.maxThinkingLength != null) {
+          _maxThinkingLengthController.text = catalog.maxThinkingLength.toString();
+        }
+      } else {
+        _isMultimodal = null; // auto-detect
+        _supportedModalities = _inferModalities();
+        _capabilities = _inferCapabilities();
+      }
+    }
+  }
+
+  /// Infer modalities from protocol type + model ID patterns.
+  Set<AiModelModality> _inferModalities() {
+    // All models support text.
+    final result = <AiModelModality>{AiModelModality.text};
+    // Check if this model is likely to support image input (vision).
+    // Build a temporary AiModelConfig to query the adapter registry.
+    final probeConfig = AiModelConfig(
+      id: '',
+      baseUrl: '',
+      authScheme: AiAuthScheme.bearer,
+      token: '',
+      modelId: widget.modelId,
+      protocolType: widget.protocolType,
+    );
+    if (AiProtocolRegistry.supportsInlineImages(probeConfig)) {
+      result.add(AiModelModality.image);
+    }
+    return result;
+  }
+
+  /// Infer generation capabilities from protocol-level rules.
+  Set<AiModelCapability> _inferCapabilities() {
+    final result = <AiModelCapability>{};
+    if (AiImageGenerationService.supportsImageGeneration(
+      widget.protocolType,
+    )) {
+      result.add(AiModelCapability.imageGeneration);
+    }
+    return result;
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _descriptionController.dispose();
+    _maxContextLengthController.dispose();
+    _maxSummaryLengthController.dispose();
+    _maxOutputLengthController.dispose();
+    _maxThinkingLengthController.dispose();
+    super.dispose();
+  }
+
+  int? _parsePositiveInt(String value) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
+  void _save() {
+    final profile = AiModelProfile(
+      displayName: _displayNameController.text.trim().isNotEmpty
+          ? _displayNameController.text.trim()
+          : null,
+      description: _descriptionController.text.trim().isNotEmpty
+          ? _descriptionController.text.trim()
+          : null,
+      isMultimodal: _isMultimodal,
+      supportedModalities: _supportedModalities,
+      maxContextLength: _parsePositiveInt(_maxContextLengthController.text),
+      maxSummaryLength: _parsePositiveInt(_maxSummaryLengthController.text),
+      maxOutputLength: _parsePositiveInt(_maxOutputLengthController.text),
+      maxThinkingLength: _parsePositiveInt(_maxThinkingLengthController.text),
+      capabilities: _capabilities,
+    );
+    Navigator.of(context).pop(profile);
+  }
+
+  void _reset() {
+    Navigator.of(context).pop(const AiModelProfile());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return AlertDialog(
+      title: Text(
+        _localizedText(zh: '编辑模型配置', en: 'Edit Model Profile'),
+        style: theme.textTheme.titleMedium,
+      ),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              // Model ID (read-only)
+              Text(
+                widget.modelId,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Display name
+              TextField(
+                controller: _displayNameController,
+                decoration: InputDecoration(
+                  labelText: _localizedText(
+                    zh: '显示名称',
+                    en: 'Display Name',
+                  ),
+                  hintText: _localizedText(
+                    zh: '可选，用于界面展示',
+                    en: 'Optional, shown in the UI',
+                  ),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Description
+              TextField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: _localizedText(
+                    zh: '模型描述',
+                    en: 'Description',
+                  ),
+                  isDense: true,
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+
+              // Multimodal toggle (tri-state)
+              _buildSectionHeader(
+                _localizedText(zh: '多模态支持', en: 'Multimodal Support'),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: <Widget>[
+                  ChoiceChip(
+                    label: Text(
+                      _localizedText(zh: '自动检测', en: 'Auto-detect'),
+                    ),
+                    selected: _isMultimodal == null,
+                    onSelected: (_) => setState(() => _isMultimodal = null),
+                  ),
+                  ChoiceChip(
+                    label: Text(_localizedText(zh: '是', en: 'Yes')),
+                    selected: _isMultimodal == true,
+                    onSelected: (_) => setState(() => _isMultimodal = true),
+                  ),
+                  ChoiceChip(
+                    label: Text(_localizedText(zh: '否', en: 'No')),
+                    selected: _isMultimodal == false,
+                    onSelected: (_) => setState(() => _isMultimodal = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Supported modalities
+              _buildSectionHeader(
+                _localizedText(zh: '支持的模态', en: 'Supported Modalities'),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: AiModelModality.values.map((m) {
+                  final label = switch (m) {
+                    AiModelModality.text =>
+                      _localizedText(zh: '文本', en: 'Text'),
+                    AiModelModality.image =>
+                      _localizedText(zh: '图片', en: 'Image'),
+                    AiModelModality.video =>
+                      _localizedText(zh: '视频', en: 'Video'),
+                    AiModelModality.audio =>
+                      _localizedText(zh: '音频', en: 'Audio'),
+                  };
+                  return FilterChip(
+                    label: Text(label),
+                    selected: _supportedModalities.contains(m),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _supportedModalities.add(m);
+                        } else {
+                          _supportedModalities.remove(m);
+                        }
+                      });
+                    },
+                  );
+                }).toList(growable: false),
+              ),
+              const SizedBox(height: 16),
+
+              // Capabilities
+              _buildSectionHeader(
+                _localizedText(zh: '生成能力', en: 'Generation Capabilities'),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: AiModelCapability.values.map((c) {
+                  final label = switch (c) {
+                    AiModelCapability.imageGeneration =>
+                      _localizedText(zh: '图片生成', en: 'Image'),
+                    AiModelCapability.videoGeneration =>
+                      _localizedText(zh: '视频生成', en: 'Video'),
+                    AiModelCapability.audioGeneration =>
+                      _localizedText(zh: '音频生成', en: 'Audio'),
+                    AiModelCapability.pdfGeneration =>
+                      _localizedText(zh: 'PDF 生成', en: 'PDF'),
+                    AiModelCapability.pptGeneration =>
+                      _localizedText(zh: 'PPT 生成', en: 'PPT'),
+                  };
+                  return FilterChip(
+                    label: Text(label),
+                    selected: _capabilities.contains(c),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _capabilities.add(c);
+                        } else {
+                          _capabilities.remove(c);
+                        }
+                      });
+                    },
+                  );
+                }).toList(growable: false),
+              ),
+              const SizedBox(height: 16),
+
+              // Token limits
+              _buildSectionHeader(
+                _localizedText(zh: 'Token 限制', en: 'Token Limits'),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _maxContextLengthController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '上下文长度',
+                          en: 'Context Length',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _maxSummaryLengthController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '摘要长度',
+                          en: 'Summary Length',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: TextField(
+                      controller: _maxOutputLengthController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '输出长度',
+                          en: 'Output Length',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _maxThinkingLengthController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          zh: '思考长度',
+                          en: 'Thinking Length',
+                        ),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _reset,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(64, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          child: Text(
+            _localizedText(zh: '重置', en: 'Reset'),
+            style: TextStyle(color: colorScheme.error),
+          ),
+        ),
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(64, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          child: Text(_localizedText(zh: '取消', en: 'Cancel')),
+        ),
+        FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(64, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          child: Text(_localizedText(zh: '确定', en: 'OK')),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String text) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
 }
