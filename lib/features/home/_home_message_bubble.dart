@@ -349,6 +349,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     color: textColor.withValues(alpha: 0.78),
                   ),
                 ),
+                if (isUser)
+                  _CreationModeChip(
+                    request: AiCreationRequest.fromMetadata(
+                      message.metadata[AiCreationRequest.metadataKey],
+                    ),
+                    textColor: textColor,
+                  ),
               ],
             ),
           ),
@@ -745,6 +752,19 @@ class _ImagePreviewDialog extends StatelessWidget {
                   const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(
+                      Icons.download_rounded,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    tooltip: _localizedText(
+                      context,
+                      zh: '保存到本地',
+                      en: 'Save to disk',
+                    ),
+                    onPressed: () => _saveImageAs(context),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
                       Icons.close_rounded,
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -796,5 +816,105 @@ class _ImagePreviewDialog extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _saveImageAs(BuildContext context) async {
+    final basename = p.basename(filePath);
+    final ext = p.extension(basename).toLowerCase();
+    // Map common image extensions to MIME types for the save dialog.
+    final mimeType = switch (ext) {
+      '.png' => 'image/png',
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      _ => 'image/png',
+    };
+    try {
+      final location = await getSaveLocation(
+        suggestedName: basename,
+        acceptedTypeGroups: <XTypeGroup>[
+          XTypeGroup(
+            label: 'Images',
+            mimeTypes: <String>[mimeType],
+            extensions: <String>[ext.replaceFirst('.', '')],
+          ),
+        ],
+      );
+      if (location == null) return;
+      final source = File(filePath);
+      if (!source.existsSync()) return;
+      await source.copy(location.path);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '保存失败：$e',
+              en: 'Save failed: $e',
+            ),
+          ),
+        ),
+      );
+    }
+  }
 }
 
+
+/// Small capsule rendered directly under a user message timestamp when the
+/// message was sent with a non-text creation mode (image / video / audio / deep
+/// research). Lets the reader tell at a glance what action the message is
+/// asking for even after the composer chip is gone.
+class _CreationModeChip extends StatelessWidget {
+  const _CreationModeChip({required this.request, required this.textColor});
+
+  final AiCreationRequest request;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!request.isActive) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final (icon, labelZh, labelEn) = switch (request.mode) {
+      AiCreationMode.image => (Icons.image_outlined, '图片生成', 'Image'),
+      AiCreationMode.video => (Icons.videocam_outlined, '视频生成', 'Video'),
+      AiCreationMode.audio => (Icons.audiotrack_outlined, '音频生成', 'Audio'),
+      AiCreationMode.deepResearch =>
+        (Icons.travel_explore_rounded, '深度研究', 'Deep Research'),
+      AiCreationMode.none => (Icons.circle_outlined, '', ''),
+    };
+    final options = request.options;
+    final detailParts = <String>[
+      if (options.aspectRatio != null) options.aspectRatio!,
+      if (options.size != null && options.aspectRatio == null) options.size!,
+      if (options.durationSeconds != null) '${options.durationSeconds}s',
+      if (options.count != 1) 'x${options.count}',
+    ];
+    final label = _localizedText(context, zh: labelZh, en: labelEn);
+    final detail = detailParts.isEmpty ? '' : ' · ${detailParts.join(' · ')}';
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: textColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: textColor.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 12, color: textColor.withValues(alpha: 0.9)),
+            const SizedBox(width: 4),
+            Text(
+              '$label$detail',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: textColor.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

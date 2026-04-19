@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
@@ -1752,12 +1751,14 @@ Future<String> saveInlineMediaToMarkdown(
     final bytes = base64Decode(media.base64Data);
     if (bytes.isEmpty) return '';
     final tempDir = await Directory.systemTemp.createTemp('openhand_media_');
-    final id = math.Random().nextInt(999999).toString().padLeft(6, '0');
+    final id = DateTime.now().microsecondsSinceEpoch.toString();
     final fileName = '${media.mediaKind}_$id${media.fileExtension}';
     final file = File(p.join(tempDir.path, fileName));
     await file.writeAsBytes(bytes);
     final filePath = file.path;
-    final displayLabel = label ?? 'AI Generated ${media.mediaKind}';
+    final displayLabel = sanitizeMarkdownAltText(
+      label ?? 'AI Generated ${media.mediaKind}',
+    );
     if (media.mimeType.startsWith('image/')) {
       return '![$displayLabel]($filePath)';
     }
@@ -1768,7 +1769,30 @@ Future<String> saveInlineMediaToMarkdown(
       return '[🎬 $displayLabel]($filePath)';
     }
     return '[📎 $displayLabel]($filePath)';
-  } catch (_) {
+  } catch (e) {
+    assert(() {
+      // ignore: avoid_print
+      print('[saveInlineMediaToMarkdown] Failed to persist media: $e');
+      return true;
+    }());
     return '';
   }
+}
+
+/// Sanitize a label for use as markdown image/link alt text.
+///
+/// Strips characters that break `![alt](url)` parsing: `[`, `]`, newlines.
+/// Truncates to a reasonable length since the full user prompt can be very
+/// long and makes no sense as alt text.
+String sanitizeMarkdownAltText(String text) {
+  var sanitized = text
+      .replaceAll('[', '')
+      .replaceAll(']', '')
+      .replaceAll('\n', ' ')
+      .replaceAll('\r', ' ')
+      .trim();
+  if (sanitized.length > 120) {
+    sanitized = '${sanitized.substring(0, 117)}...';
+  }
+  return sanitized;
 }

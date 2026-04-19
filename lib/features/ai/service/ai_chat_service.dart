@@ -4,9 +4,11 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../model/ai_creation_mode.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 import 'ai_dsml_tool_call_parser.dart';
+import 'ai_image_generation_service.dart';
 import 'ai_protocol_adapter.dart';
 
 abstract class AiChatClient {
@@ -15,6 +17,7 @@ abstract class AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools,
     List<String> responseModalities,
+    AiCreationRequest creationRequest,
     Duration timeout,
   });
 
@@ -23,6 +26,7 @@ abstract class AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools,
     List<String> responseModalities,
+    AiCreationRequest creationRequest,
     Duration timeout,
     Future<void>? cancelSignal,
   });
@@ -174,13 +178,88 @@ class AiChatStreamingResponse {
 }
 
 class AiChatService implements AiChatClient {
-  AiChatService({http.Client? client}) : _client = client ?? http.Client();
+  AiChatService({http.Client? client, AiImageGenerationService? imageService})
+      : _client = client ?? http.Client(),
+        _imageService =
+            imageService ?? AiImageGenerationService(client: client);
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
   static const Duration _streamIdleWarningInterval = Duration(seconds: 4);
 
   final http.Client _client;
+  final AiImageGenerationService _imageService;
+
+  /// Returns true when [creationRequest] asks for image output AND the
+  /// provider is known to expose an OpenAI-compatible `/v1/images/generations`
+  /// endpoint. Gemini keeps its inline `responseModalities` path on the chat
+  /// endpoint, so we skip the diversion for it on purpose.
+  bool _shouldDivertToImageEndpoint(
+    AiModelConfig model,
+    AiCreationRequest creationRequest,
+  ) {
+    if (creationRequest.mode != AiCreationMode.image) return false;
+    return AiImageGenerationService.supportsImageGeneration(model.protocolType);
+  }
+
+  /// Extracts the latest user text prompt from a turn list. The image
+  /// endpoints want a single clean prompt, not a chat history.
+  ///
+  /// The prompt builder prepends structured headers like
+  /// `# [6] Your latest message\n\n` to the user content for the chat
+  /// endpoint. These must be stripped before forwarding to the image API.
+  static final RegExp _structuredPromptHeaderPattern = RegExp(
+    r'^#\s*\[\d+\]\s*[^\n]*\n+',
+  );
+
+  String _latestUserPromptFromTurns(List<AiChatTurn> messages) {
+    for (final turn in messages.reversed) {
+      if (turn.role != AiChatRole.user) continue;
+      final raw = turn.content.trim();
+      if (raw.isNotEmpty) {
+        return raw.replaceFirst(_structuredPromptHeaderPattern, '').trim();
+      }
+      final parts = turn.effectiveParts
+          .where((p) => p.kind == AiChatContentPartKind.text)
+          .map((p) => (p.text ?? '').trim())
+          .where((t) => t.isNotEmpty)
+          .join('\n');
+      if (parts.isNotEmpty) {
+        return parts.replaceFirst(_structuredPromptHeaderPattern, '').trim();
+      }
+    }
+    return '';
+  }
+
+  /// Produces an [AiChatCompletion] by calling the dedicated image
+  /// generation endpoint and wrapping its output in the regular chat
+  /// completion shape so the rest of the app can stay oblivious.
+  Future<AiChatCompletion> _sendImageGenerationCompletion({
+    required AiModelConfig model,
+    required List<AiChatTurn> messages,
+    required AiCreationRequest creationRequest,
+    required Duration timeout,
+  }) async {
+    final prompt = _latestUserPromptFromTurns(messages);
+    final result = await _imageService.generateImage(
+      model: model,
+      prompt: prompt,
+      options: creationRequest.options,
+      timeout: timeout,
+    );
+    return AiChatCompletion(
+      reply: result.markdown,
+      rawResponse: result.rawResponseBody,
+      requestUrl: result.requestUrl,
+      requestMethod: 'POST',
+      requestHeaders: result.requestHeaders,
+      requestBody: result.requestBody,
+      startedAt: result.startedAt,
+      endedAt: result.endedAt,
+      durationMs: result.durationMs,
+      usage: result.usage,
+    );
+  }
 
   @override
   Future<AiChatCompletion> sendMessage({
@@ -188,8 +267,21 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
   }) async {
+    if (_shouldDivertToImageEndpoint(model, creationRequest)) {
+      try {
+        return await _sendImageGenerationCompletion(
+          model: model,
+          messages: messages,
+          creationRequest: creationRequest,
+          timeout: timeout,
+        );
+      } on AiMediaGenerationException catch (error) {
+        throw AiChatException(error.message);
+      }
+    }
     try {
       final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
       final blueprint = await adapter.buildChatRequest(
@@ -287,9 +379,24 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
     Future<void>? cancelSignal,
   }) async {
+    // Image generation is a one-shot, non-streaming protocol on OpenAI-style
+    // providers, so wrap it in a synthetic stream that emits one textDelta
+    // containing the final markdown image reference.
+    if (_shouldDivertToImageEndpoint(model, creationRequest)) {
+      return _sendMessageAsSyntheticStream(
+        model: model,
+        messages: messages,
+        tools: tools,
+        responseModalities: responseModalities,
+        creationRequest: creationRequest,
+        timeout: timeout,
+        cancelSignal: cancelSignal,
+      );
+    }
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     if (!adapter.supportsServerStreaming) {
       _debugAiStreamLog(
@@ -300,6 +407,7 @@ class AiChatService implements AiChatClient {
         messages: messages,
         tools: tools,
         responseModalities: responseModalities,
+        creationRequest: creationRequest,
         timeout: timeout,
         cancelSignal: cancelSignal,
       );
@@ -692,6 +800,7 @@ class AiChatService implements AiChatClient {
     required List<AiChatTurn> messages,
     required List<AiToolDefinition> tools,
     required List<String> responseModalities,
+    AiCreationRequest creationRequest = AiCreationRequest.none,
     required Duration timeout,
     Future<void>? cancelSignal,
   }) async {
@@ -723,6 +832,7 @@ class AiChatService implements AiChatClient {
           messages: messages,
           tools: tools,
           responseModalities: responseModalities,
+          creationRequest: creationRequest,
           timeout: timeout,
         );
         final completion = cancelSignal == null
@@ -811,6 +921,7 @@ class AiChatService implements AiChatClient {
 
   @override
   void dispose() {
+    _imageService.dispose();
     _client.close();
   }
 }

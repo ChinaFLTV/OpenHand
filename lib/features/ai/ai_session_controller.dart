@@ -14,6 +14,7 @@ import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
+import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
 import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
@@ -1312,6 +1313,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     List<String> attachmentFilePaths = const <String>[],
     List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
     bool requireWriteCommandConfirmation = true,
     WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -1402,6 +1404,10 @@ class AiSessionController extends ChangeNotifier {
           return false;
         }
         final userMessageMetadata = <String, Object?>{};
+        if (creationRequest.isActive) {
+          userMessageMetadata[AiCreationRequest.metadataKey] =
+              creationRequest.toMetadata();
+        }
         if (userHookResult.userFeedback.isNotEmpty) {
           userMessageMetadata[aiUserPromptHookFeedbackMetadataKey] =
               userHookResult.userFeedback;
@@ -1523,6 +1529,7 @@ class AiSessionController extends ChangeNotifier {
           model: model,
           runtimeContext: runtimeContext,
           responseModalities: responseModalities,
+          creationRequest: creationRequest,
           latestUserMessageId: preparedUserTurn.userMessage.id,
           denyCommandRules: denyCommandRules,
           requireWriteCommandConfirmation: requireWriteCommandConfirmation,
@@ -1641,6 +1648,7 @@ class AiSessionController extends ChangeNotifier {
     required AiSessionRuntimeContext runtimeContext,
     required String? latestUserMessageId,
     List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
     required List<AiDenyCommandRule> denyCommandRules,
     required bool requireWriteCommandConfirmation,
     required WriteCommandConfirmationCallback? confirmWriteCommand,
@@ -1739,6 +1747,7 @@ class AiSessionController extends ChangeNotifier {
           messages: promptResult.messages,
           tools: toolsForRound,
           responseModalities: responseModalities,
+          creationRequest: creationRequest,
           cancelSignal: _stopSignalForSession(workingSession.id),
         );
       } catch (error) {

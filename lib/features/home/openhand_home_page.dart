@@ -39,6 +39,7 @@ import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_attachment.dart';
+import '../ai/model/ai_creation_mode.dart';
 import '../ai/model/ai_lsp_backend_catalog.dart';
 import '../ai/model/ai_lsp_language_settings.dart';
 import '../ai/model/ai_model_config.dart';
@@ -173,14 +174,30 @@ void _disposeTextEditingControllerAfterCurrentFrame(
   });
 }
 
+/// Builds a panel-switch transition that is safe to use inside a
+/// [LayoutBuilder] subtree.
+///
+/// In Flutter 3.11+, [LayoutBuilder] has its own [BuildScope].  Any
+/// [AnimatedWidget] subclass ([ScaleTransition], [SlideTransition],
+/// [SizeTransition], [RotationTransition]) calls [setState] on every
+/// animation tick in [handleBeginFrame].  That [setState] propagates through
+/// `BuildScope._scheduleBuildFor` → `_LayoutBuilderElement._scheduleRebuild`
+/// → `RenderObject.scheduleLayoutCallback`, which asserts
+/// `debugNeedsLayout`.  During [handleBeginFrame] the render object has not
+/// yet been marked as needing layout, so the assertion fires.
+///
+/// [FadeTransition] is the only safe transition widget — it extends
+/// [SingleChildRenderObjectWidget] and drives opacity via
+/// [RenderAnimatedOpacity.markNeedsPaint], never calling [setState].
+///
+/// All panel styles therefore use [FadeTransition] with varying curves to
+/// maintain visual distinction.
 Widget _buildPanelTransition({
   required Widget child,
   required Animation<double> animation,
   required DialogAnimationStyle entranceStyle,
   required DialogAnimationStyle exitStyle,
 }) {
-  // Choose the effective style based on whether the animation is running
-  // forward (entrance) or in reverse (exit).
   final isEntering =
       animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
@@ -190,70 +207,53 @@ Widget _buildPanelTransition({
       opacity: animation,
       child: child,
     ),
+    // All variants use FadeTransition only — different curves give subtle
+    // personality without resorting to AnimatedWidget subclasses.
     DialogAnimationStyle.fadeScale => FadeTransition(
       opacity: CurvedAnimation(
         parent: animation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       ),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.92, end: 1.0).animate(
-          CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
-          ),
-        ),
-        child: child,
-      ),
+      child: child,
     ),
     DialogAnimationStyle.slideUp => FadeTransition(
-      opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.06),
-          end: Offset.zero,
-        ).animate(animation),
-        child: child,
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOut,
+        reverseCurve: Curves.easeIn,
       ),
+      child: child,
     ),
     DialogAnimationStyle.slideDown => FadeTransition(
-      opacity: animation,
-      child: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, -0.06),
-          end: Offset.zero,
-        ).animate(animation),
-        child: child,
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOut,
+        reverseCurve: Curves.easeIn,
       ),
+      child: child,
     ),
     DialogAnimationStyle.expand => FadeTransition(
-      opacity: animation,
-      child: SizeTransition(
-        sizeFactor: animation,
-        axisAlignment: -1,
-        child: child,
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeInOutCubic,
       ),
+      child: child,
     ),
     DialogAnimationStyle.rotateScale => FadeTransition(
-      opacity: animation,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
-        child: RotationTransition(
-          turns: Tween<double>(begin: -0.02, end: 0).animate(animation),
-          child: child,
-        ),
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       ),
+      child: child,
     ),
     DialogAnimationStyle.elastic => FadeTransition(
-      opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-      child: ScaleTransition(
-        scale: Tween<double>(
-          begin: 0.8,
-          end: 1.0,
-        ).animate(CurvedAnimation(parent: animation, curve: Curves.elasticOut)),
-        child: child,
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOut,
       ),
+      child: child,
     ),
   };
 }
@@ -306,6 +306,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
+  AiCreationOptions _creationOptions = AiCreationOptions.empty;
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
   bool _autoFollowEnabled = true;
@@ -2441,9 +2442,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final responseModalities = creationMode == _CreationMode.image
         ? const <String>['Text', 'Image']
         : const <String>[];
+    final creationRequest = _creationRequestFromComposer(creationMode);
     setState(() {
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
       _creationMode = _CreationMode.none;
+      _creationOptions = AiCreationOptions.empty;
     });
 
     await _submitTextToSession(
@@ -2452,6 +2455,111 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       pendingAttachments,
       runtimeContext: runtimeContext,
       responseModalities: responseModalities,
+      creationRequest: creationRequest,
+    );
+  }
+
+  /// Translates the composer-private [_CreationMode] enum into the public
+  /// [AiCreationRequest] model that the controller/adapter layers speak.
+  AiCreationRequest _creationRequestFromComposer(_CreationMode mode) {
+    switch (mode) {
+      case _CreationMode.none:
+        return AiCreationRequest.none;
+      case _CreationMode.image:
+        final options = _creationOptions.size != null ||
+                _creationOptions.aspectRatio != null ||
+                _creationOptions.count != 1
+            ? _creationOptions
+            : const AiCreationOptions(
+                size: '1024x1024',
+                aspectRatio: '1:1',
+                count: 1,
+              );
+        return AiCreationRequest(
+          mode: AiCreationMode.image,
+          options: options,
+        );
+      case _CreationMode.video:
+        return AiCreationRequest(
+          mode: AiCreationMode.video,
+          options: _creationOptions,
+        );
+      case _CreationMode.audio:
+        return AiCreationRequest(
+          mode: AiCreationMode.audio,
+          options: _creationOptions,
+        );
+      case _CreationMode.deepResearch:
+        return const AiCreationRequest(mode: AiCreationMode.deepResearch);
+    }
+  }
+
+  /// Returns a mode-appropriate default [AiCreationOptions] blob, used as a
+  /// starting point when the user first switches into a given creation mode.
+  AiCreationOptions _defaultOptionsForComposerMode(_CreationMode mode) {
+    switch (mode) {
+      case _CreationMode.image:
+        return const AiCreationOptions(
+          size: '1024x1024',
+          aspectRatio: '1:1',
+          count: 1,
+        );
+      case _CreationMode.video:
+        return const AiCreationOptions(
+          aspectRatio: '16:9',
+          durationSeconds: 5,
+          count: 1,
+        );
+      case _CreationMode.audio:
+        return const AiCreationOptions(durationSeconds: 10, count: 1);
+      case _CreationMode.deepResearch:
+      case _CreationMode.none:
+        return AiCreationOptions.empty;
+    }
+  }
+
+  /// Shows a bottom sheet that lets the user refine the creation options for
+  /// the currently selected mode. Returns the picked options or `null` if the
+  /// user dismissed the sheet without committing a change.
+  Future<AiCreationOptions?> _showCreationOptionsSheet(
+    _CreationMode mode,
+    AiCreationOptions initial,
+  ) async {
+    if (mode == _CreationMode.none || mode == _CreationMode.deepResearch) {
+      return null;
+    }
+    final menuAnimationSettings = context
+        .read<SettingsController>()
+        .menuAnimationSettings;
+    final colorScheme = Theme.of(context).colorScheme;
+    return showAnimatedDialog<AiCreationOptions>(
+      context: context,
+      settings: menuAnimationSettings,
+      barrierDismissible: true,
+      barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
+      builder: (dialogContext) {
+        final dialogColorScheme = Theme.of(dialogContext).colorScheme;
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Material(
+                elevation: 14,
+                clipBehavior: Clip.antiAlias,
+                color: dialogColorScheme.surfaceContainerHigh,
+                surfaceTintColor: dialogColorScheme.surfaceTint,
+                borderRadius: BorderRadius.circular(28),
+                child: _CreationOptionsSheet(
+                  mode: mode,
+                  initial: initial,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -2461,6 +2569,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     List<_ComposerAttachmentDraft> pendingAttachments, {
     AiSessionRuntimeContext? runtimeContext,
     List<String> responseModalities = const <String>[],
+    AiCreationRequest creationRequest = AiCreationRequest.none,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
@@ -2505,6 +2614,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         model: selectedModel,
         runtimeContext: runtimeContext,
         responseModalities: responseModalities,
+        creationRequest: creationRequest,
         attachmentFilePaths: pendingAttachments
             .map((item) => item.filePath)
             .toList(growable: false),
@@ -4076,8 +4186,50 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onStop: _stopResponding,
         onCreateThreadRequested: _createSessionFromDialog,
         creationMode: _creationMode,
-        onCreationModeChanged: (mode) {
-          setState(() => _creationMode = mode);
+        creationOptions: _creationOptions,
+        onCreationModeChanged: (mode) async {
+          // Drop any leftover options from a previous mode when the user
+          // clears or switches to a mode whose options differ materially.
+          final previousMode = _creationMode;
+          setState(() {
+            _creationMode = mode;
+            if (mode == _CreationMode.none) {
+              _creationOptions = AiCreationOptions.empty;
+            } else if (mode != previousMode) {
+              _creationOptions = _defaultOptionsForComposerMode(mode);
+            }
+          });
+          // When the user just enabled an image-producing mode, open the
+          // options sheet so they can pick a size / aspect ratio / count
+          // without hunting through a settings screen.
+          if (mode == _CreationMode.image && previousMode != mode) {
+            // Push the overlay route after the current frame has fully
+            // settled to avoid LayoutBuilder callback assertions.
+            await _awaitEndOfFrame();
+            if (!mounted || _creationMode != mode) return;
+            final picked = await _showCreationOptionsSheet(mode, _creationOptions);
+            // Wait for the dialog's closing animation to finish before
+            // calling setState.  The dialog's future resolves immediately
+            // when Navigator.pop is called, while the route's animation is
+            // still running.  Calling setState here (while the animation is
+            // mid-frame) can restart AnimatedSwitcher animations, which
+            // trigger scheduleLayoutCallback assertions in LayoutBuilder.
+            await _awaitEndOfFrame();
+            if (!mounted || _creationMode != mode) return;
+            if (picked != null) {
+              setState(() => _creationOptions = picked);
+            }
+          }
+        },
+        onCreationOptionsChanged: (options) {
+          setState(() => _creationOptions = options);
+        },
+        onEditOptionsRequested: () async {
+          if (_creationMode == _CreationMode.none) return;
+          setState(() {
+            _creationMode = _CreationMode.none;
+            _creationOptions = AiCreationOptions.empty;
+          });
         },
         editingMessageId: sessionController.editingMessageId,
         onCancelEditing: _cancelEditingMessage,
@@ -4225,4 +4377,254 @@ AppSection _sectionFromDrawerIndex(int index) {
     5 => AppSection.settings,
     _ => AppSection.workspace,
   };
+}
+
+/// Modal bottom sheet that lets users tweak [AiCreationOptions] for the
+/// currently active creation mode. Returns the updated options or null if the
+/// user dismissed without confirming.
+class _CreationOptionsSheet extends StatefulWidget {
+  const _CreationOptionsSheet({required this.mode, required this.initial});
+
+  final _CreationMode mode;
+  final AiCreationOptions initial;
+
+  @override
+  State<_CreationOptionsSheet> createState() => _CreationOptionsSheetState();
+}
+
+class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
+  late String? _aspectRatio = widget.initial.aspectRatio;
+  late String? _size = widget.initial.size;
+  late int? _duration = widget.initial.durationSeconds;
+  late int _count = widget.initial.count;
+
+  // Mode-specific aspect ratio presets with matching pixel sizes. The 1024
+  // baseline is used for image generation; video keeps the aspect strings
+  // only (pixel sizes are provider-dependent).
+  static const List<({String ratio, String size})> _imageRatios = [
+    (ratio: '1:1', size: '1024x1024'),
+    (ratio: '16:9', size: '1792x1024'),
+    (ratio: '9:16', size: '1024x1792'),
+    (ratio: '4:3', size: '1280x960'),
+    (ratio: '3:4', size: '960x1280'),
+  ];
+
+  static const List<String> _videoRatios = ['16:9', '9:16', '1:1', '4:3'];
+  static const List<int> _videoDurations = [3, 5, 8, 10];
+  static const List<int> _audioDurations = [5, 10, 20, 30, 60];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isImage = widget.mode == _CreationMode.image;
+    final isVideo = widget.mode == _CreationMode.video;
+    final isAudio = widget.mode == _CreationMode.audio;
+    final title = switch (widget.mode) {
+      _CreationMode.image => _localizedText(
+        context,
+        zh: '图像生成选项',
+        en: 'Image options',
+      ),
+      _CreationMode.video => _localizedText(
+        context,
+        zh: '视频生成选项',
+        en: 'Video options',
+      ),
+      _CreationMode.audio => _localizedText(
+        context,
+        zh: '音频生成选项',
+        en: 'Audio options',
+      ),
+      _ => _localizedText(context, zh: '生成选项', en: 'Options'),
+    };
+    final sectionStyle = theme.textTheme.labelMedium?.copyWith(
+      color: cs.onSurfaceVariant,
+      fontWeight: FontWeight.w600,
+    );
+    final actionTextStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+    );
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 14,
+        bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 48,
+              height: 5,
+              decoration: BoxDecoration(
+                color: cs.outlineVariant.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(title, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 16),
+          if (isImage || isVideo) ...[
+            Text(
+              _localizedText(context, zh: '宽高比', en: 'Aspect ratio'),
+              style: sectionStyle,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (isImage)
+                  for (final preset in _imageRatios)
+                    ChoiceChip(
+                      label: Text(preset.ratio),
+                      selected: _aspectRatio == preset.ratio,
+                      onSelected: (_) => setState(() {
+                        _aspectRatio = preset.ratio;
+                        _size = preset.size;
+                      }),
+                    ),
+                if (isVideo)
+                  for (final ratio in _videoRatios)
+                    ChoiceChip(
+                      label: Text(ratio),
+                      selected: _aspectRatio == ratio,
+                      onSelected: (_) =>
+                          setState(() => _aspectRatio = ratio),
+                    ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (isVideo || isAudio) ...[
+            Text(
+              _localizedText(context, zh: '时长 (秒)', en: 'Duration (s)'),
+              style: sectionStyle,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in (isVideo ? _videoDurations : _audioDurations))
+                  ChoiceChip(
+                    label: Text('${d}s'),
+                    selected: _duration == d,
+                    onSelected: (_) => setState(() => _duration = d),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          Text(
+            _localizedText(context, zh: '数量', en: 'Count'),
+            style: sectionStyle,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: IconButton(
+                  onPressed: _count > 1
+                      ? () => setState(() => _count--)
+                      : null,
+                  icon: const Icon(Icons.remove_circle_outline),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '$_count',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 46,
+                height: 46,
+                child: IconButton(
+                  onPressed: _count < 4
+                      ? () => setState(() => _count++)
+                      : null,
+                  icon: const Icon(Icons.add_circle_outline),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 46,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: cs.outlineVariant),
+                                textStyle: actionTextStyle,
+                                minimumSize: const Size(0, 46),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                              ),
+                              child: Text(
+                                _localizedText(context, zh: '取消', en: 'Cancel'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SizedBox(
+                            height: 46,
+                            child: FilledButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(
+                                  AiCreationOptions(
+                                    size: _size,
+                                    aspectRatio: _aspectRatio,
+                                    durationSeconds: _duration,
+                                    count: _count,
+                                  ),
+                                );
+                              },
+                              style: FilledButton.styleFrom(
+                                textStyle: actionTextStyle,
+                                minimumSize: const Size(0, 46),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                ),
+                              ),
+                              child: Text(
+                                _localizedText(context, zh: '确认', en: 'Confirm'),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

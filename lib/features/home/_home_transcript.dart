@@ -473,9 +473,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       );
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
-    final errorBannerCount = userVisibleError == null ? 0 : 1;
-    final listItemCount =
-        _renderEntries.length + hiddenLoadMoreCount + errorBannerCount;
+    // When the session is actively awaiting the assistant and the most
+    // recent user message asked for a multimedia creation (image / video /
+    // audio / deep research), we slot in a shimmering placeholder card
+    // immediately below the user bubble so there is never a blank gap
+    // between the request and the eventual result.
+    final pendingCreationRequest = _resolvePendingCreationPlaceholder(
+      session: session,
+      visibleMessages: visibleMessages,
+      sendPhase: widget.sendPhase,
+    );
+    // When the assistant bailed out before producing any content AND the
+    // user had asked for a multimedia creation, we swap the shimmer for an
+    // explicit failure card (carrying the same error message the generic
+    // banner would have shown). This keeps the failed turn visually tied to
+    // the user's request instead of floating as a disconnected banner.
+    final failedCreationRequest = (pendingCreationRequest == null &&
+            userVisibleError != null &&
+            widget.sendPhase == AiSendPhase.idle)
+        ? _resolvePendingCreationPlaceholder(
+            session: session,
+            visibleMessages: visibleMessages,
+            sendPhase: widget.sendPhase,
+            allowWhenIdle: true,
+          )
+        : null;
+    // If we render a dedicated failure card for the creation turn, suppress
+    // the redundant generic error banner that would otherwise carry the
+    // exact same message.
+    final suppressGenericErrorBanner = failedCreationRequest != null;
+    final errorBannerCount =
+        (userVisibleError == null || suppressGenericErrorBanner) ? 0 : 1;
+    final pendingPlaceholderCount = pendingCreationRequest == null ? 0 : 1;
+    final failureCardCount = failedCreationRequest == null ? 0 : 1;
+    final listItemCount = _renderEntries.length +
+        hiddenLoadMoreCount +
+        errorBannerCount +
+        pendingPlaceholderCount +
+        failureCardCount;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -525,6 +560,39 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 }
                 final messageIndex = index - hiddenLoadMoreCount;
                 if (messageIndex >= _renderEntries.length) {
+                  final afterMessagesIndex =
+                      messageIndex - _renderEntries.length;
+                  if (afterMessagesIndex < pendingPlaceholderCount) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _PendingCreationPlaceholderCard(
+                        request: pendingCreationRequest!,
+                      ),
+                    );
+                  }
+                  if (afterMessagesIndex <
+                      pendingPlaceholderCount + failureCardCount) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _CreationFailureCard(
+                        request: failedCreationRequest!,
+                        error: userVisibleError!,
+                        onDismiss: () async {
+                          _dismissedErrorIds.add(userVisibleError.id);
+                          setState(() {
+                            if (_visibleErrorId == userVisibleError.id) {
+                              _visibleErrorId = null;
+                            }
+                            if (_pendingPresentedErrorId ==
+                                userVisibleError.id) {
+                              _pendingPresentedErrorId = null;
+                            }
+                          });
+                          await widget.onDismissError(userVisibleError);
+                        },
+                      ),
+                    );
+                  }
                   return _SessionErrorBanner(
                     error: userVisibleError!,
                     onDismiss: () async {
@@ -933,3 +1001,271 @@ class _AnimatedSessionTitleText extends StatelessWidget {
   }
 }
 
+
+/// Resolves the creation request that should be shown as a pending placeholder
+/// directly beneath the latest user message while the assistant works, or
+/// surfaced as a failure card when generation finished with an error and the
+/// assistant never managed to produce any visible content.
+///
+/// Returns null when no placeholder / failure card is needed: the latest user
+/// message either was not a creation request, or the assistant has already
+/// begun producing a visible response for the turn.
+AiCreationRequest? _resolvePendingCreationPlaceholder({
+  required AiSession session,
+  required List<AiSessionMessage> visibleMessages,
+  required AiSendPhase sendPhase,
+  bool allowWhenIdle = false,
+}) {
+  if (sendPhase == AiSendPhase.idle && !allowWhenIdle) return null;
+  if (visibleMessages.isEmpty) return null;
+  // Walk backwards to find the most recent turn-opening user message.
+  AiSessionMessage? latestUser;
+  var assistantContentSeenAfterLatestUser = false;
+  for (var i = visibleMessages.length - 1; i >= 0; i--) {
+    final m = visibleMessages[i];
+    if (m.kind == AiSessionMessageKind.user) {
+      latestUser = m;
+      break;
+    }
+    if (m.kind == AiSessionMessageKind.assistant &&
+        m.content.trim().isNotEmpty) {
+      assistantContentSeenAfterLatestUser = true;
+    }
+  }
+  if (latestUser == null) return null;
+  if (assistantContentSeenAfterLatestUser) return null;
+  final request = AiCreationRequest.fromMetadata(
+    latestUser.metadata[AiCreationRequest.metadataKey],
+  );
+  if (!request.isActive) return null;
+  // Only show the animated placeholder for modes that produce visual/audio
+  // artefacts; deep research replies as regular streamed text.
+  if (request.mode == AiCreationMode.deepResearch) return null;
+  return request;
+}
+
+/// Shimmering placeholder card shown beneath the user message while an image
+/// (or video / audio) is being generated. Picks colours from the active theme
+/// so it looks at home in both dark and light palettes.
+class _PendingCreationPlaceholderCard extends StatefulWidget {
+  const _PendingCreationPlaceholderCard({required this.request});
+
+  final AiCreationRequest request;
+
+  @override
+  State<_PendingCreationPlaceholderCard> createState() =>
+      _PendingCreationPlaceholderCardState();
+}
+
+class _PendingCreationPlaceholderCardState
+    extends State<_PendingCreationPlaceholderCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    // Tune tones to the current theme so the sweep reads well everywhere.
+    final baseColor = isDark
+        ? cs.surfaceContainer
+        : cs.surfaceContainerHighest.withValues(alpha: 0.6);
+    final highlightColor = isDark
+        ? cs.surfaceContainerHighest
+        : cs.surface;
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.25 : 0.18,
+    );
+    final (icon, labelZh, labelEn) = switch (widget.request.mode) {
+      AiCreationMode.image => (
+        Icons.image_outlined,
+        '正在生成图片…',
+        'Generating image…',
+      ),
+      AiCreationMode.video => (
+        Icons.videocam_outlined,
+        '正在生成视频…',
+        'Generating video…',
+      ),
+      AiCreationMode.audio => (
+        Icons.audiotrack_outlined,
+        '正在生成音频…',
+        'Generating audio…',
+      ),
+      AiCreationMode.deepResearch => (
+        Icons.travel_explore_rounded,
+        '正在深度研究…',
+        'Researching…',
+      ),
+      AiCreationMode.none => (Icons.hourglass_bottom_rounded, '', ''),
+    };
+    final label = _localizedText(context, zh: labelZh, en: labelEn);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) {
+          final t = _ctrl.value;
+          return Container(
+            width: 280,
+            height: 220,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: borderColor),
+              gradient: LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * t, -0.4),
+                end: Alignment(-1.0 + 2.0 * t + 0.9, 0.4),
+                colors: [baseColor, highlightColor, baseColor],
+              ),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 40,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.55),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Failure card shown in place of the shimmer when a multimedia creation
+/// request ended with an error without producing any assistant content.
+/// Mirrors the user's chosen creation mode (image / video / audio) so the
+/// failed turn stays visually coupled to the request, and surfaces the
+/// underlying error message with a dismiss button.
+class _CreationFailureCard extends StatelessWidget {
+  const _CreationFailureCard({
+    required this.request,
+    required this.error,
+    required this.onDismiss,
+  });
+
+  final AiCreationRequest request;
+  final AiSessionErrorRecord error;
+  final Future<void> Function() onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final presentation = _presentSessionError(context, error);
+    final (icon, titleZh, titleEn) = switch (request.mode) {
+      AiCreationMode.image => (
+        Icons.broken_image_outlined,
+        '图片生成失败',
+        'Image generation failed',
+      ),
+      AiCreationMode.video => (
+        Icons.videocam_off_outlined,
+        '视频生成失败',
+        'Video generation failed',
+      ),
+      AiCreationMode.audio => (
+        Icons.music_off_outlined,
+        '音频生成失败',
+        'Audio generation failed',
+      ),
+      AiCreationMode.deepResearch => (
+        Icons.travel_explore_rounded,
+        '深度研究失败',
+        'Deep research failed',
+      ),
+      AiCreationMode.none => (
+        Icons.error_outline_rounded,
+        '生成失败',
+        'Generation failed',
+      ),
+    };
+    final title = _localizedText(context, zh: titleZh, en: titleEn);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+          decoration: BoxDecoration(
+            color: cs.errorContainer.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: cs.error.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 22, color: cs.onErrorContainer),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: cs.onErrorContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      presentation.message,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onErrorContainer,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                key: ValueKey<String>('creation-failure-dismiss-${error.id}'),
+                onPressed: () => onDismiss(),
+                tooltip: _localizedText(context, zh: '关闭', en: 'Dismiss'),
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: cs.onErrorContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -29,6 +29,9 @@ class _ComposerPanel extends StatefulWidget {
     required this.onStop,
     required this.creationMode,
     required this.onCreationModeChanged,
+    this.creationOptions = AiCreationOptions.empty,
+    this.onCreationOptionsChanged,
+    this.onEditOptionsRequested,
     required this.fullAccessPermission,
     required this.onToggleFullAccessPermission,
     required this.editingMessageId,
@@ -66,6 +69,9 @@ class _ComposerPanel extends StatefulWidget {
   final Future<void> Function() onStop;
   final _CreationMode creationMode;
   final ValueChanged<_CreationMode> onCreationModeChanged;
+  final AiCreationOptions creationOptions;
+  final ValueChanged<AiCreationOptions>? onCreationOptionsChanged;
+  final Future<void> Function()? onEditOptionsRequested;
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
   final String? editingMessageId;
@@ -923,6 +929,33 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           creationMode: widget.creationMode,
           onCreationModeChanged: widget.onCreationModeChanged,
         ),
+        // NOTE: Only FadeTransition is safe inside a LayoutBuilder
+        // subtree.  ScaleTransition / SlideTransition / RotationTransition
+        // extend AnimatedWidget, whose _AnimatedState calls setState()
+        // during animation ticks.  In Flutter 3.11+ LayoutBuilder has its
+        // own BuildScope; that setState propagates through
+        // _LayoutBuilderElement._scheduleRebuild → scheduleLayoutCallback
+        // which asserts debugNeedsLayout — a condition that is false
+        // during handleBeginFrame.  FadeTransition is a
+        // SingleChildRenderObjectWidget that drives opacity via
+        // RenderAnimatedOpacity.markNeedsPaint and never calls setState.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 240),
+          child: widget.creationMode != _CreationMode.none &&
+                  widget.onEditOptionsRequested != null
+              ? Padding(
+                  key: ValueKey<String>(
+                    'creation-options-${widget.creationMode.name}',
+                  ),
+                  padding: const EdgeInsets.only(left: 6),
+                  child: _ComposerCreationOptionsChip(
+                    mode: widget.creationMode,
+                    options: widget.creationOptions,
+                    onTap: widget.onEditOptionsRequested!,
+                  ),
+                )
+              : const SizedBox(key: ValueKey<String>('creation-options-off')),
+        ),
         const SizedBox(width: 10),
         ValueListenableBuilder<TextEditingValue>(
           valueListenable: widget.controller,
@@ -1237,14 +1270,10 @@ class _ComposerModeButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
+            // FadeTransition-only: ScaleTransition is unsafe inside
+            // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 180),
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                );
-              },
               child: Icon(
                 modeIcon,
                 key: ValueKey<String>('${mode.storageValue}-$modeIcon'),
@@ -1254,20 +1283,10 @@ class _ComposerModeButton extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
+          // FadeTransition-only: SlideTransition is unsafe inside
+          // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, animation) {
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.08, 0),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
             child: Text(
               modeLabel,
               key: ValueKey<String>('${mode.storageValue}-$modeLabel'),
@@ -1369,8 +1388,8 @@ class _ComposerCreationModeButtonState
         width: 52,
         height: 52,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+          duration: const Duration(milliseconds: 340),
+          curve: Curves.easeInOutCubicEmphasized,
           child: FilledButton(
             onPressed: () {
               // When active, toggle off instead of opening the menu.
@@ -1393,12 +1412,13 @@ class _ComposerCreationModeButtonState
                   ? null
                   : BorderSide(color: colorScheme.outlineVariant),
             ),
+            // Same safety constraint as _ComposerCreationOptionsChip: avoid
+            // ScaleTransition / RotationTransition (AnimatedWidget subclasses)
+            // inside a LayoutBuilder subtree.  Their setState() ticks during
+            // handleBeginFrame trigger scheduleLayoutCallback assertions.
+            // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(scale: animation, child: child),
-              ),
+              duration: const Duration(milliseconds: 220),
               child: Icon(
                 _iconForMode(widget.creationMode),
                 key: ValueKey<_CreationMode>(widget.creationMode),
@@ -2180,3 +2200,92 @@ IconData _iconForAttachmentKind(AiAttachmentKind kind) {
 // Mirrors the visual design of _ThreadTile for consistency.
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+/// Small chip rendered next to the creation-mode button that summarises the
+/// currently chosen options. Styled to match the send button and acts as a
+/// one-tap escape hatch back to plain text mode.
+class _ComposerCreationOptionsChip extends StatelessWidget {
+  const _ComposerCreationOptionsChip({
+    required this.mode,
+    required this.options,
+    required this.onTap,
+  });
+
+  final _CreationMode mode;
+  final AiCreationOptions options;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final ratio = options.aspectRatio?.trim();
+    final label = switch (mode) {
+      _CreationMode.image =>
+        ratio != null && ratio.isNotEmpty
+            ? ratio
+            : _localizedText(context, zh: '图像', en: 'IMG'),
+      _CreationMode.video =>
+        ratio != null && ratio.isNotEmpty
+            ? ratio
+            : _localizedText(context, zh: '视频', en: 'VID'),
+      _CreationMode.audio => options.durationSeconds != null
+          ? '${options.durationSeconds}s'
+          : _localizedText(context, zh: '音频', en: 'AUD'),
+      _CreationMode.deepResearch => _localizedText(
+        context,
+        zh: '研究',
+        en: 'R',
+      ),
+      _CreationMode.none => _localizedText(context, zh: '开', en: 'ON'),
+    };
+    return Tooltip(
+      message: _localizedText(
+        context,
+        zh: '取消创建模式并恢复文本发送',
+        en: 'Cancel creation mode and return to text',
+      ),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeInOutCubicEmphasized,
+          child: FilledButton(
+            onPressed: () => unawaited(onTap()),
+            style: FilledButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(52, 52),
+              backgroundColor: cs.primary,
+              foregroundColor: cs.onPrimary,
+            ),
+            // NOTE: Do NOT wrap the label in AnimatedSwitcher with
+            // ScaleTransition/RotationTransition here.  Those widgets extend
+            // AnimatedWidget, whose _AnimatedState calls setState() on every
+            // animation tick.  Inside a LayoutBuilder subtree, that setState
+            // call propagates through BuildScope._scheduleBuildFor →
+            // _LayoutBuilderElement._scheduleRebuild →
+            // RenderObject.scheduleLayoutCallback, which asserts
+            // debugNeedsLayout == true.  During handleBeginFrame the render
+            // object has not yet been marked as needing layout, so the
+            // assertion fires and produces a red-screen crash.
+            // FadeTransition is safe (it is a SingleChildRenderObjectWidget
+            // that drives opacity at the render level via markNeedsPaint).
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Text(
+                label,
+                key: ValueKey<String>('creation-options-label-$label'),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: cs.onPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
