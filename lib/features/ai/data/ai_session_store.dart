@@ -482,7 +482,9 @@ class AiSessionStore {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, Object?>) return decoded;
         if (decoded is Map) return Map<String, Object?>.from(decoded);
-      } catch (_) {}
+      } catch (e) {
+        stderr.writeln('[AiSessionStore] Failed to decode JSON map: $e');
+      }
     }
     return const <String, Object?>{};
   }
@@ -492,7 +494,9 @@ class AiSessionStore {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) return decoded;
-      } catch (_) {}
+      } catch (e) {
+        stderr.writeln('[AiSessionStore] Failed to decode JSON list: $e');
+      }
     }
     return const <Object?>[];
   }

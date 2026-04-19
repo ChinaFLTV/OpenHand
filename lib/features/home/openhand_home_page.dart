@@ -2331,7 +2331,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               en: '⚠️ The selected model may not support image viewing. Images will be sent as text descriptions.',
             ),
           ),
-          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -2491,7 +2490,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             : const AiCreationOptions(
                 size: '1024x1024',
                 aspectRatio: '1:1',
-                count: 1,
               );
         return AiCreationRequest(
           mode: AiCreationMode.image,
@@ -2520,16 +2518,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return const AiCreationOptions(
           size: '1024x1024',
           aspectRatio: '1:1',
-          count: 1,
         );
       case _CreationMode.video:
         return const AiCreationOptions(
           aspectRatio: '16:9',
           durationSeconds: 5,
-          count: 1,
         );
       case _CreationMode.audio:
-        return const AiCreationOptions(durationSeconds: 10, count: 1);
+        return const AiCreationOptions(durationSeconds: 10);
       case _CreationMode.deepResearch:
       case _CreationMode.none:
         return AiCreationOptions.empty;
@@ -2553,7 +2549,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return showAnimatedDialog<AiCreationOptions>(
       context: context,
       settings: menuAnimationSettings,
-      barrierDismissible: true,
       barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
       builder: (dialogContext) {
         final dialogColorScheme = Theme.of(dialogContext).colorScheme;

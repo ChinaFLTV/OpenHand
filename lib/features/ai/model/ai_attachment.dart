@@ -196,16 +196,17 @@ class AiMessageAttachment {
 
   static int? _readNullableInt(Object? value) {
     if (value is int) {
-      return value;
+      return value < 0 ? null : value;
     }
     if (value is num) {
-      return value.toInt();
+      return value < 0 ? null : value.toInt();
     }
     final text = '${value ?? ''}'.trim();
     if (text.isEmpty || text == 'null') {
       return null;
     }
-    return int.tryParse(text);
+    final parsed = int.tryParse(text);
+    return (parsed != null && parsed < 0) ? null : parsed;
   }
 }
 

@@ -14,6 +14,10 @@ const int _maxHookOutputCharacters = 4000;
 /// Hard ceiling to prevent a misconfigured timeout from blocking indefinitely.
 const int _maxHookTimeoutSeconds = 60;
 
+/// Maximum size (bytes) of the context JSON written to the temp file.
+/// Prevents a misconfigured or malicious payload from exhausting disk space.
+const int _maxContextJsonBytes = 512 * 1024; // 512 KB
+
 /// Result of executing all hooks for a single event.
 class HookExecutionResult {
   const HookExecutionResult({
@@ -254,13 +258,18 @@ class HooksExecutor {
       await tmpDir.create(recursive: true);
       final safeName = hook.label
           .replaceAll(RegExp(r'[^\w\-]'), '_')
-          .toLowerCase()
-          .substring(0, hook.label.length.clamp(0, 32));
+          .toLowerCase();
+      final truncatedSafeName = safeName.substring(
+        0, safeName.length.clamp(0, 32),
+      );
       final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
       final safeHookId = hook.id.replaceAll(RegExp(r'[^\w\-]'), '-');
       contextFile = File(
-        p.join(tmpDir.path, '$safeSessionId-$safeName-$safeHookId.json'),
+        p.join(tmpDir.path, '$safeSessionId-$truncatedSafeName-$safeHookId.json'),
       );
+      if (contextJson.length > _maxContextJsonBytes) {
+        contextJson = '${contextJson.substring(0, _maxContextJsonBytes)}...[truncated]';
+      }
       await contextFile.writeAsString(contextJson, flush: true);
     } catch (_) {
       // If file creation fails, scripts can still read from stdin.
@@ -489,12 +498,14 @@ class HooksExecutor {
       await tmpDir.create(recursive: true);
       final safeName = hookLabel
           .replaceAll(RegExp(r'[^\w\-]'), '_')
-          .toLowerCase()
-          .substring(0, hookLabel.length.clamp(0, 32));
+          .toLowerCase();
+      final truncatedSafeName = safeName.substring(
+        0, safeName.length.clamp(0, 32),
+      );
       final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
       final ts = DateTime.now().microsecondsSinceEpoch;
       final file = File(
-        p.join(tmpDir.path, 'output-$safeSessionId-$safeName-$ts.$suffix'),
+        p.join(tmpDir.path, 'output-$safeSessionId-$truncatedSafeName-$ts.$suffix'),
       );
       await file.writeAsString(content, flush: true);
       return file.path;

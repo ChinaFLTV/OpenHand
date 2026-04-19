@@ -2307,7 +2307,6 @@ class _AiLspSession {
     if (process == null) {
       return;
     }
-    _process = null;
     try {
       _writeMessage(<String, Object?>{
         'jsonrpc': '2.0',
@@ -2319,6 +2318,7 @@ class _AiLspSession {
       _sendNotification('exit', <String, Object?>{});
       await Future<void>.delayed(const Duration(milliseconds: 80));
     } catch (_) {}
+    _process = null;
     process.kill();
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {

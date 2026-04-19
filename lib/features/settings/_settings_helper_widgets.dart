@@ -482,7 +482,6 @@ class _AiProviderModelChip extends StatelessWidget {
 
     Widget chip = Material(
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
       shape: StadiumBorder(
         side: BorderSide(color: borderColor, width: isActive ? 1.15 : 1),
       ),

@@ -1077,7 +1077,7 @@ class AiPromptBuilder {
             );
           } else {
             parts.add(
-              AiChatContentPart.text(modelWarning),
+              const AiChatContentPart.text(modelWarning),
             );
           }
           continue;
