@@ -7,9 +7,9 @@ import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
 import '../hooks/hooks_executor.dart';
-import '../../app/model/hook_config.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
 import 'data/ai_session_store.dart';

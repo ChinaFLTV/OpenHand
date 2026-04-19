@@ -66,7 +66,7 @@ class HooksView extends StatelessWidget {
               behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
               child: ListView.separated(
                 itemCount: entries.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   return _HookEntryCard(
                     entry: entries[index],

@@ -296,32 +296,36 @@ class HooksExecutor {
         }
       }
 
-      // Resolve collected output.
-      final stdoutOutput = await stdoutFuture;
-      final stderrOutput = await stderrFuture;
-
-      // Save full output to files when truncated.
-      String? stdoutFile;
-      String? stderrFile;
-      if (stdoutOutput.wasTruncated && stdoutOutput.fullText != null) {
-        stdoutFile = await _saveFullOutputFile(
-          content: stdoutOutput.fullText!,
-          sessionId: sessionId,
-          hookLabel: hook.label,
-          suffix: 'stdout.txt',
-        );
-      }
-      if (stderrOutput.wasTruncated && stderrOutput.fullText != null) {
-        stderrFile = await _saveFullOutputFile(
-          content: stderrOutput.fullText!,
-          sessionId: sessionId,
-          hookLabel: hook.label,
-          suffix: 'stderr.txt',
-        );
-      }
-
       try {
+        // Wait for the process exit code first, with a timeout that covers
+        // the entire execution window. Output collection completes once the
+        // process exits and its stdout/stderr streams close.
         final exitCode = await process.exitCode.timeout(timeout);
+
+        // Process exited within the timeout – collect outputs.
+        final stdoutOutput = await stdoutFuture;
+        final stderrOutput = await stderrFuture;
+
+        // Save full output to files when truncated.
+        String? stdoutFile;
+        String? stderrFile;
+        if (stdoutOutput.wasTruncated && stdoutOutput.fullText != null) {
+          stdoutFile = await _saveFullOutputFile(
+            content: stdoutOutput.fullText!,
+            sessionId: sessionId,
+            hookLabel: hook.label,
+            suffix: 'stdout.txt',
+          );
+        }
+        if (stderrOutput.wasTruncated && stderrOutput.fullText != null) {
+          stderrFile = await _saveFullOutputFile(
+            content: stderrOutput.fullText!,
+            sessionId: sessionId,
+            hookLabel: hook.label,
+            suffix: 'stderr.txt',
+          );
+        }
+
         return _HookScriptResult(
           exitCode: exitCode,
           stdout: stdoutOutput.text,
@@ -337,13 +341,25 @@ class HooksExecutor {
         } on TimeoutException {
           // Best-effort cleanup; the process may remain orphaned on some OSes.
         }
+
+        // Collect whatever output was produced before the timeout.
+        _CollectedOutput stdoutOutput;
+        _CollectedOutput stderrOutput;
+        try {
+          final results = await Future.wait([stdoutFuture, stderrFuture])
+              .timeout(const Duration(seconds: 2));
+          stdoutOutput = results[0];
+          stderrOutput = results[1];
+        } on TimeoutException {
+          stdoutOutput = const _CollectedOutput(text: '...[timed out]');
+          stderrOutput = const _CollectedOutput(text: '');
+        }
+
         return _HookScriptResult(
           exitCode: null,
           stdout: stdoutOutput.text,
           stderr: stderrOutput.text,
           timedOut: true,
-          stdoutFile: stdoutFile,
-          stderrFile: stderrFile,
         );
       }
     } finally {
@@ -445,7 +461,7 @@ class HooksExecutor {
     }
     final fullText = fullBuffer.toString().trim();
     if (!truncated) {
-      return _CollectedOutput(text: fullText, wasTruncated: false);
+      return _CollectedOutput(text: fullText);
     }
     final truncatedText = truncatedBuffer.toString().trim();
     final displayText = truncatedText.isEmpty

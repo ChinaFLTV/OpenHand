@@ -56,9 +56,8 @@ String _auditFormatOrDash(Object? value) {
 /// Gemini-style greyscale sweep shimmer placeholder for audit fields that are
 /// still being populated (e.g. while the AI response is streaming).
 class _AuditShimmerPlaceholder extends StatefulWidget {
-  const _AuditShimmerPlaceholder({this.height = 14, this.width});
+  const _AuditShimmerPlaceholder({this.width});
 
-  final double height;
   final double? width;
 
   @override
@@ -95,7 +94,7 @@ class _AuditShimmerPlaceholderState extends State<_AuditShimmerPlaceholder>
       builder: (context, child) {
         return Container(
           width: widget.width ?? double.infinity,
-          height: widget.height,
+          height: 14,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             gradient: LinearGradient(
@@ -118,7 +117,6 @@ Widget _auditShimmerBlock({int lines = 3, double spacing = 8}) {
       return Padding(
         padding: EdgeInsets.only(bottom: i < lines - 1 ? spacing : 0),
         child: _AuditShimmerPlaceholder(
-          height: 14,
           // Last line shorter to look more natural.
           width: i == lines - 1 ? 180 : null,
         ),
@@ -917,7 +915,6 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                           en: 'Expand raw response',
                         ),
                         json: responseRaw,
-                        initiallyExpanded: false,
                         emptyHint: _localizedText(
                           context,
                           zh: '未捕获：调试未开启或模型未提供原始响应',
@@ -1391,7 +1388,6 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                     en: 'last_prompt_metadata',
                   ),
                   json: session.lastPromptMetadata,
-                  initiallyExpanded: false,
                   emptyHint: _localizedText(
                     context,
                     zh: '暂无运行时 Prompt 元数据',

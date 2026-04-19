@@ -61,41 +61,23 @@ const Map<HardnessPhase, HardnessPhaseContextConfig>
   HardnessPhase.metaCollection: HardnessPhaseContextConfig(
     includeArchitecture: false,
     includeConventions: false,
-    includePlan: false,
-    includeFeedback: false,
-    lessonsMode: HardnessLessonInclusionMode.none,
     includeHandoff: false,
   ),
   HardnessPhase.reading: HardnessPhaseContextConfig(
-    includeArchitecture: true,
-    includeConventions: true,
-    includePlan: false,
-    includeFeedback: false,
     lessonsMode: HardnessLessonInclusionMode.summary,
-    includeHandoff: true,
   ),
   HardnessPhase.planning: HardnessPhaseContextConfig(
-    includeArchitecture: true,
-    includeConventions: true,
-    includePlan: false,
     includeFeedback: true, // Include feedback during retry cycles
     lessonsMode: HardnessLessonInclusionMode.summary,
-    includeHandoff: true,
   ),
   HardnessPhase.implementing: HardnessPhaseContextConfig(
-    includeArchitecture: true,
-    includeConventions: true,
     includePlan: true,
     includeFeedback: true,
     lessonsMode: HardnessLessonInclusionMode.summary,
     includeHandoff: false,
   ),
   HardnessPhase.reviewing: HardnessPhaseContextConfig(
-    includeArchitecture: true,
-    includeConventions: true,
     includePlan: true,
-    includeFeedback: false, // Reviewer should verify independently
-    lessonsMode: HardnessLessonInclusionMode.none,
     includeHandoff: false,
   ),
 };

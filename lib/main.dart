@@ -33,7 +33,24 @@ Future<void> main() async {
   };
 
   // Initialize database before creating any controllers that depend on it.
-  await DatabaseService.initialize();
+  try {
+    await DatabaseService.initialize();
+  } catch (error, stackTrace) {
+    debugPrint('Fatal: database initialization failed: $error\n$stackTrace');
+    runApp(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: Text(
+            'Database initialization failed.\n'
+            'Please check disk permissions and available space.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+    return;
+  }
 
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
