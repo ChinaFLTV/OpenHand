@@ -829,7 +829,110 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+        _buildTelemetrySubsection(context, settingsController),
       ],
+    );
+  }
+
+  Widget _buildTelemetrySubsection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    return _SettingsSubsectionCard(
+      title: _localizedText(context, zh: '遥测', en: 'Telemetry'),
+      description: _localizedText(
+        context,
+        zh: '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。',
+        en:
+            'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ResponsiveSettingRow(
+            title: _localizedText(context, zh: '开启调试', en: 'Debug Mode'),
+            subtitle: _localizedText(
+              context,
+              zh: '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。',
+              en:
+                  'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.',
+            ),
+            control: Switch(
+              key: const ValueKey<String>('settingsTelemetryDebugSwitch'),
+              value: settingsController.telemetryDebugEnabled,
+              onChanged: (value) async {
+                final saved = await settingsController
+                    .updateTelemetryDebugEnabled(value);
+                if (!context.mounted || saved) {
+                  return;
+                }
+                _showPersistenceFailureSnackBar(context);
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ResponsiveSettingRow(
+            title: _localizedText(
+              context,
+              zh: '捕获原始响应',
+              en: 'Capture Raw Payload',
+            ),
+            subtitle: _localizedText(
+              context,
+              zh: '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。',
+              en:
+                  'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.',
+            ),
+            control: Switch(
+              key: const ValueKey<String>(
+                'settingsTelemetryRawPayloadSwitch',
+              ),
+              value: settingsController.telemetryCaptureRawPayload,
+              onChanged: settingsController.telemetryDebugEnabled
+                  ? (value) async {
+                      final saved = await settingsController
+                          .updateTelemetryCaptureRawPayload(value);
+                      if (!context.mounted || saved) {
+                        return;
+                      }
+                      _showPersistenceFailureSnackBar(context);
+                    }
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ResponsiveSettingRow(
+            title: _localizedText(
+              context,
+              zh: '捕获环境数据',
+              en: 'Capture Environment',
+            ),
+            subtitle: _localizedText(
+              context,
+              zh: '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。',
+              en:
+                  'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.',
+            ),
+            control: Switch(
+              key: const ValueKey<String>(
+                'settingsTelemetryCaptureEnvironmentSwitch',
+              ),
+              value: settingsController.telemetryCaptureEnvironment,
+              onChanged: settingsController.telemetryDebugEnabled
+                  ? (value) async {
+                      final saved = await settingsController
+                          .updateTelemetryCaptureEnvironment(value);
+                      if (!context.mounted || saved) {
+                        return;
+                      }
+                      _showPersistenceFailureSnackBar(context);
+                    }
+                  : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

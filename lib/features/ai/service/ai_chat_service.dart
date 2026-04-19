@@ -39,6 +39,13 @@ class AiChatCompletion {
     this.usage,
     this.rawResponse,
     this.toolCalls = const <AiToolCall>[],
+    this.requestUrl,
+    this.requestMethod,
+    this.requestHeaders,
+    this.requestBody,
+    this.startedAt,
+    this.endedAt,
+    this.durationMs,
   });
 
   final String reply;
@@ -50,6 +57,13 @@ class AiChatCompletion {
   final AiTokenUsage? usage;
   final String? rawResponse;
   final List<AiToolCall> toolCalls;
+  final String? requestUrl;
+  final String? requestMethod;
+  final Map<String, String>? requestHeaders;
+  final Map<String, Object?>? requestBody;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+  final int? durationMs;
 }
 
 enum AiChatStreamEventType { textDelta, reasoningDelta, toolCallDelta, usage }
@@ -105,6 +119,13 @@ class AiChatStreamResult {
     this.usage,
     this.rawResponse,
     this.finishReason,
+    this.requestUrl,
+    this.requestMethod,
+    this.requestHeaders,
+    this.requestBody,
+    this.startedAt,
+    this.endedAt,
+    this.durationMs,
   });
 
   final String reply;
@@ -113,6 +134,13 @@ class AiChatStreamResult {
   final bool wasCancelled;
   final AiTokenUsage? usage;
   final String? rawResponse;
+  final String? requestUrl;
+  final String? requestMethod;
+  final Map<String, String>? requestHeaders;
+  final Map<String, Object?>? requestBody;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+  final int? durationMs;
 
   /// The reason the model stopped generating.
   ///
@@ -170,18 +198,21 @@ class AiChatService implements AiChatClient {
         tools: tools,
         responseModalities: responseModalities,
       );
+      final effectiveMethod = model.requestMethod.trim().isNotEmpty
+          ? model.requestMethod.trim()
+          : 'POST';
+      final startedAt = DateTime.now().toUtc();
       final response = await http.Response.fromStream(
         await _sendHttpRequestWithRedirects(
           client: _client,
-          method: model.requestMethod.trim().isNotEmpty
-              ? model.requestMethod.trim()
-              : 'POST',
+          method: effectiveMethod,
           uri: Uri.parse(blueprint.url),
           headers: blueprint.headers,
           body: jsonEncode(blueprint.body),
           timeout: timeout,
         ),
       );
+      final endedAt = DateTime.now().toUtc();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorMessage = adapter.extractErrorMessage(response.body);
         throw AiChatException(
@@ -210,6 +241,13 @@ class AiChatService implements AiChatClient {
           toolCalls: parsedToolCalls.isNotEmpty
               ? parsedToolCalls
               : dsmlExtraction.toolCalls,
+          requestUrl: blueprint.url,
+          requestMethod: effectiveMethod,
+          requestHeaders: Map<String, String>.unmodifiable(blueprint.headers),
+          requestBody: blueprint.body,
+          startedAt: startedAt,
+          endedAt: endedAt,
+          durationMs: endedAt.difference(startedAt).inMilliseconds,
         );
       } on FormatException catch (error) {
         throw AiChatException(error.message);
@@ -279,6 +317,9 @@ class AiChatService implements AiChatClient {
     final effectiveMethod = model.requestMethod.trim().isNotEmpty
         ? model.requestMethod.trim()
         : 'POST';
+    final streamStartedAt = DateTime.now().toUtc();
+    final capturedHeaders = Map<String, String>.unmodifiable(blueprint.headers);
+    final capturedBody = blueprint.body;
     final request = http.Request(effectiveMethod, Uri.parse(blueprint.url))
       ..headers.addAll(blueprint.headers)
       ..body = jsonEncode(blueprint.body);
@@ -438,6 +479,16 @@ class AiChatService implements AiChatClient {
           usage: usage,
           rawResponse: rawResponseBuffer.toString(),
           finishReason: effectiveFinishReason,
+          requestUrl: blueprint.url,
+          requestMethod: effectiveMethod,
+          requestHeaders: capturedHeaders,
+          requestBody: capturedBody,
+          startedAt: streamStartedAt,
+          endedAt: DateTime.now().toUtc(),
+          durationMs: DateTime.now()
+              .toUtc()
+              .difference(streamStartedAt)
+              .inMilliseconds,
         ),
       );
       _debugAiStreamLog(
@@ -703,6 +754,13 @@ class AiChatService implements AiChatClient {
               toolCalls: completion.toolCalls,
               usage: completion.usage,
               rawResponse: completion.rawResponse,
+              requestUrl: completion.requestUrl,
+              requestMethod: completion.requestMethod,
+              requestHeaders: completion.requestHeaders,
+              requestBody: completion.requestBody,
+              startedAt: completion.startedAt,
+              endedAt: completion.endedAt,
+              durationMs: completion.durationMs,
             ),
           );
         }

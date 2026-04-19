@@ -175,6 +175,10 @@ class SettingsStore {
       'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
       'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
+      'telemetry_debug_enabled': snapshot.telemetryDebugEnabled,
+      'telemetry_capture_raw_payload': snapshot.telemetryCaptureRawPayload,
+      'telemetry_capture_environment': snapshot.telemetryCaptureEnvironment,
+      'telemetry_max_payload_chars': snapshot.telemetryMaxPayloadChars,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -392,6 +396,26 @@ class SettingsStore {
       panelAnimationSettings = DialogAnimationSettings.fromJson(rawPanelAnim);
     }
 
+    final telemetryDebugEnabled = json['telemetry_debug_enabled'] is bool
+        ? json['telemetry_debug_enabled'] as bool
+        : false;
+    final telemetryCaptureRawPayload =
+        json['telemetry_capture_raw_payload'] is bool
+            ? json['telemetry_capture_raw_payload'] as bool
+            : true;
+    final telemetryCaptureEnvironment =
+        json['telemetry_capture_environment'] is bool
+            ? json['telemetry_capture_environment'] as bool
+            : false;
+    final rawTelemetryMaxPayload = json['telemetry_max_payload_chars'];
+    final telemetryMaxPayloadChars =
+        (rawTelemetryMaxPayload is int && rawTelemetryMaxPayload > 0)
+            ? rawTelemetryMaxPayload.clamp(
+                AppSettingsSnapshot.minTelemetryMaxPayloadChars,
+                AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
+              )
+            : AppSettingsSnapshot.defaultTelemetryMaxPayloadChars;
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -420,6 +444,10 @@ class SettingsStore {
       dialogAnimationSettings: dialogAnimationSettings,
       menuAnimationSettings: menuAnimationSettings,
       panelAnimationSettings: panelAnimationSettings,
+      telemetryDebugEnabled: telemetryDebugEnabled,
+      telemetryCaptureRawPayload: telemetryCaptureRawPayload,
+      telemetryCaptureEnvironment: telemetryCaptureEnvironment,
+      telemetryMaxPayloadChars: telemetryMaxPayloadChars,
     );
   }
 }

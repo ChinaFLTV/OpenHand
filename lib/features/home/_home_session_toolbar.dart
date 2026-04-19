@@ -121,6 +121,27 @@ class _SessionToolbar extends StatelessWidget {
                               icon: Icons.update_rounded,
                               label: _formatDateTime(session.updatedAt),
                             ),
+                            if (context
+                                .watch<SettingsController>()
+                                .telemetryDebugEnabled) ...[
+                              const SizedBox(width: 8),
+                              _ToolbarPill(
+                                icon: Icons.fact_check_outlined,
+                                label: _localizedText(
+                                  context,
+                                  zh: '会话审计',
+                                  en: 'Session Audit',
+                                ),
+                                onTap: () {
+                                  _showSessionAuditDialog(
+                                    context,
+                                    session: session,
+                                    controller: context
+                                        .read<AiSessionController>(),
+                                  );
+                                },
+                              ),
+                            ],
                           ],
                         ),
                       ),

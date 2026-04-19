@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
@@ -1784,6 +1785,22 @@ class AiSessionController extends ChangeNotifier {
       }
 
       var streamedSession = workingSession;
+      // Phase-1 telemetry: immediately stamp the composed prompt + env onto
+      // the user message so the audit dialog shows data during streaming.
+      var preStreamTelemetryPreviewed = false;
+      if (activeLatestUserMessageId != null) {
+        final nextSession = _applyPreStreamTelemetryToUserMessage(
+          session: streamedSession,
+          runtimeContext: runtimeContext,
+          promptResult: promptResult,
+          userMessageId: activeLatestUserMessageId,
+        );
+        if (!identical(nextSession, streamedSession)) {
+          streamedSession = nextSession;
+          _previewSession(streamedSession);
+          preStreamTelemetryPreviewed = true;
+        }
+      }
       String? assistantMessageId;
       String? reasoningMessageId;
       AiTokenUsage? streamedUsage;
@@ -1794,7 +1811,7 @@ class AiSessionController extends ChangeNotifier {
       String? pendingPreviewReason;
       String? pendingReasoningContent;
       var hasPendingReasoningPreview = false;
-      var hasPreviewedStreamDelta = false;
+      var hasPreviewedStreamDelta = preStreamTelemetryPreviewed;
 
       AiSession setReasoningStreamingState(AiSession session, bool streaming) {
         final messageId = reasoningMessageId;
@@ -1931,6 +1948,33 @@ class AiSessionController extends ChangeNotifier {
               aiSessionMessageMetadataStreamingKey: false,
             },
           ),
+        );
+      }
+
+      AiSession applyUsageToMessageIfPresent(
+        AiSession session, {
+        required String? messageId,
+        required AiTokenUsage usage,
+      }) {
+        if (messageId == null || messageId.isEmpty) {
+          return session;
+        }
+        final index = session.messages.indexWhere(
+          (message) => message.id == messageId,
+        );
+        if (index == -1) {
+          return session;
+        }
+        final currentMessage = session.messages[index];
+        final updatedMessages = List<AiSessionMessage>.from(session.messages);
+        updatedMessages[index] = currentMessage.copyWith(
+          usage: usage,
+          modelId: currentMessage.modelId ?? model.id,
+          modelLabel: currentMessage.modelLabel ?? model.displayName,
+        );
+        return session.copyWith(
+          messages: updatedMessages,
+          updatedAt: _clock().toUtc(),
         );
       }
 
@@ -2102,6 +2146,21 @@ class AiSessionController extends ChangeNotifier {
             sessionChanged = true;
           case AiChatStreamEventType.usage:
             streamedUsage = event.usage;
+            final usage = streamedUsage;
+            if (usage == null) {
+              return;
+            }
+            streamedSession = applyUsageToMessageIfPresent(
+              streamedSession,
+              messageId: assistantMessageId,
+              usage: usage,
+            );
+            streamedSession = applyUsageToMessageIfPresent(
+              streamedSession,
+              messageId: activeLatestUserMessageId,
+              usage: usage,
+            );
+            sessionChanged = true;
         }
         if (sessionChanged) {
           schedulePreview(event.type.name);
@@ -2205,6 +2264,19 @@ class AiSessionController extends ChangeNotifier {
       );
       streamedSession = setReasoningStreamingState(streamedSession, false);
       flushPreview('stream_completed');
+      // Attach per-round telemetry (URL/method/headers/body/raw_response/
+      // timings/environment + composed prompt) to the user+assistant+reasoning
+      // messages produced this round so the audit dialog has real data to
+      // show. Gated by the telemetryDebugEnabled setting.
+      streamedSession = _applyRoundTelemetryToMessages(
+        session: streamedSession,
+        result: result,
+        runtimeContext: runtimeContext,
+        promptResult: promptResult,
+        userMessageId: activeLatestUserMessageId,
+        assistantMessageId: assistantMessageId,
+        reasoningMessageId: reasoningMessageId,
+      );
       _debugSessionLog(
         workingSession.id,
         'stream_completed cancelled=${result.wasCancelled} finish_reason=${result.finishReason ?? 'unknown'} truncated=${result.wasTruncated} reply_chars=${result.reply.length} reasoning_chars=${result.reasoning.length} tool_calls=${result.toolCalls.length}',
@@ -2228,6 +2300,20 @@ class AiSessionController extends ChangeNotifier {
       }
       final rebasedSession = _sessionById(workingSession.id) ?? workingSession;
       final effectiveUsage = streamedUsage ?? result.usage;
+      // Stamp final usage onto both the assistant and triggering user message
+      // so either audit entry can show token data for this round.
+      if (effectiveUsage != null) {
+        streamedSession = applyUsageToMessageIfPresent(
+          streamedSession,
+          messageId: assistantMessageId,
+          usage: effectiveUsage,
+        );
+        streamedSession = applyUsageToMessageIfPresent(
+          streamedSession,
+          messageId: activeLatestUserMessageId,
+          usage: effectiveUsage,
+        );
+      }
       final totalUsage = _usageFromStatistics(
         rebasedSession.statistics,
       ).merge(effectiveUsage ?? const AiTokenUsage());
@@ -6153,5 +6239,286 @@ class AiSessionController extends ChangeNotifier {
 
   void _debugSessionLog(String sessionId, String message) {
     return;
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // Telemetry instrumentation
+  // ───────────────────────────────────────────────────────────────────────
+
+  /// Truncates a long string for audit metadata so a pathological response
+  /// cannot balloon the on-disk session file. The cap is controlled by the
+  /// [AiSessionRuntimeContext.telemetryMaxPayloadChars] setting.
+  String? _clampTelemetryPayload(String? value, int maxChars) {
+    if (value == null) return null;
+    if (maxChars <= 0 || value.length <= maxChars) return value;
+    final kept = value.substring(0, maxChars);
+    final dropped = value.length - maxChars;
+    return '$kept\n\n…[telemetry_truncated: dropped $dropped chars]';
+  }
+
+  /// Renders the list of prompt turns (the final composed body sent to the
+  /// AI) into a human-readable, copy-friendly transcript for the audit
+  /// dialog. Each turn becomes a `# role` block followed by its content.
+  String _renderComposedPromptForAudit(List<AiChatTurn> turns) {
+    if (turns.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (var i = 0; i < turns.length; i++) {
+      final turn = turns[i];
+      if (i > 0) buffer.writeln('\n---\n');
+      buffer.writeln('# [${i + 1}/${turns.length}] ${turn.roleName.toUpperCase()}');
+      if (turn.toolCallId != null && turn.toolCallId!.isNotEmpty) {
+        buffer.writeln('> tool_call_id: ${turn.toolCallId}');
+      }
+      buffer.writeln();
+      buffer.write(turn.content);
+      if (turn.toolCalls.isNotEmpty) {
+        buffer.writeln();
+        buffer.writeln();
+        buffer.writeln('> tool_calls:');
+        for (final call in turn.toolCalls) {
+          buffer.writeln('>   - ${call.name} (${call.id})');
+        }
+      }
+    }
+    return buffer.toString();
+  }
+
+  /// Serialises prompt turns into a JSON-friendly structure that is stored
+  /// on the user message's metadata for audit (stable, machine-parseable).
+  List<Map<String, Object?>> _composedPromptTurnsForAudit(
+    List<AiChatTurn> turns,
+  ) {
+    return turns
+        .map(
+          (turn) => <String, Object?>{
+            'role': turn.roleName,
+            if (turn.toolCallId != null && turn.toolCallId!.isNotEmpty)
+              'tool_call_id': turn.toolCallId,
+            'content': turn.content,
+            if (turn.toolCalls.isNotEmpty)
+              'tool_calls': turn.toolCalls
+                  .map(
+                    (call) => <String, Object?>{
+                      'id': call.id,
+                      'name': call.name,
+                      'arguments': call.arguments,
+                    },
+                  )
+                  .toList(growable: false),
+            if (turn.parts.isNotEmpty)
+              'parts': turn.parts
+                  .map(
+                    (part) => <String, Object?>{
+                      'kind': part.kind.name,
+                      if (part.text != null) 'text': part.text,
+                      if (part.filePath != null) 'file_path': part.filePath,
+                      if (part.mimeType != null) 'mime_type': part.mimeType,
+                    },
+                  )
+                  .toList(growable: false),
+          },
+        )
+        .toList(growable: false);
+  }
+
+  /// Snapshots the live process/OS environment for audit. Gated by the
+  /// `telemetryCaptureEnvironment` setting because `Platform.environment`
+  /// can contain secrets (API tokens, CI credentials, …).
+  Map<String, Object?> _captureRuntimeEnvironmentSnapshot(
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    Map<String, String> env;
+    try {
+      env = Map<String, String>.from(Platform.environment);
+    } catch (_) {
+      env = <String, String>{};
+    }
+    String? operatingSystemVersion;
+    try {
+      operatingSystemVersion = Platform.operatingSystemVersion;
+    } catch (_) {
+      operatingSystemVersion = null;
+    }
+    int? numberOfProcessors;
+    try {
+      numberOfProcessors = Platform.numberOfProcessors;
+    } catch (_) {
+      numberOfProcessors = null;
+    }
+    return <String, Object?>{
+      'captured_at': _clock().toUtc().toIso8601String(),
+      'platform': Platform.operatingSystem,
+      'operating_system_version': operatingSystemVersion,
+      'number_of_processors': numberOfProcessors,
+      'locale_name': Platform.localeName,
+      'executable': Platform.resolvedExecutable,
+      'script': Platform.script.toString(),
+      'working_directory': runtimeContext.workingDirectory,
+      'today_local_date': runtimeContext.todayLocalDate,
+      'time_zone_name': runtimeContext.timeZoneName,
+      'environment_variables': env,
+      'environment_variable_count': env.length,
+    };
+  }
+
+  /// Builds the telemetry metadata map that gets merged into a message's
+  /// metadata after a round completes. Honours the three telemetry toggles
+  /// (debug / captureRaw / captureEnvironment).
+  Map<String, Object?> _buildRoundTelemetryMetadata({
+    required AiChatStreamResult result,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return const <String, Object?>{};
+    }
+    final maxChars = runtimeContext.telemetryMaxPayloadChars;
+    final payload = <String, Object?>{
+      if (result.startedAt != null)
+        'started_at': result.startedAt!.toIso8601String(),
+      if (result.endedAt != null)
+        'ended_at': result.endedAt!.toIso8601String(),
+      if (result.durationMs != null) 'duration_ms': result.durationMs,
+      if (result.finishReason != null) 'finish_reason': result.finishReason,
+      if (result.requestUrl != null) 'request_url': result.requestUrl,
+      if (result.requestMethod != null)
+        'request_method': result.requestMethod,
+      if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
+        'request_headers': Map<String, String>.from(result.requestHeaders!),
+      if (result.requestBody != null)
+        'request_payload': Map<String, Object?>.from(result.requestBody!),
+    };
+    if (runtimeContext.telemetryCaptureRawPayload &&
+        result.rawResponse != null &&
+        result.rawResponse!.isNotEmpty) {
+      payload['response_raw'] =
+          _clampTelemetryPayload(result.rawResponse, maxChars);
+    }
+    if (runtimeContext.telemetryCaptureEnvironment) {
+      payload['environment'] = _captureRuntimeEnvironmentSnapshot(
+        runtimeContext,
+      );
+    }
+    return payload;
+  }
+
+  /// Writes telemetry metadata onto the user / assistant / reasoning messages
+  /// produced during a round without overwriting existing metadata keys.
+  AiSession _applyRoundTelemetryToMessages({
+    required AiSession session,
+    required AiChatStreamResult result,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiPromptBuildResult promptResult,
+    String? userMessageId,
+    String? assistantMessageId,
+    String? reasoningMessageId,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return session;
+    }
+    final telemetry = _buildRoundTelemetryMetadata(
+      result: result,
+      runtimeContext: runtimeContext,
+    );
+    if (telemetry.isEmpty &&
+        userMessageId == null &&
+        assistantMessageId == null &&
+        reasoningMessageId == null) {
+      return session;
+    }
+    final targetIds = <String>{
+      if (userMessageId != null && userMessageId.isNotEmpty) userMessageId,
+      if (assistantMessageId != null && assistantMessageId.isNotEmpty)
+        assistantMessageId,
+      if (reasoningMessageId != null && reasoningMessageId.isNotEmpty)
+        reasoningMessageId,
+    };
+    if (targetIds.isEmpty) {
+      return session;
+    }
+    // Composed prompt data has already been applied by the pre-stream phase
+    // (_applyPreStreamTelemetryToUserMessage). Here we only apply
+    // response-dependent data (timing, request/response payload, etc.) to
+    // ALL target messages without duplicating the prompt fields.
+    final updatedMessages = <AiSessionMessage>[];
+    var changed = false;
+    for (final message in session.messages) {
+      if (!targetIds.contains(message.id)) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final nextMetadata = <String, Object?>{
+        ...message.metadata,
+        ...telemetry,
+      };
+      updatedMessages.add(message.copyWith(metadata: nextMetadata));
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
+  }
+
+  /// Phase-1 (pre-stream) telemetry: attaches the composed prompt, prompt
+  /// metadata and environment snapshot to the user message immediately so that
+  /// the audit dialog already has meaningful data while the AI is still
+  /// streaming its response.
+  AiSession _applyPreStreamTelemetryToUserMessage({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required AiPromptBuildResult promptResult,
+    required String userMessageId,
+  }) {
+    if (!runtimeContext.telemetryDebugEnabled) {
+      return session;
+    }
+    if (userMessageId.isEmpty) return session;
+    final composedPromptTurns = _composedPromptTurnsForAudit(
+      promptResult.messages,
+    );
+    final composedPromptText = _renderComposedPromptForAudit(
+      promptResult.messages,
+    );
+    final userExtras = <String, Object?>{
+      if (composedPromptTurns.isNotEmpty)
+        'composed_prompt_turns': composedPromptTurns,
+      if (composedPromptText.isNotEmpty)
+        'composed_prompt_text': _clampTelemetryPayload(
+          composedPromptText,
+          runtimeContext.telemetryMaxPayloadChars,
+        ),
+      if (promptResult.metadata.isNotEmpty)
+        'prompt_metadata': Map<String, Object?>.from(promptResult.metadata),
+      'prompt_character_count': promptResult.promptCharacterCount,
+      'prompt_system_message_count': promptResult.systemMessageCount,
+      'prompt_history_message_count': promptResult.historyMessageCount,
+      // Mark a timestamp so the audit dialog knows data was captured.
+      'telemetry_captured_at': _clock().toUtc().toIso8601String(),
+    };
+    if (runtimeContext.telemetryCaptureEnvironment) {
+      userExtras['environment'] = _captureRuntimeEnvironmentSnapshot(
+        runtimeContext,
+      );
+    }
+    final updatedMessages = <AiSessionMessage>[];
+    var changed = false;
+    for (final message in session.messages) {
+      if (message.id != userMessageId) {
+        updatedMessages.add(message);
+        continue;
+      }
+      final nextMetadata = <String, Object?>{
+        ...message.metadata,
+        ...userExtras,
+      };
+      updatedMessages.add(message.copyWith(metadata: nextMetadata));
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(
+      messages: updatedMessages,
+      updatedAt: _clock().toUtc(),
+    );
   }
 }

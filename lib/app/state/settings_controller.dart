@@ -66,6 +66,10 @@ class SettingsController extends ChangeNotifier {
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _menuAnimationSettings = snapshot.menuAnimationSettings,
        _panelAnimationSettings = snapshot.panelAnimationSettings,
+       _telemetryDebugEnabled = snapshot.telemetryDebugEnabled,
+       _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload,
+       _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment,
+       _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars,
        _persistenceIssue = persistenceIssue;
 
       static const int _maxRecentModelSelections = 10;
@@ -109,6 +113,10 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings _dialogAnimationSettings;
   DialogAnimationSettings _menuAnimationSettings;
   DialogAnimationSettings _panelAnimationSettings;
+  bool _telemetryDebugEnabled;
+  bool _telemetryCaptureRawPayload;
+  bool _telemetryCaptureEnvironment;
+  int _telemetryMaxPayloadChars;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -189,6 +197,10 @@ class SettingsController extends ChangeNotifier {
       _dialogAnimationSettings;
   DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
   DialogAnimationSettings get panelAnimationSettings => _panelAnimationSettings;
+  bool get telemetryDebugEnabled => _telemetryDebugEnabled;
+  bool get telemetryCaptureRawPayload => _telemetryCaptureRawPayload;
+  bool get telemetryCaptureEnvironment => _telemetryCaptureEnvironment;
+  int get telemetryMaxPayloadChars => _telemetryMaxPayloadChars;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -815,6 +827,50 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateTelemetryDebugEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_telemetryDebugEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _telemetryDebugEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateTelemetryCaptureRawPayload(bool value) async {
+    return _commitMutation(() {
+      if (_telemetryCaptureRawPayload == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _telemetryCaptureRawPayload = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateTelemetryCaptureEnvironment(bool value) async {
+    return _commitMutation(() {
+      if (_telemetryCaptureEnvironment == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _telemetryCaptureEnvironment = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateTelemetryMaxPayloadChars(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minTelemetryMaxPayloadChars,
+      AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
+    );
+    return _commitMutation(() {
+      if (_telemetryMaxPayloadChars == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _telemetryMaxPayloadChars = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -860,6 +916,10 @@ class SettingsController extends ChangeNotifier {
       dialogAnimationSettings: _dialogAnimationSettings,
       menuAnimationSettings: _menuAnimationSettings,
       panelAnimationSettings: _panelAnimationSettings,
+      telemetryDebugEnabled: _telemetryDebugEnabled,
+      telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
+      telemetryCaptureEnvironment: _telemetryCaptureEnvironment,
+      telemetryMaxPayloadChars: _telemetryMaxPayloadChars,
     );
   }
 
@@ -902,6 +962,10 @@ class SettingsController extends ChangeNotifier {
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;
     _panelAnimationSettings = snapshot.panelAnimationSettings;
+    _telemetryDebugEnabled = snapshot.telemetryDebugEnabled;
+    _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload;
+    _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment;
+    _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

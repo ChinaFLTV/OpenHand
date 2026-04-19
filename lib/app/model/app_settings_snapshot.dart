@@ -44,6 +44,10 @@ class AppSettingsSnapshot {
       dialogAnimationSettings: const DialogAnimationSettings(),
       menuAnimationSettings: const DialogAnimationSettings(),
       panelAnimationSettings: const DialogAnimationSettings(),
+      telemetryDebugEnabled: false,
+      telemetryCaptureRawPayload: true,
+      telemetryCaptureEnvironment: false,
+      telemetryMaxPayloadChars: defaultTelemetryMaxPayloadChars,
     );
   }
   const AppSettingsSnapshot({
@@ -74,9 +78,17 @@ class AppSettingsSnapshot {
     required this.dialogAnimationSettings,
     required this.menuAnimationSettings,
     required this.panelAnimationSettings,
+    required this.telemetryDebugEnabled,
+    required this.telemetryCaptureRawPayload,
+    required this.telemetryCaptureEnvironment,
+    required this.telemetryMaxPayloadChars,
   });
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
+  /// Default cap for per-message raw payload capture (characters).
+  static const int defaultTelemetryMaxPayloadChars = 200000;
+  static const int minTelemetryMaxPayloadChars = 4000;
+  static const int maxTelemetryMaxPayloadChars = 2000000;
   static const int defaultAiSingleRoundToolCallLimit = 40;
   static const int defaultAiSequentialToolRoundLimit = 24;
   /// Default per-image attachment size cap (1 MiB).
@@ -117,6 +129,14 @@ class AppSettingsSnapshot {
   final DialogAnimationSettings dialogAnimationSettings;
   final DialogAnimationSettings menuAnimationSettings;
   final DialogAnimationSettings panelAnimationSettings;
+  final bool telemetryDebugEnabled;
+  final bool telemetryCaptureRawPayload;
+  /// Controls whether a session/message-level environment snapshot
+  /// (working directory, OS env variables, platform info) is persisted
+  /// into message metadata for audit. Off by default because
+  /// `Platform.environment` can contain secrets (tokens, API keys).
+  final bool telemetryCaptureEnvironment;
+  final int telemetryMaxPayloadChars;
 
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
@@ -146,6 +166,10 @@ class AppSettingsSnapshot {
     DialogAnimationSettings? dialogAnimationSettings,
     DialogAnimationSettings? menuAnimationSettings,
     DialogAnimationSettings? panelAnimationSettings,
+    bool? telemetryDebugEnabled,
+    bool? telemetryCaptureRawPayload,
+    bool? telemetryCaptureEnvironment,
+    int? telemetryMaxPayloadChars,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -190,6 +214,14 @@ class AppSettingsSnapshot {
           menuAnimationSettings ?? this.menuAnimationSettings,
       panelAnimationSettings:
           panelAnimationSettings ?? this.panelAnimationSettings,
+      telemetryDebugEnabled:
+          telemetryDebugEnabled ?? this.telemetryDebugEnabled,
+      telemetryCaptureRawPayload:
+          telemetryCaptureRawPayload ?? this.telemetryCaptureRawPayload,
+      telemetryCaptureEnvironment:
+          telemetryCaptureEnvironment ?? this.telemetryCaptureEnvironment,
+      telemetryMaxPayloadChars:
+          telemetryMaxPayloadChars ?? this.telemetryMaxPayloadChars,
     );
   }
 }

@@ -94,6 +94,10 @@ class AiSessionRuntimeContext {
     this.sequentialToolRoundLimit = 24,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
+    this.telemetryDebugEnabled = false,
+    this.telemetryCaptureRawPayload = true,
+    this.telemetryCaptureEnvironment = false,
+    this.telemetryMaxPayloadChars = 200000,
     this.platformName = '',
     this.workingDirectory = '',
     this.todayLocalDate = '',
@@ -123,6 +127,18 @@ class AiSessionRuntimeContext {
   /// before persisting and before the editor opens.
   final int imageSizeLimitBytes;
   final bool writeCommandConfirmationEnabled;
+  /// Whether telemetry debug mode is enabled (populates request/response
+  /// metadata on messages for the audit dialogs).
+  final bool telemetryDebugEnabled;
+  /// Whether to persist the raw AI response body alongside other telemetry.
+  final bool telemetryCaptureRawPayload;
+  /// Whether to capture process environment variables, working directory
+  /// and platform info into message metadata. Off by default because env
+  /// vars can contain secrets.
+  final bool telemetryCaptureEnvironment;
+  /// Hard cap on how many characters of captured payload to persist per
+  /// message to keep on-disk session files bounded.
+  final int telemetryMaxPayloadChars;
   final String platformName;
   final String workingDirectory;
   final String todayLocalDate;

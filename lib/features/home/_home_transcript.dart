@@ -620,6 +620,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 widget.onDeleteMessageFromHere,
                               )
                             : null,
+                        onAudit: context
+                                .watch<SettingsController>()
+                                .telemetryDebugEnabled
+                            ? () {
+                                _showMessageAuditDialog(
+                                  context,
+                                  message: message,
+                                  session: session,
+                                  controller: context.read<AiSessionController>(),
+                                );
+                              }
+                            : null,
                       ),
                     ),
                   ),

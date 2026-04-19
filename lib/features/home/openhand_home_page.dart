@@ -86,6 +86,7 @@ part '_home_transcript.dart';
 part '_home_session_toolbar.dart';
 part '_home_session_metadata_dialog.dart';
 part '_home_message_bubble.dart';
+part '_home_audit_dialog.dart';
 part '_home_message_content.dart';
 part '_home_tool_call_widgets.dart';
 part '_home_composer.dart';
@@ -2088,6 +2089,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
+      telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
+      telemetryCaptureRawPayload:
+          settingsController.telemetryCaptureRawPayload,
+      telemetryCaptureEnvironment:
+          settingsController.telemetryCaptureEnvironment,
+      telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
       platformName: Platform.operatingSystem,
       workingDirectory: effectiveWorkingDirectory,
       todayLocalDate:
@@ -2130,6 +2137,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
+      telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
+      telemetryCaptureRawPayload:
+          settingsController.telemetryCaptureRawPayload,
+      telemetryCaptureEnvironment:
+          settingsController.telemetryCaptureEnvironment,
+      telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
       platformName: Platform.operatingSystem,
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
       todayLocalDate:

@@ -16,6 +16,7 @@ class _MessageBubble extends StatefulWidget {
     required this.onDelete,
     this.onDeleteFromHere,
     this.onEdit,
+    this.onAudit,
   });
 
   final AiSessionMessage message;
@@ -31,6 +32,7 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function() onDelete;
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
+  final VoidCallback? onAudit;
 
   @override
   State<_MessageBubble> createState() => _MessageBubbleState();
@@ -382,6 +384,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       zh: '删除此条及后续',
                       en: 'Delete From Here',
                     ),
+                  ),
+                if (widget.onAudit != null)
+                  _MessageActionButton(
+                    onPressed: () async => widget.onAudit!.call(),
+                    icon: Icons.fact_check_outlined,
+                    label: _localizedText(context, zh: '审计', en: 'Audit'),
                   ),
               ],
             ),
