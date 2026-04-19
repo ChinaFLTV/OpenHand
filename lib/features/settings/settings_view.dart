@@ -513,19 +513,11 @@ class _SettingsViewState extends State<SettingsView> {
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
           ],
           decoration: InputDecoration(
-            labelText: _localizedText(
-              context,
-              zh: '图片大小上限 (MB)',
-              en: 'Image Size Limit (MB)',
-            ),
+            labelText: l10n.aiImageSizeLimitFieldLabel,
             hintText:
-                '${(AppSettingsSnapshot.defaultAiImageSizeLimitBytes / (1024 * 1024)).toStringAsFixed(0)}',
-            helperText: _localizedText(
-              context,
-              zh: '超过该上限的图片将在打开编辑器前自动压缩。',
-              en:
-                  'Images larger than this cap are auto-compressed before the editor opens.',
-            ),
+                (AppSettingsSnapshot.defaultAiImageSizeLimitBytes / (1024 * 1024))
+                    .toStringAsFixed(0),
+            helperText: l10n.aiImageSizeLimitBody,
           ),
           onSubmitted: (value) => _saveImageSizeLimit(context, value),
         ),
@@ -539,7 +531,7 @@ class _SettingsViewState extends State<SettingsView> {
               _imageSizeLimitController.text,
             ),
             icon: const Icon(Icons.save_outlined),
-            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
+            label: Text(l10n.aiImageSizeLimitSave),
           ),
         ),
       ],
@@ -1362,16 +1354,10 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   Future<void> _saveImageSizeLimit(BuildContext context, String rawValue) async {
+    final l10n = AppLocalizations.of(context)!;
     final parsedValue = double.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(
-        context,
-        _localizedText(
-          context,
-          zh: '请输入大于 0 的图片大小上限（单位 MB）。',
-          en: 'Enter an image size limit greater than 0 (in MB).',
-        ),
-      );
+      _showSnackBar(context, l10n.aiImageSizeLimitInvalid);
       return;
     }
     final bytes = (parsedValue * 1024 * 1024).round();
@@ -1391,14 +1377,7 @@ class _SettingsViewState extends State<SettingsView> {
     final effectiveBytes =
         context.read<SettingsController>().aiImageSizeLimitBytes;
     _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
-    _showSnackBar(
-      context,
-      _localizedText(
-        context,
-        zh: '图片大小上限已保存。',
-        en: 'The image size limit has been saved.',
-      ),
-    );
+    _showSnackBar(context, l10n.aiImageSizeLimitSaved);
   }
 
   Future<void> _showDenyCommandRuleDialog(

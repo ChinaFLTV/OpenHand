@@ -2025,6 +2025,174 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'请输入有效的正整数阈值。'**
   String get aiCompressionThresholdInvalid;
+
+  /// No description provided for @aiImageSizeLimitLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'图片大小上限'**
+  String get aiImageSizeLimitLabel;
+
+  /// No description provided for @aiImageSizeLimitBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当用户添加的图片附件超过该上限时，OpenHand 会自动按质量 + 尺寸两级压缩后再发送。支持小数 MB；范围 0.0625 MB（64 KB）至 64 MB。'**
+  String get aiImageSizeLimitBody;
+
+  /// No description provided for @aiImageSizeLimitFieldLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上限 (MB)'**
+  String get aiImageSizeLimitFieldLabel;
+
+  /// No description provided for @aiImageSizeLimitSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiImageSizeLimitSave;
+
+  /// No description provided for @aiImageSizeLimitSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'图片附件大小上限已更新。'**
+  String get aiImageSizeLimitSaved;
+
+  /// No description provided for @aiImageSizeLimitInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的正数 MB 值。'**
+  String get aiImageSizeLimitInvalid;
+
+  /// No description provided for @imageEditorAspectFree.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自由'**
+  String get imageEditorAspectFree;
+
+  /// No description provided for @imageEditorAspectOriginal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始'**
+  String get imageEditorAspectOriginal;
+
+  /// No description provided for @imageEditorAspectSquare.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'1:1'**
+  String get imageEditorAspectSquare;
+
+  /// No description provided for @imageEditorAspect4x3.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'4:3'**
+  String get imageEditorAspect4x3;
+
+  /// No description provided for @imageEditorAspect3x4.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'3:4'**
+  String get imageEditorAspect3x4;
+
+  /// No description provided for @imageEditorAspect16x9.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'16:9'**
+  String get imageEditorAspect16x9;
+
+  /// No description provided for @imageEditorAspect9x16.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'9:16'**
+  String get imageEditorAspect9x16;
+
+  /// No description provided for @imageEditorAspectCircle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'圆形'**
+  String get imageEditorAspectCircle;
+
+  /// No description provided for @imageEditorFlipHorizontal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'水平翻转'**
+  String get imageEditorFlipHorizontal;
+
+  /// No description provided for @imageEditorFlipVertical.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'垂直翻转'**
+  String get imageEditorFlipVertical;
+
+  /// No description provided for @imageEditorSaturationLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'饱和度'**
+  String get imageEditorSaturationLabel;
+
+  /// No description provided for @imageEditorExposureLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'曝光'**
+  String get imageEditorExposureLabel;
+
+  /// No description provided for @imageEditorHueLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'色相'**
+  String get imageEditorHueLabel;
+
+  /// No description provided for @imageEditorVignetteLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暗角'**
+  String get imageEditorVignetteLabel;
+
+  /// No description provided for @imageEditorFineRotationLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'微调旋转 (°)'**
+  String get imageEditorFineRotationLabel;
+
+  /// No description provided for @imageEditorSaveToFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'另存到本地'**
+  String get imageEditorSaveToFile;
+
+  /// No description provided for @imageEditorCopyToClipboard.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制到剪贴板'**
+  String get imageEditorCopyToClipboard;
+
+  /// No description provided for @imageEditorSavedTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已另存：{path}'**
+  String imageEditorSavedTo(String path);
+
+  /// No description provided for @imageEditorSaveFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'另存失败：{error}'**
+  String imageEditorSaveFailed(String error);
+
+  /// No description provided for @imageEditorClipboardCopiedBitmap.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制图片到剪贴板（文件路径同时复制为文本）。'**
+  String get imageEditorClipboardCopiedBitmap;
+
+  /// No description provided for @imageEditorClipboardCopiedPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制图片文件路径到剪贴板：{path}'**
+  String imageEditorClipboardCopiedPath(String path);
+
+  /// No description provided for @imageEditorClipboardFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制失败：{error}'**
+  String imageEditorClipboardFailed(String error);
 }
 
 class _AppLocalizationsDelegate

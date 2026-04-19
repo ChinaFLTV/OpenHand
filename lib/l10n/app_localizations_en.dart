@@ -1034,4 +1034,99 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get aiCompressionThresholdInvalid =>
       'Enter a valid positive integer threshold.';
+
+  @override
+  String get aiImageSizeLimitLabel => 'Image Size Limit';
+
+  @override
+  String get aiImageSizeLimitBody =>
+      'When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.';
+
+  @override
+  String get aiImageSizeLimitFieldLabel => 'Limit (MB)';
+
+  @override
+  String get aiImageSizeLimitSave => 'Save Limit';
+
+  @override
+  String get aiImageSizeLimitSaved =>
+      'The image attachment size limit has been updated.';
+
+  @override
+  String get aiImageSizeLimitInvalid => 'Enter a valid positive number of MB.';
+
+  @override
+  String get imageEditorAspectFree => 'Free';
+
+  @override
+  String get imageEditorAspectOriginal => 'Original';
+
+  @override
+  String get imageEditorAspectSquare => '1:1';
+
+  @override
+  String get imageEditorAspect4x3 => '4:3';
+
+  @override
+  String get imageEditorAspect3x4 => '3:4';
+
+  @override
+  String get imageEditorAspect16x9 => '16:9';
+
+  @override
+  String get imageEditorAspect9x16 => '9:16';
+
+  @override
+  String get imageEditorAspectCircle => 'Circle';
+
+  @override
+  String get imageEditorFlipHorizontal => 'Flip Horizontal';
+
+  @override
+  String get imageEditorFlipVertical => 'Flip Vertical';
+
+  @override
+  String get imageEditorSaturationLabel => 'Saturation';
+
+  @override
+  String get imageEditorExposureLabel => 'Exposure';
+
+  @override
+  String get imageEditorHueLabel => 'Hue';
+
+  @override
+  String get imageEditorVignetteLabel => 'Vignette';
+
+  @override
+  String get imageEditorFineRotationLabel => 'Fine Rotation (°)';
+
+  @override
+  String get imageEditorSaveToFile => 'Save To File';
+
+  @override
+  String get imageEditorCopyToClipboard => 'Copy To Clipboard';
+
+  @override
+  String imageEditorSavedTo(String path) {
+    return 'Saved: $path';
+  }
+
+  @override
+  String imageEditorSaveFailed(String error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String get imageEditorClipboardCopiedBitmap =>
+      'Image copied to the clipboard. The file path was also copied as text.';
+
+  @override
+  String imageEditorClipboardCopiedPath(String path) {
+    return 'Image file path copied to the clipboard: $path';
+  }
+
+  @override
+  String imageEditorClipboardFailed(String error) {
+    return 'Copy failed: $error';
+  }
 }

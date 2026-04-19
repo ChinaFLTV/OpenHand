@@ -189,15 +189,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   // ───────────────────────────────────────────────────────── UI sections ─────
 
   Widget _buildAspectChips(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final entries = <_CropAspect, String>{
-      _CropAspect.freeform: '自由',
-      _CropAspect.original: '原始',
-      _CropAspect.square: '1:1',
-      _CropAspect.fourByThree: '4:3',
-      _CropAspect.threeByFour: '3:4',
-      _CropAspect.sixteenByNine: '16:9',
-      _CropAspect.nineBySixteen: '9:16',
-      _CropAspect.circle: '圆形',
+      _CropAspect.freeform: l10n.imageEditorAspectFree,
+      _CropAspect.original: l10n.imageEditorAspectOriginal,
+      _CropAspect.square: l10n.imageEditorAspectSquare,
+      _CropAspect.fourByThree: l10n.imageEditorAspect4x3,
+      _CropAspect.threeByFour: l10n.imageEditorAspect3x4,
+      _CropAspect.sixteenByNine: l10n.imageEditorAspect16x9,
+      _CropAspect.nineBySixteen: l10n.imageEditorAspect9x16,
+      _CropAspect.circle: l10n.imageEditorAspectCircle,
     };
     return Wrap(
       spacing: 8,
@@ -244,14 +245,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               ? () => setState(() => _flipHorizontal = !_flipHorizontal)
               : null,
           icon: const Icon(Icons.flip_rounded),
-          label: const Text('水平翻转'),
+          label: Text(l10n.imageEditorFlipHorizontal),
         ),
         OutlinedButton.icon(
           onPressed: _canEdit
               ? () => setState(() => _flipVertical = !_flipVertical)
               : null,
           icon: const Icon(Icons.swap_vert_rounded),
-          label: const Text('垂直翻转'),
+          label: Text(l10n.imageEditorFlipVertical),
         ),
         TextButton.icon(
           onPressed: _canEdit ? _resetAdjustments : null,
@@ -286,7 +287,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
         ),
         _EditorSlider(
-          label: '饱和度',
+          label: l10n.imageEditorSaturationLabel,
           value: _saturation,
           min: 0.0,
           max: 2.0,
@@ -295,7 +296,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
         ),
         _EditorSlider(
-          label: '曝光',
+          label: l10n.imageEditorExposureLabel,
           value: _exposure,
           min: -1.0,
           max: 1.0,
@@ -304,14 +305,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
         ),
         _EditorSlider(
-          label: '色相',
+          label: l10n.imageEditorHueLabel,
           value: _hue,
           min: -180,
           max: 180,
           onChanged: _canEdit ? (value) => setState(() => _hue = value) : null,
         ),
         _EditorSlider(
-          label: '暗角',
+          label: l10n.imageEditorVignetteLabel,
           value: _vignette,
           min: 0.0,
           max: 1.0,
@@ -320,7 +321,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               : null,
         ),
         _EditorSlider(
-          label: '微调旋转 (°)',
+          label: l10n.imageEditorFineRotationLabel,
           value: _rotation,
           min: -180,
           max: 180,
@@ -339,13 +340,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         OutlinedButton.icon(
           onPressed: _canEdit && !_isSaving ? _handleSaveToFile : null,
           icon: const Icon(Icons.download_rounded),
-          label: const Text('另存到本地'),
+          label: Text(l10n.imageEditorSaveToFile),
         ),
         const SizedBox(width: 8),
         OutlinedButton.icon(
           onPressed: _canEdit && !_isSaving ? _handleCopyToClipboard : null,
           icon: const Icon(Icons.copy_rounded),
-          label: const Text('复制到剪贴板'),
+          label: Text(l10n.imageEditorCopyToClipboard),
         ),
         const Spacer(),
         SizedBox(
@@ -784,6 +785,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   }
 
   Future<void> _handleSaveToFile() async {
+    final l10n = AppLocalizations.of(context)!;
     final outputBytes = await _renderOutput();
     if (outputBytes == null || !mounted) {
       return;
@@ -807,7 +809,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         return;
       }
       setState(() {
-        _statusMessage = '已另存：${location.path}';
+        _statusMessage = l10n.imageEditorSavedTo(location.path);
         _errorMessage = null;
       });
     } catch (error) {
@@ -815,12 +817,13 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         return;
       }
       setState(() {
-        _errorMessage = '另存失败：$error';
+        _errorMessage = l10n.imageEditorSaveFailed(error.toString());
       });
     }
   }
 
   Future<void> _handleCopyToClipboard() async {
+    final l10n = AppLocalizations.of(context)!;
     final outputBytes = await _renderOutput();
     if (outputBytes == null || !mounted) {
       return;
@@ -856,8 +859,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       }
       setState(() {
         _statusMessage = bitmapCopied
-            ? '已复制图片到剪贴板（文件路径同时复制为文本）。'
-            : '已复制图片文件路径到剪贴板：${tempFile.path}';
+            ? l10n.imageEditorClipboardCopiedBitmap
+            : l10n.imageEditorClipboardCopiedPath(tempFile.path);
         _errorMessage = null;
       });
     } catch (error) {
@@ -865,7 +868,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         return;
       }
       setState(() {
-        _errorMessage = '复制失败：$error';
+        _errorMessage = l10n.imageEditorClipboardFailed(error.toString());
       });
     }
   }

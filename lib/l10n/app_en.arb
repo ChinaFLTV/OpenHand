@@ -345,5 +345,45 @@
   "aiCompressionThresholdBody": "When the uncompressed historical messages in the current thread exceed this character threshold, OpenHand will summarize the older slice into a compression checkpoint and keep the most recent slice active.",
   "aiCompressionThresholdSave": "Save Threshold",
   "aiCompressionThresholdSaved": "The AI message compression threshold has been updated.",
-  "aiCompressionThresholdInvalid": "Enter a valid positive integer threshold."
+  "aiCompressionThresholdInvalid": "Enter a valid positive integer threshold.",
+  "aiImageSizeLimitLabel": "Image Size Limit",
+  "aiImageSizeLimitBody": "When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.",
+  "aiImageSizeLimitFieldLabel": "Limit (MB)",
+  "aiImageSizeLimitSave": "Save Limit",
+  "aiImageSizeLimitSaved": "The image attachment size limit has been updated.",
+  "aiImageSizeLimitInvalid": "Enter a valid positive number of MB.",
+  "imageEditorAspectFree": "Free",
+  "imageEditorAspectOriginal": "Original",
+  "imageEditorAspectSquare": "1:1",
+  "imageEditorAspect4x3": "4:3",
+  "imageEditorAspect3x4": "3:4",
+  "imageEditorAspect16x9": "16:9",
+  "imageEditorAspect9x16": "9:16",
+  "imageEditorAspectCircle": "Circle",
+  "imageEditorFlipHorizontal": "Flip Horizontal",
+  "imageEditorFlipVertical": "Flip Vertical",
+  "imageEditorSaturationLabel": "Saturation",
+  "imageEditorExposureLabel": "Exposure",
+  "imageEditorHueLabel": "Hue",
+  "imageEditorVignetteLabel": "Vignette",
+  "imageEditorFineRotationLabel": "Fine Rotation (°)",
+  "imageEditorSaveToFile": "Save To File",
+  "imageEditorCopyToClipboard": "Copy To Clipboard",
+  "imageEditorSavedTo": "Saved: {path}",
+  "@imageEditorSavedTo": {
+    "placeholders": {"path": {"type": "String"}}
+  },
+  "imageEditorSaveFailed": "Save failed: {error}",
+  "@imageEditorSaveFailed": {
+    "placeholders": {"error": {"type": "String"}}
+  },
+  "imageEditorClipboardCopiedBitmap": "Image copied to the clipboard. The file path was also copied as text.",
+  "imageEditorClipboardCopiedPath": "Image file path copied to the clipboard: {path}",
+  "@imageEditorClipboardCopiedPath": {
+    "placeholders": {"path": {"type": "String"}}
+  },
+  "imageEditorClipboardFailed": "Copy failed: {error}",
+  "@imageEditorClipboardFailed": {
+    "placeholders": {"error": {"type": "String"}}
+  }
 }

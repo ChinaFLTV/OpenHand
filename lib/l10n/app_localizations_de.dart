@@ -1019,4 +1019,97 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get aiCompressionThresholdInvalid =>
       'Enter a valid positive integer threshold.';
+
+  @override
+  String get aiImageSizeLimitLabel => '图片大小上限';
+
+  @override
+  String get aiImageSizeLimitBody =>
+      '当用户添加的图片附件超过该上限时，OpenHand 会自动按质量 + 尺寸两级压缩后再发送。支持小数 MB；范围 0.0625 MB（64 KB）至 64 MB。';
+
+  @override
+  String get aiImageSizeLimitFieldLabel => '上限 (MB)';
+
+  @override
+  String get aiImageSizeLimitSave => '保存上限';
+
+  @override
+  String get aiImageSizeLimitSaved => '图片附件大小上限已更新。';
+
+  @override
+  String get aiImageSizeLimitInvalid => '请输入有效的正数 MB 值。';
+
+  @override
+  String get imageEditorAspectFree => '自由';
+
+  @override
+  String get imageEditorAspectOriginal => '原始';
+
+  @override
+  String get imageEditorAspectSquare => '1:1';
+
+  @override
+  String get imageEditorAspect4x3 => '4:3';
+
+  @override
+  String get imageEditorAspect3x4 => '3:4';
+
+  @override
+  String get imageEditorAspect16x9 => '16:9';
+
+  @override
+  String get imageEditorAspect9x16 => '9:16';
+
+  @override
+  String get imageEditorAspectCircle => '圆形';
+
+  @override
+  String get imageEditorFlipHorizontal => '水平翻转';
+
+  @override
+  String get imageEditorFlipVertical => '垂直翻转';
+
+  @override
+  String get imageEditorSaturationLabel => '饱和度';
+
+  @override
+  String get imageEditorExposureLabel => '曝光';
+
+  @override
+  String get imageEditorHueLabel => '色相';
+
+  @override
+  String get imageEditorVignetteLabel => '暗角';
+
+  @override
+  String get imageEditorFineRotationLabel => '微调旋转 (°)';
+
+  @override
+  String get imageEditorSaveToFile => '另存到本地';
+
+  @override
+  String get imageEditorCopyToClipboard => '复制到剪贴板';
+
+  @override
+  String imageEditorSavedTo(String path) {
+    return '已另存：$path';
+  }
+
+  @override
+  String imageEditorSaveFailed(String error) {
+    return '另存失败：$error';
+  }
+
+  @override
+  String get imageEditorClipboardCopiedBitmap => '已复制图片到剪贴板（文件路径同时复制为文本）。';
+
+  @override
+  String imageEditorClipboardCopiedPath(String path) {
+    return '已复制图片文件路径到剪贴板：$path';
+  }
+
+  @override
+  String imageEditorClipboardFailed(String error) {
+    return '复制失败：$error';
+  }
 }
