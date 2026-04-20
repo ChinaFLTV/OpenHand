@@ -87,7 +87,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.compressionPoint;
     final isReasoning = message.kind == AiSessionMessageKind.reasoning;
     final isStreamingReasoning = _isStreamingReasoningMessage(message);
-    final isToolCall = message.kind == AiSessionMessageKind.toolCall ||
+    final isToolCall =
+        message.kind == AiSessionMessageKind.toolCall ||
         message.kind == AiSessionMessageKind.hook;
     final isToolResult =
         message.kind == AiSessionMessageKind.tool ||
@@ -568,45 +569,68 @@ Future<void> _openAttachment(
     if (!context.mounted) return;
     showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) =>
-          _ImagePreviewDialog(filePath: storagePath, title: attachment.name),
+      builder: (dialogContext) => _ImagePreviewDialog.file(
+        filePath: storagePath,
+        title: attachment.name,
+      ),
     );
     return;
   }
 
   // Non-image files: open with system default application.
-  if (!context.mounted) return;
+  await _openLocalPathWithSystemApp(context, storagePath);
+}
+
+Future<void> _openLocalPathWithSystemApp(
+  BuildContext context,
+  String path,
+) async {
+  if (!context.mounted) {
+    return;
+  }
+  final normalizedPath = path.trim();
+  if (normalizedPath.isEmpty) {
+    return;
+  }
   try {
     late final ProcessResult result;
     if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[storagePath]);
+      result = await Process.run('open', <String>[normalizedPath]);
     } else if (Platform.isWindows) {
       result = await Process.run('cmd', <String>[
         '/c',
         'start',
         '',
-        storagePath,
+        normalizedPath,
       ]);
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[storagePath]);
+      result = await Process.run('xdg-open', <String>[normalizedPath]);
     } else {
+      throw const FileSystemException('Unsupported platform.');
+    }
+    if (result.exitCode == 0) {
       return;
     }
-    if (result.exitCode != 0) {
-      final message = '${result.stderr}'.trim();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message.isEmpty ? 'Failed to open file.' : message),
-          ),
-        );
-      }
-    }
+    final message = '${result.stderr}'.trim();
+    throw FileSystemException(
+      message.isEmpty ? 'Failed to open file.' : message,
+      normalizedPath,
+    );
   } catch (error) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$error')));
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _localizedText(
+            context,
+            zh: '打开文件失败：$error',
+            en: 'Failed to open file: $error',
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -616,7 +640,7 @@ Future<void> _openComposerAttachment(
   BuildContext context,
   _ComposerAttachmentDraft draft,
 ) async {
-  _openAttachment(
+  await _openAttachment(
     context,
     AiMessageAttachment(
       id: draft.filePath,
@@ -691,9 +715,20 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
 
 /// Full-screen image preview dialog with zoom and pan support.
 class _ImagePreviewDialog extends StatelessWidget {
-  const _ImagePreviewDialog({required this.filePath, required this.title});
+  const _ImagePreviewDialog.file({
+    required String filePath,
+    required this.title,
+  }) : filePath = filePath,
+       imageUri = null;
 
-  final String filePath;
+  const _ImagePreviewDialog.network({
+    required Uri imageUri,
+    required this.title,
+  }) : imageUri = imageUri,
+       filePath = null;
+
+  final String? filePath;
+  final Uri? imageUri;
   final String title;
 
   @override
@@ -734,20 +769,7 @@ class _ImagePreviewDialog extends StatelessWidget {
                       zh: '使用系统应用打开',
                       en: 'Open with System App',
                     ),
-                    onPressed: () async {
-                      if (Platform.isMacOS) {
-                        await Process.run('open', <String>[filePath]);
-                      } else if (Platform.isWindows) {
-                        await Process.run('cmd', <String>[
-                          '/c',
-                          'start',
-                          '',
-                          filePath,
-                        ]);
-                      } else if (Platform.isLinux) {
-                        await Process.run('xdg-open', <String>[filePath]);
-                      }
-                    },
+                    onPressed: () => _openInSystemApp(context),
                   ),
                   const SizedBox(width: 4),
                   IconButton(
@@ -781,33 +803,7 @@ class _ImagePreviewDialog extends StatelessWidget {
                 maxScale: 5.0,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Image.file(
-                    File(filePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.broken_image_outlined,
-                            size: 48,
-                            color: colorScheme.error,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _localizedText(
-                              context,
-                              zh: '无法加载图片',
-                              en: 'Failed to load image',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.error,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: _buildPreviewImage(context),
                 ),
               ),
             ),
@@ -817,17 +813,94 @@ class _ImagePreviewDialog extends StatelessWidget {
     );
   }
 
+  Widget _buildPreviewImage(BuildContext context) {
+    final sourceFilePath = filePath;
+    if (sourceFilePath != null) {
+      return Image.file(
+        File(sourceFilePath),
+        fit: BoxFit.contain,
+        frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
+        errorBuilder: (context, error, stackTrace) =>
+            _buildImageLoadError(context),
+      );
+    }
+
+    final sourceUri = imageUri;
+    if (sourceUri == null) {
+      return _buildImageLoadError(context);
+    }
+
+    return Image.network(
+      sourceUri.toString(),
+      fit: BoxFit.contain,
+      frameBuilder: _SafeMarkdownBodyState._fadeInImageFrameBuilder,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          return child;
+        }
+        final expected = loadingProgress.expectedTotalBytes;
+        final progress = expected != null && expected > 0
+            ? loadingProgress.cumulativeBytesLoaded / expected
+            : null;
+        return SizedBox(
+          width: 220,
+          height: 220,
+          child: Center(
+            child: CircularProgressIndicator(value: progress, strokeWidth: 2.6),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) =>
+          _buildImageLoadError(context),
+    );
+  }
+
+  Widget _buildImageLoadError(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.broken_image_outlined, size: 48, color: colorScheme.error),
+          const SizedBox(height: 12),
+          Text(
+            _localizedText(context, zh: '无法加载图片', en: 'Failed to load image'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colorScheme.error,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openInSystemApp(BuildContext context) async {
+    final sourceFilePath = filePath;
+    if (sourceFilePath != null) {
+      await _openLocalPathWithSystemApp(context, sourceFilePath);
+      return;
+    }
+    final sourceUri = imageUri;
+    if (sourceUri == null) {
+      return;
+    }
+    await _openMessageLinkUri(context, sourceUri);
+  }
+
   Future<void> _saveImageAs(BuildContext context) async {
-    final basename = p.basename(filePath);
-    final ext = p.extension(basename).toLowerCase();
+    final basename = _suggestedSaveName();
+    final ext = _normalizeSaveExtension(p.extension(basename).toLowerCase());
     // Map common image extensions to MIME types for the save dialog.
     final mimeType = switch (ext) {
       '.png' => 'image/png',
       '.jpg' || '.jpeg' => 'image/jpeg',
       '.webp' => 'image/webp',
       '.gif' => 'image/gif',
+      '.bmp' => 'image/bmp',
       _ => 'image/png',
     };
+    final extensionWithoutDot = ext.replaceFirst('.', '');
     try {
       final location = await getSaveLocation(
         suggestedName: basename,
@@ -835,31 +908,127 @@ class _ImagePreviewDialog extends StatelessWidget {
           XTypeGroup(
             label: 'Images',
             mimeTypes: <String>[mimeType],
-            extensions: <String>[ext.replaceFirst('.', '')],
+            extensions: <String>[extensionWithoutDot],
           ),
         ],
       );
       if (location == null) return;
-      final source = File(filePath);
-      if (!source.existsSync()) return;
-      await source.copy(location.path);
+      final sourceFilePath = filePath;
+      if (sourceFilePath != null) {
+        final source = File(sourceFilePath);
+        if (!source.existsSync()) {
+          throw FileSystemException(
+            'Image source file is missing.',
+            source.path,
+          );
+        }
+        await source.copy(location.path);
+        return;
+      }
+
+      final sourceUri = imageUri;
+      if (sourceUri == null) {
+        throw const FileSystemException('Image source is unavailable.');
+      }
+      await _downloadRemoteImage(sourceUri, location.path);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _localizedText(
-              context,
-              zh: '保存失败：$e',
-              en: 'Save failed: $e',
-            ),
+            _localizedText(context, zh: '保存失败：$e', en: 'Save failed: $e'),
           ),
         ),
       );
     }
   }
-}
 
+  String _suggestedSaveName() {
+    final sourceFilePath = filePath;
+    if (sourceFilePath != null) {
+      final basename = p.basename(sourceFilePath).trim();
+      if (basename.isNotEmpty) {
+        return basename;
+      }
+    }
+
+    final sourceUri = imageUri;
+    if (sourceUri != null) {
+      final decodedPath = () {
+        try {
+          return Uri.decodeFull(sourceUri.path);
+        } catch (_) {
+          return sourceUri.path;
+        }
+      }();
+      final basename = p.basename(decodedPath).trim();
+      if (basename.isNotEmpty && basename != '/' && basename != '.') {
+        return basename;
+      }
+    }
+    return 'image-${DateTime.now().millisecondsSinceEpoch}.png';
+  }
+
+  String _normalizeSaveExtension(String extension) {
+    if (extension.isNotEmpty) {
+      return extension;
+    }
+    final sourceUri = imageUri;
+    if (sourceUri != null) {
+      final format = sourceUri.queryParameters['format']?.trim().toLowerCase();
+      if (format != null &&
+          (format == 'png' ||
+              format == 'jpg' ||
+              format == 'jpeg' ||
+              format == 'webp' ||
+              format == 'gif' ||
+              format == 'bmp')) {
+        return '.$format';
+      }
+    }
+    return '.png';
+  }
+
+  Future<void> _downloadRemoteImage(Uri sourceUri, String destination) async {
+    final scheme = sourceUri.scheme.toLowerCase();
+    if (scheme != 'http' && scheme != 'https') {
+      throw FileSystemException(
+        'Unsupported image URI scheme: ${sourceUri.scheme}',
+        sourceUri.toString(),
+      );
+    }
+
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 20);
+    try {
+      final request = await client.getUrl(sourceUri);
+      final response = await request.close();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw HttpException(
+          'HTTP ${response.statusCode} while downloading image.',
+          uri: sourceUri,
+        );
+      }
+      final contentType = response.headers.contentType;
+      if (contentType != null && contentType.primaryType != 'image') {
+        throw HttpException(
+          'Unexpected content type: ${contentType.mimeType}',
+          uri: sourceUri,
+        );
+      }
+
+      final output = File(destination).openWrite();
+      try {
+        await output.addStream(response);
+        await output.flush();
+      } finally {
+        await output.close();
+      }
+    } finally {
+      client.close(force: true);
+    }
+  }
+}
 
 /// Small capsule rendered directly under a user message timestamp when the
 /// message was sent with a non-text creation mode (image / video / audio / deep
@@ -879,8 +1048,11 @@ class _CreationModeChip extends StatelessWidget {
       AiCreationMode.image => (Icons.image_outlined, '图片生成', 'Image'),
       AiCreationMode.video => (Icons.videocam_outlined, '视频生成', 'Video'),
       AiCreationMode.audio => (Icons.audiotrack_outlined, '音频生成', 'Audio'),
-      AiCreationMode.deepResearch =>
-        (Icons.travel_explore_rounded, '深度研究', 'Deep Research'),
+      AiCreationMode.deepResearch => (
+        Icons.travel_explore_rounded,
+        '深度研究',
+        'Deep Research',
+      ),
       AiCreationMode.none => (Icons.circle_outlined, '', ''),
     };
     final options = request.options;

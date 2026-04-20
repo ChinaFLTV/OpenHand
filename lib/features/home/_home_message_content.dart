@@ -712,59 +712,63 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
-    // Handle local file paths (absolute or file:// scheme).
-    final filePath = uri.scheme == 'file'
-        ? uri.toFilePath()
-        : (uri.scheme.isEmpty && uri.path.startsWith('/'))
-        ? uri.path
-        : null;
-    if (filePath != null && File(filePath).existsSync()) {
-      return GestureDetector(
+    final label = (alt ?? title ?? uri.toString()).trim();
+    final resolvedFilePath = _resolveMarkdownImageFilePath(uri);
+    if (resolvedFilePath != null && File(resolvedFilePath).existsSync()) {
+      final previewTitle = label.isEmpty ? p.basename(resolvedFilePath) : label;
+      return _wrapMarkdownImageTap(
+        semanticsLabel: previewTitle,
         onTap: () {
+          if (!mounted) {
+            return;
+          }
           showAnimatedDialog<void>(
             context: context,
-            builder: (ctx) => _ImagePreviewDialog(
-              filePath: filePath,
-              title: alt ?? title ?? p.basename(filePath),
+            builder: (ctx) => _ImagePreviewDialog.file(
+              filePath: resolvedFilePath,
+              title: previewTitle,
             ),
           );
         },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.6,
-              maxHeight: 400,
-            ),
-            child: Image.file(
-              File(filePath),
-              fit: BoxFit.contain,
-              frameBuilder: _fadeInImageFrameBuilder,
-              errorBuilder: (_, _, _) =>
-                  _brokenImagePlaceholder(context, alt ?? 'Image'),
-            ),
+        child: _buildMarkdownImageFrame(
+          context,
+          Image.file(
+            File(resolvedFilePath),
+            fit: BoxFit.contain,
+            frameBuilder: _fadeInImageFrameBuilder,
+            errorBuilder: (_, _, _) =>
+                _brokenImagePlaceholder(context, previewTitle),
           ),
         ),
       );
     }
-    // Handle network URLs.
     if (uri.scheme == 'http' || uri.scheme == 'https') {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.6,
-            maxHeight: 400,
-          ),
-          child: Image.network(
+      final previewTitle = label.isEmpty ? uri.toString() : label;
+      return _wrapMarkdownImageTap(
+        semanticsLabel: previewTitle,
+        onTap: () {
+          if (!mounted) {
+            return;
+          }
+          showAnimatedDialog<void>(
+            context: context,
+            builder: (ctx) =>
+                _ImagePreviewDialog.network(imageUri: uri, title: previewTitle),
+          );
+        },
+        child: _buildMarkdownImageFrame(
+          context,
+          Image.network(
             uri.toString(),
             fit: BoxFit.contain,
             frameBuilder: _fadeInImageFrameBuilder,
             loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              final progress = loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
+              if (loadingProgress == null) {
+                return child;
+              }
+              final total = loadingProgress.expectedTotalBytes;
+              final progress = total != null && total > 0
+                  ? loadingProgress.cumulativeBytesLoaded / total
                   : null;
               return SizedBox(
                 width: 200,
@@ -778,13 +782,78 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
               );
             },
             errorBuilder: (_, _, _) =>
-                _brokenImagePlaceholder(context, alt ?? uri.toString()),
+                _brokenImagePlaceholder(context, previewTitle),
           ),
         ),
       );
     }
-    // Fallback: show alt text.
-    return Text(alt ?? title ?? uri.toString());
+    return Text(label.isEmpty ? uri.toString() : label);
+  }
+
+  String? _resolveMarkdownImageFilePath(Uri uri) {
+    if (uri.scheme == 'file') {
+      try {
+        return uri.toFilePath();
+      } catch (_) {
+        return null;
+      }
+    }
+    if (uri.scheme.isEmpty && uri.path.startsWith('/')) {
+      try {
+        return Uri.decodeFull(uri.path);
+      } catch (_) {
+        return uri.path;
+      }
+    }
+    if (uri.scheme.isEmpty) {
+      final href = _decodeMarkdownImageHref(uri);
+      final resolved = resolveMarkdownMessageLinkPath(href, widget.pathRoots);
+      if (resolved != null && !resolved.isDirectory) {
+        return resolved.resolvedPath;
+      }
+    }
+    return null;
+  }
+
+  String _decodeMarkdownImageHref(Uri uri) {
+    final raw = uri.toString();
+    try {
+      return Uri.decodeFull(raw);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.6,
+          maxHeight: 400,
+        ),
+        child: image,
+      ),
+    );
+  }
+
+  Widget _wrapMarkdownImageTap({
+    required String semanticsLabel,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Semantics(
+        button: true,
+        label: semanticsLabel,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: child,
+        ),
+      ),
+    );
   }
 
   /// Shared frame builder that fades in images with a smooth animation.
@@ -897,4 +966,3 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     );
   }
 }
-
