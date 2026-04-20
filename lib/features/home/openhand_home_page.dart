@@ -1209,18 +1209,43 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
         return false;
       }
-      // The workspace composer and hardness manual-phase composer each have
-      // a dedicated FocusNode.onKeyEvent handler that performs the actual
-      // send / toggle action.  HardwareKeyboard fires on a separate dispatch
-      // pipeline, so both would execute for the same key event — causing
-      // toggleComposer to collapse then immediately re-expand (net no-op)
-      // and sendMessage to attempt a redundant second send.
-      // Return true here to claim the event at the platform level without
-      // performing the action; the FocusNode handler takes care of it.
+      // HardwareKeyboard handlers fire before FocusNode.onKeyEvent in the
+      // Flutter key dispatch pipeline.  Returning true here consumes the
+      // event so it never reaches the focus tree.  We therefore must
+      // perform the action here rather than relying on the FocusNode handler.
+      if (composerShortcutAllowed) {
+        _performComposerShortcutAction(shortcutAction);
+      } else {
+        unawaited(_performShortcutAction(shortcutAction));
+      }
       return true;
     }
     unawaited(_performShortcutAction(shortcutAction));
     return true;
+  }
+
+  /// Performs a send-message or toggle-composer shortcut that was triggered
+  /// while the workspace composer's editable text has focus.
+  void _performComposerShortcutAction(OpenHandShortcutAction action) {
+    switch (action) {
+      case OpenHandShortcutAction.sendMessage:
+        final sessionController = context.read<AiSessionController>();
+        if (_canStopCurrentSessionResponse(sessionController) &&
+            _composerController.text.trim().isEmpty &&
+            _pendingAttachments.isEmpty) {
+          unawaited(_stopResponding());
+        } else {
+          _composerPanelKey.currentState?._injectReferencesIntoText();
+          unawaited(_sendMessage());
+        }
+      case OpenHandShortcutAction.toggleComposer:
+        _setComposerCollapsedState(
+          !_composerCollapsed,
+          requestFocusWhenExpanded: _composerCollapsed,
+        );
+      default:
+        break;
+    }
   }
 
   KeyEventResult _handleComposerFocusNodeKeyEvent(
@@ -1240,51 +1265,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return KeyEventResult.handled;
       }
     }
-    final bindings = context.read<SettingsController>().shortcutBindings;
-    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
-      ...HardwareKeyboard.instance.logicalKeysPressed,
-      event.logicalKey,
-    });
-    // Handle send and toggle-composer directly on the focus node so that
-    // user-configured shortcut bindings always fire, regardless of whether
-    // the key event reaches the global shortcut focus node via bubbling.
-    for (final action in const <OpenHandShortcutAction>[
-      OpenHandShortcutAction.sendMessage,
-      OpenHandShortcutAction.toggleComposer,
-    ]) {
-      final shortcutKeyIds = normalizeShortcutKeyIds(
-        bindings[action] ?? const <int>[],
-      );
-      if (shortcutKeyIds.isEmpty) {
-        continue;
-      }
-      if (shortcutKeyIds.length != pressedKeyIds.length ||
-          !pressedKeyIds.containsAll(shortcutKeyIds)) {
-        continue;
-      }
-      switch (action) {
-        case OpenHandShortcutAction.sendMessage:
-          final sessionController = context.read<AiSessionController>();
-          if (_canStopCurrentSessionResponse(sessionController) &&
-              _composerController.text.trim().isEmpty &&
-              _pendingAttachments.isEmpty) {
-            unawaited(_stopResponding());
-          } else {
-            // Always delegate to _sendMessage() which handles both direct
-            // send (when idle) and queueing (when busy).
-            _composerPanelKey.currentState?._injectReferencesIntoText();
-            unawaited(_sendMessage());
-          }
-        case OpenHandShortcutAction.toggleComposer:
-          _setComposerCollapsedState(
-            !_composerCollapsed,
-            requestFocusWhenExpanded: _composerCollapsed,
-          );
-        default:
-          continue;
-      }
-      return KeyEventResult.handled;
-    }
+    // Note: send-message and toggle-composer shortcuts are handled by
+    // _handleGlobalShortcutKeyEvent (HardwareKeyboard handler), which fires
+    // before FocusNode.onKeyEvent in Flutter's key dispatch pipeline.
+    // No shortcut matching is needed here.
     return KeyEventResult.ignored;
   }
 
@@ -2117,6 +2101,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       allowCommandRules: settingsController.aiAllowCommandRules,
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
+      builtinToolConfigs: settingsController.builtinToolConfigs,
       workspaceInstructionDocuments: _workspaceInstructionService.loadDocuments(
         startDirectory: OpenHandPaths.applicationDirectoryPath(),
         homeDirectory: OpenHandPaths.homeDirectoryPath(),
@@ -2166,6 +2151,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       allowCommandRules: settingsController.aiAllowCommandRules,
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
+      builtinToolConfigs: settingsController.builtinToolConfigs,
     );
   }
 

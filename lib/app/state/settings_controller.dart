@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
@@ -72,6 +73,9 @@ class SettingsController extends ChangeNotifier {
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _menuAnimationSettings = snapshot.menuAnimationSettings,
        _panelAnimationSettings = snapshot.panelAnimationSettings,
+       _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
+         snapshot.builtinToolConfigs,
+       ),
        _telemetryDebugEnabled = snapshot.telemetryDebugEnabled,
        _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload,
        _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment,
@@ -125,6 +129,7 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings _dialogAnimationSettings;
   DialogAnimationSettings _menuAnimationSettings;
   DialogAnimationSettings _panelAnimationSettings;
+  List<AiBuiltinToolConfig> _builtinToolConfigs;
   bool _telemetryDebugEnabled;
   bool _telemetryCaptureRawPayload;
   bool _telemetryCaptureEnvironment;
@@ -215,6 +220,8 @@ class SettingsController extends ChangeNotifier {
       _dialogAnimationSettings;
   DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
   DialogAnimationSettings get panelAnimationSettings => _panelAnimationSettings;
+  List<AiBuiltinToolConfig> get builtinToolConfigs =>
+      List<AiBuiltinToolConfig>.unmodifiable(_builtinToolConfigs);
   bool get telemetryDebugEnabled => _telemetryDebugEnabled;
   bool get telemetryCaptureRawPayload => _telemetryCaptureRawPayload;
   bool get telemetryCaptureEnvironment => _telemetryCaptureEnvironment;
@@ -982,6 +989,68 @@ class SettingsController extends ChangeNotifier {
     return _uuid.v4();
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Builtin Tool Config mutations
+  // ─────────────────────────────────────────────────────────────
+
+  Future<bool> updateBuiltinToolConfigs(
+    List<AiBuiltinToolConfig> configs,
+  ) async {
+    return _commitMutation(() {
+      _builtinToolConfigs = List<AiBuiltinToolConfig>.from(configs);
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateBuiltinToolConfig(AiBuiltinToolConfig config) async {
+    return _commitMutation(() {
+      final index = _builtinToolConfigs.indexWhere(
+        (c) => c.kind == config.kind,
+      );
+      if (index >= 0) {
+        _builtinToolConfigs[index] = config;
+      } else {
+        _builtinToolConfigs.add(config);
+      }
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> removeBuiltinToolConfig(AiBuiltinToolKind kind) async {
+    return _commitMutation(() {
+      _builtinToolConfigs.removeWhere(
+        (c) => c.kind == kind && c.isCustom,
+      );
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> resetBuiltinToolConfigs() async {
+    return _commitMutation(() {
+      _builtinToolConfigs = AiBuiltinToolConfig.defaults();
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> moveBuiltinToolConfig(int oldIndex, int newIndex) async {
+    return _commitMutation(() {
+      if (oldIndex < 0 ||
+          oldIndex >= _builtinToolConfigs.length ||
+          newIndex < 0 ||
+          newIndex >= _builtinToolConfigs.length ||
+          oldIndex == newIndex) {
+        return _MutationDisposition.successNoChange;
+      }
+      final item = _builtinToolConfigs.removeAt(oldIndex);
+      _builtinToolConfigs.insert(newIndex, item);
+      // 更新 sortOrder 以反映新位置
+      for (var i = 0; i < _builtinToolConfigs.length; i++) {
+        _builtinToolConfigs[i] = _builtinToolConfigs[i].copyWith(sortOrder: i);
+      }
+      return _MutationDisposition.apply;
+    });
+  }
+
   AppSettingsSnapshot _snapshot() {
     return AppSettingsSnapshot(
       themeMode: _themeMode,
@@ -1021,6 +1090,9 @@ class SettingsController extends ChangeNotifier {
       dialogAnimationSettings: _dialogAnimationSettings,
       menuAnimationSettings: _menuAnimationSettings,
       panelAnimationSettings: _panelAnimationSettings,
+      builtinToolConfigs: List<AiBuiltinToolConfig>.from(
+        _builtinToolConfigs,
+      ),
       telemetryDebugEnabled: _telemetryDebugEnabled,
       telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
       telemetryCaptureEnvironment: _telemetryCaptureEnvironment,
@@ -1073,6 +1145,9 @@ class SettingsController extends ChangeNotifier {
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;
     _panelAnimationSettings = snapshot.panelAnimationSettings;
+    _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
+      snapshot.builtinToolConfigs,
+    );
     _telemetryDebugEnabled = snapshot.telemetryDebugEnabled;
     _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload;
     _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment;

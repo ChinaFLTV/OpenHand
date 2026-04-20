@@ -3,6 +3,7 @@ import '../../mcp/model/mcp_server.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
 import 'ai_allow_command_rule.dart';
+import 'ai_builtin_tool_config.dart';
 
 class AiRepositorySnapshot {
 
@@ -110,6 +111,7 @@ class AiSessionRuntimeContext {
     this.allowCommandRules = const <AiAllowCommandRule>[],
     this.availableSkills = const <LocalSkill>[],
     this.availableMcpServers = const <McpServer>[],
+    this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
     this.workspaceInstructionDocuments =
         const <AiWorkspaceInstructionDocument>[],
   });
@@ -159,6 +161,7 @@ class AiSessionRuntimeContext {
   final List<AiAllowCommandRule> allowCommandRules;
   final List<LocalSkill> availableSkills;
   final List<McpServer> availableMcpServers;
+  final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
 
   Map<String, Object?> toJson() {

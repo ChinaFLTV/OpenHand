@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
@@ -181,6 +182,9 @@ class SettingsStore {
       'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
       'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
+      'builtin_tool_configs': snapshot.builtinToolConfigs
+          .map((item) => item.toJson())
+          .toList(growable: false),
       'telemetry_debug_enabled': snapshot.telemetryDebugEnabled,
       'telemetry_capture_raw_payload': snapshot.telemetryCaptureRawPayload,
       'telemetry_capture_environment': snapshot.telemetryCaptureEnvironment,
@@ -444,6 +448,33 @@ class SettingsStore {
       panelAnimationSettings = DialogAnimationSettings.fromJson(rawPanelAnim);
     }
 
+    // Builtin tool configs.
+    final rawBuiltinToolConfigs = json['builtin_tool_configs'];
+    var builtinToolConfigs = AiBuiltinToolConfig.defaults();
+    if (rawBuiltinToolConfigs is List) {
+      final parsed = <AiBuiltinToolConfig>[];
+      for (final item in rawBuiltinToolConfigs) {
+        if (item is Map) {
+          try {
+            parsed.add(
+              AiBuiltinToolConfig.fromJson(Map<String, Object?>.from(item)),
+            );
+          } catch (_) {}
+        }
+      }
+      if (parsed.isNotEmpty) {
+        // Merge: keep parsed entries, add missing defaults for new tool kinds.
+        final parsedKinds = parsed.map((c) => c.kind).toSet();
+        final defaults = AiBuiltinToolConfig.defaults();
+        for (final def in defaults) {
+          if (!parsedKinds.contains(def.kind)) {
+            parsed.add(def);
+          }
+        }
+        builtinToolConfigs = parsed;
+      }
+    }
+
     final telemetryDebugEnabled = json['telemetry_debug_enabled'] is bool
         ? json['telemetry_debug_enabled'] as bool
         : false;
@@ -498,6 +529,7 @@ class SettingsStore {
       dialogAnimationSettings: dialogAnimationSettings,
       menuAnimationSettings: menuAnimationSettings,
       panelAnimationSettings: panelAnimationSettings,
+      builtinToolConfigs: builtinToolConfigs,
       telemetryDebugEnabled: telemetryDebugEnabled,
       telemetryCaptureRawPayload: telemetryCaptureRawPayload,
       telemetryCaptureEnvironment: telemetryCaptureEnvironment,

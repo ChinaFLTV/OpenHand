@@ -8,6 +8,7 @@ import '../../mcp/model/mcp_server.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../mcp/service/mcp_tool_discovery_service.dart';
 import '../../skills/model/local_skill.dart';
+import '../model/ai_builtin_tool_config.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_session_runtime_context.dart';
@@ -197,6 +198,70 @@ class AiToolRuntimeService {
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
   static const int _maxToolOutputChars = 200000;
 
+  /// Apply user builtin-tool configs: filter disabled, apply overrides,
+  /// respect sort order and priority.
+  List<AiResolvedTool> _resolveConfiguredBuiltinTools(
+    List<AiBuiltinToolConfig> configs,
+  ) {
+    if (configs.isEmpty) return _builtinTools;
+    final configByKind = <AiBuiltinToolKind, AiBuiltinToolConfig>{};
+    for (final c in configs) {
+      configByKind[c.kind] = c;
+    }
+    // Build list respecting configs' sort order.
+    final sortedConfigs = List<AiBuiltinToolConfig>.from(configs)
+      ..sort((a, b) {
+        final cmp = a.sortOrder.compareTo(b.sortOrder);
+        return cmp != 0 ? cmp : a.kind.index.compareTo(b.kind.index);
+      });
+    final toolByKind = <AiBuiltinToolKind, AiResolvedTool>{};
+    for (final tool in _builtinTools) {
+      if (tool.builtinKind != null) {
+        toolByKind[tool.builtinKind!] = tool;
+      }
+    }
+    final result = <AiResolvedTool>[];
+    for (final cfg in sortedConfigs) {
+      if (!cfg.enabled) continue;
+      final baseTool = toolByKind[cfg.kind];
+      if (baseTool == null) continue;
+      // Apply overrides.
+      final overrideName =
+          cfg.displayName?.trim().isNotEmpty == true ? cfg.displayName! : null;
+      final overrideDesc = cfg.promptOverride?.trim().isNotEmpty == true
+          ? cfg.promptOverride!
+          : null;
+      final overrideSummary =
+          cfg.summary?.trim().isNotEmpty == true ? cfg.summary! : null;
+      final needsOverride = overrideName != null ||
+          overrideDesc != null ||
+          overrideSummary != null ||
+          cfg.schemaOverride != null;
+      if (!needsOverride) {
+        result.add(baseTool);
+        continue;
+      }
+      var desc = baseTool.definition.description;
+      if (overrideDesc != null) {
+        desc = overrideDesc;
+      }
+      if (overrideSummary != null) {
+        desc = '$desc\n\n$overrideSummary';
+      }
+      result.add(AiResolvedTool(
+        name: overrideName ?? baseTool.name,
+        definition: AiToolDefinition(
+          name: overrideName ?? baseTool.definition.name,
+          description: desc,
+          parameters: cfg.schemaOverride ?? baseTool.definition.parameters,
+        ),
+        source: baseTool.source,
+        builtinKind: baseTool.builtinKind,
+      ));
+    }
+    return result;
+  }
+
   Future<AiResolvedToolCatalog> resolveCatalog({
 
     required AiSessionRuntimeContext runtimeContext,
@@ -257,7 +322,9 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
-    for (final tool in _builtinTools) {
+    for (final tool in _resolveConfiguredBuiltinTools(
+      runtimeContext.builtinToolConfigs,
+    )) {
       register(tool);
     }
     // 2026-04-01 已移除 register(_legacyBashAlias)：
@@ -334,7 +401,9 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
-    for (final tool in _builtinTools) {
+    for (final tool in _resolveConfiguredBuiltinTools(
+      runtimeContext.builtinToolConfigs,
+    )) {
       register(tool);
     }
 
@@ -1558,6 +1627,15 @@ class AiToolRuntimeService {
       source: AiRuntimeToolSource.builtin,
       builtinKind: kind,
     );
+  }
+
+  /// Returns the default (unmodified) [AiResolvedTool] for the given
+  /// [AiBuiltinToolKind], or `null` if no such built-in tool exists.
+  static AiResolvedTool? builtinToolDefault(AiBuiltinToolKind kind) {
+    for (final tool in _builtinTools) {
+      if (tool.builtinKind == kind) return tool;
+    }
+    return null;
   }
 }
 

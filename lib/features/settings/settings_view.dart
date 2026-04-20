@@ -25,6 +25,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_allow_command_rule.dart';
+import '../ai/model/ai_builtin_tool_config.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_lsp_backend_catalog.dart';
 import '../ai/model/ai_lsp_language_settings.dart';
@@ -35,6 +36,7 @@ import '../ai/service/ai_image_generation_service.dart';
 import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';
 import '../ai/service/ai_protocol_adapter.dart';
+import '../ai/service/ai_tool_runtime_service.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
@@ -45,6 +47,7 @@ part '_settings_editor_lsp.dart';
 part '_settings_command_rules.dart';
 part '_settings_shortcut_widgets.dart';
 part '_settings_animation_sections.dart';
+part '_settings_builtin_tools.dart';
 part '_settings_helper_widgets.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
@@ -363,6 +366,25 @@ class _SettingsViewState extends State<SettingsView> {
               title: l10n.settingsCategoryAi,
               description: l10n.settingsAiSubtitle,
               children: [_buildAiModelsSection(context, settingsController)],
+            ),
+            const SizedBox(height: 18),
+            _SettingsGroupCard(
+              title: _localizedText(
+                context,
+                zh: '内建工具',
+                en: 'Built-in Tools',
+              ),
+              description: _localizedText(
+                context,
+                zh: '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、'
+                    'Schema、优先级、排序、加载策略和其他参数。',
+                en: 'Manage the built-in AI tools. Adjust each tool\'s enabled '
+                    'state, name, description, schema, priority, sort order, '
+                    'load strategy, and other parameters.',
+              ),
+              children: [
+                _buildBuiltinToolsSection(context, settingsController),
+              ],
             ),
             const SizedBox(height: 18),
             _SettingsGroupCard(
@@ -884,42 +906,49 @@ class _SettingsViewState extends State<SettingsView> {
                   body: l10n.aiModelsEmptyBody,
                 )
               else
-                Column(
-                  children: [
-                    for (var index = 0; index < aiModels.length; index++) ...[
-                      _AiModelTile(
-                        model: aiModels[index],
-                        isSelected:
-                            settingsController.selectedAiModelId ==
-                            aiModels[index].id,
-                        isTesting: _testingAiModelIds.contains(
-                          aiModels[index].id,
-                        ),
-                        isFirst: index == 0,
-                        isLast: index == aiModels.length - 1,
-                        onSelect: () => settingsController
-                            .updateSelectedAiModel(aiModels[index].id),
-                        onTest: () => _testAiModel(aiModels[index]),
-                        onEdit: () => _showAiModelDialog(
-                          context,
-                          initialModel: aiModels[index],
-                        ),
-                        onMoveUp: () =>
-                            settingsController.moveAiModel(index, index - 1),
-                        onMoveDown: () =>
-                            settingsController.moveAiModel(index, index + 1),
-                        onDelete: () =>
-                            _confirmDeleteAiModel(context, aiModels[index]),
-                        onActiveModelChanged: (modelId) =>
-                            settingsController.updateProviderActiveModel(
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 520),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (var index = 0;
+                            index < aiModels.length;
+                            index++) ...[
+                          _AiModelTile(
+                            model: aiModels[index],
+                            isSelected:
+                                settingsController.selectedAiModelId ==
+                                aiModels[index].id,
+                            isTesting: _testingAiModelIds.contains(
+                              aiModels[index].id,
+                            ),
+                            isFirst: index == 0,
+                            isLast: index == aiModels.length - 1,
+                            onSelect: () => settingsController
+                                .updateSelectedAiModel(aiModels[index].id),
+                            onTest: () => _testAiModel(aiModels[index]),
+                            onEdit: () => _showAiModelDialog(
+                              context,
+                              initialModel: aiModels[index],
+                            ),
+                            onMoveUp: () => settingsController.moveAiModel(
+                                index, index - 1),
+                            onMoveDown: () => settingsController.moveAiModel(
+                                index, index + 1),
+                            onDelete: () => _confirmDeleteAiModel(
+                                context, aiModels[index]),
+                            onActiveModelChanged: (modelId) =>
+                                settingsController.updateProviderActiveModel(
                               aiModels[index].id,
                               modelId,
                             ),
-                      ),
-                      if (index != aiModels.length - 1)
-                        const SizedBox(height: 14),
-                    ],
-                  ],
+                          ),
+                          if (index != aiModels.length - 1)
+                            const SizedBox(height: 14),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -1458,6 +1487,306 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Builtin Tool Settings – builder & dialog methods
+  // ─────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBuiltinToolsSection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    final configs = settingsController.builtinToolConfigs;
+    final sorted = List<AiBuiltinToolConfig>.from(configs)
+      ..sort((a, b) {
+        final cmp = a.sortOrder.compareTo(b.sortOrder);
+        return cmp != 0 ? cmp : a.kind.index.compareTo(b.kind.index);
+      });
+    final enabledCount = sorted.where((c) => c.enabled).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '工具目录总览',
+            en: 'Tool Catalog Overview',
+          ),
+          description: _localizedText(
+            context,
+            zh: '当前共 ${sorted.length} 个内建工具，已启用 $enabledCount 个。'
+                '可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。',
+            en: '${sorted.length} built-in tools, $enabledCount enabled. '
+                'Adjust name, description, schema, priority, sort order, and load strategy for each.',
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => _showBuiltinToolResetConfirmDialog(
+                      context,
+                      settingsController,
+                    ),
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: Text(
+                      _localizedText(context, zh: '重置全部', en: 'Reset All'),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _toggleAllBuiltinTools(context, settingsController, true);
+                    },
+                    icon: const Icon(Icons.check_circle_outline_rounded),
+                    label: Text(
+                      _localizedText(context, zh: '全部启用', en: 'Enable All'),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _toggleAllBuiltinTools(
+                          context, settingsController, false);
+                    },
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                    label: Text(
+                      _localizedText(context, zh: '全部禁用', en: 'Disable All'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (sorted.isEmpty)
+                _SettingsStateBox(
+                  icon: Icons.build_circle_outlined,
+                  title: _localizedText(
+                    context,
+                    zh: '没有内建工具配置',
+                    en: 'No built-in tool configurations',
+                  ),
+                  body: _localizedText(
+                    context,
+                    zh: '点击"重置全部"恢复默认工具列表。',
+                    en: 'Click "Reset All" to restore the default tool list.',
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 520),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < sorted.length; i++) ...[
+                          _BuiltinToolTile(
+                            config: sorted[i],
+                            isFirst: i == 0,
+                            isLast: i == sorted.length - 1,
+                            onToggle: (enabled) async {
+                              final updated =
+                                  sorted[i].copyWith(enabled: enabled);
+                              await settingsController
+                                  .updateBuiltinToolConfig(updated);
+                            },
+                            onEdit: () => _showBuiltinToolEditorDialog(
+                              context,
+                              settingsController,
+                              config: sorted[i],
+                            ),
+                            onMoveUp: i > 0
+                                ? () {
+                                    final realOldIndex =
+                                        configs.indexOf(sorted[i]);
+                                    final realNewIndex =
+                                        configs.indexOf(sorted[i - 1]);
+                                    if (realOldIndex >= 0 &&
+                                        realNewIndex >= 0) {
+                                      settingsController
+                                          .moveBuiltinToolConfig(
+                                        realOldIndex,
+                                        realNewIndex,
+                                      );
+                                    }
+                                  }
+                                : null,
+                            onMoveDown: i < sorted.length - 1
+                                ? () {
+                                    final realOldIndex =
+                                        configs.indexOf(sorted[i]);
+                                    final realNewIndex =
+                                        configs.indexOf(sorted[i + 1]);
+                                    if (realOldIndex >= 0 &&
+                                        realNewIndex >= 0) {
+                                      settingsController
+                                          .moveBuiltinToolConfig(
+                                        realOldIndex,
+                                        realNewIndex,
+                                      );
+                                    }
+                                  }
+                                : null,
+                            onDelete: sorted[i].isCustom
+                                ? () => _confirmDeleteBuiltinTool(
+                                      context,
+                                      settingsController,
+                                      sorted[i],
+                                    )
+                                : null,
+                          ),
+                          if (i != sorted.length - 1)
+                            const SizedBox(height: 10),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _toggleAllBuiltinTools(
+    BuildContext context,
+    SettingsController settingsController,
+    bool enabled,
+  ) async {
+    final configs = settingsController.builtinToolConfigs;
+    final updated = configs
+        .map((c) => c.copyWith(enabled: enabled))
+        .toList(growable: false);
+    final saved = await settingsController.updateBuiltinToolConfigs(updated);
+    if (!context.mounted || saved) return;
+    _showPersistenceFailureSnackBar(context);
+  }
+
+  Future<void> _showBuiltinToolResetConfirmDialog(
+    BuildContext context,
+    SettingsController settingsController,
+  ) async {
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.restart_alt_rounded),
+          title: Text(
+            _localizedText(
+              context,
+              zh: '重置内建工具配置',
+              en: 'Reset Built-in Tool Configs',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、'
+                  'Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。',
+              en: 'This will restore all built-in tool configurations to factory '
+                  'defaults, including name, description, schema overrides, '
+                  'priority, sort order, and load strategy. This cannot be undone.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                _localizedText(context, zh: '取消', en: 'Cancel'),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                _localizedText(context, zh: '重置', en: 'Reset'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) return;
+    final saved = await settingsController.resetBuiltinToolConfigs();
+    if (!context.mounted || saved) return;
+    _showPersistenceFailureSnackBar(context);
+  }
+
+  Future<void> _confirmDeleteBuiltinTool(
+    BuildContext context,
+    SettingsController settingsController,
+    AiBuiltinToolConfig config,
+  ) async {
+    final confirmed = await showAnimatedDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: const Icon(Icons.delete_outline_rounded),
+          title: Text(
+            _localizedText(
+              context,
+              zh: '删除自定义工具',
+              en: 'Delete Custom Tool',
+            ),
+          ),
+          content: Text(
+            _localizedText(
+              context,
+              zh: '确定要删除 "${config.effectiveName}" 吗？此操作不可撤销。',
+              en: 'Are you sure you want to delete "${config.effectiveName}"? '
+                  'This cannot be undone.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                _localizedText(context, zh: '取消', en: 'Cancel'),
+              ),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                _localizedText(context, zh: '删除', en: 'Delete'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) return;
+    final saved =
+        await settingsController.removeBuiltinToolConfig(config.kind);
+    if (!context.mounted || saved) return;
+    _showPersistenceFailureSnackBar(context);
+  }
+
+  Future<void> _showBuiltinToolEditorDialog(
+    BuildContext context,
+    SettingsController settingsController, {
+    required AiBuiltinToolConfig config,
+  }) async {
+    final defaults = AiToolRuntimeService.builtinToolDefault(config.kind);
+    final result = await showAnimatedDialog<AiBuiltinToolConfig>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return _BuiltinToolEditorDialog(
+          initial: config,
+          defaultName: defaults?.definition.name,
+          defaultDescription: defaults?.definition.description,
+          defaultParameters: defaults?.definition.parameters,
+        );
+      },
+    );
+    if (result == null || !context.mounted) return;
+    final saved = await settingsController.updateBuiltinToolConfig(result);
+    if (!context.mounted || saved) return;
+    _showPersistenceFailureSnackBar(context);
+  }
+
   Widget _buildMcpSettingsSection(
     BuildContext context,
     SettingsController settingsController,
@@ -1665,8 +1994,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final parsedValue = int.tryParse(rawValue.trim());
-    final min = AppSettingsSnapshot.minAiConnectTimeoutSeconds;
-    final max = AppSettingsSnapshot.maxAiConnectTimeoutSeconds;
+    const min = AppSettingsSnapshot.minAiConnectTimeoutSeconds;
+    const max = AppSettingsSnapshot.maxAiConnectTimeoutSeconds;
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
@@ -1706,8 +2035,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final parsedValue = int.tryParse(rawValue.trim());
-    final min = AppSettingsSnapshot.minAiResponseTimeoutSeconds;
-    final max = AppSettingsSnapshot.maxAiResponseTimeoutSeconds;
+    const min = AppSettingsSnapshot.minAiResponseTimeoutSeconds;
+    const max = AppSettingsSnapshot.maxAiResponseTimeoutSeconds;
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
@@ -1747,8 +2076,8 @@ class _SettingsViewState extends State<SettingsView> {
     String rawValue,
   ) async {
     final parsedValue = int.tryParse(rawValue.trim());
-    final min = AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds;
-    final max = AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds;
+    const min = AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds;
+    const max = AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds;
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,

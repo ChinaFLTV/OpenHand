@@ -1213,34 +1213,10 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     FocusNode node,
     KeyEvent event,
   ) {
-    if (!mounted ||
-        !_isAwaitingManualPhaseInput ||
-        _composerCollapsed ||
-        (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
-      return KeyEventResult.ignored;
-    }
-    final bindings = context.read<SettingsController>().shortcutBindings;
-    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
-      ...HardwareKeyboard.instance.logicalKeysPressed,
-      event.logicalKey,
-    });
-    for (final action in const <OpenHandShortcutAction>[
-      OpenHandShortcutAction.sendMessage,
-      OpenHandShortcutAction.toggleComposer,
-    ]) {
-      final shortcutKeyIds = normalizeShortcutKeyIds(
-        bindings[action] ?? const <int>[],
-      );
-      if (shortcutKeyIds.isEmpty) {
-        continue;
-      }
-      if (shortcutKeyIds.length != pressedKeyIds.length ||
-          !pressedKeyIds.containsAll(shortcutKeyIds)) {
-        continue;
-      }
-      unawaited(_handleShortcutAction(action));
-      return KeyEventResult.handled;
-    }
+    // Note: send-message and toggle-composer shortcuts are handled by
+    // _handleGlobalShortcutKeyEvent (HardwareKeyboard handler) in the home
+    // page, which fires before FocusNode.onKeyEvent in Flutter's key dispatch
+    // pipeline.  No shortcut matching is needed here.
     return KeyEventResult.ignored;
   }
 

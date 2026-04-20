@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
@@ -50,6 +51,7 @@ class AppSettingsSnapshot {
       dialogAnimationSettings: const DialogAnimationSettings(),
       menuAnimationSettings: const DialogAnimationSettings(),
       panelAnimationSettings: const DialogAnimationSettings(),
+      builtinToolConfigs: AiBuiltinToolConfig.defaults(),
       telemetryDebugEnabled: false,
       telemetryCaptureRawPayload: true,
       telemetryCaptureEnvironment: false,
@@ -90,6 +92,7 @@ class AppSettingsSnapshot {
     required this.dialogAnimationSettings,
     required this.menuAnimationSettings,
     required this.panelAnimationSettings,
+    required this.builtinToolConfigs,
     required this.telemetryDebugEnabled,
     required this.telemetryCaptureRawPayload,
     required this.telemetryCaptureEnvironment,
@@ -168,6 +171,7 @@ class AppSettingsSnapshot {
   final DialogAnimationSettings dialogAnimationSettings;
   final DialogAnimationSettings menuAnimationSettings;
   final DialogAnimationSettings panelAnimationSettings;
+  final List<AiBuiltinToolConfig> builtinToolConfigs;
   final bool telemetryDebugEnabled;
   final bool telemetryCaptureRawPayload;
   /// Controls whether a session/message-level environment snapshot
@@ -211,6 +215,7 @@ class AppSettingsSnapshot {
     DialogAnimationSettings? dialogAnimationSettings,
     DialogAnimationSettings? menuAnimationSettings,
     DialogAnimationSettings? panelAnimationSettings,
+    List<AiBuiltinToolConfig>? builtinToolConfigs,
     bool? telemetryDebugEnabled,
     bool? telemetryCaptureRawPayload,
     bool? telemetryCaptureEnvironment,
@@ -269,6 +274,7 @@ class AppSettingsSnapshot {
           menuAnimationSettings ?? this.menuAnimationSettings,
       panelAnimationSettings:
           panelAnimationSettings ?? this.panelAnimationSettings,
+      builtinToolConfigs: builtinToolConfigs ?? this.builtinToolConfigs,
       telemetryDebugEnabled:
           telemetryDebugEnabled ?? this.telemetryDebugEnabled,
       telemetryCaptureRawPayload:
