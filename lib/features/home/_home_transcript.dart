@@ -538,7 +538,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // scrolling slightly but small enough to limit the work done
               // on the first layout pass (fewer off-screen items built).
               cacheExtent: 400,
-              physics: const BouncingScrollPhysics(
+              physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               itemCount: listItemCount,

@@ -27,6 +27,7 @@ import '../../app/model/editor_shortcut.dart';
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/openhand_scroll_physics.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/data/database_service.dart';
@@ -64,6 +65,7 @@ import '../hardness/model/hardness_phase.dart';
 import '../hardness/model/hardness_role_config.dart';
 import '../hardness/model/hardness_session_config.dart';
 import '../hardness/model/hardness_session_record.dart';
+import '../crons/crons_view.dart';
 import '../hooks/hooks_view.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
@@ -107,6 +109,7 @@ enum AppSection {
   memory,
   mcp,
   hooks,
+  crons,
   settings,
   hardnessSession,
 }
@@ -3288,6 +3291,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.mcp:
         _activateSlashCommandSection(AppSection.mcp);
         return;
+      case OpenHandSlashCommandKind.crons:
+        _activateSlashCommandSection(AppSection.crons);
+        return;
     }
   }
 
@@ -3310,6 +3316,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.memory => _localizedText(context, zh: '记忆', en: 'Memory'),
       AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
       AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
+      AppSection.crons => 'Crons',
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -4274,6 +4281,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.memory => const MemoryView(),
       AppSection.mcp => const McpView(),
       AppSection.hooks => const HooksView(),
+      AppSection.crons => const CronsView(),
       AppSection.settings => const SettingsView(),
       AppSection.hardnessSession =>
         _activeHardnessOrchestrator != null && _activeHardnessConfig != null
@@ -4374,7 +4382,8 @@ extension on AppSection {
       AppSection.memory => 2,
       AppSection.mcp => 3,
       AppSection.hooks => 4,
-      AppSection.settings => 5,
+      AppSection.crons => 5,
+      AppSection.settings => 6,
     };
   }
 }
@@ -4386,7 +4395,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     2 => AppSection.memory,
     3 => AppSection.mcp,
     4 => AppSection.hooks,
-    5 => AppSection.settings,
+    5 => AppSection.crons,
+    6 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

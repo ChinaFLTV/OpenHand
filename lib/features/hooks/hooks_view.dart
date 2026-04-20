@@ -264,13 +264,14 @@ class _HookEntryCard extends StatelessWidget {
               value: entry.enabled,
               onChanged: onToggle,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             // Actions
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: isZh ? '编辑' : 'Edit',
               onPressed: onEdit,
             ),
+            const SizedBox(width: 4),
             IconButton(
               icon: Icon(
                 Icons.delete_outline_rounded,
@@ -369,6 +370,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -396,6 +398,12 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   return ChoiceChip(
                     label: Text(event.label(isZh)),
                     selected: selected,
+                    selectedColor: colorScheme.primaryContainer,
+                    labelStyle: TextStyle(
+                      color: selected
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurfaceVariant,
+                    ),
                     onSelected: (_) => setState(() => _selectedEvent = event),
                   );
                 }).toList(),

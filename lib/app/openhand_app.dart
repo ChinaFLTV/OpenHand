@@ -6,6 +6,7 @@ import '../features/home/openhand_home_page.dart';
 import '../l10n/app_localizations.dart';
 import 'model/app_language.dart';
 import 'state/settings_controller.dart';
+import 'support/openhand_notification_service.dart';
 import 'theme/openhand_theme.dart';
 import 'theme/openhand_theme_preset.dart';
 
@@ -33,6 +34,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: OpenHandNotificationService.scaffoldMessengerKey,
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       themeMode: themeMode,
       theme: OpenHandTheme.light(themePreset),

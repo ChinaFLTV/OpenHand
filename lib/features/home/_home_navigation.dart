@@ -216,6 +216,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
               label: Text(_localizedText(context, zh: 'Hooks', en: 'Hooks')),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.schedule_outlined),
+              selectedIcon: const Icon(Icons.schedule_rounded),
+              label: const Text('Crons'),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),

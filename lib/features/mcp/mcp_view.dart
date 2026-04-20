@@ -1081,20 +1081,24 @@ class _McpServerCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  AnimatedPopupMenuButton<_McpCardAction>(
-                    onSelected: onActionSelected,
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem<_McpCardAction>(
-                          value: _McpCardAction.edit,
-                          child: Text(l10n.commonEdit),
-                        ),
-                        PopupMenuItem<_McpCardAction>(
-                          value: _McpCardAction.delete,
-                          child: Text(l10n.commonDelete),
-                        ),
-                      ];
-                    },
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: AnimatedPopupMenuButton<_McpCardAction>(
+                      onSelected: onActionSelected,
+                      itemBuilder: (context) {
+                        return [
+                          PopupMenuItem<_McpCardAction>(
+                            value: _McpCardAction.edit,
+                            child: Text(l10n.commonEdit),
+                          ),
+                          PopupMenuItem<_McpCardAction>(
+                            value: _McpCardAction.delete,
+                            child: Text(l10n.commonDelete),
+                          ),
+                        ];
+                      },
+                    ),
                   ),
                 ],
               ),

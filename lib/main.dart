@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
+import 'app/support/app_runtime_context.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
 import 'features/ai/service/lsp_client_service.dart';
 import 'features/hooks/hooks_controller.dart';
 import 'features/hooks/hooks_executor.dart';
+import 'features/crons/crons_controller.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
@@ -77,10 +79,13 @@ Future<void> main() async {
     initialFilePath: settingsController.mcpServersFilePath,
   );
   final memoryControllerFuture = MemoryController.create();
+  final cronsControllerFuture = CronsController.create();
   final appInfo = await appInfoFuture;
+  AppRuntimeContext.initialize(appInfo);
   final skillsController = await skillsControllerFuture;
   final mcpController = await mcpControllerFuture;
   final memoryController = await memoryControllerFuture;
+  final cronsController = await cronsControllerFuture;
   final aiSessionController = await aiSessionControllerFuture;
 
   runApp(
@@ -93,6 +98,7 @@ Future<void> main() async {
         ChangeNotifierProvider<McpController>.value(value: mcpController),
         ChangeNotifierProvider<HooksController>.value(value: hooksController),
         ChangeNotifierProvider<MemoryController>.value(value: memoryController),
+        ChangeNotifierProvider<CronsController>.value(value: cronsController),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,
         ),
