@@ -1513,7 +1513,8 @@ class AiSessionController extends ChangeNotifier {
         _setSessionSendPhase(session.id, AiSendPhase.responding);
         notifyListeners();
 
-        if (preparedUserTurn.shouldGenerateTitle) {
+        if (preparedUserTurn.shouldGenerateTitle &&
+            runtimeContext.autoTitleEnabled) {
           unawaited(
             _generateAutoTitle(
               sessionId: session.id,
@@ -1748,6 +1749,10 @@ class AiSessionController extends ChangeNotifier {
           tools: toolsForRound,
           responseModalities: responseModalities,
           creationRequest: creationRequest,
+          timeout: Duration(seconds: runtimeContext.connectTimeoutSeconds),
+          streamIdleTimeout: Duration(
+            seconds: runtimeContext.streamIdleTimeoutSeconds,
+          ),
           cancelSignal: _stopSignalForSession(workingSession.id),
         );
       } catch (error) {
@@ -4448,6 +4453,7 @@ class AiSessionController extends ChangeNotifier {
       final completion = await _chatClient.sendMessage(
         model: model,
         messages: compressionPrompt,
+        timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
       );
       final sourceMessages = <AiSessionMessage>[
         if (previousCompressionPoint != null) ...[previousCompressionPoint],

@@ -223,6 +223,24 @@ abstract final class OpenHandTheme {
           shape: WidgetStatePropertyAll<OutlinedBorder>(
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
           ),
+          backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return colorScheme.primaryContainer;
+            }
+            return null;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return colorScheme.onPrimaryContainer;
+            }
+            return colorScheme.onSurface;
+          }),
+          iconColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return colorScheme.onPrimaryContainer;
+            }
+            return colorScheme.onSurfaceVariant;
+          }),
         ),
       ),
       snackBarTheme: SnackBarThemeData(

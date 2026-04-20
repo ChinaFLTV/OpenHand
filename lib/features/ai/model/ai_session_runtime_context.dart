@@ -94,6 +94,10 @@ class AiSessionRuntimeContext {
     this.sequentialToolRoundLimit = 24,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
+    this.connectTimeoutSeconds = 60,
+    this.responseTimeoutSeconds = 120,
+    this.streamIdleTimeoutSeconds = 120,
+    this.autoTitleEnabled = true,
     this.telemetryDebugEnabled = false,
     this.telemetryCaptureRawPayload = true,
     this.telemetryCaptureEnvironment = false,
@@ -127,6 +131,14 @@ class AiSessionRuntimeContext {
   /// before persisting and before the editor opens.
   final int imageSizeLimitBytes;
   final bool writeCommandConfirmationEnabled;
+  /// HTTP connection/send timeout for AI requests (seconds).
+  final int connectTimeoutSeconds;
+  /// Response timeout for non-streaming AI requests (seconds).
+  final int responseTimeoutSeconds;
+  /// Per-chunk stream idle timeout for streaming AI requests (seconds).
+  final int streamIdleTimeoutSeconds;
+  /// Whether to auto-generate session titles.
+  final bool autoTitleEnabled;
   /// Whether telemetry debug mode is enabled (populates request/response
   /// metadata on messages for the audit dialogs).
   final bool telemetryDebugEnabled;

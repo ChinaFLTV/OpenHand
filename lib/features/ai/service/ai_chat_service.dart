@@ -28,6 +28,7 @@ abstract class AiChatClient {
     List<String> responseModalities,
     AiCreationRequest creationRequest,
     Duration timeout,
+    Duration streamIdleTimeout,
     Future<void>? cancelSignal,
   });
 
@@ -381,6 +382,7 @@ class AiChatService implements AiChatClient {
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
+    Duration streamIdleTimeout = const Duration(seconds: 120),
     Future<void>? cancelSignal,
   }) async {
     // Image generation is a one-shot, non-streaming protocol on OpenAI-style
@@ -749,7 +751,7 @@ class AiChatService implements AiChatClient {
 
     responseSubscription = streamedResponse.stream
         .transform(const Utf8Decoder(allowMalformed: true))
-        .timeout(timeout)
+        .timeout(streamIdleTimeout)
         .listen(
           processChunk,
           onError: (Object error, StackTrace stackTrace) {

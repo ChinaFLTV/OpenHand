@@ -37,6 +37,12 @@ class AppSettingsSnapshot {
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
       aiDenyCommandRules: const <AiDenyCommandRule>[],
+      aiConnectTimeoutSeconds: defaultAiConnectTimeoutSeconds,
+      aiResponseTimeoutSeconds: defaultAiResponseTimeoutSeconds,
+      aiStreamIdleTimeoutSeconds: defaultAiStreamIdleTimeoutSeconds,
+      aiAutoTitleEnabled: true,
+      aiDefaultSessionMode: defaultAiDefaultSessionMode,
+      aiDefaultFullAccessPermission: false,
       aiModels: const <AiModelConfig>[],
       selectedAiModelId: null,
       recentModelSelections: const <RecentModelSelection>[],
@@ -71,6 +77,12 @@ class AppSettingsSnapshot {
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
     required this.aiDenyCommandRules,
+    required this.aiConnectTimeoutSeconds,
+    required this.aiResponseTimeoutSeconds,
+    required this.aiStreamIdleTimeoutSeconds,
+    required this.aiAutoTitleEnabled,
+    required this.aiDefaultSessionMode,
+    required this.aiDefaultFullAccessPermission,
     required this.aiModels,
     required this.selectedAiModelId,
     required this.recentModelSelections,
@@ -102,6 +114,27 @@ class AppSettingsSnapshot {
   /// Hard ceiling so a misconfigured value cannot blow up memory at runtime.
   static const int maxAiImageSizeLimitBytes = 64 * 1024 * 1024;
 
+  /// Timeout (seconds) for establishing the HTTP connection and receiving
+  /// initial response headers from the AI provider.
+  static const int defaultAiConnectTimeoutSeconds = 60;
+  static const int minAiConnectTimeoutSeconds = 5;
+  static const int maxAiConnectTimeoutSeconds = 300;
+
+  /// Timeout (seconds) for receiving a complete non-streaming AI response.
+  static const int defaultAiResponseTimeoutSeconds = 120;
+  static const int minAiResponseTimeoutSeconds = 10;
+  static const int maxAiResponseTimeoutSeconds = 600;
+
+  /// Per-chunk idle timeout (seconds) for streaming AI responses.
+  /// When the stream receives no new data within this window, the request
+  /// is aborted and an error is shown (the "Request timed out." case).
+  static const int defaultAiStreamIdleTimeoutSeconds = 120;
+  static const int minAiStreamIdleTimeoutSeconds = 10;
+  static const int maxAiStreamIdleTimeoutSeconds = 600;
+
+  /// Default session mode string: 'chat' or 'plan'.
+  static const String defaultAiDefaultSessionMode = 'chat';
+
   final ThemeMode themeMode;
   final OpenHandThemePreset themePreset;
   final AppLanguage language;
@@ -122,6 +155,12 @@ class AppSettingsSnapshot {
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
   final List<AiDenyCommandRule> aiDenyCommandRules;
+  final int aiConnectTimeoutSeconds;
+  final int aiResponseTimeoutSeconds;
+  final int aiStreamIdleTimeoutSeconds;
+  final bool aiAutoTitleEnabled;
+  final String aiDefaultSessionMode;
+  final bool aiDefaultFullAccessPermission;
   final List<AiModelConfig> aiModels;
   final String? selectedAiModelId;
   final List<RecentModelSelection> recentModelSelections;
@@ -159,6 +198,12 @@ class AppSettingsSnapshot {
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
     List<AiDenyCommandRule>? aiDenyCommandRules,
+    int? aiConnectTimeoutSeconds,
+    int? aiResponseTimeoutSeconds,
+    int? aiStreamIdleTimeoutSeconds,
+    bool? aiAutoTitleEnabled,
+    String? aiDefaultSessionMode,
+    bool? aiDefaultFullAccessPermission,
     List<AiModelConfig>? aiModels,
     String? selectedAiModelId,
     List<RecentModelSelection>? recentModelSelections,
@@ -201,6 +246,16 @@ class AppSettingsSnapshot {
           this.aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules ?? this.aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules ?? this.aiDenyCommandRules,
+      aiConnectTimeoutSeconds:
+          aiConnectTimeoutSeconds ?? this.aiConnectTimeoutSeconds,
+      aiResponseTimeoutSeconds:
+          aiResponseTimeoutSeconds ?? this.aiResponseTimeoutSeconds,
+      aiStreamIdleTimeoutSeconds:
+          aiStreamIdleTimeoutSeconds ?? this.aiStreamIdleTimeoutSeconds,
+      aiAutoTitleEnabled: aiAutoTitleEnabled ?? this.aiAutoTitleEnabled,
+      aiDefaultSessionMode: aiDefaultSessionMode ?? this.aiDefaultSessionMode,
+      aiDefaultFullAccessPermission:
+          aiDefaultFullAccessPermission ?? this.aiDefaultFullAccessPermission,
       aiModels: aiModels ?? this.aiModels,
       selectedAiModelId: clearSelectedAiModelId
           ? null

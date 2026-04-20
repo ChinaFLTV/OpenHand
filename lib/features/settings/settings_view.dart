@@ -73,6 +73,12 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _sequentialToolRoundLimitFocusNode;
   late final TextEditingController _imageSizeLimitController;
   late final FocusNode _imageSizeLimitFocusNode;
+  late final TextEditingController _connectTimeoutController;
+  late final FocusNode _connectTimeoutFocusNode;
+  late final TextEditingController _responseTimeoutController;
+  late final FocusNode _responseTimeoutFocusNode;
+  late final TextEditingController _streamIdleTimeoutController;
+  late final FocusNode _streamIdleTimeoutFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
 
   @override
@@ -93,6 +99,12 @@ class _SettingsViewState extends State<SettingsView> {
     _sequentialToolRoundLimitFocusNode = FocusNode();
     _imageSizeLimitController = TextEditingController();
     _imageSizeLimitFocusNode = FocusNode();
+    _connectTimeoutController = TextEditingController();
+    _connectTimeoutFocusNode = FocusNode();
+    _responseTimeoutController = TextEditingController();
+    _responseTimeoutFocusNode = FocusNode();
+    _streamIdleTimeoutController = TextEditingController();
+    _streamIdleTimeoutFocusNode = FocusNode();
   }
 
   @override
@@ -112,6 +124,12 @@ class _SettingsViewState extends State<SettingsView> {
     _sequentialToolRoundLimitFocusNode.dispose();
     _imageSizeLimitController.dispose();
     _imageSizeLimitFocusNode.dispose();
+    _connectTimeoutController.dispose();
+    _connectTimeoutFocusNode.dispose();
+    _responseTimeoutController.dispose();
+    _responseTimeoutFocusNode.dispose();
+    _streamIdleTimeoutController.dispose();
+    _streamIdleTimeoutFocusNode.dispose();
     super.dispose();
   }
 
@@ -154,6 +172,24 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_imageSizeLimitFocusNode.hasFocus &&
         _imageSizeLimitController.text != imageSizeLimitText) {
       _imageSizeLimitController.text = imageSizeLimitText;
+    }
+    final connectTimeoutText =
+        '${settingsController.aiConnectTimeoutSeconds}';
+    if (!_connectTimeoutFocusNode.hasFocus &&
+        _connectTimeoutController.text != connectTimeoutText) {
+      _connectTimeoutController.text = connectTimeoutText;
+    }
+    final responseTimeoutText =
+        '${settingsController.aiResponseTimeoutSeconds}';
+    if (!_responseTimeoutFocusNode.hasFocus &&
+        _responseTimeoutController.text != responseTimeoutText) {
+      _responseTimeoutController.text = responseTimeoutText;
+    }
+    final streamIdleTimeoutText =
+        '${settingsController.aiStreamIdleTimeoutSeconds}';
+    if (!_streamIdleTimeoutFocusNode.hasFocus &&
+        _streamIdleTimeoutController.text != streamIdleTimeoutText) {
+      _streamIdleTimeoutController.text = streamIdleTimeoutText;
     }
 
     return ScrollConfiguration(
@@ -542,6 +578,285 @@ class _SettingsViewState extends State<SettingsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _SettingsSubsectionCard(
+          title: _localizedText(
+            context,
+            zh: '会话设置',
+            en: 'Session Settings',
+          ),
+          description: _localizedText(
+            context,
+            zh: '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。',
+            en: 'Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.',
+          ),
+          child: Column(
+            children: [
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '发送超时时间（秒）',
+                  en: 'Send Timeout (s)',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。',
+                  en: 'Maximum wait time to establish the HTTP connection and send the request. Default: 60 s.',
+                ),
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _connectTimeoutController,
+                      focusNode: _connectTimeoutFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '发送超时（秒）',
+                          en: 'Send Timeout (s)',
+                        ),
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiConnectTimeoutSeconds}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveConnectTimeout(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveConnectTimeout(
+                          context,
+                          _connectTimeoutController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '保存超时',
+                            en: 'Save Timeout',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '响应超时时间（秒）',
+                  en: 'Response Timeout (s)',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '非流式请求等待完整响应的最大时间，默认 120 秒。',
+                  en: 'Maximum wait for a complete response in non-streaming mode. Default: 120 s.',
+                ),
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _responseTimeoutController,
+                      focusNode: _responseTimeoutFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '响应超时（秒）',
+                          en: 'Response Timeout (s)',
+                        ),
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiResponseTimeoutSeconds}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveResponseTimeout(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveResponseTimeout(
+                          context,
+                          _responseTimeoutController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '保存超时',
+                            en: 'Save Timeout',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '等待超时时间（秒）',
+                  en: 'Stream Idle Timeout (s)',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示"Request timed out."，默认 120 秒。',
+                  en: 'Maximum idle wait between stream chunks. Exceeding this causes "Request timed out.". Default: 120 s.',
+                ),
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _streamIdleTimeoutController,
+                      focusNode: _streamIdleTimeoutFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: InputDecoration(
+                        labelText: _localizedText(
+                          context,
+                          zh: '等待超时（秒）',
+                          en: 'Stream Idle Timeout (s)',
+                        ),
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveStreamIdleTimeout(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _saveStreamIdleTimeout(
+                          context,
+                          _streamIdleTimeoutController.text,
+                        ),
+                        icon: const Icon(Icons.save_outlined),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '保存超时',
+                            en: 'Save Timeout',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '自动标题',
+                  en: 'Auto Title',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '开启后，新会话发送首条消息时将自动生成会话标题。',
+                  en: 'When enabled, a title is automatically generated after the first message in a new session.',
+                ),
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch(
+                    value: settingsController.aiAutoTitleEnabled,
+                    onChanged: (value) =>
+                        settingsController.updateAiAutoTitleEnabled(value),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '默认会话模式',
+                  en: 'Default Session Mode',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '新会话的默认交互模式：对话（Chat）或规划（Plan）。',
+                  en: 'Default interaction mode for new sessions: Chat or Plan.',
+                ),
+                control: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment<String>(
+                        value: 'chat',
+                        icon: const Icon(Icons.chat_outlined),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '对话',
+                            en: 'Chat',
+                          ),
+                          softWrap: false,
+                        ),
+                      ),
+                      ButtonSegment<String>(
+                        value: 'plan',
+                        icon: const Icon(Icons.account_tree_outlined),
+                        label: Text(
+                          _localizedText(
+                            context,
+                            zh: '规划',
+                            en: 'Plan',
+                          ),
+                          softWrap: false,
+                        ),
+                      ),
+                    ],
+                    selected: {settingsController.aiDefaultSessionMode},
+                    onSelectionChanged: (values) {
+                      if (values.isNotEmpty) {
+                        settingsController.updateAiDefaultSessionMode(
+                          values.first,
+                        );
+                      }
+                    },
+                  ),
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '默认全访问权限',
+                  en: 'Default Full Access',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。',
+                  en: 'When enabled, new sessions start in full-access mode, allowing the AI to execute file and command operations without per-action confirmation.',
+                ),
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch(
+                    value: settingsController.aiDefaultFullAccessPermission,
+                    onChanged: (value) => settingsController
+                        .updateAiDefaultFullAccessPermission(value),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         _SettingsSubsectionCard(
           title: _localizedText(
             context,
@@ -1343,6 +1658,129 @@ class _SettingsViewState extends State<SettingsView> {
       }
     }
     return memoryController.reloadFromFilePath(previousPath);
+  }
+
+  Future<void> _saveConnectTimeout(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    final min = AppSettingsSnapshot.minAiConnectTimeoutSeconds;
+    final max = AppSettingsSnapshot.maxAiConnectTimeoutSeconds;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入 $min–$max 之间的秒数。',
+          en: 'Enter a value between $min and $max seconds.',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiConnectTimeoutSeconds(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _connectTimeoutController.text =
+          '${context.read<SettingsController>().aiConnectTimeoutSeconds}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _connectTimeoutController.text = '$parsedValue';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '发送超时时间已保存。',
+        en: 'Send timeout saved.',
+      ),
+    );
+  }
+
+  Future<void> _saveResponseTimeout(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    final min = AppSettingsSnapshot.minAiResponseTimeoutSeconds;
+    final max = AppSettingsSnapshot.maxAiResponseTimeoutSeconds;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入 $min–$max 之间的秒数。',
+          en: 'Enter a value between $min and $max seconds.',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiResponseTimeoutSeconds(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _responseTimeoutController.text =
+          '${context.read<SettingsController>().aiResponseTimeoutSeconds}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _responseTimeoutController.text = '$parsedValue';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '响应超时时间已保存。',
+        en: 'Response timeout saved.',
+      ),
+    );
+  }
+
+  Future<void> _saveStreamIdleTimeout(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    final min = AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds;
+    final max = AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds;
+    if (parsedValue == null || parsedValue < min || parsedValue > max) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh: '请输入 $min–$max 之间的秒数。',
+          en: 'Enter a value between $min and $max seconds.',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiStreamIdleTimeoutSeconds(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _streamIdleTimeoutController.text =
+          '${context.read<SettingsController>().aiStreamIdleTimeoutSeconds}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _streamIdleTimeoutController.text = '$parsedValue';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '等待超时时间已保存。',
+        en: 'Stream idle timeout saved.',
+      ),
+    );
   }
 
   Future<void> _saveCompressionThreshold(

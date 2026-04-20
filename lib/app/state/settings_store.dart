@@ -162,6 +162,12 @@ class SettingsStore {
       'ai_deny_command_rules': snapshot.aiDenyCommandRules
           .map((item) => item.toJson())
           .toList(growable: false),
+      'ai_connect_timeout_seconds': snapshot.aiConnectTimeoutSeconds,
+      'ai_response_timeout_seconds': snapshot.aiResponseTimeoutSeconds,
+      'ai_stream_idle_timeout_seconds': snapshot.aiStreamIdleTimeoutSeconds,
+      'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
+      'ai_default_session_mode': snapshot.aiDefaultSessionMode,
+      'ai_default_full_access_permission': snapshot.aiDefaultFullAccessPermission,
       'selected_ai_model_id': snapshot.selectedAiModelId ?? '',
       'recent_model_selections': snapshot.recentModelSelections
           .map((item) => item.toJson())
@@ -314,6 +320,48 @@ class SettingsStore {
       }
     }
 
+    // Session timeout settings.
+    final rawConnectTimeout = json['ai_connect_timeout_seconds'];
+    final aiConnectTimeoutSeconds =
+        (rawConnectTimeout is int &&
+            rawConnectTimeout >= AppSettingsSnapshot.minAiConnectTimeoutSeconds)
+        ? rawConnectTimeout.clamp(
+            AppSettingsSnapshot.minAiConnectTimeoutSeconds,
+            AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
+          )
+        : AppSettingsSnapshot.defaultAiConnectTimeoutSeconds;
+    final rawResponseTimeout = json['ai_response_timeout_seconds'];
+    final aiResponseTimeoutSeconds =
+        (rawResponseTimeout is int &&
+            rawResponseTimeout >=
+                AppSettingsSnapshot.minAiResponseTimeoutSeconds)
+        ? rawResponseTimeout.clamp(
+            AppSettingsSnapshot.minAiResponseTimeoutSeconds,
+            AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+          )
+        : AppSettingsSnapshot.defaultAiResponseTimeoutSeconds;
+    final rawStreamIdleTimeout = json['ai_stream_idle_timeout_seconds'];
+    final aiStreamIdleTimeoutSeconds =
+        (rawStreamIdleTimeout is int &&
+            rawStreamIdleTimeout >=
+                AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds)
+        ? rawStreamIdleTimeout.clamp(
+            AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
+            AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
+          )
+        : AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds;
+    final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
+        ? json['ai_auto_title_enabled'] as bool
+        : true;
+    final rawDefaultSessionMode =
+        '${json['ai_default_session_mode'] ?? ''}'.trim();
+    final aiDefaultSessionMode =
+        rawDefaultSessionMode == 'plan' ? 'plan' : 'chat';
+    final aiDefaultFullAccessPermission =
+        json['ai_default_full_access_permission'] is bool
+        ? json['ai_default_full_access_permission'] as bool
+        : false;
+
     // AI models.
     final rawModels = json['ai_models'];
     final aiModels = <AiModelConfig>[];
@@ -437,6 +485,12 @@ class SettingsStore {
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
       aiDenyCommandRules: aiDenyCommandRules,
+      aiConnectTimeoutSeconds: aiConnectTimeoutSeconds,
+      aiResponseTimeoutSeconds: aiResponseTimeoutSeconds,
+      aiStreamIdleTimeoutSeconds: aiStreamIdleTimeoutSeconds,
+      aiAutoTitleEnabled: aiAutoTitleEnabled,
+      aiDefaultSessionMode: aiDefaultSessionMode,
+      aiDefaultFullAccessPermission: aiDefaultFullAccessPermission,
       aiModels: aiModels,
       selectedAiModelId: selectedAiModelId.isEmpty ? null : selectedAiModelId,
       recentModelSelections: recentModelSelections,

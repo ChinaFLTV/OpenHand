@@ -57,6 +57,12 @@ class SettingsController extends ChangeNotifier {
        _aiDenyCommandRules = List<AiDenyCommandRule>.from(
          snapshot.aiDenyCommandRules,
        ),
+       _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds,
+       _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds,
+       _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds,
+       _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled,
+       _aiDefaultSessionMode = snapshot.aiDefaultSessionMode,
+       _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission,
        _aiModels = List<AiModelConfig>.from(snapshot.aiModels),
        _selectedAiModelId = snapshot.selectedAiModelId,
        _recentModelSelections = List<RecentModelSelection>.from(
@@ -106,6 +112,12 @@ class SettingsController extends ChangeNotifier {
   bool _aiWriteCommandConfirmationEnabled;
   List<AiAllowCommandRule> _aiAllowCommandRules;
   List<AiDenyCommandRule> _aiDenyCommandRules;
+  int _aiConnectTimeoutSeconds;
+  int _aiResponseTimeoutSeconds;
+  int _aiStreamIdleTimeoutSeconds;
+  bool _aiAutoTitleEnabled;
+  String _aiDefaultSessionMode;
+  bool _aiDefaultFullAccessPermission;
   List<AiModelConfig> _aiModels;
   String? _selectedAiModelId;
   List<RecentModelSelection> _recentModelSelections;
@@ -177,6 +189,12 @@ class SettingsController extends ChangeNotifier {
       List<AiAllowCommandRule>.unmodifiable(_aiAllowCommandRules);
   List<AiDenyCommandRule> get aiDenyCommandRules =>
       List<AiDenyCommandRule>.unmodifiable(_aiDenyCommandRules);
+  int get aiConnectTimeoutSeconds => _aiConnectTimeoutSeconds;
+  int get aiResponseTimeoutSeconds => _aiResponseTimeoutSeconds;
+  int get aiStreamIdleTimeoutSeconds => _aiStreamIdleTimeoutSeconds;
+  bool get aiAutoTitleEnabled => _aiAutoTitleEnabled;
+  String get aiDefaultSessionMode => _aiDefaultSessionMode;
+  bool get aiDefaultFullAccessPermission => _aiDefaultFullAccessPermission;
   String get displayUserMemoryFilePath =>
       OpenHandPaths.shortenHomePath(_userMemoryFilePath);
   String get defaultUserMemoryFilePath =>
@@ -447,6 +465,87 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiWriteCommandConfirmationEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiConnectTimeoutSeconds(int value) async {
+    final normalizedValue = value < AppSettingsSnapshot.minAiConnectTimeoutSeconds
+        ? AppSettingsSnapshot.defaultAiConnectTimeoutSeconds
+        : value.clamp(
+            AppSettingsSnapshot.minAiConnectTimeoutSeconds,
+            AppSettingsSnapshot.maxAiConnectTimeoutSeconds,
+          );
+    return _commitMutation(() {
+      if (_aiConnectTimeoutSeconds == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiConnectTimeoutSeconds = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiResponseTimeoutSeconds(int value) async {
+    final normalizedValue =
+        value < AppSettingsSnapshot.minAiResponseTimeoutSeconds
+        ? AppSettingsSnapshot.defaultAiResponseTimeoutSeconds
+        : value.clamp(
+            AppSettingsSnapshot.minAiResponseTimeoutSeconds,
+            AppSettingsSnapshot.maxAiResponseTimeoutSeconds,
+          );
+    return _commitMutation(() {
+      if (_aiResponseTimeoutSeconds == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiResponseTimeoutSeconds = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiStreamIdleTimeoutSeconds(int value) async {
+    final normalizedValue =
+        value < AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds
+        ? AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds
+        : value.clamp(
+            AppSettingsSnapshot.minAiStreamIdleTimeoutSeconds,
+            AppSettingsSnapshot.maxAiStreamIdleTimeoutSeconds,
+          );
+    return _commitMutation(() {
+      if (_aiStreamIdleTimeoutSeconds == normalizedValue) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiStreamIdleTimeoutSeconds = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAutoTitleEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_aiAutoTitleEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAutoTitleEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiDefaultSessionMode(String value) async {
+    final normalized = value.trim() == 'plan' ? 'plan' : 'chat';
+    return _commitMutation(() {
+      if (_aiDefaultSessionMode == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiDefaultSessionMode = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiDefaultFullAccessPermission(bool value) async {
+    return _commitMutation(() {
+      if (_aiDefaultFullAccessPermission == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiDefaultFullAccessPermission = value;
       return _MutationDisposition.apply;
     });
   }
@@ -907,6 +1006,12 @@ class SettingsController extends ChangeNotifier {
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: List<AiAllowCommandRule>.from(_aiAllowCommandRules),
       aiDenyCommandRules: List<AiDenyCommandRule>.from(_aiDenyCommandRules),
+      aiConnectTimeoutSeconds: _aiConnectTimeoutSeconds,
+      aiResponseTimeoutSeconds: _aiResponseTimeoutSeconds,
+      aiStreamIdleTimeoutSeconds: _aiStreamIdleTimeoutSeconds,
+      aiAutoTitleEnabled: _aiAutoTitleEnabled,
+      aiDefaultSessionMode: _aiDefaultSessionMode,
+      aiDefaultFullAccessPermission: _aiDefaultFullAccessPermission,
       aiModels: List<AiModelConfig>.from(_aiModels),
       selectedAiModelId: _selectedAiModelId,
       recentModelSelections: List<RecentModelSelection>.from(
@@ -952,6 +1057,12 @@ class SettingsController extends ChangeNotifier {
     _aiDenyCommandRules = List<AiDenyCommandRule>.from(
       snapshot.aiDenyCommandRules,
     );
+    _aiConnectTimeoutSeconds = snapshot.aiConnectTimeoutSeconds;
+    _aiResponseTimeoutSeconds = snapshot.aiResponseTimeoutSeconds;
+    _aiStreamIdleTimeoutSeconds = snapshot.aiStreamIdleTimeoutSeconds;
+    _aiAutoTitleEnabled = snapshot.aiAutoTitleEnabled;
+    _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
+    _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
     _selectedAiModelId = snapshot.selectedAiModelId;
     _recentModelSelections = _sanitizeRecentModelSelections(

@@ -1698,6 +1698,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return _createSession(
       templateId: templateId,
       runtimeContext: runtimeContext,
+      initialMode: AiSessionMode.fromStorage(
+        context.read<SettingsController>().aiDefaultSessionMode,
+      ),
+      initialFullAccessPermission:
+          context.read<SettingsController>().aiDefaultFullAccessPermission,
     );
   }
 
@@ -2090,6 +2095,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
+      connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
+      responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
+      streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
+      autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload:
           settingsController.telemetryCaptureRawPayload,
@@ -2138,6 +2147,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
           settingsController.aiWriteCommandConfirmationEnabled,
+      connectTimeoutSeconds: settingsController.aiConnectTimeoutSeconds,
+      responseTimeoutSeconds: settingsController.aiResponseTimeoutSeconds,
+      streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
+      autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
       telemetryCaptureRawPayload:
           settingsController.telemetryCaptureRawPayload,
