@@ -116,7 +116,8 @@ class AiDeleteFileTool extends AiTool {
     final home = Platform.environment['HOME'] ?? '';
     if (home.isNotEmpty && normalized == home) return true;
     // Block critical system directories and OS-managed locations
-    const criticalPrefixes = <String>[
+    final criticalPrefixes = <String>[
+      // Unix/macOS common
       '/System',
       '/usr',
       '/bin',
@@ -125,9 +126,19 @@ class AiDeleteFileTool extends AiTool {
       '/var',
       '/Library',
       '/Volumes',
-      r'C:\Windows',
-      r'C:\Program Files',
-      r'C:\Program Files (x86)',
+      // Linux-specific
+      '/proc',
+      '/sys',
+      '/dev',
+      '/boot',
+      '/run',
+      '/snap',
+      // Windows (only relevant on Windows)
+      if (Platform.isWindows) ...[
+        r'C:\Windows',
+        r'C:\Program Files',
+        r'C:\Program Files (x86)',
+      ],
     ];
     final normalizedLower = normalized.toLowerCase();
     for (final prefix in criticalPrefixes) {

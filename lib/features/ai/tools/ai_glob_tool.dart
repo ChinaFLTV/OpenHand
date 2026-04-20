@@ -24,6 +24,9 @@ class AiGlobTool extends AiTool {
     if (rootEntity == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult('Glob', 'Path does not exist: $rootPath');
     }
+    // Safety limit to prevent memory exhaustion on broad patterns.
+    const maxMatches = 1000;
+    var hitLimit = false;
     final matches = <String>[];
     if (rootEntity == FileSystemEntityType.file) {
       final filePath = p.normalize(rootPath);
@@ -40,6 +43,10 @@ class AiGlobTool extends AiTool {
             .replaceAll('\\', '/');
         if (AiToolUtils.globMatches(relativePath, pattern)) {
           matches.add(normalizedPath);
+          if (matches.length >= maxMatches) {
+            hitLimit = true;
+            break;
+          }
         }
       }
     }
@@ -58,7 +65,15 @@ class AiGlobTool extends AiTool {
       if (modifiedComparison != 0) return modifiedComparison;
       return left.compareTo(right);
     });
-    final output = matches.isEmpty ? '(no matches)' : matches.join('\n');
+    var output = matches.isEmpty ? '(no matches)' : matches.join('\n');
+    if (hitLimit) {
+      output += '\n... (results capped at $maxMatches matches)';
+    }
+    if (output.length > AiToolUtils.maxSearchOutputCharacters) {
+      output =
+          '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}\n'
+          '... (output truncated)';
+    }
     return AiToolUtils.simpleSuccessResult(
       command: 'Glob $pattern',
       output: output,

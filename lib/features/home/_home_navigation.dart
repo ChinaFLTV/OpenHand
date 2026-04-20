@@ -215,10 +215,10 @@ class _NavigationPaneState extends State<_NavigationPane> {
               selectedIcon: const Icon(Icons.webhook_rounded),
               label: Text(_localizedText(context, zh: 'Hooks', en: 'Hooks')),
             ),
-            NavigationDrawerDestination(
-              icon: const Icon(Icons.schedule_outlined),
-              selectedIcon: const Icon(Icons.schedule_rounded),
-              label: const Text('Crons'),
+            const NavigationDrawerDestination(
+              icon: Icon(Icons.schedule_outlined),
+              selectedIcon: Icon(Icons.schedule_rounded),
+              label: Text('Crons'),
             ),
             NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),

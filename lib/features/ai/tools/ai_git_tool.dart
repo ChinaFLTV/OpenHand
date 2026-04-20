@@ -70,6 +70,9 @@ class AiGitTool extends AiTool {
         final target = '${args['target'] ?? ''}'.trim();
         final filePath = '${args['file_path'] ?? ''}'.trim();
         final staged = args['staged'] == true;
+        if (target.isNotEmpty && target.startsWith('-')) {
+          throw ArgumentError('Git diff target must not start with "-".');
+        }
         final gitArgs = <String>['--no-pager', 'diff', '--stat', '-p'];
         if (staged) gitArgs.add('--cached');
         if (target.isNotEmpty) gitArgs.add(target);
@@ -116,16 +119,21 @@ class AiGitTool extends AiTool {
           gitArgs.add('-L');
           gitArgs.add('$startLine,$endLine');
         }
+        gitArgs.add('--');
         gitArgs.add(filePath);
         return _run(workingDirectory, gitArgs);
 
       case 'show':
         final ref = '${args['ref'] ?? 'HEAD'}'.trim();
+        if (ref.startsWith('-')) {
+          throw ArgumentError('Git show ref must not start with "-".');
+        }
         return _run(workingDirectory, <String>[
           '--no-pager',
           'show',
           '--stat',
           '-p',
+          '--',
           ref,
         ]);
 
