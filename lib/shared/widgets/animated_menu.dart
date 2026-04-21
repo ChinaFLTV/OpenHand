@@ -373,11 +373,12 @@ Widget _buildMenuTransition(
       ),
     DialogAnimationStyle.elastic => FadeTransition(
         opacity: CurvedAnimation(
-          parent: curved,
-          curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+          parent: animation,
+          curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
+          reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
         ),
         child: ScaleTransition(
-          scale: Tween<double>(begin: 0.6, end: 1.0).animate(curved),
+          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
           alignment: Alignment.topLeft,
           child: child,
         ),

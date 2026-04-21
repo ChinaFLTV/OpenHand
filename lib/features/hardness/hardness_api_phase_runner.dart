@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session_runtime_context.dart';
+import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_chat_service.dart';
 import '../ai/service/ai_prompt_template_repository.dart';
 import '../ai/service/ai_protocol_adapter.dart';
@@ -56,6 +57,7 @@ class HardnessApiPhaseRunner {
     required AiChatClient chatClient,
     required AiToolRuntimeService toolRuntimeService,
     required AiPromptTemplateRepository templateRepository,
+    this.confirmWriteCommand,
   }) : _chatClient = chatClient,
        _toolRuntimeService = toolRuntimeService,
        _templateRepository = templateRepository;
@@ -63,6 +65,8 @@ class HardnessApiPhaseRunner {
   final AiChatClient _chatClient;
   final AiToolRuntimeService _toolRuntimeService;
   final AiPromptTemplateRepository _templateRepository;
+  final Future<bool> Function(BashCommandApprovalRequest request)?
+  confirmWriteCommand;
 
   /// Rough characters-per-token estimate for context size tracking.
   static const int _estimatedCharsPerToken = 4;
@@ -92,6 +96,7 @@ class HardnessApiPhaseRunner {
     required AiSessionRuntimeContext runtimeContext,
     required String persistenceDirectory,
     required void Function(String line) onLine,
+    required bool requireWriteCommandConfirmation,
     Future<void>? cancelSignal,
   }) async {
     _handoffSessionCounter = 0;
@@ -398,8 +403,8 @@ class HardnessApiPhaseRunner {
             model: model,
             previouslyReadFiles: previouslyReadFiles,
             denyCommandRules: denyRules,
-            requireWriteCommandConfirmation: false,
-            confirmWriteCommand: null,
+            requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+            confirmWriteCommand: confirmWriteCommand,
             cancelSignal: cancelSignal,
           );
 

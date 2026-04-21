@@ -1958,7 +1958,7 @@ class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
   }
 
   void _showMenu() {
-    if (!widget.enabled || widget.settingsModels.isEmpty) return;
+    if (_menuOpen || !widget.enabled || widget.settingsModels.isEmpty) return;
 
     final settingsController = context
         .findAncestorStateOfType<_HardnessEngineeringDialogState>()

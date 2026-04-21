@@ -165,7 +165,8 @@ Widget _buildTransition({
         child: child,
       ),
     DialogAnimationStyle.elastic => _ElasticTransition(
-        animation: curved,
+        animation: animation,
+        curve: curveData,
         child: child,
       ),
   };
@@ -260,19 +261,33 @@ class _RotateScaleTransition extends StatelessWidget {
 }
 
 class _ElasticTransition extends StatelessWidget {
-  const _ElasticTransition({required this.animation, required this.child});
+  const _ElasticTransition({
+    required this.animation,
+    required this.curve,
+    required this.child,
+  });
   final Animation<double> animation;
+  final DialogAnimationCurve curve;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: CurvedAnimation(
+    final opacity = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+    );
+    final scale = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(
         parent: animation,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+        curve: curve.curve,
+        reverseCurve: curve.reverseCurve,
       ),
+    );
+    return FadeTransition(
+      opacity: opacity,
       child: ScaleTransition(
-        scale: Tween<double>(begin: 0.6, end: 1.0).animate(animation),
+        scale: scale,
         child: child,
       ),
     );

@@ -313,6 +313,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
   bool _autoFollowEnabled = true;
+  // True when auto-follow mode is ON but the user has scrolled away from the
+  // bottom, so auto-scrolling is temporarily paused until the user scrolls
+  // back near the bottom or presses the button to resume. Kept in sync via
+  // _syncAutoFollowPausedState() so the composer button can surface a
+  // distinct "paused" visual state and offer a "resume & jump to bottom"
+  // tap action instead of toggling the mode off.
+  bool _autoFollowPaused = false;
   String? _submittingSessionId;
   bool _shouldAutoFollowMessages = true;
   bool _pendingForcedScrollToBottom = false;
@@ -998,9 +1005,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  void _armAutoFollowToBottom() {
+  void _armAutoFollowToBottom({bool notifyPausedState = true}) {
+    final previousPaused = _autoFollowPaused;
     _shouldAutoFollowMessages = true;
     _pendingForcedScrollToBottom = true;
+    _autoFollowPaused = false;
+    if (!notifyPausedState || !mounted || previousPaused == _autoFollowPaused) {
+      return;
+    }
+    setState(() {});
+  }
+
+  /// Recomputes [_autoFollowPaused] = enabled && !following-bottom and
+  /// triggers a rebuild only when the value actually changes, so the
+  /// composer button visuals stay consistent with the underlying state
+  /// without spamming setState on every scroll tick.
+  void _syncAutoFollowPausedState() {
+    if (!mounted) {
+      return;
+    }
+    final nextPaused = _autoFollowEnabled && !_shouldAutoFollowMessages;
+    if (nextPaused == _autoFollowPaused) {
+      return;
+    }
+    setState(() {
+      _autoFollowPaused = nextPaused;
+    });
   }
 
   bool _consumePendingAutoFollowRequest() {
@@ -1083,6 +1113,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_pendingForcedScrollToBottom) {
       _pendingForcedScrollToBottom = false;
     }
+    _syncAutoFollowPausedState();
   }
 
   bool _handleMessageScrollNotification(ScrollNotification notification) {
@@ -1129,12 +1160,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!_autoFollowEnabled && explicitUserScroll) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
+      _syncAutoFollowPausedState();
       return false;
     }
     final userScrolledAwayFromBottom = !isNearBottom && explicitUserScroll;
     if (userScrolledAwayFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
+      _syncAutoFollowPausedState();
       return false;
     }
     if (userScrollEnded &&
@@ -1145,6 +1178,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (isNearBottom && _autoFollowEnabled) {
       _shouldAutoFollowMessages = true;
     }
+    _syncAutoFollowPausedState();
     return false;
   }
 
@@ -1155,13 +1189,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _toggleAutoFollow() {
+    // When auto-follow is ON but paused (user scrolled up so new messages
+    // stop following), a tap should RESUME — re-arm following and jump to
+    // bottom — instead of turning the mode off. Turning the mode off in
+    // this state is almost always unintended and would lose the user's
+    // preference. Only a second tap (while actively following at the
+    // bottom) actually disables the mode.
+    if (_autoFollowEnabled && _autoFollowPaused) {
+      setState(() {
+        _autoFollowPaused = false;
+      });
+      _armAutoFollowToBottom(notifyPausedState: false);
+      _scheduleScrollToBottom(force: true, animated: true);
+      return;
+    }
     final nextValue = !_autoFollowEnabled;
     setState(() {
       _autoFollowEnabled = nextValue;
       if (!nextValue) {
         _clearPendingAutoFollowState();
+        _autoFollowPaused = false;
       } else {
-        _armAutoFollowToBottom();
+        _armAutoFollowToBottom(notifyPausedState: false);
       }
     });
     if (nextValue) {
@@ -1510,6 +1559,54 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  Future<MachineExpertDialogResult?> _showMachineExpertDialog({
+    String? initialTask,
+  }) async {
+    final settingsController = context.read<SettingsController>();
+    final selectedModel = settingsController.selectedAiModel;
+    return showAnimatedDialog<MachineExpertDialogResult>(
+      context: context,
+      builder: (context) => MachineExpertDialog(
+        initialTask: initialTask,
+        availableModels: settingsController.aiModels,
+        recentModelSelections: settingsController.recentModelSelections,
+        initialSelectedModelConfigId: selectedModel?.id,
+        initialSelectedModelId: selectedModel?.modelId,
+      ),
+    );
+  }
+
+  Future<void> _applyMachineExpertModelSelection(
+    MachineExpertDialogResult result,
+  ) async {
+    final providerConfigId = result.selectedModelConfigId?.trim();
+    final modelId = result.selectedModelId?.trim();
+    if (providerConfigId == null ||
+        providerConfigId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
+      return;
+    }
+    final settingsController = context.read<SettingsController>();
+    final sessionController = context.read<AiSessionController>();
+    final providerExists = settingsController.aiModels.any(
+      (item) => item.id == providerConfigId && item.allModelIds.contains(modelId),
+    );
+    if (!providerExists) {
+      return;
+    }
+    await settingsController.updateProviderActiveModel(providerConfigId, modelId);
+    await settingsController.addRecentModelSelection(providerConfigId, modelId);
+    final currentSessionId = sessionController.currentSessionId;
+    if (currentSessionId != null) {
+      await sessionController.updateSessionLastUsedModel(
+        currentSessionId,
+        providerConfigId: providerConfigId,
+        modelId: modelId,
+      );
+    }
+  }
+
   Future<bool> _createSession({
     required String templateId,
     AiSessionRuntimeContext? runtimeContext,
@@ -1541,7 +1638,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     setState(() {
       _selectedSection = AppSection.workspace;
-      _armAutoFollowToBottom();
+      _armAutoFollowToBottom(notifyPausedState: false);
     });
     return true;
   }
@@ -1554,10 +1651,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     if (templateId == 'machine_expert') {
-      final result = await showAnimatedDialog<MachineExpertDialogResult>(
-        context: context,
-        builder: (context) => const MachineExpertDialog(),
-      );
+      final result = await _showMachineExpertDialog();
       if (!mounted || result == null) {
         return false;
       }
@@ -1566,6 +1660,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         runtimeContext: runtimeContext,
       );
       if (created && mounted) {
+        await _applyMachineExpertModelSelection(result);
         _replaceComposerText(result.toPrompt());
         await _sendMessage();
       }
@@ -1785,6 +1880,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       chatClient: aiCtrl.chatClient,
       toolRuntimeService: aiCtrl.toolRuntimeService,
       templateRepository: aiCtrl.templateRepository,
+      confirmWriteCommand: _confirmHardnessApiWriteCommand,
     );
     orchestrator.resolveAiModelConfig = (String configId) {
       final settingsCtrl = context.read<SettingsController>();
@@ -2338,6 +2434,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     final sessionController = context.read<AiSessionController>();
+    MachineExpertDialogResult? machineExpertConfig;
     AiSessionRuntimeContext? runtimeContext;
     if (sessionController.currentSession == null) {
       final templateId = await _showThreadTemplateDialog();
@@ -2345,14 +2442,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (templateId == 'machine_expert') {
-        final result = await showAnimatedDialog<MachineExpertDialogResult>(
-          context: context,
-          builder: (context) => MachineExpertDialog(initialTask: prompt),
-        );
-        if (!mounted || result == null) {
+        machineExpertConfig = await _showMachineExpertDialog(initialTask: prompt);
+        if (!mounted || machineExpertConfig == null) {
           return;
         }
-        prompt = result.toPrompt();
+        prompt = machineExpertConfig.toPrompt();
         _replaceComposerText(prompt);
       }
       // Programming Expert: show project config dialog so the AI knows
@@ -2394,6 +2488,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       );
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
+      }
+      if (machineExpertConfig != null) {
+        await _applyMachineExpertModelSelection(machineExpertConfig);
       }
       // After creating a PE session, persist the project config into metadata.
       if (peConfig != null) {
@@ -2439,6 +2536,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           _composerFocusNode.requestFocus();
         }
       });
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2608,7 +2708,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     setState(() {
       _submittingSessionId = targetSessionId;
-      _armAutoFollowToBottom();
+      _armAutoFollowToBottom(notifyPausedState: false);
     });
     _scheduleScrollToBottom(force: true);
     try {
@@ -3110,7 +3210,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     if (_autoFollowEnabled) {
-      _armAutoFollowToBottom();
+      _armAutoFollowToBottom(notifyPausedState: false);
     }
     _scheduleAutoFollowIfNeeded(consumePendingRequest: true);
   }
@@ -3176,6 +3276,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<bool> _confirmWriteCommand(
     BashCommandApprovalRequest request, {
     String? sessionId,
+    bool trackSessionBadge = true,
   }) async {
     final settingsController = context.read<SettingsController>();
     for (final rule in settingsController.aiAllowCommandRules) {
@@ -3186,7 +3287,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     // Use the explicitly provided sessionId so the correct session badge
     // is updated even when the user has navigated to a different session.
-    final effectiveSessionId = sessionId ?? sessionController.currentSessionId;
+    final effectiveSessionId = trackSessionBadge
+        ? (sessionId ?? sessionController.currentSessionId)
+        : null;
     if (effectiveSessionId != null) {
       sessionController.setSessionAwaitingApproval(effectiveSessionId);
     }
@@ -3201,6 +3304,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sessionController.clearSessionAwaitingApproval(effectiveSessionId);
       }
     }
+  }
+
+  Future<bool> _confirmHardnessApiWriteCommand(
+    BashCommandApprovalRequest request,
+  ) {
+    return _confirmWriteCommand(request, trackSessionBadge: false);
   }
 
   Future<void> _handleSlashCommand(OpenHandSlashCommand command) async {
@@ -4132,6 +4241,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
         onRevealOlderMessages: _handleRevealOlderMessages,
         autoFollowEnabled: _autoFollowEnabled,
+        autoFollowPaused: _autoFollowPaused,
         onToggleAutoFollow: _toggleAutoFollow,
         sendPhase: _effectiveSendPhase(sessionController),
         canStopSending: _canStopCurrentSessionResponse(sessionController),

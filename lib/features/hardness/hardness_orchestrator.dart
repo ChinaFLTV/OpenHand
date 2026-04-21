@@ -1335,6 +1335,7 @@ class HardnessOrchestrator extends ChangeNotifier {
           _appendLine(log, line);
           notifyListeners();
         },
+        requireWriteCommandConfirmation: !_fullAccessPermission,
         cancelSignal: cancelCompleter.future,
       );
 

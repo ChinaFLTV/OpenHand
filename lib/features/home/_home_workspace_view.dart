@@ -21,6 +21,7 @@ class _WorkspaceView extends StatelessWidget {
     required this.onTranscriptLayoutChanged,
     required this.onRevealOlderMessages,
     required this.autoFollowEnabled,
+    required this.autoFollowPaused,
     required this.onToggleAutoFollow,
     required this.sendPhase,
     required this.canStopSending,
@@ -81,6 +82,7 @@ class _WorkspaceView extends StatelessWidget {
   final VoidCallback onTranscriptLayoutChanged;
   final VoidCallback onRevealOlderMessages;
   final bool autoFollowEnabled;
+  final bool autoFollowPaused;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
   final bool canStopSending;
@@ -255,6 +257,7 @@ class _WorkspaceView extends StatelessWidget {
                     isCollapsed: composerCollapsed,
                     onCollapsedChanged: onComposerCollapsedChanged,
                     autoFollowEnabled: autoFollowEnabled,
+                    autoFollowPaused: autoFollowPaused,
                     onToggleAutoFollow: onToggleAutoFollow,
                     sendPhase: sendPhase,
                     canStopSending: canStopSending,

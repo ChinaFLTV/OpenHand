@@ -2,13 +2,27 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/model/app_settings_snapshot.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../ai/model/ai_model_config.dart';
 
 class MachineExpertDialog extends StatefulWidget {
-  const MachineExpertDialog({super.key, this.initialTask});
+  const MachineExpertDialog({
+    super.key,
+    this.initialTask,
+    this.availableModels = const <AiModelConfig>[],
+    this.recentModelSelections = const <RecentModelSelection>[],
+    this.initialSelectedModelConfigId,
+    this.initialSelectedModelId,
+  });
 
   final String? initialTask;
+  final List<AiModelConfig> availableModels;
+  final List<RecentModelSelection> recentModelSelections;
+  final String? initialSelectedModelConfigId;
+  final String? initialSelectedModelId;
 
   @override
   State<MachineExpertDialog> createState() => _MachineExpertDialogState();
@@ -20,6 +34,8 @@ class MachineExpertDialogResult {
     required this.windowId,
     required this.tabId,
     required this.taskRequirement,
+    this.selectedModelConfigId,
+    this.selectedModelId,
     this.windowIndex,
     this.tabIndex,
     this.sessionIndex,
@@ -29,6 +45,8 @@ class MachineExpertDialogResult {
   final String windowId;
   final String tabId;
   final String taskRequirement;
+  final String? selectedModelConfigId;
+  final String? selectedModelId;
 
   /// 1-based window index for precise AppleScript addressing.
   final int? windowIndex;
@@ -81,6 +99,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   String? _selectedTerminal;
   String? _selectedWindow;
   String? _selectedTab;
+  String? _selectedModelConfigId;
+  String? _selectedModelId;
 
   List<String> _windows = [];
   List<String> _tabs = [];
@@ -90,6 +110,7 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   List<(int tabIndex, int sessionIndex)> _tabSessionIndices = [];
 
   bool _isLoading = false;
+  bool _modelMenuOpen = false;
   int _fetchSequence = 0;
   List<String> _allTerminalsCached = [];
 
@@ -154,6 +175,12 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     }
     if (widget.initialTask?.isNotEmpty == true) {
       _taskController.text = widget.initialTask!;
+    }
+    _selectedModelConfigId = widget.initialSelectedModelConfigId?.trim();
+    _selectedModelId = widget.initialSelectedModelId?.trim();
+    if (!_hasValidModelSelection()) {
+      _selectedModelConfigId = null;
+      _selectedModelId = null;
     }
   }
 
@@ -404,6 +431,130 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     );
   }
 
+  bool _hasValidModelSelection() {
+    final configId = _selectedModelConfigId;
+    final modelId = _selectedModelId;
+    if (configId == null || configId.isEmpty || modelId == null || modelId.isEmpty) {
+      return false;
+    }
+    return widget.availableModels.any(
+      (config) => config.id == configId && config.allModelIds.contains(modelId),
+    );
+  }
+
+  String? _selectedModelDisplayLabel() {
+    final configId = _selectedModelConfigId;
+    final modelId = _selectedModelId;
+    if (configId == null || configId.isEmpty) {
+      return null;
+    }
+    final config = widget.availableModels.where((item) => item.id == configId).firstOrNull;
+    if (config == null) {
+      return null;
+    }
+    if (modelId != null && modelId.isNotEmpty) {
+      return modelId;
+    }
+    if (config.modelId.trim().isNotEmpty) {
+      return config.modelId.trim();
+    }
+    return config.providerLabel;
+  }
+
+  Future<void> _showModelMenu() async {
+    if (_modelMenuOpen || widget.availableModels.isEmpty) {
+      return;
+    }
+    setState(() {
+      _modelMenuOpen = true;
+    });
+    final value = await showModelSearchSelector(
+      context: context,
+      models: widget.availableModels,
+      recentSelections: widget.recentModelSelections,
+      selectedConfigId: _selectedModelConfigId,
+      selectedModelId: _selectedModelId,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _modelMenuOpen = false;
+      if (value != null) {
+        _selectedModelConfigId = value.$1;
+        _selectedModelId = value.$2;
+      }
+    });
+  }
+
+  Widget _buildModelSelector(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final hasModels = widget.availableModels.isNotEmpty;
+    final displayLabel = _selectedModelDisplayLabel();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: hasModels ? _showModelMenu : null,
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: _loc(context, zh: '使用模型（可选）', en: 'Model (Optional)'),
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              suffixIcon: Icon(
+                _modelMenuOpen
+                    ? Icons.arrow_drop_up_rounded
+                    : Icons.arrow_drop_down_rounded,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 24,
+                minHeight: 24,
+              ),
+            ),
+            child: Text(
+              displayLabel ??
+                  _loc(
+                    context,
+                    zh: hasModels ? '点击选择模型' : '未配置可用模型，将沿用当前默认模型',
+                    en: hasModels
+                        ? 'Tap to choose a model'
+                        : 'No models configured; current default model will be used',
+                  ),
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: hasModels
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _loc(
+            context,
+            zh: hasModels
+                ? '仅影响本次新建的机器专家线程；若不选，则沿用当前已激活模型。'
+                : '尚未在设置中配置模型；本次将继续使用当前激活的默认模型。',
+            en: hasModels
+                ? 'Applies only to this new Machine Expert session. If not selected, the current active model is kept.'
+                : 'No models are configured in Settings. This session will keep using the current active default model.',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _submit() async {
     if (_selectedTerminal == null ||
         _selectedWindow == null ||
@@ -458,6 +609,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         windowId: _selectedWindow!,
         tabId: _selectedTab!,
         taskRequirement: _taskController.text.trim(),
+        selectedModelConfigId: _selectedModelConfigId,
+        selectedModelId: _selectedModelId,
         windowIndex: winIdx > 0 ? winIdx : null,
         tabIndex: tabIdx,
         sessionIndex: sessIdx,
@@ -534,6 +687,8 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+                _buildModelSelector(context),
                 const SizedBox(height: 24),
                 TextField(
                   controller: _taskController,

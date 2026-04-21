@@ -40,7 +40,7 @@ class AiPromptTemplateRepository {
       name: '机器专家',
       iconName: 'build_circle_rounded',
       description: '主要是通过本地终端程序去与目标机器交互，完成用户提出的任务或需求。',
-      internalVersion: '1.0.0',
+      internalVersion: '1.1.0',
       promptAssetDirectory: 'assets/prompts/machine_expert',
     ),
     AiThreadTemplate(

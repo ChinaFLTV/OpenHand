@@ -15,6 +15,7 @@ class _ComposerPanel extends StatefulWidget {
     required this.isCollapsed,
     required this.onCollapsedChanged,
     required this.autoFollowEnabled,
+    required this.autoFollowPaused,
     required this.onToggleAutoFollow,
     required this.sendPhase,
     required this.canStopSending,
@@ -55,6 +56,11 @@ class _ComposerPanel extends StatefulWidget {
   final bool isCollapsed;
   final ValueChanged<bool> onCollapsedChanged;
   final bool autoFollowEnabled;
+  // True when auto-follow mode is ON but the user has scrolled away from
+  // the bottom, so following is temporarily paused. In this state the
+  // button renders as a muted "resume" affordance; tapping it re-arms the
+  // follow and jumps to the latest message instead of disabling the mode.
+  final bool autoFollowPaused;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
   final bool canStopSending;
@@ -893,10 +899,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         Tooltip(
           message: _localizedText(
             context,
-            zh: widget.autoFollowEnabled ? '关闭自动滚动' : '开启自动滚动',
-            en: widget.autoFollowEnabled
-                ? 'Disable Auto Follow'
-                : 'Enable Auto Follow',
+            zh: !widget.autoFollowEnabled
+                ? '开启自动滚动'
+                : (widget.autoFollowPaused
+                    ? '自动滚动已暂停（已上滑）· 点击恢复并跳至最新'
+                    : '关闭自动滚动'),
+            en: !widget.autoFollowEnabled
+                ? 'Enable Auto Follow'
+                : (widget.autoFollowPaused
+                    ? 'Auto Follow paused (scrolled up) · tap to resume & jump to latest'
+                    : 'Disable Auto Follow'),
           ),
           child: SizedBox(
             width: 52,
@@ -906,20 +918,28 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               style: FilledButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(52, 52),
-                backgroundColor: widget.autoFollowEnabled
-                    ? colorScheme.primary
-                    : colorScheme.surfaceContainerHighest,
-                foregroundColor: widget.autoFollowEnabled
-                    ? colorScheme.onPrimary
-                    : colorScheme.onSurfaceVariant,
-                side: widget.autoFollowEnabled
-                    ? null
-                    : BorderSide(color: colorScheme.outlineVariant),
+                backgroundColor: !widget.autoFollowEnabled
+                    ? colorScheme.surfaceContainerHighest
+                    : (widget.autoFollowPaused
+                        ? colorScheme.secondaryContainer
+                        : colorScheme.primary),
+                foregroundColor: !widget.autoFollowEnabled
+                    ? colorScheme.onSurfaceVariant
+                    : (widget.autoFollowPaused
+                        ? colorScheme.onSecondaryContainer
+                        : colorScheme.onPrimary),
+                side: !widget.autoFollowEnabled
+                    ? BorderSide(color: colorScheme.outlineVariant)
+                    : (widget.autoFollowPaused
+                        ? BorderSide(color: colorScheme.secondary)
+                        : null),
               ),
               child: Icon(
-                widget.autoFollowEnabled
-                    ? Icons.vertical_align_bottom_rounded
-                    : Icons.vertical_align_bottom_outlined,
+                !widget.autoFollowEnabled
+                    ? Icons.vertical_align_bottom_outlined
+                    : (widget.autoFollowPaused
+                        ? Icons.arrow_downward_rounded
+                        : Icons.vertical_align_bottom_rounded),
               ),
             ),
           ),

@@ -1307,7 +1307,16 @@ class _ShellWriteCommandAnalyzer {
     // macOS terminal automation commands – these talk to terminal apps but
     // don't mutate the local filesystem.  Machine-expert workflows rely on
     // osascript heavily for sending keystrokes and reading screen buffers.
-    'osascript',
+    //
+    // 2026-04-21 SECURITY FIX: `osascript` is NOT listed here because it can
+    // execute arbitrary shell commands via `do shell script`, inject commands
+    // into other terminal applications via `write text` / `do script` /
+    // `keystroke`, and otherwise produce side effects indistinguishable from
+    // running the wrapped command directly.  Treating it as a blanket
+    // read-only verb lets machine-expert flows (and any other osascript
+    // invocation) bypass the write-command confirmation gate.  osascript is
+    // now handled separately in `_osascriptWriteAnalysis` below, which marks
+    // any AppleScript body that contains write-like verbs as a write command.
     'pbpaste',
     'say',
     'afplay',
@@ -1679,6 +1688,34 @@ class _ShellWriteCommandAnalyzer {
     if (commandName == 'defaults') {
       return _analyzeDefaultsInvocation(invocation);
     }
+    // 2026-04-21 osascript / osacompile are powerful and can execute arbitrary
+    // shell commands (`do shell script`), inject keystrokes into other apps
+    // (`keystroke`, `key code`, `key down/up`), or drive terminal emulators
+    // (`write text`, `do script`).  Treating every osascript invocation as a
+    // write would nag the user for simple read-only `get` queries used for
+    // locating windows, so we inspect the AppleScript body and only classify
+    // as write when a known write-like verb appears.
+    if (commandName == 'osascript' || commandName == 'osacompile') {
+      return _analyzeOsascriptInvocation(invocation);
+    }
+    // Remote/cross-host execution commands effectively run arbitrary
+    // instructions on another system — treat as write by default.
+    if (commandName == 'ssh' || commandName == 'doas') {
+      return BashWriteAnalysis.write(
+        'remote execution command $commandName',
+      );
+    }
+    // Cross-terminal injection via tmux/screen send-keys is a write operation
+    // on another session, even though the local process itself is innocent.
+    if (commandName == 'tmux' || commandName == 'screen') {
+      return _analyzeMultiplexerInvocation(commandName, invocation);
+    }
+    // X11 / Wayland input injection tools drive arbitrary key/mouse events.
+    if (commandName == 'xdotool' ||
+        commandName == 'ydotool' ||
+        commandName == 'wtype') {
+      return _analyzeInputInjectionInvocation(commandName, invocation);
+    }
     if (_looksLikeScriptPath(invocation.first.text)) {
       return BashWriteAnalysis.write(
         'script or executable path ${invocation.first.text}',
@@ -1686,6 +1723,155 @@ class _ShellWriteCommandAnalyzer {
     }
     return BashWriteAnalysis.write(
       'unclassified external command $commandName',
+    );
+  }
+
+  /// Analyze an `osascript` / `osacompile` invocation.  Flags any AppleScript
+  /// body that contains write-like verbs (arbitrary shell execution, keystroke
+  /// injection, terminal command dispatch, process/file mutation, app quit,
+  /// property assignment) as a write command.
+  BashWriteAnalysis _analyzeOsascriptInvocation(List<_ShellToken> invocation) {
+    // Concatenate every non-flag argument into a single buffer so we can look
+    // for write-like verbs regardless of how the script is chunked across
+    // multiple `-e` flags, inline script files, or here-strings.
+    final bodyBuffer = StringBuffer();
+    var dynamicScript = false;
+    for (final token in invocation.skip(1)) {
+      if (token.hasDynamicExpansion) {
+        dynamicScript = true;
+      }
+      final text = token.text;
+      // Skip short flag names themselves (like `-e`, `-s`, `-l`) but include
+      // their VALUES, which are appended as separate tokens by the tokenizer.
+      if (text.startsWith('-') && text.length <= 3) {
+        continue;
+      }
+      bodyBuffer
+        ..write(text)
+        ..write('\n');
+    }
+    final body = bodyBuffer.toString();
+    // If the AppleScript body is being assembled dynamically (e.g. via command
+    // substitution `$(…)`), we can't inspect it safely — treat as write.
+    if (dynamicScript) {
+      return const BashWriteAnalysis.write(
+        'osascript with dynamically-composed script body',
+      );
+    }
+    if (body.trim().isEmpty) {
+      return const BashWriteAnalysis.readOnly(
+        'osascript without an inline script body',
+      );
+    }
+    final lowered = body.toLowerCase();
+    const writeVerbPatterns = <String>[
+      r'\bdo\s+shell\s+script\b',
+      r'\bdo\s+script\b',
+      r'\bwrite\s+text\b',
+      r'\bkeystroke\b',
+      r'\bkey\s+code\b',
+      r'\bkey\s+down\b',
+      r'\bkey\s+up\b',
+      r'\bset\s+(?:the\s+)?clipboard\b',
+      r'\bmake\s+new\b',
+      r'\bdelete\b',
+      r'\bquit\b',
+      r'\bactivate\b',
+      r'\brestart\b',
+      r'\bshut\s+down\b',
+      r'\bopen\s+location\b',
+      r'\bset\s+value\b',
+      r'\bset\s+.+\s+to\b',
+      r'\bempty\s+trash\b',
+      r'\bperform\s+action\b',
+      r'\bclick\b',
+      r'\bmount\s+volume\b',
+      r'\beject\b',
+      r'\brename\b',
+      r'\bmove\b',
+      r'\bduplicate\b',
+    ];
+    for (final pattern in writeVerbPatterns) {
+      final match = RegExp(pattern, caseSensitive: false).firstMatch(lowered);
+      if (match != null) {
+        return BashWriteAnalysis.write(
+          'osascript body contains write-like verb `${match.group(0)?.trim()}`',
+        );
+      }
+    }
+    return const BashWriteAnalysis.readOnly(
+      'osascript body only queries terminal/app state',
+    );
+  }
+
+  /// Analyze `tmux`/`screen` invocations.  Subcommands that send keys, paste
+  /// buffers, kill sessions, source new configs, or rename objects mutate
+  /// the target session and must be confirmed.
+  BashWriteAnalysis _analyzeMultiplexerInvocation(
+    String commandName,
+    List<_ShellToken> invocation,
+  ) {
+    const writeSubcommands = <String>{
+      'send-keys',
+      'send',
+      'paste-buffer',
+      'load-buffer',
+      'set-buffer',
+      'kill-server',
+      'kill-session',
+      'kill-window',
+      'kill-pane',
+      'new-session',
+      'new-window',
+      'split-window',
+      'source-file',
+      'rename-session',
+      'rename-window',
+      'respawn-pane',
+      'respawn-window',
+      'run-shell',
+      'set-option',
+      'set-environment',
+      'stuff', // `screen -X stuff "..."` — injects keys
+    };
+    for (final token in invocation.skip(1)) {
+      final value = token.text.toLowerCase();
+      if (value.startsWith('-')) {
+        continue;
+      }
+      if (writeSubcommands.contains(value)) {
+        return BashWriteAnalysis.write(
+          '$commandName $value injects or mutates session state',
+        );
+      }
+      break;
+    }
+    // Bare `tmux` / `screen` or read-only subcommands (list-sessions,
+    // capture-pane, show-options, …) are safe.
+    return BashWriteAnalysis.readOnly(
+      '$commandName invocation appears read-only',
+    );
+  }
+
+  /// Treat any invocation of an input-injection tool as a write operation —
+  /// these drive arbitrary keyboard/mouse events on the host.
+  BashWriteAnalysis _analyzeInputInjectionInvocation(
+    String commandName,
+    List<_ShellToken> invocation,
+  ) {
+    for (final token in invocation.skip(1)) {
+      final value = token.text.toLowerCase();
+      if (value == 'search' || value == 'getactivewindow' ||
+          value == 'getwindowname' || value == 'getmouselocation') {
+        return BashWriteAnalysis.readOnly(
+          '$commandName read-only subcommand $value',
+        );
+      }
+      if (value.startsWith('-')) continue;
+      break;
+    }
+    return BashWriteAnalysis.write(
+      '$commandName injects keyboard/mouse input',
     );
   }
 

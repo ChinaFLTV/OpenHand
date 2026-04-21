@@ -355,11 +355,13 @@ String _sanitizeVisibleModelContent(String value) {
 String _stripRawToolCallMarkup(String value) {
   var stripped = value;
   
-  // 1. Strip XML-style tool_call / tool_result blocks.
+  // 1. Strip XML-style tool_call / tool_calls / tool_result / tool_use blocks.
   if (_rawToolCallPresencePattern.hasMatch(stripped)) {
     stripped = stripped
+        .replaceAll(_rawToolCallsBlockPattern, '')
         .replaceAll(_rawToolCallBlockPattern, '')
         .replaceAll(_rawToolResultBlockPattern, '')
+        .replaceAll(_rawToolUseBlockPattern, '')
         .replaceAll(_rawToolCallLooseTagPattern, '');
   }
 
@@ -376,19 +378,31 @@ String _stripRawToolCallMarkup(String value) {
 }
 
 final RegExp _rawToolCallPresencePattern = RegExp(
-  r'<\s*/?\s*tool_(?:call|result)\b',
+  r'<\s*/?\s*tool_(?:calls?|result|use)\b',
   caseSensitive: false,
 );
 final RegExp _rawToolCallBlockPattern = RegExp(
   r'<\s*tool_call\b[^>]*>[\s\S]*?<\s*/\s*tool_call\s*>',
   caseSensitive: false,
 );
+// 2026-04-21 Also strip the plural `<tool_calls>…</tool_calls>` wrapper that
+// some reasoning models echo as a scaffold (e.g. DeepSeek Reasoner) — this
+// previously leaked into the visible reasoning bubble because the stripper
+// only recognized the singular `<tool_call>` variant.
+final RegExp _rawToolCallsBlockPattern = RegExp(
+  r'<\s*tool_calls\b[^>]*>[\s\S]*?<\s*/\s*tool_calls\s*>',
+  caseSensitive: false,
+);
 final RegExp _rawToolResultBlockPattern = RegExp(
   r'<\s*tool_result\b[^>]*>[\s\S]*?<\s*/\s*tool_result\s*>',
   caseSensitive: false,
 );
+final RegExp _rawToolUseBlockPattern = RegExp(
+  r'<\s*tool_use\b[^>]*>[\s\S]*?<\s*/\s*tool_use\s*>',
+  caseSensitive: false,
+);
 final RegExp _rawToolCallLooseTagPattern = RegExp(
-  r'<\s*/?\s*tool_(?:call|result)\b[^>]*>',
+  r'<\s*/?\s*tool_(?:calls?|result|use)\b[^>]*>',
   caseSensitive: false,
 );
 final RegExp _excessiveNewlinePatternToolCall = RegExp(r'\n{3,}');

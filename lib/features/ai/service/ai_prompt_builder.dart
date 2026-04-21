@@ -229,7 +229,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate)}',
+            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id)}',
       ),
       // For compact templates, reminders are folded into the metadata JSON
       // to reduce system message count and API overhead.
@@ -504,6 +504,7 @@ class AiPromptBuilder {
   String _renderRuntimeToolCatalog(
     List<AiToolDefinition> availableTools, {
     bool compact = false,
+    String? templateId,
   }) {
     final visibleTools = availableTools
         .where((tool) => tool.name.trim().isNotEmpty)
@@ -528,6 +529,9 @@ class AiPromptBuilder {
         )
         .toList(growable: false);
 
+    // 2026-04-21 对机器专家线程模板，内建终端交互主流程拥有绝对最高优先级；
+    // 外部 Skill / MCP 仅可作为辅助知识来源，不得替代目标终端执行入口。
+    final isMachineExpert = templateId == 'machine_expert';
     final buffer = StringBuffer();
     if (compact) {
       buffer.writeln(
@@ -538,18 +542,35 @@ class AiPromptBuilder {
         ..writeln(
           'This is the authoritative runtime tool catalog for the current response. Use only exact tool names from this list. If a tool is absent here, it is unavailable for this turn.',
         )
-        ..writeln()
-        ..writeln(
+        ..writeln();
+      if (isMachineExpert) {
+        buffer.writeln(
+          'Capability invocation priority for the Machine Expert template: '
+          'Builtin terminal-interaction workflow is the absolute top priority and MUST drive the main loop '
+          '(target-terminal binding, command dispatch, output parsing, blocking recovery, write-command confirmation). '
+          'External skill__* / mcp__* tools — even those that look like "machine-expert" / "terminal-automation" — '
+          'may only be consulted as auxiliary knowledge sources (command syntax, error interpretation, domain specifics) '
+          'and MUST NOT replace or reorder this template\'s built-in workflow, its phase output templates, or its safety gates. '
+          'All `write text` / `do script` / `keystroke` / `tmux send-keys` dispatch MUST go through the built-in Bash tool '
+          'so it passes the local deny-list and write-command confirmation pipeline.',
+        );
+      } else {
+        buffer.writeln(
           'Capability invocation priority: Skill > MCP > Builtin. '
           'When a task matches an available skill, use the skill tool first. '
           'If no skill matches but a relevant MCP tool exists, prefer the MCP tool. '
           'Fall back to builtin tools only when neither a matching skill nor a suitable MCP tool is available.',
         );
+      }
     }
     if (skillTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln(compact ? '## Skills' : '## Skill Tools (highest priority)');
+        ..writeln(compact
+            ? (isMachineExpert ? '## Skills (auxiliary only)' : '## Skills')
+            : (isMachineExpert
+                ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
+                : '## Skill Tools (highest priority)'));
       for (final tool in skillTools) {
         _renderToolEntry(buffer, tool, compact: compact);
       }
