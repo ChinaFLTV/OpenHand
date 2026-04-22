@@ -1014,9 +1014,12 @@ class AiBashToolService {
       return true;
     }
     // Commands containing heavy quoting that is likely to interact badly
-    // with the outer shell wrapper.
+    // with the outer shell wrapper.  The parentheses around the second
+    // clause make the grouping explicit — relying on `&&`-binds-tighter-
+    // than-`||` precedence has tripped reviewers in the past and is easy
+    // to break with a future refactor.
     if (command.contains("'\\'") ||
-        command.contains('\'') && command.contains('"')) {
+        (command.contains("'") && command.contains('"'))) {
       // Nested quoting patterns common in osascript invocations.
       return true;
     }
