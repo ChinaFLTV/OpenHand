@@ -687,10 +687,19 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       if (node is! md.Element) {
         continue;
       }
+      final attributes = node.attributes;
+      // Defensively scrub any attribute whose value is consumed by
+      // flutter_markdown_plus via `int.parse(...)` (currently only `start`
+      // on ordered lists). If upstream ever widens the set we simply add the
+      // attribute name here.
       if (node.tag == 'ol') {
-        final start = node.attributes['start'];
-        if (start != null && int.tryParse(start.trim()) == null) {
-          node.attributes.remove('start');
+        final start = attributes['start'];
+        if (start == null || int.tryParse(start.trim()) == null) {
+          attributes.remove('start');
+        } else {
+          // Normalize to a trimmed decimal representation so int.parse
+          // cannot choke on stray whitespace or leading '+' signs.
+          attributes['start'] = int.parse(start.trim()).toString();
         }
       }
       final children = node.children;

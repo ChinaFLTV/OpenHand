@@ -921,17 +921,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 backgroundColor: !widget.autoFollowEnabled
                     ? colorScheme.surfaceContainerHighest
                     : (widget.autoFollowPaused
-                        ? colorScheme.secondaryContainer
+                    ? colorScheme.primaryContainer
                         : colorScheme.primary),
                 foregroundColor: !widget.autoFollowEnabled
                     ? colorScheme.onSurfaceVariant
                     : (widget.autoFollowPaused
-                        ? colorScheme.onSecondaryContainer
+                    ? colorScheme.onPrimaryContainer
                         : colorScheme.onPrimary),
                 side: !widget.autoFollowEnabled
                     ? BorderSide(color: colorScheme.outlineVariant)
                     : (widget.autoFollowPaused
-                        ? BorderSide(color: colorScheme.secondary)
+                    ? BorderSide(color: colorScheme.primary)
                         : null),
               ),
               child: Icon(

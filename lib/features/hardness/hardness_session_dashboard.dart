@@ -6520,6 +6520,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
     implements MarkdownBuilderDelegate {
   List<Widget>? _children;
   String? _lastSanitised;
+  String? _lastRawContent;
   int? _lastThemeHash;
   final List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
 
@@ -6542,7 +6543,6 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
   }
 
   void _rebuildIfNeeded() {
-    final sanitised = _heSanitizeMarkdownSource(widget.content);
     final themeHash = Object.hashAll(<Object?>[
       widget.theme.brightness,
       widget.colorScheme.surface.toARGB32(),
@@ -6551,11 +6551,21 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       widget.cardBackground?.toARGB32(),
       widget.filePathRoots.join('\u0000'),
     ]);
+    // Fast-path: if the raw content and relevant theme inputs are unchanged
+    // we can skip even the sanitization work.
+    if (_children != null &&
+        _lastRawContent == widget.content &&
+        _lastThemeHash == themeHash) {
+      return;
+    }
+    final sanitised = _heSanitizeMarkdownSource(widget.content);
 
     if (sanitised == _lastSanitised && themeHash == _lastThemeHash) {
+      _lastRawContent = widget.content;
       return;
     }
 
+    _lastRawContent = widget.content;
     _lastSanitised = sanitised;
     _lastThemeHash = themeHash;
     if (sanitised.isEmpty) {
@@ -6619,6 +6629,7 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
       final astNodes = document.parseLines(
         const LineSplitter().convert(source),
       );
+      _heSanitizeMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: true,
@@ -7186,6 +7197,32 @@ String _heSanitizeMarkdownSource(String source) {
     (m) => '${m[1]}${m[2]}\\${m[3]}',
   );
   return _heCloseUnterminatedCodeBlock(escapedSetext);
+}
+
+/// Strip or normalize markdown attributes that flutter_markdown_plus would
+/// feed into `int.parse` (currently only ordered-list `start`). Without this
+/// guard a malformed attribute value can surface as an uncaught
+/// FormatException that the Flutter engine reports from an async binding
+/// callback, causing noticeable jank on first paint of a long thread.
+void _heSanitizeMarkdownAst(List<md.Node> nodes) {
+  for (final node in nodes) {
+    if (node is! md.Element) {
+      continue;
+    }
+    final attributes = node.attributes;
+    if (node.tag == 'ol') {
+      final start = attributes['start'];
+      if (start == null || int.tryParse(start.trim()) == null) {
+        attributes.remove('start');
+      } else {
+        attributes['start'] = int.parse(start.trim()).toString();
+      }
+    }
+    final children = node.children;
+    if (children != null && children.isNotEmpty) {
+      _heSanitizeMarkdownAst(children);
+    }
+  }
 }
 
 // =============================================================================
@@ -9333,6 +9370,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
       final astNodes = document.parseLines(
         const LineSplitter().convert(source),
       );
+      _heSanitizeMarkdownAst(astNodes);
       final builder = MarkdownBuilder(
         delegate: this,
         selectable: false,

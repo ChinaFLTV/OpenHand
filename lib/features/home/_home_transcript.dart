@@ -533,7 +533,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
               addAutomaticKeepAlives: false,
-              addRepaintBoundaries: false,
+              // Repaint boundaries are essential for a message list: without
+              // them a single bubble's internal animation (e.g. streaming
+              // reasoning shimmer, tool-call progress) dirties the entire
+              // visible window and repaints every neighbour on every frame,
+              // which is the dominant source of first-paint jank when a
+              // session has many tool-call / code-block bubbles.
+              // (Leaving this at the framework default, which is already
+              // `true`, keeps the call site lint-clean and the intent
+              // explicit via the comment above.)
               // Keep a modest cache: large enough to avoid jank when
               // scrolling slightly but small enough to limit the work done
               // on the first layout pass (fewer off-screen items built).

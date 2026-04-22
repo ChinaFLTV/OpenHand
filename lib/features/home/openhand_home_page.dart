@@ -129,9 +129,17 @@ const int _transcriptInitialWindowSize = 30;
 const int _transcriptWindowIncrement = 25;
 const int _transcriptWindowingThreshold = 40;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
-// Reduced from 120 ms: the placeholder frame is now shorter so users spend
-// less time waiting before the real content appears.
-const Duration _transcriptLoadingPlaceholderDelay = Duration(milliseconds: 750);
+// Number of post-layout frames to wait before revealing the freshly switched
+// transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock
+// delay so the overlay only stays up as long as the UI actually needs to
+// finish first layout + scroll-to-bottom — preventing the "long blank"
+// window that was previously forced regardless of how fast the real list
+// rendered.
+const int _transcriptPreparationFrameBudget = 3;
+// Hard cap so a single problematic session (e.g. huge transcript) never
+// leaves the user staring at the placeholder indefinitely. If real layout
+// has not finished within this window we reveal the transcript anyway.
+const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 320);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
 );
@@ -862,26 +870,61 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     setState(() {
       _preparingTranscriptSessionId = nextSessionId;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _scheduleTranscriptReveal(
+      generation: generation,
+      expectedSessionId: nextSessionId,
+    );
+  }
+
+  // Frame-driven placeholder dismissal. Instead of a wall-clock delay we
+  // wait for [_transcriptPreparationFrameBudget] consecutive post-frame
+  // callbacks — by that point the ListView has completed its first layout
+  // and the forced scroll-to-bottom has executed, so the transition fades
+  // exactly when there is something real to reveal. A hard timeout still
+  // forces the reveal after [_transcriptPreparationMaxWait] to guarantee
+  // the UI never hangs in the placeholder state.
+  void _scheduleTranscriptReveal({
+    required int generation,
+    required String expectedSessionId,
+  }) {
+    final stopwatch = Stopwatch()..start();
+
+    void finish() {
       if (!mounted ||
           generation != _transcriptPreparationGeneration ||
-          _preparingTranscriptSessionId != nextSessionId) {
+          _preparingTranscriptSessionId != expectedSessionId) {
         return;
       }
-      unawaited(() async {
-        await Future<void>.delayed(_transcriptLoadingPlaceholderDelay);
+      setState(() {
+        if (_preparingTranscriptSessionId == expectedSessionId) {
+          _preparingTranscriptSessionId = null;
+        }
+      });
+    }
+
+    void scheduleNextFrame(int remainingFrames) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted ||
             generation != _transcriptPreparationGeneration ||
-            _preparingTranscriptSessionId != nextSessionId) {
+            _preparingTranscriptSessionId != expectedSessionId) {
           return;
         }
-        setState(() {
-          if (_preparingTranscriptSessionId == nextSessionId) {
-            _preparingTranscriptSessionId = null;
-          }
-        });
-      }());
-    });
+        if (remainingFrames <= 0 ||
+            stopwatch.elapsed >= _transcriptPreparationMaxWait) {
+          finish();
+          return;
+        }
+        scheduleNextFrame(remainingFrames - 1);
+      });
+    }
+
+    scheduleNextFrame(_transcriptPreparationFrameBudget);
+
+    // Safety net in case post-frame callbacks stop firing (e.g. the route
+    // is in the background). Use the scheduler's timeout guarantees via a
+    // microtask-driven timer. This never fires before the frame callbacks
+    // unless the frame pipeline truly stalls.
+    Future<void>.delayed(_transcriptPreparationMaxWait, finish);
   }
 
   String _composerDraftKeyForSessionId(String? sessionId) {

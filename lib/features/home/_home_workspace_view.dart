@@ -174,8 +174,8 @@ class _WorkspaceView extends StatelessWidget {
                             opacity: transcriptPreparing ? 0.0 : 1.0,
                             duration: transcriptPreparing
                                 ? Duration.zero
-                                : const Duration(milliseconds: 300),
-                            curve: Curves.easeInCubic,
+                                : const Duration(milliseconds: 160),
+                            curve: Curves.easeOutCubic,
                             child: _SessionTranscript(
                               key: ValueKey<String>(
                                 'messages-${currentSession!.id}',
@@ -213,8 +213,8 @@ class _WorkspaceView extends StatelessWidget {
                               opacity: transcriptPreparing ? 1.0 : 0.0,
                               // 进场需提前快过底部列表跳跃，退场再慢慢淡出
                               duration: transcriptPreparing
-                                  ? const Duration(milliseconds: 100)
-                                  : const Duration(milliseconds: 240),
+                                  ? const Duration(milliseconds: 80)
+                                  : const Duration(milliseconds: 160),
                               curve: Curves.easeOutCubic,
                               child: _SessionTranscriptLoadingPlaceholder(
                                 key: ValueKey<String>(
