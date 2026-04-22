@@ -3158,6 +3158,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.deleteFile:
+      // Interactive dialog tool must run serially so its modal UI is not
+      // interleaved with other tool invocations on the same turn.
+      case AiBuiltinToolKind.askUserChoice:
         return false;
     }
   }

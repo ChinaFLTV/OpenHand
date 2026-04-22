@@ -89,6 +89,7 @@ enum AiBuiltinToolKind {
   git,
   deleteFile,
   readLints,
+  askUserChoice,
 }
 
 class AiToolExecutionResult {
@@ -762,6 +763,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.git => 'Git',
       AiBuiltinToolKind.deleteFile => 'DeleteFile',
       AiBuiltinToolKind.readLints => 'ReadLints',
+      AiBuiltinToolKind.askUserChoice => 'AskUserChoice',
       null => tool.name,
     };
   }
@@ -1603,6 +1605,83 @@ class AiToolRuntimeService {
                 'Optional list of file or directory paths to analyze. If empty, analyzes the whole workspace.',
           },
         },
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.askUserChoice,
+      name: 'AskUserChoice',
+      description:
+          'Ask the user to make a single choice via a modal dialog when you '
+          'need them to pick from a small, well-defined list of options. The '
+          'dialog always exposes the predefined `options` as radio choices and '
+          '(unless `allow_custom_input` is false) an extra "custom input" '
+          'radio that lets the user type a free-form answer. Prefer this over '
+          'phrasing multi-choice questions in plain chat text whenever a '
+          'deterministic, machine-readable answer is required (e.g. brainstorm '
+          'direction picking, confirming which of N candidate paths to use). '
+          'Returns JSON `{"value": "...", "is_custom": true|false}`.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'title': <String, Object?>{
+            'type': 'string',
+            'description': 'Short dialog title shown as the question headline.',
+          },
+          'description': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional longer description or context displayed below the title.',
+          },
+          'options': <String, Object?>{
+            'type': 'array',
+            'minItems': 1,
+            'items': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'value': <String, Object?>{
+                  'type': 'string',
+                  'description':
+                      'Machine-readable identifier returned when the user picks this option.',
+                },
+                'label': <String, Object?>{
+                  'type': 'string',
+                  'description': 'Human-readable primary label shown in the radio tile.',
+                },
+                'description': <String, Object?>{
+                  'type': 'string',
+                  'description':
+                      'Optional secondary helper text shown beneath the label.',
+                },
+              },
+              'required': <String>['value', 'label'],
+              'additionalProperties': false,
+            },
+          },
+          'allow_custom_input': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'Whether to also show a "custom input" radio with a free-form text field. Defaults to true.',
+          },
+          'confirm_label': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional override for the confirm button label.',
+          },
+          'cancel_label': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional override for the cancel button label.',
+          },
+          'custom_option_label': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional override for the label displayed on the custom-input radio.',
+          },
+          'custom_input_hint': <String, Object?>{
+            'type': 'string',
+            'description': 'Optional placeholder hint inside the free-form text field.',
+          },
+        },
+        'required': <String>['title', 'options'],
         'additionalProperties': false,
       },
     ),

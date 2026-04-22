@@ -673,13 +673,74 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     r'(^|\n)(\s*)(=+|\^+)(?=\n|$)',
   );
 
+  /// Matches scaffolding lines that sometimes leak from models into the
+  /// visible markdown body, e.g. a bare `Tool: Bash`, `工具: Bash`,
+  /// `工具调用：xxx`, `[tool_call] ...`, or `function_calls: ...`.
+  ///
+  /// These come from the model's own chain-of-thought / training data and
+  /// should be rendered by the structured tool-call bubble, not as plain text.
+  /// We strip them before markdown parsing to keep transcripts clean.
+  static final RegExp _toolScaffoldingLinePattern = RegExp(
+    r'^\s*(?:'
+    r'tool\s*:\s*\w[\w\-\.]*'
+    r'|工具\s*[:：]\s*\w[\w\-\.]*'
+    r'|工具调用\s*[:：].*'
+    r'|\[?tool_call\]?\s*[:：]?\s*.*'
+    r'|function_calls?\s*[:：].*'
+    r'|<?function_calls?>?\s*$'
+    r'|</?invoke[^>]*>\s*$'
+    r')\s*$',
+    caseSensitive: false,
+    multiLine: true,
+  );
+
   String _sanitizeMarkdownSource(String source) {
-    return _closeUnterminatedFencedCodeBlock(
-      source.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
-    ).replaceAllMapped(
+    final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final stripped = _stripToolScaffolding(normalized);
+    return _closeUnterminatedFencedCodeBlock(stripped).replaceAllMapped(
       _setextEscapePattern,
       (match) => '${match[1]}${match[2]}\\${match[3]}',
     );
+  }
+
+  /// Removes scaffolding-only lines while **preserving** any line inside a
+  /// fenced code block — users may legitimately write `Tool: Bash` inside
+  /// a code sample. We track fence state (``` / ~~~) and only strip in prose.
+  String _stripToolScaffolding(String source) {
+    if (!_toolScaffoldingLinePattern.hasMatch(source)) {
+      return source;
+    }
+    final lines = source.split('\n');
+    final buffer = StringBuffer();
+    var inFence = false;
+    String? fenceMarker;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trimLeft();
+      if (inFence) {
+        if (fenceMarker != null && trimmed.startsWith(fenceMarker)) {
+          inFence = false;
+          fenceMarker = null;
+        }
+        buffer.write(line);
+        if (i != lines.length - 1) buffer.write('\n');
+        continue;
+      }
+      if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+        inFence = true;
+        fenceMarker = trimmed.startsWith('```') ? '```' : '~~~';
+        buffer.write(line);
+        if (i != lines.length - 1) buffer.write('\n');
+        continue;
+      }
+      if (_toolScaffoldingLinePattern.hasMatch(line)) {
+        // Drop the scaffolding line entirely (including its newline).
+        continue;
+      }
+      buffer.write(line);
+      if (i != lines.length - 1) buffer.write('\n');
+    }
+    return buffer.toString();
   }
 
   void _sanitizeMarkdownAst(List<md.Node> nodes) {

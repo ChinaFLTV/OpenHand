@@ -1380,9 +1380,7 @@ class _ToolCallViewData {
       stderrFile: stderrFile.isNotEmpty ? stderrFile : null,
       shouldSweepBadge: _shouldSweepToolStatus(status),
       statusIcon: _toolExecutionStatusIcon(status),
-      primaryChipLabel: presentation.displayName == presentation.categoryLabel
-          ? presentation.categoryLabel
-          : '${presentation.categoryLabel}: ${presentation.displayName}',
+      primaryChipLabel: _buildPrimaryChipLabel(context, presentation),
       statusLabel: _toolCallStatusLabelForData(
         context,
         presentation,
@@ -1544,6 +1542,33 @@ IconData _toolExecutionStatusIcon(String status) {
   };
 }
 
+/// Builds a compact, non-redundant chip label for a tool call bubble.
+///
+/// - When [_ToolCallPresentation.categoryLabel] equals [_ToolCallPresentation.displayName]
+///   (the common built-in tool case, e.g. both are "Bash"), render the label once
+///   to avoid producing noisy strings such as "Bash: Bash".
+/// - For the generic "Tool" / "工具" fallback (used when the model emits an
+///   unrecognized tool name), drop the generic category prefix and surface only
+///   the actual name so the chip does not bleed scaffolding like "Tool: Bash"
+///   into the transcript.
+/// - Otherwise keep the `Category: DisplayName` form so MCP/Skill/Hook chips
+///   remain easy to scan.
+String _buildPrimaryChipLabel(
+  BuildContext context,
+  _ToolCallPresentation presentation,
+) {
+  final category = presentation.categoryLabel.trim();
+  final display = presentation.displayName.trim();
+  if (category.isEmpty || category == display) {
+    return display.isEmpty ? category : display;
+  }
+  final genericCategory = _localizedText(context, zh: '工具', en: 'Tool');
+  if (category == genericCategory) {
+    return display.isEmpty ? category : display;
+  }
+  return '$category: $display';
+}
+
 _ToolCallPresentation _toolCallPresentation(
   BuildContext context,
   AiSessionMessage message,
@@ -1654,6 +1679,11 @@ _ToolCallPresentation _toolCallPresentation(
       categoryLabel: 'ExitPlanMode',
       displayName: 'ExitPlanMode',
       icon: Icons.assignment_turned_in_outlined,
+    ),
+    'askuserchoice' => const _ToolCallPresentation(
+      categoryLabel: 'AskUserChoice',
+      displayName: 'AskUserChoice',
+      icon: Icons.quiz_outlined,
     ),
     _ => _ToolCallPresentation(
       categoryLabel: _localizedText(context, zh: '工具', en: 'Tool'),

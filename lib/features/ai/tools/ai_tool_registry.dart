@@ -6,6 +6,7 @@ import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_claude_hook_service.dart';
 import '../service/ai_tool_runtime_service.dart';
+import 'ai_ask_user_choice_tool.dart';
 import 'ai_bash_tool.dart';
 import 'ai_codebase_search_tool.dart';
 import 'ai_delete_file_tool.dart';
@@ -53,7 +54,8 @@ class AiToolRegistry {
       ..register(AiCodebaseSearchTool())
       ..register(AiGitTool())
       ..register(AiDeleteFileTool())
-      ..register(AiReadLintsTool());
+      ..register(AiReadLintsTool())
+      ..register(AiAskUserChoiceTool());
   }
 
   // ──────────────────────────────────────────────────────────────

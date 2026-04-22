@@ -34,6 +34,7 @@ import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/choice_input_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
@@ -55,6 +56,7 @@ import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
+import '../ai/tools/ai_ask_user_choice_tool.dart';
 import '../crons/crons_view.dart';
 import '../hardness/hardness_api_phase_runner.dart';
 import '../hardness/hardness_cli_catalog.dart';
@@ -356,6 +358,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _sessionControllerUiSyncQueued = false;
   int _sessionActivationGeneration = 0;
   AppLifecycleState? _appLifecycleState;
+  void Function()? _disposeAskUserChoicePresenter;
   int _resumeAutoFollowSuppressionFrames = 0;
   bool _resumeAutoFollowSyncQueued = false;
   final ValueNotifier<double> _navigationWidthNotifier = ValueNotifier<double>(
@@ -683,6 +686,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // of which widget currently holds keyboard focus (Focus.onKeyEvent bubbling
     // is unreliable when the focus tree is not rooted at _globalShortcutFocusNode).
     HardwareKeyboard.instance.addHandler(_handleGlobalShortcutKeyEvent);
+    _disposeAskUserChoicePresenter = AiAskUserChoiceTool.registerPresenter(
+      _presentAskUserChoiceDialog,
+    );
     _loadPersistedHardnessSession();
   }
 
@@ -749,6 +755,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _observedSessionController?.removeListener(_handleSessionControllerChanged);
     _messageScrollController.removeListener(_handleMessageScroll);
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
+    _disposeAskUserChoicePresenter?.call();
+    _disposeAskUserChoicePresenter = null;
     _globalShortcutFocusNode.dispose();
     _composerFocusNode.dispose();
     _composerController.dispose();
@@ -762,6 +770,41 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _queuedForcedScrollToBottom = false;
     _pendingAnimatedScrollToBottom = false;
     _pendingScrollToBottomSettlePasses = 0;
+  }
+
+  /// Presents the AskUserChoice dialog on behalf of the AI tool.
+  ///
+  /// Registered once in [initState] and unregistered in [dispose]. Guarded
+  /// with `mounted` checks so background tool calls arriving after navigation
+  /// don't attempt to push a dialog onto a disposed route.
+  Future<AskUserChoiceResponse?> _presentAskUserChoiceDialog(
+    AskUserChoiceRequest request,
+  ) async {
+    if (!mounted) return null;
+    final result = await showChoiceInputDialog(
+      context: context,
+      title: request.title,
+      description: request.description,
+      options: request.options
+          .map(
+            (option) => ChoiceInputOption(
+              value: option.value,
+              label: option.label,
+              description: option.description,
+            ),
+          )
+          .toList(growable: false),
+      allowCustomInput: request.allowCustomInput,
+      confirmLabel: request.confirmLabel,
+      cancelLabel: request.cancelLabel,
+      customOptionLabel: request.customOptionLabel,
+      customInputHint: request.customInputHint,
+    );
+    if (result == null) return null;
+    return AskUserChoiceResponse(
+      value: result.value,
+      isCustom: result.isCustom,
+    );
   }
 
   void _handleSessionControllerChanged() {
