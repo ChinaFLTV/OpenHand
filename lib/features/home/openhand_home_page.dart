@@ -3290,8 +3290,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           shouldAnimate &&
           distance > _autoFollowAnimatedDistanceThreshold) {
         _programmaticAutoFollowScrollInProgress = true;
+        // Animate on the specific active `ScrollPosition` rather than the
+        // controller so a transient second attached position (e.g. during a
+        // session swap's AnimatedOpacity cross-fade) does not trip the
+        // `Scrollbar` assertion that its `ScrollController` has a single
+        // `ScrollPosition`.  `ScrollController.animateTo` fans out to every
+        // attached position, which emits scroll notifications from the stale
+        // position as well and surfaces as `RawScrollbar` validation crashes.
         unawaited(
-          _messageScrollController
+          activePosition
               .animateTo(
                 targetOffset,
                 duration: _scrollToBottomAnimationDuration(distance),
@@ -3306,7 +3313,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (distance >= 1) {
         _programmaticAutoFollowScrollInProgress = true;
-        _messageScrollController.jumpTo(targetOffset);
+        activePosition.jumpTo(targetOffset);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           clearProgrammaticScrollFlag();
           scheduleSettlePass();

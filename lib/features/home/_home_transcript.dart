@@ -144,7 +144,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               ? controller.positions.last
               : null;
           if (position != null && position.maxScrollExtent > 0) {
-            controller.jumpTo(position.maxScrollExtent);
+            // Jump on the specific position rather than
+            // `controller.jumpTo` so a transient second attached position
+            // (session cross-fade) does not trigger the `Scrollbar` /
+            // `RawScrollbar` single-position validation.
+            position.jumpTo(position.maxScrollExtent);
           }
         }
       });
