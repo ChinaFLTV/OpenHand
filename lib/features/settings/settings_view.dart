@@ -908,46 +908,46 @@ class _SettingsViewState extends State<SettingsView> {
               else
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 520),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        for (var index = 0;
-                            index < aiModels.length;
-                            index++) ...[
-                          _AiModelTile(
-                            model: aiModels[index],
-                            isSelected:
-                                settingsController.selectedAiModelId ==
-                                aiModels[index].id,
-                            isTesting: _testingAiModelIds.contains(
-                              aiModels[index].id,
-                            ),
-                            isFirst: index == 0,
-                            isLast: index == aiModels.length - 1,
-                            onSelect: () => settingsController
-                                .updateSelectedAiModel(aiModels[index].id),
-                            onTest: () => _testAiModel(aiModels[index]),
-                            onEdit: () => _showAiModelDialog(
-                              context,
-                              initialModel: aiModels[index],
-                            ),
-                            onMoveUp: () => settingsController.moveAiModel(
-                                index, index - 1),
-                            onMoveDown: () => settingsController.moveAiModel(
-                                index, index + 1),
-                            onDelete: () => _confirmDeleteAiModel(
-                                context, aiModels[index]),
-                            onActiveModelChanged: (modelId) =>
-                                settingsController.updateProviderActiveModel(
-                              aiModels[index].id,
-                              modelId,
-                            ),
-                          ),
-                          if (index != aiModels.length - 1)
-                            const SizedBox(height: 14),
-                        ],
-                      ],
-                    ),
+                  // Use ListView.builder so that off-screen provider tiles
+                  // (each tile renders a title row, icon button cluster and
+                  // a Wrap of up to 20 model chips) are not built eagerly.
+                  // With up to 20 providers, the previous Column-in-
+                  // SingleChildScrollView built every tile on every rebuild
+                  // of the settings page, which dominated Build time when
+                  // opening the Settings section.
+                  child: ListView.separated(
+                    itemCount: aiModels.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      return _AiModelTile(
+                        model: aiModels[index],
+                        isSelected: settingsController.selectedAiModelId ==
+                            aiModels[index].id,
+                        isTesting:
+                            _testingAiModelIds.contains(aiModels[index].id),
+                        isFirst: index == 0,
+                        isLast: index == aiModels.length - 1,
+                        onSelect: () => settingsController
+                            .updateSelectedAiModel(aiModels[index].id),
+                        onTest: () => _testAiModel(aiModels[index]),
+                        onEdit: () => _showAiModelDialog(
+                          context,
+                          initialModel: aiModels[index],
+                        ),
+                        onMoveUp: () =>
+                            settingsController.moveAiModel(index, index - 1),
+                        onMoveDown: () =>
+                            settingsController.moveAiModel(index, index + 1),
+                        onDelete: () =>
+                            _confirmDeleteAiModel(context, aiModels[index]),
+                        onActiveModelChanged: (modelId) =>
+                            settingsController.updateProviderActiveModel(
+                          aiModels[index].id,
+                          modelId,
+                        ),
+                      );
+                    },
                   ),
                 ),
             ],

@@ -448,6 +448,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final displayMessages = session.displayMessages;
+    // Read these provider values once here, at the transcript scope, instead
+    // of re-subscribing inside ListView.builder's itemBuilder.  Calling
+    // `context.watch()` inside itemBuilder registers the ListView element
+    // itself as a listener, causing the full visible message window to
+    // rebuild on any unrelated SettingsController change (theme, language,
+    // tool toggles, etc.).  `select` narrows the subscription to just the
+    // telemetry flag so most settings changes no longer invalidate the
+    // transcript at all.
+    final telemetryDebugEnabled = context.select<SettingsController, bool>(
+      (controller) => controller.telemetryDebugEnabled,
+    );
+    final aiSessionController = context.read<AiSessionController>();
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
@@ -696,15 +708,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                                 widget.onDeleteMessageFromHere,
                               )
                             : null,
-                        onAudit: context
-                                .watch<SettingsController>()
-                                .telemetryDebugEnabled
+                        onAudit: telemetryDebugEnabled
                             ? () {
                                 _showMessageAuditDialog(
                                   context,
                                   message: message,
                                   session: session,
-                                  controller: context.read<AiSessionController>(),
+                                  controller: aiSessionController,
                                 );
                               }
                             : null,
@@ -773,12 +783,41 @@ class _TranscriptAnimatedMessageEntryState
           .animate(
             CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutCubic),
           );
+      // Tear down the entrance animation as soon as it finishes so the
+      // ticker stops driving rebuilds for every still-mounted entry.
+      // With long sessions (1k+ messages) and a `cacheExtent` that keeps
+      // the most recently scrolled tiles alive, leaving the controller
+      // ticking after the one-shot 420ms reveal contributes a measurable
+      // baseline cost to subsequent frames.
+      _entranceCtrl!.addStatusListener(_onEntranceStatus);
       _entranceCtrl!.forward();
+    }
+  }
+
+  void _onEntranceStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed) {
+      return;
+    }
+    final ctrl = _entranceCtrl;
+    if (ctrl == null) {
+      return;
+    }
+    ctrl.removeStatusListener(_onEntranceStatus);
+    ctrl.dispose();
+    _entranceCtrl = null;
+    _opacity = null;
+    _scale = null;
+    _slide = null;
+    if (mounted) {
+      // Switch to the static fast-path build that does not wrap with
+      // FadeTransition/ScaleTransition/SlideTransition.
+      setState(() {});
     }
   }
 
   @override
   void dispose() {
+    _entranceCtrl?.removeStatusListener(_onEntranceStatus);
     _entranceCtrl?.dispose();
     super.dispose();
   }
@@ -949,14 +988,47 @@ class _SessionErrorBanner extends StatelessWidget {
   }
 }
 
-class _AnimatedSessionTitleText extends StatelessWidget {
+class _AnimatedSessionTitleText extends StatefulWidget {
   const _AnimatedSessionTitleText({required this.text, required this.style});
 
   final String text;
   final TextStyle? style;
 
   @override
+  State<_AnimatedSessionTitleText> createState() =>
+      _AnimatedSessionTitleTextState();
+}
+
+class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText> {
+  // On initial mount we render a plain [Text] to avoid the considerable
+  // cost of AnimatedSwitcher + ClipRect + FadeTransition + SlideTransition +
+  // ScaleTransition + CurvedAnimations being instantiated for every thread
+  // tile when the sidebar first paints.  The animated reveal is only
+  // engaged after the title actually changes at runtime (e.g. auto-title
+  // generation or explicit rename), which is the scenario that motivated
+  // the animation in the first place.
+  bool _animatedOnce = false;
+
+  @override
+  void didUpdateWidget(covariant _AnimatedSessionTitleText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_animatedOnce && oldWidget.text != widget.text) {
+      _animatedOnce = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final textWidget = Text(
+      widget.text,
+      key: ValueKey<String>(widget.text),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: widget.style,
+    );
+    if (!_animatedOnce) {
+      return textWidget;
+    }
     return AnimatedSwitcher(
       duration: _sessionTitleRevealAnimationDuration,
       switchInCurve: Curves.easeOutCubic,
@@ -998,13 +1070,7 @@ class _AnimatedSessionTitleText extends StatelessWidget {
           ),
         );
       },
-      child: Text(
-        text,
-        key: ValueKey<String>(text),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: style,
-      ),
+      child: textWidget,
     );
   }
 }

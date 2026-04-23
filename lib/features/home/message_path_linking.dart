@@ -132,6 +132,29 @@ void _rememberResolvedMessagePath(String cacheKey, MessageResolvedPath? value) {
   _resolvedMessagePathCache[cacheKey] = value;
 }
 
+/// Synchronous cache probe used by widgets that want to avoid spinning up
+/// a `FutureBuilder` / extra frame when the path has already been resolved
+/// (either by an earlier async lookup or by the inline markdown syntax).
+///
+/// Returns a record of `(hit, value)` where `hit` indicates whether the
+/// cache contained an entry (regardless of whether that entry was `null`
+/// for "does not exist"); callers can use `hit` to distinguish a cache miss
+/// from a genuinely unresolved path.
+({bool hit, MessageResolvedPath? value}) lookupResolvedMessagePathFromCache(
+  String rawPath,
+  List<String> candidateRoots,
+) {
+  final displayPath = rawPath.trim();
+  if (displayPath.isEmpty) {
+    return (hit: false, value: null);
+  }
+  final cacheKey = '${candidateRoots.join('|')}::$displayPath';
+  if (_resolvedMessagePathCache.containsKey(cacheKey)) {
+    return (hit: true, value: _resolvedMessagePathCache[cacheKey]);
+  }
+  return (hit: false, value: null);
+}
+
 bool looksLikeAbsoluteMessagePath(String path) {
   return path.startsWith('/') || RegExp(r'^[A-Za-z]:[\\/]').hasMatch(path);
 }

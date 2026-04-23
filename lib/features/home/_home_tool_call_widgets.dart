@@ -2323,10 +2323,29 @@ class _AsyncFilePathChip extends StatefulWidget {
 
 class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
   Future<MessageResolvedPath?>? _future;
+  // When the resolution cache already has the answer for the current
+  // `(normalizedPath, candidateRoots)` pair, we skip the FutureBuilder
+  // entirely and render synchronously.  This avoids the extra "loading"
+  // build frame that FutureBuilder always triggers (even when the future
+  // is already completed), and more importantly spares the cascade of
+  // 10+ setState pulses during the initial transcript paint when many
+  // chips all resolve at once.
+  bool _resolvedSync = false;
+  MessageResolvedPath? _syncValue;
 
-  @override
-  void initState() {
-    super.initState();
+  void _primeFromCacheOrStartFuture() {
+    final probe = lookupResolvedMessagePathFromCache(
+      widget.normalizedPath,
+      widget.candidateRoots,
+    );
+    if (probe.hit) {
+      _resolvedSync = true;
+      _syncValue = probe.value;
+      _future = null;
+      return;
+    }
+    _resolvedSync = false;
+    _syncValue = null;
     _future = resolveExistingMessagePathAsync(
       widget.normalizedPath,
       widget.candidateRoots,
@@ -2334,62 +2353,38 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _primeFromCacheOrStartFuture();
+  }
+
+  @override
   void didUpdateWidget(_AsyncFilePathChip oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.normalizedPath != widget.normalizedPath ||
         oldWidget.candidateRoots.join('|') != widget.candidateRoots.join('|')) {
-      _future = resolveExistingMessagePathAsync(
-        widget.normalizedPath,
-        widget.candidateRoots,
-      );
+      _primeFromCacheOrStartFuture();
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<MessageResolvedPath?>(
-      future: _future,
-      builder: (context, snapshot) {
-        final resolvedPath = snapshot.data;
-        if (resolvedPath == null) {
-          if (widget.isCodeSpan) {
-            return widget.builder._buildCodeSpan(
-              context,
-              widget.fullMatch,
-              widget.parentStyle,
-            );
-          }
-          final isExplicitPath =
-              widget.normalizedPath.startsWith('~/') ||
-              widget.normalizedPath.startsWith('./') ||
-              widget.normalizedPath.startsWith('../') ||
-              looksLikeAbsoluteMessagePath(widget.normalizedPath);
-          if (isExplicitPath) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: widget.builder._buildChip(
-                      context,
-                      displayPath: widget.normalizedPath,
-                      resolvedPath: widget.normalizedPath,
-                      isDirectory: widget.trailing.contains('/'),
-                      isUnresolved: true,
-                    ),
-                  ),
-                ),
-                if (widget.trailing.isNotEmpty)
-                  Text(widget.trailing, style: widget.parentStyle),
-              ],
-            );
-          }
-          return Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Text(widget.fullMatch, style: widget.parentStyle),
-          );
-        }
+  Widget _renderResolved(
+    BuildContext context,
+    MessageResolvedPath? resolvedPath,
+  ) {
+    if (resolvedPath == null) {
+      if (widget.isCodeSpan) {
+        return widget.builder._buildCodeSpan(
+          context,
+          widget.fullMatch,
+          widget.parentStyle,
+        );
+      }
+      final isExplicitPath =
+          widget.normalizedPath.startsWith('~/') ||
+          widget.normalizedPath.startsWith('./') ||
+          widget.normalizedPath.startsWith('../') ||
+          looksLikeAbsoluteMessagePath(widget.normalizedPath);
+      if (isExplicitPath) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2398,9 +2393,10 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
                 padding: const EdgeInsets.only(right: 4),
                 child: widget.builder._buildChip(
                   context,
-                  displayPath: resolvedPath.displayPath,
-                  resolvedPath: resolvedPath.resolvedPath,
-                  isDirectory: resolvedPath.isDirectory,
+                  displayPath: widget.normalizedPath,
+                  resolvedPath: widget.normalizedPath,
+                  isDirectory: widget.trailing.contains('/'),
+                  isUnresolved: true,
                 ),
               ),
             ),
@@ -2408,6 +2404,41 @@ class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
               Text(widget.trailing, style: widget.parentStyle),
           ],
         );
+      }
+      return Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Text(widget.fullMatch, style: widget.parentStyle),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: widget.builder._buildChip(
+              context,
+              displayPath: resolvedPath.displayPath,
+              resolvedPath: resolvedPath.resolvedPath,
+              isDirectory: resolvedPath.isDirectory,
+            ),
+          ),
+        ),
+        if (widget.trailing.isNotEmpty)
+          Text(widget.trailing, style: widget.parentStyle),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_resolvedSync) {
+      return _renderResolved(context, _syncValue);
+    }
+    return FutureBuilder<MessageResolvedPath?>(
+      future: _future,
+      builder: (context, snapshot) {
+        return _renderResolved(context, snapshot.data);
       },
     );
   }

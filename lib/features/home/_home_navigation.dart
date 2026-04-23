@@ -41,6 +41,16 @@ class _NavigationPaneState extends State<_NavigationPane> {
   ThemeData? _cachedDrawerTheme;
   int? _cachedThemeSignature;
 
+  // Per-tile widget cache keyed by session id.  When none of the fields
+  // contributing to the tile's visual state (title / updatedAt / sendPhase /
+  // isSelected) change, we reuse the exact Widget instance so Flutter's
+  // Element.update short-circuits and skips rebuilding 60+ unrelated tiles
+  // whenever the user opens a different thread or a single session's send
+  // phase ticks during streaming.
+  final Map<String, _ThreadTileCacheEntry> _threadTileCache =
+      <String, _ThreadTileCacheEntry>{};
+  _HardnessTileCacheEntry? _hardnessTileCache;
+
   ThemeData _ensureDrawerTheme(ThemeData theme) {
     final signature = Object.hashAll(<Object?>[
       theme.colorScheme.primary.toARGB32(),
@@ -90,6 +100,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
   }) {
     final tiles = <Widget>[];
     bool heInserted = false;
+    final activeSessionIds = <String>{};
 
     Widget buildHeTile() {
       final record = heRecord;
@@ -97,19 +108,42 @@ class _NavigationPaneState extends State<_NavigationPane> {
       if (record == null || status == null) {
         return const SizedBox.shrink();
       }
-      return Padding(
+      final isSelected = widget.selectedSection == AppSection.hardnessSession;
+      final cached = _hardnessTileCache;
+      if (cached != null &&
+          cached.recordId == record.id &&
+          cached.title == record.title &&
+          cached.updatedAtMs == record.updatedAt.millisecondsSinceEpoch &&
+          cached.status == status &&
+          cached.awaitingApproval == heAwaitingApproval &&
+          cached.isSelected == isSelected) {
+        return cached.widget;
+      }
+      final built = Padding(
         key: ValueKey<String>('he-thread-${record.id}'),
         padding: const EdgeInsets.only(bottom: 10),
-        child: _HardnessSessionTile(
-          title: record.title,
-          status: status,
-          awaitingApproval: heAwaitingApproval,
-          isSelected: widget.selectedSection == AppSection.hardnessSession,
-          onTap: widget.onHardnessSessionSelected ?? () {},
-          onRename: widget.onRenameHardnessSession ?? () {},
-          onDelete: widget.onDeleteHardnessSession ?? () {},
+        child: RepaintBoundary(
+          child: _HardnessSessionTile(
+            title: record.title,
+            status: status,
+            awaitingApproval: heAwaitingApproval,
+            isSelected: isSelected,
+            onTap: widget.onHardnessSessionSelected ?? () {},
+            onRename: widget.onRenameHardnessSession ?? () {},
+            onDelete: widget.onDeleteHardnessSession ?? () {},
+          ),
         ),
       );
+      _hardnessTileCache = _HardnessTileCacheEntry(
+        recordId: record.id,
+        title: record.title,
+        updatedAtMs: record.updatedAt.millisecondsSinceEpoch,
+        status: status,
+        awaitingApproval: heAwaitingApproval,
+        isSelected: isSelected,
+        widget: built,
+      );
+      return built;
     }
 
     for (final session in widget.sessions) {
@@ -120,27 +154,62 @@ class _NavigationPaneState extends State<_NavigationPane> {
         tiles.add(buildHeTile());
         heInserted = true;
       }
-      tiles.add(
-        Padding(
-          key: ValueKey<String>('ai-thread-${session.id}'),
-          padding: const EdgeInsets.only(bottom: 10),
+      activeSessionIds.add(session.id);
+      final sendPhase =
+          widget.sessionSendPhases[session.id] ?? AiSendPhase.idle;
+      final isSelected = widget.selectedSection == AppSection.workspace &&
+          widget.currentSessionId == session.id;
+      final cached = _threadTileCache[session.id];
+      // Note: we intentionally do NOT identity-check the callbacks. Method
+      // tear-offs (e.g. `_activateSession`) are not guaranteed to be
+      // `identical` across rebuilds in Dart — every parent rebuild was
+      // busting the cache and forcing all 60+ tiles to re-render. The
+      // cached closure captures `widget.onSessionSelected` lazily via
+      // the State's `widget` getter, so even if the parent swaps the
+      // callback the next tap will still reach the current one.
+      if (cached != null &&
+          cached.title == session.title &&
+          cached.updatedAtMs == session.updatedAt.millisecondsSinceEpoch &&
+          cached.sendPhase == sendPhase &&
+          cached.isSelected == isSelected) {
+        tiles.add(cached.widget);
+        continue;
+      }
+      final sessionId = session.id;
+      final built = Padding(
+        key: ValueKey<String>('ai-thread-$sessionId'),
+        padding: const EdgeInsets.only(bottom: 10),
+        child: RepaintBoundary(
           child: _ThreadTile(
             session: session,
-            sendPhase: widget.sessionSendPhases[session.id] ?? AiSendPhase.idle,
-            isSelected:
-                widget.selectedSection == AppSection.workspace &&
-                widget.currentSessionId == session.id,
-            onTap: () => widget.onSessionSelected(session.id),
+            sendPhase: sendPhase,
+            isSelected: isSelected,
+            onTap: () => widget.onSessionSelected(sessionId),
             onRename: () => widget.onRenameSession(session),
             onDelete: () => widget.onDeleteSession(session),
           ),
         ),
       );
+      _threadTileCache[sessionId] = _ThreadTileCacheEntry(
+        title: session.title,
+        updatedAtMs: session.updatedAt.millisecondsSinceEpoch,
+        sendPhase: sendPhase,
+        isSelected: isSelected,
+        widget: built,
+      );
+      tiles.add(built);
     }
 
     // HE session is the oldest, or there are no AI sessions — append at end.
     if (!heInserted && heRecord != null) {
       tiles.add(buildHeTile());
+    }
+
+    // Evict cache entries for sessions that no longer exist to bound memory.
+    if (_threadTileCache.length != activeSessionIds.length) {
+      _threadTileCache.removeWhere(
+        (sessionId, _) => !activeSessionIds.contains(sessionId),
+      );
     }
 
     return tiles;
@@ -272,5 +341,43 @@ class _ContentPane extends StatelessWidget {
       child: Padding(padding: const EdgeInsets.all(24), child: child),
     );
   }
+}
+
+/// Cached tile instance + signature used by [_NavigationPaneState] to avoid
+/// rebuilding sidebar tiles whose visual state did not change.
+class _ThreadTileCacheEntry {
+  const _ThreadTileCacheEntry({
+    required this.title,
+    required this.updatedAtMs,
+    required this.sendPhase,
+    required this.isSelected,
+    required this.widget,
+  });
+
+  final String title;
+  final int updatedAtMs;
+  final AiSendPhase sendPhase;
+  final bool isSelected;
+  final Widget widget;
+}
+
+class _HardnessTileCacheEntry {
+  const _HardnessTileCacheEntry({
+    required this.recordId,
+    required this.title,
+    required this.updatedAtMs,
+    required this.status,
+    required this.awaitingApproval,
+    required this.isSelected,
+    required this.widget,
+  });
+
+  final String recordId;
+  final String title;
+  final int updatedAtMs;
+  final HardnessOrchestratorStatus status;
+  final bool awaitingApproval;
+  final bool isSelected;
+  final Widget widget;
 }
 

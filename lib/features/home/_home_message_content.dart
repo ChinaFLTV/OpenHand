@@ -284,7 +284,29 @@ class _MarkdownPreviewBody extends StatefulWidget {
 }
 
 class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
+  // Hard cap on the character count that is actually handed to the
+  // markdown parser for the collapsed preview. The preview only ever shows
+  // `maxHeight` (≈142px) of content, but the underlying `_SafeMarkdownBody`
+  // is laid out in an unconstrained-height `OverflowBox` so it can be
+  // measured for the fade decision.  For long streaming reasoning blocks
+  // (e.g. several KB), parsing + laying out the entire content on every
+  // tick of the stream was the dominant UI-thread cost (observed 2.7s
+  // build frames during streaming). Since we only need the top `maxHeight`
+  // worth of rendered text, trimming to a modest character budget makes
+  // the parse/layout O(constant) without changing visible output (the
+  // truncated prefix still far exceeds `maxHeight`, so the fade still
+  // triggers correctly).
+  static const int _previewCharCap = 2000;
+
   double? _contentHeight;
+
+  String get _effectiveData {
+    final data = widget.data;
+    if (data.length <= _previewCharCap) {
+      return data;
+    }
+    return data.substring(0, _previewCharCap);
+  }
 
   @override
   void didUpdateWidget(covariant _MarkdownPreviewBody oldWidget) {
@@ -336,7 +358,7 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                       },
                       child: IgnorePointer(
                         child: _SafeMarkdownBody(
-                          data: widget.data,
+                          data: _effectiveData,
                           builders: widget.builders,
                           styleSheet: widget.styleSheet,
                           inlineSyntaxes: widget.inlineSyntaxes,
