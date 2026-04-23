@@ -1317,6 +1317,7 @@ class AiSessionController extends ChangeNotifier {
     List<AiDenyCommandRule> denyCommandRules = const <AiDenyCommandRule>[],
     bool requireWriteCommandConfirmation = true,
     WriteCommandConfirmationCallback? confirmWriteCommand,
+    List<String> additionalSystemReminders = const <String>[],
   }) async {
     final normalizedContent = content.trim();
     final normalizedAttachmentPaths = _normalizeAttachmentPaths(
@@ -1415,6 +1416,26 @@ class AiSessionController extends ChangeNotifier {
         if (userHookResult.systemReminders.isNotEmpty) {
           userMessageMetadata[aiHookSystemRemindersMetadataKey] =
               userHookResult.systemReminders;
+        }
+        // Merge any caller-provided system reminders (e.g. user-selected
+        // skill manifest) into the same metadata key consumed by the prompt
+        // builder.  These reminders are attached invisibly to the outgoing
+        // LLM user turn while the stored user message content remains
+        // exactly what the user typed, so the transcript bubble never shows
+        // internally-injected XML blocks.
+        final sanitizedExtraReminders = <String>[
+          for (final reminder in additionalSystemReminders)
+            if (reminder.trim().isNotEmpty) reminder.trim(),
+        ];
+        if (sanitizedExtraReminders.isNotEmpty) {
+          final existing = List<String>.from(
+            (userMessageMetadata[aiHookSystemRemindersMetadataKey]
+                        as List<Object?>?)
+                    ?.map((e) => '$e') ??
+                const <String>[],
+          );
+          existing.addAll(sanitizedExtraReminders);
+          userMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
         }
         if (_shouldResetPlanStateForNewTask(
           session: session,

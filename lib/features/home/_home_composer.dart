@@ -607,13 +607,15 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     });
   }
 
-  /// Injects the selected skill's SKILL.md content into the composer text as
-  /// a `<system-reminder>`/`<skill-manifest>` block so every thread template
-  /// sees an explicit, high-priority directive to follow the user's skill
-  /// selection. Clears the selection after injection.
-  void _injectSkillManifestIntoText() {
+  /// Consumes the currently-selected skill (if any) and returns a single
+  /// `<system-reminder>` payload string that should be appended to the
+  /// outgoing LLM prompt.  The selection chip is cleared as a side effect so
+  /// the skill applies only to the turn being submitted.  The visible
+  /// composer text is **never** mutated, ensuring the stored user message
+  /// rendered in the transcript bubble stays free of injected manifest XML.
+  String? consumePendingSkillReminder() {
     final skill = _selectedSkill;
-    if (skill == null) return;
+    if (skill == null) return null;
     final manifest = (_selectedSkillManifest ?? '').trim();
     final fallbackDescription = skill.description.trim();
     final manifestBody = manifest.isNotEmpty
@@ -622,7 +624,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ? fallbackDescription
             : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
     final buffer = StringBuffer()
-      ..writeln('<system-reminder>')
       ..writeln(
         'The user explicitly selected the local skill "${skill.name}" for this request.',
       )
@@ -630,30 +631,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         'Follow the SKILL.md content below with the highest priority, overriding any conflicting default behaviour.',
       )
       ..writeln(
-        "Apply the skill's guidance to the user's message that follows; do not ignore this directive even if the skill seems unrelated.",
+        "Apply the skill's guidance to the user's message for this turn; do not ignore this directive even if the skill seems unrelated.",
       )
-      ..writeln('</system-reminder>')
       ..writeln()
       ..writeln(
         '<skill-manifest name="${_escapeXmlAttribute(skill.name)}" path="${_escapeXmlAttribute(skill.manifestPath)}">',
       )
       ..writeln(manifestBody)
-      ..writeln('</skill-manifest>');
-    final prefix = buffer.toString();
-    _atMentionSuppressListener = true;
-    try {
-      final currentText = widget.controller.text;
-      final combined = currentText.trim().isEmpty
-          ? prefix.trimRight()
-          : '$prefix\n$currentText';
-      widget.controller.text = combined;
-      widget.controller.selection = TextSelection.collapsed(
-        offset: widget.controller.text.length,
-      );
-    } finally {
-      _atMentionSuppressListener = false;
-    }
+      ..write('</skill-manifest>');
     _clearSelectedSkill();
+    return buffer.toString();
   }
 
   static String _escapeXmlAttribute(String input) {
@@ -668,7 +655,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   /// clears the capsule list. Called both from the send button and from the
   /// parent via [GlobalKey] for keyboard-shortcut sends.
   void _injectReferencesIntoText() {
-    _injectSkillManifestIntoText();
     if (_projectFileReferences.isEmpty) return;
     final refs = _projectFileReferences.map((r) {
       final suffix = r.isDirectory ? '/' : '';

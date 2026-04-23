@@ -872,6 +872,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 sessionId,
                 nextMessage.text,
                 nextMessage.attachments,
+                additionalSystemReminders: nextMessage.systemReminders,
               );
             }
             break; // Process one at a time across all sessions
@@ -2608,6 +2609,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (targetSessionId == null) {
       return;
     }
+    // Consume any pending skill selection from the composer.  The reminder is
+    // carried as hidden metadata on the outgoing LLM turn (via the existing
+    // `aiHookSystemRemindersMetadataKey` channel) so the stored user message
+    // content shown in the transcript bubble remains exactly what the user
+    // typed, without leaking the `<skill-manifest>` XML block.
+    final skillReminder =
+        _composerPanelKey.currentState?.consumePendingSkillReminder();
+    final additionalSystemReminders = <String>[
+      if (skillReminder != null && skillReminder.trim().isNotEmpty)
+        skillReminder,
+    ];
     final isProcessing =
         _displaySendPhaseForSession(sessionController, targetSessionId) !=
         AiSendPhase.idle;
@@ -2615,6 +2627,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final queued = _QueuedMessage(
         text: prompt,
         attachments: pendingAttachments,
+        systemReminders: additionalSystemReminders,
       );
       setState(() {
         final q =
@@ -2666,6 +2679,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       runtimeContext: runtimeContext,
       responseModalities: responseModalities,
       creationRequest: creationRequest,
+      additionalSystemReminders: additionalSystemReminders,
     );
   }
 
@@ -2776,6 +2790,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSessionRuntimeContext? runtimeContext,
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
+    List<String> additionalSystemReminders = const <String>[],
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
@@ -2838,6 +2853,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             : settingsController.aiWriteCommandConfirmationEnabled,
         confirmWriteCommand: (request) =>
             _confirmWriteCommand(request, sessionId: targetSessionId),
+        additionalSystemReminders: additionalSystemReminders,
       );
       if (!mounted) {
         return;
@@ -4390,6 +4406,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 q[index] = _QueuedMessage(
                   text: trimmed,
                   attachments: q[index].attachments,
+                  systemReminders: q[index].systemReminders,
                 );
               }
             });
@@ -4546,10 +4563,15 @@ class _ComposerDraftState {
 }
 
 class _QueuedMessage {
-  const _QueuedMessage({required this.text, required this.attachments});
+  const _QueuedMessage({
+    required this.text,
+    required this.attachments,
+    this.systemReminders = const <String>[],
+  });
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
+  final List<String> systemReminders;
 }
 
 // ignore: unused_element
