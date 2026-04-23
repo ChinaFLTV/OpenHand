@@ -139,34 +139,42 @@ class _WorkspaceView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: currentSession == null
-                  ? const _WorkspaceEmptyState(
-                      key: ValueKey<String>('no-session'),
-                    )
-                  : currentSession!.messages.isEmpty
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SessionToolbar(
-                          session: currentSession!,
-                          liveRuntimeToolPreview: liveRuntimeToolPreview,
-                          sendPhase: sendPhase,
-                          planTimelineCollapsed: planTimelineCollapsed,
-                          onPlanTimelineCollapsedChanged:
-                              onPlanTimelineCollapsedChanged,
-                          fileExplorerVisible: fileExplorerVisible,
-                          onFileExplorerToggled: onFileExplorerToggled,
+              child: _WorkspacePrimarySwitcher(
+                child: currentSession == null
+                    ? const _WorkspaceEmptyState(
+                        key: ValueKey<String>('no-session'),
+                      )
+                    : currentSession!.messages.isEmpty
+                    ? Column(
+                        key: ValueKey<String>(
+                          'empty-${currentSession!.id}',
                         ),
-                        const SizedBox(height: 14),
-                        Expanded(
-                          child: _WorkspaceEmptyState(
-                            key: ValueKey<String>(currentSession!.id),
-                            session: currentSession,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SessionToolbar(
+                            session: currentSession!,
+                            liveRuntimeToolPreview: liveRuntimeToolPreview,
+                            sendPhase: sendPhase,
+                            planTimelineCollapsed: planTimelineCollapsed,
+                            onPlanTimelineCollapsedChanged:
+                                onPlanTimelineCollapsedChanged,
+                            fileExplorerVisible: fileExplorerVisible,
+                            onFileExplorerToggled: onFileExplorerToggled,
                           ),
+                          const SizedBox(height: 14),
+                          Expanded(
+                            child: _WorkspaceEmptyState(
+                              key: ValueKey<String>(currentSession!.id),
+                              session: currentSession,
+                            ),
+                          ),
+                        ],
+                      )
+                    : KeyedSubtree(
+                        key: ValueKey<String>(
+                          'content-${currentSession!.id}',
                         ),
-                      ],
-                    )
-                  : Stack(
+                        child: Stack(
                       children: [
                         Positioned.fill(
                           child: AnimatedOpacity(
@@ -233,7 +241,9 @@ class _WorkspaceView extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
+                        ),
+                      ),
+              ),
             ),
             if (currentSession != null) ...[
               const SizedBox(height: 16),
@@ -295,16 +305,72 @@ class _WorkspaceView extends StatelessWidget {
   }
 }
 
-class _WorkspaceEmptyState extends StatelessWidget {
+class _WorkspaceEmptyState extends StatefulWidget {
   const _WorkspaceEmptyState({super.key, this.session});
 
   final AiSession? session;
+
+  @override
+  State<_WorkspaceEmptyState> createState() => _WorkspaceEmptyStateState();
+}
+
+class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _fade;
+  late Animation<double> _scale;
+  late Animation<Offset> _slide;
+
+  DialogAnimationSettings _resolveSettings() {
+    try {
+      return context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      return const DialogAnimationSettings();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = _resolveSettings();
+    // Use the user-configured dialog duration but clamp to a range that
+    // looks graceful for an inline hero placeholder rather than a modal
+    // dialog (which can afford longer transitions).
+    final baseMs = settings.duration.inMilliseconds;
+    final durationMs = baseMs == 0
+        ? 0
+        : baseMs.clamp(240, 520).toInt();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: durationMs),
+    );
+    final curveData = settings.curve;
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: curveData.curve,
+      reverseCurve: curveData.reverseCurve,
+    );
+    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(curved);
+    _scale = Tween<double>(begin: 0.92, end: 1.0).animate(curved);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(curved);
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final session = widget.session;
     final title = session?.title ?? l10n.newThread;
     final subtitle = session?.templateName ?? l10n.appTitle;
     final emptyStateContent = ConstrainedBox(
@@ -347,16 +413,82 @@ class _WorkspaceEmptyState extends StatelessWidget {
       ),
     );
 
+    final animatedContent = FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: ScaleTransition(
+          scale: _scale,
+          alignment: Alignment.center,
+          child: emptyStateContent,
+        ),
+      ),
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return SingleChildScrollView(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight - 32),
-            child: Center(child: emptyStateContent),
+            child: Center(child: animatedContent),
           ),
         );
       },
+    );
+  }
+}
+
+/// Animates the workspace primary content (empty-state / transcript) across
+/// session/template changes using a fade + subtle slide transition that
+/// respects the user's global dialog animation settings.  An
+/// [AnimatedSwitcher] would animate outgoing children concurrently with the
+/// incoming child; we use that behaviour to preserve the graceful exit of
+/// the placeholder when a user sends their first message.
+class _WorkspacePrimarySwitcher extends StatelessWidget {
+  const _WorkspacePrimarySwitcher({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    DialogAnimationSettings settings;
+    try {
+      settings = context.read<SettingsController>().dialogAnimationSettings;
+    } catch (_) {
+      settings = const DialogAnimationSettings();
+    }
+    final baseMs = settings.duration.inMilliseconds;
+    final durationMs = baseMs == 0
+        ? 0
+        : baseMs.clamp(200, 460).toInt();
+    final curveData = settings.curve;
+    return AnimatedSwitcher(
+      duration: Duration(milliseconds: durationMs),
+      switchInCurve: curveData.curve,
+      switchOutCurve: curveData.reverseCurve,
+      layoutBuilder: (currentChild, previousChildren) {
+        // Default stack layout so outgoing children remain in their own slot
+        // while the incoming child fades/slides into place.
+        return Stack(
+          alignment: Alignment.topCenter,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      transitionBuilder: (animatedChild, animation) {
+        final slide = Tween<Offset>(
+          begin: const Offset(0, 0.04),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: slide, child: animatedChild),
+        );
+      },
+      child: child,
     );
   }
 }

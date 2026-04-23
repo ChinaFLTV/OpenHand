@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1407,6 +1408,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (composerState != null && composerState._skillPickerOverlay != null) {
         composerState._userDismissSkillPickerOverlay();
         return KeyEventResult.handled;
+      }
+    }
+    // When the skill picker overlay is visible, let Up/Down move the
+    // selection highlight and Enter commit the current selection.  This
+    // mirrors Codex / GitHub Copilot Chat behaviour and makes skill lookup
+    // an efficient keyboard-only workflow.
+    final composerState = _composerPanelKey.currentState;
+    if (composerState != null && composerState._skillPickerOverlay != null) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        composerState._moveSkillPickerSelection(1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        composerState._moveSkillPickerSelection(-1);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.enter ||
+          event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+        if (composerState._commitSkillPickerSelection()) {
+          return KeyEventResult.handled;
+        }
       }
     }
     // Note: send-message and toggle-composer shortcuts are handled by

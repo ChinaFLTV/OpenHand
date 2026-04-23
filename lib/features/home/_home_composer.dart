@@ -125,6 +125,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   int _skillPickerSelectedIndex = 0;
   bool _skillPickerLoading = false;
   OverlayEntry? _skillPickerOverlay;
+  // Drives the skill picker overlay's enter/exit transitions.  A single
+  // ValueNotifier is shared between the composer state and the overlay
+  // widget so the overlay can reverse its animation before being removed
+  // from the overlay stack.  `null` means the overlay is not mounted.
+  ValueNotifier<bool>? _skillPickerVisible;
 
   @override
   void initState() {
@@ -521,10 +526,27 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   void _showSkillPickerOverlay() {
     if (_skillPickerOverlay != null) {
+      // Already mounted — ensure it is visible (e.g. user re-typed '/' while
+      // a reverse animation was in flight) and rebuild with fresh results.
+      _skillPickerVisible?.value = true;
       _skillPickerOverlay!.markNeedsBuild();
       return;
     }
     final overlay = Overlay.of(context, rootOverlay: true);
+    final visible = ValueNotifier<bool>(true);
+    _skillPickerVisible = visible;
+    // Resolve animation settings from the global SettingsController so the
+    // picker respects the user's preferred dialog animation style/curve/
+    // duration.  Fallback to defaults if the provider is unreachable.
+    DialogAnimationSettings animationSettings;
+    try {
+      animationSettings = Provider.of<SettingsController>(
+        context,
+        listen: false,
+      ).dialogAnimationSettings;
+    } catch (_) {
+      animationSettings = const DialogAnimationSettings();
+    }
     _skillPickerOverlay = OverlayEntry(
       builder: (_) {
         return _SkillPickerOverlayPanel(
@@ -534,6 +556,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           loading: _skillPickerLoading,
           onSelect: _handleSkillPickerSelect,
           onDismiss: _userDismissSkillPickerOverlay,
+          visible: visible,
+          animationSettings: animationSettings,
+          onExitComplete: _finalizeSkillPickerOverlayRemoval,
         );
       },
     );
@@ -548,8 +573,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     if (remember && _slashTriggerOffset >= 0) {
       _slashDismissedOffset = _slashTriggerOffset;
     }
-    _skillPickerOverlay?.remove();
-    _skillPickerOverlay = null;
+    // Ask the overlay panel to reverse its animation; it will invoke
+    // [_finalizeSkillPickerOverlayRemoval] when the exit transition ends.
+    // During widget disposal we cannot wait for an animation tick, so fall
+    // back to synchronous removal.
+    final visible = _skillPickerVisible;
+    if (visible == null || _skillPickerOverlay == null || !mounted) {
+      _finalizeSkillPickerOverlayRemoval();
+    } else {
+      visible.value = false;
+    }
     _skillPickerResults = const <LocalSkill>[];
     _skillPickerSelectedIndex = 0;
     _skillPickerLoading = false;
@@ -561,6 +594,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         _slashDismissedOffset = -1;
       }
     }
+  }
+
+  /// Removes the overlay entry from the root overlay and disposes the
+  /// visibility notifier.  Safe to call multiple times.
+  void _finalizeSkillPickerOverlayRemoval() {
+    final entry = _skillPickerOverlay;
+    _skillPickerOverlay = null;
+    entry?.remove();
+    final visible = _skillPickerVisible;
+    _skillPickerVisible = null;
+    visible?.dispose();
   }
 
   Future<void> _handleSkillPickerSelect(LocalSkill skill) async {
@@ -605,6 +649,35 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _selectedSkill = null;
       _selectedSkillManifest = null;
     });
+  }
+
+  /// Moves the skill picker's highlight by [delta] rows (wrap-around).
+  /// Invoked by the parent focus node key handler when the user presses the
+  /// up/down arrow keys while the picker overlay is visible.
+  void _moveSkillPickerSelection(int delta) {
+    if (_skillPickerOverlay == null) return;
+    final total = _skillPickerResults.length;
+    if (total == 0) return;
+    final next = (_skillPickerSelectedIndex + delta) % total;
+    setState(() {
+      _skillPickerSelectedIndex = next < 0 ? next + total : next;
+    });
+    _skillPickerOverlay?.markNeedsBuild();
+  }
+
+  /// Commits the currently highlighted skill picker entry.  Returns true
+  /// when a selection was made (so the caller can swallow the key event).
+  bool _commitSkillPickerSelection() {
+    if (_skillPickerOverlay == null) return false;
+    if (_skillPickerLoading) return false;
+    if (_skillPickerResults.isEmpty) return false;
+    final index = _skillPickerSelectedIndex;
+    if (index < 0 || index >= _skillPickerResults.length) return false;
+    final skill = _skillPickerResults[index];
+    // Fire-and-forget: the select handler already manages state updates and
+    // SKILL.md loading.  Returning true tells the parent to swallow the key.
+    unawaited(_handleSkillPickerSelect(skill));
+    return true;
   }
 
   /// Consumes the currently-selected skill (if any) and returns a single
@@ -2415,7 +2488,7 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
 // Skill picker overlay (Codex-style leading '/' slash trigger)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SkillPickerOverlayPanel extends StatelessWidget {
+class _SkillPickerOverlayPanel extends StatefulWidget {
   const _SkillPickerOverlayPanel({
     required this.link,
     required this.items,
@@ -2423,6 +2496,9 @@ class _SkillPickerOverlayPanel extends StatelessWidget {
     required this.loading,
     required this.onSelect,
     required this.onDismiss,
+    required this.visible,
+    required this.animationSettings,
+    required this.onExitComplete,
   });
 
   final LayerLink link;
@@ -2431,6 +2507,117 @@ class _SkillPickerOverlayPanel extends StatelessWidget {
   final bool loading;
   final ValueChanged<LocalSkill> onSelect;
   final VoidCallback onDismiss;
+  final ValueListenable<bool> visible;
+  final DialogAnimationSettings animationSettings;
+  final VoidCallback onExitComplete;
+
+  @override
+  State<_SkillPickerOverlayPanel> createState() =>
+      _SkillPickerOverlayPanelState();
+}
+
+class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _animation;
+  final ScrollController _listController = ScrollController();
+  // Approximate pixel height of a single item in the list so keyboard
+  // navigation can scroll the highlighted entry into view.  Kept in sync
+  // with the `Padding` values used in `itemBuilder` below.
+  static const double _estimatedItemExtent = 54.0;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = widget.animationSettings;
+    // Honour the user-configured duration, but clamp to a snappy range so an
+    // inline picker never feels laggy (>420ms) nor flashes without affordance
+    // (<120ms) for non-zero settings.  Zero preserves instant-show semantics.
+    final baseMs = settings.duration.inMilliseconds;
+    final durationMs = baseMs == 0
+        ? 0
+        : baseMs.clamp(120, 420).toInt();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: durationMs),
+    );
+    _animation = _buildAnimation();
+    widget.visible.addListener(_handleVisibilityChanged);
+    if (widget.visible.value) {
+      _controller.forward();
+    } else {
+      // Extremely edge-case: the overlay was asked to exit before it rendered.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onExitComplete();
+      });
+    }
+    _controller.addStatusListener(_handleAnimationStatus);
+  }
+
+  CurvedAnimation _buildAnimation() {
+    final curveData = widget.animationSettings.curve;
+    return CurvedAnimation(
+      parent: _controller,
+      curve: curveData.curve,
+      reverseCurve: curveData.reverseCurve,
+    );
+  }
+
+  void _handleVisibilityChanged() {
+    if (!mounted) return;
+    if (widget.visible.value) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && !widget.visible.value) {
+      widget.onExitComplete();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.visible.removeListener(_handleVisibilityChanged);
+    _controller.removeStatusListener(_handleAnimationStatus);
+    _controller.dispose();
+    _listController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SkillPickerOverlayPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _scrollSelectionIntoView();
+    }
+  }
+
+  void _scrollSelectionIntoView() {
+    if (!_listController.hasClients) return;
+    final target = widget.selectedIndex * _estimatedItemExtent;
+    final viewportStart = _listController.offset;
+    final viewportEnd =
+        viewportStart + _listController.position.viewportDimension;
+    if (target < viewportStart) {
+      _listController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    } else if (target + _estimatedItemExtent > viewportEnd) {
+      final next =
+          target + _estimatedItemExtent -
+          _listController.position.viewportDimension;
+      _listController.animateTo(
+        next.clamp(0.0, _listController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2440,16 +2627,148 @@ class _SkillPickerOverlayPanel extends StatelessWidget {
     final isZh =
         Localizations.localeOf(context).languageCode.startsWith('zh');
 
+    final panel = Material(
+      elevation: 8,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+      borderRadius: BorderRadius.circular(16),
+      color: isDark
+          ? colorScheme.surfaceContainerHigh
+          : colorScheme.surface,
+      surfaceTintColor: colorScheme.surfaceTint,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.extension_rounded,
+                  size: 14,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isZh ? '选择一个技能' : 'Select a skill',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.loading)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (widget.items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  isZh ? '未找到匹配技能' : 'No matching skills',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                controller: _listController,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                shrinkWrap: true,
+                itemCount: widget.items.length,
+                itemBuilder: (ctx, index) {
+                  final item = widget.items[index];
+                  final isSelected = index == widget.selectedIndex;
+                  return Material(
+                    color: isSelected
+                        ? colorScheme.primaryContainer
+                            .withValues(alpha: 0.4)
+                        : Colors.transparent,
+                    child: InkWell(
+                      onTap: () => widget.onSelect(item),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            _SkillPickerLeading(skill: item),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.name,
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (item.description
+                                      .trim()
+                                      .isNotEmpty)
+                                    Text(
+                                      item.description,
+                                      style: theme
+                                          .textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: colorScheme
+                                                .onSurfaceVariant
+                                                .withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                            fontSize: 10,
+                                          ),
+                                      maxLines: 2,
+                                      overflow:
+                                          TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+
     return Stack(
       children: [
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onTap: onDismiss,
+            onTap: widget.onDismiss,
           ),
         ),
         CompositedTransformFollower(
-          link: link,
+          link: widget.link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
           child: ConstrainedBox(
@@ -2457,140 +2776,106 @@ class _SkillPickerOverlayPanel extends StatelessWidget {
               maxWidth: 480,
               maxHeight: 360,
             ),
-            child: Material(
-              elevation: 8,
-              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(16),
-              color: isDark
-                  ? colorScheme.surfaceContainerHigh
-                  : colorScheme.surface,
-              surfaceTintColor: colorScheme.surfaceTint,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.extension_rounded,
-                          size: 14,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isZh ? '选择一个技能' : 'Select a skill',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (loading)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    )
-                  else if (items.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: Text(
-                          isZh ? '未找到匹配技能' : 'No matching skills',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    Flexible(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (ctx, index) {
-                          final item = items[index];
-                          final isSelected = index == selectedIndex;
-                          return Material(
-                            color: isSelected
-                                ? colorScheme.primaryContainer
-                                    .withValues(alpha: 0.4)
-                                : Colors.transparent,
-                            child: InkWell(
-                              onTap: () => onSelect(item),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    _SkillPickerLeading(skill: item),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (item.description
-                                              .trim()
-                                              .isNotEmpty)
-                                            Text(
-                                              item.description,
-                                              style: theme
-                                                  .textTheme.labelSmall
-                                                  ?.copyWith(
-                                                    color: colorScheme
-                                                        .onSurfaceVariant
-                                                        .withValues(
-                                                          alpha: 0.7,
-                                                        ),
-                                                    fontSize: 10,
-                                                  ),
-                                              maxLines: 2,
-                                              overflow:
-                                                  TextOverflow.ellipsis,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
+            child: _SkillPickerTransition(
+              animation: _animation,
+              settings: widget.animationSettings,
+              child: panel,
             ),
           ),
         ),
       ],
     );
+  }
+}
+
+/// Applies the user-configured dialog entrance/exit transition to the skill
+/// picker overlay so its motion feels cohesive with the rest of the app's
+/// animated surfaces.  The picker is anchored to the bottom-left of the
+/// composer, so directional transitions use a downward origin offset to
+/// suggest the panel is emerging from the `/` caret.
+class _SkillPickerTransition extends StatelessWidget {
+  const _SkillPickerTransition({
+    required this.animation,
+    required this.settings,
+    required this.child,
+  });
+
+  final Animation<double> animation;
+  final DialogAnimationSettings settings;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Pick entrance vs exit style based on direction so reverse animations
+    // can differ from entrance when the user configured them separately.
+    final forward = animation.status == AnimationStatus.forward ||
+        animation.status == AnimationStatus.completed;
+    final style = forward ? settings.entranceStyle : settings.exitStyle;
+    switch (style) {
+      case DialogAnimationStyle.none:
+        return FadeTransition(opacity: animation, child: child);
+      case DialogAnimationStyle.fadeScale:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomCenter,
+            scale: Tween<double>(begin: 0.92, end: 1.0).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.slideUp:
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.08),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.slideDown:
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, -0.08),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.expand:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.6, end: 1.0).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.rotateScale:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
+            child: RotationTransition(
+              turns: Tween<double>(begin: -0.02, end: 0.0).animate(animation),
+              child: child,
+            ),
+          ),
+        );
+      case DialogAnimationStyle.elastic:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+            child: child,
+          ),
+        );
+    }
   }
 }
 
