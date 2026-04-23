@@ -75,6 +75,7 @@ import '../mcp/model/mcp_tool.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
 import '../settings/settings_view.dart';
+import '../skills/model/local_skill.dart';
 import '../skills/skills_controller.dart';
 import '../skills/skills_view.dart';
 import 'editor_indentation.dart';
@@ -1400,6 +1401,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final composerState = _composerPanelKey.currentState;
       if (composerState != null && composerState._atMentionOverlay != null) {
         composerState._userDismissAtMentionOverlay();
+        return KeyEventResult.handled;
+      }
+      if (composerState != null && composerState._skillPickerOverlay != null) {
+        composerState._userDismissSkillPickerOverlay();
         return KeyEventResult.handled;
       }
     }

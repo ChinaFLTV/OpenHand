@@ -109,10 +109,28 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   // Project file/directory references selected via the @ mention overlay.
   List<_AtMentionItem> _projectFileReferences = [];
 
+  // ── Skill picker (leading `/` slash trigger) ──
+  //
+  // When the text in the composer begins with '/', a picker overlay is
+  // presented that lists locally installed skills. Selecting a skill strips
+  // the leading '/…' token from the composer and attaches the skill as a
+  // removable chip.  When sending, the skill's SKILL.md content is injected
+  // as a `<system-reminder>`/`<skill-manifest>` block ahead of the user's
+  // prompt so every thread template can honour the explicit selection.
+  LocalSkill? _selectedSkill;
+  String? _selectedSkillManifest;
+  int _slashTriggerOffset = -1;
+  int _slashDismissedOffset = -1;
+  List<LocalSkill> _skillPickerResults = const <LocalSkill>[];
+  int _skillPickerSelectedIndex = 0;
+  bool _skillPickerLoading = false;
+  OverlayEntry? _skillPickerOverlay;
+
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_handleTextChangedForAtMention);
+    widget.controller.addListener(_handleTextChangedForSlashSkill);
   }
 
   @override
@@ -120,14 +138,18 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleTextChangedForAtMention);
+      oldWidget.controller.removeListener(_handleTextChangedForSlashSkill);
       widget.controller.addListener(_handleTextChangedForAtMention);
+      widget.controller.addListener(_handleTextChangedForSlashSkill);
     }
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_handleTextChangedForAtMention);
+    widget.controller.removeListener(_handleTextChangedForSlashSkill);
     _dismissAtMentionOverlay();
+    _dismissSkillPickerOverlay(remember: false);
     super.dispose();
   }
 
@@ -427,10 +449,226 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _performAtMentionSearch(root, '');
   }
 
+  // ── Skill picker (leading `/` slash trigger) helpers ──
+
+  /// Returns the parsed leading `/` trigger, or `null` when the text no
+  /// longer matches the shape `"/token<ws?>..."` with the cursor inside the
+  /// first token.
+  ({int triggerOffset, int tokenEnd, String query})? _computeSlashTrigger() {
+    final text = widget.controller.text;
+    final selection = widget.controller.selection;
+    if (!selection.isValid || !selection.isCollapsed) return null;
+    if (text.isEmpty || text.codeUnitAt(0) != 0x2F /* '/' */) return null;
+    var tokenEnd = text.length;
+    for (var i = 0; i < text.length; i++) {
+      final ch = text.codeUnitAt(i);
+      if (ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D) {
+        tokenEnd = i;
+        break;
+      }
+    }
+    final cursor = selection.baseOffset.clamp(0, text.length);
+    if (cursor > tokenEnd) return null;
+    return (
+      triggerOffset: 0,
+      tokenEnd: tokenEnd,
+      query: text.substring(1, tokenEnd),
+    );
+  }
+
+  void _handleTextChangedForSlashSkill() {
+    if (_atMentionSuppressListener) return;
+    if (_selectedSkill != null) return;
+    final trigger = _computeSlashTrigger();
+    if (trigger == null) {
+      _dismissSkillPickerOverlay(remember: false);
+      _slashDismissedOffset = -1;
+      return;
+    }
+    if (trigger.triggerOffset == _slashDismissedOffset) return;
+    _slashDismissedOffset = -1;
+    _slashTriggerOffset = trigger.triggerOffset;
+    _performSkillPickerSearch(trigger.query);
+  }
+
+  void _performSkillPickerSearch(String query) {
+    if (!mounted) return;
+    final skills = _readSkillsListSafe();
+    final trimmed = query.trim().toLowerCase();
+    final matches = trimmed.isEmpty
+        ? skills
+        : skills.where((skill) {
+            final haystack =
+                '${skill.name} ${skill.description}'.toLowerCase();
+            return haystack.contains(trimmed);
+          }).toList();
+    setState(() {
+      _skillPickerResults = matches;
+      _skillPickerSelectedIndex = 0;
+      _skillPickerLoading = false;
+    });
+    _showSkillPickerOverlay();
+  }
+
+  List<LocalSkill> _readSkillsListSafe() {
+    try {
+      final controller = Provider.of<SkillsController>(context, listen: false);
+      return controller.skills;
+    } catch (_) {
+      return const <LocalSkill>[];
+    }
+  }
+
+  void _showSkillPickerOverlay() {
+    if (_skillPickerOverlay != null) {
+      _skillPickerOverlay!.markNeedsBuild();
+      return;
+    }
+    final overlay = Overlay.of(context, rootOverlay: true);
+    _skillPickerOverlay = OverlayEntry(
+      builder: (_) {
+        return _SkillPickerOverlayPanel(
+          link: _atMentionLayerLink,
+          items: _skillPickerResults,
+          selectedIndex: _skillPickerSelectedIndex,
+          loading: _skillPickerLoading,
+          onSelect: _handleSkillPickerSelect,
+          onDismiss: _userDismissSkillPickerOverlay,
+        );
+      },
+    );
+    overlay.insert(_skillPickerOverlay!);
+  }
+
+  void _userDismissSkillPickerOverlay() {
+    _dismissSkillPickerOverlay(remember: true);
+  }
+
+  void _dismissSkillPickerOverlay({required bool remember}) {
+    if (remember && _slashTriggerOffset >= 0) {
+      _slashDismissedOffset = _slashTriggerOffset;
+    }
+    _skillPickerOverlay?.remove();
+    _skillPickerOverlay = null;
+    _skillPickerResults = const <LocalSkill>[];
+    _skillPickerSelectedIndex = 0;
+    _skillPickerLoading = false;
+    _slashTriggerOffset = -1;
+    if (_slashDismissedOffset >= 0) {
+      final text = widget.controller.text;
+      if (_slashDismissedOffset >= text.length ||
+          text.codeUnitAt(_slashDismissedOffset) != 0x2F) {
+        _slashDismissedOffset = -1;
+      }
+    }
+  }
+
+  Future<void> _handleSkillPickerSelect(LocalSkill skill) async {
+    final trigger = _computeSlashTrigger();
+    if (trigger != null) {
+      _atMentionSuppressListener = true;
+      try {
+        final text = widget.controller.text;
+        final remainderStart = trigger.tokenEnd < text.length &&
+                (text.codeUnitAt(trigger.tokenEnd) == 0x20 ||
+                    text.codeUnitAt(trigger.tokenEnd) == 0x09)
+            ? trigger.tokenEnd + 1
+            : trigger.tokenEnd;
+        final newText = text.substring(remainderStart);
+        widget.controller.text = newText;
+        widget.controller.selection = const TextSelection.collapsed(offset: 0);
+      } finally {
+        _atMentionSuppressListener = false;
+      }
+    }
+    _dismissSkillPickerOverlay(remember: false);
+    _slashDismissedOffset = -1;
+    String? manifestContent;
+    try {
+      final controller =
+          Provider.of<SkillsController>(context, listen: false);
+      manifestContent = await controller.readSkillManifest(skill);
+    } catch (_) {
+      manifestContent = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedSkill = skill;
+      _selectedSkillManifest = manifestContent;
+    });
+    widget.focusNode.requestFocus();
+  }
+
+  void _clearSelectedSkill() {
+    if (_selectedSkill == null && _selectedSkillManifest == null) return;
+    setState(() {
+      _selectedSkill = null;
+      _selectedSkillManifest = null;
+    });
+  }
+
+  /// Injects the selected skill's SKILL.md content into the composer text as
+  /// a `<system-reminder>`/`<skill-manifest>` block so every thread template
+  /// sees an explicit, high-priority directive to follow the user's skill
+  /// selection. Clears the selection after injection.
+  void _injectSkillManifestIntoText() {
+    final skill = _selectedSkill;
+    if (skill == null) return;
+    final manifest = (_selectedSkillManifest ?? '').trim();
+    final fallbackDescription = skill.description.trim();
+    final manifestBody = manifest.isNotEmpty
+        ? manifest
+        : (fallbackDescription.isNotEmpty
+            ? fallbackDescription
+            : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
+    final buffer = StringBuffer()
+      ..writeln('<system-reminder>')
+      ..writeln(
+        'The user explicitly selected the local skill "${skill.name}" for this request.',
+      )
+      ..writeln(
+        'Follow the SKILL.md content below with the highest priority, overriding any conflicting default behaviour.',
+      )
+      ..writeln(
+        "Apply the skill's guidance to the user's message that follows; do not ignore this directive even if the skill seems unrelated.",
+      )
+      ..writeln('</system-reminder>')
+      ..writeln()
+      ..writeln(
+        '<skill-manifest name="${_escapeXmlAttribute(skill.name)}" path="${_escapeXmlAttribute(skill.manifestPath)}">',
+      )
+      ..writeln(manifestBody)
+      ..writeln('</skill-manifest>');
+    final prefix = buffer.toString();
+    _atMentionSuppressListener = true;
+    try {
+      final currentText = widget.controller.text;
+      final combined = currentText.trim().isEmpty
+          ? prefix.trimRight()
+          : '$prefix\n$currentText';
+      widget.controller.text = combined;
+      widget.controller.selection = TextSelection.collapsed(
+        offset: widget.controller.text.length,
+      );
+    } finally {
+      _atMentionSuppressListener = false;
+    }
+    _clearSelectedSkill();
+  }
+
+  static String _escapeXmlAttribute(String input) {
+    return input
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+  }
+
   /// Injects project file/directory references into the controller text and
   /// clears the capsule list. Called both from the send button and from the
   /// parent via [GlobalKey] for keyboard-shortcut sends.
   void _injectReferencesIntoText() {
+    _injectSkillManifestIntoText();
     if (_projectFileReferences.isEmpty) return;
     final refs = _projectFileReferences.map((r) {
       final suffix = r.isDirectory ? '/' : '';
@@ -518,6 +756,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_selectedSkill != null) ...[
+          _SelectedSkillChip(
+            skill: _selectedSkill!,
+            onRemoved: _clearSelectedSkill,
+          ),
+          const SizedBox(height: 10),
+        ],
         if (widget.editingMessageId != null) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2174,6 +2419,306 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skill picker overlay (Codex-style leading '/' slash trigger)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SkillPickerOverlayPanel extends StatelessWidget {
+  const _SkillPickerOverlayPanel({
+    required this.link,
+    required this.items,
+    required this.selectedIndex,
+    required this.loading,
+    required this.onSelect,
+    required this.onDismiss,
+  });
+
+  final LayerLink link;
+  final List<LocalSkill> items;
+  final int selectedIndex;
+  final bool loading;
+  final ValueChanged<LocalSkill> onSelect;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final isZh =
+        Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: onDismiss,
+          ),
+        ),
+        CompositedTransformFollower(
+          link: link,
+          followerAnchor: Alignment.bottomLeft,
+          offset: const Offset(0, -6),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 480,
+              maxHeight: 360,
+            ),
+            child: Material(
+              elevation: 8,
+              shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(16),
+              color: isDark
+                  ? colorScheme.surfaceContainerHigh
+                  : colorScheme.surface,
+              surfaceTintColor: colorScheme.surfaceTint,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.extension_rounded,
+                          size: 14,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isZh ? '选择一个技能' : 'Select a skill',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (loading)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    )
+                  else if (items.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: Text(
+                          isZh ? '未找到匹配技能' : 'No matching skills',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        itemBuilder: (ctx, index) {
+                          final item = items[index];
+                          final isSelected = index == selectedIndex;
+                          return Material(
+                            color: isSelected
+                                ? colorScheme.primaryContainer
+                                    .withValues(alpha: 0.4)
+                                : Colors.transparent,
+                            child: InkWell(
+                              onTap: () => onSelect(item),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    _SkillPickerLeading(skill: item),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          if (item.description
+                                              .trim()
+                                              .isNotEmpty)
+                                            Text(
+                                              item.description,
+                                              style: theme
+                                                  .textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant
+                                                        .withValues(
+                                                          alpha: 0.7,
+                                                        ),
+                                                    fontSize: 10,
+                                                  ),
+                                              maxLines: 2,
+                                              overflow:
+                                                  TextOverflow.ellipsis,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SkillPickerLeading extends StatelessWidget {
+  const _SkillPickerLeading({required this.skill});
+
+  final LocalSkill skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (skill.hasEmojiIcon) {
+      return SizedBox(
+        width: 28,
+        height: 28,
+        child: Center(
+          child: Text(
+            skill.emojiIcon!,
+            style: const TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        skill.initials,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onPrimaryContainer,
+        ),
+      ),
+    );
+  }
+}
+
+/// Removable chip rendered at the top-left of the composer when the user
+/// explicitly selects a skill via the leading-slash picker.  Mirrors the
+/// Codex-style pill shown in the input area and exposes a close button to
+/// clear the selection.
+class _SelectedSkillChip extends StatelessWidget {
+  const _SelectedSkillChip({
+    required this.skill,
+    required this.onRemoved,
+  });
+
+  final LocalSkill skill;
+  final VoidCallback onRemoved;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh =
+        Localizations.localeOf(context).languageCode.startsWith('zh');
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (skill.hasEmojiIcon)
+              Text(skill.emojiIcon!, style: const TextStyle(fontSize: 14))
+            else
+              Icon(
+                Icons.extension_rounded,
+                size: 14,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: Text(
+                skill.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Tooltip(
+              message: isZh ? '移除此技能' : 'Remove skill',
+              child: InkWell(
+                onTap: onRemoved,
+                borderRadius: BorderRadius.circular(999),
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

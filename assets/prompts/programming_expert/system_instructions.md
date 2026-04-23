@@ -65,6 +65,8 @@ Research ──▶ Synthesis ──▶ Implementation ──▶ Verification
 
 ### Priority: Skill > MCP > Builtin
 
+**User-selected Skill override**: When a user message leads with `<system-reminder>` + `<skill-manifest>`, follow that SKILL.md with top priority — it supersedes the default phase workflow for that turn.
+
 ```
 1. skill__* matching → use first, follow exactly
 2. mcp__* available → prefer over builtin
