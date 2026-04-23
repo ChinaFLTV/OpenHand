@@ -1318,6 +1318,7 @@ class AiSessionController extends ChangeNotifier {
     bool requireWriteCommandConfirmation = true,
     WriteCommandConfirmationCallback? confirmWriteCommand,
     List<String> additionalSystemReminders = const <String>[],
+    Map<String, Object?>? selectedSkillMetadata,
   }) async {
     final normalizedContent = content.trim();
     final normalizedAttachmentPaths = _normalizeAttachmentPaths(
@@ -1436,6 +1437,16 @@ class AiSessionController extends ChangeNotifier {
           );
           existing.addAll(sanitizedExtraReminders);
           userMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
+        }
+        // Persist a display-only copy of the user's explicit skill
+        // selection (if any).  The transcript bubble reads this to render a
+        // skill capsule under the timestamp; it is NOT consumed by the LLM
+        // prompt builder (the LLM-facing manifest arrives via
+        // [aiHookSystemRemindersMetadataKey] above).
+        if (selectedSkillMetadata != null &&
+            selectedSkillMetadata.isNotEmpty) {
+          userMessageMetadata[aiUserSkillSelectionMetadataKey] =
+              Map<String, Object?>.from(selectedSkillMetadata);
         }
         if (_shouldResetPlanStateForNewTask(
           session: session,

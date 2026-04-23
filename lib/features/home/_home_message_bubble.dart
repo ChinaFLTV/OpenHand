@@ -357,6 +357,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                     textColor: textColor,
                   ),
+                if (isUser)
+                  _UserSkillSelectionChip(
+                    metadata: message
+                        .metadata[aiUserSkillSelectionMetadataKey],
+                    textColor: textColor,
+                  ),
               ],
             ),
           ),
@@ -1088,5 +1094,88 @@ class _CreationModeChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Capsule rendered under a user message timestamp when the message was
+/// submitted with an explicit local-skill selection (e.g. `/caveman`).
+/// Mirrors [_CreationModeChip] so the transcript conveys at a glance which
+/// skill was activated for the turn.
+class _UserSkillSelectionChip extends StatelessWidget {
+  const _UserSkillSelectionChip({
+    required this.metadata,
+    required this.textColor,
+  });
+
+  final Object? metadata;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (metadata is! Map) return const SizedBox.shrink();
+    final map = Map<String, Object?>.from(metadata as Map);
+    final name = (map['name'] as String?)?.trim() ?? '';
+    if (name.isEmpty) return const SizedBox.shrink();
+    final emoji = (map['emoji'] as String?)?.trim();
+    final iconPath = (map['icon_path'] as String?)?.trim();
+    final iconKind = (map['icon_kind'] as String?)?.trim();
+    final theme = Theme.of(context);
+    final leading = _buildLeading(emoji, iconPath, iconKind);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: textColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: textColor.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (leading != null) ...[
+              leading,
+              const SizedBox(width: 4),
+            ] else ...[
+              Icon(
+                Icons.extension_rounded,
+                size: 12,
+                color: textColor.withValues(alpha: 0.9),
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              name,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: textColor.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildLeading(String? emoji, String? iconPath, String? iconKind) {
+    if (emoji != null && emoji.isNotEmpty) {
+      return Text(
+        emoji,
+        style: const TextStyle(fontSize: 12, height: 1.0),
+      );
+    }
+    if (iconPath != null && iconPath.isNotEmpty && iconKind == 'raster') {
+      return SizedBox(
+        width: 14,
+        height: 14,
+        child: Image.file(
+          File(iconPath),
+          width: 14,
+          height: 14,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      );
+    }
+    return null;
   }
 }

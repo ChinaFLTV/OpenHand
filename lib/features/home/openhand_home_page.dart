@@ -52,6 +52,7 @@ import '../ai/model/ai_session_runtime_context.dart';
 import '../ai/model/ai_thread_template.dart';
 import '../ai/service/ai_bash_tool_service.dart';
 import '../ai/service/ai_chat_service.dart';
+import '../ai/service/ai_claude_hook_service.dart';
 import '../ai/service/ai_file_history_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
@@ -874,6 +875,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 nextMessage.text,
                 nextMessage.attachments,
                 additionalSystemReminders: nextMessage.systemReminders,
+                selectedSkillMetadata: nextMessage.skillMetadata,
               );
             }
             break; // Process one at a time across all sessions
@@ -2636,8 +2638,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // `aiHookSystemRemindersMetadataKey` channel) so the stored user message
     // content shown in the transcript bubble remains exactly what the user
     // typed, without leaking the `<skill-manifest>` XML block.
-    final skillReminder =
-        _composerPanelKey.currentState?.consumePendingSkillReminder();
+    final composerState = _composerPanelKey.currentState;
+    final skillDisplayMetadata = composerState?.peekPendingSkillMetadata();
+    final skillReminder = composerState?.consumePendingSkillReminder();
     final additionalSystemReminders = <String>[
       if (skillReminder != null && skillReminder.trim().isNotEmpty)
         skillReminder,
@@ -2650,6 +2653,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         text: prompt,
         attachments: pendingAttachments,
         systemReminders: additionalSystemReminders,
+        skillMetadata: skillDisplayMetadata,
       );
       setState(() {
         final q =
@@ -2702,6 +2706,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       responseModalities: responseModalities,
       creationRequest: creationRequest,
       additionalSystemReminders: additionalSystemReminders,
+      selectedSkillMetadata: skillDisplayMetadata,
     );
   }
 
@@ -2813,6 +2818,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     List<String> additionalSystemReminders = const <String>[],
+    Map<String, Object?>? selectedSkillMetadata,
   }) async {
     final sessionController = context.read<AiSessionController>();
     final settingsController = context.read<SettingsController>();
@@ -2876,6 +2882,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         confirmWriteCommand: (request) =>
             _confirmWriteCommand(request, sessionId: targetSessionId),
         additionalSystemReminders: additionalSystemReminders,
+        selectedSkillMetadata: selectedSkillMetadata,
       );
       if (!mounted) {
         return;
@@ -4429,6 +4436,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   text: trimmed,
                   attachments: q[index].attachments,
                   systemReminders: q[index].systemReminders,
+                  skillMetadata: q[index].skillMetadata,
                 );
               }
             });
@@ -4589,11 +4597,13 @@ class _QueuedMessage {
     required this.text,
     required this.attachments,
     this.systemReminders = const <String>[],
+    this.skillMetadata,
   });
 
   final String text;
   final List<_ComposerAttachmentDraft> attachments;
   final List<String> systemReminders;
+  final Map<String, Object?>? skillMetadata;
 }
 
 // ignore: unused_element

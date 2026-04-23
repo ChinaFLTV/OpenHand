@@ -680,6 +680,27 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return true;
   }
 
+  /// Returns a display-only metadata payload describing the currently
+  /// pending skill selection (if any).  Meant to be read **before**
+  /// [consumePendingSkillReminder], since consuming clears the selection.
+  /// The payload is persisted verbatim onto the user message metadata so
+  /// the transcript bubble can render a skill capsule under the timestamp.
+  Map<String, Object?>? peekPendingSkillMetadata() {
+    final skill = _selectedSkill;
+    if (skill == null) return null;
+    return <String, Object?>{
+      'name': skill.name,
+      'path': skill.manifestPath,
+      if (skill.hasEmojiIcon) 'emoji': skill.emojiIcon,
+      if (skill.hasIcon) 'icon_path': skill.iconPath,
+      if (skill.hasIcon && skill.iconKind != null)
+        'icon_kind': switch (skill.iconKind!) {
+          LocalSkillIconKind.svg => 'svg',
+          LocalSkillIconKind.raster => 'raster',
+        },
+    };
+  }
+
   /// Consumes the currently-selected skill (if any) and returns a single
   /// `<system-reminder>` payload string that should be appended to the
   /// outgoing LLM prompt.  The selection chip is cleared as a side effect so

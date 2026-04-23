@@ -10,6 +10,12 @@ const String aiHookSystemRemindersMetadataKey = 'hook_system_reminders';
 const String aiUserPromptHookFeedbackMetadataKey =
     'user_prompt_submit_hook_feedback';
 
+/// Metadata key used to persist the user's explicit skill selection on a
+/// user message, so the transcript bubble can render a skill capsule under
+/// the timestamp similar to the creation-mode chip.  Value shape:
+///   { 'name': String, 'path': String, 'icon': String? }
+const String aiUserSkillSelectionMetadataKey = 'user_skill_selection';
+
 class AiClaudeHookInvocationResult {
   const AiClaudeHookInvocationResult({
     this.blocked = false,
