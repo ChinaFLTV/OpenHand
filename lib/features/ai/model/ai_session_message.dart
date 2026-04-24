@@ -12,6 +12,7 @@ enum AiSessionMessageKind {
   mcp('mcp'),
   skill('skill'),
   hook('hook'),
+  selfLearning('self_learning'),
   status('status');
 
   const AiSessionMessageKind(this.storageValue);
@@ -243,6 +244,23 @@ class AiSessionMessage {
     );
   }
 
+  factory AiSessionMessage.selfLearning({
+    required String id,
+    required String content,
+    required DateTime createdAt,
+    required Map<String, Object?> metadata,
+  }) {
+    return AiSessionMessage(
+      id: id,
+      kind: AiSessionMessageKind.selfLearning,
+      role: AiSessionMessageRole.system,
+      content: content.trim(),
+      createdAt: createdAt.toUtc(),
+      characterCount: countCharacters(content),
+      metadata: metadata,
+    );
+  }
+
   factory AiSessionMessage.status({
     required String id,
     required String content,
@@ -311,6 +329,7 @@ class AiSessionMessage {
       AiSessionMessageKind.mcp => true,
       AiSessionMessageKind.skill => true,
       AiSessionMessageKind.hook => true,
+      AiSessionMessageKind.selfLearning => true,
       AiSessionMessageKind.status => false,
     };
   }

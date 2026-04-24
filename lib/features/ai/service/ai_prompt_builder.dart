@@ -971,6 +971,7 @@ class AiPromptBuilder {
           content: '[${message.kind.storageValue}] $promptContent',
         );
       case AiSessionMessageKind.compressionPoint:
+      case AiSessionMessageKind.selfLearning:
       case AiSessionMessageKind.status:
         return _mapMessageContent(
           role: AiChatRole.system,
