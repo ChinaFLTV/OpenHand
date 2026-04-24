@@ -1,7 +1,11 @@
 /// Type of script source for a cron job.
 enum CronScriptType {
   command('command', 'Command', '命令'),
-  script('script', 'Script', '脚本');
+  script('script', 'Script', '脚本'),
+  // 2026-04-25 system-managed Agent entries (Hermes Talker self-learning).
+  // These dispatch to an in-process agent handler rather than spawning a
+  // shell process. UI must render them read-only with a lock icon.
+  agent('agent', 'Agent', 'Agent');
 
   const CronScriptType(this.storageValue, this.labelEn, this.labelZh);
 
