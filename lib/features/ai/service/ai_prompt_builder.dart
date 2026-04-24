@@ -971,12 +971,18 @@ class AiPromptBuilder {
           content: '[${message.kind.storageValue}] $promptContent',
         );
       case AiSessionMessageKind.compressionPoint:
-      case AiSessionMessageKind.selfLearning:
       case AiSessionMessageKind.status:
         return _mapMessageContent(
           role: AiChatRole.system,
           content: '[${message.kind.storageValue}] $promptContent',
         );
+      case AiSessionMessageKind.selfLearning:
+        // Self-learning cards are audit artefacts produced AFTER the fact by
+        // the background runner; their content is not intended as context
+        // for the main model (it bloats the prompt and can confuse the
+        // assistant into talking about the self-learning process). Drop
+        // them from history entirely.
+        return const <AiChatTurn>[];
       case AiSessionMessageKind.reasoning:
         return const <AiChatTurn>[];
     }
