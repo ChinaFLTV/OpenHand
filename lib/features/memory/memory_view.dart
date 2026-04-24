@@ -165,6 +165,7 @@ class MemoryView extends StatelessWidget {
     if (autoLearned.isNotEmpty) {
       items.add(
         _AutoLearnedSection(
+          key: const PageStorageKey<String>('memory-auto-learned-section'),
           entries: autoLearned,
           onTapEntry: (entry) =>
               _showMemoryDialog(context, initialEntry: entry),
@@ -824,6 +825,7 @@ class _MemoryEntryCard extends StatelessWidget {
 
 class _AutoLearnedSection extends StatefulWidget {
   const _AutoLearnedSection({
+    super.key,
     required this.entries,
     required this.onTapEntry,
     required this.onActionSelected,
