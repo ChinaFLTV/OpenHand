@@ -103,11 +103,15 @@ class SelfLearningRunner {
 
       // 2) 构造上下文。
       final slice = _buildConversationSlice(latest);
-      if (_countTurns(slice) < minConversationTurns) {
+      final sliceMessageCount = _countSliceMessages(latest);
+      if (sliceMessageCount < minConversationTurns) {
         await _writeCard(
           session.id,
           summary: '对话轮次不足 ($minConversationTurns)，跳过本轮自我学习。',
           status: 'skipped',
+          extra: <String, Object?>{
+            'conversation_turns': sliceMessageCount,
+          },
         );
         return;
       }
@@ -143,7 +147,7 @@ class SelfLearningRunner {
             'user_profile_present': userProfileContent.isNotEmpty,
             'auto_learned_count':
                 memoryController.memoriesWithTag(autoLearnedMemoriesTag).length,
-            'conversation_turns': _countTurns(slice),
+            'conversation_turns': sliceMessageCount,
           },
         );
         return;
@@ -223,9 +227,29 @@ class SelfLearningRunner {
     return buffer.toString().trimRight();
   }
 
-  int _countTurns(String slice) {
-    if (slice.isEmpty) return 0;
-    return slice.split('\n').where((l) => l.trim().isNotEmpty).length;
+  /// Counts non-deleted user/assistant messages after the most recent
+  /// `selfLearning` checkpoint. Robust against multi-line message content
+  /// (unlike line counting on the rendered slice).
+  int _countSliceMessages(AiSession session) {
+    int startIndex = 0;
+    for (var i = session.messages.length - 1; i >= 0; i--) {
+      final m = session.messages[i];
+      if (m.isDeleted) continue;
+      if (m.kind == AiSessionMessageKind.selfLearning) {
+        startIndex = i + 1;
+        break;
+      }
+    }
+    var count = 0;
+    for (var i = startIndex; i < session.messages.length; i++) {
+      final m = session.messages[i];
+      if (m.isDeleted) continue;
+      if (m.role == AiSessionMessageRole.user ||
+          m.role == AiSessionMessageRole.assistant) {
+        count += 1;
+      }
+    }
+    return count;
   }
 
   String _buildPrompt({
