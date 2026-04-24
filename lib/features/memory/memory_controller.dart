@@ -48,6 +48,29 @@ class MemoryController extends ChangeNotifier {
   String get storageDirectoryPath => _store.storageDirectoryPath;
   MemoryPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
+  /// Returns the single user profile entry in memory, or null if none.
+  UserMemoryEntry? get userProfile {
+    for (final entry in _entries) {
+      if (entry.type == UserMemoryEntry.userProfileType) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  /// Returns all in-memory entries carrying [tag] (case-insensitive match).
+  List<UserMemoryEntry> memoriesWithTag(String tag) {
+    final needle = tag.trim().toLowerCase();
+    if (needle.isEmpty) {
+      return const <UserMemoryEntry>[];
+    }
+    return _entries
+        .where(
+          (entry) => entry.tags.any((t) => t.toLowerCase() == needle),
+        )
+        .toList(growable: false);
+  }
+
   @override
   void notifyListeners() {
     if (_isDisposed) {
@@ -132,6 +155,23 @@ class MemoryController extends ChangeNotifier {
         type: UserMemoryEntry.userType,
       );
       return _commitSaveLocked(nextEntries);
+    });
+  }
+
+  /// Upserts the single user_profile entry via the store, then refreshes
+  /// the in-memory snapshot. Goes through the operation queue so UI edits
+  /// and self-learning writes cannot interleave.
+  Future<UserMemoryEntry> upsertUserProfile({
+    required String content,
+    List<String> tags = const <String>[],
+  }) {
+    return _enqueueOperation(() async {
+      final entry = await _store.upsertUserProfile(
+        content: content,
+        tags: tags,
+      );
+      await _loadLocked();
+      return entry;
     });
   }
 
