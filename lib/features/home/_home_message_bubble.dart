@@ -95,6 +95,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         message.kind == AiSessionMessageKind.mcp ||
         message.kind == AiSessionMessageKind.skill;
     final isStatus = message.kind == AiSessionMessageKind.status;
+    final isSelfLearning = message.kind == AiSessionMessageKind.selfLearning;
     final attachments = AiMessageAttachment.listFromMetadata(
       message.metadata[aiSessionMessageAttachmentsMetadataKey],
     );
@@ -117,6 +118,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? colorScheme.secondaryContainer
         : isToolResult
         ? colorScheme.surfaceContainerHighest
+        : isSelfLearning
+        ? colorScheme.tertiaryContainer
         : isStatus
         ? colorScheme.surfaceContainer
         : colorScheme.surfaceContainerHigh;
@@ -128,6 +131,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? Colors.white
         : isToolCall
         ? colorScheme.onSecondaryContainer
+        : isSelfLearning
+        ? colorScheme.onTertiaryContainer
         : colorScheme.onSurface;
     final useDarkCodeSurface = isReasoning || isToolCall;
     final environmentKey =
@@ -190,7 +195,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
             !isCompressionPoint &&
             !isToolCall &&
             !isToolResult &&
-            !isStatus)
+            !isStatus &&
+            !isSelfLearning)
         ? _parseHeAnnotation(message.content)
         : null;
     final effectiveContent = heAnnotation?.strippedContent ?? message.content;
@@ -269,7 +275,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     ),
                     color: textColor,
                   )
-                else if (message.modelLabel != null)
+                else if (!isSelfLearning && message.modelLabel != null)
                   Text(
                     message.modelLabel!,
                     style: theme.textTheme.labelLarge?.copyWith(
@@ -282,7 +288,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     isReasoning ||
                     isToolCall ||
                     isToolResult ||
-                    message.modelLabel != null)
+                    (!isSelfLearning && message.modelLabel != null))
                   const SizedBox(height: 10),
                 if (isCompressionPoint)
                   _CompressionCheckpointBody(
@@ -318,6 +324,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   )
                 else if (isToolCall)
                   _ToolCallBody(message: message, selectable: widget.isSelected)
+                else if (isSelfLearning)
+                  _SelfLearningCard(message: message)
                 else
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

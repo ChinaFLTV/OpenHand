@@ -2844,3 +2844,364 @@ class _StatRow extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Self-learning card: rendered for AiSessionMessageKind.selfLearning.
+//
+// Shows a compact summary of what the self-learning worker updated during an
+// autonomous review pass: which memories changed, which skills changed, and
+// an optional profile diff paragraph. Mirrors the visual idiom of the tool
+// call card (chip row + expandable sections) so the transcript reads
+// uniformly, but uses the tertiary colour slot to distinguish "the agent
+// learnt something" from "the agent ran a tool".
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SelfLearningCard extends StatefulWidget {
+  const _SelfLearningCard({required this.message});
+
+  final AiSessionMessage message;
+
+  @override
+  State<_SelfLearningCard> createState() => _SelfLearningCardState();
+}
+
+class _SelfLearningCardState extends State<_SelfLearningCard> {
+  bool _memoriesExpanded = false;
+  bool _skillsExpanded = false;
+  bool _profileExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final metadata = widget.message.metadata;
+    final memoryItems = _extractChangeItems(metadata['memory_changes']);
+    final skillItems = _extractChangeItems(metadata['skill_changes']);
+    final profileDiff = _extractProfileDiff(metadata['profile_diff']);
+    final elapsedLabel = _formatSelfLearningElapsed(
+      context,
+      widget.message.createdAt,
+    );
+    final memoryCountLabel = _localizedText(
+      context,
+      zh: '${memoryItems.length} 条记忆已更新',
+      en: '${memoryItems.length} memories updated',
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SelfLearningHeaderRow(
+          icon: Icons.psychology_alt_rounded,
+          label: _localizedText(context, zh: '自我学习', en: 'Self-Learning'),
+          color: colorScheme.tertiary,
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _ToolExecutionChip(
+              icon: Icons.memory_rounded,
+              label: memoryCountLabel,
+            ),
+            if (skillItems.isNotEmpty)
+              _ToolExecutionChip(
+                icon: Icons.extension_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '${skillItems.length} 个技能已更新',
+                  en: '${skillItems.length} skills updated',
+                ),
+              ),
+            _ToolExecutionChip(
+              icon: Icons.schedule_rounded,
+              label: elapsedLabel,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _ExpandableToolSection(
+          title: _localizedText(context, zh: '记忆变更', en: 'Memory Changes'),
+          preview: _changeItemsPreview(context, memoryItems),
+          expanded: _memoriesExpanded,
+          onToggle: () {
+            setState(() {
+              _memoriesExpanded = !_memoriesExpanded;
+            });
+          },
+          expandedBuilder: (context) =>
+              _SelfLearningChangeList(items: memoryItems),
+        ),
+        const SizedBox(height: 10),
+        _ExpandableToolSection(
+          title: _localizedText(context, zh: '技能变更', en: 'Skill Changes'),
+          preview: _changeItemsPreview(context, skillItems),
+          expanded: _skillsExpanded,
+          onToggle: () {
+            setState(() {
+              _skillsExpanded = !_skillsExpanded;
+            });
+          },
+          expandedBuilder: (context) =>
+              _SelfLearningChangeList(items: skillItems),
+        ),
+        if (profileDiff.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _ExpandableToolSection(
+            title: _localizedText(
+              context,
+              zh: '画像差异摘要',
+              en: 'Profile Diff',
+            ),
+            preview: profileDiff,
+            expanded: _profileExpanded,
+            onToggle: () {
+              setState(() {
+                _profileExpanded = !_profileExpanded;
+              });
+            },
+            expandedBuilder: (context) => Text(
+              profileDiff,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Header row for the self-learning card. Intentionally matches the visual
+/// weight of [_MessageMetaRow] but uses a tinted capsule so the colour slot
+/// used by the card (tertiary) is clearly differentiated from tool calls
+/// (secondary).
+class _SelfLearningHeaderRow extends StatelessWidget {
+  const _SelfLearningHeaderRow({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: _borderRadius999,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Renders a list of self-learning change entries. Each entry is either a
+/// bare id string or a map with `id` / `summary` keys; the summary — when
+/// present — is shown in a muted style beneath the id.
+class _SelfLearningChangeList extends StatelessWidget {
+  const _SelfLearningChangeList({required this.items});
+
+  final List<_SelfLearningChangeItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (items.isEmpty) {
+      return Text(
+        _localizedText(context, zh: '无变更', en: 'No changes'),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _SelfLearningChangeTile(item: items[i]),
+        ],
+      ],
+    );
+  }
+}
+
+class _SelfLearningChangeTile extends StatelessWidget {
+  const _SelfLearningChangeTile({required this.item});
+
+  final _SelfLearningChangeItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 4, right: 8),
+          child: Icon(
+            Icons.chevron_right_rounded,
+            size: 16,
+            color: theme.colorScheme.tertiary,
+          ),
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.id.isEmpty
+                    ? _localizedText(context, zh: '(未命名)', en: '(unnamed)')
+                    : item.id,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              if (item.summary.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  item.summary,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SelfLearningChangeItem {
+  const _SelfLearningChangeItem({required this.id, required this.summary});
+
+  final String id;
+  final String summary;
+}
+
+/// Coerces `memory_changes` / `skill_changes` metadata into a list of
+/// [_SelfLearningChangeItem]. Accepts any of the following shapes:
+///
+///   - `List<String>` → each becomes an id-only item.
+///   - `List<Map>`    → reads `id` and `summary` defensively.
+///   - `int`          → returns that many placeholder items so the header
+///                      count matches the list length (ids unknown).
+///   - any other type → empty list.
+List<_SelfLearningChangeItem> _extractChangeItems(Object? raw) {
+  if (raw is List) {
+    final items = <_SelfLearningChangeItem>[];
+    for (final entry in raw) {
+      if (entry is String) {
+        items.add(_SelfLearningChangeItem(id: entry.trim(), summary: ''));
+      } else if (entry is Map) {
+        final id = '${entry['id'] ?? ''}'.trim();
+        final summary = '${entry['summary'] ?? ''}'.trim();
+        items.add(_SelfLearningChangeItem(id: id, summary: summary));
+      }
+    }
+    return items;
+  }
+  if (raw is int && raw > 0) {
+    return List<_SelfLearningChangeItem>.generate(
+      raw,
+      (_) => const _SelfLearningChangeItem(id: '', summary: ''),
+    );
+  }
+  return const <_SelfLearningChangeItem>[];
+}
+
+String _extractProfileDiff(Object? raw) {
+  if (raw is String) {
+    return raw.trim();
+  }
+  if (raw is Map) {
+    final summary = '${raw['summary'] ?? ''}'.trim();
+    if (summary.isNotEmpty) return summary;
+    // Fallback: render a compact "key: value" preview if the map has
+    // primitive entries. Keeps the UI useful when the agent emits a
+    // structured diff instead of a pre-written paragraph.
+    final parts = <String>[];
+    raw.forEach((key, value) {
+      if (value is String || value is num || value is bool) {
+        parts.add('$key: $value');
+      }
+    });
+    return parts.join(' · ');
+  }
+  return '';
+}
+
+String _changeItemsPreview(
+  BuildContext context,
+  List<_SelfLearningChangeItem> items,
+) {
+  if (items.isEmpty) {
+    return _localizedText(context, zh: '无变更', en: 'No changes');
+  }
+  final names = items
+      .map((item) => item.id.isEmpty ? '—' : item.id)
+      .take(3)
+      .join(', ');
+  final suffix = items.length > 3
+      ? _localizedText(
+          context,
+          zh: ' 等 ${items.length} 项',
+          en: ' and ${items.length - 3} more',
+        )
+      : '';
+  return '$names$suffix';
+}
+
+/// Formats the elapsed time since [createdAt] into a short relative label.
+/// Mirrors the bilingual convention used elsewhere in the home feature
+/// (e.g. the reasoning meta row) instead of the absolute timestamp used in
+/// the message footer, because the spec calls for a relative elapsed hint.
+String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
+  final now = DateTime.now().toUtc();
+  final diff = now.difference(createdAt.toUtc());
+  if (diff.isNegative || diff.inSeconds < 5) {
+    return _localizedText(context, zh: '刚刚', en: 'just now');
+  }
+  if (diff.inMinutes < 1) {
+    final seconds = diff.inSeconds;
+    return _localizedText(context, zh: '$seconds秒前', en: '${seconds}s ago');
+  }
+  if (diff.inHours < 1) {
+    final minutes = diff.inMinutes;
+    return _localizedText(context, zh: '$minutes分钟前', en: '${minutes}m ago');
+  }
+  if (diff.inDays < 1) {
+    final hours = diff.inHours;
+    return _localizedText(context, zh: '$hours小时前', en: '${hours}h ago');
+  }
+  final days = diff.inDays;
+  return _localizedText(context, zh: '$days天前', en: '${days}d ago');
+}
+
