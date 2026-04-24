@@ -124,8 +124,10 @@ class AiPromptTemplateRepository {
     );
     return AiPromptTemplateBundle(
       template: template,
-      systemInstructions: systemInstructions,
-      developerInstructions: developerInstructions,
+      systemInstructions: _appendMemoryTonePolicyIfAbsent(systemInstructions),
+      developerInstructions: _appendMemoryTonePolicyIfAbsent(
+        developerInstructions,
+      ),
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
   }
@@ -138,6 +140,33 @@ class AiPromptTemplateRepository {
       return fallback;
     }
   }
+}
+
+/// Shared "Memory Tone Policy" section applied to every template's system
+/// and developer instructions (Task 22 / 2026-04-25).
+///
+/// Templates whose fallback already embeds this section (e.g.
+/// `hermes_talker`) will NOT have it appended twice — see
+/// [_appendMemoryTonePolicyIfAbsent].
+const String _memoryTonePolicySection = '''
+
+## Memory Tone Policy
+When your answer draws on stored user memories or profile data, weave that
+knowledge into your reply naturally without announcing it. Do NOT say "I
+remember that…", "from memory…", "you told me earlier…", or similar
+tell-tales. Treat memory as invisible context, not as something the user
+needs to be reminded you're tracking.
+''';
+
+/// Marker used to detect whether an instruction payload already contains the
+/// tone policy section. Matched case-insensitively.
+const String _memoryTonePolicyMarker = '## memory tone policy';
+
+String _appendMemoryTonePolicyIfAbsent(String instructions) {
+  if (instructions.toLowerCase().contains(_memoryTonePolicyMarker)) {
+    return instructions;
+  }
+  return '${instructions.trimRight()}\n$_memoryTonePolicySection';
 }
 
 // ── Default template fallback prompts (compact, token-optimized) ──────────────
