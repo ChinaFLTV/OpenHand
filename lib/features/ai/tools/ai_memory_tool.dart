@@ -41,8 +41,13 @@ class AiMemoryTool extends AiTool {
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
+    return run(context.decodedArguments);
+  }
+
+  /// Package-private entry point used by tests to exercise the core logic
+  /// without constructing a full [AiToolExecutionContext].
+  Future<AiToolExecutionResult> run(Map<String, Object?> args) async {
     final stopwatch = Stopwatch()..start();
-    final args = context.decodedArguments;
     final action = '${args['action'] ?? ''}'.trim().toLowerCase();
 
     final controller = memoryControllerProvider();
