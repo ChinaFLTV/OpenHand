@@ -192,6 +192,10 @@ class MemoryStore {
   }
 
   /// Returns all entries that carry [tag] (case-insensitive match).
+  ///
+  /// Complexity: O(n) over all stored entries. Tag filtering happens in
+  /// Dart because tags are JSON-encoded in a single column; acceptable at
+  /// the expected scale (<~1000 entries). Revisit if the table grows.
   Future<List<UserMemoryEntry>> loadByTag(String tag) async {
     final target = tag.trim().toLowerCase();
     if (target.isEmpty) {
@@ -221,42 +225,46 @@ class MemoryStore {
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
 
-    final existingRows = await _db.query(
-      'memories',
-      where: 'type = ?',
-      whereArgs: <Object?>[UserMemoryEntry.userProfileType],
-    );
+    // Wrap the read-modify-write in a transaction so concurrent callers
+    // cannot race between the SELECT, DELETE-extras, and INSERT steps.
+    return _db.transaction<UserMemoryEntry>((txn) async {
+      final existingRows = await txn.query(
+        'memories',
+        where: 'type = ?',
+        whereArgs: <Object?>[UserMemoryEntry.userProfileType],
+      );
 
-    String entryId;
-    if (existingRows.isEmpty) {
-      entryId = UserMemoryEntry.userProfileEntryId;
-    } else {
-      entryId = (existingRows.first['id'] as String?) ??
-          UserMemoryEntry.userProfileEntryId;
-      if (existingRows.length > 1) {
-        await _db.delete(
-          'memories',
-          where: 'type = ? AND id != ?',
-          whereArgs: <Object?>[UserMemoryEntry.userProfileType, entryId],
-        );
+      String entryId;
+      if (existingRows.isEmpty) {
+        entryId = UserMemoryEntry.userProfileEntryId;
+      } else {
+        entryId = (existingRows.first['id'] as String?) ??
+            UserMemoryEntry.userProfileEntryId;
+        if (existingRows.length > 1) {
+          await txn.delete(
+            'memories',
+            where: 'type = ? AND id != ?',
+            whereArgs: <Object?>[UserMemoryEntry.userProfileType, entryId],
+          );
+        }
       }
-    }
 
-    final entry = UserMemoryEntry(
-      id: entryId,
-      type: UserMemoryEntry.userProfileType,
-      createdAt: DateTime.now().toUtc(),
-      content: normalizedContent,
-      tags: normalizedTags,
-    );
+      final entry = UserMemoryEntry(
+        id: entryId,
+        type: UserMemoryEntry.userProfileType,
+        createdAt: DateTime.now().toUtc(),
+        content: normalizedContent,
+        tags: normalizedTags,
+      );
 
-    await _db.insert(
-      'memories',
-      _entryToRow(entry),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+      await txn.insert(
+        'memories',
+        _entryToRow(entry),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
 
-    return entry;
+      return entry;
+    });
   }
 
   Future<void> openStorageDirectory() async {
