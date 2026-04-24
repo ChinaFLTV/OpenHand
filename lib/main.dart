@@ -167,10 +167,7 @@ Future<void> _bootstrap() async {
   );
   final selfLearningScheduler = SelfLearningScheduler(
     sessionStore: aiSessionController.store,
-    memoryController: memoryController,
     settingsController: settingsController,
-    promptRepository: aiSessionController.templateRepository,
-    sessionController: aiSessionController,
     runForSession: selfLearningRunner.runForSession,
     concurrency: settingsController.selfLearningConcurrency,
   );

@@ -23,12 +23,9 @@ library;
 import 'dart:async';
 
 import '../../../app/state/settings_controller.dart';
-import '../../memory/memory_controller.dart';
-import '../ai_session_controller.dart';
 import '../data/ai_session_store.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
-import '../service/ai_prompt_template_repository.dart';
 
 /// 单轮 [SelfLearningScheduler.tick] 执行结果。
 class SelfLearningTickResult {
@@ -75,10 +72,7 @@ typedef SelfLearningRunForSession =
 class SelfLearningScheduler {
   SelfLearningScheduler({
     required this.sessionStore,
-    required this.memoryController,
     required this.settingsController,
-    required this.promptRepository,
-    required this.sessionController,
     required this.runForSession,
     int concurrency = _defaultConcurrency,
     this.lookbackDuration = const Duration(days: 7),
@@ -93,10 +87,7 @@ class SelfLearningScheduler {
   static const int _maxConcurrency = 10;
 
   final AiSessionStore sessionStore;
-  final MemoryController memoryController;
   final SettingsController settingsController;
-  final AiPromptTemplateRepository promptRepository;
-  final AiSessionController sessionController;
   final SelfLearningRunForSession runForSession;
   final Duration lookbackDuration;
   final String templateId;
