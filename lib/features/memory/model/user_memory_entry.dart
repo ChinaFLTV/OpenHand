@@ -13,7 +13,10 @@ class UserMemoryEntry {
   static const String userProfileEntryId = 'system:user-profile';
 
   bool get isUserProfile => type == userProfileType;
-  bool get isAutoLearned => tags.any((t) => t == autoLearnedTag);
+  bool get isAutoLearned {
+    final target = autoLearnedTag.toLowerCase();
+    return tags.any((t) => t.toLowerCase() == target);
+  }
 
   final String id;
   final String type;
