@@ -150,6 +150,7 @@ class AiSessionController extends ChangeNotifier {
     HooksExecutor? userHooksExecutor,
     String Function()? idGenerator,
     DateTime Function()? clock,
+    String Function()? skillsDirProvider,
   }) async {
     final resolvedStore = store ?? AiSessionStore();
     final resolvedChatClient = chatClient ?? AiChatService();
@@ -177,6 +178,7 @@ class AiSessionController extends ChangeNotifier {
             hookService: resolvedHookService,
             mcpToolService: resolvedMcpToolService!,
             backgroundChatClient: resolvedBackgroundChatClient,
+            skillsDirProvider: skillsDirProvider,
           ),
       attachmentService:
           attachmentService ??

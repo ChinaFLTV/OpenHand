@@ -158,6 +158,7 @@ class AiToolRuntimeService {
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     AiFileTrackerService? fileTrackerService,
     AiFileHistoryService? fileHistoryService,
+    String Function()? skillsDirProvider,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
@@ -173,6 +174,7 @@ class AiToolRuntimeService {
       backgroundChatClient: _backgroundChatClient,
       httpClient: _httpClient,
       hostLookup: _hostLookup,
+      skillsDirProvider: skillsDirProvider,
     );
   }
 
@@ -1684,6 +1686,81 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['title', 'options'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.skillManager,
+      name: 'SkillManager',
+      description:
+          'Manage AI skills on disk. Skills live under the user-configured '
+          'skills directory as `[<category>/]<name>/SKILL.md` with a YAML '
+          'frontmatter (name + description required). Supported actions: '
+          '`create`, `edit`, `delete`, `patch`, `write_file`, `remove_file`. '
+          'Prefer `patch` (unique-match substring replace) over `edit` '
+          '(full rewrite). `write_file`/`remove_file` are restricted to the '
+          '{references, templates, scripts, assets} sub-directories of an '
+          'existing skill. Confirm with the user before calling `delete`.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'action': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'create',
+              'edit',
+              'delete',
+              'patch',
+              'write_file',
+              'remove_file',
+            ],
+          },
+          'name': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Skill name. Must match ^[a-z0-9][a-z0-9._-]*\$, length <= 64, '
+                'globally unique across categories.',
+          },
+          'category': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional single-segment category directory name (same '
+                'regex/length rules as `name`). Only used by `create`.',
+          },
+          'content': <String, Object?>{
+            'type': 'string',
+            'description':
+                'For `create`/`edit`: full SKILL.md content (must begin with '
+                'a `---\\n...\\n---\\n` frontmatter block containing `name` '
+                'and `description`, body non-empty, total <= 100000 chars). '
+                'For `write_file`: the file contents to write.',
+          },
+          'old_string': <String, Object?>{
+            'type': 'string',
+            'description':
+                'For `patch`: the exact substring to replace. Must match '
+                'exactly once unless `replace_all` is true.',
+          },
+          'new_string': <String, Object?>{
+            'type': 'string',
+            'description': 'For `patch`: the replacement text.',
+          },
+          'replace_all': <String, Object?>{
+            'type': 'boolean',
+            'description':
+                'For `patch`: when true, replace every occurrence. Defaults '
+                'to false (unique-match required).',
+          },
+          'file_path': <String, Object?>{
+            'type': 'string',
+            'description':
+                'For `patch`/`write_file`/`remove_file`: relative path within '
+                'the skill directory. Must start with one of '
+                '{references, templates, scripts, assets}. Omit (or empty) '
+                'when patching SKILL.md.',
+          },
+        },
+        'required': <String>['action', 'name'],
         'additionalProperties': false,
       },
     ),

@@ -120,6 +120,7 @@ Future<void> _bootstrap() async {
   final aiSessionControllerFuture = AiSessionController.create(
     hookService: AiClaudeHookService(),
     userHooksExecutor: HooksExecutor(controller: hooksController),
+    skillsDirProvider: () => settingsController.skillsStoragePath,
   );
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,

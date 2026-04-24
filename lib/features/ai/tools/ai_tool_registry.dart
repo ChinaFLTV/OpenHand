@@ -21,6 +21,7 @@ import 'ai_multi_edit_tool.dart';
 import 'ai_notebook_edit_tool.dart';
 import 'ai_read_lints_tool.dart';
 import 'ai_read_tool.dart';
+import 'ai_skill_manager_tool.dart';
 import 'ai_task_tool.dart';
 import 'ai_todo_write_tool.dart';
 import 'ai_tool.dart';
@@ -67,6 +68,7 @@ class AiToolRegistry {
     required AiChatClient backgroundChatClient,
     required http.Client httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
+    String Function()? skillsDirProvider,
   }) {
     final registry = AiToolRegistry.lightweightOnly();
 
@@ -75,6 +77,14 @@ class AiToolRegistry {
       bashToolService: bashToolService,
       hookService: hookService,
     ));
+
+    // SkillManager — 需要 skills directory provider (Hermes Talker builtin).
+    // Only registered when a provider is wired; sessions where the user has
+    // not configured a skills directory will surface a friendly error at
+    // runtime via the provider returning an empty string.
+    if (skillsDirProvider != null) {
+      registry.register(AiSkillManagerTool(skillsDirProvider: skillsDirProvider));
+    }
 
     // WebFetch — 需要 http.Client + AiChatClient
     registry.register(AiWebFetchTool(
