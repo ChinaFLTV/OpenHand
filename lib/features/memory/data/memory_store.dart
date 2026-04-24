@@ -73,8 +73,15 @@ class MemoryStore {
         }
 
         final rawType = (row['type'] as String?) ?? '';
-        const type = UserMemoryEntry.userType;
-        if (rawType != UserMemoryEntry.userType) {
+        const allowedTypes = <String>{
+          UserMemoryEntry.userType,
+          UserMemoryEntry.userProfileType,
+        };
+        final String type;
+        if (allowedTypes.contains(rawType)) {
+          type = rawType;
+        } else {
+          type = UserMemoryEntry.userType;
           didSanitize = true;
         }
 
@@ -171,6 +178,85 @@ class MemoryStore {
       where: 'id = ?',
       whereArgs: <Object?>[entry.id],
     );
+  }
+
+  /// Returns the single user profile entry, or null if none exists.
+  Future<UserMemoryEntry?> loadUserProfile() async {
+    final entries = (await load()).entries;
+    for (final entry in entries) {
+      if (entry.type == UserMemoryEntry.userProfileType) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  /// Returns all entries that carry [tag] (case-insensitive match).
+  Future<List<UserMemoryEntry>> loadByTag(String tag) async {
+    final target = tag.trim().toLowerCase();
+    if (target.isEmpty) {
+      return const <UserMemoryEntry>[];
+    }
+    final entries = (await load()).entries;
+    return entries
+        .where(
+          (entry) =>
+              entry.tags.any((t) => t.toLowerCase() == target),
+        )
+        .toList();
+  }
+
+  /// Upserts the single user profile entry. Keeps at most one profile row.
+  Future<UserMemoryEntry> upsertUserProfile({
+    required String content,
+    List<String> tags = const <String>[],
+  }) async {
+    final normalizedContent = UserMemoryEntry.normalizeContent(content);
+    if (normalizedContent.isEmpty) {
+      throw ArgumentError.value(
+        content,
+        'content',
+        'Profile content cannot be empty.',
+      );
+    }
+    final normalizedTags = UserMemoryEntry.normalizeTags(tags);
+
+    final existingRows = await _db.query(
+      'memories',
+      where: 'type = ?',
+      whereArgs: <Object?>[UserMemoryEntry.userProfileType],
+    );
+
+    String entryId;
+    if (existingRows.isEmpty) {
+      entryId = UserMemoryEntry.userProfileEntryId;
+    } else {
+      entryId = (existingRows.first['id'] as String?) ??
+          UserMemoryEntry.userProfileEntryId;
+      if (existingRows.length > 1) {
+        await _db.delete(
+          'memories',
+          where: 'type = ? AND id != ?',
+          whereArgs: <Object?>[UserMemoryEntry.userProfileType, entryId],
+        );
+      }
+    }
+
+    final entry = UserMemoryEntry(
+      id: entryId,
+      type: UserMemoryEntry.userProfileType,
+      createdAt: DateTime.now().toUtc(),
+      content: normalizedContent,
+      tags: normalizedTags,
+    );
+
+    await _db.insert(
+      'memories',
+      _entryToRow(entry),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    return entry;
   }
 
   Future<void> openStorageDirectory() async {
