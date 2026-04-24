@@ -8,6 +8,12 @@ class UserMemoryEntry {
   });
 
   static const String userType = 'user';
+  static const String userProfileType = 'user_profile';
+  static const String autoLearnedTag = '自主学习';
+  static const String userProfileEntryId = 'system:user-profile';
+
+  bool get isUserProfile => type == userProfileType;
+  bool get isAutoLearned => tags.any((t) => t == autoLearnedTag);
 
   final String id;
   final String type;
