@@ -17,6 +17,7 @@ import 'ai_glob_tool.dart';
 import 'ai_grep_tool.dart';
 import 'ai_ls_tool.dart';
 import 'ai_lsp_tool.dart';
+import 'ai_memory_tool.dart';
 import 'ai_multi_edit_tool.dart';
 import 'ai_notebook_edit_tool.dart';
 import 'ai_read_lints_tool.dart';
@@ -69,6 +70,7 @@ class AiToolRegistry {
     required http.Client httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     String Function()? skillsDirProvider,
+    MemoryControllerProvider? memoryControllerProvider,
   }) {
     final registry = AiToolRegistry.lightweightOnly();
 
@@ -84,6 +86,13 @@ class AiToolRegistry {
     // runtime via the provider returning an empty string.
     if (skillsDirProvider != null) {
       registry.register(AiSkillManagerTool(skillsDirProvider: skillsDirProvider));
+    }
+
+    // Memory — Hermes Talker self-learning sub-agent writes here.
+    if (memoryControllerProvider != null) {
+      registry.register(AiMemoryTool(
+        memoryControllerProvider: memoryControllerProvider,
+      ));
     }
 
     // WebFetch — 需要 http.Client + AiChatClient

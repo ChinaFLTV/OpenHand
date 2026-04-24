@@ -117,10 +117,15 @@ Future<void> _bootstrap() async {
 
   final settingsController = await settingsControllerFuture;
   final hooksController = await hooksControllerFuture;
+  // 2026-04-25 Hermes Talker — expose a late-bound MemoryController handle to
+  // AiSessionController so the Memory builtin tool (self-learning sub-agent)
+  // can reach the real controller once it finishes loading.
+  MemoryController? memoryControllerHandle;
   final aiSessionControllerFuture = AiSessionController.create(
     hookService: AiClaudeHookService(),
     userHooksExecutor: HooksExecutor(controller: hooksController),
     skillsDirProvider: () => settingsController.skillsStoragePath,
+    memoryControllerProvider: () => memoryControllerHandle,
   );
   AiLspClientService.instance.updateLanguageSettings(
     settingsController.editorLspSettings,
@@ -143,6 +148,7 @@ Future<void> _bootstrap() async {
   final skillsController = await skillsControllerFuture;
   final mcpController = await mcpControllerFuture;
   final memoryController = await memoryControllerFuture;
+  memoryControllerHandle = memoryController;
   final cronsController = await cronsControllerFuture;
   final aiSessionController = await aiSessionControllerFuture;
 

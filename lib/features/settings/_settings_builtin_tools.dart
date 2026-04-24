@@ -48,6 +48,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.readLints => Icons.bug_report_outlined,
       AiBuiltinToolKind.askUserChoice => Icons.quiz_outlined,
       AiBuiltinToolKind.skillManager => Icons.auto_stories_rounded,
+      AiBuiltinToolKind.memory => Icons.psychology_rounded,
     };
   }
 

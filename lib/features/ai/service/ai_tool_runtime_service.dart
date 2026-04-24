@@ -12,6 +12,7 @@ import '../model/ai_builtin_tool_config.dart';
 import '../model/ai_deny_command_rule.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_session_runtime_context.dart';
+import '../tools/ai_memory_tool.dart';
 import '../tools/ai_tool_registry.dart';
 import '../tools/ai_tool_utils.dart';
 import 'ai_bash_tool_service.dart';
@@ -91,6 +92,7 @@ enum AiBuiltinToolKind {
   readLints,
   askUserChoice,
   skillManager,
+  memory,
 }
 
 class AiToolExecutionResult {
@@ -159,6 +161,7 @@ class AiToolRuntimeService {
     AiFileTrackerService? fileTrackerService,
     AiFileHistoryService? fileHistoryService,
     String Function()? skillsDirProvider,
+    MemoryControllerProvider? memoryControllerProvider,
   }) : _bashToolService = bashToolService,
        _hookService = hookService,
        _mcpToolService = mcpToolService,
@@ -175,6 +178,7 @@ class AiToolRuntimeService {
       httpClient: _httpClient,
       hostLookup: _hostLookup,
       skillsDirProvider: skillsDirProvider,
+      memoryControllerProvider: memoryControllerProvider,
     );
   }
 
@@ -211,6 +215,9 @@ class AiToolRuntimeService {
   /// session whose thread template is [templateId].
   bool _isBuiltinAllowedForTemplate(AiResolvedTool tool, String templateId) {
     if (tool.builtinKind == AiBuiltinToolKind.skillManager) {
+      return templateId == _skillManagerTemplateId;
+    }
+    if (tool.builtinKind == AiBuiltinToolKind.memory) {
       return templateId == _skillManagerTemplateId;
     }
     return true;
@@ -792,6 +799,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.readLints => 'ReadLints',
       AiBuiltinToolKind.askUserChoice => 'AskUserChoice',
       AiBuiltinToolKind.skillManager => 'SkillManager',
+      AiBuiltinToolKind.memory => 'Memory',
       null => tool.name,
     };
   }
@@ -1785,6 +1793,52 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['action', 'name'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.memory,
+      name: 'Memory',
+      description:
+          'Manage the user memory store (Hermes Talker self-learning only). '
+          'Supported actions: `list` (optional tag filter), `append` '
+          '(insert a new memory), `upsert_profile` (create or replace the '
+          'single user_profile entry), `update` (by id), `delete` (by id).',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'action': <String, Object?>{
+            'type': 'string',
+            'enum': <String>[
+              'list',
+              'append',
+              'upsert_profile',
+              'update',
+              'delete',
+            ],
+          },
+          'id': <String, Object?>{
+            'type': 'string',
+            'description': 'Required for `update`/`delete`.',
+          },
+          'content': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Memory content. Required for `append`/`upsert_profile`/'
+                '`update`.',
+          },
+          'tags': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{'type': 'string'},
+            'description': 'Optional list of tags to attach to the entry.',
+          },
+          'tag': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional filter for `list`. Matches case-insensitively.',
+          },
+        },
+        'required': <String>['action'],
         'additionalProperties': false,
       },
     ),

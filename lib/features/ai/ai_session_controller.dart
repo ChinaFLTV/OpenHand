@@ -32,6 +32,7 @@ import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
+import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
 
 
 part '_ai_session_models.dart';
@@ -151,6 +152,7 @@ class AiSessionController extends ChangeNotifier {
     String Function()? idGenerator,
     DateTime Function()? clock,
     String Function()? skillsDirProvider,
+    MemoryControllerProvider? memoryControllerProvider,
   }) async {
     final resolvedStore = store ?? AiSessionStore();
     final resolvedChatClient = chatClient ?? AiChatService();
@@ -179,6 +181,7 @@ class AiSessionController extends ChangeNotifier {
             mcpToolService: resolvedMcpToolService!,
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
+            memoryControllerProvider: memoryControllerProvider,
           ),
       attachmentService:
           attachmentService ??
@@ -3199,6 +3202,8 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.askUserChoice:
       // Skill manager writes files on disk — must run serially.
       case AiBuiltinToolKind.skillManager:
+      // Memory tool mutates shared MemoryController state — must run serially.
+      case AiBuiltinToolKind.memory:
         return false;
     }
   }
