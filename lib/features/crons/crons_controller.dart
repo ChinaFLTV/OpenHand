@@ -84,6 +84,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// Currently running jobs keyed by cron job id.
   final Map<String, CronExecutionHandle> _runningJobs = {};
 
+  /// Currently running agent-typed jobs keyed by cron job id. Separate from
+  /// [_runningJobs] because agent jobs don't spawn a process and therefore
+  /// have no [CronExecutionHandle] to track; we only need an overlap guard.
+  final Set<String> _runningAgentJobIds = <String>{};
+
   StreamSubscription<ProcessSignal>? _sigTermWatcher;
   StreamSubscription<ProcessSignal>? _sigIntWatcher;
 
@@ -265,7 +270,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       orElse: () => entry,
     );
     _scheduleJob(current);
-    _runningJobs.remove(entry.id);
     notifyListeners();
   }
 
@@ -299,7 +303,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final index = _entries.indexWhere((item) => item.id == id);
     if (index < 0) return;
     final entry = _entries[index];
-    if (!entry.hasScript || !entry.enabled) return;
+    if (!entry.enabled) return;
+    // 2026-04-25 (Task 16/19) — agent-typed crons have no script payload;
+    // they dispatch via [_agentHandler]. Only gate non-agent jobs on
+    // [hasScript].
+    if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
     await _executeJob(entry, triggerType: 'manual');
   }
 
@@ -424,7 +432,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   void _scheduleJob(CronEntry entry) {
     if (!_canExecuteInCurrentState) return;
     _cancelTimer(entry.id);
-    if (!entry.enabled || !entry.hasScript) return;
+    if (!entry.enabled) return;
+    // 2026-04-25 (Task 16/19) — agent-typed crons are scheduled even
+    // though they carry no script payload: execution is routed through
+    // [_agentHandler] rather than [CronExecutor].
+    if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
 
     final nextRun = CronParser.nextRun(entry.cronExpression);
     if (nextRun == null) return;
@@ -491,7 +503,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     // the entry is reported as a no-op success so the scheduler can retry
     // on the next tick.
     if (entry.scriptType == CronScriptType.agent) {
-      await _executeAgentJob(entry, triggerType: triggerType);
+      if (_runningAgentJobIds.contains(entry.id)) return;
+      _runningAgentJobIds.add(entry.id);
+      try {
+        await _executeAgentJob(entry, triggerType: triggerType);
+      } finally {
+        _runningAgentJobIds.remove(entry.id);
+      }
       return;
     }
 
