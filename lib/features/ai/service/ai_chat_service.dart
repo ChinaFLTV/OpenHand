@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../model/ai_creation_mode.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
@@ -1418,11 +1419,11 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
     }
 
     final response = await client.send(request).timeout(timeout);
-    if (!_isRedirectStatusCode(response.statusCode)) {
+    if (!isRedirectStatusCode(response.statusCode)) {
       return response;
     }
 
-    final redirectLocation = _readResponseHeader(response.headers, 'location');
+    final redirectLocation = readResponseHeader(response.headers, 'location');
     if (redirectLocation.isEmpty) {
       return response;
     }
@@ -1435,7 +1436,7 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
 
     await response.stream.drain<void>();
     final redirectedUri = currentUri.resolve(redirectLocation);
-    if (_isCrossOriginRedirect(currentUri, redirectedUri)) {
+    if (isCrossOriginRedirect(currentUri, redirectedUri)) {
       _stripSensitiveRedirectHeaders(currentHeaders);
     }
     currentUri = redirectedUri;
@@ -1446,31 +1447,6 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       currentBody = null;
     }
   }
-}
-
-bool _isRedirectStatusCode(int statusCode) {
-  return statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
-}
-
-bool _isCrossOriginRedirect(Uri source, Uri target) {
-  return source.scheme != target.scheme ||
-      source.host != target.host ||
-      _effectivePort(source) != _effectivePort(target);
-}
-
-int _effectivePort(Uri uri) {
-  if (uri.hasPort) {
-    return uri.port;
-  }
-  return switch (uri.scheme.toLowerCase()) {
-    'http' => 80,
-    'https' => 443,
-    _ => -1,
-  };
 }
 
 void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
@@ -1484,16 +1460,6 @@ void _stripSensitiveRedirectHeaders(Map<String, String> headers) {
   headers.removeWhere(
     (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
   );
-}
-
-String _readResponseHeader(Map<String, String> headers, String name) {
-  final target = name.toLowerCase();
-  for (final entry in headers.entries) {
-    if (entry.key.toLowerCase() == target) {
-      return entry.value.trim();
-    }
-  }
-  return '';
 }
 
 String _extractStreamText(Object? rawContent) {

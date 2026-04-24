@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../app/model/hook_config.dart';
@@ -45,7 +46,14 @@ class HooksStore {
           enabled: (row['enabled'] as int?) == 1,
           timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
         ));
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint(
+            '[hooks_store] skipped malformed row id=${row['id']}: $error',
+          );
+          return true;
+        }());
+      }
     }
     return entries;
   }

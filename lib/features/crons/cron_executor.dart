@@ -303,6 +303,9 @@ class CronExecutor {
 
     final pid = process.pid;
 
+    // Assigning the callback here: if cancellation fired in the window
+    // between the pre-start check and now, the token's onCancel setter
+    // invokes the callback retroactively (see _ExecutionCancelToken).
     cancellationToken.onCancel = () {
       unawaited(_terminateProcessTree(process, force: false));
       unawaited(

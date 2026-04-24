@@ -70,6 +70,15 @@ class AiTaskTool extends AiTool {
       ),
     ];
     final readFiles = <String>{};
+    // Track cancellation without awaiting the signal so we can bail early
+    // between sub-tool calls. Any uncaught error on cancelSignal is ignored.
+    var cancelled = false;
+    context.cancelSignal?.then<void>(
+      (_) => cancelled = true,
+      onError: (Object _, StackTrace _) {
+        cancelled = true;
+      },
+    );
     final subagentSessionId =
         '${context.sessionId}/task/${_normalizeToken(context.toolCall.id.trim().isEmpty ? canonicalSubagentType : context.toolCall.id)}';
     final subagentStartHookResult = await _hookService.runHooks(
@@ -162,6 +171,19 @@ class AiTaskTool extends AiTool {
           role: AiChatRole.assistant, content: reply, toolCalls: completion.toolCalls));
       // Delegate sub-tool calls via a re-assembled context
       for (var index = 0; index < completion.toolCalls.length; index++) {
+        // Honor cancellation between sub-tool calls so that a user cancel
+        // after the first tool in a batch does not keep dispatching the
+        // remaining tools.
+        if (cancelled) {
+          return AiToolUtils.cancelledResult(
+            command: 'Task $description',
+            durationMs: startedAt.elapsedMilliseconds,
+            metadata: <String, Object?>{
+              'subagent_type': canonicalSubagentType,
+              'subagent_session_isolated': true,
+            },
+          );
+        }
         final toolCall = completion.toolCalls[index];
         final subContext = AiToolExecutionContext(
           sessionId: subagentSessionId,

@@ -1,4 +1,10 @@
+import 'dart:async';
 import 'dart:io';
+
+/// Per-path write lock. All atomic writes that target the same absolute path
+/// are serialized on a single [Future] chain to prevent two concurrent writers
+/// from clobbering each other's `.tmp`/`.bak` files.
+final Map<String, Future<void>> _writeLocks = <String, Future<void>>{};
 
 /// Recovers a file from its atomic-write backup if the target is missing.
 ///
@@ -53,8 +59,40 @@ Future<void> recoverAtomicWriteBackupIfNeeded(File targetFile) async {
 /// file, then renaming. If renaming fails, the original file is restored from
 /// a backup.
 ///
-/// This avoids data loss when the process crashes mid-write.
-Future<void> writeFileAtomically(File targetFile, String content) async {
+/// This avoids data loss when the process crashes mid-write. Concurrent calls
+/// targeting the same absolute path are serialized via a per-path lock so that
+/// two writers cannot race on the `.tmp`/`.bak` files.
+Future<void> writeFileAtomically(File targetFile, String content) {
+  final key = targetFile.absolute.path;
+  final previous = _writeLocks[key] ?? Future<void>.value();
+  final current = previous
+      .catchError((Object _, StackTrace _) {})
+      .then((_) => _writeFileAtomicallyLocked(targetFile, content));
+  _writeLocks[key] = current;
+  // Remove the lock once this write finishes (success or failure) and no
+  // other caller queued behind it.
+  current.whenComplete(() {
+    if (identical(_writeLocks[key], current)) {
+      _writeLocks.remove(key);
+    }
+  });
+  return current;
+}
+
+Future<void> _writeFileAtomicallyLocked(File targetFile, String content) async {
+  // Ensure the parent directory exists before writing. Without this, writing
+  // the `.tmp` file will fail on fresh installs or after the user deletes
+  // storage directories.
+  final parent = targetFile.parent;
+  if (!await parent.exists()) {
+    try {
+      await parent.create(recursive: true);
+    } on FileSystemException {
+      // Fall through — the subsequent writeAsString will surface a precise
+      // error if the directory is still missing.
+    }
+  }
+
   final tempFile = File('${targetFile.path}.tmp');
   final backupFile = File('${targetFile.path}.bak');
 
@@ -76,7 +114,7 @@ Future<void> writeFileAtomically(File targetFile, String content) async {
     if (await backupFile.exists()) {
       await backupFile.delete();
     }
-  } catch (_) {
+  } on FileSystemException {
     // Best-effort cleanup: remove temp and restore backup. Errors during
     // cleanup must not prevent the backup restoration or shadow the
     // original exception.
@@ -95,7 +133,12 @@ Future<void> writeFileAtomically(File targetFile, String content) async {
       } on FileSystemException {
         // Ignore — proceed with restoration attempt anyway.
       }
-      await backupFile.rename(targetFile.path);
+      try {
+        await backupFile.rename(targetFile.path);
+      } on FileSystemException {
+        // If even the rollback fails, fall through and rethrow the original
+        // exception so the caller can surface the problem.
+      }
     }
     rethrow;
   }

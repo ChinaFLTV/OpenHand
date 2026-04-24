@@ -293,7 +293,15 @@ class AiWebFetchTool extends AiTool {
       statusCode == 308;
 
   void _discard(http.StreamedResponse response) {
-    response.stream.drain<void>().catchError((Object e, StackTrace st) {});
+    response.stream.drain<void>().catchError((Object e, StackTrace st) {
+      // Redirect responses are consumed and discarded; drain errors are not
+      // actionable here, but surface them in debug builds to aid diagnosis.
+      assert(() {
+        // ignore: avoid_print
+        print('ai_web_fetch: response drain failed: $e');
+        return true;
+      }());
+    });
   }
 
   void _pruneCache() {

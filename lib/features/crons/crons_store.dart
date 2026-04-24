@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../app/model/cron_config.dart';
@@ -227,7 +228,14 @@ class CronsStore {
           createdAt: _parseDateTime('${row['created_at'] ?? ''}'),
           updatedAt: _parseDateTime('${row['updated_at'] ?? ''}'),
         ));
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint(
+            '[crons_store] skipped malformed cron row id=${row['id']}: $error',
+          );
+          return true;
+        }());
+      }
     }
     return entries;
   }
@@ -430,7 +438,14 @@ class CronsStore {
           pid: row['pid'] as int?,
           triggerType: '${row['trigger_type'] ?? 'scheduled'}'.trim(),
         ));
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint(
+            '[crons_store] skipped malformed history row id=${row['id']}: $error',
+          );
+          return true;
+        }());
+      }
     }
     return records;
   }

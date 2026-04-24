@@ -1753,6 +1753,42 @@ class AiInlineMedia {
   }
 }
 
+/// Shared directory for inline media artifacts. Using one directory (instead
+/// of a fresh `createTemp` per call) means stale files can be pruned as a
+/// batch and we don't leak one directory per rendered media asset.
+Directory? _inlineMediaDir;
+Future<Directory> _ensureInlineMediaDir() async {
+  final existing = _inlineMediaDir;
+  if (existing != null && await existing.exists()) return existing;
+  final dir = Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
+  await dir.create(recursive: true);
+  _inlineMediaDir = dir;
+  return dir;
+}
+
+/// Best-effort removal of inline media files older than 7 days. Safe to call
+/// repeatedly and never throws.
+Future<void> pruneInlineMediaCache() async {
+  try {
+    final dir = Directory(p.join(Directory.systemTemp.path, 'openhand_media'));
+    if (!await dir.exists()) return;
+    final cutoff = DateTime.now().subtract(const Duration(days: 7));
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      try {
+        final stat = await entity.stat();
+        if (stat.modified.isBefore(cutoff)) {
+          await entity.delete();
+        }
+      } on FileSystemException {
+        // Skip files we cannot stat or delete.
+      }
+    }
+  } on FileSystemException {
+    // Swallow — cleanup failures are never fatal.
+  }
+}
+
 /// Saves an [AiInlineMedia] to a temp file and returns a markdown reference.
 ///
 /// Images are rendered as `![...](file_path)` so the markdown renderer can
@@ -1764,7 +1800,7 @@ Future<String> saveInlineMediaToMarkdown(
   try {
     final bytes = base64Decode(media.base64Data);
     if (bytes.isEmpty) return '';
-    final tempDir = await Directory.systemTemp.createTemp('openhand_media_');
+    final tempDir = await _ensureInlineMediaDir();
     final id = DateTime.now().microsecondsSinceEpoch.toString();
     final fileName = '${media.mediaKind}_$id${media.fileExtension}';
     final file = File(p.join(tempDir.path, fileName));

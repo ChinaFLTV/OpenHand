@@ -25,15 +25,6 @@ class _BuiltinToolTile extends StatelessWidget {
   final VoidCallback? onMoveDown;
   final VoidCallback? onDelete;
 
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
-
   IconData _toolIcon(AiBuiltinToolKind kind) {
     return switch (kind) {
       AiBuiltinToolKind.task => Icons.task_alt_rounded,
@@ -383,15 +374,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _timeoutSecondsController.dispose();
     _tagsController.dispose();
     super.dispose();
-  }
-
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
   }
 
   AiBuiltinToolConfig _buildConfig() {
@@ -792,15 +774,6 @@ class _RequireConfirmationField extends StatelessWidget {
 
   final bool? value;
   final ValueChanged<bool?> onChanged;
-
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
 
   @override
   Widget build(BuildContext context) {

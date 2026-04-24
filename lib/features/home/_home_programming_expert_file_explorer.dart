@@ -1333,19 +1333,46 @@ String _resolveEditorLanguage({
   return 'plaintext';
 }
 
+// Workspace root inference is a hot path: the file explorer calls it from
+// display-path formatting and other build-tree utilities. Walking up the
+// directory tree doing 5 `existsSync()` per level is expensive per frame. We
+// cache results by directory — if dir A resolves to root R, every file under
+// A also resolves to R until the cache is invalidated by a manual flush.
+const int _workspaceRootCacheCap = 512;
+final Map<String, String> _workspaceRootCache = <String, String>{};
+
 String _inferWorkspaceRoot(String filePath) {
-  var dir = Directory(p.dirname(filePath));
+  final startDir = p.dirname(filePath);
+  final cached = _workspaceRootCache[startDir];
+  if (cached != null) return cached;
+
+  // Walk up collecting visited dirs so the answer can be memoized for the
+  // whole ancestry chain in one pass.
+  final visited = <String>[];
+  var dir = Directory(startDir);
   while (true) {
+    visited.add(dir.path);
     if (File(p.join(dir.path, 'pubspec.yaml')).existsSync() ||
         Directory(p.join(dir.path, '.git')).existsSync() ||
         File(p.join(dir.path, 'package.json')).existsSync() ||
         File(p.join(dir.path, 'go.mod')).existsSync() ||
         File(p.join(dir.path, 'Cargo.toml')).existsSync()) {
-      return dir.path;
+      final root = dir.path;
+      for (final v in visited) {
+        _workspaceRootCache[v] = root;
+      }
+      if (_workspaceRootCache.length > _workspaceRootCacheCap) {
+        _workspaceRootCache.clear();
+      }
+      return root;
     }
     final parent = dir.parent;
     if (parent.path == dir.path) {
-      return dir.path;
+      final root = dir.path;
+      for (final v in visited) {
+        _workspaceRootCache[v] = root;
+      }
+      return root;
     }
     dir = parent;
   }

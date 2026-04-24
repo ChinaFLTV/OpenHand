@@ -437,13 +437,24 @@ class AiToolUtils {
 
   /// 检测是否为 Apple Silicon Mac。
   static bool _isAppleSilicon() {
-    // 通过检查 /usr/bin/arch 命令的默认输出
-    // 或者检查 Rosetta 2 相关环境变量
+    // 环境变量:运行在 Rosetta 下的 x86_64 二进制,宿主为 Apple Silicon
     final sysctl = Platform.environment['SYSCTL_PROC_TRANSLATED'];
-    if (sysctl == '1') return true; // Running under Rosetta
-    
-    // 检查是否存在 arm64 特有的路径
-    return File('/opt/homebrew/bin').existsSync();
+    if (sysctl == '1') return true;
+
+    // 首选:同步执行 `uname -m` 读取内核架构
+    try {
+      final result = Process.runSync('uname', <String>['-m']);
+      if (result.exitCode == 0) {
+        final machine = '${result.stdout}'.trim().toLowerCase();
+        if (machine == 'arm64' || machine == 'aarch64') return true;
+        if (machine == 'x86_64' || machine == 'i386') return false;
+      }
+    } catch (_) {
+      // uname 不可用时回退到路径探测
+    }
+
+    // 回退:Homebrew 在 Apple Silicon 上默认安装到 /opt/homebrew
+    return Directory('/opt/homebrew/bin').existsSync();
   }
 
   /// 获取应用内嵌入的 ripgrep 路径。

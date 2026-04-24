@@ -88,6 +88,37 @@ class HooksExecutor {
 
   final HooksController _controller;
 
+  /// Maximum age of files left behind in the hooks temp directory. Files
+  /// older than this are removed on startup to prevent unbounded growth from
+  /// truncated-output saves and context files that leaked due to crashes.
+  static const Duration _tmpFileMaxAge = Duration(days: 7);
+
+  /// Best-effort cleanup of stale hook artifacts under
+  /// `~/.openhand/hooks/tmp/`. Invoked once at application startup. The
+  /// operation is tolerant of every IO failure mode — it never throws.
+  static Future<void> pruneStaleTempFiles() async {
+    try {
+      final tmpDir = Directory(
+        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+      );
+      if (!await tmpDir.exists()) return;
+      final cutoff = DateTime.now().subtract(_tmpFileMaxAge);
+      await for (final entity in tmpDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        try {
+          final stat = await entity.stat();
+          if (stat.modified.isBefore(cutoff)) {
+            await entity.delete();
+          }
+        } on FileSystemException {
+          // Best-effort — skip files we cannot stat or delete.
+        }
+      }
+    } on FileSystemException {
+      // Never propagate cleanup failures to the application.
+    }
+  }
+
   /// Execute all enabled hooks for [event].
   ///
   /// [sessionId] and [payload] are forwarded to each hook script via stdin as

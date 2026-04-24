@@ -19,6 +19,12 @@ abstract final class AppRuntimeContext {
     'authorization',
     'cookie',
     'session_token',
+    'auth',
+    'sock',
+    'proxy',
+    'passphrase',
+    'signature',
+    'bearer',
   ];
 
   static AppInfo _appInfo = AppInfo.fallback();

@@ -806,7 +806,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   Widget _buildMarkdownImage(Uri uri, String? title, String? alt) {
     final label = (alt ?? title ?? uri.toString()).trim();
     final resolvedFilePath = _resolveMarkdownImageFilePath(uri);
-    if (resolvedFilePath != null && File(resolvedFilePath).existsSync()) {
+    if (resolvedFilePath != null &&
+        _cachedMarkdownImageFileExists(resolvedFilePath)) {
       final previewTitle = label.isEmpty ? p.basename(resolvedFilePath) : label;
       return _wrapMarkdownImageTap(
         semanticsLabel: previewTitle,
@@ -1057,4 +1058,44 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       children: children,
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cached file existence probe for markdown image rendering.
+//
+// During AI streaming the message bubble rebuilds many times per second. Each
+// rebuild previously ran `File(path).existsSync()` for every inline image URL,
+// which is a blocking syscall per image per frame. This TTL cache collapses
+// hundreds of syscalls per second into one per path per short window while
+// still picking up newly created/deleted files within ~2s.
+// ─────────────────────────────────────────────────────────────────────────────
+const Duration _markdownImageExistsTtl = Duration(seconds: 2);
+const int _markdownImageExistsCacheCap = 256;
+final Map<String, _MarkdownImageExistsCacheEntry>
+    _markdownImageExistsCache = <String, _MarkdownImageExistsCacheEntry>{};
+
+class _MarkdownImageExistsCacheEntry {
+  const _MarkdownImageExistsCacheEntry(this.exists, this.checkedAt);
+
+  final bool exists;
+  final DateTime checkedAt;
+}
+
+bool _cachedMarkdownImageFileExists(String path) {
+  final now = DateTime.now();
+  final cached = _markdownImageExistsCache[path];
+  if (cached != null &&
+      now.difference(cached.checkedAt) < _markdownImageExistsTtl) {
+    return cached.exists;
+  }
+  final exists = File(path).existsSync();
+  _markdownImageExistsCache[path] =
+      _MarkdownImageExistsCacheEntry(exists, now);
+  if (_markdownImageExistsCache.length > _markdownImageExistsCacheCap) {
+    final oldestKey = _markdownImageExistsCache.entries
+        .reduce((a, b) => a.value.checkedAt.isBefore(b.value.checkedAt) ? a : b)
+        .key;
+    _markdownImageExistsCache.remove(oldestKey);
+  }
+  return exists;
 }

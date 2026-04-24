@@ -12,6 +12,7 @@ import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
+import 'features/ai/service/ai_protocol_adapter.dart' as ai_protocol_adapter;
 import 'features/ai/service/lsp_client_service.dart';
 import 'features/crons/crons_controller.dart';
 import 'features/hooks/hooks_controller.dart';
@@ -104,6 +105,11 @@ Future<void> _bootstrap() async {
     );
     return;
   }
+
+  // Fire-and-forget cleanup of stale temp artifacts — never blocks startup
+  // and never throws.
+  unawaited(HooksExecutor.pruneStaleTempFiles());
+  unawaited(ai_protocol_adapter.pruneInlineMediaCache());
 
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();

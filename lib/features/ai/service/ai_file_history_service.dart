@@ -99,7 +99,7 @@ class AiFileHistoryService {
       }
 
       final versions = <FileVersionInfo>[];
-      await for (final entity in fileHistoryDir.list()) {
+      await for (final entity in fileHistoryDir.list(followLinks: false)) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           try {
             final metaContent = await entity.readAsString();
@@ -157,7 +157,7 @@ class AiFileHistoryService {
   Future<void> _pruneOldVersions(Directory fileHistoryDir) async {
     try {
       final metaFiles = <File>[];
-      await for (final entity in fileHistoryDir.list()) {
+      await for (final entity in fileHistoryDir.list(followLinks: false)) {
         if (entity is File && entity.path.endsWith('.meta.json')) {
           metaFiles.add(entity);
         }

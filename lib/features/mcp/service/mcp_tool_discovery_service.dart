@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
@@ -1162,11 +1163,11 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
     }
 
     final response = await client.send(request).timeout(requestTimeout);
-    if (!_isRedirectStatusCode(response.statusCode)) {
+    if (!isRedirectStatusCode(response.statusCode)) {
       return response;
     }
 
-    final redirectLocation = _readResponseHeader(response.headers, 'location');
+    final redirectLocation = readResponseHeader(response.headers, 'location');
     if (redirectLocation.isEmpty) {
       return response;
     }
@@ -1179,7 +1180,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
 
     await response.stream.drain<void>();
     final redirectedUri = currentUri.resolve(redirectLocation);
-    if (_isCrossOriginRedirect(currentUri, redirectedUri)) {
+    if (isCrossOriginRedirect(currentUri, redirectedUri)) {
       _stripSensitiveRedirectHeaders(
         currentHeaders,
         additionalSensitiveHeaderNames,
@@ -1193,31 +1194,6 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
       currentBody = null;
     }
   }
-}
-
-bool _isRedirectStatusCode(int statusCode) {
-  return statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
-}
-
-bool _isCrossOriginRedirect(Uri source, Uri target) {
-  return source.scheme != target.scheme ||
-      source.host != target.host ||
-      _effectivePort(source) != _effectivePort(target);
-}
-
-int _effectivePort(Uri uri) {
-  if (uri.hasPort) {
-    return uri.port;
-  }
-  return switch (uri.scheme.toLowerCase()) {
-    'http' => 80,
-    'https' => 443,
-    _ => -1,
-  };
 }
 
 void _stripSensitiveRedirectHeaders(
@@ -1234,16 +1210,6 @@ void _stripSensitiveRedirectHeaders(
   headers.removeWhere(
     (name, value) => sensitiveHeaderNames.contains(name.toLowerCase()),
   );
-}
-
-String _readResponseHeader(Map<String, String> headers, String name) {
-  final target = name.toLowerCase();
-  for (final entry in headers.entries) {
-    if (entry.key.toLowerCase() == target) {
-      return entry.value.trim();
-    }
-  }
-  return '';
 }
 
 class McpToolDiscoveryException implements Exception {
@@ -1347,7 +1313,7 @@ class _LegacySseSession {
         'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})${body.trim().isEmpty ? '' : ': ${body.trim()}'}',
       );
     }
-    final contentType = _readResponseHeader(response.headers, 'content-type');
+    final contentType = readResponseHeader(response.headers, 'content-type');
     if (!contentType.toLowerCase().contains('text/event-stream')) {
       final body = await response.stream.bytesToString();
       throw McpToolDiscoveryException(

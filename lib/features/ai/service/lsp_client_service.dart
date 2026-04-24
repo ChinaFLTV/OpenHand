@@ -378,37 +378,72 @@ class AiLspClientService {
     unawaited(disposeAll());
   }
 
+  // Directory → workspace root cache so that repeated LSP resolutions for
+  // files under the same project do not re-walk the filesystem each time.
+  // Cap is generous enough to cover a multi-project workspace.
+  static const int _workspaceRootCacheCap = 512;
+  static final Map<String, String> _workspaceRootCache = <String, String>{};
+
+  static const List<String> _workspaceRootMarkerFiles = <String>[
+    'pubspec.yaml',
+    'package.json',
+    'go.mod',
+    'Cargo.toml',
+    'pom.xml',
+    'build.gradle',
+    'build.gradle.kts',
+    'mix.exs',
+    'Gemfile',
+    'build.sbt',
+    'deno.json',
+    'deno.jsonc',
+    'gleam.toml',
+    'build.zig',
+    'Project.toml',
+    'composer.json',
+    'requirements.txt',
+    'pyproject.toml',
+    'setup.py',
+  ];
+
   static String inferWorkspaceRoot(String filePath) {
-    var dir = Directory(p.dirname(filePath));
+    final startDir = p.dirname(filePath);
+    final cached = _workspaceRootCache[startDir];
+    if (cached != null) return cached;
+
+    final visited = <String>[];
+    var dir = Directory(startDir);
     while (true) {
-      if (File(p.join(dir.path, 'pubspec.yaml')).existsSync() ||
-          Directory(p.join(dir.path, '.git')).existsSync() ||
-          File(p.join(dir.path, 'package.json')).existsSync() ||
-          File(p.join(dir.path, 'go.mod')).existsSync() ||
-          File(p.join(dir.path, 'Cargo.toml')).existsSync() ||
-          File(p.join(dir.path, 'pom.xml')).existsSync() ||
-          File(p.join(dir.path, 'build.gradle')).existsSync() ||
-          File(p.join(dir.path, 'build.gradle.kts')).existsSync() ||
-          File(p.join(dir.path, 'mix.exs')).existsSync() ||
-          File(p.join(dir.path, 'Gemfile')).existsSync() ||
-          File(p.join(dir.path, 'build.sbt')).existsSync() ||
-          File(p.join(dir.path, 'deno.json')).existsSync() ||
-          File(p.join(dir.path, 'deno.jsonc')).existsSync() ||
-          File(p.join(dir.path, 'gleam.toml')).existsSync() ||
-          File(p.join(dir.path, 'build.zig')).existsSync() ||
-          File(p.join(dir.path, 'Project.toml')).existsSync() ||
-          File(p.join(dir.path, 'composer.json')).existsSync() ||
-          File(p.join(dir.path, 'requirements.txt')).existsSync() ||
-          File(p.join(dir.path, 'pyproject.toml')).existsSync() ||
-          File(p.join(dir.path, 'setup.py')).existsSync()) {
-        return dir.path;
+      visited.add(dir.path);
+      if (Directory(p.join(dir.path, '.git')).existsSync()) {
+        return _memoizeWorkspaceRoot(visited, dir.path);
+      }
+      var hit = false;
+      for (final marker in _workspaceRootMarkerFiles) {
+        if (File(p.join(dir.path, marker)).existsSync()) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) {
+        return _memoizeWorkspaceRoot(visited, dir.path);
       }
       final parent = dir.parent;
       if (parent.path == dir.path) {
-        return dir.path;
+        return _memoizeWorkspaceRoot(visited, dir.path);
       }
       dir = parent;
     }
+  }
+
+  static String _memoizeWorkspaceRoot(List<String> visited, String root) {
+    for (final v in visited) {
+      _workspaceRootCache[v] = root;
+    }
+    if (_workspaceRootCache.length > _workspaceRootCacheCap) {
+      _workspaceRootCache.clear();
+    }
+    return root;
   }
 
   Future<AiLspBackendResolution> resolveBackendForFile({
@@ -1675,6 +1710,11 @@ class _AiLspSession {
 
   static const Duration _idleTimeout = Duration(seconds: 30);
   static const Duration _requestTimeout = Duration(seconds: 15);
+  // Backstop against pathological LSP server behavior (never responding but
+  // also never exiting): refuse to enqueue new requests if the pending map
+  // grows beyond this bound. Each request is ≤15s so under normal load it
+  // is exceedingly unlikely to reach this ceiling.
+  static const int _maxPendingRequests = 256;
 
   bool get isAlive => _process != null;
 
@@ -1703,7 +1743,16 @@ class _AiLspSession {
       environment: environment,
     );
     _process!.stdout.transform(utf8.decoder).listen(_onData);
-    _process!.stderr.drain<void>();
+    // Drain stderr so the LSP server is not blocked writing diagnostics.
+    // Surface any drain failures in debug builds to aid troubleshooting —
+    // they are silently swallowed otherwise.
+    _process!.stderr.drain<void>().catchError((Object error, StackTrace _) {
+      assert(() {
+        // ignore: avoid_print
+        print('lsp[${backend.language}]: stderr drain failed: $error');
+        return true;
+      }());
+    });
 
     final initResult = await _sendRequest('initialize', <String, Object?>{
       'processId': pid,
@@ -2127,6 +2176,12 @@ class _AiLspSession {
     String method,
     Map<String, Object?> params,
   ) async {
+    if (_pendingRequests.length >= _maxPendingRequests) {
+      throw StateError(
+        'LSP "${backend.language}" has too many pending requests '
+        '(${_pendingRequests.length}); the server may be unresponsive.',
+      );
+    }
     final id = _nextId++;
     final completer = Completer<Object?>();
     _pendingRequests[id] = completer;
@@ -2202,7 +2257,15 @@ class _AiLspSession {
         } else {
           _handleNotification(message);
         }
-      } catch (_) {}
+      } catch (error) {
+        // Malformed LSP messages should not crash the reader loop. Surface
+        // the error in debug builds so protocol-level bugs are visible.
+        assert(() {
+          // ignore: avoid_print
+          print('lsp[${backend.language}]: failed to process message: $error');
+          return true;
+        }());
+      }
     }
 
     if (offset > 0) {

@@ -1751,7 +1751,12 @@ class HardnessOrchestrator extends ChangeNotifier {
             ..sort((a, b) => a.path.compareTo(b.path));
           if (files.isNotEmpty) handoffContent = files.last.readAsStringSync();
         }
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint('[hardness] failed to read handoff: $error');
+          return true;
+        }());
+      }
     }
 
     // Load lessons based on config mode.
@@ -1772,7 +1777,12 @@ class HardnessOrchestrator extends ChangeNotifier {
                     : fullContent;
           }
         }
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint('[hardness] failed to read lessons: $error');
+          return true;
+        }());
+      }
     }
 
     // Latest plan (based on config).
@@ -1785,7 +1795,12 @@ class HardnessOrchestrator extends ChangeNotifier {
             ..sort((a, b) => b.path.compareTo(a.path)); // newest first
           if (files.isNotEmpty) planContent = files.first.readAsStringSync();
         }
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint('[hardness] failed to read plan: $error');
+          return true;
+        }());
+      }
     }
 
     // Latest reviewer feedback (based on config + retry state).
@@ -1800,7 +1815,12 @@ class HardnessOrchestrator extends ChangeNotifier {
             feedbackContent = files.first.readAsStringSync();
           }
         }
-      } catch (_) {}
+      } catch (error) {
+        assert(() {
+          debugPrint('[hardness] failed to read feedback: $error');
+          return true;
+        }());
+      }
     }
 
     var manualPhaseInputContent = _queuedManualPhaseInputPhase == phase
@@ -2213,8 +2233,11 @@ class HardnessOrchestrator extends ChangeNotifier {
       );
       await file.writeAsString(log.lines.join('\n'));
       log.savedLogPath = file.path;
-    } catch (e) {
-      // Silently fail if unable to save log
+    } catch (error) {
+      assert(() {
+        debugPrint('[hardness] failed to persist phase log: $error');
+        return true;
+      }());
     }
   }
 

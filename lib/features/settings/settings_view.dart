@@ -2949,14 +2949,6 @@ class _SettingsViewState extends State<SettingsView> {
     });
   }
 
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
 }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {

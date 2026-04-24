@@ -722,16 +722,14 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
 /// Full-screen image preview dialog with zoom and pan support.
 class _ImagePreviewDialog extends StatelessWidget {
   const _ImagePreviewDialog.file({
-    required String filePath,
+    required this.filePath,
     required this.title,
-  }) : filePath = filePath,
-       imageUri = null;
+  }) : imageUri = null;
 
   const _ImagePreviewDialog.network({
-    required Uri imageUri,
+    required this.imageUri,
     required this.title,
-  }) : imageUri = imageUri,
-       filePath = null;
+  }) : filePath = null;
 
   final String? filePath;
   final Uri? imageUri;

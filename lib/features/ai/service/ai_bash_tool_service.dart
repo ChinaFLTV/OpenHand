@@ -1057,16 +1057,22 @@ class AiBashToolService {
           '__';
     }
     final tmpScriptPath = '/tmp/.openhand_cmd_$markerToken.sh';
+    final quotedTmp = _quoteShellString(tmpScriptPath);
     buffer
-      ..writeln('cat > ${_quoteShellString(tmpScriptPath)} << ${_quoteShellString(heredocTag)}')
+      ..writeln('cat > $quotedTmp << ${_quoteShellString(heredocTag)}')
       ..writeln(command)
       ..writeln(heredocTag)
-      ..writeln('chmod +x ${_quoteShellString(tmpScriptPath)}')
+      ..writeln('chmod +x $quotedTmp')
+      // Install a best-effort trap so the temp script is removed even when
+      // the wrapper shell receives a signal before it reaches the explicit
+      // `rm -f` below. The trap is local to the current shell context.
+      ..writeln('trap "rm -f $quotedTmp" EXIT INT TERM HUP')
       // Run the script and immediately capture its exit code before any
       // cleanup commands can overwrite it.
-      ..writeln('${_resolveShellExecutable()} ${_quoteShellString(tmpScriptPath)}')
+      ..writeln('${_resolveShellExecutable()} $quotedTmp')
       ..writeln(r'__OPENHAND_WRAP_RC=$?')
-      ..writeln('rm -f ${_quoteShellString(tmpScriptPath)}')
+      ..writeln('rm -f $quotedTmp')
+      ..writeln('trap - EXIT INT TERM HUP')
       // Propagate the original exit code via a sub-shell exit.
       ..writeln(r'(exit $__OPENHAND_WRAP_RC)');
   }

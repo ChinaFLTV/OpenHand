@@ -162,8 +162,20 @@ class AiClaudeHookService {
     );
     final stdoutFuture = _collectTruncatedText(process.stdout);
     final stderrFuture = _collectTruncatedText(process.stderr);
-    process.stdin.write(jsonEncode(payload));
-    await process.stdin.close();
+    // If the hook process dies before we finish feeding stdin, `write` or
+    // `close` may throw a ProcessException. Swallow the IO error here and
+    // let the exitCode path surface the failure to the caller — surfacing
+    // the stdin write error directly would mask the real exit status.
+    try {
+      process.stdin.write(jsonEncode(payload));
+    } catch (_) {
+      // Process exited while we were writing — proceed to await exit code.
+    }
+    try {
+      await process.stdin.close();
+    } catch (_) {
+      // stdin may already be closed or broken; nothing actionable here.
+    }
     try {
       final exitCode = await process.exitCode.timeout(_commandTimeout);
       return _AiHookCommandResult(

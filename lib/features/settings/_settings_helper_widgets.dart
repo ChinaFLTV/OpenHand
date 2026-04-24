@@ -602,15 +602,6 @@ class _AiModelTile extends StatelessWidget {
   final VoidCallback onDelete;
   final void Function(String modelId) onActiveModelChanged;
 
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;

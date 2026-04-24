@@ -1702,7 +1702,46 @@ class _FormattedToolContent {
   final String? language;
 }
 
+// Bounded memo for _formatToolContent. During AI streaming the parent rebuilds
+// every ~72 ms and each tool-call bubble re-runs JSON/XML/YAML/TOML detection
+// on identical stdout/stderr/result text; memoising by raw content + fallback
+// avoids re-parsing and re-encoding on every frame. Capped to prevent
+// unbounded growth from unique tool output.
+const int _formatToolContentCacheCap = 128;
+final Map<String, _FormattedToolContent> _formatToolContentCache =
+    <String, _FormattedToolContent>{};
+
 _FormattedToolContent _formatToolContent(
+  String rawContent, {
+  String emptyFallback = '',
+}) {
+  // Short-circuit: cheap to recompute for tiny strings, and the cache key
+  // overhead would dominate.
+  if (rawContent.length < 8 && emptyFallback.isEmpty) {
+    return _formatToolContentImpl(rawContent, emptyFallback: emptyFallback);
+  }
+  final cacheKey = emptyFallback.isEmpty
+      ? rawContent
+      : '${rawContent.length}|$emptyFallback\u0000$rawContent';
+  final cached = _formatToolContentCache[cacheKey];
+  if (cached != null) {
+    return cached;
+  }
+  final computed = _formatToolContentImpl(
+    rawContent,
+    emptyFallback: emptyFallback,
+  );
+  if (_formatToolContentCache.length >= _formatToolContentCacheCap) {
+    // Drop an arbitrary entry. Unordered Map iteration is O(1) for first key,
+    // and strict LRU isn't worth the bookkeeping here — streaming workloads
+    // see the same few keys repeatedly within a short window.
+    _formatToolContentCache.remove(_formatToolContentCache.keys.first);
+  }
+  _formatToolContentCache[cacheKey] = computed;
+  return computed;
+}
+
+_FormattedToolContent _formatToolContentImpl(
   String rawContent, {
   String emptyFallback = '',
 }) {
