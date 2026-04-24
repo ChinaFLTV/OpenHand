@@ -2868,6 +2868,8 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
   bool _memoriesExpanded = false;
   bool _skillsExpanded = false;
   bool _profileExpanded = false;
+  bool _responseExpanded = false;
+  bool _reasoningExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2877,6 +2879,10 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
     final memoryItems = _extractChangeItems(metadata['memory_changes']);
     final skillItems = _extractChangeItems(metadata['skill_changes']);
     final profileDiff = _extractProfileDiff(metadata['profile_diff']);
+    final aiResponse = _extractProfileDiff(metadata['ai_response']);
+    final aiReasoning = _extractProfileDiff(metadata['ai_reasoning']);
+    final status = metadata['status']?.toString() ?? '';
+    final isStreaming = metadata['streaming'] == true;
     final elapsedLabel = _formatSelfLearningElapsed(
       context,
       widget.message.createdAt,
@@ -2966,9 +2972,73 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             ),
           ),
         ],
+        if (aiReasoning.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _ExpandableToolSection(
+            title: _localizedText(
+              context,
+              zh: isStreaming ? 'AI 思考（生成中）' : 'AI 思考',
+              en: isStreaming ? 'AI Thinking (streaming)' : 'AI Thinking',
+            ),
+            preview: _previewText(aiReasoning),
+            expanded: _reasoningExpanded,
+            onToggle: () {
+              setState(() {
+                _reasoningExpanded = !_reasoningExpanded;
+              });
+            },
+            expandedBuilder: (context) => SelectableText(
+              aiReasoning,
+              style: theme.textTheme.bodySmall?.copyWith(
+                height: 1.5,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+        if (aiResponse.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _ExpandableToolSection(
+            title: _localizedText(
+              context,
+              zh: isStreaming ? 'AI 响应（生成中）' : 'AI 响应',
+              en: isStreaming ? 'AI Response (streaming)' : 'AI Response',
+            ),
+            preview: _previewText(aiResponse),
+            expanded: _responseExpanded,
+            onToggle: () {
+              setState(() {
+                _responseExpanded = !_responseExpanded;
+              });
+            },
+            expandedBuilder: (context) => SelectableText(
+              aiResponse,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            ),
+          ),
+        ],
+        if (status == 'error' && aiResponse.isEmpty) ...[
+          const SizedBox(height: 10),
+          Text(
+            widget.message.content,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.error,
+              height: 1.45,
+            ),
+          ),
+        ],
       ],
     );
   }
+}
+
+/// Returns a compact single-line preview of [text] suitable for a card
+/// collapsed header — trims whitespace, collapses newlines and truncates
+/// past 120 characters.
+String _previewText(String text) {
+  final collapsed = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (collapsed.length <= 120) return collapsed;
+  return '${collapsed.substring(0, 117)}…';
 }
 
 /// Header row for the self-learning card. Intentionally matches the visual

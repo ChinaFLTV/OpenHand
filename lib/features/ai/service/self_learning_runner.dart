@@ -62,6 +62,8 @@ class SelfLearningOutcome {
   const SelfLearningOutcome({
     required this.summary,
     this.mutations = const <String, Object?>{},
+    this.aiResponse,
+    this.aiReasoning,
   });
 
   /// 展示在 `selfLearning` 卡片上的中文摘要。
@@ -69,6 +71,13 @@ class SelfLearningOutcome {
 
   /// 额外的结构化元数据（例如 `memory_updates`, `skill_updates` 等）。
   final Map<String, Object?> mutations;
+
+  /// LLM 的最终文本响应（可选）。写入卡片 metadata['ai_response']。
+  final String? aiResponse;
+
+  /// LLM 的思考 / 推理内容（可选，deepseek-reasoner 等模型支持）。写入
+  /// 卡片 metadata['ai_reasoning']。
+  final String? aiReasoning;
 }
 
 class SelfLearningRunner {
@@ -160,7 +169,11 @@ class SelfLearningRunner {
         session.id,
         summary: outcome.summary,
         status: 'ok',
-        extra: outcome.mutations,
+        extra: <String, Object?>{
+          ...outcome.mutations,
+          if (outcome.aiResponse != null) 'ai_response': outcome.aiResponse,
+          if (outcome.aiReasoning != null) 'ai_reasoning': outcome.aiReasoning,
+        },
       );
     } catch (error, stack) {
       await _writeCard(

@@ -772,6 +772,73 @@ class AiSessionController extends ChangeNotifier {
     return id;
   }
 
+  /// Updates an existing [AiSessionMessageKind.selfLearning] message's
+  /// content and/or metadata in place, persisting the result. Intended for
+  /// the Hermes Talker runner/dispatcher which creates a placeholder card
+  /// up front and then streams deltas / finalizes it.
+  ///
+  /// When [content] is provided it replaces the message content. When
+  /// [metadataPatch] is provided its entries are merged on top of the
+  /// existing metadata (passing an explicit `null` value erases the key).
+  /// When [replaceMetadata] is true, [metadataPatch] REPLACES the metadata
+  /// entirely instead of merging.
+  ///
+  /// Returns `false` if the session or message could not be found (or if
+  /// the target message is not a `selfLearning` kind).
+  Future<bool> updateSelfLearningMessage({
+    required String sessionId,
+    required String messageId,
+    String? content,
+    Map<String, Object?>? metadataPatch,
+    bool replaceMetadata = false,
+  }) async {
+    final session = _sessionById(sessionId);
+    if (session == null) return false;
+    final index = session.messages.indexWhere((m) => m.id == messageId);
+    if (index == -1) return false;
+    final original = session.messages[index];
+    if (original.kind != AiSessionMessageKind.selfLearning) return false;
+
+    Map<String, Object?>? nextMetadata;
+    if (metadataPatch != null) {
+      if (replaceMetadata) {
+        nextMetadata = Map<String, Object?>.from(metadataPatch);
+      } else {
+        nextMetadata = Map<String, Object?>.from(original.metadata);
+        for (final entry in metadataPatch.entries) {
+          if (entry.value == null) {
+            nextMetadata.remove(entry.key);
+          } else {
+            nextMetadata[entry.key] = entry.value;
+          }
+        }
+      }
+    }
+
+    final updated = original.copyWith(
+      content: content,
+      metadata: nextMetadata,
+    );
+    final updatedMessages = List<AiSessionMessage>.from(session.messages);
+    updatedMessages[index] = updated;
+    final updatedSession = _rebuildSession(
+      session.copyWith(
+        messages: updatedMessages,
+        updatedAt: _clock().toUtc(),
+      ),
+    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
+    if (existingIndex == -1) return false;
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _sessions = updatedSessions;
+    notifyListeners();
+    try {
+      await _store.save(updatedSession);
+    } catch (_) {}
+    return true;
+  }
+
   /// Public read-only accessor so the self-learning runner can fetch a
   /// session snapshot without reaching into private state.
   AiSession? sessionById(String sessionId) => _sessionById(sessionId);
