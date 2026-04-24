@@ -419,7 +419,6 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
         position: _slide,
         child: ScaleTransition(
           scale: _scale,
-          alignment: Alignment.center,
           child: emptyStateContent,
         ),
       ),
@@ -441,14 +440,26 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
 
 /// Animates the workspace primary content (empty-state / transcript) across
 /// session/template changes using a fade + subtle slide transition that
-/// respects the user's global dialog animation settings.  An
-/// [AnimatedSwitcher] would animate outgoing children concurrently with the
-/// incoming child; we use that behaviour to preserve the graceful exit of
-/// the placeholder when a user sends their first message.
+/// respects the user's global dialog animation settings.
+///
+/// The transcript reuses a long-lived [ScrollController] owned by the home
+/// page. Keeping an outgoing transcript mounted during an [AnimatedSwitcher]
+/// cross-fade attaches that controller to two [ScrollPosition]s at once,
+/// which trips desktop [RawScrollbar] validation. We therefore allow only the
+/// empty-state placeholders to overlap during the transition; transcript
+/// content always swaps atomically.
 class _WorkspacePrimarySwitcher extends StatelessWidget {
   const _WorkspacePrimarySwitcher({required this.child});
 
   final Widget child;
+
+  static bool _allowsOutgoingOverlap(Widget child) {
+    final key = child.key;
+    if (key is! ValueKey<String>) {
+      return false;
+    }
+    return key.value == 'no-session' || key.value.startsWith('empty-');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -468,12 +479,14 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
       switchInCurve: curveData.curve,
       switchOutCurve: curveData.reverseCurve,
       layoutBuilder: (currentChild, previousChildren) {
-        // Default stack layout so outgoing children remain in their own slot
-        // while the incoming child fades/slides into place.
+        final safePreviousChildren = previousChildren.where((previousChild) {
+          return previousChild is _WorkspacePrimarySwitchTransition &&
+              previousChild.allowOutgoingOverlap;
+        });
         return Stack(
           alignment: Alignment.topCenter,
           children: <Widget>[
-            ...previousChildren,
+            ...safePreviousChildren,
             if (currentChild != null) currentChild,
           ],
         );
@@ -483,13 +496,29 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
           begin: const Offset(0, 0.04),
           end: Offset.zero,
         ).animate(animation);
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(position: slide, child: animatedChild),
+        return _WorkspacePrimarySwitchTransition(
+          allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
+          child: FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: slide, child: animatedChild),
+          ),
         );
       },
       child: child,
     );
   }
+}
+
+class _WorkspacePrimarySwitchTransition extends StatelessWidget {
+  const _WorkspacePrimarySwitchTransition({
+    required this.allowOutgoingOverlap,
+    required this.child,
+  });
+
+  final bool allowOutgoingOverlap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
 }
 
