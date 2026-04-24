@@ -82,6 +82,7 @@ class SettingsController extends ChangeNotifier {
        _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars,
        _selfLearningEnabled = snapshot.selfLearningEnabled,
        _selfLearningConcurrency = snapshot.selfLearningConcurrency,
+       _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _persistenceIssue = persistenceIssue;
 
       static const int _maxRecentModelSelections = 10;
@@ -138,6 +139,7 @@ class SettingsController extends ChangeNotifier {
   int _telemetryMaxPayloadChars;
   bool _selfLearningEnabled;
   int _selfLearningConcurrency;
+  bool _showSelfLearningMessages;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -236,6 +238,11 @@ class SettingsController extends ChangeNotifier {
 
   /// Maximum concurrent self-learning sub-agent dispatches.
   int get selfLearningConcurrency => _selfLearningConcurrency;
+
+  /// Whether self-learning cards are rendered in the chat transcript.
+  /// Independent of [selfLearningEnabled] which only controls the
+  /// background scheduler.
+  bool get showSelfLearningMessages => _showSelfLearningMessages;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -1011,6 +1018,16 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateShowSelfLearningMessages(bool value) async {
+    return _commitMutation(() {
+      if (_showSelfLearningMessages == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _showSelfLearningMessages = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -1133,6 +1150,7 @@ class SettingsController extends ChangeNotifier {
       telemetryMaxPayloadChars: _telemetryMaxPayloadChars,
       selfLearningEnabled: _selfLearningEnabled,
       selfLearningConcurrency: _selfLearningConcurrency,
+      showSelfLearningMessages: _showSelfLearningMessages,
     );
   }
 
@@ -1190,6 +1208,7 @@ class SettingsController extends ChangeNotifier {
     _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars;
     _selfLearningEnabled = snapshot.selfLearningEnabled;
     _selfLearningConcurrency = snapshot.selfLearningConcurrency;
+    _showSelfLearningMessages = snapshot.showSelfLearningMessages;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

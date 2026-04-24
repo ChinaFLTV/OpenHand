@@ -463,6 +463,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (controller) => controller.telemetryDebugEnabled,
     );
+    final showSelfLearningMessages = context.select<SettingsController, bool>(
+      (controller) => controller.showSelfLearningMessages,
+    );
     final aiSessionController = context.read<AiSessionController>();
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
@@ -635,6 +638,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 }
                 final entry = _renderEntries[messageIndex];
                 final message = entry.message;
+                // Optional UI filter (independent of background learning):
+                // the 'Show self-learning messages' setting hides these cards
+                // in the transcript while keeping them persisted for audit.
+                if (!showSelfLearningMessages &&
+                    message.kind == AiSessionMessageKind.selfLearning) {
+                  return const SizedBox.shrink();
+                }
                 final visibleMessageIndex = visibleMessageIndexById[message.id];
                 final isSelected =
                     !entry.exiting && _selectedMessageId == message.id;

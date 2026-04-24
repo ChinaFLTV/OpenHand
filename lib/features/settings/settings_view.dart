@@ -1487,6 +1487,28 @@ class _SettingsViewState extends State<SettingsView> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
         ),
+        const SizedBox(height: 18),
+        _ResponsiveSettingRow(
+          title: _localizedText(
+            context,
+            zh: '显示自我学习消息',
+            en: 'Show self-learning messages',
+          ),
+          subtitle: _localizedText(
+            context,
+            zh: '关闭后，对话中不再展示"自我学习"卡片（后台学习仍会运行）。默认开启。',
+            en: 'When off, "self-learning" cards are hidden from the chat transcript (background learning still runs). Defaults to on.',
+          ),
+          control: Switch(
+            value: settingsController.showSelfLearningMessages,
+            onChanged: (value) async {
+              final saved = await settingsController
+                  .updateShowSelfLearningMessages(value);
+              if (!context.mounted || saved) return;
+              _showPersistenceFailureSnackBar(context);
+            },
+          ),
+        ),
       ],
     );
   }

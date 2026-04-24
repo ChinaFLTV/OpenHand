@@ -191,6 +191,7 @@ class SettingsStore {
       'telemetry_max_payload_chars': snapshot.telemetryMaxPayloadChars,
       'self_learning_enabled': snapshot.selfLearningEnabled,
       'self_learning_concurrency': snapshot.selfLearningConcurrency,
+      'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -509,6 +510,10 @@ class SettingsStore {
               )
             : AppSettingsSnapshot.defaultSelfLearningConcurrency;
 
+    final showSelfLearningMessages = json['show_self_learning_messages'] is bool
+        ? json['show_self_learning_messages'] as bool
+        : true;
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -550,6 +555,7 @@ class SettingsStore {
       telemetryMaxPayloadChars: telemetryMaxPayloadChars,
       selfLearningEnabled: selfLearningEnabled,
       selfLearningConcurrency: selfLearningConcurrency,
+      showSelfLearningMessages: showSelfLearningMessages,
     );
   }
 }

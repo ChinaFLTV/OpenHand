@@ -99,6 +99,7 @@ class AppSettingsSnapshot {
     required this.telemetryMaxPayloadChars,
     this.selfLearningEnabled = true,
     this.selfLearningConcurrency = defaultSelfLearningConcurrency,
+    this.showSelfLearningMessages = true,
   });
 
   /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
@@ -196,6 +197,12 @@ class AppSettingsSnapshot {
   /// Clamped to [minSelfLearningConcurrency] .. [maxSelfLearningConcurrency].
   final int selfLearningConcurrency;
 
+  /// Whether self-learning (Hermes Talker) cards are rendered in the chat
+  /// transcript. Independent of [selfLearningEnabled]: the scheduler may
+  /// still produce cards in the background; this flag only controls UI
+  /// visibility. Default true.
+  final bool showSelfLearningMessages;
+
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
     OpenHandThemePreset? themePreset,
@@ -237,6 +244,7 @@ class AppSettingsSnapshot {
     int? telemetryMaxPayloadChars,
     bool? selfLearningEnabled,
     int? selfLearningConcurrency,
+    bool? showSelfLearningMessages,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -303,6 +311,8 @@ class AppSettingsSnapshot {
       selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
       selfLearningConcurrency:
           selfLearningConcurrency ?? this.selfLearningConcurrency,
+      showSelfLearningMessages:
+          showSelfLearningMessages ?? this.showSelfLearningMessages,
     );
   }
 }
