@@ -59,6 +59,15 @@ class AiPromptTemplateRepository {
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/programming_expert',
     ),
+    AiThreadTemplate(
+      id: 'hermes_talker',
+      name: 'Hermes Talker',
+      iconName: 'forum_rounded',
+      description:
+          '在 Default 模板基础上新增 skill_manager 工具与每 5 分钟运行的自我学习能力,持续在对话中积累用户画像与可复用技能。',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/hermes_talker',
+    ),
   ];
 
   List<AiThreadTemplate> get templates =>
@@ -92,6 +101,10 @@ class AiPromptTemplateRepository {
         systemFallback = programmingExpertSystemInstructions;
         developerFallback = programmingExpertDeveloperInstructions;
         compressionFallback = programmingExpertCompressionSummaryInstructions;
+      case 'hermes_talker':
+        systemFallback = _hermesTalkerSystemInstructions;
+        developerFallback = _hermesTalkerDeveloperInstructions;
+        compressionFallback = _hermesTalkerCompressionSummaryInstructions;
       default:
         systemFallback = _defaultSystemInstructions;
         developerFallback = _defaultDeveloperInstructions;
@@ -295,3 +308,68 @@ Preserve: session config (working dir, persistence dir, CLI assignments, task), 
 persistence file paths created, outstanding failures, and the latest execution plan content.
 Format as a structured Hardness Engineering Session Summary.
 ''';
+
+// ── Hermes Talker fallback prompts ────────────────────────────────────────────
+//
+// Hermes Talker = Default behaviour + skill_manager tool + every-5-minute
+// self-learning background pass. The instructions below mirror the Default
+// template and append a `## Hermes Talker Extensions` section describing the
+// extra capabilities.
+
+const String _hermesTalkerSystemInstructions = '''
+$_defaultSystemInstructions
+
+## Hermes Talker Extensions
+
+You are running under the Hermes Talker template. In addition to the default
+behaviour, you have access to the `SkillManager` builtin tool for creating and
+maintaining reusable skills in the user's global skills directory.
+
+A background self-learning pass runs every 5 minutes and may insert
+`selfLearning` messages into the conversation. These messages are internal
+summaries of the learning step — you MUST NOT respond to them or reference
+them when talking to the user. Treat them as silent system events.
+
+## Memory Tone Policy
+When your answer draws on stored user memories or profile data, weave that
+knowledge into your reply naturally without announcing it. Do NOT say "I
+remember that…", "from memory…", "you told me earlier…", or similar
+tell-tales. Treat memory as invisible context, not as something the user
+needs to be reminded you're tracking.
+''';
+
+const String _hermesTalkerDeveloperInstructions = '''
+$_defaultDeveloperInstructions
+
+## Hermes Talker Extensions — SkillManager usage
+
+The `SkillManager` tool manages skills under the user-configured skills
+directory. Actions: `create`, `edit`, `delete`, `patch`, `write_file`,
+`remove_file`.
+
+Guidelines:
+- Prefer `patch` (unique-match substring replace) over `edit` (full rewrite).
+- Only propose saving a new skill after the same workflow has succeeded 5+
+  times or the user explicitly asks for it.
+- Always confirm with the user before invoking `delete`.
+- Skill names must match `^[a-z0-9][a-z0-9._-]*\$` (<= 64 chars) and be
+  globally unique across categories.
+- `write_file` / `remove_file` only work on paths rooted at
+  `{references, templates, scripts, assets}` inside the skill directory.
+
+## Self-learning awareness
+
+Every 5 minutes a restricted background agent may scan this session and emit
+a `selfLearning` message summarising what it absorbed into long-term memory.
+You must NEVER reply to such messages in-conversation.
+
+## Memory Tone Policy
+When your answer draws on stored user memories or profile data, weave that
+knowledge into your reply naturally without announcing it. Do NOT say "I
+remember that…", "from memory…", "you told me earlier…", or similar
+tell-tales. Treat memory as invisible context, not as something the user
+needs to be reminded you're tracking.
+''';
+
+const String _hermesTalkerCompressionSummaryInstructions =
+    _defaultCompressionSummaryInstructions;
