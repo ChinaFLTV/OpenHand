@@ -14,6 +14,8 @@ import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
 import 'features/ai/service/ai_protocol_adapter.dart' as ai_protocol_adapter;
 import 'features/ai/service/lsp_client_service.dart';
+import 'features/ai/service/self_learning_runner.dart';
+import 'features/ai/service/self_learning_scheduler.dart';
 import 'features/crons/crons_controller.dart';
 import 'features/hooks/hooks_controller.dart';
 import 'features/hooks/hooks_executor.dart';
@@ -151,6 +153,40 @@ Future<void> _bootstrap() async {
   memoryControllerHandle = memoryController;
   final cronsController = await cronsControllerFuture;
   final aiSessionController = await aiSessionControllerFuture;
+
+  // 2026-04-25 Hermes Talker — bootstrap the self-learning scheduler + runner
+  // and register the `agent` cron handler so the system-managed
+  // `self_learning.hermes_talker` entry can fire every 5 minutes.
+  final selfLearningRunner = SelfLearningRunner(
+    sessionController: aiSessionController,
+    memoryController: memoryController,
+    // llmDispatcher is intentionally null in v1.0.0 — the scheduler/runner
+    // still produces `selfLearning` cards (status=skipped) so the plumbing
+    // is observable. Wiring a real restricted sub-agent requires a chat-
+    // runtime hook and is tracked as a follow-up.
+  );
+  final selfLearningScheduler = SelfLearningScheduler(
+    sessionStore: aiSessionController.store,
+    memoryController: memoryController,
+    settingsController: settingsController,
+    promptRepository: aiSessionController.templateRepository,
+    sessionController: aiSessionController,
+    runForSession: selfLearningRunner.runForSession,
+    concurrency: settingsController.selfLearningConcurrency,
+  );
+  cronsController.registerAgentHandler((entry) async {
+    if (entry.tags.contains(CronsController.hermesTalkerTag)) {
+      final result = await selfLearningScheduler.tick();
+      return 'ok: scanned=${result.scanned} triggered=${result.triggered} '
+          'skipped=${result.skipped} errors=${result.errors}';
+    }
+    return 'noop: unknown agent tag (${entry.tags.join(",")})';
+  });
+  settingsController.addListener(() {
+    selfLearningScheduler.updateConcurrency(
+      settingsController.selfLearningConcurrency,
+    );
+  });
 
   runApp(
     MultiProvider(

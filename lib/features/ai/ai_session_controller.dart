@@ -332,6 +332,10 @@ class AiSessionController extends ChangeNotifier {
   List<AiThreadTemplate> get templates => _templateRepository.templates;
   String get sessionsDirectoryPath => _store.sessionsDirectoryPath;
 
+  /// Read-only accessor used by the self-learning scheduler to query
+  /// sessions by template without reaching into private state.
+  AiSessionStore get store => _store;
+
   AiSendPhase sendPhaseForSession(String? sessionId) => sessionId == null
       ? AiSendPhase.idle
       : (_sessionSendPhases[sessionId] ?? AiSendPhase.idle);
