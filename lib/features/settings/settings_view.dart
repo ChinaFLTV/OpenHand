@@ -406,6 +406,22 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             const SizedBox(height: 18),
             _SettingsGroupCard(
+              title: _localizedText(
+                context,
+                zh: 'Hermes Talker',
+                en: 'Hermes Talker',
+              ),
+              description: _localizedText(
+                context,
+                zh: '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。',
+                en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
+              ),
+              children: [
+                _buildHermesTalkerSection(context, settingsController),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _SettingsGroupCard(
               title: _localizedText(context, zh: '编辑器', en: 'Editor'),
               description: _localizedText(
                 context,
@@ -1400,6 +1416,76 @@ class _SettingsViewState extends State<SettingsView> {
         _ReadonlySettingRow(
           label: l10n.skillsStorageDefaultPath,
           value: settingsController.defaultSkillsStorageLabel,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHermesTalkerSection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    final enabled = settingsController.selfLearningEnabled;
+    final concurrency = settingsController.selfLearningConcurrency;
+    const minC = AppSettingsSnapshot.minSelfLearningConcurrency;
+    const maxC = AppSettingsSnapshot.maxSelfLearningConcurrency;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ResponsiveSettingRow(
+          title: _localizedText(
+            context,
+            zh: '启用自主学习',
+            en: 'Enable self-learning',
+          ),
+          subtitle: _localizedText(
+            context,
+            zh: '关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。',
+            en: 'When off, the scheduler skips every Hermes Talker session. The system cron entry is preserved but never dispatches a sub-agent.',
+          ),
+          control: Switch(
+            value: enabled,
+            onChanged: (value) async {
+              final saved =
+                  await settingsController.updateSelfLearningEnabled(value);
+              if (!context.mounted || saved) return;
+              _showPersistenceFailureSnackBar(context);
+            },
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          _localizedText(
+            context,
+            zh: '并发 Worker 数：$concurrency',
+            en: 'Concurrent workers: $concurrency',
+          ),
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        Slider(
+          min: minC.toDouble(),
+          max: maxC.toDouble(),
+          divisions: maxC - minC,
+          value: concurrency.toDouble(),
+          label: '$concurrency',
+          onChanged: enabled
+              ? (value) async {
+                  final saved = await settingsController
+                      .updateSelfLearningConcurrency(value.round());
+                  if (!context.mounted || saved) return;
+                  _showPersistenceFailureSnackBar(context);
+                }
+              : null,
+        ),
+        Text(
+          _localizedText(
+            context,
+            zh: '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。',
+            en: 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.',
+          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
         ),
       ],
     );
