@@ -131,14 +131,58 @@ class MemoryView extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      key: const ValueKey<String>('memory-list'),
-      padding: const EdgeInsets.only(bottom: 12),
-      itemCount: memoryController.entries.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 14),
-      itemBuilder: (context, index) {
-        final entry = memoryController.entries[index];
-        return _MemoryEntryCard(
+    final profile = memoryController.userProfile;
+    final autoLearned = memoryController.memoriesWithTag(
+      UserMemoryEntry.autoLearnedTag,
+    );
+    final excludedIds = <String>{
+      if (profile != null) profile.id,
+      for (final e in autoLearned) e.id,
+    };
+    final regular = memoryController.entries
+        .where((entry) => !excludedIds.contains(entry.id))
+        .toList(growable: false);
+
+    final items = <Widget>[];
+    if (profile != null) {
+      items.add(
+        _MemoryEntryCard(
+          key: ValueKey<String>('memory-profile-${profile.id}'),
+          entry: profile,
+          isProfile: true,
+          onTap: () => _showMemoryDialog(context, initialEntry: profile),
+          onActionSelected: (action) {
+            switch (action) {
+              case _MemoryCardAction.edit:
+                _showMemoryDialog(context, initialEntry: profile);
+              case _MemoryCardAction.delete:
+                _confirmDeleteMemory(context, profile);
+            }
+          },
+        ),
+      );
+    }
+    if (autoLearned.isNotEmpty) {
+      items.add(
+        _AutoLearnedSection(
+          entries: autoLearned,
+          onTapEntry: (entry) =>
+              _showMemoryDialog(context, initialEntry: entry),
+          onActionSelected: (entry, action) {
+            switch (action) {
+              case _MemoryCardAction.edit:
+                _showMemoryDialog(context, initialEntry: entry);
+              case _MemoryCardAction.delete:
+                _confirmDeleteMemory(context, entry);
+            }
+          },
+        ),
+      );
+    }
+    for (final entry in regular) {
+      items.add(
+        _MemoryEntryCard(
+          key: ValueKey<String>('memory-entry-${entry.id}'),
           entry: entry,
           onTap: () => _showMemoryDialog(context, initialEntry: entry),
           onActionSelected: (action) {
@@ -149,8 +193,16 @@ class MemoryView extends StatelessWidget {
                 _confirmDeleteMemory(context, entry);
             }
           },
-        );
-      },
+        ),
+      );
+    }
+
+    return ListView.separated(
+      key: const ValueKey<String>('memory-list'),
+      padding: const EdgeInsets.only(bottom: 12),
+      itemCount: items.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 14),
+      itemBuilder: (context, index) => items[index],
     );
   }
 
@@ -192,9 +244,28 @@ class MemoryView extends StatelessWidget {
     UserMemoryEntry entry,
   ) async {
     final l10n = AppLocalizations.of(context)!;
+    final isProfile = entry.isUserProfile;
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        if (isProfile) {
+          return AlertDialog(
+            title: Text(l10n.memoryDeleteConfirmTitle),
+            content: const Text(
+              '用户画像将被删除。Self-learning will recreate this on next cycle.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: Text(l10n.commonCancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Delete anyway'),
+              ),
+            ],
+          );
+        }
         return AlertDialog(
           title: Text(l10n.memoryDeleteConfirmTitle),
           content: Text(l10n.memoryDeleteConfirmBody),
@@ -447,13 +518,18 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
 
     late final bool saved;
     try {
-      saved = widget.initialEntry == null
-          ? await controller.createMemory(content: content, tags: tags)
-          : await controller.updateMemory(
-              widget.initialEntry!,
-              content: content,
-              tags: tags,
-            );
+      if (widget.initialEntry == null) {
+        saved = await controller.createMemory(content: content, tags: tags);
+      } else if (widget.initialEntry!.isUserProfile) {
+        await controller.upsertUserProfile(content: content, tags: tags);
+        saved = true;
+      } else {
+        saved = await controller.updateMemory(
+          widget.initialEntry!,
+          content: content,
+          tags: tags,
+        );
+      }
     } catch (e) {
       if (!mounted) {
         return;
@@ -597,23 +673,29 @@ class _MemoryPageHeader extends StatelessWidget {
 
 class _MemoryEntryCard extends StatelessWidget {
   const _MemoryEntryCard({
+    super.key,
     required this.entry,
     required this.onTap,
     required this.onActionSelected,
+    this.isProfile = false,
   });
 
   final UserMemoryEntry entry;
   final VoidCallback onTap;
   final ValueChanged<_MemoryCardAction> onActionSelected;
+  final bool isProfile;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final isAutoLearned = entry.isAutoLearned;
 
     return Card(
       clipBehavior: Clip.antiAlias,
+      color: isProfile ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+          : null,
       child: InkWell(
         onTap: onTap,
         child: Padding(
@@ -621,6 +703,16 @@ class _MemoryEntryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isProfile) ...[
+                Text(
+                  'User Profile · 用户画像',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -633,7 +725,9 @@ class _MemoryEntryCard extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      Icons.psychology_alt_outlined,
+                      isProfile
+                          ? Icons.account_circle_outlined
+                          : Icons.psychology_alt_outlined,
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
@@ -684,14 +778,29 @@ class _MemoryEntryCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   Chip(
-                    avatar: const Icon(Icons.person_outline_rounded, size: 18),
-                    label: Text(l10n.memoryTypeUser),
-                  ),
-                  for (final tag in entry.tags)
-                    Chip(
-                      avatar: const Icon(Icons.sell_outlined, size: 18),
-                      label: Text(tag),
+                    avatar: Icon(
+                      isProfile
+                          ? Icons.account_circle_outlined
+                          : Icons.person_outline_rounded,
+                      size: 18,
                     ),
+                    label: Text(
+                      isProfile ? '用户画像' : l10n.memoryTypeUser,
+                    ),
+                  ),
+                  if (isAutoLearned)
+                    const Chip(
+                      avatar: Icon(Icons.auto_awesome_outlined, size: 18),
+                      label: Text(UserMemoryEntry.autoLearnedTag),
+                    ),
+                  for (final tag in entry.tags)
+                    if (!isAutoLearned ||
+                        tag.toLowerCase() !=
+                            UserMemoryEntry.autoLearnedTag.toLowerCase())
+                      Chip(
+                        avatar: const Icon(Icons.sell_outlined, size: 18),
+                        label: Text(tag),
+                      ),
                 ],
               ),
             ],
@@ -710,6 +819,98 @@ class _MemoryEntryCard extends StatelessWidget {
       alwaysUse24HourFormat: true,
     );
     return '$date $time';
+  }
+}
+
+class _AutoLearnedSection extends StatefulWidget {
+  const _AutoLearnedSection({
+    required this.entries,
+    required this.onTapEntry,
+    required this.onActionSelected,
+  });
+
+  final List<UserMemoryEntry> entries;
+  final ValueChanged<UserMemoryEntry> onTapEntry;
+  final void Function(UserMemoryEntry entry, _MemoryCardAction action)
+      onActionSelected;
+
+  @override
+  State<_AutoLearnedSection> createState() => _AutoLearnedSectionState();
+}
+
+class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      color: colorScheme.secondaryContainer.withValues(alpha: 0.35),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_outlined,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '自主学习 · Auto-learned (${widget.entries.length})',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded) ...[
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: Column(
+                children: [
+                  for (int i = 0; i < widget.entries.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    _MemoryEntryCard(
+                      key: ValueKey<String>(
+                        'memory-autolearned-${widget.entries[i].id}',
+                      ),
+                      entry: widget.entries[i],
+                      onTap: () => widget.onTapEntry(widget.entries[i]),
+                      onActionSelected: (action) => widget.onActionSelected(
+                        widget.entries[i],
+                        action,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
