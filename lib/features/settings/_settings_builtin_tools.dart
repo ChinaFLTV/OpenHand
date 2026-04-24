@@ -47,6 +47,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.deleteFile => Icons.delete_outline_rounded,
       AiBuiltinToolKind.readLints => Icons.bug_report_outlined,
       AiBuiltinToolKind.askUserChoice => Icons.quiz_outlined,
+      AiBuiltinToolKind.skillManager => Icons.auto_stories_rounded,
     };
   }
 

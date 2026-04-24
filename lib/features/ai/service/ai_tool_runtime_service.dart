@@ -90,6 +90,7 @@ enum AiBuiltinToolKind {
   deleteFile,
   readLints,
   askUserChoice,
+  skillManager,
 }
 
 class AiToolExecutionResult {
@@ -764,6 +765,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.deleteFile => 'DeleteFile',
       AiBuiltinToolKind.readLints => 'ReadLints',
       AiBuiltinToolKind.askUserChoice => 'AskUserChoice',
+      AiBuiltinToolKind.skillManager => 'SkillManager',
       null => tool.name,
     };
   }

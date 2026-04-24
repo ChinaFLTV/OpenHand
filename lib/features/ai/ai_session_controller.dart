@@ -3193,6 +3193,8 @@ class AiSessionController extends ChangeNotifier {
       // Interactive dialog tool must run serially so its modal UI is not
       // interleaved with other tool invocations on the same turn.
       case AiBuiltinToolKind.askUserChoice:
+      // Skill manager writes files on disk — must run serially.
+      case AiBuiltinToolKind.skillManager:
         return false;
     }
   }

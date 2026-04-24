@@ -66,6 +66,9 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     // Interactive user-facing tool; not tied to any phase category so it stays
     // available across all phases without affinity filtering.
     AiBuiltinToolKind.askUserChoice => null,
+    // Skill manager is Hermes-Talker-specific and is not exposed to
+    // Hardness Engineering sessions; treat as un-categorized.
+    AiBuiltinToolKind.skillManager => null,
   };
 }
 
