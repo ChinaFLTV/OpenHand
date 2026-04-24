@@ -27,6 +27,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final effectiveStore = store ?? CronsStore();
     await effectiveStore.ensureTable();
     final entries = await effectiveStore.loadAll();
+    // 2026-04-25 (Task 19) — Seed the Hermes Talker self-learning system
+    // entry on first launch if it does not already exist. The entry is
+    // treated as read-only by the UI (see crons_view.dart system tag check).
+    if (!entries.any((e) => e.id == selfLearningSystemEntryId)) {
+      entries.add(_buildSelfLearningSystemEntry());
+      await effectiveStore.saveAll(entries);
+    }
     final controller = CronsController._(
       store: effectiveStore,
       entries: entries,
@@ -35,6 +42,33 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     controller._bindProcessSignalWatchers();
     controller._startScheduler();
     return controller;
+  }
+
+  /// Stable id of the system-seeded Hermes Talker self-learning cron entry.
+  static const String selfLearningSystemEntryId =
+      'self_learning.hermes_talker';
+
+  /// Tag that marks a cron entry as system-managed (read-only in UI).
+  static const String systemTag = 'system';
+
+  /// Tag that associates a system entry with the Hermes Talker template.
+  static const String hermesTalkerTag = 'hermes_talker';
+
+  static CronEntry _buildSelfLearningSystemEntry() {
+    return const CronEntry(
+      id: selfLearningSystemEntryId,
+      name: 'Hermes Talker 自我学习',
+      description:
+          'System-managed: dispatches the Hermes Talker self-learning agent '
+          'every 5 minutes.',
+      scriptType: CronScriptType.agent,
+      cronExpression: '*/5 * * * *',
+      timeoutSeconds: 600,
+      tags: <String>[systemTag, hermesTalkerTag],
+      onSuccessNotify: CronNotifyType.none,
+      onFailureNotify: CronNotifyType.log,
+      onTimeoutNotify: CronNotifyType.log,
+    );
   }
 
   final CronsStore _store;
@@ -134,6 +168,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> deleteCron(String id) async {
     return _commitMutation(() async {
       final before = _entries.length;
+      final target = _entries.firstWhere(
+        (item) => item.id == id,
+        orElse: () => _missingSentinel,
+      );
+      if (identical(target, _missingSentinel)) return false;
+      // 2026-04-25 (Task 20) — guard system-managed entries from deletion.
+      if (target.tags.contains(systemTag)) return false;
       _entries = _entries.where((item) => item.id != id).toList();
       if (_entries.length == before) return false;
       await _store.saveAll(_entries);
@@ -142,6 +183,90 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       await _store.deleteHistoryForCron(id);
       return true;
     });
+  }
+
+  static const CronEntry _missingSentinel = CronEntry(id: '', name: '');
+
+  /// Handler invoked for `CronScriptType.agent` entries. Bootstrap injects
+  /// this via [registerAgentHandler] to plug the Hermes Talker
+  /// `SelfLearningScheduler`. Handlers must never throw.
+  ///
+  /// The return value is a terse status string (e.g. `'ok: triggered=2'`)
+  /// stored in the [CronExecutionRecord.stdout] field.
+  Future<String> Function(CronEntry entry)? _agentHandler;
+
+  /// Registers (or replaces) the in-process handler for Agent-typed cron
+  /// entries. Passing `null` removes the handler.
+  void registerAgentHandler(
+    Future<String> Function(CronEntry entry)? handler,
+  ) {
+    _agentHandler = handler;
+  }
+
+  Future<void> _executeAgentJob(
+    CronEntry entry, {
+    required String triggerType,
+  }) async {
+    final startedAt = DateTime.now();
+    String stdout = '';
+    String status = 'success';
+    String? errorMessage;
+    try {
+      final handler = _agentHandler;
+      if (handler == null) {
+        stdout = 'noop: agent handler not registered';
+      } else {
+        stdout = await handler(entry);
+      }
+    } catch (error) {
+      status = 'failed';
+      errorMessage = '$error';
+    }
+
+    final record = CronExecutionRecord(
+      id: _uuid.v4(),
+      cronId: entry.id,
+      startedAt: startedAt,
+      finishedAt: DateTime.now(),
+      status: status,
+      stdout: stdout,
+      stderr: errorMessage ?? '',
+      errorMessage: errorMessage,
+      triggerType: triggerType,
+    );
+    try {
+      await _store.insertHistory(record);
+      await _store.pruneHistory(entry.id);
+    } catch (_) {
+      // ignore history persistence errors — the scheduler will try again.
+    }
+    final cached = _historyCache[entry.id] ?? <CronExecutionRecord>[];
+    _historyCache[entry.id] = [record, ...cached].take(50).toList();
+
+    _updateEntry(
+      entry.id,
+      (e) => e.copyWith(
+        status: status == 'success'
+            ? CronJobStatus.idle
+            : CronJobStatus.failed,
+        lastRunAt: startedAt,
+        consecutiveFailures: status == 'success'
+            ? 0
+            : entry.consecutiveFailures + 1,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    try {
+      await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
+    } catch (_) {}
+    // Re-schedule next run.
+    final current = _entries.firstWhere(
+      (e) => e.id == entry.id,
+      orElse: () => entry,
+    );
+    _scheduleJob(current);
+    _runningJobs.remove(entry.id);
+    notifyListeners();
   }
 
   Future<bool> toggleCronEnabled(String id, {required bool enabled}) async {
@@ -359,6 +484,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
     // Mark as running.
     _updateEntryStatus(entry.id, CronJobStatus.running);
+
+    // 2026-04-25 (Task 19) — system agent entries are dispatched to an
+    // injected handler rather than spawned as processes. If no handler is
+    // registered yet (e.g. bootstrap hasn't finished wiring the scheduler),
+    // the entry is reported as a no-op success so the scheduler can retry
+    // on the next tick.
+    if (entry.scriptType == CronScriptType.agent) {
+      await _executeAgentJob(entry, triggerType: triggerType);
+      return;
+    }
 
     final executionHandle = CronExecutor.start(
       entry,

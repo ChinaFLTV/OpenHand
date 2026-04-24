@@ -333,6 +333,22 @@ class _CronEntryCard extends StatelessWidget {
                   onChanged: onToggle,
                 ),
                 const SizedBox(width: 8),
+                // 2026-04-25 (Task 20) — system-managed entries show a lock
+                // icon and disable the edit/delete actions. The enabled
+                // toggle stays active so the user may still pause them.
+                if (entry.tags.contains('system')) ...[
+                  Tooltip(
+                    message: isZh
+                        ? '系统任务：仅可启用/禁用，无法编辑或删除'
+                        : 'System job: enable/disable only; cannot edit or delete',
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      size: 20,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 // Actions
                 IconButton(
                   icon: const Icon(Icons.bolt_rounded, size: 20),
@@ -349,17 +365,19 @@ class _CronEntryCard extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   tooltip: isZh ? '编辑' : 'Edit',
-                  onPressed: onEdit,
+                  onPressed: entry.tags.contains('system') ? null : onEdit,
                 ),
                 const SizedBox(width: 4),
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline_rounded,
                     size: 20,
-                    color: colorScheme.error,
+                    color: entry.tags.contains('system')
+                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+                        : colorScheme.error,
                   ),
                   tooltip: isZh ? '删除' : 'Delete',
-                  onPressed: onDelete,
+                  onPressed: entry.tags.contains('system') ? null : onDelete,
                 ),
               ],
             ),
