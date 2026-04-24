@@ -729,6 +729,49 @@ class AiSessionController extends ChangeNotifier {
     return true;
   }
 
+  /// Appends a [AiSessionMessageKind.selfLearning] message to the session and
+  /// persists it.
+  ///
+  /// Intended for Hermes Talker's self-learning runner (Task 18). Returns
+  /// the inserted message id, or null if the session could not be found.
+  Future<String?> appendSelfLearningMessage({
+    required String sessionId,
+    required String content,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) async {
+    final session = _sessionById(sessionId);
+    if (session == null) return null;
+    final id = _idGenerator();
+    final msg = AiSessionMessage.selfLearning(
+      id: id,
+      content: content,
+      createdAt: _clock().toUtc(),
+      metadata: metadata,
+    );
+    final updatedMessages = List<AiSessionMessage>.from(session.messages)
+      ..add(msg);
+    final updatedSession = _rebuildSession(
+      session.copyWith(
+        messages: updatedMessages,
+        updatedAt: _clock().toUtc(),
+      ),
+    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
+    if (existingIndex == -1) return null;
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[existingIndex] = updatedSession;
+    _sessions = updatedSessions;
+    notifyListeners();
+    try {
+      await _store.save(updatedSession);
+    } catch (_) {}
+    return id;
+  }
+
+  /// Public read-only accessor so the self-learning runner can fetch a
+  /// session snapshot without reaching into private state.
+  AiSession? sessionById(String sessionId) => _sessionById(sessionId);
+
   /// Persists the model selection to the given session without going through
   /// the session operation queue (keeps the UI responsive while AI inference
   /// may be occupying the queue).
