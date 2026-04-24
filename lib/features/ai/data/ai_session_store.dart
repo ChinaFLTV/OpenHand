@@ -190,6 +190,44 @@ class AiSessionStore {
     return _sessionFromRow(rows.first, messageRows);
   }
 
+  /// Loads all sessions (with messages) that belong to the given [templateId]
+  /// AND whose `created_at` is on or after [minCreatedAt].
+  ///
+  /// Added for Hermes Talker self-learning (Task 17 / 2026-04-25). Ordered
+  /// most-recently-updated first so that the scheduler prioritises active
+  /// sessions when concurrency is capped.
+  Future<List<AiSession>> loadSessionsByTemplate({
+    required String templateId,
+    required DateTime minCreatedAt,
+  }) async {
+    final rows = await _db.query(
+      'sessions',
+      where: 'template_id = ? AND created_at >= ?',
+      whereArgs: <Object?>[
+        templateId,
+        minCreatedAt.toUtc().toIso8601String(),
+      ],
+      orderBy: 'updated_at DESC',
+    );
+    final sessions = <AiSession>[];
+    for (final row in rows) {
+      try {
+        final sessionId = row['id'] as String;
+        final messageRows = await _db.query(
+          'messages',
+          where: 'session_id = ?',
+          whereArgs: <Object?>[sessionId],
+          orderBy: 'sort_order ASC',
+        );
+        sessions.add(_sessionFromRow(row, messageRows));
+      } catch (_) {
+        // Skip rows that fail to decode; the main loadAll() path surfaces
+        // persistence issues for the UI — the scheduler should stay silent.
+      }
+    }
+    return sessions;
+  }
+
   /// Loads a page of messages for a session (for lazy / paginated loading).
   ///
   /// Messages are ordered by [sort_order] ascending.

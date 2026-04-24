@@ -97,7 +97,14 @@ class AppSettingsSnapshot {
     required this.telemetryCaptureRawPayload,
     required this.telemetryCaptureEnvironment,
     required this.telemetryMaxPayloadChars,
+    this.selfLearningEnabled = true,
+    this.selfLearningConcurrency = defaultSelfLearningConcurrency,
   });
+
+  /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
+  static const int defaultSelfLearningConcurrency = 5;
+  static const int minSelfLearningConcurrency = 1;
+  static const int maxSelfLearningConcurrency = 10;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
   /// Default cap for per-message raw payload capture (characters).
@@ -181,6 +188,14 @@ class AppSettingsSnapshot {
   final bool telemetryCaptureEnvironment;
   final int telemetryMaxPayloadChars;
 
+  /// Whether the Hermes Talker self-learning scheduler is active.
+  /// When false, [SelfLearningScheduler.tick] short-circuits to a no-op.
+  final bool selfLearningEnabled;
+
+  /// Upper bound on concurrent self-learning sub-agent dispatches.
+  /// Clamped to [minSelfLearningConcurrency] .. [maxSelfLearningConcurrency].
+  final int selfLearningConcurrency;
+
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
     OpenHandThemePreset? themePreset,
@@ -220,6 +235,8 @@ class AppSettingsSnapshot {
     bool? telemetryCaptureRawPayload,
     bool? telemetryCaptureEnvironment,
     int? telemetryMaxPayloadChars,
+    bool? selfLearningEnabled,
+    int? selfLearningConcurrency,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -283,6 +300,9 @@ class AppSettingsSnapshot {
           telemetryCaptureEnvironment ?? this.telemetryCaptureEnvironment,
       telemetryMaxPayloadChars:
           telemetryMaxPayloadChars ?? this.telemetryMaxPayloadChars,
+      selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
+      selfLearningConcurrency:
+          selfLearningConcurrency ?? this.selfLearningConcurrency,
     );
   }
 }

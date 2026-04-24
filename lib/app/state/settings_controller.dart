@@ -80,6 +80,8 @@ class SettingsController extends ChangeNotifier {
        _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload,
        _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment,
        _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars,
+       _selfLearningEnabled = snapshot.selfLearningEnabled,
+       _selfLearningConcurrency = snapshot.selfLearningConcurrency,
        _persistenceIssue = persistenceIssue;
 
       static const int _maxRecentModelSelections = 10;
@@ -134,6 +136,8 @@ class SettingsController extends ChangeNotifier {
   bool _telemetryCaptureRawPayload;
   bool _telemetryCaptureEnvironment;
   int _telemetryMaxPayloadChars;
+  bool _selfLearningEnabled;
+  int _selfLearningConcurrency;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -226,6 +230,12 @@ class SettingsController extends ChangeNotifier {
   bool get telemetryCaptureRawPayload => _telemetryCaptureRawPayload;
   bool get telemetryCaptureEnvironment => _telemetryCaptureEnvironment;
   int get telemetryMaxPayloadChars => _telemetryMaxPayloadChars;
+
+  /// Whether the Hermes Talker self-learning scheduler is active.
+  bool get selfLearningEnabled => _selfLearningEnabled;
+
+  /// Maximum concurrent self-learning sub-agent dispatches.
+  int get selfLearningConcurrency => _selfLearningConcurrency;
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -977,6 +987,30 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateSelfLearningEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_selfLearningEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _selfLearningEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateSelfLearningConcurrency(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minSelfLearningConcurrency,
+      AppSettingsSnapshot.maxSelfLearningConcurrency,
+    );
+    return _commitMutation(() {
+      if (_selfLearningConcurrency == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _selfLearningConcurrency = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -1097,6 +1131,8 @@ class SettingsController extends ChangeNotifier {
       telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
       telemetryCaptureEnvironment: _telemetryCaptureEnvironment,
       telemetryMaxPayloadChars: _telemetryMaxPayloadChars,
+      selfLearningEnabled: _selfLearningEnabled,
+      selfLearningConcurrency: _selfLearningConcurrency,
     );
   }
 
@@ -1152,6 +1188,8 @@ class SettingsController extends ChangeNotifier {
     _telemetryCaptureRawPayload = snapshot.telemetryCaptureRawPayload;
     _telemetryCaptureEnvironment = snapshot.telemetryCaptureEnvironment;
     _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars;
+    _selfLearningEnabled = snapshot.selfLearningEnabled;
+    _selfLearningConcurrency = snapshot.selfLearningConcurrency;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

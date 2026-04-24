@@ -189,6 +189,8 @@ class SettingsStore {
       'telemetry_capture_raw_payload': snapshot.telemetryCaptureRawPayload,
       'telemetry_capture_environment': snapshot.telemetryCaptureEnvironment,
       'telemetry_max_payload_chars': snapshot.telemetryMaxPayloadChars,
+      'self_learning_enabled': snapshot.selfLearningEnabled,
+      'self_learning_concurrency': snapshot.selfLearningConcurrency,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -495,6 +497,18 @@ class SettingsStore {
               )
             : AppSettingsSnapshot.defaultTelemetryMaxPayloadChars;
 
+    final selfLearningEnabled = json['self_learning_enabled'] is bool
+        ? json['self_learning_enabled'] as bool
+        : true;
+    final rawSelfLearningConcurrency = json['self_learning_concurrency'];
+    final selfLearningConcurrency =
+        (rawSelfLearningConcurrency is int && rawSelfLearningConcurrency > 0)
+            ? rawSelfLearningConcurrency.clamp(
+                AppSettingsSnapshot.minSelfLearningConcurrency,
+                AppSettingsSnapshot.maxSelfLearningConcurrency,
+              )
+            : AppSettingsSnapshot.defaultSelfLearningConcurrency;
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -534,6 +548,8 @@ class SettingsStore {
       telemetryCaptureRawPayload: telemetryCaptureRawPayload,
       telemetryCaptureEnvironment: telemetryCaptureEnvironment,
       telemetryMaxPayloadChars: telemetryMaxPayloadChars,
+      selfLearningEnabled: selfLearningEnabled,
+      selfLearningConcurrency: selfLearningConcurrency,
     );
   }
 }
