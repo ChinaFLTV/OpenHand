@@ -904,6 +904,7 @@ class AiSessionController extends ChangeNotifier {
     final baseCatalog = _toolRuntimeService.resolveCatalogFromRuntimeSnapshot(
       runtimeContext: runtimeContext,
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
+      templateId: session.templateId,
     );
     final effectiveCatalog = session.awaitingPlanApproval
         ? AiResolvedToolCatalog(
@@ -1700,6 +1701,7 @@ class AiSessionController extends ChangeNotifier {
     final toolCatalog = adapter.supportsToolCalls
         ? await _toolRuntimeService.resolveCatalog(
             runtimeContext: runtimeContext,
+            templateId: session.templateId,
           )
         : const AiResolvedToolCatalog(
             definitions: <AiToolDefinition>[],

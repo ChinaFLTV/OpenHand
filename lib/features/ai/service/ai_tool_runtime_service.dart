@@ -202,6 +202,20 @@ class AiToolRuntimeService {
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
   static const int _maxToolOutputChars = 200000;
 
+  /// Template ID for which `skill_manager` is exposed as a builtin. All other
+  /// templates never see `skill_manager` in their tool catalog regardless of
+  /// user builtin-tool configs.
+  static const String _skillManagerTemplateId = 'hermes_talker';
+
+  /// Returns true iff the resolved [tool] should appear in the catalog of a
+  /// session whose thread template is [templateId].
+  bool _isBuiltinAllowedForTemplate(AiResolvedTool tool, String templateId) {
+    if (tool.builtinKind == AiBuiltinToolKind.skillManager) {
+      return templateId == _skillManagerTemplateId;
+    }
+    return true;
+  }
+
   /// Apply user builtin-tool configs: filter disabled, apply overrides,
   /// respect sort order and priority.
   List<AiResolvedTool> _resolveConfiguredBuiltinTools(
@@ -269,6 +283,7 @@ class AiToolRuntimeService {
   Future<AiResolvedToolCatalog> resolveCatalog({
 
     required AiSessionRuntimeContext runtimeContext,
+    String? templateId,
   }) async {
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
@@ -326,9 +341,13 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
+    final effectiveTemplateId = templateId ?? runtimeContext.templateId;
     for (final tool in _resolveConfiguredBuiltinTools(
       runtimeContext.builtinToolConfigs,
     )) {
+      if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) {
+        continue;
+      }
       register(tool);
     }
     // 2026-04-01 已移除 register(_legacyBashAlias)：
@@ -345,6 +364,7 @@ class AiToolRuntimeService {
     required AiSessionRuntimeContext runtimeContext,
     Map<String, McpToolCatalog> mcpToolCatalogsByServerName =
         const <String, McpToolCatalog>{},
+    String? templateId,
   }) {
     final definitions = <AiToolDefinition>[];
     final toolsByName = <String, AiResolvedTool>{};
@@ -405,9 +425,13 @@ class AiToolRuntimeService {
     }
 
     // ── 第三优先级：Builtin 工具 ──────────────────────────────────
+    final effectiveTemplateId = templateId ?? runtimeContext.templateId;
     for (final tool in _resolveConfiguredBuiltinTools(
       runtimeContext.builtinToolConfigs,
     )) {
+      if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) {
+        continue;
+      }
       register(tool);
     }
 

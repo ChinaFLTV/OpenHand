@@ -91,6 +91,7 @@ class AiSessionRuntimeContext {
     required this.compressionThresholdChars,
     required this.memoryEnabled,
     required this.memoryEntries,
+    this.templateId = '',
     this.singleRoundToolCallLimit = 40,
     this.sequentialToolRoundLimit = 24,
     this.imageSizeLimitBytes = 1024 * 1024,
@@ -126,6 +127,10 @@ class AiSessionRuntimeContext {
   final int compressionThresholdChars;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
+  /// Identifier of the thread template currently active for this session.
+  /// Used by the tool runtime to scope template-specific builtins such as
+  /// `skill_manager` (Hermes Talker only).
+  final String templateId;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
   /// Per-image attachment size cap (bytes). When the user picks an image
