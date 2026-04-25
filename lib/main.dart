@@ -193,7 +193,7 @@ Future<void> _bootstrap() async {
       final responseTimeout = Duration(
         seconds: settingsController.aiResponseTimeoutSeconds,
       );
-      final completion = await selfLearningChatClient.sendMessage(
+      final streaming = await selfLearningChatClient.sendMessageStream(
         model: selected,
         messages: <ai_protocol_adapter.AiChatTurn>[
           ai_protocol_adapter.AiChatTurn(
@@ -207,8 +207,37 @@ Future<void> _bootstrap() async {
         ],
         timeout: responseTimeout,
       );
-      final reply = completion.reply.trim();
-      final reasoning = completion.reasoningContent?.trim();
+      final responseBuffer = StringBuffer();
+      final reasoningBuffer = StringBuffer();
+      final progress = context.onProgress;
+      final eventsSubFuture = streaming.events.listen((event) {
+        switch (event.type) {
+          case AiChatStreamEventType.textDelta:
+            if (event.textDelta != null) {
+              responseBuffer.write(event.textDelta);
+              if (progress != null) {
+                // Fire-and-forget; runner debounces persistence internally.
+                progress(aiResponse: responseBuffer.toString());
+              }
+            }
+            break;
+          case AiChatStreamEventType.reasoningDelta:
+            if (event.reasoningDelta != null) {
+              reasoningBuffer.write(event.reasoningDelta);
+              if (progress != null) {
+                progress(aiReasoning: reasoningBuffer.toString());
+              }
+            }
+            break;
+          case AiChatStreamEventType.toolCallDelta:
+          case AiChatStreamEventType.usage:
+            break;
+        }
+      }).asFuture<void>();
+      final result = await streaming.result;
+      await eventsSubFuture;
+      final reply = result.reply.trim();
+      final reasoning = result.reasoning.trim();
       final summary = reply.isEmpty
           ? '模型返回为空，本轮未产生可用学习内容。'
           : (reply.length <= 160
@@ -219,10 +248,10 @@ Future<void> _bootstrap() async {
         mutations: <String, Object?>{
           'model_id': selected.modelId,
           'provider_id': selected.id,
-          if (completion.usage != null) 'usage': completion.usage!.toJson(),
+          if (result.usage != null) 'usage': result.usage!.toJson(),
         },
         aiResponse: reply.isEmpty ? null : reply,
-        aiReasoning: (reasoning == null || reasoning.isEmpty) ? null : reasoning,
+        aiReasoning: reasoning.isEmpty ? null : reasoning,
       );
     },
   );

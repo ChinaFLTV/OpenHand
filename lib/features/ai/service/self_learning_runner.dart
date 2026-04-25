@@ -15,6 +15,8 @@
 /// `selfLearning` 消息；`self_learning_in_progress` 始终会被清理。
 library;
 
+import 'dart:async';
+
 import '../../memory/memory_controller.dart';
 import '../ai_session_controller.dart';
 import '../model/ai_session.dart';
@@ -32,6 +34,14 @@ import '../model/ai_session_message.dart';
 typedef SelfLearningLlmDispatcher =
     Future<SelfLearningOutcome> Function(SelfLearningContext context);
 
+/// 由派发器在流式生成期间调用的进度回调。每次调用都会传入当前**累计**的
+/// 文本内容（而非增量），运行器内部会节流持久化到 selfLearning 卡片的
+/// metadata['ai_response'] / metadata['ai_reasoning'] 字段以驱动 UI 流式展示。
+typedef SelfLearningProgressCallback = Future<void> Function({
+  String? aiResponse,
+  String? aiReasoning,
+});
+
 /// 构造给 LLM 子 Agent 的上下文。
 class SelfLearningContext {
   const SelfLearningContext({
@@ -40,6 +50,8 @@ class SelfLearningContext {
     required this.userProfileContent,
     required this.autoLearnedMemoriesSummary,
     required this.conversationSlice,
+    this.placeholderMessageId,
+    this.onProgress,
   });
 
   final AiSession session;
@@ -55,6 +67,15 @@ class SelfLearningContext {
 
   /// 对话切片纯文本（按 "user: ... / assistant: ..." 逐行拼接）。
   final String conversationSlice;
+
+  /// 由运行器预创建的占位 selfLearning 卡片消息 id，派发器可据此自行
+  /// 调用 [AiSessionController.updateSelfLearningMessage] 进行更高级的
+  /// 增量更新；通常派发器只需使用 [onProgress] 即可。
+  final String? placeholderMessageId;
+
+  /// 进度回调；派发器在收到 textDelta / reasoningDelta 时累计文本并调用
+  /// 此回调，运行器会节流写入卡片以驱动 UI 流式展示。
+  final SelfLearningProgressCallback? onProgress;
 }
 
 /// LLM 子 Agent 执行完成后返回给运行器的结果。
@@ -97,6 +118,10 @@ class SelfLearningRunner {
 
   final int minConversationTurns;
   final String autoLearnedMemoriesTag;
+
+  /// 流式累计文本写入卡片的最小间隔。设置过小会引起频繁 sqflite 写入；
+  /// 设置过大会让 UI 看起来不够丝滑。250ms 是经验折中。
+  static const Duration _streamFlushInterval = Duration(milliseconds: 250);
 
   /// 由 [SelfLearningScheduler] 调用。为单个会话执行一次自我学习流程。
   Future<void> runForSession(AiSession session) async {
@@ -162,19 +187,140 @@ class SelfLearningRunner {
         return;
       }
 
-      final outcome = await dispatcher(context);
-
-      // 4) 写入 selfLearning 消息卡片。
-      await _writeCard(
-        session.id,
-        summary: outcome.summary,
-        status: 'ok',
-        extra: <String, Object?>{
-          ...outcome.mutations,
-          if (outcome.aiResponse != null) 'ai_response': outcome.aiResponse,
-          if (outcome.aiReasoning != null) 'ai_reasoning': outcome.aiReasoning,
+      // 4a) 预先创建 status='streaming' 的占位卡片，供派发器流式追加。
+      final placeholderId = await sessionController.appendSelfLearningMessage(
+        sessionId: session.id,
+        content: '正在自我学习…',
+        metadata: const <String, Object?>{
+          'status': 'streaming',
+          'streaming': true,
         },
       );
+
+      // 节流写入：累计文本由 dispatcher 通过 onProgress 提供，运行器
+      // 至多每 [_streamFlushInterval] 持久化一次，避免在长文本流式输出
+      // 期间写穿 sqflite。
+      String? latestResponse;
+      String? latestReasoning;
+      String? lastFlushedResponse;
+      String? lastFlushedReasoning;
+      Timer? flushTimer;
+      Future<void>? pendingFlush;
+
+      Future<void> doFlush() async {
+        if (placeholderId == null) return;
+        final response = latestResponse;
+        final reasoning = latestReasoning;
+        if (response == lastFlushedResponse &&
+            reasoning == lastFlushedReasoning) {
+          return;
+        }
+        lastFlushedResponse = response;
+        lastFlushedReasoning = reasoning;
+        await sessionController.updateSelfLearningMessage(
+          sessionId: session.id,
+          messageId: placeholderId,
+          metadataPatch: <String, Object?>{
+            if (response != null && response.isNotEmpty)
+              'ai_response': response,
+            if (reasoning != null && reasoning.isNotEmpty)
+              'ai_reasoning': reasoning,
+          },
+        );
+      }
+
+      Future<void> onProgress({String? aiResponse, String? aiReasoning}) async {
+        if (aiResponse != null) latestResponse = aiResponse;
+        if (aiReasoning != null) latestReasoning = aiReasoning;
+        flushTimer ??= Timer(_streamFlushInterval, () async {
+          flushTimer = null;
+          pendingFlush = doFlush();
+          await pendingFlush;
+          pendingFlush = null;
+        });
+      }
+
+      final streamingContext = SelfLearningContext(
+        session: context.session,
+        prompt: context.prompt,
+        userProfileContent: context.userProfileContent,
+        autoLearnedMemoriesSummary: context.autoLearnedMemoriesSummary,
+        conversationSlice: context.conversationSlice,
+        placeholderMessageId: placeholderId,
+        onProgress: placeholderId == null ? null : onProgress,
+      );
+
+      try {
+        final outcome = await dispatcher(streamingContext);
+
+        // 终态写入：取消任何待执行的节流计时，等待在途写入完成，
+        // 然后用最终结果整体替换 metadata。
+        flushTimer?.cancel();
+        flushTimer = null;
+        if (pendingFlush != null) {
+          try {
+            await pendingFlush;
+          } catch (_) {}
+        }
+
+        if (placeholderId != null) {
+          await sessionController.updateSelfLearningMessage(
+            sessionId: session.id,
+            messageId: placeholderId,
+            content: outcome.summary,
+            replaceMetadata: true,
+            metadataPatch: <String, Object?>{
+              'status': 'ok',
+              ...outcome.mutations,
+              if (outcome.aiResponse != null)
+                'ai_response': outcome.aiResponse,
+              if (outcome.aiReasoning != null)
+                'ai_reasoning': outcome.aiReasoning,
+            },
+          );
+        } else {
+          // 占位卡片创建失败的兜底：直接追加一条最终卡片。
+          await _writeCard(
+            session.id,
+            summary: outcome.summary,
+            status: 'ok',
+            extra: <String, Object?>{
+              ...outcome.mutations,
+              if (outcome.aiResponse != null)
+                'ai_response': outcome.aiResponse,
+              if (outcome.aiReasoning != null)
+                'ai_reasoning': outcome.aiReasoning,
+            },
+          );
+        }
+      } catch (error, stack) {
+        flushTimer?.cancel();
+        flushTimer = null;
+        if (pendingFlush != null) {
+          try {
+            await pendingFlush;
+          } catch (_) {}
+        }
+        if (placeholderId != null) {
+          await sessionController.updateSelfLearningMessage(
+            sessionId: session.id,
+            messageId: placeholderId,
+            content: '自我学习失败: $error',
+            replaceMetadata: true,
+            metadataPatch: <String, Object?>{
+              'status': 'error',
+              'error': '$error',
+              'stack': stack.toString(),
+              if (latestResponse != null && latestResponse!.isNotEmpty)
+                'ai_response': latestResponse,
+              if (latestReasoning != null && latestReasoning!.isNotEmpty)
+                'ai_reasoning': latestReasoning,
+            },
+          );
+        } else {
+          rethrow;
+        }
+      }
     } catch (error, stack) {
       await _writeCard(
         session.id,
