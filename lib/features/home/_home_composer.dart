@@ -1715,19 +1715,8 @@ class _ComposerCreationModeButtonState
       _deferModeChange(_CreationMode.none);
       return;
     }
-    // Only image generation is currently supported.
-    if (mode != _CreationMode.image) {
+    if (mode == _CreationMode.deepResearch) {
       final label = switch (mode) {
-        _CreationMode.video => _localizedText(
-          context,
-          zh: '视频生成功能暂不支持，敬请期待',
-          en: 'Video generation is not yet supported',
-        ),
-        _CreationMode.audio => _localizedText(
-          context,
-          zh: '音频生成功能暂不支持，敬请期待',
-          en: 'Audio generation is not yet supported',
-        ),
         _CreationMode.deepResearch => _localizedText(
           context,
           zh: '深度研究功能暂不支持，敬请期待',
@@ -1847,13 +1836,21 @@ class _ComposerCreationModeButtonState
           value: _CreationMode.video,
           child: Row(
             children: [
-              const Icon(Icons.videocam_outlined, size: 20),
+              Icon(
+                Icons.videocam_outlined,
+                size: 20,
+                color: widget.creationMode == _CreationMode.video
+                    ? colorScheme.primary
+                    : null,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _localizedText(context, zh: '视频生成', en: 'Generate Video'),
                 ),
               ),
+              if (widget.creationMode == _CreationMode.video)
+                Icon(Icons.check_rounded, size: 18, color: colorScheme.primary),
             ],
           ),
         ),
@@ -1861,13 +1858,21 @@ class _ComposerCreationModeButtonState
           value: _CreationMode.audio,
           child: Row(
             children: [
-              const Icon(Icons.audiotrack_outlined, size: 20),
+              Icon(
+                Icons.audiotrack_outlined,
+                size: 20,
+                color: widget.creationMode == _CreationMode.audio
+                    ? colorScheme.primary
+                    : null,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   _localizedText(context, zh: '音频生成', en: 'Generate Audio'),
                 ),
               ),
+              if (widget.creationMode == _CreationMode.audio)
+                Icon(Icons.check_rounded, size: 18, color: colorScheme.primary),
             ],
           ),
         ),

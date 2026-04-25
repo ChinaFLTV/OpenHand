@@ -103,6 +103,10 @@ class AiModelCatalog {
     AiModelCapability.videoGeneration,
   };
 
+  static const _audioGen = <AiModelCapability>{
+    AiModelCapability.audioGeneration,
+  };
+
   /// Shorthand [AiModelProfile] builder for catalog entries.
   static AiModelProfile _p({
     required String name,
@@ -133,6 +137,22 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _openai(String id) {
+    // ── Video / audio generation ─────────────────────────────────────────
+    if (id.startsWith('sora')) {
+      return _p(
+        name: 'Sora',
+        desc: 'Video generation model',
+        capabilities: _videoGen,
+      );
+    }
+    if (id.contains('tts') || id.contains('speech')) {
+      return _p(
+        name: 'OpenAI Audio',
+        desc: 'Audio generation model',
+        capabilities: _audioGen,
+      );
+    }
+
     // ── Image generation ─────────────────────────────────────────────────
     if (id.startsWith('gpt-image') || id.startsWith('dall-e')) {
       return _p(
@@ -657,12 +677,26 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _qwen(String id) {
-    // ── Image generation ─────────────────────────────────────────────────
-    if (id.startsWith('qwen-image') || id.startsWith('wan')) {
+    // ── Image / video / audio generation ─────────────────────────────────
+    if (id.startsWith('qwen-image')) {
       return _p(
-        name: id.startsWith('wan') ? 'Wanxiang' : 'Qwen Image',
+        name: 'Qwen Image',
         desc: 'Image generation',
         capabilities: _imageGen,
+      );
+    }
+    if (id.startsWith('wan')) {
+      return _p(
+        name: 'Wanxiang',
+        desc: 'Video generation',
+        capabilities: _videoGen,
+      );
+    }
+    if (id.startsWith('qwen-tts') || id.contains('cosyvoice')) {
+      return _p(
+        name: 'Qwen Audio',
+        desc: 'Audio generation',
+        capabilities: _audioGen,
       );
     }
 

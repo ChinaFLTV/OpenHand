@@ -1190,6 +1190,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (AiImageGenerationService.supportsImageGeneration(widget.protocolType)) {
       result.add(AiModelCapability.imageGeneration);
     }
+    if (AiImageGenerationService.supportsVideoGeneration(widget.protocolType)) {
+      result.add(AiModelCapability.videoGeneration);
+    }
+    if (AiImageGenerationService.supportsAudioGeneration(widget.protocolType)) {
+      result.add(AiModelCapability.audioGeneration);
+    }
     return result;
   }
 

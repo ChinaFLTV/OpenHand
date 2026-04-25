@@ -1238,6 +1238,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         if (fileUri.isNotEmpty) {
           final label = mimeType.startsWith('image/')
               ? 'AI Generated Image'
+              : mimeType.startsWith('video/')
+              ? 'AI Generated Video'
               : mimeType.startsWith('audio/')
               ? 'AI Generated Audio'
               : 'AI Generated File';
@@ -1245,6 +1247,9 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           buffer.writeln();
           if (mimeType.startsWith('image/')) {
             buffer.write('![$label]($fileUri)');
+          } else if (mimeType.startsWith('video/') ||
+              mimeType.startsWith('audio/')) {
+            buffer.write('[$label]($fileUri)');
           } else {
             buffer.write('[$label]($fileUri)');
           }
@@ -1712,6 +1717,22 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
         }
         continue;
       }
+      // Video block (some OpenAI-compatible providers return generated clips
+      // in chat-style content arrays).
+      if (type == 'video' || type == 'video_url') {
+        final videoPayload = item['video'] ?? item['video_url'];
+        final md = await _markdownFromOpenAiMediaPayload(
+          videoPayload,
+          fallbackMimeType: 'video/mp4',
+          fallbackLabel: 'AI Generated Video',
+        );
+        if (md.isNotEmpty) {
+          if (buffer.isNotEmpty) buffer.writeln();
+          buffer.writeln();
+          buffer.write(md);
+        }
+        continue;
+      }
       // Audio block (OpenAI gpt-4o-audio responses).
       if (type == 'audio') {
         final audioData = item['audio'];
@@ -1727,6 +1748,13 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
               buffer.writeln();
               buffer.write(md);
             }
+          }
+          final url = '${audioData['url'] ?? audioData['audio_url'] ?? ''}'
+              .trim();
+          if (url.isNotEmpty) {
+            if (buffer.isNotEmpty) buffer.writeln();
+            buffer.writeln();
+            buffer.write('[AI Audio Response]($url)');
           }
           // Include transcript as text if present.
           final transcript = '${audioData['transcript'] ?? ''}'.trim();
@@ -1744,6 +1772,58 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
     }
   }
   throw const FormatException('Empty assistant response text.');
+}
+
+Future<String> _markdownFromOpenAiMediaPayload(
+  Object? payload, {
+  required String fallbackMimeType,
+  required String fallbackLabel,
+}) async {
+  if (payload is String) {
+    final trimmed = payload.trim();
+    if (trimmed.startsWith('data:')) {
+      final commaIndex = trimmed.indexOf(',');
+      if (commaIndex > 0) {
+        final header = trimmed.substring(0, commaIndex);
+        final mimeMatch = RegExp(r'data:([^;]+)').firstMatch(header);
+        final mimeType = mimeMatch?.group(1) ?? fallbackMimeType;
+        final base64Data = trimmed.substring(commaIndex + 1);
+        return saveInlineMediaToMarkdown(
+          AiInlineMedia(mimeType: mimeType, base64Data: base64Data),
+          label: fallbackLabel,
+        );
+      }
+    }
+    if (trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('file:')) {
+      return '[$fallbackLabel]($trimmed)';
+    }
+    return '';
+  }
+  if (payload is! Map<String, Object?>) return '';
+  final data = '${payload['data'] ?? payload['base64'] ?? ''}'.trim();
+  final mimeType =
+      '${payload['mime_type'] ?? payload['mimeType'] ?? fallbackMimeType}'
+          .trim();
+  final label = '${payload['transcript'] ?? payload['title'] ?? fallbackLabel}'
+      .trim();
+  if (data.isNotEmpty) {
+    return saveInlineMediaToMarkdown(
+      AiInlineMedia(
+        mimeType: mimeType.isEmpty ? fallbackMimeType : mimeType,
+        base64Data: data,
+      ),
+      label: label.isEmpty ? fallbackLabel : label,
+    );
+  }
+  final url =
+      '${payload['url'] ?? payload['video_url'] ?? payload['audio_url'] ?? ''}'
+          .trim();
+  if (url.isNotEmpty) {
+    return '[${sanitizeMarkdownAltText(label.isEmpty ? fallbackLabel : label)}]($url)';
+  }
+  return '';
 }
 
 int? _readInt(Object? value) {

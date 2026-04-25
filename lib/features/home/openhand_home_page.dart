@@ -30,6 +30,7 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/openhand_scroll_physics.dart';
+import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/data/database_service.dart';
@@ -3045,9 +3046,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _replaceComposerText('');
     // Capture the creation mode and reset it before sending.
     final creationMode = _creationMode;
-    final responseModalities = creationMode == _CreationMode.image
-        ? const <String>['Text', 'Image']
-        : const <String>[];
+    final responseModalities = switch (creationMode) {
+      _CreationMode.image => const <String>['Text', 'Image'],
+      _CreationMode.video => const <String>['Text', 'Video'],
+      _CreationMode.audio => const <String>['Text', 'Audio'],
+      _CreationMode.none || _CreationMode.deepResearch => const <String>[],
+    };
     final creationRequest = _creationRequestFromComposer(creationMode);
     setState(() {
       _pendingAttachments = const <_ComposerAttachmentDraft>[];
@@ -4857,10 +4861,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               _creationOptions = _defaultOptionsForComposerMode(mode);
             }
           });
-          // When the user just enabled an image-producing mode, open the
-          // options sheet so they can pick a size / aspect ratio / count
+          // When the user just enabled a media-producing mode, open the
+          // options sheet so they can pick size / aspect ratio / duration
           // without hunting through a settings screen.
-          if (mode == _CreationMode.image && previousMode != mode) {
+          if ((mode == _CreationMode.image ||
+                  mode == _CreationMode.video ||
+                  mode == _CreationMode.audio) &&
+              previousMode != mode) {
             // Push the overlay route after the current frame has fully
             // settled to avoid LayoutBuilder callback assertions.
             await _awaitEndOfFrame();

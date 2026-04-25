@@ -200,16 +200,23 @@ class AiChatService implements AiChatClient {
   final http.Client _client;
   final AiImageGenerationService _imageService;
 
-  /// Returns true when [creationRequest] asks for image output AND the
-  /// provider is known to expose an OpenAI-compatible `/v1/images/generations`
-  /// endpoint. Gemini keeps its inline `responseModalities` path on the chat
-  /// endpoint, so we skip the diversion for it on purpose.
-  bool _shouldDivertToImageEndpoint(
+  /// Returns true when [creationRequest] asks for media output and the
+  /// provider is known to expose a dedicated media endpoint. Gemini keeps its
+  /// inline `responseModalities` path on the chat endpoint, so it is not
+  /// diverted here.
+  bool _shouldDivertToMediaEndpoint(
     AiModelConfig model,
     AiCreationRequest creationRequest,
   ) {
-    if (creationRequest.mode != AiCreationMode.image) return false;
-    return AiImageGenerationService.supportsImageGeneration(model.protocolType);
+    return switch (creationRequest.mode) {
+      AiCreationMode.image =>
+        AiImageGenerationService.supportsImageGenerationForModel(model),
+      AiCreationMode.video =>
+        AiImageGenerationService.supportsVideoGenerationForModel(model),
+      AiCreationMode.audio =>
+        AiImageGenerationService.supportsAudioGenerationForModel(model),
+      AiCreationMode.none || AiCreationMode.deepResearch => false,
+    };
   }
 
   /// Extracts the latest user text prompt from a turn list. The image
@@ -241,22 +248,40 @@ class AiChatService implements AiChatClient {
     return '';
   }
 
-  /// Produces an [AiChatCompletion] by calling the dedicated image
-  /// generation endpoint and wrapping its output in the regular chat
-  /// completion shape so the rest of the app can stay oblivious.
-  Future<AiChatCompletion> _sendImageGenerationCompletion({
+  /// Produces an [AiChatCompletion] by calling a dedicated media generation
+  /// endpoint and wrapping its output in the regular chat completion shape so
+  /// the rest of the app can stay oblivious.
+  Future<AiChatCompletion> _sendMediaGenerationCompletion({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
     required AiCreationRequest creationRequest,
     required Duration timeout,
   }) async {
     final prompt = _latestUserPromptFromTurns(messages);
-    final result = await _imageService.generateImage(
-      model: model,
-      prompt: prompt,
-      options: creationRequest.options,
-      timeout: timeout,
-    );
+    final result = switch (creationRequest.mode) {
+      AiCreationMode.image => await _imageService.generateImage(
+        model: model,
+        prompt: prompt,
+        options: creationRequest.options,
+        timeout: timeout,
+      ),
+      AiCreationMode.video => await _imageService.generateVideo(
+        model: model,
+        prompt: prompt,
+        options: creationRequest.options,
+        timeout: timeout,
+      ),
+      AiCreationMode.audio => await _imageService.generateAudio(
+        model: model,
+        prompt: prompt,
+        options: creationRequest.options,
+        timeout: timeout,
+      ),
+      AiCreationMode.none ||
+      AiCreationMode.deepResearch => throw const AiMediaGenerationException(
+        'No media generation mode was requested.',
+      ),
+    };
     return AiChatCompletion(
       reply: result.markdown,
       rawResponse: result.rawResponseBody,
@@ -280,9 +305,9 @@ class AiChatService implements AiChatClient {
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
   }) async {
-    if (_shouldDivertToImageEndpoint(model, creationRequest)) {
+    if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
       try {
-        return await _sendImageGenerationCompletion(
+        return await _sendMediaGenerationCompletion(
           model: model,
           messages: messages,
           creationRequest: creationRequest,
@@ -396,10 +421,10 @@ class AiChatService implements AiChatClient {
     Duration streamIdleTimeout = const Duration(seconds: 120),
     Future<void>? cancelSignal,
   }) async {
-    // Image generation is a one-shot, non-streaming protocol on OpenAI-style
-    // providers, so wrap it in a synthetic stream that emits one textDelta
-    // containing the final markdown image reference.
-    if (_shouldDivertToImageEndpoint(model, creationRequest)) {
+    // Media generation is a one-shot or bounded-poll protocol on dedicated
+    // endpoints, so wrap it in a synthetic stream that emits one textDelta
+    // containing the final markdown media reference.
+    if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
