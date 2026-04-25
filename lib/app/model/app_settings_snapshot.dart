@@ -112,12 +112,19 @@ class AppSettingsSnapshot {
     this.selfLearningEnabled = true,
     this.selfLearningConcurrency = defaultSelfLearningConcurrency,
     this.showSelfLearningMessages = true,
+    this.cronAutoCleanupEnabled = true,
+    this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
   });
 
   /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
   static const int defaultSelfLearningConcurrency = 5;
   static const int minSelfLearningConcurrency = 1;
   static const int maxSelfLearningConcurrency = 10;
+
+  /// 2026-04-25 — 冷启动后自动清理 cron 历史的默认保留天数。
+  static const int defaultCronAutoCleanupRetentionDays = 7;
+  static const int minCronAutoCleanupRetentionDays = 1;
+  static const int maxCronAutoCleanupRetentionDays = 365;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
 
@@ -221,6 +228,15 @@ class AppSettingsSnapshot {
   /// visibility. Default true.
   final bool showSelfLearningMessages;
 
+  /// 2026-04-25 — 冷启动后是否异步清理过期 cron 执行历史。
+  /// 默认 true，免得历史表不受控增长。
+  final bool cronAutoCleanupEnabled;
+
+  /// 2026-04-25 — 保留上限天数；超过该天数的条目在冷启动起动
+  /// 的 worker 里被删除。[minCronAutoCleanupRetentionDays] 与
+  /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
+  final int cronAutoCleanupRetentionDays;
+
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
     OpenHandThemePreset? themePreset,
@@ -264,6 +280,8 @@ class AppSettingsSnapshot {
     bool? selfLearningEnabled,
     int? selfLearningConcurrency,
     bool? showSelfLearningMessages,
+    bool? cronAutoCleanupEnabled,
+    int? cronAutoCleanupRetentionDays,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -334,6 +352,10 @@ class AppSettingsSnapshot {
           selfLearningConcurrency ?? this.selfLearningConcurrency,
       showSelfLearningMessages:
           showSelfLearningMessages ?? this.showSelfLearningMessages,
+      cronAutoCleanupEnabled:
+          cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
+      cronAutoCleanupRetentionDays:
+          cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
     );
   }
 }

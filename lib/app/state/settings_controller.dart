@@ -84,6 +84,8 @@ class SettingsController extends ChangeNotifier {
        _selfLearningEnabled = snapshot.selfLearningEnabled,
        _selfLearningConcurrency = snapshot.selfLearningConcurrency,
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
+       _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
+       _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
        _persistenceIssue = persistenceIssue;
 
   static const int _maxRecentModelSelections = 10;
@@ -142,6 +144,8 @@ class SettingsController extends ChangeNotifier {
   bool _selfLearningEnabled;
   int _selfLearningConcurrency;
   bool _showSelfLearningMessages;
+  bool _cronAutoCleanupEnabled;
+  int _cronAutoCleanupRetentionDays;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -246,6 +250,14 @@ class SettingsController extends ChangeNotifier {
   /// Independent of [selfLearningEnabled] which only controls the
   /// background scheduler.
   bool get showSelfLearningMessages => _showSelfLearningMessages;
+
+  /// 2026-04-25 — 是否在冷启动时自动清理超过保留期的 cron 执行历史。
+  bool get cronAutoCleanupEnabled => _cronAutoCleanupEnabled;
+
+  /// 2026-04-25 — cron 执行历史保留天数；超过该天数的记录会被异步 worker
+  /// 清理。
+  int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
+
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
   @override
@@ -1044,6 +1056,31 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  // 2026-04-25 — 定时任务（cron）执行历史的冷启动自动清理设置。
+  Future<bool> updateCronAutoCleanupEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_cronAutoCleanupEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _cronAutoCleanupEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateCronAutoCleanupRetentionDays(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minCronAutoCleanupRetentionDays,
+      AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
+    );
+    return _commitMutation(() {
+      if (_cronAutoCleanupRetentionDays == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _cronAutoCleanupRetentionDays = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -1164,6 +1201,8 @@ class SettingsController extends ChangeNotifier {
       selfLearningEnabled: _selfLearningEnabled,
       selfLearningConcurrency: _selfLearningConcurrency,
       showSelfLearningMessages: _showSelfLearningMessages,
+      cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
+      cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
     );
   }
 

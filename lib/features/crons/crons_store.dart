@@ -477,6 +477,18 @@ class CronsStore {
     );
   }
 
+  /// 2026-04-25 — 删除所有 [cutoff] 之前的历史记录，返回受影响行数。
+  /// 用于冷启动时的自动清理 worker。
+  /// 注意：started_at 列存的是 ISO8601 字符串，字典序与时间序一致，
+  /// 因此可直接用字符串比较，无需 datetime() 函数。
+  Future<int> deleteHistoryOlderThan(DateTime cutoff) async {
+    return _db.delete(
+      _historyTable,
+      where: 'started_at < ?',
+      whereArgs: <Object?>[cutoff.toIso8601String()],
+    );
+  }
+
   Future<void> pruneHistory(String cronId, {int keep = 100}) async {
     final rows = await _db.query(
       _historyTable,

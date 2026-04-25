@@ -195,6 +195,9 @@ class SettingsStore {
       'self_learning_enabled': snapshot.selfLearningEnabled,
       'self_learning_concurrency': snapshot.selfLearningConcurrency,
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
+      'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
+      'cron_auto_cleanup_retention_days':
+          snapshot.cronAutoCleanupRetentionDays,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -593,6 +596,18 @@ class SettingsStore {
         ? json['show_self_learning_messages'] as bool
         : true;
 
+    final cronAutoCleanupEnabled = json['cron_auto_cleanup_enabled'] is bool
+        ? json['cron_auto_cleanup_enabled'] as bool
+        : true;
+    final rawCronRetention = json['cron_auto_cleanup_retention_days'];
+    final cronAutoCleanupRetentionDays =
+        (rawCronRetention is int && rawCronRetention > 0)
+        ? rawCronRetention.clamp(
+            AppSettingsSnapshot.minCronAutoCleanupRetentionDays,
+            AppSettingsSnapshot.maxCronAutoCleanupRetentionDays,
+          )
+        : AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays;
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -636,6 +651,8 @@ class SettingsStore {
       selfLearningEnabled: selfLearningEnabled,
       selfLearningConcurrency: selfLearningConcurrency,
       showSelfLearningMessages: showSelfLearningMessages,
+      cronAutoCleanupEnabled: cronAutoCleanupEnabled,
+      cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
     );
   }
 }

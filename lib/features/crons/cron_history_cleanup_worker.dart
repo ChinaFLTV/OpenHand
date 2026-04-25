@@ -1,0 +1,80 @@
+/// Hermes Talker / Cron 执行历史的冷启动自动清理 worker
+/// (2026-04-25 / 任务 22)。
+///
+/// 设计目标：
+/// * 仅在 **冷启动** 后异步触发一次（main.dart 调用），不做轮询、不
+///   驻留后台 Timer，避免无限循环 / 死循环 / 资源泄漏。
+/// * 全局 single-flight：同一进程内若重复调用，后续调用直接 short-circuit。
+/// * 全程 try/catch + [silentLog]，绝不向调用方抛异常。
+/// * 设置项变更后重新冷启动才会生效；这是一个"轻量"清理路径，避免
+///   与正常运行时的写入路径竞争锁。
+library;
+
+import 'dart:async';
+
+import '../../app/state/settings_controller.dart';
+import '../../app/support/silent_log.dart';
+import 'crons_controller.dart';
+
+/// 控制全进程仅执行一次的标志位。即使被误调多次，也只生效首次。
+bool _hasRunInThisProcess = false;
+
+/// 冷启动后异步运行：根据设置项决定是否清理 cron 执行历史。
+///
+/// 调用方应使用 `unawaited(...)`：本函数永不抛异常。
+///
+/// * [settings] — 读取 `cronAutoCleanupEnabled` / `cronAutoCleanupRetentionDays`。
+/// * [crons] — 用于实际删除历史记录。
+/// * [now] — 仅供测试注入；生产代码用默认值。
+/// * [maxWait] — 安全护栏：清理 SQL 最长等待时间，超时直接放弃，
+///   避免与启动时其他写入操作互相阻塞造成无限等待。默认 30s。
+Future<void> runCronHistoryCleanupOnce({
+  required SettingsController settings,
+  required CronsController crons,
+  DateTime? now,
+  Duration maxWait = const Duration(seconds: 30),
+}) async {
+  if (_hasRunInThisProcess) return;
+  _hasRunInThisProcess = true;
+
+  try {
+    if (!settings.cronAutoCleanupEnabled) return;
+    final retention = settings.cronAutoCleanupRetentionDays;
+    if (retention <= 0) return;
+
+    final effectiveNow = now ?? DateTime.now();
+    final cutoff = effectiveNow.subtract(Duration(days: retention));
+
+    // 用 timeout 兜底，防止 SQLite 写锁互相阻塞导致无限等待。
+    final affected = await crons
+        .purgeHistoryOlderThan(cutoff)
+        .timeout(maxWait, onTimeout: () => -1);
+
+    if (affected < 0) {
+      silentLog(
+        'cron_history_cleanup_worker',
+        'cleanup timed out',
+        'maxWait=$maxWait retentionDays=$retention',
+      );
+    } else if (affected > 0) {
+      silentLog(
+        'cron_history_cleanup_worker',
+        'cleanup ok',
+        'removed=$affected retentionDays=$retention cutoff=$cutoff',
+      );
+    }
+  } catch (error, stack) {
+    silentLog(
+      'cron_history_cleanup_worker',
+      'unexpected failure',
+      error,
+      stack,
+    );
+  }
+}
+
+/// 测试钩子：重置 single-flight 状态，便于单测多次模拟冷启动。
+/// 生产代码不应调用本方法。
+void debugResetCronHistoryCleanupWorker() {
+  _hasRunInThisProcess = false;
+}

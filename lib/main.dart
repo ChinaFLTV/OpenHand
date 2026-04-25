@@ -19,6 +19,7 @@ import 'features/ai/service/lsp_client_service.dart';
 import 'features/ai/service/self_learning_dispatcher.dart';
 import 'features/ai/service/self_learning_runner.dart';
 import 'features/ai/service/self_learning_scheduler.dart';
+import 'features/crons/cron_history_cleanup_worker.dart';
 import 'features/crons/crons_controller.dart';
 import 'features/hooks/hooks_controller.dart';
 import 'features/hooks/hooks_executor.dart';
@@ -212,6 +213,15 @@ Future<void> _bootstrap() async {
   // Kick off the deferred cron init AFTER the agent handler is registered so
   // any immediate scheduler tick post-init can dispatch correctly.
   unawaited(cronsController.initialize());
+
+  // 2026-04-25 — 冷启动后异步触发一次 cron 历史清理（single-flight，
+  // 永不抛异常，超时兜底 30s），不干扰主路径与 UI 启动。
+  unawaited(
+    runCronHistoryCleanupOnce(
+      settings: settingsController,
+      crons: cronsController,
+    ),
+  );
 
   runApp(
     MultiProvider(

@@ -406,6 +406,36 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  /// 2026-04-25 — 删除所有 [cutoff] 之前的执行历史，返回受影响的行数。
+  /// 同步刷新内存缓存以避免 UI 看到陈旧数据。
+  /// 这是一个"尽力而为"的清理，调用方负责自身的异常兜底；
+  /// 失败时返回 0，不抛异常。
+  Future<int> purgeHistoryOlderThan(DateTime cutoff) async {
+    int affected = 0;
+    try {
+      affected = await _store.deleteHistoryOlderThan(cutoff);
+    } catch (error, stack) {
+      silentLog(
+        'crons_controller',
+        'purgeHistoryOlderThan',
+        error,
+        stack,
+      );
+      return 0;
+    }
+    if (affected == 0) return 0;
+    final cutoffKey = cutoff;
+    for (final cronId in _historyCache.keys.toList()) {
+      final cached = _historyCache[cronId];
+      if (cached == null) continue;
+      _historyCache[cronId] = cached
+          .where((r) => r.startedAt.isAfter(cutoffKey))
+          .toList(growable: false);
+    }
+    notifyListeners();
+    return affected;
+  }
+
   Future<void> refresh() async {
     final entries = await _store.loadAll();
     _setEntries(entries);

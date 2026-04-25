@@ -65,6 +65,7 @@ enum _SettingsSection {
   mcp,
   skills,
   memory,
+  crons,
   hermesTalker,
   editor,
   about,
@@ -221,6 +222,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.mcp,
       _SettingsSection.skills,
       _SettingsSection.memory,
+      _SettingsSection.crons,
       _SettingsSection.hermesTalker,
       _SettingsSection.editor,
       _SettingsSection.about,
@@ -451,6 +453,15 @@ class _SettingsViewState extends State<SettingsView> {
         title: l10n.settingsCategoryMemory,
         description: l10n.settingsMemorySubtitle,
         children: [_buildMemorySection(context, settingsController)],
+      ),
+      _SettingsSection.crons => _SettingsGroupCard(
+        title: _localizedText(context, zh: '定时任务', en: 'Crons'),
+        description: _localizedText(
+          context,
+          zh: '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。',
+          en: 'Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.',
+        ),
+        children: [_buildCronsSection(context, settingsController)],
       ),
       _SettingsSection.hermesTalker => _SettingsGroupCard(
         title: _localizedText(
@@ -1453,6 +1464,76 @@ class _SettingsViewState extends State<SettingsView> {
         _ReadonlySettingRow(
           label: l10n.skillsStorageDefaultPath,
           value: settingsController.defaultSkillsStorageLabel,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCronsSection(
+    BuildContext context,
+    SettingsController settingsController,
+  ) {
+    final enabled = settingsController.cronAutoCleanupEnabled;
+    final retention = settingsController.cronAutoCleanupRetentionDays;
+    const minR = AppSettingsSnapshot.minCronAutoCleanupRetentionDays;
+    const maxR = AppSettingsSnapshot.maxCronAutoCleanupRetentionDays;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ResponsiveSettingRow(
+          title: _localizedText(
+            context,
+            zh: '自动清理执行历史',
+            en: 'Auto-cleanup execution history',
+          ),
+          subtitle: _localizedText(
+            context,
+            zh: '应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。',
+            en: 'On every cold start, an async worker runs once to delete history older than the retention window. The worker is single-flight, has a hard timeout, and silently logs failures so it can never block the UI or loop indefinitely.',
+          ),
+          control: Switch(
+            value: enabled,
+            onChanged: (value) async {
+              final saved = await settingsController
+                  .updateCronAutoCleanupEnabled(value);
+              if (!context.mounted || saved) return;
+              _showPersistenceFailureSnackBar(context);
+            },
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          _localizedText(
+            context,
+            zh: '保留天数：$retention 天',
+            en: 'Retention window: $retention day(s)',
+          ),
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        Slider(
+          min: minR.toDouble(),
+          max: 30,
+          divisions: 29,
+          value: retention.clamp(minR, 30).toDouble(),
+          label: '$retention',
+          onChanged: enabled
+              ? (value) async {
+                  final saved = await settingsController
+                      .updateCronAutoCleanupRetentionDays(value.round());
+                  if (!context.mounted || saved) return;
+                  _showPersistenceFailureSnackBar(context);
+                }
+              : null,
+        ),
+        Text(
+          _localizedText(
+            context,
+            zh: '范围 $minR–$maxR 天，默认 7 天。下次冷启动时生效。',
+            en: 'Range $minR–$maxR days; default 7. Takes effect on the next cold start.',
+          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
