@@ -60,6 +60,8 @@ class _WorkspaceView extends StatelessWidget {
     this.onFileExplorerToggled,
     this.projectRoot,
     this.composerPanelKey,
+    this.skippedInstructionIds = const <String>{},
+    this.onToggleInstructionSkip,
   });
 
   final TextEditingController draftController;
@@ -123,6 +125,10 @@ class _WorkspaceView extends StatelessWidget {
   final VoidCallback? onFileExplorerToggled;
   final String? projectRoot;
   final GlobalKey<_ComposerPanelState>? composerPanelKey;
+
+  /// 2026-04-25 — 【指令】胶囊：本轮被临时取消的指令 ID 集合。
+  final Set<String> skippedInstructionIds;
+  final ValueChanged<String>? onToggleInstructionSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -249,6 +255,10 @@ class _WorkspaceView extends StatelessWidget {
             ),
             if (currentSession != null) ...[
               const SizedBox(height: 16),
+              _ComposerInstructionsStrip(
+                skippedIds: skippedInstructionIds,
+                onToggle: onToggleInstructionSkip,
+              ),
               NotificationListener<SizeChangedLayoutNotification>(
                 onNotification: (notification) {
                   onComposerLayoutChanged();
@@ -525,4 +535,114 @@ class _WorkspacePrimarySwitchTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => child;
+}
+
+/// 2026-04-25 — 输入框上方的【指令】胶囊条。
+///
+/// 显示 InstructionsController 中所有 enabled 的指令，每条以 chip 呈现：
+///   - 未跳过：trailing X 图标，点击 → 本轮临时取消（chip 留在原位但变灰）。
+///   - 已跳过：trailing + 图标，点击 → 重新加入本轮 prompt。
+class _ComposerInstructionsStrip extends StatelessWidget {
+  const _ComposerInstructionsStrip({
+    required this.skippedIds,
+    required this.onToggle,
+  });
+
+  final Set<String> skippedIds;
+  final ValueChanged<String>? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = context.select<InstructionsController, List<UserInstructionEntry>>(
+      (c) => c.enabledEntries,
+    );
+    if (entries.isEmpty) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: <Widget>[
+          for (final entry in entries)
+            _ComposerInstructionChip(
+              entry: entry,
+              skipped: skippedIds.contains(entry.id),
+              onPressed: onToggle == null ? null : () => onToggle!(entry.id),
+              theme: theme,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerInstructionChip extends StatelessWidget {
+  const _ComposerInstructionChip({
+    required this.entry,
+    required this.skipped,
+    required this.onPressed,
+    required this.theme,
+  });
+
+  final UserInstructionEntry entry;
+  final bool skipped;
+  final VoidCallback? onPressed;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = skipped
+        ? theme.colorScheme.surfaceContainerHigh
+        : theme.colorScheme.primaryContainer;
+    final fg = skipped
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.colorScheme.onPrimaryContainer;
+    return Material(
+      color: baseColor,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant,
+          width: 0.5,
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.tips_and_updates_outlined,
+                size: 14,
+                color: fg,
+              ),
+              const SizedBox(width: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: Text(
+                  entry.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: fg,
+                    decoration:
+                        skipped ? TextDecoration.lineThrough : TextDecoration.none,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                skipped ? Icons.add_rounded : Icons.close_rounded,
+                size: 14,
+                color: fg,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import '../../../app/support/openhand_paths.dart';
+import '../../instructions/model/user_instruction_entry.dart';
 import '../../mcp/model/mcp_server.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../../skills/model/local_skill.dart';
@@ -114,6 +115,8 @@ class AiSessionRuntimeContext {
     this.builtinToolConfigs = const <AiBuiltinToolConfig>[],
     this.workspaceInstructionDocuments =
         const <AiWorkspaceInstructionDocument>[],
+    this.userInstructions = const <UserInstructionEntry>[],
+    this.skippedInstructionIds = const <String>{},
   });
 
   final String localeTag;
@@ -177,6 +180,13 @@ class AiSessionRuntimeContext {
   final List<McpServer> availableMcpServers;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final List<AiWorkspaceInstructionDocument> workspaceInstructionDocuments;
+
+  /// 2026-04-25 — 【指令】模块注入。包含全部指令（含禁用），prompt
+  /// builder 会只拼装 enabled 且不在 [skippedInstructionIds] 中的条目。
+  final List<UserInstructionEntry> userInstructions;
+
+  /// 本轮临时跳过的指令 ID 集合（UI从输入框胶囊上点击 X 产生）。
+  final Set<String> skippedInstructionIds;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../instructions/model/user_instruction_entry.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../model/ai_attachment.dart';
 import '../model/ai_model_config.dart';
@@ -264,6 +265,22 @@ class AiPromptBuilder {
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
+      // 2026-04-25 — 【指令】模块注入。仅在存在 enabled 且未被本轮临时
+      // 取消的指令时才追加这条 system turn，避免对既有提示词布局造成
+      // 任何 token 影响。
+      if (_renderUserInstructionsBody(
+        runtimeContext.userInstructions,
+        runtimeContext.skippedInstructionIds,
+      ).isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [4.5] User Instructions\n\n'
+              'The following are user-defined reusable prompt fragments. Treat each '
+              'block as authoritative project guidance: follow its directives unless '
+              'they directly contradict higher-priority system or developer '
+              'instructions above.\n\n'
+              '${_renderUserInstructionsBody(runtimeContext.userInstructions, runtimeContext.skippedInstructionIds)}',
+        ),
       AiChatTurn(
         role: AiChatRole.system,
         content: isCompactTemplate
@@ -1277,6 +1294,45 @@ class AiPromptBuilder {
         'topics of interest), without ever paraphrasing or referencing the '
         'profile itself.\n\n'
         '$content\n\n';
+  }
+
+  /// 渲染【指令】模块正文。仅返回正文，不包含 section header / 提示文本，
+  /// 用于在 system turn 模板里被原位 interpolated。返回空串表示当前没有
+  /// 任何应当注入的指令（外层会跳过整个 turn）。
+  String _renderUserInstructionsBody(
+    List<UserInstructionEntry> instructions,
+    Set<String> skippedIds,
+  ) {
+    if (instructions.isEmpty) return '';
+    final visible = instructions
+        .where((entry) => entry.enabled && !skippedIds.contains(entry.id))
+        .toList(growable: false);
+    if (visible.isEmpty) return '';
+    final buf = StringBuffer();
+    for (int i = 0; i < visible.length; i++) {
+      final entry = visible[i];
+      final body = entry.body.trim();
+      if (body.isEmpty) continue;
+      final name = entry.name.trim().isEmpty ? 'Instruction' : entry.name.trim();
+      buf.writeln('## ${i + 1}. $name (v${entry.version})');
+      if (entry.description.trim().isNotEmpty) {
+        buf.writeln('_${entry.description.trim()}_');
+      }
+      if (entry.applyTo.trim().isNotEmpty) {
+        buf.writeln('- applyTo: ${entry.applyTo.trim()}');
+      }
+      if (entry.taskTypes.isNotEmpty) {
+        buf.writeln('- taskTypes: ${entry.taskTypes.join(", ")}');
+      }
+      if (entry.keywords.isNotEmpty) {
+        buf.writeln('- keywords: ${entry.keywords.join(", ")}');
+      }
+      buf
+        ..writeln()
+        ..writeln(body)
+        ..writeln();
+    }
+    return buf.toString();
   }
 
   String _renderCompressionSummary(

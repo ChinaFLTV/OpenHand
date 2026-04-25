@@ -77,7 +77,9 @@ import '../hardness/model/hardness_role_config.dart';
 import '../hardness/model/hardness_session_config.dart';
 import '../hardness/model/hardness_session_record.dart';
 import '../hooks/hooks_view.dart';
+import '../instructions/instructions_controller.dart';
 import '../instructions/instructions_view.dart';
+import '../instructions/model/user_instruction_entry.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../mcp/model/mcp_server.dart';
@@ -525,6 +527,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
+  // 2026-04-25 — 当前会话窗口下，本轮临时取消的【指令】ID 集合。
+  // 切换会话或发送完成后通常重置；UI 上用胶囊条配合 X / + 切换。
+  final Set<String> _skippedInstructionIds = <String>{};
   AiCreationOptions _creationOptions = AiCreationOptions.empty;
   double _composerHeight = _composerDefaultHeight;
   bool _composerCollapsed = false;
@@ -2478,13 +2483,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
+  void _toggleInstructionSkip(String id) {
+    setState(() {
+      if (!_skippedInstructionIds.add(id)) {
+        _skippedInstructionIds.remove(id);
+      }
+    });
+  }
+
   Future<AiSessionRuntimeContext> _buildRuntimeContext({
     String? workingDirectory,
+    Set<String> skippedInstructionIds = const <String>{},
   }) async {
     final settingsController = context.read<SettingsController>();
     final memoryController = context.read<MemoryController>();
     final skillsController = context.read<SkillsController>();
     final mcpController = context.read<McpController>();
+    final instructionsController = context.read<InstructionsController>();
     final appInfo = context.read<AppInfo>();
     final effectiveWorkingDirectory =
         workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
@@ -2534,6 +2549,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         startDirectory: OpenHandPaths.applicationDirectoryPath(),
         homeDirectory: OpenHandPaths.homeDirectoryPath(),
       ),
+      userInstructions: instructionsController.entries,
+      skippedInstructionIds: skippedInstructionIds,
     );
   }
 
@@ -2931,6 +2948,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       runtimeContext = await _buildRuntimeContext(
         workingDirectory: peConfig?.projectRoot,
+        skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
       );
       if (!mounted) {
         return;
@@ -3177,6 +3195,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final peProjectRoot = _programmingExpertProjectRoot(initialSession);
         runtimeContext = await _buildRuntimeContext(
           workingDirectory: peProjectRoot,
+          skippedInstructionIds: Set<String>.from(_skippedInstructionIds),
         );
       }
       if (!mounted) {
@@ -4891,6 +4910,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             : null,
         projectRoot: _programmingExpertProjectRoot(currentSession),
         composerPanelKey: _composerPanelKey,
+        skippedInstructionIds: _skippedInstructionIds,
+        onToggleInstructionSkip: _toggleInstructionSkip,
       ),
       AppSection.automations => SectionPlaceholder(
         icon: Icons.schedule_send_outlined,
