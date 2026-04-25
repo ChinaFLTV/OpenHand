@@ -55,8 +55,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
   // least once. Newly appended sessions (or a freshly created HE record)
   // get an AppearOnce entrance the first time they show up; the existing
   // list does NOT animate on initial mount.
-  final Set<String> _seenThreadIds = <String>{};
-  bool _initialThreadBuildDone = false;
+  final AppearTracker _threadAppear = AppearTracker();
 
   ThemeData _ensureDrawerTheme(ThemeData theme) {
     final signature = Object.hashAll(<Object?>[
@@ -146,9 +145,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
       // (e.g. title edit) — once its internal animation completes the
       // wrapper short-circuits to its child, so reuse is free.
       final heKey = 'he-${record.id}';
-      final heIsNew =
-          _initialThreadBuildDone && !_seenThreadIds.contains(heKey);
-      _seenThreadIds.add(heKey);
+      final heIsNew = _threadAppear.shouldAnimate(heKey);
+      _threadAppear.markSeen(heKey);
       final heDisplayed = heIsNew
           ? AppearOnce(
               key: ValueKey<String>('he-thread-appear-${record.id}'),
@@ -219,9 +217,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
       // wrapper alive until its 220ms animation completes; afterwards
       // AppearOnce short-circuits to the child.
       final aiKey = 'ai-$sessionId';
-      final aiIsNew =
-          _initialThreadBuildDone && !_seenThreadIds.contains(aiKey);
-      _seenThreadIds.add(aiKey);
+      final aiIsNew = _threadAppear.shouldAnimate(aiKey);
+      _threadAppear.markSeen(aiKey);
       final aiDisplayed = aiIsNew
           ? AppearOnce(
               key: ValueKey<String>('ai-thread-appear-$sessionId'),
@@ -248,17 +245,17 @@ class _NavigationPaneState extends State<_NavigationPane> {
       _threadTileCache.removeWhere(
         (sessionId, _) => !activeSessionIds.contains(sessionId),
       );
-      // Also drop the seen-id markers so a future re-creation of a
-      // deleted thread (or, in tests, a freshly-restored snapshot) is
-      // treated as new and re-animates.
-      _seenThreadIds.removeWhere(
-        (key) =>
-            key.startsWith('ai-') &&
-            !activeSessionIds.contains(key.substring(3)),
-      );
     }
+    // Drop seen-id markers so a future re-creation of a deleted thread
+    // (or, in tests, a freshly-restored snapshot) is treated as new and
+    // re-animates. Build the union of all currently-rendered ids first.
+    final liveKeys = <String>{
+      for (final id in activeSessionIds) 'ai-$id',
+      if (heRecord != null) 'he-${heRecord.id}',
+    };
+    _threadAppear.retainOnly(liveKeys);
 
-    _initialThreadBuildDone = true;
+    _threadAppear.markInitialBuildDone();
 
     return tiles;
   }
