@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/data/atomic_file_operations.dart';
 import '../model/local_skill.dart';
 
@@ -64,7 +65,13 @@ class SkillsRepository {
       try {
         skills.add(await _parseSkill(file, storagePath));
         loadedSkillDirectories.add(normalizedDirectoryPath);
-      } catch (e) {
+      } catch (error, stack) {
+        silentLog(
+          'skills_repository',
+          'parse installed skill ${file.path}',
+          error,
+          stack,
+        );
         continue;
       }
     }
@@ -97,7 +104,8 @@ class SkillsRepository {
         ),
       );
       return _parseSkill(manifestFile, storagePath);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'create skill template', error, stack);
       await _deleteDirectoryIfExists(targetDirectory);
       rethrow;
     }
@@ -161,7 +169,8 @@ class SkillsRepository {
         defaultPrompt: defaultPrompt,
       );
       return _parseSkill(manifestFile, storagePath);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'create skill', error, stack);
       await _deleteDirectoryIfExists(targetDirectory);
       rethrow;
     }
@@ -205,7 +214,8 @@ class SkillsRepository {
         File(p.join(targetDirectory.path, _manifestFileName)),
         storagePath,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'import skill directory', error, stack);
       await _deleteDirectoryIfExists(targetDirectory);
       rethrow;
     }
@@ -242,7 +252,8 @@ class SkillsRepository {
         fallbackSkill: skill,
       );
       return _parseSkill(manifestFile, storagePath);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'update skill manifest', error, stack);
       await manifestFile.writeAsString(previousManifestContent, flush: true);
       await _restoreOptionalFile(
         metadataPath,
@@ -339,7 +350,8 @@ class SkillsRepository {
         );
       }
       return _parseSkill(manifestFile, storagePath);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'update skill', error, stack);
       await manifestFile.writeAsString(previousManifestContent, flush: true);
       await _restoreOptionalFile(
         metadataPath,
@@ -485,7 +497,8 @@ class SkillsRepository {
         iconPath: icon?.path,
         iconKind: icon?.kind,
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('skills_repository', 'load openai metadata', error, stack);
       return null;
     }
   }
@@ -528,7 +541,13 @@ class SkillsRepository {
           _readYamlString(interface['icon_large']),
         ),
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog(
+        'skills_repository',
+        'read openai metadata document',
+        error,
+        stack,
+      );
       return null;
     }
   }

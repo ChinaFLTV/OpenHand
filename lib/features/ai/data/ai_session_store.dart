@@ -211,7 +211,13 @@ class AiSessionStore {
           orderBy: 'sort_order ASC',
         );
         sessions.add(_sessionFromRow(row, messageRows));
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_store',
+          'load template session ${row['id']}',
+          error,
+          stack,
+        );
         // Skip rows that fail to decode; the main loadAll() path surfaces
         // persistence issues for the UI — the scheduler should stay silent.
       }
@@ -504,8 +510,8 @@ class AiSessionStore {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, Object?>) return decoded;
         if (decoded is Map) return Map<String, Object?>.from(decoded);
-      } catch (e) {
-        stderr.writeln('[AiSessionStore] Failed to decode JSON map: $e');
+      } catch (error, stack) {
+        silentLog('ai_session_store', 'decode json map', error, stack);
       }
     }
     return const <String, Object?>{};
@@ -516,8 +522,8 @@ class AiSessionStore {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) return decoded;
-      } catch (e) {
-        stderr.writeln('[AiSessionStore] Failed to decode JSON list: $e');
+      } catch (error, stack) {
+        silentLog('ai_session_store', 'decode json list', error, stack);
       }
     }
     return const <Object?>[];

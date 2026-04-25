@@ -17,6 +17,7 @@ import '../model/editor_indent.dart';
 import '../model/editor_shortcut.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
+import '../support/silent_log.dart';
 import '../theme/openhand_theme_preset.dart';
 import 'settings_store.dart';
 
@@ -1266,48 +1267,69 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {
     final completer = Completer<bool>();
-    _mutationQueue = _mutationQueue.catchError((_) {}).then((_) async {
-      try {
-        final previousSnapshot = _snapshot();
-        final disposition = mutation();
-        if (disposition == _MutationDisposition.successNoChange) {
-          completer.complete(true);
-          return;
-        }
-        if (disposition == _MutationDisposition.reject) {
-          completer.complete(false);
-          return;
-        }
-        notifyListeners();
-        try {
-          await _store.save(_snapshot());
-          if (_persistenceIssue != null) {
-            _persistenceIssue = null;
-            notifyListeners();
-          }
-          completer.complete(true);
-        } catch (error) {
-          try {
-            _applySnapshot(previousSnapshot);
-          } catch (_) {
-            // Rollback itself failed – snapshot is inconsistent but we must
-            // still complete the completer to avoid hanging the queue.
-          }
-          _persistenceIssue = SettingsPersistenceIssue(
-            kind: SettingsPersistenceIssueKind.saveFailed,
-            filePath: _store.settingsFilePath,
-            detail: '$error',
+    _mutationQueue = _mutationQueue
+        .catchError((Object error, StackTrace stack) {
+          silentLog(
+            'settings_controller',
+            'previous mutation queue',
+            error,
+            stack,
           );
-          notifyListeners();
-          completer.complete(false);
-        }
-      } catch (error) {
-        // mutation() itself threw – complete with false to unblock callers.
-        if (!completer.isCompleted) {
-          completer.complete(false);
-        }
-      }
-    });
+        })
+        .then((_) async {
+          try {
+            final previousSnapshot = _snapshot();
+            final disposition = mutation();
+            if (disposition == _MutationDisposition.successNoChange) {
+              completer.complete(true);
+              return;
+            }
+            if (disposition == _MutationDisposition.reject) {
+              completer.complete(false);
+              return;
+            }
+            notifyListeners();
+            try {
+              await _store.save(_snapshot());
+              if (_persistenceIssue != null) {
+                _persistenceIssue = null;
+                notifyListeners();
+              }
+              completer.complete(true);
+            } catch (error) {
+              try {
+                _applySnapshot(previousSnapshot);
+              } catch (rollbackError, rollbackStack) {
+                silentLog(
+                  'settings_controller',
+                  'rollback settings snapshot',
+                  rollbackError,
+                  rollbackStack,
+                );
+                // Rollback itself failed – snapshot is inconsistent but we must
+                // still complete the completer to avoid hanging the queue.
+              }
+              _persistenceIssue = SettingsPersistenceIssue(
+                kind: SettingsPersistenceIssueKind.saveFailed,
+                filePath: _store.settingsFilePath,
+                detail: '$error',
+              );
+              notifyListeners();
+              completer.complete(false);
+            }
+          } catch (error, stack) {
+            silentLog(
+              'settings_controller',
+              'commit settings mutation',
+              error,
+              stack,
+            );
+            // mutation() itself threw – complete with false to unblock callers.
+            if (!completer.isCompleted) {
+              completer.complete(false);
+            }
+          }
+        });
     return completer.future;
   }
 

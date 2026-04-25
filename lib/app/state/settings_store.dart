@@ -80,7 +80,8 @@ class SettingsStore {
               );
               return SettingsLoadResult(snapshot: snapshot);
             }
-          } catch (_) {
+          } catch (error, stack) {
+            silentLog('settings_store', 'decode db settings', error, stack);
             // DB data is corrupt; fall through to defaults.
           }
         }
@@ -196,8 +197,7 @@ class SettingsStore {
       'self_learning_concurrency': snapshot.selfLearningConcurrency,
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
-      'cron_auto_cleanup_retention_days':
-          snapshot.cronAutoCleanupRetentionDays,
+      'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -249,7 +249,12 @@ class SettingsStore {
             Map<String, Object?>.from(entry.value as Map),
           );
         } catch (error, stack) {
-          silentLog('settings_store', 'parse editor_lsp_settings entry', error, stack);
+          silentLog(
+            'settings_store',
+            'parse editor_lsp_settings entry',
+            error,
+            stack,
+          );
         }
       }
     }
@@ -317,7 +322,12 @@ class SettingsStore {
               AiAllowCommandRule.fromJson(Map<String, Object?>.from(item)),
             );
           } catch (error, stack) {
-            silentLog('settings_store', 'parse ai_allow_command_rules entry', error, stack);
+            silentLog(
+              'settings_store',
+              'parse ai_allow_command_rules entry',
+              error,
+              stack,
+            );
           }
         }
       }
@@ -334,7 +344,12 @@ class SettingsStore {
               AiDenyCommandRule.fromJson(Map<String, Object?>.from(item)),
             );
           } catch (error, stack) {
-            silentLog('settings_store', 'parse ai_deny_command_rules entry', error, stack);
+            silentLog(
+              'settings_store',
+              'parse ai_deny_command_rules entry',
+              error,
+              stack,
+            );
           }
         }
       }
@@ -423,7 +438,12 @@ class SettingsStore {
               recentModelSelections.add(entry);
             }
           } catch (error, stack) {
-            silentLog('settings_store', 'parse recent_model_selections entry', error, stack);
+            silentLog(
+              'settings_store',
+              'parse recent_model_selections entry',
+              error,
+              stack,
+            );
           }
         }
       }
@@ -543,7 +563,12 @@ class SettingsStore {
               AiBuiltinToolConfig.fromJson(Map<String, Object?>.from(item)),
             );
           } catch (error, stack) {
-            silentLog('settings_store', 'parse builtin_tool_configs entry', error, stack);
+            silentLog(
+              'settings_store',
+              'parse builtin_tool_configs entry',
+              error,
+              stack,
+            );
           }
         }
       }

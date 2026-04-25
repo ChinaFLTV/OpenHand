@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:sqflite_common/sqlite_api.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../model/user_memory_entry.dart';
 
@@ -95,7 +96,13 @@ class MemoryStore {
               tags = const <String>[];
               didSanitize = true;
             }
-          } catch (_) {
+          } catch (error, stack) {
+            silentLog(
+              'memory_store',
+              'decode tags for memory $id',
+              error,
+              stack,
+            );
             tags = const <String>[];
             didSanitize = true;
           }

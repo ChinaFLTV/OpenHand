@@ -328,7 +328,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _store.insertHistory(record);
       await _store.pruneHistory(entry.id);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('crons_controller', 'persist agent history', error, stack);
       // ignore history persistence errors — the scheduler will try again.
     }
     final cached = _historyCache[entry.id] ?? <CronExecutionRecord>[];
@@ -348,7 +349,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
     } catch (error, stack) {
-      silentLog('crons_controller', 'persist entry after run completion', error, stack);
+      silentLog(
+        'crons_controller',
+        'persist entry after run completion',
+        error,
+        stack,
+      );
     }
     // Re-schedule next run.
     final current = _entries.firstWhere(
@@ -431,12 +437,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       affected = await _store.deleteHistoryOlderThan(cutoff);
     } catch (error, stack) {
-      silentLog(
-        'crons_controller',
-        'purgeHistoryOlderThan',
-        error,
-        stack,
-      );
+      silentLog('crons_controller', 'purgeHistoryOlderThan', error, stack);
       return 0;
     }
     if (affected == 0) return 0;
@@ -480,7 +481,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           _systemUsers = <String>['root', ...users];
         }
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('crons_controller', 'scan system users', error, stack);
       // Keep default ['root'].
     }
     notifyListeners();
@@ -495,7 +497,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       _sigIntWatcher = ProcessSignal.sigint.watch().listen((_) {
         _shutdownSchedulersAndJobs();
       });
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'crons_controller',
+        'bind process signal watchers',
+        error,
+        stack,
+      );
       // Signal streams are not available on all desktop runtimes.
     }
   }
@@ -688,7 +696,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         orElse: () => entry,
       );
       _scheduleJob(current);
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('crons_controller', 'execute cron job', error, stack);
       _updateEntryStatus(entry.id, CronJobStatus.error);
     } finally {
       _runningJobs.remove(entry.id);
@@ -856,7 +865,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         final result = await mutation();
         notifyListeners();
         completer.complete(result);
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('crons_controller', 'commit cron mutation', error, stack);
         completer.complete(false);
       }
     });
