@@ -490,6 +490,19 @@ class AiSessionController extends ChangeNotifier {
       _persistenceIssues = const <AiSessionPersistenceIssue>[];
       notifyListeners();
       try {
+        // Two-phase load to keep app boot snappy: first surface metadata-only
+        // session headers (no message rows decoded) so the sidebar / current
+        // session list paints immediately, then replace with the full
+        // hydrated sessions once the heavier query completes. Both phases
+        // run inside the same serialized operation, so any write op queued
+        // by the user (send / edit / delete) happens after the full
+        // hydration — `_store.save` therefore always observes the complete
+        // message list and never accidentally truncates older messages.
+        final headerLoad = await _store.loadAllHeaders();
+        _setSessions(headerLoad.sessions);
+        _persistenceIssues = headerLoad.issues;
+        notifyListeners();
+
         final loadResult = await _store.loadAll();
         _setSessions(
           loadResult.sessions
