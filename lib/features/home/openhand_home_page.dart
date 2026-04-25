@@ -77,6 +77,7 @@ import '../hardness/model/hardness_role_config.dart';
 import '../hardness/model/hardness_session_config.dart';
 import '../hardness/model/hardness_session_record.dart';
 import '../hooks/hooks_view.dart';
+import '../instructions/instructions_view.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
 import '../mcp/model/mcp_server.dart';
@@ -122,6 +123,7 @@ enum AppSection {
   mcp,
   hooks,
   crons,
+  instructions,
   settings,
   hardnessSession,
 }
@@ -3893,6 +3895,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.mcp => _localizedText(context, zh: 'MCP', en: 'MCP'),
       AppSection.hooks => _localizedText(context, zh: 'Hooks', en: 'Hooks'),
       AppSection.crons => 'Crons',
+      AppSection.instructions => _localizedText(
+        context,
+        zh: '指令',
+        en: 'Instructions',
+      ),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -4898,6 +4905,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.mcp => const McpView(),
       AppSection.hooks => const HooksView(),
       AppSection.crons => const CronsView(),
+      AppSection.instructions => const InstructionsView(),
       AppSection.settings => const SettingsView(),
       AppSection.hardnessSession =>
         _activeHardnessOrchestrator != null && _activeHardnessConfig != null
@@ -5006,7 +5014,8 @@ extension on AppSection {
       AppSection.mcp => 3,
       AppSection.hooks => 4,
       AppSection.crons => 5,
-      AppSection.settings => 6,
+      AppSection.instructions => 6,
+      AppSection.settings => 7,
     };
   }
 }
@@ -5019,7 +5028,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     3 => AppSection.mcp,
     4 => AppSection.hooks,
     5 => AppSection.crons,
-    6 => AppSection.settings,
+    6 => AppSection.instructions,
+    7 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

@@ -23,6 +23,7 @@ import 'features/crons/cron_history_cleanup_worker.dart';
 import 'features/crons/crons_controller.dart';
 import 'features/hooks/hooks_controller.dart';
 import 'features/hooks/hooks_executor.dart';
+import 'features/instructions/instructions_controller.dart';
 import 'features/mcp/mcp_controller.dart';
 import 'features/memory/memory_controller.dart';
 import 'features/skills/skills_controller.dart';
@@ -165,6 +166,10 @@ Future<void> _bootstrap() async {
   // handler is a plain field setter and does not require initialize() to
   // have completed.
   final cronsController = CronsController.uninitialized();
+  // 2026-04-25 — InstructionsController: 与 memory 同样“非首屏关键路径”，
+  // 同步构造 + 后台 refresh，确保启动期间不阻塞首帧。
+  final instructionsController = InstructionsController.uninitialized();
+  unawaited(instructionsController.refresh());
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
   developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
@@ -234,6 +239,9 @@ Future<void> _bootstrap() async {
         ChangeNotifierProvider<HooksController>.value(value: hooksController),
         ChangeNotifierProvider<MemoryController>.value(value: memoryController),
         ChangeNotifierProvider<CronsController>.value(value: cronsController),
+        ChangeNotifierProvider<InstructionsController>.value(
+          value: instructionsController,
+        ),
         ChangeNotifierProvider<AiSessionController>.value(
           value: aiSessionController,
         ),

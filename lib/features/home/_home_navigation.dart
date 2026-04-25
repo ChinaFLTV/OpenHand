@@ -335,6 +335,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
               label: Text('Crons'),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.rule_folder_outlined),
+              selectedIcon: const Icon(Icons.rule_folder_rounded),
+              label: Text(_localizedText(context, zh: '指令', en: 'Instructions')),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),

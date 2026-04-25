@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 2;
+  static const int schemaVersion = 3;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -205,6 +205,30 @@ class DatabaseService {
       )
     ''');
 
+    // 2026-04-25 — 用户指令表（【指令】模块）。
+    // 充当调用者可编辑的"全局提示词碎片"，启用后会被拼装到所
+    // 有线程模板的 system prompt 中。
+    batch.execute('''
+      CREATE TABLE user_instructions (
+        id              TEXT PRIMARY KEY,
+        name            TEXT NOT NULL DEFAULT '',
+        body            TEXT NOT NULL DEFAULT '',
+        description     TEXT NOT NULL DEFAULT '',
+        version         TEXT NOT NULL DEFAULT '1.0',
+        apply_to        TEXT NOT NULL DEFAULT '',
+        notes_json      TEXT NOT NULL DEFAULT '[]',
+        task_types_json TEXT NOT NULL DEFAULT '[]',
+        keywords_json   TEXT NOT NULL DEFAULT '[]',
+        enabled         INTEGER NOT NULL DEFAULT 1,
+        sort_order      INTEGER NOT NULL DEFAULT 0,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      )
+    ''');
+    batch.execute(
+      'CREATE INDEX idx_user_instructions_sort ON user_instructions(sort_order)',
+    );
+
     await batch.commit(noResult: true);
   }
 
@@ -221,6 +245,31 @@ class DatabaseService {
     if (oldVersion < 2) {
       await db.execute(
         "ALTER TABLE memories ADD COLUMN title TEXT NOT NULL DEFAULT ''",
+      );
+    }
+    // 2026-04-25: schema v3 — introduce the user_instructions table for the
+    // 【指令】 module. Old installs simply gain an empty table.
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS user_instructions (
+          id              TEXT PRIMARY KEY,
+          name            TEXT NOT NULL DEFAULT '',
+          body            TEXT NOT NULL DEFAULT '',
+          description     TEXT NOT NULL DEFAULT '',
+          version         TEXT NOT NULL DEFAULT '1.0',
+          apply_to        TEXT NOT NULL DEFAULT '',
+          notes_json      TEXT NOT NULL DEFAULT '[]',
+          task_types_json TEXT NOT NULL DEFAULT '[]',
+          keywords_json   TEXT NOT NULL DEFAULT '[]',
+          enabled         INTEGER NOT NULL DEFAULT 1,
+          sort_order      INTEGER NOT NULL DEFAULT 0,
+          created_at      TEXT NOT NULL,
+          updated_at      TEXT NOT NULL
+        )
+      ''');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_user_instructions_sort '
+        'ON user_instructions(sort_order)',
       );
     }
   }
