@@ -246,13 +246,24 @@ Widget _buildPanelTransition({
     ),
     // All variants use FadeTransition only — different curves give subtle
     // personality without resorting to AnimatedWidget subclasses.
+    // Where motion is desired, we layer a paint-time `_PaintOffsetTransition`
+    // (X and/or Y) so each style has a recognisable, optionally Q-bouncy feel
+    // without ever calling setState during a frame tick.
     DialogAnimationStyle.fadeScale => FadeTransition(
       opacity: CurvedAnimation(
         parent: safeAnimation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       ),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 8,
+        child: child,
+      ),
     ),
     DialogAnimationStyle.slideUp => FadeTransition(
       opacity: CurvedAnimation(
@@ -260,7 +271,15 @@ Widget _buildPanelTransition({
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
       ),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 36,
+        child: child,
+      ),
     ),
     DialogAnimationStyle.slideDown => FadeTransition(
       opacity: CurvedAnimation(
@@ -268,14 +287,30 @@ Widget _buildPanelTransition({
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
       ),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: -36,
+        child: child,
+      ),
     ),
     DialogAnimationStyle.expand => FadeTransition(
       opacity: CurvedAnimation(
         parent: safeAnimation,
         curve: Curves.easeInOutCubic,
       ),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 10,
+        child: child,
+      ),
     ),
     DialogAnimationStyle.rotateScale => FadeTransition(
       opacity: CurvedAnimation(
@@ -283,11 +318,28 @@ Widget _buildPanelTransition({
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       ),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxXOffset: 12,
+        maxYOffset: 12,
+        child: child,
+      ),
     ),
     DialogAnimationStyle.elastic => FadeTransition(
       opacity: CurvedAnimation(parent: safeAnimation, curve: Curves.easeOut),
-      child: child,
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.elasticOut,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 24,
+        child: child,
+      ),
     ),
   };
 }
@@ -331,17 +383,20 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
   const _PaintOffsetTransition({
     required this.animation,
     required this.maxYOffset,
+    this.maxXOffset = 0,
     required Widget super.child,
   });
 
   final Animation<double> animation;
   final double maxYOffset;
+  final double maxXOffset;
 
   @override
   _PaintOffsetRenderObject createRenderObject(BuildContext context) {
     return _PaintOffsetRenderObject(
       animation: animation,
       maxYOffset: maxYOffset,
+      maxXOffset: maxXOffset,
     );
   }
 
@@ -352,7 +407,8 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
   ) {
     renderObject
       ..animation = animation
-      ..maxYOffset = maxYOffset;
+      ..maxYOffset = maxYOffset
+      ..maxXOffset = maxXOffset;
   }
 }
 
@@ -360,11 +416,14 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   _PaintOffsetRenderObject({
     required Animation<double> animation,
     required double maxYOffset,
+    double maxXOffset = 0,
   }) : _animation = animation,
-       _maxYOffset = maxYOffset;
+       _maxYOffset = maxYOffset,
+       _maxXOffset = maxXOffset;
 
   Animation<double> _animation;
   double _maxYOffset;
+  double _maxXOffset;
 
   set animation(Animation<double> value) {
     if (identical(_animation, value)) return;
@@ -379,6 +438,12 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   set maxYOffset(double value) {
     if (_maxYOffset == value) return;
     _maxYOffset = value;
+    markNeedsPaint();
+  }
+
+  set maxXOffset(double value) {
+    if (_maxXOffset == value) return;
+    _maxXOffset = value;
     markNeedsPaint();
   }
 
@@ -397,9 +462,13 @@ class _PaintOffsetRenderObject extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     if (child == null) return;
-    final value = _animation.value.clamp(0.0, 1.0);
+    // NOTE: do NOT clamp the value to [0,1] — elastic / back curves emit
+    // values <0 or >1 to produce overshoot, which is exactly the
+    // “Q弹” feel we want when the style asks for it.
+    final value = _animation.value;
     final dy = (1 - value) * _maxYOffset;
-    super.paint(context, offset + Offset(0, dy));
+    final dx = (1 - value) * _maxXOffset;
+    super.paint(context, offset + Offset(dx, dy));
   }
 }
 
