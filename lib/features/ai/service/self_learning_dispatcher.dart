@@ -158,6 +158,28 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       }
       lastReply = result.reply.trim();
 
+      // 2026-04-25 — Streaming fallback. 部分后端（或部分模型，例如关闭了
+      // streaming / 用 buffered SSE 的 OpenAI 兼容代理）只在最后一帧给出
+      // 完整 reply / reasoning，并不会发出 textDelta / reasoningDelta 事件。
+      // 此时 roundResponse / roundReasoning 会保持为空，导致卡片完全没有
+      // "AI 思考 / AI 响应" 内容，看起来像 BUG。这里在每轮 stream 结束后
+      // 用 result.reply / result.reasoning 做兜底回填，保证最终 metadata
+      // 一定包含模型实际输出。
+      if (roundResponse.isEmpty && result.reply.isNotEmpty) {
+        roundResponse.write(result.reply);
+        responseBuffer.write(result.reply);
+        if (progress != null) {
+          progress(aiResponse: responseBuffer.toString());
+        }
+      }
+      if (roundReasoning.isEmpty && result.reasoning.isNotEmpty) {
+        roundReasoning.write(result.reasoning);
+        reasoningBuffer.write(result.reasoning);
+        if (progress != null) {
+          progress(aiReasoning: reasoningBuffer.toString());
+        }
+      }
+
       // No tool calls → done.
       if (result.toolCalls.isEmpty) {
         terminatedReason = 'no_tool_calls';

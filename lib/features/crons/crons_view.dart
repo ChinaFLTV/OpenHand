@@ -366,7 +366,13 @@ class _CronEntryCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: entry.tags.contains('system')
+                        ? colorScheme.onSurfaceVariant.withValues(alpha: 0.4)
+                        : null,
+                  ),
                   tooltip: isZh ? '编辑' : 'Edit',
                   onPressed: entry.tags.contains('system') ? null : onEdit,
                 ),

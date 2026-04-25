@@ -816,40 +816,6 @@ class _MemoryEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
-              ] else if (isAutoLearned) ...[
-                // 顶部"自主学习"标签胶囊：与普通记忆卡片视觉区别仅此一处，
-                // 卡片其余样式与普通卡片完全一致（无背景色差、无外层包裹）。
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.tertiaryContainer.withValues(
-                      alpha: 0.7,
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome_outlined,
-                        size: 14,
-                        color: colorScheme.onTertiaryContainer,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '自主学习 · Auto-learned',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onTertiaryContainer,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
               ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,8 +840,19 @@ class _MemoryEntryCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(entry.preview, style: theme.textTheme.titleLarge),
-                        const SizedBox(height: 6),
+                        // 2026-04-25: 仅当 preview（去除换行后的首段）真正
+                        // 提供了"标题感"信息（即与正文不同——通常是因为
+                        // 正文较长被截断，或为多行内容）时才展示标题；否则
+                        // 隐藏标题以避免与下方正文重复显示。
+                        if (_shouldShowTitle(entry)) ...[
+                          Text(
+                            entry.preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 6),
+                        ],
                         Text(
                           '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
                           style: theme.textTheme.bodyMedium?.copyWith(
@@ -915,6 +892,27 @@ class _MemoryEntryCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
+                  // 2026-04-25: 自主学习卡片不再使用单独的顶部胶囊，而是把
+                  // "自主学习" 标签下沉到这里作为标签行的第一项，沿用普通
+                  // Chip 的尺寸与节奏，不再视觉上"特殊化"。
+                  if (isAutoLearned)
+                    Chip(
+                      avatar: Icon(
+                        Icons.auto_awesome_outlined,
+                        size: 18,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                      backgroundColor: colorScheme.tertiaryContainer
+                          .withValues(alpha: 0.7),
+                      side: BorderSide.none,
+                      label: Text(
+                        '自主学习',
+                        style: TextStyle(
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   Chip(
                     avatar: Icon(
                       isProfile
@@ -952,6 +950,19 @@ class _MemoryEntryCard extends StatelessWidget {
       alwaysUse24HourFormat: true,
     );
     return '$date $time';
+  }
+
+  /// 是否需要在卡片头部显示"标题"行：仅当 [UserMemoryEntry.preview]（首段
+  /// 去换行后的截断结果）真正承载了信息密度（即与正文不同），才有显示价
+  /// 值；否则正文已经能完整展示同样内容，标题行就只会带来重复显示。
+  static bool _shouldShowTitle(UserMemoryEntry entry) {
+    final preview = entry.preview.trim();
+    if (preview.isEmpty) return false;
+    final content = entry.content.trim();
+    if (content.isEmpty) return false;
+    // 完整正文与单行预览一致，说明只是短文本被原样回显——隐藏标题。
+    if (preview == content) return false;
+    return true;
   }
 }
 
