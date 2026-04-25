@@ -13,9 +13,34 @@ class McpController extends ChangeNotifier {
     required McpStore store,
     required McpToolDiscoveryService toolDiscoveryService,
     required Duration healthCheckInterval,
+    bool isLoading = false,
   }) : _store = store,
        _toolDiscoveryService = toolDiscoveryService,
-       _healthCheckInterval = healthCheckInterval;
+       _healthCheckInterval = healthCheckInterval,
+       _isLoading = isLoading;
+
+  /// Constructs an [McpController] synchronously without performing the
+  /// initial server-list load. Reports `isLoading == true` until the caller
+  /// invokes [refresh] (typically as `unawaited(controller.refresh())`).
+  ///
+  /// Used by `main.dart` to keep the MCP servers file load off the boot
+  /// critical path — home reads `servers` only inside the workspace-selected
+  /// branch and tool-catalog preview, both of which surface naturally once
+  /// the background refresh fires `notifyListeners()`.
+  factory McpController.uninitialized({
+    required String initialFilePath,
+    McpStore? store,
+    McpToolDiscoveryService? toolDiscoveryService,
+    Duration healthCheckInterval = const Duration(seconds: 30),
+  }) {
+    return McpController._(
+      store: store ?? McpStore(serversFilePath: initialFilePath),
+      toolDiscoveryService:
+          toolDiscoveryService ?? DefaultMcpToolDiscoveryService(),
+      healthCheckInterval: healthCheckInterval,
+      isLoading: true,
+    );
+  }
 
   static Future<McpController> create({
     required String initialFilePath,
@@ -40,7 +65,7 @@ class McpController extends ChangeNotifier {
   final McpToolDiscoveryService _toolDiscoveryService;
   final Duration _healthCheckInterval;
 
-  bool _isLoading = false;
+  bool _isLoading;
   String? _errorMessage;
   List<McpServer> _servers = const <McpServer>[];
   List<McpServer> _serversView = const <McpServer>[];

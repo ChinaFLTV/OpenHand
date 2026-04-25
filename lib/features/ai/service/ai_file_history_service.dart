@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
+
 /// 文件编辑历史版本服务
 ///
 /// 核心机制：
@@ -247,7 +249,9 @@ class AiFileHistoryService {
           final metaContent = await metaFile.readAsString();
           final meta = jsonDecode(metaContent) as Map<String, Object?>;
           metadata = FileVersionInfo.fromJson(meta);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('ai_file_history_service', 'parse version meta', error, stack);
+        }
       }
 
       return (content, metadata);
@@ -279,10 +283,14 @@ class AiFileHistoryService {
                 }
               }
             }
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('ai_file_history_service', 'clear single history file', error, stack);
+          }
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_file_history_service', 'iterate history dir for clear', error, stack);
+    }
   }
 }
 

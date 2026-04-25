@@ -17,6 +17,7 @@ import '../model/editor_indent.dart';
 import '../model/editor_shortcut.dart';
 import '../model/openhand_shortcut.dart';
 import '../support/openhand_paths.dart';
+import '../support/silent_log.dart';
 import '../support/url_validation.dart';
 import '../theme/openhand_theme_preset.dart';
 
@@ -244,7 +245,9 @@ class SettingsStore {
               .trim()] = AiLspLanguageSettings.fromJson(
             Map<String, Object?>.from(entry.value as Map),
           );
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('settings_store', 'parse editor_lsp_settings entry', error, stack);
+        }
       }
     }
     final rawEditorShortcutBindings = json['editor_shortcut_bindings'];
@@ -310,7 +313,9 @@ class SettingsStore {
             aiAllowCommandRules.add(
               AiAllowCommandRule.fromJson(Map<String, Object?>.from(item)),
             );
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('settings_store', 'parse ai_allow_command_rules entry', error, stack);
+          }
         }
       }
     }
@@ -325,7 +330,9 @@ class SettingsStore {
             aiDenyCommandRules.add(
               AiDenyCommandRule.fromJson(Map<String, Object?>.from(item)),
             );
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('settings_store', 'parse ai_deny_command_rules entry', error, stack);
+          }
         }
       }
     }
@@ -386,7 +393,9 @@ class SettingsStore {
             if (model.id.trim().isNotEmpty && isValidHttpUrl(model.baseUrl)) {
               aiModels.add(model);
             }
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('settings_store', 'parse ai_models entry', error, stack);
+          }
         }
       }
     }
@@ -410,7 +419,9 @@ class SettingsStore {
             if (entry.configId.isNotEmpty && entry.modelId.isNotEmpty) {
               recentModelSelections.add(entry);
             }
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('settings_store', 'parse recent_model_selections entry', error, stack);
+          }
         }
       }
     }
@@ -528,7 +539,9 @@ class SettingsStore {
             parsed.add(
               AiBuiltinToolConfig.fromJson(Map<String, Object?>.from(item)),
             );
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('settings_store', 'parse builtin_tool_configs entry', error, stack);
+          }
         }
       }
       if (parsed.isNotEmpty) {

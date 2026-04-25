@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../model/ai_deny_command_rule.dart';
 
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
@@ -888,7 +889,9 @@ class AiBashToolService {
       // Flush so the shell processes the noglob setup before the first command.
       try {
         await process.stdin.flush();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('ai_bash_tool_service', 'flush noglob setup to shell stdin', error, stack);
+      }
     }
     session.stdoutSubscription = process.stdout
         .transform(_shellOutputDecoder)

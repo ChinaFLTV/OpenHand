@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -391,7 +392,9 @@ class AiCodebaseSearchTool extends AiTool {
           }
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_codebase_search_tool', 'walk codebase entries for keyword scan', error, stack);
+    }
 
     return results;
   }

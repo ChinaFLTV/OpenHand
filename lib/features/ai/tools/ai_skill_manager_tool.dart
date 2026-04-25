@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
@@ -247,7 +248,9 @@ class AiSkillManagerTool extends AiTool {
         await _isDirEmpty(parent)) {
       try {
         await parent.delete();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('ai_skill_manager_tool', 'delete empty parent category dir', error, stack);
+      }
     }
 
     return AiToolUtils.simpleSuccessResult(
@@ -717,7 +720,9 @@ class AiSkillManagerTool extends AiTool {
       if (await temp.exists()) {
         try {
           await temp.delete();
-        } catch (_) {}
+        } catch (cleanupError, cleanupStack) {
+          silentLog('ai_skill_manager_tool', 'cleanup temp file after failed atomic write', cleanupError, cleanupStack);
+        }
       }
       rethrow;
     }

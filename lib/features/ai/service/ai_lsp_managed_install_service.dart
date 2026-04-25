@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../model/ai_lsp_backend_catalog.dart';
 import '../model/ai_lsp_language_settings.dart';
 
@@ -1118,7 +1119,9 @@ abstract final class AiLspManagedInstallService {
           return stdout;
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_lsp_managed_install_service', 'detect arch via uname', error, stack);
+    }
     return '';
   }
 

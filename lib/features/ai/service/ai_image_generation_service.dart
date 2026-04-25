@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/silent_log.dart';
 import '../model/ai_creation_mode.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
@@ -299,7 +300,9 @@ class AiImageGenerationService {
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, Object?>) return decoded;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_image_generation_service', 'decode response body', error, stack);
+    }
     throw AiMediaGenerationException(
       'Image endpoint returned a non-JSON response.',
       rawResponseBody: body,
@@ -372,7 +375,9 @@ class AiImageGenerationService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return response.bodyBytes;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_image_generation_service', 'fetch remote image bytes', error, stack);
+    }
     return null;
   }
 
@@ -400,7 +405,9 @@ class AiImageGenerationService {
         final message = '${decoded['message'] ?? ''}'.trim();
         if (message.isNotEmpty) return message;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_image_generation_service', 'decode error response body', error, stack);
+    }
     return body.trim().isEmpty ? 'Unknown error' : body.trim();
   }
 

@@ -15,15 +15,35 @@ class MemoryController extends ChangeNotifier {
        _idGenerator = idGenerator,
        _clock = clock;
 
+  /// Constructs a [MemoryController] synchronously without performing the
+  /// initial sqlite load. Callers MUST invoke [refresh] (typically as
+  /// `unawaited(controller.refresh())`) to populate the in-memory entries.
+  ///
+  /// Used by `main.dart` to keep memory loading off the boot critical path:
+  /// the home page only reads memory entries inside user-action paths
+  /// (`_buildRuntimeContext`), so providing an empty controller at first
+  /// paint and refreshing in the background is safe and visibly faster.
+  factory MemoryController.uninitialized({
+    MemoryStore? store,
+    String Function()? idGenerator,
+    DateTime Function()? clock,
+  }) {
+    return MemoryController._(
+      store: store ?? MemoryStore(),
+      idGenerator: idGenerator ?? const Uuid().v4,
+      clock: clock ?? () => DateTime.now().toUtc(),
+    );
+  }
+
   static Future<MemoryController> create({
     MemoryStore? store,
     String Function()? idGenerator,
     DateTime Function()? clock,
   }) async {
-    final controller = MemoryController._(
-      store: store ?? MemoryStore(),
-      idGenerator: idGenerator ?? const Uuid().v4,
-      clock: clock ?? () => DateTime.now().toUtc(),
+    final controller = MemoryController.uninitialized(
+      store: store,
+      idGenerator: idGenerator,
+      clock: clock,
     );
     await controller.refresh();
     return controller;

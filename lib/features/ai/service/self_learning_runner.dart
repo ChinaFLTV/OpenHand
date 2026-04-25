@@ -17,6 +17,7 @@ library;
 
 import 'dart:async';
 
+import '../../../app/support/silent_log.dart';
 import '../../memory/memory_controller.dart';
 import '../ai_session_controller.dart';
 import '../model/ai_session.dart';
@@ -254,7 +255,9 @@ class SelfLearningRunner {
         if (pendingFlush != null) {
           try {
             await pendingFlush;
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('self_learning_runner', 'await pendingFlush (success path)', error, stack);
+          }
         }
 
         if (placeholderId != null) {
@@ -291,7 +294,9 @@ class SelfLearningRunner {
         if (pendingFlush != null) {
           try {
             await pendingFlush;
-          } catch (_) {}
+          } catch (flushError, flushStack) {
+            silentLog('self_learning_runner', 'await pendingFlush (error path)', flushError, flushStack);
+          }
         }
         if (placeholderId != null) {
           await sessionController.updateSelfLearningMessage(

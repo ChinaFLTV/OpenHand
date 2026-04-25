@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -110,17 +111,19 @@ Future<void> _bootstrap() async {
     return;
   }
 
-  // Fire-and-forget cleanup of stale temp artifacts — never blocks startup
-  // and never throws.
-  unawaited(HooksExecutor.pruneStaleTempFiles());
-  unawaited(ai_protocol_adapter.pruneInlineMediaCache());
-
+  // Defer best-effort cleanup of stale temp artifacts until AFTER the first
+  // frame is painted: although `unawaited`, both helpers issue filesystem
+  // syscalls (Directory.list + stat + delete) on the same isolate event
+  // loop that the 7 controller initializers are competing for, and they
+  // are not on the critical path for showing the UI.
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final hooksControllerFuture = HooksController.create();
 
+  developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
   final hooksController = await hooksControllerFuture;
+  developer.Timeline.finishSync();
   // 2026-04-25 Hermes Talker — expose a late-bound MemoryController handle to
   // AiSessionController so the Memory builtin tool (self-learning sub-agent)
   // can reach the real controller once it finishes loading.
@@ -139,22 +142,34 @@ Future<void> _bootstrap() async {
       settingsController.editorLspSettings,
     );
   });
-  final skillsControllerFuture = SkillsController.create(
+  final skillsController = SkillsController.uninitialized(
     initialStoragePath: settingsController.skillsStoragePath,
   );
-  final mcpControllerFuture = McpController.create(
+  unawaited(skillsController.refresh());
+  final mcpController = McpController.uninitialized(
     initialFilePath: settingsController.mcpServersFilePath,
   );
-  final memoryControllerFuture = MemoryController.create();
-  final cronsControllerFuture = CronsController.create();
+  unawaited(mcpController.refresh());
+  // 2026-04-25 boot perf — MemoryController is only consumed inside
+  // user-action code paths (`_buildRuntimeContext` + self-learning sub-agent
+  // tools), never at first paint of the home shell. Construct it
+  // synchronously and refresh in the background so its sqlite load no
+  // longer sits on the boot critical path.
+  final memoryController = MemoryController.uninitialized();
+  unawaited(memoryController.refresh());
+  // 2026-04-25 boot perf — CronsController only matters once the user opens
+  // the Crons view OR a scheduled tick fires. Construct it synchronously so
+  // we can register the Hermes Talker agent handler before runApp, then run
+  // the sqlite load + scheduler startup in the background. The agent
+  // handler is a plain field setter and does not require initialize() to
+  // have completed.
+  final cronsController = CronsController.uninitialized();
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
-  final skillsController = await skillsControllerFuture;
-  final mcpController = await mcpControllerFuture;
-  final memoryController = await memoryControllerFuture;
+  developer.Timeline.startSync('openhand.boot.await_remaining_controllers');
   memoryControllerHandle = memoryController;
-  final cronsController = await cronsControllerFuture;
   final aiSessionController = await aiSessionControllerFuture;
+  developer.Timeline.finishSync();
 
   // 2026-04-25 Hermes Talker — bootstrap the self-learning scheduler + runner
   // and register the `agent` cron handler so the system-managed
@@ -194,6 +209,9 @@ Future<void> _bootstrap() async {
       settingsController.selfLearningConcurrency,
     );
   });
+  // Kick off the deferred cron init AFTER the agent handler is registered so
+  // any immediate scheduler tick post-init can dispatch correctly.
+  unawaited(cronsController.initialize());
 
   runApp(
     MultiProvider(
@@ -214,6 +232,15 @@ Future<void> _bootstrap() async {
       child: const OpenHandApp(),
     ),
   );
+  developer.Timeline.instantSync('openhand.boot.runApp_called');
+
+  // Best-effort cleanup of stale temp artifacts — deferred until after the
+  // first frame is painted so it never competes with controller init or
+  // first-paint work for the event loop.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(HooksExecutor.pruneStaleTempFiles());
+    unawaited(ai_protocol_adapter.pruneInlineMediaCache());
+  });
 }
 
 Future<AppInfo> _loadAppInfo() async {

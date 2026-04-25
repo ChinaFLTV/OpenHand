@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_file_history_service.dart';
 import '../service/ai_file_tracker_service.dart';
@@ -37,7 +38,9 @@ class AiToolUtils {
       final decoded = jsonDecode(rawArguments);
       if (decoded is Map<String, Object?>) return decoded;
       if (decoded is Map) return Map<String, Object?>.from(decoded);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_tool_utils', 'decode tool arguments JSON', error, stack);
+    }
     return const <String, Object?>{};
   }
 

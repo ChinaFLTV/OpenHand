@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../app/support/silent_log.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session_runtime_context.dart';
 import 'hardness_api_phase_runner.dart';
@@ -771,13 +772,17 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (process == null) return;
     try {
       process.kill(); // SIGTERM
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_orchestrator', 'SIGTERM active CLI process', error, stack);
+    }
     // Escalate to SIGKILL after 3 seconds if the process hasn't exited.
     Future.delayed(const Duration(seconds: 3), () {
       if (_activeProcess == process) {
         try {
           process.kill(ProcessSignal.sigkill);
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('hardness_orchestrator', 'SIGKILL active CLI process (escalation)', error, stack);
+        }
       }
     });
   }
@@ -1180,7 +1185,9 @@ class HardnessOrchestrator extends ChangeNotifier {
     // Kill any running process so it doesn't become an orphan.
     try {
       _activeProcess?.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_orchestrator', 'kill active process during dispose', error, stack);
+    }
     super.dispose();
   }
 
@@ -2438,7 +2445,9 @@ class HardnessOrchestrator extends ChangeNotifier {
     if (!shouldRetainPrompt) {
       try {
         promptFile?.deleteSync();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('hardness_orchestrator', 'cleanup prompt file', error, stack);
+      }
     }
 
     notifyListeners();

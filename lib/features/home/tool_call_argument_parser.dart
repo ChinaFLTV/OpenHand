@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../app/support/silent_log.dart';
+
 String parseBashToolCommandFromArguments(String rawArguments) {
   return _readToolArgumentValue(
     rawArguments,
@@ -33,9 +35,116 @@ String _readToolArgumentValue(
           return normalized;
         }
       }
+      return '';
     }
-  } catch (_) {}
+  } catch (_) {
+    // Single jsonDecode failed. Try concatenated-objects recovery before
+    // logging anything: some upstream tool_call accumulators merge two
+    // distinct tool_calls' arguments into one buffer (e.g. `{...}{...}`)
+    // which is recoverable but would otherwise spam the console on every
+    // widget rebuild.
+    final concatMerged = _mergeConcatenatedJsonObjects(trimmed);
+    if (concatMerged != null) {
+      for (final key in preferredKeys) {
+        final value = concatMerged[key];
+        final normalized = '${value ?? ''}'.trim();
+        if (normalized.isNotEmpty) {
+          return normalized;
+        }
+      }
+    } else {
+      silentLog(
+        'tool_call_argument_parser',
+        'decode tool arguments json',
+        'unrecoverable: ${_truncateForLog(trimmed)}',
+      );
+    }
+  }
   return _readPartialJsonStringField(trimmed, preferredKeys);
+}
+
+/// Splits a string that looks like several balanced JSON objects glued
+/// together (e.g. `{"a":1}{"b":2}`) into individually-decoded maps and
+/// merges them left-to-right. Returns `null` if the input is not actually
+/// a sequence of balanced top-level objects.
+Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
+  if (source.isEmpty || source.codeUnitAt(0) != 0x7B) {
+    return null;
+  }
+  final merged = <String, Object?>{};
+  var cursor = 0;
+  var foundAny = false;
+  while (cursor < source.length) {
+    while (cursor < source.length &&
+        _isAsciiWhitespace(source.codeUnitAt(cursor))) {
+      cursor += 1;
+    }
+    if (cursor >= source.length) break;
+    if (source.codeUnitAt(cursor) != 0x7B) {
+      // Trailing garbage — refuse to claim recovery.
+      return null;
+    }
+    final end = _findBalancedObjectEnd(source, cursor);
+    if (end < 0) {
+      return null;
+    }
+    final slice = source.substring(cursor, end + 1);
+    try {
+      final decoded = jsonDecode(slice);
+      if (decoded is Map) {
+        merged.addAll(Map<String, Object?>.from(decoded));
+        foundAny = true;
+      } else {
+        return null;
+      }
+    } catch (_) {
+      return null;
+    }
+    cursor = end + 1;
+  }
+  return foundAny ? merged : null;
+}
+
+/// Returns the index of the `}` that closes the JSON object starting at
+/// [start] (which must point at `{`), respecting nested objects, arrays,
+/// and double-quoted strings (with backslash escapes). Returns -1 if no
+/// matching closer is found.
+int _findBalancedObjectEnd(String source, int start) {
+  var depth = 0;
+  var inString = false;
+  var escape = false;
+  for (var i = start; i < source.length; i++) {
+    final c = source.codeUnitAt(i);
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (c == 0x5C) {
+        escape = true;
+      } else if (c == 0x22) {
+        inString = false;
+      }
+      continue;
+    }
+    if (c == 0x22) {
+      inString = true;
+    } else if (c == 0x7B || c == 0x5B) {
+      depth += 1;
+    } else if (c == 0x7D || c == 0x5D) {
+      depth -= 1;
+      if (depth == 0 && c == 0x7D) {
+        return i;
+      }
+      if (depth < 0) {
+        return -1;
+      }
+    }
+  }
+  return -1;
+}
+
+String _truncateForLog(String value, {int max = 160}) {
+  if (value.length <= max) return value;
+  return '${value.substring(0, max)}…(+${value.length - max} chars)';
 }
 
 String _readPartialJsonStringField(String source, List<String> preferredKeys) {

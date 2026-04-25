@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -1350,7 +1351,9 @@ class _LegacySseSession {
             }
             messages.add(message);
           }
-        } catch (_) {}
+        } catch (error, stack) {
+          silentLog('mcp_tool_discovery_service', 'decode SSE event payload', error, stack);
+        }
       }
       eventName = '';
       dataLines.clear();

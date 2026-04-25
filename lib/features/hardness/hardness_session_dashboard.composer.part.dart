@@ -1,0 +1,931 @@
+part of 'hardness_session_dashboard.dart';
+
+class _HeComposer extends StatelessWidget {
+  const _HeComposer({
+    required this.isZh,
+    required this.isCollapsed,
+    required this.onCollapsedChanged,
+    required this.autoFollowEnabled,
+    required this.onToggleAutoFollow,
+    required this.fullAccessPermission,
+    required this.onToggleFullAccessPermission,
+    required this.manualPhaseEnabled,
+    required this.manualPhaseTitle,
+    required this.manualPhaseController,
+    required this.manualPhaseFocusNode,
+    required this.manualPhaseHelperText,
+    required this.manualPhaseHintText,
+    required this.primaryActionLabel,
+    required this.primaryActionIcon,
+    required this.primaryActionEnabled,
+    required this.onPrimaryAction,
+    this.isManualReviewPhase = false,
+    this.onReviewPass,
+    this.onReviewFail,
+    this.reviewSubmitting = false,
+  });
+
+  final bool isZh;
+  final bool isCollapsed;
+  final ValueChanged<bool> onCollapsedChanged;
+  final bool autoFollowEnabled;
+  final VoidCallback onToggleAutoFollow;
+  final bool fullAccessPermission;
+  final ValueChanged<bool> onToggleFullAccessPermission;
+  final bool manualPhaseEnabled;
+  final String manualPhaseTitle;
+  final TextEditingController manualPhaseController;
+  final FocusNode manualPhaseFocusNode;
+  final String manualPhaseHelperText;
+  final String manualPhaseHintText;
+  final String primaryActionLabel;
+  final IconData primaryActionIcon;
+  final bool primaryActionEnabled;
+  final VoidCallback onPrimaryAction;
+
+  /// Whether the manual input is for the reviewing phase.
+  final bool isManualReviewPhase;
+
+  /// Callback for explicit PASS verdict during manual review.
+  final VoidCallback? onReviewPass;
+
+  /// Callback for explicit FAIL verdict during manual review.
+  final VoidCallback? onReviewFail;
+
+  /// Whether a review verdict is currently being submitted.
+  final bool reviewSubmitting;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final disabledFg = colorScheme.onSurface.withValues(alpha: 0.38);
+    final disabledBorder = colorScheme.outlineVariant.withValues(alpha: 0.48);
+    final disabledBg = colorScheme.surfaceContainerHighest.withValues(
+      alpha: 0.78,
+    );
+
+    Widget disabledOutlinedButton({
+      required IconData icon,
+      required String label,
+    }) {
+      return SizedBox(
+        height: 52,
+        child: OutlinedButton.icon(
+          onPressed: null,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+          style: OutlinedButton.styleFrom(
+            disabledForegroundColor: disabledFg,
+            side: BorderSide(color: disabledBorder),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            backgroundColor: disabledBg,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // The permission button — active, not disabled.
+    final buttonFg = fullAccessPermission
+        ? const Color(0xFFF59E0B)
+        : colorScheme.onSurfaceVariant;
+    final buttonBg = fullAccessPermission
+        ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
+        : colorScheme.surfaceContainerHighest;
+    final buttonBorderColor = fullAccessPermission
+        ? const Color(0xFFF59E0B).withValues(alpha: 0.5)
+        : colorScheme.outlineVariant;
+    final permissionButton = SizedBox(
+      height: 52,
+      child: Builder(
+        builder: (btnContext) {
+          return OutlinedButton(
+            onPressed: () {
+              final button = btnContext.findRenderObject()! as RenderBox;
+              final overlay =
+                  Navigator.of(btnContext).overlay!.context.findRenderObject()!
+                      as RenderBox;
+              final position = RelativeRect.fromRect(
+                Rect.fromPoints(
+                  button.localToGlobal(Offset.zero, ancestor: overlay),
+                  button.localToGlobal(
+                    button.size.bottomRight(Offset.zero),
+                    ancestor: overlay,
+                  ),
+                ),
+                Offset.zero & overlay.size,
+              );
+              showAnimatedMenu<bool>(
+                context: btnContext,
+                position: position,
+                items: [
+                  PopupMenuItem<bool>(
+                    value: false,
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(isZh ? '默认权限' : 'Default Access')),
+                        if (!fullAccessPermission)
+                          const Icon(Icons.check_rounded, size: 20)
+                        else
+                          const SizedBox(width: 20),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<bool>(
+                    value: true,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.gpp_maybe_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(isZh ? '完全访问权限' : 'Full Access')),
+                        if (fullAccessPermission)
+                          const Icon(Icons.check_rounded, size: 20)
+                        else
+                          const SizedBox(width: 20),
+                      ],
+                    ),
+                  ),
+                ],
+              ).then((value) {
+                if (value != null) onToggleFullAccessPermission(value);
+              });
+            },
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              backgroundColor: buttonBg,
+              foregroundColor: buttonFg,
+              side: BorderSide(color: buttonBorderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  fullAccessPermission
+                      ? Icons.gpp_maybe_outlined
+                      : Icons.admin_panel_settings_outlined,
+                  size: 18,
+                  color: buttonFg,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  fullAccessPermission
+                      ? (isZh ? '完全访问权限' : 'Full Access')
+                      : (isZh ? '默认权限' : 'Default Access'),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: buttonFg,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    final manualPhaseTitleStyle = theme.textTheme.labelLarge?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: colorScheme.primary,
+    );
+    final manualPhaseHelperStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      height: 1.45,
+    );
+    final manualPhaseHintStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+    );
+    final manualPhaseInputStyle = theme.textTheme.bodyMedium?.copyWith(
+      height: 1.45,
+    );
+
+    double measureTextHeight(String text, TextStyle? style, double maxWidth) {
+      if (!maxWidth.isFinite || maxWidth <= 0) {
+        return 0;
+      }
+
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: Directionality.of(context),
+      )..layout(maxWidth: maxWidth);
+
+      return painter.size.height;
+    }
+
+    final expandedContent = AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeInOutCubicEmphasized,
+      width: double.infinity,
+      height: manualPhaseEnabled ? 176 : 80,
+      decoration: BoxDecoration(
+        color: manualPhaseEnabled
+            ? colorScheme.surfaceContainerLow
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: _br16,
+        border: Border.all(
+          color: manualPhaseEnabled
+              ? colorScheme.primary.withValues(alpha: 0.28)
+              : disabledBorder,
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: manualPhaseEnabled
+          ? LayoutBuilder(
+              builder: (context, constraints) {
+                const titleGap = 6.0;
+                const editorGap = 10.0;
+                const minEditorHeight = 48.0;
+
+                final titleHeight = measureTextHeight(
+                  manualPhaseTitle,
+                  manualPhaseTitleStyle,
+                  constraints.maxWidth,
+                );
+                final helperHeight = measureTextHeight(
+                  manualPhaseHelperText,
+                  manualPhaseHelperStyle,
+                  constraints.maxWidth,
+                );
+                final canShowHelper =
+                    constraints.maxHeight >=
+                    titleHeight + titleGap + helperHeight;
+                final reservedHeight =
+                    titleHeight + (canShowHelper ? titleGap + helperHeight : 0);
+                final remainingHeight = constraints.maxHeight - reservedHeight;
+                final canShowEditor =
+                    remainingHeight >= editorGap + minEditorHeight;
+                final editorHeight = canShowEditor
+                    ? (remainingHeight - editorGap).clamp(0.0, double.infinity)
+                    : 0.0;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      manualPhaseTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: manualPhaseTitleStyle,
+                    ),
+                    if (canShowHelper) ...[
+                      const SizedBox(height: titleGap),
+                      Text(
+                        manualPhaseHelperText,
+                        style: manualPhaseHelperStyle,
+                      ),
+                    ],
+                    if (canShowEditor) ...[
+                      const SizedBox(height: editorGap),
+                      SizedBox(
+                        height: editorHeight,
+                        child: TextField(
+                          controller: manualPhaseController,
+                          focusNode: manualPhaseFocusNode,
+                          maxLines: null,
+                          expands: true,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            hintText: manualPhaseHintText,
+                            hintStyle: manualPhaseHintStyle,
+                          ),
+                          style: manualPhaseInputStyle,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            )
+          : Align(
+              alignment: Alignment.topLeft,
+              child: Text(
+                isZh
+                    ? 'Hardness Engineering 使用自动化流水线，不支持手动输入'
+                    : 'Hardness Engineering uses an automated pipeline; manual input is not available',
+                style: theme.textTheme.bodyMedium?.copyWith(color: disabledFg),
+              ),
+            ),
+    );
+
+    final actionRow = Row(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                disabledOutlinedButton(icon: Icons.hub_outlined, label: '--'),
+                const SizedBox(width: 10),
+                disabledOutlinedButton(
+                  icon: Icons.attach_file_rounded,
+                  label: isZh ? '附件' : 'Attach',
+                ),
+                const SizedBox(width: 10),
+                permissionButton,
+                const SizedBox(width: 10),
+                disabledOutlinedButton(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  label: isZh ? '聊天模式' : 'Chat Mode',
+                ),
+                const SizedBox(width: 10),
+              ],
+            ),
+          ),
+        ),
+        Tooltip(
+          message: isZh
+              ? (isCollapsed ? '展开输入框' : '折叠输入框')
+              : (isCollapsed ? 'Expand Composer' : 'Collapse Composer'),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: FilledButton(
+              onPressed: () => onCollapsedChanged(!isCollapsed),
+              style: FilledButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(52, 52),
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+              ),
+              child: Icon(
+                isCollapsed
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: FilledButton(
+            onPressed: onToggleAutoFollow,
+            style: FilledButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(52, 52),
+              backgroundColor: autoFollowEnabled
+                  ? colorScheme.primary
+                  : colorScheme.surfaceContainerHighest,
+              foregroundColor: autoFollowEnabled
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
+              side: autoFollowEnabled
+                  ? null
+                  : BorderSide(color: colorScheme.outlineVariant),
+            ),
+            child: Icon(
+              autoFollowEnabled
+                  ? Icons.vertical_align_bottom_rounded
+                  : Icons.vertical_align_bottom_outlined,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // When manual review is active for the reviewing phase, show
+        // explicit Pass / Fail verdict buttons instead of a single Send.
+        if (manualPhaseEnabled && isManualReviewPhase) ...[
+          SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: (primaryActionEnabled && !reviewSubmitting)
+                  ? onReviewFail
+                  : null,
+              icon: Icon(
+                reviewSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.thumb_down_alt_rounded,
+                size: 18,
+              ),
+              label: Text(
+                reviewSubmitting
+                    ? (isZh ? '提交中' : 'Submitting')
+                    : (isZh ? '验收不通过' : 'Fail'),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.error,
+                side: BorderSide(
+                  color: colorScheme.error.withValues(alpha: 0.5),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: (primaryActionEnabled && !reviewSubmitting)
+                  ? onReviewPass
+                  : null,
+              icon: Icon(
+                reviewSubmitting
+                    ? Icons.hourglass_top_rounded
+                    : Icons.thumb_up_alt_rounded,
+                size: 18,
+              ),
+              label: Text(
+                reviewSubmitting
+                    ? (isZh ? '提交中' : 'Submitting')
+                    : (isZh ? '验收通过' : 'Pass'),
+              ),
+            ),
+          ),
+        ] else
+          SizedBox(
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: primaryActionEnabled ? onPrimaryAction : null,
+              icon: Icon(primaryActionIcon, size: 18),
+              label: Text(primaryActionLabel),
+            ),
+          ),
+      ],
+    );
+
+    return Card(
+      color: colorScheme.surfaceContainerHigh,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeInOutCubicEmphasized,
+        padding: EdgeInsets.fromLTRB(18, 14, 18, isCollapsed ? 10 : 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(
+                begin: isCollapsed ? 1 : 0,
+                end: isCollapsed ? 0 : 1,
+              ),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubicEmphasized,
+              child: expandedContent,
+              builder: (context, value, child) {
+                return ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: value,
+                    child: IgnorePointer(
+                      ignoring: value < 0.98,
+                      child: Opacity(
+                        opacity: value.clamp(0, 1).toDouble(),
+                        child: child,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubicEmphasized,
+              height: isCollapsed ? 0 : 14,
+            ),
+            actionRow,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// _HePhaseApprovalBanner — shown between phases when user approval is needed
+// =============================================================================
+
+class _HePhaseApprovalBanner extends StatelessWidget {
+  const _HePhaseApprovalBanner({
+    required this.isZh,
+    required this.nextPhase,
+    this.approvalIssue,
+    required this.manualPhaseEnabled,
+    required this.hasQueuedManualPhaseInput,
+    required this.manualPhaseActionLabel,
+    required this.manualPhaseSwitchBackLabel,
+    required this.manualPhaseActiveDescription,
+    required this.manualPhaseQueuedDescription,
+    required this.manualPhaseIcon,
+    this.onManualPhaseToggle,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final bool isZh;
+  final HardnessPhase nextPhase;
+  final String? approvalIssue;
+  final bool manualPhaseEnabled;
+  final bool hasQueuedManualPhaseInput;
+  final String manualPhaseActionLabel;
+  final String manualPhaseSwitchBackLabel;
+  final String manualPhaseActiveDescription;
+  final String manualPhaseQueuedDescription;
+  final IconData manualPhaseIcon;
+  final VoidCallback? onManualPhaseToggle;
+  final VoidCallback? onApprove;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    const accent = _hePausedTone;
+    final backgroundColor = Color.alphaBlend(
+      accent.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.24 : 0.12,
+      ),
+      colorScheme.surface,
+    );
+    final phaseName = isZh ? nextPhase.displayNameZh : nextPhase.displayNameEn;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: _br16,
+        border: Border.all(color: accent.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.pause_circle_filled_rounded,
+                size: 20,
+                color: accent,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isZh
+                      ? '即将推进到下一阶段：$phaseName'
+                      : 'Ready to advance to next phase: $phaseName',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            isZh
+                ? '请确认是否继续执行，或中止流水线。'
+                : 'Confirm to continue, or abort the pipeline.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (onManualPhaseToggle != null && manualPhaseEnabled) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  accent.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.16 : 0.10,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: _br16,
+                border: Border.all(color: accent.withValues(alpha: 0.24)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(manualPhaseIcon, size: 16, color: accent),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      manualPhaseActiveDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (onManualPhaseToggle != null &&
+              hasQueuedManualPhaseInput) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  colorScheme.primary.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.14 : 0.08,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: _br16,
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.20),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.history_toggle_off_rounded,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      manualPhaseQueuedDescription,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (approvalIssue != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  _heFailedTone.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.18 : 0.08,
+                  ),
+                  colorScheme.surface,
+                ),
+                borderRadius: _br16,
+                border: Border.all(
+                  color: _heFailedTone.withValues(alpha: 0.24),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.error_outline_rounded,
+                      size: 16,
+                      color: _heFailedTone,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      approvalIssue!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (onManualPhaseToggle != null) ...[
+                OutlinedButton.icon(
+                  onPressed: onManualPhaseToggle,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: accent,
+                    side: BorderSide(color: accent.withValues(alpha: 0.34)),
+                  ),
+                  icon: Icon(
+                    manualPhaseEnabled
+                        ? Icons.smart_toy_outlined
+                        : manualPhaseIcon,
+                    size: 18,
+                  ),
+                  label: Text(
+                    manualPhaseEnabled
+                        ? manualPhaseSwitchBackLabel
+                        : manualPhaseActionLabel,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              OutlinedButton(
+                onPressed: onReject,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.error,
+                  side: BorderSide(
+                    color: colorScheme.error.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Text(isZh ? '中止' : 'Abort'),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
+                onPressed: onApprove,
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: Text(isZh ? '继续' : 'Continue'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// _HePendingPhaseEditor — allows changing CLI/model for a pending phase
+// =============================================================================
+
+class _HePendingPhaseEditor extends StatelessWidget {
+  const _HePendingPhaseEditor({
+    required this.roleConfig,
+    required this.isZh,
+    required this.onChanged,
+  });
+
+  final HardnessRoleConfig roleConfig;
+  final bool isZh;
+  final ValueChanged<HardnessRoleConfig> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final cliNames = kHardnessCliCatalog
+        .where((c) => c.supportsHeadless)
+        .toList();
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
+    final settingsModels =
+        settingsController?.aiModels ?? const <AiModelConfig>[];
+    final configuredAiModelConfigId = roleConfig.aiModelConfigId?.trim();
+    final hasConfiguredAiModelConfig =
+        configuredAiModelConfigId != null &&
+        configuredAiModelConfigId.isNotEmpty;
+    final hasMatchingAiModelConfig =
+        hasConfiguredAiModelConfig &&
+        settingsModels.any((item) => item.id == configuredAiModelConfigId);
+    final effectiveAiModelConfigId = _hePreferredAiModelConfigId(
+      settingsModels: settingsModels,
+      configuredId: roleConfig.aiModelConfigId,
+      fallbackId: settingsController?.selectedAiModelId,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.65),
+        borderRadius: _br16,
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isZh ? '更改执行配置' : 'Change Execution Config',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Execution mode toggle row.
+          Row(
+            children: [
+              ChoiceChip(
+                label: Text('CLI', style: theme.textTheme.bodySmall),
+                selected: roleConfig.isCliMode,
+                onSelected: (selected) {
+                  if (selected) {
+                    onChanged(
+                      roleConfig.copyWith(
+                        executionMode: HardnessExecutionMode.cli,
+                      ),
+                    );
+                  }
+                },
+                visualDensity: VisualDensity.compact,
+              ),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text('URL/API', style: theme.textTheme.bodySmall),
+                selected: roleConfig.isUrlMode,
+                onSelected: (selected) {
+                  if (selected) {
+                    onChanged(
+                      roleConfig.copyWith(
+                        executionMode: HardnessExecutionMode.url,
+                        aiModelConfigId: effectiveAiModelConfigId,
+                        clearAiModelConfigId:
+                            effectiveAiModelConfigId == null &&
+                            !hasConfiguredAiModelConfig,
+                      ),
+                    );
+                  }
+                },
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (roleConfig.isUrlMode)
+            _HeUrlModelField(
+              settingsModels: settingsModels,
+              roleConfig: roleConfig,
+              isZh: isZh,
+              hasConfiguredAiModelConfig: hasConfiguredAiModelConfig,
+              hasMatchingAiModelConfig: hasMatchingAiModelConfig,
+              onChanged: onChanged,
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue:
+                        cliNames.any((c) => c.name == roleConfig.cliName)
+                        ? roleConfig.cliName
+                        : null,
+                    decoration: InputDecoration(
+                      labelText: 'CLI',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: cliNames.map((cli) {
+                      return DropdownMenuItem(
+                        value: cli.name,
+                        child: Text(
+                          cli.name,
+                          style: theme.textTheme.bodySmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      final currentModelId = roleConfig.modelId.trim();
+                      onChanged(
+                        roleConfig.copyWith(
+                          cliName: value,
+                          modelId: currentModelId,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _HeModelDropdown(
+                    roleConfig: roleConfig,
+                    isZh: isZh,
+                    onChanged: onChanged,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+

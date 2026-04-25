@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../app/support/silent_log.dart';
+
 enum HardnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 /// Describes a known AI CLI client usable in Hardness Engineering.
@@ -930,7 +932,9 @@ Future<String?> _tryLoginShellWhich(String executable) async {
         final p = (r.stdout as String).trim().split('\n').first.trim();
         return p.isNotEmpty ? p : null;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_cli_catalog', 'where probe (Windows)', error, stack);
+    }
     return null;
   }
   try {
@@ -940,7 +944,9 @@ Future<String?> _tryLoginShellWhich(String executable) async {
       final p = _lastNonEmptyLine('${r.stdout}');
       return p.isNotEmpty ? p : null;
     }
-  } catch (_) {}
+  } catch (error, stack) {
+    silentLog('hardness_cli_catalog', 'command -v probe (POSIX)', error, stack);
+  }
   return null;
 }
 
@@ -955,7 +961,9 @@ Future<String?> _tryLoginShellExec(String executable) async {
         '--version',
       ], runInShell: true).timeout(const Duration(seconds: 5));
       if (r.exitCode == 0) return executable;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_cli_catalog', '$executable --version probe (Windows)', error, stack);
+    }
     return null;
   }
   try {
@@ -966,7 +974,9 @@ Future<String?> _tryLoginShellExec(String executable) async {
       final out = '${r.stdout}${r.stderr}';
       if (out.isNotEmpty) return executable;
     }
-  } catch (_) {}
+  } catch (error, stack) {
+    silentLog('hardness_cli_catalog', '$executable --version probe (POSIX)', error, stack);
+  }
   return null;
 }
 

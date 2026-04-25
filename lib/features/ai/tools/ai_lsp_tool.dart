@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import '../service/lsp_client_service.dart';
@@ -233,7 +234,9 @@ class AiLspTool extends AiTool {
       if (parsed.scheme == 'file') {
         return parsed.toFilePath();
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_lsp_tool', 'parse file uri', error, stack);
+    }
     return uri;
   }
 

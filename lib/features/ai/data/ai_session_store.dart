@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/data/atomic_file_operations.dart';
 import '../../../shared/data/database_service.dart';
 import '../model/ai_session.dart';
@@ -447,7 +448,9 @@ class AiSessionStore {
         if (decoded is Map) {
           usage = AiTokenUsage.fromJson(Map<String, Object?>.from(decoded));
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('ai_session_store', 'decode usage_json column', error, stack);
+      }
     }
 
     return AiSessionMessage(

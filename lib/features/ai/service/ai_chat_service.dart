@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../model/ai_creation_mode.dart';
 import '../model/ai_model_config.dart';
@@ -188,6 +189,14 @@ class AiChatService implements AiChatClient {
       'Reply with OK only if this model configuration works.';
   static const Duration _streamIdleWarningInterval = Duration(seconds: 4);
 
+  /// Defensive cap for the SSE line buffer. A well-behaved server delimits
+  /// events with `\n\n`, keeping per-block size in the KB range. If a buggy
+  /// or hostile server streams megabytes without a delimiter we discard the
+  /// pending buffer instead of letting it grow without bound and OOM the
+  /// process. 4 MiB is far above any realistic single-event size while
+  /// remaining cheap to retain.
+  static const int _maxStreamLineBufferBytes = 4 * 1024 * 1024;
+
   final http.Client _client;
   final AiImageGenerationService _imageService;
 
@@ -370,7 +379,9 @@ class AiChatService implements AiChatClient {
       if (reasoning is String && reasoning.trim().isNotEmpty) {
         return reasoning.trim();
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_chat_service', 'extract reasoning_content', error, stack);
+    }
     return null;
   }
 
@@ -730,6 +741,17 @@ class AiChatService implements AiChatClient {
     void processChunk(String chunk) {
       markStreamActivity('chunk');
       lineBuffer.write(chunk.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
+      // Defensive cap: if the buffer exceeds the threshold without a
+      // `\n\n` delimiter, the upstream is misbehaving (or sending a single
+      // event larger than any practical SSE payload). Drop the pending
+      // bytes so we don't keep growing memory while the connection idles.
+      if (lineBuffer.length > _maxStreamLineBufferBytes) {
+        _debugAiStreamLog(
+          'model=${model.modelId} stream_line_buffer_overflow_dropped bytes=${lineBuffer.length}',
+        );
+        lineBuffer.clear();
+        return;
+      }
       while (!resultCompleter.isCompleted) {
         // Avoid calling toString() on every iteration – check length first.
         if (lineBuffer.length < 2) {
@@ -852,10 +874,12 @@ class AiChatService implements AiChatClient {
         if (cancelled) {
           return;
         }
-        if (completion.reply.isNotEmpty) {
+        if (completion.reply.isNotEmpty && !controller.isClosed) {
           controller.add(AiChatStreamEvent.textDelta(completion.reply));
         }
-        if (completion.usage != null && !completion.usage!.isEmpty) {
+        if (completion.usage != null &&
+            !completion.usage!.isEmpty &&
+            !controller.isClosed) {
           controller.add(AiChatStreamEvent.usage(completion.usage!));
         }
         if (!completer.isCompleted) {
@@ -1014,9 +1038,33 @@ void _processOpenAiStreamEvent(
         continue;
       }
       final toolCallMap = Map<String, Object?>.from(rawToolCall);
-      final index = _readInt(toolCallMap['index']) ?? 0;
-      final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
+      // OpenAI streaming spec assigns each tool_call a stable `index`.
+      // Some non-strict OpenAI-compatible providers omit it and instead
+      // ship two complete tool_calls in a single chunk — both would then
+      // bucket into index=0 and their `arguments` strings would
+      // concatenate (`...}{"cmd":...`), producing un-decodable JSON.
+      // When the index is missing, fall back to keying by `id`, and only
+      // as a last resort assume continuation of the most-recent entry.
       final id = '${toolCallMap['id'] ?? ''}'.trim();
+      final rawIndex = _readInt(toolCallMap['index']);
+      final int index;
+      if (rawIndex != null) {
+        index = rawIndex;
+      } else if (id.isNotEmpty) {
+        int? matchedIndex;
+        for (final entry in toolCalls.entries) {
+          if (entry.value.id == id) {
+            matchedIndex = entry.key;
+            break;
+          }
+        }
+        index = matchedIndex ?? toolCalls.length;
+      } else if (toolCalls.isEmpty) {
+        index = 0;
+      } else {
+        index = toolCalls.keys.reduce((a, b) => a > b ? a : b);
+      }
+      final entry = toolCalls.putIfAbsent(index, () => _MutableToolCall());
       if (id.isNotEmpty) {
         entry.id = id;
       }

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
+import '../../app/support/silent_log.dart';
 import 'cron_executor.dart';
 import 'cron_parser.dart';
 import 'crons_store.dart';
@@ -18,61 +19,95 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   CronsController._({
     required CronsStore store,
     required List<CronEntry> entries,
+    bool isLoading = false,
   }) : _store = store,
        _entries = entries,
-       _entriesView = List<CronEntry>.unmodifiable(entries);
+       _entriesView = List<CronEntry>.unmodifiable(entries),
+       _isLoading = isLoading;
+
+  /// Constructs a [CronsController] synchronously without performing the
+  /// initial sqlite load, system seeding, signal-watcher binding, or
+  /// scheduler startup. Reports `isLoading == true` until the caller awaits
+  /// (or fires-and-forgets) [initialize].
+  ///
+  /// Used by `main.dart` to keep cron sqlite I/O off the boot critical
+  /// path. The user-visible `CronsView` and any UI that reads `entries`
+  /// must tolerate an empty list while `isLoading == true`.
+  factory CronsController.uninitialized({CronsStore? store}) {
+    return CronsController._(
+      store: store ?? CronsStore(),
+      entries: <CronEntry>[],
+      isLoading: true,
+    );
+  }
 
   static const Uuid _uuid = Uuid();
 
   static Future<CronsController> create({CronsStore? store}) async {
-    final effectiveStore = store ?? CronsStore();
-    await effectiveStore.ensureTable();
-    final entries = await effectiveStore.loadAll();
-    // 2026-04-25 (Task 19) — Seed the Hermes Talker self-learning system
-    // entry on first launch if it does not already exist. Also refresh the
-    // system-managed display fields (name / description / schedule /
-    // notification policy) every launch so that first-seeded-with-English
-    // installs pick up the latest simplified-Chinese copy. User-toggleable
-    // fields (e.g. `enabled`) and runtime state fields are preserved.
-    final existingIndex = entries.indexWhere(
-      (e) => e.id == selfLearningSystemEntryId,
-    );
-    if (existingIndex == -1) {
-      entries.add(_buildSelfLearningSystemEntry());
-      await effectiveStore.saveAll(entries);
-    } else {
-      final existing = entries[existingIndex];
-      final canonical = _buildSelfLearningSystemEntry();
-      final refreshed = existing.copyWith(
-        name: canonical.name,
-        description: canonical.description,
-        scriptType: canonical.scriptType,
-        cronExpression: canonical.cronExpression,
-        timeoutSeconds: canonical.timeoutSeconds,
-        tags: canonical.tags,
-        onSuccessNotify: canonical.onSuccessNotify,
-        onFailureNotify: canonical.onFailureNotify,
-        onTimeoutNotify: canonical.onTimeoutNotify,
+    final controller = CronsController.uninitialized(store: store);
+    await controller.initialize();
+    return controller;
+  }
+
+  /// Performs the deferred boot work: sqlite table ensure, full entries
+  /// load, system-managed Hermes Talker entry seeding/refresh, app lifecycle
+  /// observer + signal watcher registration, and scheduler startup. Safe to
+  /// invoke at most once — subsequent calls are no-ops.
+  Future<void> initialize() async {
+    if (_isDisposed || _hasInitialized) return;
+    _hasInitialized = true;
+    try {
+      await _store.ensureTable();
+      final entries = await _store.loadAll();
+      // 2026-04-25 (Task 19) — Seed the Hermes Talker self-learning system
+      // entry on first launch if it does not already exist. Also refresh the
+      // system-managed display fields (name / description / schedule /
+      // notification policy) every launch so that first-seeded-with-English
+      // installs pick up the latest simplified-Chinese copy. User-toggleable
+      // fields (e.g. `enabled`) and runtime state fields are preserved.
+      final existingIndex = entries.indexWhere(
+        (e) => e.id == selfLearningSystemEntryId,
       );
-      final needsRefresh =
-          existing.name != refreshed.name ||
-          existing.description != refreshed.description ||
-          existing.scriptType != refreshed.scriptType ||
-          existing.cronExpression != refreshed.cronExpression ||
-          existing.timeoutSeconds != refreshed.timeoutSeconds;
-      if (needsRefresh) {
-        entries[existingIndex] = refreshed;
-        await effectiveStore.saveAll(entries);
+      if (existingIndex == -1) {
+        entries.add(_buildSelfLearningSystemEntry());
+        await _store.saveAll(entries);
+      } else {
+        final existing = entries[existingIndex];
+        final canonical = _buildSelfLearningSystemEntry();
+        final refreshed = existing.copyWith(
+          name: canonical.name,
+          description: canonical.description,
+          scriptType: canonical.scriptType,
+          cronExpression: canonical.cronExpression,
+          timeoutSeconds: canonical.timeoutSeconds,
+          tags: canonical.tags,
+          onSuccessNotify: canonical.onSuccessNotify,
+          onFailureNotify: canonical.onFailureNotify,
+          onTimeoutNotify: canonical.onTimeoutNotify,
+        );
+        final needsRefresh =
+            existing.name != refreshed.name ||
+            existing.description != refreshed.description ||
+            existing.scriptType != refreshed.scriptType ||
+            existing.cronExpression != refreshed.cronExpression ||
+            existing.timeoutSeconds != refreshed.timeoutSeconds;
+        if (needsRefresh) {
+          entries[existingIndex] = refreshed;
+          await _store.saveAll(entries);
+        }
+      }
+      if (_isDisposed) return;
+      _entries = entries;
+      _entriesView = List<CronEntry>.unmodifiable(entries);
+      WidgetsBinding.instance.addObserver(this);
+      _bindProcessSignalWatchers();
+      _startScheduler();
+    } finally {
+      _isLoading = false;
+      if (!_isDisposed) {
+        notifyListeners();
       }
     }
-    final controller = CronsController._(
-      store: effectiveStore,
-      entries: entries,
-    );
-    WidgetsBinding.instance.addObserver(controller);
-    controller._bindProcessSignalWatchers();
-    controller._startScheduler();
-    return controller;
   }
 
   /// Stable id of the system-seeded Hermes Talker self-learning cron entry.
@@ -105,6 +140,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   final CronsStore _store;
   List<CronEntry> _entries;
   List<CronEntry> _entriesView;
+  bool _isLoading;
+  bool _hasInitialized = false;
   bool _isDisposed = false;
   bool _isShuttingDown = false;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
@@ -131,6 +168,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   List<String> _systemUsers = const <String>['root'];
 
   List<CronEntry> get entries => _entriesView;
+  bool get isLoading => _isLoading;
   List<String> get systemUsers => _systemUsers;
 
   List<CronExecutionRecord> historyFor(String cronId) {
@@ -145,7 +183,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    if (_hasInitialized) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
     _isDisposed = true;
     _shutdownSchedulersAndJobs();
     _sigTermWatcher?.cancel();
@@ -291,7 +331,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     );
     try {
       await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('crons_controller', 'persist entry after run completion', error, stack);
+    }
     // Re-schedule next run.
     final current = _entries.firstWhere(
       (e) => e.id == entry.id,

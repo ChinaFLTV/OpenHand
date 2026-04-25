@@ -9,8 +9,29 @@ class SkillsController extends ChangeNotifier {
   SkillsController._({
     required SkillsRepository repository,
     required String storagePath,
+    bool isLoading = false,
   }) : _repository = repository,
-       _storagePath = storagePath;
+       _storagePath = storagePath,
+       _isLoading = isLoading;
+
+  /// Constructs a [SkillsController] synchronously without performing the
+  /// initial filesystem scan. Reports `isLoading == true` until the caller
+  /// invokes [refresh] (typically as `unawaited(controller.refresh())`).
+  ///
+  /// Used by `main.dart` to keep the skills directory walk off the boot
+  /// critical path — home reads `skills` only inside `_buildRuntimeContext`
+  /// (user-action) and the workspace-selected branch (which observes
+  /// [isLoading] for a placeholder).
+  factory SkillsController.uninitialized({
+    required String initialStoragePath,
+    SkillsRepository? repository,
+  }) {
+    return SkillsController._(
+      repository: repository ?? SkillsRepository(),
+      storagePath: initialStoragePath,
+      isLoading: true,
+    );
+  }
 
   static Future<SkillsController> create({
     required String initialStoragePath,
@@ -27,7 +48,7 @@ class SkillsController extends ChangeNotifier {
   final SkillsRepository _repository;
 
   String _storagePath;
-  bool _isLoading = false;
+  bool _isLoading;
   String? _errorMessage;
   List<LocalSkill> _skills = const <LocalSkill>[];
   bool _isDisposed = false;

@@ -25,6 +25,9 @@ class CronsView extends StatelessWidget {
     final entries = context.select<CronsController, List<CronEntry>>(
       (controller) => controller.entries,
     );
+    final isLoading = context.select<CronsController, bool>(
+      (controller) => controller.isLoading,
+    );
     final controller = context.read<CronsController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
@@ -62,7 +65,9 @@ class CronsView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         // Content
-        if (entries.isEmpty)
+        if (isLoading && entries.isEmpty)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else if (entries.isEmpty)
           _CronEmptyState(isZh: isZh)
         else
           Expanded(

@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../model/ai_lsp_backend_catalog.dart';
 import '../model/ai_lsp_language_settings.dart';
 
@@ -1014,7 +1015,9 @@ class AiLspClientService {
           return path;
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('lsp_client_service', 'resolve command path via which/where', error, stack);
+    }
     _commandPathCache[executable] = null;
     return null;
   }
@@ -1604,7 +1607,9 @@ class AiLspClientService {
       if (parsed.scheme == 'file') {
         return parsed.toFilePath();
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('lsp_client_service', 'parse file uri', error, stack);
+    }
     return uri;
   }
 
@@ -2380,7 +2385,9 @@ class _AiLspSession {
       await Future<void>.delayed(const Duration(milliseconds: 180));
       _sendNotification('exit', <String, Object?>{});
       await Future<void>.delayed(const Duration(milliseconds: 80));
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('lsp_client_service', 'graceful LSP shutdown handshake', error, stack);
+    }
     _process = null;
     process.kill();
     for (final completer in _pendingRequests.values) {

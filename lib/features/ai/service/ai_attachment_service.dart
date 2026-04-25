@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
+import '../../../app/support/silent_log.dart';
 import '../model/ai_attachment.dart';
 
 class AiAttachmentException implements Exception {
@@ -89,7 +90,9 @@ class AiAttachmentService {
           if (basename.startsWith(prefix)) {
             try {
               await entity.delete();
-            } catch (_) {}
+            } catch (error, stack) {
+              silentLog('ai_attachment_service', 'delete legacy attachment file', error, stack);
+            }
           }
         }
         await _maybeDeleteIfEmpty(sessionDir);
@@ -112,7 +115,9 @@ class AiAttachmentService {
       if (entries.isEmpty) {
         await directory.delete();
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_attachment_service', 'maybe delete empty attachment dir', error, stack);
+    }
   }
 
   Future<List<AiMessageAttachment>> importAttachments({
@@ -214,7 +219,9 @@ class AiAttachmentService {
             if (await file.exists()) {
               await file.delete();
             }
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('ai_attachment_service', 'rollback created attachment', error, stack);
+          }
         }
       } else {
         await _deleteDirectoryIfExists(targetDirectory);

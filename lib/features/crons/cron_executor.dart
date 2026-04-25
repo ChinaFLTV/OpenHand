@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/model/cron_config.dart';
 import '../../app/support/app_runtime_context.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
 
 /// Maximum characters to collect from cron script stdout / stderr.
 const int _maxCronOutputCharacters = 8000;
@@ -320,7 +321,9 @@ class CronExecutor {
     // Close stdin immediately — cron scripts should not wait for input.
     try {
       await process.stdin.close();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('cron_executor', 'close child stdin', error, stack);
+    }
 
     bool timedOut = false;
     bool killed = false;
@@ -340,7 +343,8 @@ class CronExecutor {
           return -1;
         },
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('cron_executor', 'await process exitCode', error, stack);
       timedOut = true;
       await _terminateProcessTree(process, force: true);
     }
@@ -406,7 +410,9 @@ class CronExecutor {
     final signal = force ? ProcessSignal.sigkill : ProcessSignal.sigterm;
     try {
       process.kill(signal);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('cron_executor', 'process.kill($signal)', error, stack);
+    }
 
     final processId = process.pid;
     if (processId <= 0) return;
@@ -416,14 +422,18 @@ class CronExecutor {
       if (force) args.add('/F');
       try {
         await Process.run('taskkill', args);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('cron_executor', 'taskkill', error, stack);
+      }
       return;
     }
 
     final signalFlag = force ? '-KILL' : '-TERM';
     try {
       await Process.run('pkill', [signalFlag, '-P', '$processId']);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('cron_executor', 'pkill', error, stack);
+    }
   }
 
   static _ShellCommand _buildCommand(CronEntry entry) {
@@ -483,7 +493,9 @@ class CronExecutor {
         }
         buffer.write(chunk);
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('cron_executor', 'collect process output stream', error, stack);
+    }
     return buffer.toString();
   }
 }

@@ -1140,7 +1140,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _resetAdjustmentControls(clearMessages: false);
       });
     } catch (error, stack) {
-      debugPrint('[ImageEditor] load failed: $error\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ImageEditor] load failed: $error\n$stack');
+      }
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(context)!.imageEditorLoadFailed;
@@ -1190,7 +1192,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _statusMessage = null;
       });
     } catch (error, stack) {
-      debugPrint('[ImageEditor] rotate failed: $error\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ImageEditor] rotate failed: $error\n$stack');
+      }
       if (mounted) {
         setState(() {
           _errorMessage = AppLocalizations.of(
@@ -1470,7 +1474,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       });
       _showSnackBar(l10n.imageEditorApplySuccess);
     } catch (error, stack) {
-      debugPrint('[ImageEditor] apply failed: $error\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ImageEditor] apply failed: $error\n$stack');
+      }
       if (mounted) {
         setState(() => _errorMessage = l10n.imageEditorProcessFailed);
         _showSnackBar(l10n.imageEditorProcessFailed, isError: true);
@@ -1795,7 +1801,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         imageSizeLimitBytes: imageSizeLimitBytes,
       );
     } catch (error, stack) {
-      debugPrint('[ImageEditor] watermark compose failed: $error\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ImageEditor] watermark compose failed: $error\n$stack');
+      }
       return null;
     } finally {
       codec?.dispose();
@@ -2225,7 +2233,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       return composedBytes;
     } catch (error, stack) {
-      debugPrint('[ImageEditor] render failed: $error\n$stack');
+      if (kDebugMode) {
+        debugPrint('[ImageEditor] render failed: $error\n$stack');
+      }
       if (!mounted) return null;
       setState(() {
         _errorMessage = l10n.imageEditorProcessFailed;

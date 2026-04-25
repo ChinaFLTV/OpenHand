@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_tool_runtime_service.dart';
 
 export '../service/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
@@ -224,7 +225,9 @@ class AiBuiltinToolConfig {
         if (decoded is Map) {
           schemaOverride = Map<String, Object?>.from(decoded);
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('ai_builtin_tool_config', 'decode schema_override JSON string', error, stack);
+      }
     } else if (rawSchema is Map) {
       schemaOverride = Map<String, Object?>.from(rawSchema);
     }

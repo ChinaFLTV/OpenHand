@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../app/support/silent_log.dart';
 import '../ai/model/ai_deny_command_rule.dart';
 import '../ai/model/ai_model_config.dart';
 import '../ai/model/ai_session_runtime_context.dart';
@@ -904,7 +905,9 @@ $phasePrompt
       final decoded = jsonDecode(trimmed);
       if (decoded is Map<String, dynamic>) return decoded;
       if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_api_phase_runner', 'decode JSON payload', error, stack);
+    }
     return const <String, dynamic>{};
   }
 }

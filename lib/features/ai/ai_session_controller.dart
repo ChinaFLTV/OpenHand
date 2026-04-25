@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
 import '../hooks/hooks_executor.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../mcp/service/mcp_tool_discovery_service.dart';
@@ -727,7 +728,9 @@ class AiSessionController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.save(updatedSession);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'persist metadata patch', error, stack);
+    }
     return true;
   }
 
@@ -763,7 +766,9 @@ class AiSessionController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.save(updatedSession);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'persist self-learning append', error, stack);
+    }
     return id;
   }
 
@@ -824,7 +829,9 @@ class AiSessionController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.save(updatedSession);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'persist self-learning update', error, stack);
+    }
     return true;
   }
 
@@ -863,7 +870,9 @@ class AiSessionController extends ChangeNotifier {
     notifyListeners();
     try {
       await _store.save(updatedSession);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'persist last-used model', error, stack);
+    }
     return true;
   }
 
