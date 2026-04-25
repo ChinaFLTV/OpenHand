@@ -159,8 +159,22 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void didUpdateWidget(covariant _SessionTranscript oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.session.id != widget.session.id) {
+      // Switching sessions used to rebuild the full transcript synchronously
+      // inside `didUpdateWidget`, which on large sessions blocked the frame
+      // that paints the new toolbar / shell. We now reset to an empty list
+      // immediately so the cross-fade can start, then materialise the
+      // visible window on the next frame so the heavy bubble build does not
+      // bottleneck the transition itself.
       _syncWindowStartIndex(forceReset: true);
-      _replaceRenderEntries(_visibleMessagesForWindow());
+      _renderEntries = const <_TranscriptRenderEntry>[];
+      _initialBuildDone = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_renderEntries.isNotEmpty) return;
+        setState(() {
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        });
+      });
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
       final previousWindowStartIndex = _windowStartIndex;
@@ -550,7 +564,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               controller: widget.controller,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 12),
-              addAutomaticKeepAlives: false,
+              // `ListView.builder` keeps already-built bubbles alive when
+              // they scroll just outside the viewport (framework default).
+              // We previously disabled this to limit memory; the cost of
+              // re-parsing markdown / re-tokenising large code blocks on
+              // every fling turned out to dominate scroll jank for long
+              // sessions, so we now rely on the default keep-alive.
               // Repaint boundaries are essential for a message list: without
               // them a single bubble's internal animation (e.g. streaming
               // reasoning shimmer, tool-call progress) dirties the entire
@@ -560,10 +579,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // (Leaving this at the framework default, which is already
               // `true`, keeps the call site lint-clean and the intent
               // explicit via the comment above.)
-              // Keep a modest cache: large enough to avoid jank when
-              // scrolling slightly but small enough to limit the work done
-              // on the first layout pass (fewer off-screen items built).
-              cacheExtent: 400,
+              // Slightly larger cache so quick scrolls reuse already-laid
+              // out bubbles instead of rebuilding them from scratch; tuned
+              // alongside `addAutomaticKeepAlives: true` above.
+              cacheExtent: 800,
               physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

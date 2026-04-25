@@ -1,5 +1,48 @@
 part of 'openhand_home_page.dart';
 
+/// Maximum code-block length (in characters) at which we still attempt
+/// syntax highlighting. Beyond this we render plain monospace text to keep
+/// transcript open / scroll responsive (very long log dumps were the
+/// dominant source of multi-second jank when opening a session).
+const int _highlightSkipThresholdChars = 80 * 1024;
+
+/// Code-block length above which we defer the first highlight pass to a
+/// microtask, painting plain text on the first frame. Tuned so that small
+/// snippets (the common case) still highlight synchronously and feel
+/// instant while heavier blocks no longer block the initial layout.
+const int _highlightDeferThresholdChars = 4 * 1024;
+
+/// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
+/// snippet (e.g. a tool result, a generated diff) frequently appears in
+/// many bubbles across a session; reusing the cached span avoids
+/// re-tokenising on every rebuild and on cross-session navigation.
+final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
+  maxEntries: 256,
+);
+
+class _HighlightSpanCache {
+  _HighlightSpanCache({required this.maxEntries});
+
+  final int maxEntries;
+  final LinkedHashMap<int, TextSpan> _entries = LinkedHashMap<int, TextSpan>();
+
+  TextSpan? get(int key) {
+    final value = _entries.remove(key);
+    if (value != null) {
+      _entries[key] = value;
+    }
+    return value;
+  }
+
+  void put(int key, TextSpan value) {
+    _entries.remove(key);
+    _entries[key] = value;
+    while (_entries.length > maxEntries) {
+      _entries.remove(_entries.keys.first);
+    }
+  }
+}
+
 class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
   _HighlightedCodeBlockBuilder({
     required ThemeData theme,
@@ -90,6 +133,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   Timer? _downloadedResetTimer;
   _CodeBlockPalette? _cachedPalette;
   int? _cachedPaletteSignature;
+  bool _highlightScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -301,26 +345,99 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
     if (_highlightedSpan != null && _highlightSignature == signature) {
       return;
     }
+    // Fast path: try the global LRU cache. Identical code blocks rendered
+    // multiple times across the transcript reuse the same parsed TextSpan
+    // instead of re-running the highlight tokenizer (the dominant cost
+    // when opening a large session).
+    final cached = _highlightSpanCache.get(signature);
+    if (cached != null) {
+      _highlightedSpan = cached;
+      _highlightSignature = signature;
+      return;
+    }
+    // Skip syntax highlighting entirely for very large code blocks. The
+    // `package:highlight` parser is single-pass but allocates one node per
+    // token, which becomes the dominant frame cost for >~80KB code blocks
+    // and produces visible jank/ANR when opening sessions that contain
+    // long log dumps or generated source files. Plain text rendering keeps
+    // the transcript responsive; users can still copy / download the code.
+    if (widget.content.length > _highlightSkipThresholdChars) {
+      _highlightedSpan = TextSpan(
+        text: widget.content,
+        style: _baseStyleForCurrentTheme(useDarkPalette),
+      );
+      _highlightSignature = signature;
+      return;
+    }
+    // For medium-sized blocks, defer the highlight work to the next
+    // microtask so the first frame can paint a plain-text placeholder,
+    // avoiding a multi-message transcript from blocking on a single
+    // expensive parse during the initial layout pass.
+    if (widget.content.length > _highlightDeferThresholdChars &&
+        _highlightedSpan == null) {
+      if (!_highlightScheduled) {
+        _highlightScheduled = true;
+        _highlightedSpan = TextSpan(
+          text: widget.content,
+          style: _baseStyleForCurrentTheme(useDarkPalette),
+        );
+        _highlightSignature = signature;
+        scheduleMicrotask(() {
+          if (!mounted) return;
+          _highlightScheduled = false;
+          // Re-check the signature in case the widget was updated while
+          // the microtask was queued.
+          if (_highlightSignature != signature) return;
+          final span = _runHighlight(
+            effectiveLanguage,
+            useDarkPalette,
+            signature,
+          );
+          if (!mounted) return;
+          setState(() {
+            _highlightedSpan = span;
+          });
+        });
+        return;
+      }
+    }
+    _highlightedSpan = _runHighlight(
+      effectiveLanguage,
+      useDarkPalette,
+      signature,
+    );
+    _highlightSignature = signature;
+  }
+
+  TextStyle _baseStyleForCurrentTheme(bool useDarkPalette) {
+    return widget.theme.textTheme.bodyMedium?.copyWith(
+          color: widget.baseColor,
+          fontFamily: 'monospace',
+          height: 1.48,
+        ) ??
+        TextStyle(
+          color: widget.baseColor,
+          fontFamily: 'monospace',
+          height: 1.48,
+        );
+  }
+
+  TextSpan _runHighlight(
+    String? effectiveLanguage,
+    bool useDarkPalette,
+    int signature,
+  ) {
     final highlighter = _CodeSyntaxHighlighter(
-      baseStyle:
-          widget.theme.textTheme.bodyMedium?.copyWith(
-            color: widget.baseColor,
-            fontFamily: 'monospace',
-            height: 1.48,
-          ) ??
-          TextStyle(
-            color: widget.baseColor,
-            fontFamily: 'monospace',
-            height: 1.48,
-          ),
+      baseStyle: _baseStyleForCurrentTheme(useDarkPalette),
       darkSurface: useDarkPalette,
     );
-    _highlightedSpan = highlighter.build(
+    final span = highlighter.build(
       widget.content,
       language: effectiveLanguage,
       allowAutoDetection: widget.allowAutoDetection,
     );
-    _highlightSignature = signature;
+    _highlightSpanCache.put(signature, span);
+    return span;
   }
 
   Widget _buildHeaderPill({

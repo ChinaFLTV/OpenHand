@@ -217,55 +217,64 @@ class MemoryView extends StatelessWidget {
       key: const ValueKey<String>('memory-list'),
       padding: const EdgeInsets.only(bottom: 12),
       itemCount: items.length,
+      cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final item = items[index];
         switch (item.kind) {
           case _MemoryDisplayItemKind.profile:
             final entry = item.entry!;
-            return _MemoryEntryCard(
-              key: ValueKey<String>('memory-profile-${entry.id}'),
-              entry: entry,
-              isProfile: true,
-              onTap: () => _showMemoryDialog(context, initialEntry: entry),
-              onActionSelected: (action) {
-                switch (action) {
-                  case _MemoryCardAction.edit:
-                    _showMemoryDialog(context, initialEntry: entry);
-                  case _MemoryCardAction.delete:
-                    _confirmDeleteMemory(context, entry);
-                }
-              },
+            return RepaintBoundary(
+              child: _MemoryEntryCard(
+                key: ValueKey<String>('memory-profile-${entry.id}'),
+                entry: entry,
+                isProfile: true,
+                onTap: () => _showMemoryDialog(context, initialEntry: entry),
+                onActionSelected: (action) {
+                  switch (action) {
+                    case _MemoryCardAction.edit:
+                      _showMemoryDialog(context, initialEntry: entry);
+                    case _MemoryCardAction.delete:
+                      _confirmDeleteMemory(context, entry);
+                  }
+                },
+              ),
             );
           case _MemoryDisplayItemKind.autoLearned:
-            return _AutoLearnedSection(
-              key: const PageStorageKey<String>('memory-auto-learned-section'),
-              entries: item.entries,
-              onTapEntry: (entry) =>
-                  _showMemoryDialog(context, initialEntry: entry),
-              onActionSelected: (entry, action) {
-                switch (action) {
-                  case _MemoryCardAction.edit:
-                    _showMemoryDialog(context, initialEntry: entry);
-                  case _MemoryCardAction.delete:
-                    _confirmDeleteMemory(context, entry);
-                }
-              },
+            return RepaintBoundary(
+              child: _AutoLearnedSection(
+                key: const PageStorageKey<String>(
+                  'memory-auto-learned-section',
+                ),
+                entries: item.entries,
+                onTapEntry: (entry) =>
+                    _showMemoryDialog(context, initialEntry: entry),
+                onActionSelected: (entry, action) {
+                  switch (action) {
+                    case _MemoryCardAction.edit:
+                      _showMemoryDialog(context, initialEntry: entry);
+                    case _MemoryCardAction.delete:
+                      _confirmDeleteMemory(context, entry);
+                  }
+                },
+              ),
             );
           case _MemoryDisplayItemKind.regular:
             final entry = item.entry!;
-            return _MemoryEntryCard(
-              key: ValueKey<String>('memory-entry-${entry.id}'),
-              entry: entry,
-              onTap: () => _showMemoryDialog(context, initialEntry: entry),
-              onActionSelected: (action) {
-                switch (action) {
-                  case _MemoryCardAction.edit:
-                    _showMemoryDialog(context, initialEntry: entry);
-                  case _MemoryCardAction.delete:
-                    _confirmDeleteMemory(context, entry);
-                }
-              },
+            return RepaintBoundary(
+              child: _MemoryEntryCard(
+                key: ValueKey<String>('memory-entry-${entry.id}'),
+                entry: entry,
+                onTap: () => _showMemoryDialog(context, initialEntry: entry),
+                onActionSelected: (action) {
+                  switch (action) {
+                    case _MemoryCardAction.edit:
+                      _showMemoryDialog(context, initialEntry: entry);
+                    case _MemoryCardAction.delete:
+                      _confirmDeleteMemory(context, entry);
+                  }
+                },
+              ),
             );
         }
       },

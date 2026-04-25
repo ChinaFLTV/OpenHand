@@ -337,9 +337,17 @@ class _ContentPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Padding(padding: const EdgeInsets.all(24), child: child),
+    // The right-pane content is cross-faded inside an `AnimatedSwitcher`
+    // that stacks the outgoing and incoming sections during the
+    // transition. A `RepaintBoundary` here gives each pane its own
+    // compositor layer so the heavy widget tree of one section (large
+    // transcripts, MCP tool catalogues, memory entry markdown) does not
+    // dirty / repaint the other on every frame of the fade.
+    return RepaintBoundary(
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Padding(padding: const EdgeInsets.all(24), child: child),
+      ),
     );
   }
 }

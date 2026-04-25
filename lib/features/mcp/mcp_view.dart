@@ -238,40 +238,45 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       key: const ValueKey<String>('mcp-list'),
       padding: const EdgeInsets.only(bottom: 12),
       itemCount: servers.length,
+      cacheExtent: 600,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final server = servers[index];
-        return Selector<
-          McpController,
-          ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
-        >(
-          key: ValueKey<String>('mcp-server-${server.name}'),
-          selector: (context, controller) => (
-            healthStatus: controller.healthStatusFor(server.name),
-            toolCatalog: controller.toolCatalogFor(server.name),
+        return RepaintBoundary(
+          child: Selector<
+            McpController,
+            ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
+          >(
+            key: ValueKey<String>('mcp-server-${server.name}'),
+            selector: (context, controller) => (
+              healthStatus: controller.healthStatusFor(server.name),
+              toolCatalog: controller.toolCatalogFor(server.name),
+            ),
+            builder: (context, cardState, child) {
+              final controller = context.read<McpController>();
+              return _McpServerCard(
+                key: ValueKey<String>('mcp-server-card-${server.name}'),
+                server: server,
+                healthStatus: cardState.healthStatus,
+                toolCatalog: cardState.toolCatalog,
+                onTap: () => _showServerDialog(context, initialServer: server),
+                onToggleEnabled: (enabled) =>
+                    _updateServerEnabled(context, server.name, enabled),
+                onCheckHealth: () =>
+                    controller.checkServerHealth(server.name),
+                onRefreshTools: () =>
+                    controller.refreshServerTools(server.name),
+                onActionSelected: (action) {
+                  switch (action) {
+                    case _McpCardAction.edit:
+                      _showServerDialog(context, initialServer: server);
+                    case _McpCardAction.delete:
+                      _confirmDeleteServer(context, server);
+                  }
+                },
+              );
+            },
           ),
-          builder: (context, cardState, child) {
-            final controller = context.read<McpController>();
-            return _McpServerCard(
-              key: ValueKey<String>('mcp-server-card-${server.name}'),
-              server: server,
-              healthStatus: cardState.healthStatus,
-              toolCatalog: cardState.toolCatalog,
-              onTap: () => _showServerDialog(context, initialServer: server),
-              onToggleEnabled: (enabled) =>
-                  _updateServerEnabled(context, server.name, enabled),
-              onCheckHealth: () => controller.checkServerHealth(server.name),
-              onRefreshTools: () => controller.refreshServerTools(server.name),
-              onActionSelected: (action) {
-                switch (action) {
-                  case _McpCardAction.edit:
-                    _showServerDialog(context, initialServer: server);
-                  case _McpCardAction.delete:
-                    _confirmDeleteServer(context, server);
-                }
-              },
-            );
-          },
         );
       },
     );
