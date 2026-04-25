@@ -307,6 +307,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                 const SizedBox(height: 16),
                 Expanded(
                   child: SingleChildScrollView(
+                    // Disable the macOS trackpad rubber-band / overscroll
+                    // elastic effect. Inside a bounded-height modal dialog
+                    // the bouncing spring simulation combined with rapid
+                    // successive wheel / trackpad events causes the
+                    // visible "pull-back / jitter" glitch.
+                    physics: const ClampingScrollPhysics(),
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -518,40 +524,57 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxHeight: 200),
                               child: RepaintBoundary(
-                                child: Scrollbar(
-                                  controller: _chipScrollController,
-                                  thumbVisibility: _visibleModelIds.length > 30,
-                                  child: SingleChildScrollView(
+                                // Swallow overscroll notifications from this
+                                // inner scroll area so they cannot bubble up
+                                // and re-trigger the outer SingleChildScrollView,
+                                // which would cause both scrollables to
+                                // jitter against each other.
+                                child: NotificationListener<OverscrollNotification>(
+                                  onNotification: (_) => true,
+                                  child: Scrollbar(
                                     controller: _chipScrollController,
-                                    child: Wrap(
-                                      spacing: 8,
-                                      runSpacing: 6,
-                                      children: _visibleModelIds
-                                          .map((id) {
-                                            final isActive = id == _activeModelId;
-                                            return _AiProviderModelChip(
-                                              modelId: id,
-                                              isActive: isActive,
-                                              enabled: !_isSaving,
-                                              hasProfile:
-                                                  _modelProfiles[id]
-                                                      ?.hasUserOverrides ==
-                                                  true,
-                                              tooltip: isActive
-                                                  ? _localizedText(
-                                                      zh: '当前活跃模型',
-                                                      en: 'Currently active model',
-                                                    )
-                                                  : _localizedText(
-                                                      zh: '点击切换为活跃模型',
-                                                      en: 'Click to set as active model',
-                                                    ),
-                                              onPressed: () => _selectModelId(id),
-                                              onEdit: () => _editModelProfile(id),
-                                              onDeleted: () => _removeModelId(id),
-                                            );
-                                          })
-                                          .toList(growable: false),
+                                    thumbVisibility:
+                                        _visibleModelIds.length > 30,
+                                    child: SingleChildScrollView(
+                                      controller: _chipScrollController,
+                                      physics:
+                                          const ClampingScrollPhysics(),
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 6,
+                                        children: _visibleModelIds
+                                            .map((id) {
+                                              final isActive =
+                                                  id == _activeModelId;
+                                              return _AiProviderModelChip(
+                                                modelId: id,
+                                                isActive: isActive,
+                                                enabled: !_isSaving,
+                                                hasProfile:
+                                                    _modelProfiles[id]
+                                                            ?.hasUserOverrides ==
+                                                        true,
+                                                tooltip: isActive
+                                                    ? _localizedText(
+                                                        zh: '当前活跃模型',
+                                                        en:
+                                                            'Currently active model',
+                                                      )
+                                                    : _localizedText(
+                                                        zh: '点击切换为活跃模型',
+                                                        en:
+                                                            'Click to set as active model',
+                                                      ),
+                                                onPressed: () =>
+                                                    _selectModelId(id),
+                                                onEdit: () =>
+                                                    _editModelProfile(id),
+                                                onDeleted: () =>
+                                                    _removeModelId(id),
+                                              );
+                                            })
+                                            .toList(growable: false),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1220,6 +1243,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
+          // Use clamping physics to avoid macOS trackpad rubber-band
+          // overscroll, which inside a modal AlertDialog presents as a
+          // "pull-back / shake" jitter when the user rapidly scrolls to
+          // either edge.
+          physics: const ClampingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
