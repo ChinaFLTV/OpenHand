@@ -3,6 +3,13 @@ part of 'openhand_home_page.dart';
 const int _messageMarkdownCollapseCharThreshold = 5000;
 const int _toolResultMarkdownCollapseCharThreshold = 1200;
 const int _messageMarkdownCollapseLineThreshold = 90;
+
+/// Maximum message body size (in characters) at which we still attempt
+/// markdown parsing. Above this we render the raw text directly to keep
+/// transcript open / scroll responsive — `flutter_markdown_plus` runs the
+/// AST parse and widget build synchronously on the UI thread, and at this
+/// size both passes start to dominate frame budgets and trigger ANR.
+const int _markdownPlainTextSkipThresholdChars = 120 * 1024;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
 
 class _CompressionCheckpointBody extends StatelessWidget {
@@ -808,6 +815,21 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _lastParseKey = widget.parseKey;
     _disposeRecognizers();
     if (_canRenderMarkdownAsPlainText(widget.data)) {
+      _children = <Widget>[
+        widget.selectable
+            ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
+            : Text(normalizedSource, style: effectiveStyleSheet.p),
+      ];
+      return;
+    }
+    // Hard size ceiling: very large messages (long log dumps, generated
+    // payloads pasted into the chat) blow up the markdown parser + builder
+    // — both run synchronously on the UI thread and produce visible
+    // freezes when opening the transcript. Fall back to plain text; users
+    // can still copy / select the body. The threshold (~120KB) is well
+    // above any natural human-authored markdown but below the size at
+    // which the parser starts to dominate frame budgets.
+    if (widget.data.length > _markdownPlainTextSkipThresholdChars) {
       _children = <Widget>[
         widget.selectable
             ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
