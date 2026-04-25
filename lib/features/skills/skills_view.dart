@@ -130,6 +130,7 @@ class _SkillsViewState extends State<SkillsView> {
             final actions = Wrap(
               spacing: 12,
               runSpacing: 12,
+              alignment: WrapAlignment.end,
               children: [
                 ConstrainedBox(
                   constraints: BoxConstraints(
@@ -196,7 +197,12 @@ class _SkillsViewState extends State<SkillsView> {
                   ),
                 ),
                 const SizedBox(width: 20),
-                Flexible(child: actions),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: actions,
+                  ),
+                ),
               ],
             );
           },

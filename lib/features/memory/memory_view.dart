@@ -72,6 +72,7 @@ class MemoryView extends StatelessWidget {
             final actions = Wrap(
               spacing: 12,
               runSpacing: 12,
+              alignment: WrapAlignment.end,
               children: [
                 FilledButton.tonalIcon(
                   onPressed: memorySnapshot.isLoading
@@ -117,7 +118,12 @@ class MemoryView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 20),
-                Flexible(child: actions),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: actions,
+                  ),
+                ),
               ],
             );
           },

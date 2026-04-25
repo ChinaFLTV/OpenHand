@@ -45,6 +45,7 @@ class InstructionsView extends StatelessWidget {
             final actions = Wrap(
               spacing: 12,
               runSpacing: 12,
+              alignment: WrapAlignment.end,
               children: [
                 FilledButton.tonalIcon(
                   onPressed:
@@ -70,7 +71,10 @@ class InstructionsView extends StatelessWidget {
                 children: [
                   header,
                   const SizedBox(height: 20),
-                  actions,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: actions,
+                  ),
                 ],
               );
             }
@@ -79,7 +83,12 @@ class InstructionsView extends StatelessWidget {
               children: <Widget>[
                 const Expanded(child: header),
                 const SizedBox(width: 20),
-                Flexible(child: actions),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: actions,
+                  ),
+                ),
               ],
             );
           },
@@ -122,11 +131,35 @@ class InstructionsView extends StatelessWidget {
     if (snapshot.entries.isEmpty) {
       return Center(
         key: const ValueKey('empty'),
-        child: _InstructionsBanner(
-          icon: Icons.tips_and_updates_outlined,
-          color: Theme.of(context).colorScheme.primary,
-          title: '尚未创建指令',
-          body: '指令是会被注入到 system prompt 的提示词片段。点击右上角"新建指令"创建第一条。',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.tips_and_updates_outlined,
+              size: 64,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurfaceVariant
+                  .withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '尚未创建指令',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '点击右上角「新建指令」创建第一条。',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withValues(alpha: 0.7),
+                  ),
+            ),
+          ],
         ),
       );
     }
@@ -496,9 +529,14 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                         style: theme.textTheme.headlineSmall,
                       ),
                     ),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('启用'),
+                    Text(
+                      '启用',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Switch.adaptive(
                       value: _enabled,
                       onChanged:
                           _saving ? null : (v) => setState(() => _enabled = v),

@@ -125,6 +125,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             final actions = Wrap(
               spacing: 12,
               runSpacing: 12,
+              alignment: WrapAlignment.end,
               children: [
                 FilledButton.tonalIcon(
                   onPressed: mcpSnapshot.isLoading
@@ -170,7 +171,12 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(width: 20),
-                Flexible(child: actions),
+                Flexible(
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: actions,
+                  ),
+                ),
               ],
             );
           },
