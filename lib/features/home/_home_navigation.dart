@@ -51,6 +51,13 @@ class _NavigationPaneState extends State<_NavigationPane> {
       <String, _ThreadTileCacheEntry>{};
   _HardnessTileCacheEntry? _hardnessTileCache;
 
+  // Tracks which thread ids have already appeared in the sidebar at
+  // least once. Newly appended sessions (or a freshly created HE record)
+  // get an AppearOnce entrance the first time they show up; the existing
+  // list does NOT animate on initial mount.
+  final Set<String> _seenThreadIds = <String>{};
+  bool _initialThreadBuildDone = false;
+
   ThemeData _ensureDrawerTheme(ThemeData theme) {
     final signature = Object.hashAll(<Object?>[
       theme.colorScheme.primary.toARGB32(),
@@ -134,6 +141,20 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
+      // Wrap brand-new HE records with an entrance animation. The wrapper
+      // is keyed off the record id so it's preserved across cache misses
+      // (e.g. title edit) — once its internal animation completes the
+      // wrapper short-circuits to its child, so reuse is free.
+      final heKey = 'he-${record.id}';
+      final heIsNew =
+          _initialThreadBuildDone && !_seenThreadIds.contains(heKey);
+      _seenThreadIds.add(heKey);
+      final heDisplayed = heIsNew
+          ? AppearOnce(
+              key: ValueKey<String>('he-thread-appear-${record.id}'),
+              child: built,
+            )
+          : built;
       _hardnessTileCache = _HardnessTileCacheEntry(
         recordId: record.id,
         title: record.title,
@@ -141,9 +162,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
         status: status,
         awaitingApproval: heAwaitingApproval,
         isSelected: isSelected,
-        widget: built,
+        widget: heDisplayed,
       );
-      return built;
+      return heDisplayed;
     }
 
     for (final session in widget.sessions) {
@@ -191,14 +212,30 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
+      // Only sessions that appear AFTER the first build (i.e. user just
+      // created a new thread) get the AppearOnce entrance — we don't
+      // want the entire sidebar to animate on app launch. The wrapped
+      // widget is what we cache so subsequent cache-hits keep the
+      // wrapper alive until its 220ms animation completes; afterwards
+      // AppearOnce short-circuits to the child.
+      final aiKey = 'ai-$sessionId';
+      final aiIsNew =
+          _initialThreadBuildDone && !_seenThreadIds.contains(aiKey);
+      _seenThreadIds.add(aiKey);
+      final aiDisplayed = aiIsNew
+          ? AppearOnce(
+              key: ValueKey<String>('ai-thread-appear-$sessionId'),
+              child: built,
+            )
+          : built;
       _threadTileCache[sessionId] = _ThreadTileCacheEntry(
         title: session.title,
         updatedAtMs: session.updatedAt.millisecondsSinceEpoch,
         sendPhase: sendPhase,
         isSelected: isSelected,
-        widget: built,
+        widget: aiDisplayed,
       );
-      tiles.add(built);
+      tiles.add(aiDisplayed);
     }
 
     // HE session is the oldest, or there are no AI sessions — append at end.
@@ -211,7 +248,17 @@ class _NavigationPaneState extends State<_NavigationPane> {
       _threadTileCache.removeWhere(
         (sessionId, _) => !activeSessionIds.contains(sessionId),
       );
+      // Also drop the seen-id markers so a future re-creation of a
+      // deleted thread (or, in tests, a freshly-restored snapshot) is
+      // treated as new and re-animates.
+      _seenThreadIds.removeWhere(
+        (key) =>
+            key.startsWith('ai-') &&
+            !activeSessionIds.contains(key.substring(3)),
+      );
     }
+
+    _initialThreadBuildDone = true;
 
     return tiles;
   }

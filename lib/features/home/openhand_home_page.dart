@@ -36,6 +36,7 @@ import '../../shared/data/database_service.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/choice_input_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/model_search_selector.dart';
