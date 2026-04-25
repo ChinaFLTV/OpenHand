@@ -41,7 +41,9 @@ import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
 import '../ai/ai_session_controller.dart';
+import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_attachment.dart';
+import '../ai/model/ai_builtin_tool_config.dart';
 import '../ai/model/ai_creation_mode.dart';
 import '../ai/model/ai_lsp_backend_catalog.dart';
 import '../ai/model/ai_lsp_language_settings.dart';
@@ -73,6 +75,7 @@ import '../hardness/model/hardness_session_record.dart';
 import '../hooks/hooks_view.dart';
 import '../mcp/mcp_controller.dart';
 import '../mcp/mcp_view.dart';
+import '../mcp/model/mcp_server.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
@@ -476,6 +479,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, _ComposerDraftState> _composerDraftsBySessionId =
       <String, _ComposerDraftState>{};
   final Map<String, bool> _collapsedPlanTimelinesBySessionId = <String, bool>{};
+  int? _runtimeToolPreviewCacheKey;
+  AiRuntimeToolPreview? _runtimeToolPreviewCacheValue;
   AiSessionController? _observedSessionController;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
   bool _detachedFullAccessPermission = false;
@@ -2457,13 +2462,136 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  AiRuntimeToolPreview? _previewRuntimeToolCatalogForWorkspace({
+    required SettingsController settingsController,
+    required SkillsController skillsController,
+    required McpController mcpController,
+    required AiSessionController sessionController,
+    required AppInfo appInfo,
+    required AiSession? session,
+  }) {
+    final model = settingsController.selectedAiModel;
+    if (session == null || model == null) {
+      _runtimeToolPreviewCacheKey = null;
+      _runtimeToolPreviewCacheValue = null;
+      return null;
+    }
+
+    final allowCommandRules = settingsController.aiAllowCommandRules;
+    final builtinToolConfigs = settingsController.builtinToolConfigs;
+    final availableSkills = skillsController.skills;
+    final availableMcpServers = mcpController.servers;
+    final now = DateTime.now().toLocal();
+    final todayLocalDate = _formatLocalDate(now);
+    final mcpToolCatalogsByServerName = <String, McpToolCatalog>{};
+    final mcpCatalogKeyParts = <Object?>[];
+    for (final server in availableMcpServers) {
+      final catalog = mcpController.toolCatalogFor(server.name);
+      mcpToolCatalogsByServerName[server.name] = catalog;
+      mcpCatalogKeyParts.addAll(<Object?>[
+        server.name,
+        identityHashCode(server),
+        catalog.status,
+        catalog.tools.length,
+        identityHashCode(catalog.tools),
+        catalog.errorMessage,
+        catalog.warningMessage,
+        catalog.lastScannedAt?.microsecondsSinceEpoch,
+      ]);
+    }
+
+    final cacheKey = Object.hashAll(<Object?>[
+      identityHashCode(session),
+      session.id,
+      session.mode,
+      session.awaitingPlanApproval,
+      session.messages.length,
+      session.planHistory.length,
+      session.templateId,
+      model.id,
+      model.modelId,
+      model.protocolType,
+      settingsController.locale.toLanguageTag(),
+      appInfo.version,
+      appInfo.buildNumber,
+      settingsController.settingsFilePath,
+      settingsController.skillsStoragePath,
+      settingsController.mcpServersFilePath,
+      settingsController.userMemoryFilePath,
+      settingsController.aiMessageCompressionThresholdChars,
+      settingsController.aiSingleRoundToolCallLimit,
+      settingsController.aiSequentialToolRoundLimit,
+      settingsController.aiImageSizeLimitBytes,
+      settingsController.memoryEnabled,
+      settingsController.aiWriteCommandConfirmationEnabled,
+      settingsController.aiConnectTimeoutSeconds,
+      settingsController.aiResponseTimeoutSeconds,
+      settingsController.aiStreamIdleTimeoutSeconds,
+      settingsController.aiAutoTitleEnabled,
+      settingsController.telemetryDebugEnabled,
+      settingsController.telemetryCaptureRawPayload,
+      settingsController.telemetryCaptureEnvironment,
+      settingsController.telemetryMaxPayloadChars,
+      _identityHashAll(allowCommandRules),
+      allowCommandRules.length,
+      _identityHashAll(builtinToolConfigs),
+      builtinToolConfigs.length,
+      _identityHashAll(availableSkills),
+      availableSkills.length,
+      identityHashCode(availableMcpServers),
+      availableMcpServers.length,
+      todayLocalDate,
+      now.timeZoneName,
+      ...mcpCatalogKeyParts,
+    ]);
+    if (_runtimeToolPreviewCacheKey == cacheKey) {
+      return _runtimeToolPreviewCacheValue;
+    }
+
+    final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
+      settingsController: settingsController,
+      skillsController: skillsController,
+      mcpController: mcpController,
+      appInfo: appInfo,
+      now: now,
+      allowCommandRules: allowCommandRules,
+      availableSkills: availableSkills,
+      availableMcpServers: availableMcpServers,
+      builtinToolConfigs: builtinToolConfigs,
+    );
+    final preview = sessionController.previewRuntimeToolCatalog(
+      session: session,
+      model: model,
+      runtimeContext: runtimeCatalogPreviewContext,
+      mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
+    );
+    _runtimeToolPreviewCacheKey = cacheKey;
+    _runtimeToolPreviewCacheValue = preview;
+    return preview;
+  }
+
+  String _formatLocalDate(DateTime now) {
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  int _identityHashAll(Iterable<Object?> values) {
+    return Object.hashAll(values.map(identityHashCode));
+  }
+
   AiSessionRuntimeContext _buildRuntimeCatalogPreviewContext({
     required SettingsController settingsController,
     required SkillsController skillsController,
     required McpController mcpController,
     required AppInfo appInfo,
+    DateTime? now,
+    List<AiAllowCommandRule>? allowCommandRules,
+    List<LocalSkill>? availableSkills,
+    List<McpServer>? availableMcpServers,
+    List<AiBuiltinToolConfig>? builtinToolConfigs,
   }) {
-    final now = DateTime.now().toLocal();
+    final localNow = (now ?? DateTime.now()).toLocal();
     return AiSessionRuntimeContext(
       localeTag: settingsController.locale.toLanguageTag(),
       appVersion: appInfo.version,
@@ -2491,14 +2619,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
       platformName: Platform.operatingSystem,
       workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-      todayLocalDate:
-          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-      timeZoneName: now.timeZoneName,
+      todayLocalDate: _formatLocalDate(localNow),
+      timeZoneName: localNow.timeZoneName,
       memoryEntries: const [],
-      allowCommandRules: settingsController.aiAllowCommandRules,
-      availableSkills: skillsController.skills,
-      availableMcpServers: mcpController.servers,
-      builtinToolConfigs: settingsController.builtinToolConfigs,
+      allowCommandRules:
+          allowCommandRules ?? settingsController.aiAllowCommandRules,
+      availableSkills: availableSkills ?? skillsController.skills,
+      availableMcpServers: availableMcpServers ?? mcpController.servers,
+      builtinToolConfigs:
+          builtinToolConfigs ?? settingsController.builtinToolConfigs,
     );
   }
 
@@ -4487,24 +4616,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // resolution that are wasted when viewing other sections.
     AiRuntimeToolPreview? liveRuntimeToolPreview;
     if (workspaceSelected) {
-      final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
+      liveRuntimeToolPreview = _previewRuntimeToolCatalogForWorkspace(
         settingsController: settingsController,
         skillsController: skillsController,
         mcpController: mcpController,
+        sessionController: sessionController,
         appInfo: appInfo,
+        session: currentSession,
       );
-      liveRuntimeToolPreview =
-          currentSession == null || settingsController.selectedAiModel == null
-          ? null
-          : sessionController.previewRuntimeToolCatalog(
-              session: currentSession,
-              model: settingsController.selectedAiModel!,
-              runtimeContext: runtimeCatalogPreviewContext,
-              mcpToolCatalogsByServerName: <String, McpToolCatalog>{
-                for (final server in mcpController.servers)
-                  server.name: mcpController.toolCatalogFor(server.name),
-              },
-            );
       if (!transcriptPreparing) {
         _maybeAutoFollowSession(currentSession);
       }
