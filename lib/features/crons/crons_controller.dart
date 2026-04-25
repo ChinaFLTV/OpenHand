@@ -264,17 +264,29 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   static const CronEntry _missingSentinel = CronEntry(id: '', name: '');
 
+  /// `appContext` 中存放 Hermes Talker 单次 tick 的会话级 JSON 报告
+  /// （`List<SelfLearningSessionReport.toJson()>` 序列化结果）的键名。
+  /// 由 `main.dart` 的 agent handler 写入，由 Crons 历史 UI 解析渲染。
+  static const String hermesTalkerReportsKey = 'hermes_talker.reports';
+
+  /// `appContext` 中存放 Hermes Talker 单次 tick 聚合统计的键名
+  /// （`{scanned, triggered, skipped, errors}` 的 JSON 编码）。
+  static const String hermesTalkerStatsKey = 'hermes_talker.stats';
+
   /// Handler invoked for `CronScriptType.agent` entries. Bootstrap injects
   /// this via [registerAgentHandler] to plug the Hermes Talker
   /// `SelfLearningScheduler`. Handlers must never throw.
   ///
-  /// The return value is a terse status string (e.g. `'ok: triggered=2'`)
-  /// stored in the [CronExecutionRecord.stdout] field.
-  Future<String> Function(CronEntry entry)? _agentHandler;
+  /// 返回的 [AgentHandlerResult.stdout] 写入历史记录的 stdout 字段，
+  /// [AgentHandlerResult.appContext] 写入历史记录的 app_context 字段，
+  /// 用于在 Crons 历史详情中展示富信息（例如 Hermes Talker 的会话报告）。
+  Future<AgentHandlerResult> Function(CronEntry entry)? _agentHandler;
 
   /// Registers (or replaces) the in-process handler for Agent-typed cron
   /// entries. Passing `null` removes the handler.
-  void registerAgentHandler(Future<String> Function(CronEntry entry)? handler) {
+  void registerAgentHandler(
+    Future<AgentHandlerResult> Function(CronEntry entry)? handler,
+  ) {
     _agentHandler = handler;
   }
 
@@ -284,6 +296,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     final startedAt = DateTime.now();
     String stdout = '';
+    Map<String, String> appContext = const <String, String>{};
     String status = 'success';
     String? errorMessage;
     try {
@@ -291,7 +304,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       if (handler == null) {
         stdout = 'noop: agent handler not registered';
       } else {
-        stdout = await handler(entry);
+        final result = await handler(entry);
+        stdout = result.stdout;
+        appContext = result.appContext;
       }
     } catch (error) {
       status = 'failed';
@@ -308,6 +323,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       stderr: errorMessage ?? '',
       errorMessage: errorMessage,
       triggerType: triggerType,
+      appContext: appContext,
     );
     try {
       await _store.insertHistory(record);
@@ -846,4 +862,20 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     });
     return completer.future;
   }
+}
+
+/// Agent 处理函数返回的结构化结果。
+///
+/// * [stdout] 写入 [CronExecutionRecord.stdout]，用于历史详情默认展示。
+/// * [appContext] 写入 [CronExecutionRecord.appContext]，用于承载结构化
+///   元数据（例如 Hermes Talker 的会话级 JSON 报告），由 UI 侧根据特定
+///   key 渲染富面板。
+class AgentHandlerResult {
+  const AgentHandlerResult({
+    this.stdout = '',
+    this.appContext = const <String, String>{},
+  });
+
+  final String stdout;
+  final Map<String, String> appContext;
 }

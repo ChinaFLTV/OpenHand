@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
@@ -8,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/model/cron_config.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_notification_service.dart';
+import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'cron_parser.dart';
@@ -2378,13 +2380,23 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.appContext.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _kvSection(
-              title: isZh ? '执行上下文:' : 'Execution Context:',
-              data: record.appContext,
+            // 2026-04-25 — Hermes Talker 专属富面板：检测到结构化报告
+            // 时优先展开，并把对应的 JSON 键从下方"执行上下文"原始 KV
+            // 列表中过滤掉，避免重复且避免一坨 JSON 文本污染界面。
+            if (record.appContext.containsKey(
+              CronsController.hermesTalkerReportsKey,
+            )) ...[
+              const SizedBox(height: 8),
+              _HermesTalkerHistoryPanel(
+                isZh: isZh,
+                appContext: record.appContext,
+              ),
+            ],
+            ..._buildPlainAppContextSection(
               theme: theme,
               colorScheme: colorScheme,
-              color: colorScheme.onSurfaceVariant,
+              isZh: isZh,
+              record: record,
             ),
           ],
           if (record.environmentSnapshot.isNotEmpty) ...[
@@ -2526,6 +2538,33 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     );
   }
 
+  /// 渲染 `appContext` 中除 Hermes Talker 富面板已消费键以外的纯文本
+  /// 键值对。当过滤后无剩余项时返回空列表，避免出现空标题块。
+  List<Widget> _buildPlainAppContextSection({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required bool isZh,
+    required CronExecutionRecord record,
+  }) {
+    final filtered = <String, String>{
+      for (final entry in record.appContext.entries)
+        if (entry.key != CronsController.hermesTalkerReportsKey &&
+            entry.key != CronsController.hermesTalkerStatsKey)
+          entry.key: entry.value,
+    };
+    if (filtered.isEmpty) return const <Widget>[];
+    return <Widget>[
+      const SizedBox(height: 8),
+      _kvSection(
+        title: isZh ? '执行上下文:' : 'Execution Context:',
+        data: filtered,
+        theme: theme,
+        colorScheme: colorScheme,
+        color: colorScheme.onSurfaceVariant,
+      ),
+    ];
+  }
+
   Widget _kvSection({
     required String title,
     required Map<String, String> data,
@@ -2586,5 +2625,714 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
         '${dt.hour.toString().padLeft(2, '0')}:'
         '${dt.minute.toString().padLeft(2, '0')}:'
         '${dt.second.toString().padLeft(2, '0')}';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hermes Talker 历史富展示面板
+// ---------------------------------------------------------------------------
+
+/// 解析后的单个会话报告（与 SelfLearningSessionReport.toJson() 对齐）。
+class _HermesTalkerSessionReport {
+  const _HermesTalkerSessionReport({
+    required this.sessionId,
+    required this.sessionTitle,
+    required this.status,
+    required this.summary,
+    required this.mutations,
+    this.aiResponse,
+    this.aiReasoning,
+    this.error,
+  });
+
+  factory _HermesTalkerSessionReport.fromJson(Map<String, Object?> json) {
+    Map<String, Object?> readMap(Object? value) {
+      if (value is Map<String, Object?>) return value;
+      if (value is Map) {
+        return value.map((k, v) => MapEntry('$k', v));
+      }
+      return const <String, Object?>{};
+    }
+
+    return _HermesTalkerSessionReport(
+      sessionId: '${json['session_id'] ?? ''}',
+      sessionTitle: '${json['session_title'] ?? ''}',
+      status: '${json['status'] ?? 'ok'}',
+      summary: '${json['summary'] ?? ''}',
+      mutations: readMap(json['mutations']),
+      aiResponse: json['ai_response'] as String?,
+      aiReasoning: json['ai_reasoning'] as String?,
+      error: json['error'] as String?,
+    );
+  }
+
+  final String sessionId;
+  final String sessionTitle;
+  final String status;
+  final String summary;
+  final Map<String, Object?> mutations;
+  final String? aiResponse;
+  final String? aiReasoning;
+  final String? error;
+
+  int get memoryUpdates => _readInt(mutations['memory_updates']);
+  int get memoryErrors => _readInt(mutations['memory_errors']);
+  int get skillUpdates => _readInt(mutations['skill_updates']);
+  int get skillErrors => _readInt(mutations['skill_errors']);
+  int get toolCallRounds => _readInt(mutations['tool_call_rounds']);
+
+  List<Map<String, Object?>> get memoryChanges =>
+      _readListOfMap(mutations['memory_changes']);
+  List<Map<String, Object?>> get profileChanges =>
+      _readListOfMap(mutations['profile_changes']);
+  List<Map<String, Object?>> get skillChanges =>
+      _readListOfMap(mutations['skill_changes']);
+
+  String? get modelId =>
+      mutations['model_id'] is String ? mutations['model_id'] as String : null;
+  String? get providerId => mutations['provider_id'] is String
+      ? mutations['provider_id'] as String
+      : null;
+  String? get terminatedReason => mutations['terminated_reason'] is String
+      ? mutations['terminated_reason'] as String
+      : null;
+
+  static int _readInt(Object? v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  static List<Map<String, Object?>> _readListOfMap(Object? v) {
+    if (v is! List) return const <Map<String, Object?>>[];
+    final out = <Map<String, Object?>>[];
+    for (final item in v) {
+      if (item is Map<String, Object?>) {
+        out.add(item);
+      } else if (item is Map) {
+        out.add(item.map((k, val) => MapEntry('$k', val)));
+      }
+    }
+    return out;
+  }
+}
+
+class _HermesTalkerHistoryPanel extends StatelessWidget {
+  const _HermesTalkerHistoryPanel({
+    required this.isZh,
+    required this.appContext,
+  });
+
+  final bool isZh;
+  final Map<String, String> appContext;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final reports = _decodeReports();
+    final stats = _decodeStats();
+
+    if (reports.isEmpty && stats.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.auto_awesome,
+                  size: 18,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isZh ? 'Hermes Talker 自我学习报告' : 'Hermes Talker Report',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (stats.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          _formatStatsLine(stats, isZh),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (reports.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                isZh
+                    ? '本轮无符合条件的会话被实际学习。'
+                    : 'No eligible sessions were actually learned this tick.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else ...[
+            const SizedBox(height: 10),
+            Text(
+              isZh
+                  ? '受影响的会话 (${reports.length})'
+                  : 'Affected Sessions (${reports.length})',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...reports.map(
+              (r) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _HermesTalkerSessionCard(report: r, isZh: isZh),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<_HermesTalkerSessionReport> _decodeReports() {
+    final raw = appContext[CronsController.hermesTalkerReportsKey];
+    if (raw == null || raw.isEmpty) return const <_HermesTalkerSessionReport>[];
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is! List) return const <_HermesTalkerSessionReport>[];
+      final out = <_HermesTalkerSessionReport>[];
+      for (final item in parsed) {
+        if (item is Map<String, Object?>) {
+          out.add(_HermesTalkerSessionReport.fromJson(item));
+        } else if (item is Map) {
+          out.add(
+            _HermesTalkerSessionReport.fromJson(
+              item.map((k, v) => MapEntry('$k', v)),
+            ),
+          );
+        }
+      }
+      return out;
+    } catch (error, stack) {
+      silentLog(
+        'crons_view',
+        'decode hermes talker reports',
+        error,
+        stack,
+      );
+      return const <_HermesTalkerSessionReport>[];
+    }
+  }
+
+  Map<String, int> _decodeStats() {
+    final raw = appContext[CronsController.hermesTalkerStatsKey];
+    if (raw == null || raw.isEmpty) return const <String, int>{};
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is! Map) return const <String, int>{};
+      final out = <String, int>{};
+      parsed.forEach((k, v) {
+        final n = v is int
+            ? v
+            : (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
+        out['$k'] = n;
+      });
+      return out;
+    } catch (error, stack) {
+      silentLog('crons_view', 'decode hermes talker stats', error, stack);
+      return const <String, int>{};
+    }
+  }
+
+  String _formatStatsLine(Map<String, int> stats, bool isZh) {
+    int v(String k) => stats[k] ?? 0;
+    if (isZh) {
+      return '扫描 ${v('scanned')} · 触发 ${v('triggered')} · '
+          '跳过 ${v('skipped')} · 异常 ${v('errors')}';
+    }
+    return 'scanned ${v('scanned')} · triggered ${v('triggered')} · '
+        'skipped ${v('skipped')} · errors ${v('errors')}';
+  }
+}
+
+class _HermesTalkerSessionCard extends StatelessWidget {
+  const _HermesTalkerSessionCard({required this.report, required this.isZh});
+
+  final _HermesTalkerSessionReport report;
+  final bool isZh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isError = report.status == 'error';
+    final accent = isError ? colorScheme.error : colorScheme.primary;
+    final title = report.sessionTitle.trim().isEmpty
+        ? (isZh ? '(未命名会话)' : '(untitled session)')
+        : report.sessionTitle.trim();
+
+    final chips = <Widget>[
+      _statusChip(theme, colorScheme, report.status, isZh),
+      if (report.memoryUpdates > 0)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.memory,
+          label: isZh
+              ? '记忆 +${report.memoryUpdates}'
+              : 'memory +${report.memoryUpdates}',
+        ),
+      if (report.memoryErrors > 0)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.error_outline,
+          label: isZh
+              ? '记忆错误 ${report.memoryErrors}'
+              : 'memory err ${report.memoryErrors}',
+          tone: colorScheme.error,
+        ),
+      if (report.skillUpdates > 0)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.psychology_alt_outlined,
+          label: isZh
+              ? '技能 +${report.skillUpdates}'
+              : 'skill +${report.skillUpdates}',
+        ),
+      if (report.skillErrors > 0)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.error_outline,
+          label: isZh
+              ? '技能错误 ${report.skillErrors}'
+              : 'skill err ${report.skillErrors}',
+          tone: colorScheme.error,
+        ),
+      if (report.profileChanges.isNotEmpty)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.account_circle_outlined,
+          label: isZh
+              ? '画像变更 ${report.profileChanges.length}'
+              : 'profile ${report.profileChanges.length}',
+        ),
+      if (report.toolCallRounds > 0)
+        _metaChip(
+          theme,
+          colorScheme,
+          icon: Icons.repeat_rounded,
+          label: isZh
+              ? '工具轮次 ${report.toolCallRounds}'
+              : 'rounds ${report.toolCallRounds}',
+        ),
+    ];
+
+    final children = <Widget>[
+      if (report.summary.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 4),
+          child: SelectableText(
+            report.summary,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      if (report.modelId != null || report.terminatedReason != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 2, bottom: 6),
+          child: Text(
+            [
+              if (report.modelId != null)
+                '${isZh ? '模型' : 'model'}: ${report.modelId}',
+              if (report.providerId != null)
+                '${isZh ? '渠道' : 'provider'}: ${report.providerId}',
+              if (report.terminatedReason != null)
+                '${isZh ? '结束原因' : 'terminated'}: ${report.terminatedReason}',
+            ].join(' · '),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      if (report.profileChanges.isNotEmpty)
+        _changeGroup(
+          theme: theme,
+          colorScheme: colorScheme,
+          title: isZh ? '画像变更' : 'Profile changes',
+          icon: Icons.account_circle_outlined,
+          changes: report.profileChanges,
+        ),
+      if (report.memoryChanges.isNotEmpty)
+        _changeGroup(
+          theme: theme,
+          colorScheme: colorScheme,
+          title: isZh ? '记忆变更' : 'Memory changes',
+          icon: Icons.memory,
+          changes: report.memoryChanges,
+        ),
+      if (report.skillChanges.isNotEmpty)
+        _changeGroup(
+          theme: theme,
+          colorScheme: colorScheme,
+          title: isZh ? '技能变更' : 'Skill changes',
+          icon: Icons.psychology_alt_outlined,
+          changes: report.skillChanges,
+        ),
+      if (report.aiResponse != null && report.aiResponse!.isNotEmpty)
+        _CollapsibleLongText(
+          title: isZh ? 'AI 回复' : 'AI response',
+          icon: Icons.chat_bubble_outline,
+          body: report.aiResponse!,
+        ),
+      if (report.aiReasoning != null && report.aiReasoning!.isNotEmpty)
+        _CollapsibleLongText(
+          title: isZh ? 'AI 思考' : 'AI reasoning',
+          icon: Icons.tips_and_updates_outlined,
+          body: report.aiReasoning!,
+          subdued: true,
+        ),
+      if (report.error != null && report.error!.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: SelectableText(
+            report.error!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.error,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ),
+    ];
+
+    final hasExpandableBody = children.isNotEmpty;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Theme(
+        // ExpansionTile 默认会插入 Divider，关闭它以贴合 Material You 视感。
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: accent.withValues(alpha: 0.22),
+            ),
+          ),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 4,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            title: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: chips,
+              ),
+            ),
+            children: hasExpandableBody
+                ? children
+                : <Widget>[
+                    Text(
+                      isZh ? '本会话无更多详情。' : 'No further details.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    String status,
+    bool isZh,
+  ) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
+    switch (status) {
+      case 'error':
+        bg = colorScheme.errorContainer;
+        fg = colorScheme.onErrorContainer;
+        icon = Icons.error_outline;
+        label = isZh ? '失败' : 'error';
+        break;
+      case 'skipped':
+        bg = colorScheme.surfaceContainerHighest;
+        fg = colorScheme.onSurfaceVariant;
+        icon = Icons.skip_next_rounded;
+        label = isZh ? '跳过' : 'skipped';
+        break;
+      default:
+        bg = colorScheme.primaryContainer;
+        fg = colorScheme.onPrimaryContainer;
+        icon = Icons.check_circle_outline;
+        label = isZh ? '完成' : 'ok';
+    }
+    return _metaChip(
+      theme,
+      colorScheme,
+      icon: icon,
+      label: label,
+      bg: bg,
+      tone: fg,
+    );
+  }
+
+  Widget _metaChip(
+    ThemeData theme,
+    ColorScheme colorScheme, {
+    required IconData icon,
+    required String label,
+    Color? bg,
+    Color? tone,
+  }) {
+    final background =
+        bg ?? colorScheme.secondaryContainer.withValues(alpha: 0.65);
+    final foreground = tone ?? colorScheme.onSecondaryContainer;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: foreground),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _changeGroup({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required String title,
+    required IconData icon,
+    required List<Map<String, Object?>> changes,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(
+                '$title (${changes.length})',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ...changes.map(
+            (m) => Padding(
+              padding: const EdgeInsets.only(bottom: 3, left: 20),
+              child: SelectableText(
+                _formatChange(m),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatChange(Map<String, Object?> m) {
+    // 优先使用 'summary' / 'description' / 'content' / 'name' 等常见字段；
+    // 兜底用 JSON 编码，避免出现 "Instance of ..." 之类无意义文本。
+    const preferKeys = ['summary', 'description', 'content', 'name'];
+    for (final k in preferKeys) {
+      final v = m[k];
+      if (v is String && v.trim().isNotEmpty) {
+        final action = m['action'];
+        return action is String && action.isNotEmpty
+            ? '[$action] ${v.trim()}'
+            : '• ${v.trim()}';
+      }
+    }
+    try {
+      return '• ${jsonEncode(m)}';
+    } catch (_) {
+      return '• ${m.toString()}';
+    }
+  }
+}
+
+/// 折叠展开的长文本块；超过阈值时默认折叠预览，点击切换全文。
+class _CollapsibleLongText extends StatefulWidget {
+  const _CollapsibleLongText({
+    required this.title,
+    required this.icon,
+    required this.body,
+    this.subdued = false,
+  });
+
+  static const int _previewChars = 320;
+
+  final String title;
+  final IconData icon;
+  final String body;
+  final bool subdued;
+
+  @override
+  State<_CollapsibleLongText> createState() => _CollapsibleLongTextState();
+}
+
+class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final body = widget.body.trim();
+    final exceeds = body.length > _CollapsibleLongText._previewChars;
+    final shown = (_expanded || !exceeds)
+        ? body
+        : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: widget.subdued
+              ? colorScheme.surfaceContainer.withValues(alpha: 0.55)
+              : colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 14,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  widget.title,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                if (exceeds)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () =>
+                        setState(() => _expanded = !_expanded),
+                    child: Text(
+                      _expanded
+                          ? (isZh ? '折叠' : 'Collapse')
+                          : (isZh ? '展开' : 'Expand'),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              shown,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: widget.subdued
+                    ? colorScheme.onSurfaceVariant
+                    : colorScheme.onSurface,
+                height: 1.4,
+                fontStyle: widget.subdued ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -109,7 +109,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 0);
@@ -131,7 +134,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 1);
@@ -163,7 +169,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 1);
@@ -193,7 +202,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 1);
@@ -216,7 +228,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.triggered, 0);
@@ -239,7 +254,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 0);
@@ -260,7 +278,10 @@ void main() {
       final scheduler = SelfLearningScheduler(
         sessionStore: store,
         settingsController: settings,
-        runForSession: (s) async => dispatched.add(s.id),
+        runForSession: (s) async {
+          dispatched.add(s.id);
+          return null;
+        },
       );
       final result = await scheduler.tick(now: now);
       expect(result.scanned, 0);
@@ -288,6 +309,7 @@ void main() {
           runForSession: (s) async {
             dispatched.add(s.id);
             if (s.id == 'sess-b') throw StateError('boom');
+            return null;
           },
         );
         final result = await scheduler.tick(now: now);
@@ -303,7 +325,7 @@ void main() {
         final scheduler = SelfLearningScheduler(
           sessionStore: store,
           settingsController: settings,
-          runForSession: (_) async {},
+          runForSession: (_) async => null,
           concurrency: 3,
         );
         // Smoke-test: should not throw, and subsequent ticks should still work.

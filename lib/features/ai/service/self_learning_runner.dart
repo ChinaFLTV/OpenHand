@@ -100,6 +100,76 @@ class SelfLearningOutcome {
   final String? aiReasoning;
 }
 
+/// 单个会话的自我学习执行后报告。由 [SelfLearningRunner.runForSession]
+/// 在终态时返回，供调度器聚合，最终通过 cron `appContext` 写入历史记录，
+/// 用于 Crons UI 在 Hermes Talker 历史卡片里展示"影响了哪些会话 / 改了
+/// 哪些画像-记忆-技能 / AI 思考与回复"等富信息。
+///
+/// 2026-04-25 / Phase 4-Hermes-Talker-history.
+class SelfLearningSessionReport {
+  const SelfLearningSessionReport({
+    required this.sessionId,
+    required this.sessionTitle,
+    required this.status,
+    required this.summary,
+    this.mutations = const <String, Object?>{},
+    this.aiResponse,
+    this.aiReasoning,
+    this.error,
+  });
+
+  factory SelfLearningSessionReport.fromJson(Map<String, Object?> json) {
+    return SelfLearningSessionReport(
+      sessionId: '${json['session_id'] ?? ''}',
+      sessionTitle: '${json['session_title'] ?? ''}',
+      status: '${json['status'] ?? 'ok'}',
+      summary: '${json['summary'] ?? ''}',
+      mutations: switch (json['mutations']) {
+        Map<String, Object?> m => m,
+        Map other => other.map((k, v) => MapEntry('$k', v)),
+        _ => const <String, Object?>{},
+      },
+      aiResponse: json['ai_response'] as String?,
+      aiReasoning: json['ai_reasoning'] as String?,
+      error: json['error'] as String?,
+    );
+  }
+
+  /// 会话 ID（AiSession.id）。
+  final String sessionId;
+
+  /// 会话标题（AiSession.title），可能为空字符串。
+  final String sessionTitle;
+
+  /// `'ok'` / `'error'` / `'skipped'`。
+  final String status;
+
+  /// 中文摘要（与 selfLearning 卡片同源）。
+  final String summary;
+
+  /// dispatcher 返回的结构化变更（memory/profile/skill changes 等）。
+  final Map<String, Object?> mutations;
+
+  final String? aiResponse;
+  final String? aiReasoning;
+
+  /// 仅在 status='error' 时填充。
+  final String? error;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'session_id': sessionId,
+        'session_title': sessionTitle,
+        'status': status,
+        'summary': summary,
+        if (mutations.isNotEmpty) 'mutations': mutations,
+        if (aiResponse != null && aiResponse!.isNotEmpty)
+          'ai_response': aiResponse,
+        if (aiReasoning != null && aiReasoning!.isNotEmpty)
+          'ai_reasoning': aiReasoning,
+        if (error != null && error!.isNotEmpty) 'error': error,
+      };
+}
+
 class SelfLearningRunner {
   SelfLearningRunner({
     required this.sessionController,
@@ -123,7 +193,8 @@ class SelfLearningRunner {
   static const Duration _streamFlushInterval = Duration(milliseconds: 250);
 
   /// 由 [SelfLearningScheduler] 调用。为单个会话执行一次自我学习流程。
-  Future<void> runForSession(AiSession session) async {
+  Future<SelfLearningSessionReport?> runForSession(AiSession session) async {
+    SelfLearningSessionReport? finalReport;
     // 1) 标记开始。
     await sessionController.updateSessionMetadata(session.id, <String, Object?>{
       'self_learning_in_progress': true,
@@ -150,7 +221,7 @@ class SelfLearningRunner {
           'turns=$sliceMessageCount min=$minConversationTurns '
               'session=${session.id}',
         );
-        return;
+        return null;
       }
 
       final userProfileContent = memoryController.userProfile?.content ?? '';
@@ -184,7 +255,7 @@ class SelfLearningRunner {
               'profile_present=${userProfileContent.isNotEmpty} '
               'auto_learned=${memoryController.memoriesWithTag(autoLearnedMemoriesTag).length}',
         );
-        return;
+        return null;
       }
 
       // 4a) 预先创建 status='streaming' 的占位卡片，供派发器流式追加。
@@ -252,6 +323,15 @@ class SelfLearningRunner {
 
       try {
         final outcome = await dispatcher(streamingContext);
+        finalReport = SelfLearningSessionReport(
+          sessionId: session.id,
+          sessionTitle: latest.title,
+          status: 'ok',
+          summary: outcome.summary,
+          mutations: outcome.mutations,
+          aiResponse: outcome.aiResponse,
+          aiReasoning: outcome.aiReasoning,
+        );
 
         // 终态写入：取消任何待执行的节流计时，等待在途写入完成，
         // 然后用最终结果整体替换 metadata。
@@ -303,6 +383,15 @@ class SelfLearningRunner {
             silentLog('self_learning_runner', 'await pendingFlush (error path)', flushError, flushStack);
           }
         }
+        finalReport = SelfLearningSessionReport(
+          sessionId: session.id,
+          sessionTitle: latest.title,
+          status: 'error',
+          summary: '自我学习失败: $error',
+          aiResponse: latestResponse,
+          aiReasoning: latestReasoning,
+          error: '$error',
+        );
         if (placeholderId != null) {
           await sessionController.updateSelfLearningMessage(
             sessionId: session.id,
@@ -324,6 +413,13 @@ class SelfLearningRunner {
         }
       }
     } catch (error, stack) {
+      finalReport = SelfLearningSessionReport(
+        sessionId: session.id,
+        sessionTitle: session.title,
+        status: 'error',
+        summary: '自我学习失败: $error',
+        error: '$error',
+      );
       await _writeCard(
         session.id,
         summary: '自我学习失败: $error',
@@ -337,6 +433,7 @@ class SelfLearningRunner {
         <String, Object?>{'self_learning_in_progress': false},
       );
     }
+    return finalReport;
   }
 
   // ---------------------------------------------------------------------------

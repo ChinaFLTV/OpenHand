@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:ui';
 
@@ -11,6 +12,7 @@ import 'app/model/app_info.dart';
 import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
+import 'app/support/silent_log.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_chat_service.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
@@ -205,10 +207,38 @@ Future<void> _bootstrap() async {
   cronsController.registerAgentHandler((entry) async {
     if (entry.tags.contains(CronsController.hermesTalkerTag)) {
       final result = await selfLearningScheduler.tick();
-      return 'ok: scanned=${result.scanned} triggered=${result.triggered} '
+      final stdout =
+          'ok: scanned=${result.scanned} triggered=${result.triggered} '
           'skipped=${result.skipped} errors=${result.errors}';
+      final appContext = <String, String>{};
+      // 仅在确实存在执行报告时附加 Hermes Talker 富数据，避免污染普通
+      // agent 任务的历史卡片。
+      if (result.reports.isNotEmpty) {
+        try {
+          appContext[CronsController.hermesTalkerReportsKey] = jsonEncode(
+            result.reports.map((r) => r.toJson()).toList(),
+          );
+          appContext[CronsController.hermesTalkerStatsKey] = jsonEncode(<String, int>{
+            'scanned': result.scanned,
+            'triggered': result.triggered,
+            'skipped': result.skipped,
+            'errors': result.errors,
+          });
+        } catch (error, stack) {
+          // JSON 编码失败时降级为纯 stdout，保留诊断线索但不影响调度链路。
+          silentLog(
+            'main',
+            'encode hermes talker reports',
+            error,
+            stack,
+          );
+        }
+      }
+      return AgentHandlerResult(stdout: stdout, appContext: appContext);
     }
-    return 'noop: unknown agent tag (${entry.tags.join(",")})';
+    return AgentHandlerResult(
+      stdout: 'noop: unknown agent tag (${entry.tags.join(",")})',
+    );
   });
   settingsController.addListener(() {
     selfLearningScheduler.updateConcurrency(

@@ -26,6 +26,7 @@ import '../../../app/state/settings_controller.dart';
 import '../data/ai_session_store.dart';
 import '../model/ai_session.dart';
 import '../model/ai_session_message.dart';
+import 'self_learning_runner.dart' show SelfLearningSessionReport;
 
 /// 单轮 [SelfLearningScheduler.tick] 执行结果。
 class SelfLearningTickResult {
@@ -34,6 +35,7 @@ class SelfLearningTickResult {
     required this.triggered,
     required this.skipped,
     required this.errors,
+    this.reports = const <SelfLearningSessionReport>[],
   });
 
   /// 扫描命中的候选会话总数（未过滤前）。
@@ -48,10 +50,16 @@ class SelfLearningTickResult {
   /// 派发过程中抛出的异常数量（内部已吞异常，记录为错误计数）。
   final int errors;
 
+  /// 2026-04-25 — 每个被实际运行过的会话的富报告，供 Crons 历史详
+  /// 情面板展示"影响了哪些会话 / 改了哪些画像-记忆-技能 / AI 思考与回
+  /// 复"。仅包含 dispatcher 调用走完成（成功或失败）的会话，不包含未
+  /// 达到 minConversationTurns 门槛而静默跳过的会话。
+  final List<SelfLearningSessionReport> reports;
+
   @override
   String toString() =>
       'SelfLearningTickResult(scanned=$scanned, triggered=$triggered, '
-      'skipped=$skipped, errors=$errors)';
+      'skipped=$skipped, errors=$errors, reports=${reports.length})';
 }
 
 /// 单个会话的自我学习执行回调签名。
@@ -66,7 +74,8 @@ class SelfLearningTickResult {
 /// * 调用 [AiSessionController] / chat 服务运行受限工具集的子 Agent
 /// * 收集变更并写入 `selfLearning` 消息卡片
 /// * 清理 `metadata['self_learning_in_progress']` 标记
-typedef SelfLearningRunForSession = Future<void> Function(AiSession session);
+typedef SelfLearningRunForSession =
+    Future<SelfLearningSessionReport?> Function(AiSession session);
 
 class SelfLearningScheduler {
   SelfLearningScheduler({
@@ -138,6 +147,7 @@ class SelfLearningScheduler {
     int triggered = 0;
     int skipped = 0;
     int errors = 0;
+    final reports = <SelfLearningSessionReport>[];
 
     final futures = <Future<void>>[];
     for (final session in candidates) {
@@ -147,7 +157,9 @@ class SelfLearningScheduler {
       }
       triggered += 1;
       futures.add(
-        _dispatch(session).catchError((_) {
+        _dispatch(session).then((report) {
+          if (report != null) reports.add(report);
+        }).catchError((_) {
           errors += 1;
         }),
       );
@@ -160,6 +172,7 @@ class SelfLearningScheduler {
       triggered: triggered,
       skipped: skipped,
       errors: errors,
+      reports: List<SelfLearningSessionReport>.unmodifiable(reports),
     );
   }
 
@@ -184,10 +197,10 @@ class SelfLearningScheduler {
     return true;
   }
 
-  Future<void> _dispatch(AiSession session) async {
+  Future<SelfLearningSessionReport?> _dispatch(AiSession session) async {
     await _semaphore.acquire();
     try {
-      await runForSession(session);
+      return await runForSession(session);
     } finally {
       _semaphore.release();
     }
