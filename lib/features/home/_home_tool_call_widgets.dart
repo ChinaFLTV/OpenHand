@@ -2851,6 +2851,7 @@ class _SelfLearningCard extends StatefulWidget {
 }
 
 class _SelfLearningCardState extends State<_SelfLearningCard> {
+  bool _profileChangesExpanded = false;
   bool _memoriesExpanded = false;
   bool _skillsExpanded = false;
   bool _profileExpanded = false;
@@ -2864,6 +2865,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
     final metadata = widget.message.metadata;
     final memoryItems = _extractChangeItems(metadata['memory_changes']);
     final skillItems = _extractChangeItems(metadata['skill_changes']);
+    final profileItems = _extractChangeItems(metadata['profile_changes']);
     final profileDiff = _extractProfileDiff(metadata['profile_diff']);
     final aiResponse = _extractProfileDiff(metadata['ai_response']);
     final aiReasoning = _extractProfileDiff(metadata['ai_reasoning']);
@@ -2892,6 +2894,15 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           spacing: 8,
           runSpacing: 8,
           children: [
+            if (profileItems.isNotEmpty)
+              _ToolExecutionChip(
+                icon: Icons.account_circle_outlined,
+                label: _localizedText(
+                  context,
+                  zh: '${profileItems.length} 项画像已更新',
+                  en: '${profileItems.length} profile changes',
+                ),
+              ),
             _ToolExecutionChip(
               icon: Icons.memory_rounded,
               label: memoryCountLabel,
@@ -2910,6 +2921,19 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               label: elapsedLabel,
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        _ExpandableToolSection(
+          title: _localizedText(context, zh: '用户画像变更', en: 'Profile Changes'),
+          preview: _changeItemsPreview(context, profileItems),
+          expanded: _profileChangesExpanded,
+          onToggle: () {
+            setState(() {
+              _profileChangesExpanded = !_profileChangesExpanded;
+            });
+          },
+          expandedBuilder: (context) =>
+              _SelfLearningChangeList(items: profileItems),
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
@@ -2969,12 +2993,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _reasoningExpanded = !_reasoningExpanded;
               });
             },
-            expandedBuilder: (context) => SelectableText(
-              aiReasoning,
-              style: theme.textTheme.bodySmall?.copyWith(
-                height: 1.5,
-                color: colorScheme.onSurfaceVariant,
-              ),
+            expandedBuilder: (context) => _SelfLearningMarkdown(
+              data: aiReasoning,
+              muted: true,
             ),
           ),
         ],
@@ -2993,9 +3014,9 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _responseExpanded = !_responseExpanded;
               });
             },
-            expandedBuilder: (context) => SelectableText(
-              aiResponse,
-              style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+            expandedBuilder: (context) => _SelfLearningMarkdown(
+              data: aiResponse,
+              muted: false,
             ),
           ),
         ],
@@ -3010,6 +3031,49 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Renders self-learning AI 思考 / AI 响应 with Markdown — reuses the same
+/// `_SafeMarkdownBody` engine the main message bubble uses, so code fences,
+/// lists and emphasis get full syntax-highlighted treatment instead of the
+/// previous plain `SelectableText`.
+///
+/// Wrapped in [AnimatedSize] so as the dispatcher streams token-deltas in
+/// (and the parent's metadata grows), the card height eases out with a
+/// gentle Q-bouncy easeOutCubicEmphasized curve instead of jumping.
+class _SelfLearningMarkdown extends StatelessWidget {
+  const _SelfLearningMarkdown({required this.data, required this.muted});
+
+  final String data;
+  final bool muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final base = MarkdownStyleSheet.fromTheme(theme);
+    final styleSheet = muted
+        ? base.copyWith(
+            p: theme.textTheme.bodySmall?.copyWith(
+              height: 1.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        : base.copyWith(
+            p: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+          );
+    return ClipRect(
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: _SafeMarkdownBody(
+          data: data.isEmpty ? ' ' : data,
+          styleSheet: styleSheet,
+          selectable: true,
+        ),
+      ),
     );
   }
 }

@@ -325,7 +325,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 else if (isToolCall)
                   _ToolCallBody(message: message, selectable: widget.isSelected)
                 else if (isSelfLearning)
-                  _SelfLearningCard(message: message)
+                  // Wrap the self-learning card in an AnimatedSize so as the
+                  // dispatcher streams in tokens (and metadata grows), the
+                  // bubble height eases out with a Q-bouncy curve instead
+                  // of jumping. Mirrors the reasoning bubble behaviour.
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topLeft,
+                      child: _SelfLearningCard(message: message),
+                    ),
+                  )
                 else
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

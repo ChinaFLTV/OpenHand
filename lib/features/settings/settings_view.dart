@@ -50,6 +50,7 @@ part '_settings_shortcut_widgets.dart';
 part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
 part '_settings_helper_widgets.dart';
+part '_settings_user_profile.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -910,6 +911,23 @@ class _SettingsViewState extends State<SettingsView> {
                     onChanged: (value) => settingsController
                         .updateAiDefaultFullAccessPermission(value),
                   ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '用户画像',
+                  en: 'User Profile',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。',
+                  en: 'Maintain a global user profile (language style, focus areas, communication preferences). When non-empty, the profile is woven into the system prompt of every thread template so the AI feels personalised; self-learning incrementally refines it.',
+                ),
+                control: const Align(
+                  alignment: Alignment.centerLeft,
+                  child: _UserProfileSettingsButton(),
                 ),
               ),
             ],

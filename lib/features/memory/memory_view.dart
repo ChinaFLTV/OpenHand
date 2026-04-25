@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -21,24 +19,20 @@ const int _memoryTagPreviewLimit = 8;
 enum _MemoryDisplayItemKind { profile, autoLearned, regular }
 
 class _MemoryDisplayItem {
-  const _MemoryDisplayItem._({
-    required this.kind,
-    this.entry,
-    this.entries = const <UserMemoryEntry>[],
-  });
+  const _MemoryDisplayItem._({required this.kind, this.entry});
 
+  // ignore: unused_element
   const _MemoryDisplayItem.profile(UserMemoryEntry entry)
     : this._(kind: _MemoryDisplayItemKind.profile, entry: entry);
 
-  const _MemoryDisplayItem.autoLearned(List<UserMemoryEntry> entries)
-    : this._(kind: _MemoryDisplayItemKind.autoLearned, entries: entries);
+  const _MemoryDisplayItem.autoLearned(UserMemoryEntry entry)
+    : this._(kind: _MemoryDisplayItemKind.autoLearned, entry: entry);
 
   const _MemoryDisplayItem.regular(UserMemoryEntry entry)
     : this._(kind: _MemoryDisplayItemKind.regular, entry: entry);
 
   final _MemoryDisplayItemKind kind;
   final UserMemoryEntry? entry;
-  final List<UserMemoryEntry> entries;
 }
 
 class MemoryView extends StatelessWidget {
@@ -193,6 +187,9 @@ class MemoryView extends StatelessWidget {
     final regular = <UserMemoryEntry>[];
     for (final entry in entries) {
       if (entry.type == UserMemoryEntry.userProfileType && profile == null) {
+        // 2026-04-25: 用户画像已迁移至 全局设置 → AI 设置 → 会话设置 中独立
+        // 维护，记忆面板不再展示该条目（避免重复入口与误删风险）。仍然保留
+        // 解析逻辑以便保持向后兼容并准确分流剩余条目。
         profile = entry;
         continue;
       }
@@ -202,16 +199,25 @@ class MemoryView extends StatelessWidget {
       }
       regular.add(entry);
     }
+    // `profile` 仅用于上面分流，避免再被纳入 autoLearned/regular 列表；
+    // 实际渲染由全局设置 → AI 设置 → 会话设置中的 "用户画像" 入口接管。
+    // ignore: unused_local_variable
+    final _ = profile;
 
     final items = <_MemoryDisplayItem>[];
-    if (profile != null) {
-      items.add(_MemoryDisplayItem.profile(profile));
-    }
-    if (autoLearned.isNotEmpty) {
-      items.add(_MemoryDisplayItem.autoLearned(autoLearned));
+    for (final entry in autoLearned) {
+      items.add(_MemoryDisplayItem.autoLearned(entry));
     }
     for (final entry in regular) {
       items.add(_MemoryDisplayItem.regular(entry));
+    }
+    if (items.isEmpty) {
+      return _MemoryStateCard(
+        key: const ValueKey<String>('memory-empty-after-filter'),
+        icon: Icons.psychology_alt_outlined,
+        title: l10n.memoryEmptyTitle,
+        body: l10n.memoryEmptyBody,
+      );
     }
 
     return ListView.separated(
@@ -246,17 +252,16 @@ class MemoryView extends StatelessWidget {
               ),
             );
           case _MemoryDisplayItemKind.autoLearned:
+            final entry = item.entry!;
             return AppearOnce(
-              key: const ValueKey<String>('memory-auto-learned-appear'),
+              key: ValueKey<String>('memory-auto-learned-appear-${entry.id}'),
               child: RepaintBoundary(
-                child: _AutoLearnedSection(
-                  key: const PageStorageKey<String>(
-                    'memory-auto-learned-section',
-                  ),
-                  entries: item.entries,
-                  onTapEntry: (entry) =>
+                child: _MemoryEntryCard(
+                  key: ValueKey<String>('memory-auto-learned-${entry.id}'),
+                  entry: entry,
+                  onTap: () =>
                       _showMemoryDialog(context, initialEntry: entry),
-                  onActionSelected: (entry, action) {
+                  onActionSelected: (action) {
                     switch (action) {
                       case _MemoryCardAction.edit:
                         _showMemoryDialog(context, initialEntry: entry);
@@ -811,6 +816,40 @@ class _MemoryEntryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 10),
+              ] else if (isAutoLearned) ...[
+                // 顶部"自主学习"标签胶囊：与普通记忆卡片视觉区别仅此一处，
+                // 卡片其余样式与普通卡片完全一致（无背景色差、无外层包裹）。
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer.withValues(
+                      alpha: 0.7,
+                    ),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_outlined,
+                        size: 14,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '自主学习 · Auto-learned',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onTertiaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
               ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,11 +924,6 @@ class _MemoryEntryCard extends StatelessWidget {
                     ),
                     label: Text(isProfile ? '用户画像' : l10n.memoryTypeUser),
                   ),
-                  if (isAutoLearned)
-                    const Chip(
-                      avatar: Icon(Icons.auto_awesome_outlined, size: 18),
-                      label: Text(UserMemoryEntry.autoLearnedTag),
-                    ),
                   for (final tag in visibleTags)
                     Chip(
                       avatar: const Icon(Icons.sell_outlined, size: 18),
@@ -918,120 +952,6 @@ class _MemoryEntryCard extends StatelessWidget {
       alwaysUse24HourFormat: true,
     );
     return '$date $time';
-  }
-}
-
-class _AutoLearnedSection extends StatefulWidget {
-  const _AutoLearnedSection({
-    super.key,
-    required this.entries,
-    required this.onTapEntry,
-    required this.onActionSelected,
-  });
-
-  final List<UserMemoryEntry> entries;
-  final ValueChanged<UserMemoryEntry> onTapEntry;
-  final void Function(UserMemoryEntry entry, _MemoryCardAction action)
-  onActionSelected;
-
-  @override
-  State<_AutoLearnedSection> createState() => _AutoLearnedSectionState();
-}
-
-class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: colorScheme.secondaryContainer.withValues(alpha: 0.35),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Row(
-                children: [
-                  Icon(Icons.auto_awesome_outlined, color: colorScheme.primary),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '自主学习 · Auto-learned (${widget.entries.length})',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    _expanded
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Smoothly grow / shrink the auto-learned drawer.  AnimatedSize is
-          // a RenderObject animation (not ticker-based), so it composes
-          // safely with the surrounding ListView.separated.  We pair it with
-          // an AnimatedOpacity for a coordinated fade so the bottom edge
-          // does not appear to "wipe" the cards in.
-          AnimatedSize(
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 200),
-              opacity: _expanded ? 1.0 : 0.0,
-              curve: Curves.easeOut,
-              child: _expanded
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Divider(height: 1),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                          child: SizedBox(
-                            height: math.min(
-                              520.0,
-                              widget.entries.length * 132.0,
-                            ),
-                            child: ListView.separated(
-                              primary: false,
-                              padding: EdgeInsets.zero,
-                              itemCount: widget.entries.length,
-                              separatorBuilder: (context, index) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final entry = widget.entries[index];
-                                return _MemoryEntryCard(
-                                  key: ValueKey<String>(
-                                    'memory-autolearned-${entry.id}',
-                                  ),
-                                  entry: entry,
-                                  onTap: () => widget.onTapEntry(entry),
-                                  onActionSelected: (action) =>
-                                      widget.onActionSelected(entry, action),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : const SizedBox(width: double.infinity),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

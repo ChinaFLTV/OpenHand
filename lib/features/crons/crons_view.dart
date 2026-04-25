@@ -348,22 +348,10 @@ class _CronEntryCard extends StatelessWidget {
                 // Toggle switch
                 Switch(value: entry.enabled, onChanged: onToggle),
                 const SizedBox(width: 8),
-                // 2026-04-25 (Task 20) — system-managed entries show a lock
-                // icon and disable the edit/delete actions. The enabled
-                // toggle stays active so the user may still pause them.
-                if (entry.tags.contains('system')) ...[
-                  Tooltip(
-                    message: isZh
-                        ? '系统任务：仅可启用/禁用，无法编辑或删除'
-                        : 'System job: enable/disable only; cannot edit or delete',
-                    child: Icon(
-                      Icons.lock_outline_rounded,
-                      size: 20,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                // 2026-04-25 — system entries (e.g. Hermes Talker self-
+                // learning) no longer show a lock icon. Toggle stays
+                // enabled, but edit/delete remain disabled below to keep
+                // the cron parameters immutable.
                 // Actions
                 IconButton(
                   icon: const Icon(Icons.bolt_rounded, size: 20),

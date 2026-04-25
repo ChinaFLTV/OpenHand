@@ -254,12 +254,14 @@ class AiPromptBuilder {
         content: isCompactTemplate
             ? '# [4] User Memory\n\n'
                   'Integrate memory facts naturally — do not hint at their source.\n\n'
+                  '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
             : '# [4] User Memory (long-term facts)\n\n'
                   'IMPORTANT: Integrate memory facts naturally into your responses. '
                   'Do NOT explicitly state or hint that information comes from memory, '
                   'saved notes, or prior records. Use memory content as if it is common '
                   'knowledge you already possess.\n\n'
+                  '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
       AiChatTurn(
@@ -1225,10 +1227,16 @@ class AiPromptBuilder {
     if (!memoryEnabled) {
       return 'Memory is disabled for the current runtime request.';
     }
-    if (memoryEntries.isEmpty) {
+    // 2026-04-25: 用户画像由专门的 [User Profile] 段单独渲染（见
+    // [_renderUserProfileSection]），此处需要排除掉 user_profile 条目，
+    // 以免在系统提示中重复出现同一段画像内容。
+    final filtered = memoryEntries
+        .where((e) => e.type != UserMemoryEntry.userProfileType)
+        .toList(growable: false);
+    if (filtered.isEmpty) {
       return 'No saved user memory entries.';
     }
-    return memoryEntries
+    return filtered
         .map((entry) {
           final tags = entry.tags.isEmpty
               ? ''
@@ -1236,6 +1244,39 @@ class AiPromptBuilder {
           return '- ${entry.content}$tags';
         })
         .join('\n');
+  }
+
+  /// 渲染用户画像独立子段。当 user_profile 为空 / memory 被关闭时返回空字符串
+  /// （连同后续 `_renderUserMemory` 一起就只剩通用记忆段，不破坏原有结构）。
+  ///
+  /// 紧凑模板下省略冗长的解释性文字以节省 token；完整模板下提供更明确的指
+  /// 引，告知模型该段是稳定的长期画像，应当无痕融入回复风格。
+  String _renderUserProfileSection(
+    List<UserMemoryEntry> memoryEntries,
+    bool memoryEnabled, {
+    required bool compact,
+  }) {
+    if (!memoryEnabled) return '';
+    UserMemoryEntry? profile;
+    for (final entry in memoryEntries) {
+      if (entry.type == UserMemoryEntry.userProfileType) {
+        profile = entry;
+        break;
+      }
+    }
+    final content = profile?.content.trim() ?? '';
+    if (content.isEmpty) return '';
+    if (compact) {
+      return '## User Profile\n$content\n\n';
+    }
+    return '## User Profile\n'
+        'The following describes the user\'s stable long-term preferences, '
+        'communication style, and focus areas. Treat this as the baseline '
+        'persona context for the entire conversation: every reply should '
+        'feel naturally aligned with this profile (tone, depth, vocabulary, '
+        'topics of interest), without ever paraphrasing or referencing the '
+        'profile itself.\n\n'
+        '$content\n\n';
   }
 
   String _renderCompressionSummary(

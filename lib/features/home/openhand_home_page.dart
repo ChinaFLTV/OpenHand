@@ -64,6 +64,7 @@ import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
 import '../ai/tools/ai_ask_user_choice_tool.dart';
+import '../crons/crons_controller.dart';
 import '../crons/crons_view.dart';
 import '../hardness/hardness_api_phase_runner.dart';
 import '../hardness/hardness_cli_catalog.dart';

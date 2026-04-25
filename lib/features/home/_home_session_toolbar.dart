@@ -99,6 +99,8 @@ class _SessionToolbar extends StatelessWidget {
                               label:
                                   '${session.templateName} · v${session.templateInternalVersion}',
                             ),
+                            if (session.templateId == 'hermes_talker')
+                              const _HermesSelfLearningWarningPill(),
                             const SizedBox(width: 8),
                             _ToolbarPill(
                               icon: Icons.data_object_rounded,
@@ -304,6 +306,77 @@ class _ToolbarPill extends StatelessWidget {
           theme.colorScheme.primary.withValues(alpha: 0.08),
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+/// 当 Hermes Talker 自我学习 cron 被关闭时，在 Hermes Talker 线程会话顶部
+/// 显示的警告胶囊。鼠标悬浮可看到详细说明，引导用户去 cron 面板重新启用。
+///
+/// 通过 `context.watch<CronsController>()` 实时跟随启停状态——一旦用户
+/// 在 cron 面板里把开关打回去，警告会自动消失。
+class _HermesSelfLearningWarningPill extends StatelessWidget {
+  const _HermesSelfLearningWarningPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final crons = context.watch<CronsController>();
+    final entry = crons.entries
+        .where((e) => e.id == CronsController.selfLearningSystemEntryId)
+        .firstOrNull;
+    final enabled = entry?.enabled ?? false;
+    if (enabled) {
+      return const SizedBox.shrink();
+    }
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final tooltip = isZh
+        ? '当前 Hermes Talker 自主学习能力已关闭。\n\n'
+              '影响：AI 不会在后台周期性地把本会话沉淀的偏好、画像、'
+              '通用记忆与可复用技能持久化到长期记忆库——下次新会话将无法'
+              '基于这些信息做更贴心的回应。\n\n'
+              '建议：前往「定时任务」面板，把 “Hermes Talker 自我学习” '
+              '开关打开即可恢复。'
+        : 'Hermes Talker self-learning is currently disabled.\n\n'
+              'Impact: the agent will not periodically persist the '
+              'preferences, profile, general memories or reusable skills '
+              'absorbed from this conversation. Future sessions will lose '
+              'this background context.\n\n'
+              'Tip: open the Crons panel and re-enable '
+              '"Hermes Talker 自我学习" to resume.';
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 200),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: colorScheme.errorContainer.withValues(alpha: 0.55),
+            borderRadius: _borderRadius999,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 16,
+                color: colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                isZh ? '自主学习已关闭' : 'Self-learning off',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

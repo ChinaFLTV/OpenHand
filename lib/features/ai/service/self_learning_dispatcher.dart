@@ -102,6 +102,12 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     var skillCallsOk = 0;
     var skillCallsError = 0;
     final toolCallsLog = <Map<String, Object?>>[];
+    // 2026-04-25: 把每一次成功的工具调用拆成 {id, summary} 卡片项，分别归类到
+    // memory_changes / profile_changes / skill_changes，供 _SelfLearningCard
+    // 渲染。仅记录成功的调用——失败的会进 toolCallsLog 但不影响 UI 摘要。
+    final memoryChanges = <Map<String, Object?>>[];
+    final profileChanges = <Map<String, Object?>>[];
+    final skillChanges = <Map<String, Object?>>[];
     var lastReply = '';
     var roundsRun = 0;
     var terminatedReason = 'completed';
@@ -179,6 +185,27 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             ok = r.stderr.isEmpty;
             if (ok) {
               memoryCallsOk += 1;
+              final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+              final content = '${args['content'] ?? ''}';
+              final id = '${args['id'] ?? ''}'.trim();
+              final summary = _summariseMemoryArgs(action, content);
+              if (action == 'upsert_profile') {
+                profileChanges.add(<String, Object?>{
+                  'id': id.isEmpty ? 'user_profile' : id,
+                  'summary': summary,
+                  'action': action,
+                });
+              } else if (action == 'append' ||
+                  action == 'update' ||
+                  action == 'delete') {
+                memoryChanges.add(<String, Object?>{
+                  'id': id.isEmpty
+                      ? (action == 'append' ? '(new)' : '(unknown)')
+                      : id,
+                  'summary': summary,
+                  'action': action,
+                });
+              }
             } else {
               memoryCallsError += 1;
             }
@@ -189,6 +216,14 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             ok = r.stderr.isEmpty;
             if (ok) {
               skillCallsOk += 1;
+              final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+              final id = '${args['name'] ?? args['id'] ?? ''}'.trim();
+              final summary = _summariseSkillArgs(args);
+              skillChanges.add(<String, Object?>{
+                'id': id.isEmpty ? '(unnamed)' : id,
+                'summary': summary,
+                'action': action,
+              });
             } else {
               skillCallsError += 1;
             }
@@ -255,6 +290,9 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         'memory_errors': memoryCallsError,
         'skill_updates': skillCallsOk,
         'skill_errors': skillCallsError,
+        'memory_changes': memoryChanges,
+        'profile_changes': profileChanges,
+        'skill_changes': skillChanges,
         'tool_call_rounds': roundsRun,
         'terminated_reason': terminatedReason,
         if (toolCallsLog.isNotEmpty) 'tool_calls': toolCallsLog,
@@ -263,5 +301,34 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       aiResponse: responseBuffer.isEmpty ? null : responseBuffer.toString(),
       aiReasoning: reasoningBuffer.isEmpty ? null : reasoningBuffer.toString(),
     );
+  };
+}
+
+/// 把一次 memory 工具调用的 args 浓缩成一段中文摘要，最多 120 字。
+String _summariseMemoryArgs(String action, String content) {
+  final flat = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final preview = flat.length <= 120 ? flat : '${flat.substring(0, 117)}…';
+  return switch (action) {
+    'append' => preview.isEmpty ? '追加一条记忆' : preview,
+    'update' => preview.isEmpty ? '更新记忆内容' : preview,
+    'delete' => '删除该条记忆',
+    'upsert_profile' => preview.isEmpty ? '更新用户画像' : preview,
+    _ => preview,
+  };
+}
+
+/// 把一次 skill_manager 工具调用的 args 浓缩成一段中文摘要。
+String _summariseSkillArgs(Map<String, Object?> args) {
+  final action = '${args['action'] ?? ''}'.trim().toLowerCase();
+  final desc = '${args['description'] ?? args['summary'] ?? ''}';
+  final flat = desc.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final preview = flat.length <= 120 ? flat : '${flat.substring(0, 117)}…';
+  if (preview.isNotEmpty) return preview;
+  return switch (action) {
+    'create' => '新增技能',
+    'patch' => '细调技能',
+    'edit' => '重写技能',
+    'delete' => '删除技能',
+    _ => action.isEmpty ? '技能操作' : action,
   };
 }
