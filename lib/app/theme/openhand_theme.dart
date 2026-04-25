@@ -4,11 +4,36 @@ import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
 abstract final class OpenHandTheme {
+  // 2026-04-25 perf — ThemeData construction (ColorScheme.fromSeed +
+  // OpenHandPalette + ~30 component sub-themes) is non-trivial and runs on
+  // every OpenHandApp.build(). MaterialApp rebuilds frequently from
+  // SettingsController notifications even when neither brightness nor
+  // preset changed (e.g. unrelated locale or model-list updates), so cache
+  // by (brightness, preset.id) to avoid recomputing identical themes.
+  // Bounded to 8 entries (2 brightnesses × N presets); cheap LRU eviction.
+  static final Map<String, ThemeData> _cache = <String, ThemeData>{};
+  static const int _cacheLimit = 8;
+
   static ThemeData light(OpenHandThemePreset preset) =>
-      _buildTheme(Brightness.light, preset);
+      _cachedTheme(Brightness.light, preset);
 
   static ThemeData dark(OpenHandThemePreset preset) =>
-      _buildTheme(Brightness.dark, preset);
+      _cachedTheme(Brightness.dark, preset);
+
+  static ThemeData _cachedTheme(
+    Brightness brightness,
+    OpenHandThemePreset preset,
+  ) {
+    final key = '${brightness.name}:${preset.name}';
+    final cached = _cache[key];
+    if (cached != null) {
+      return cached;
+    }
+    if (_cache.length >= _cacheLimit) {
+      _cache.remove(_cache.keys.first);
+    }
+    return _cache[key] = _buildTheme(brightness, preset);
+  }
 
   static ThemeData _buildTheme(
     Brightness brightness,
