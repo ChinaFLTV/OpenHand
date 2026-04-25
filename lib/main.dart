@@ -11,11 +11,11 @@ import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
 import 'features/ai/ai_session_controller.dart';
-import 'features/ai/model/ai_model_config.dart';
 import 'features/ai/service/ai_chat_service.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
 import 'features/ai/service/ai_protocol_adapter.dart' as ai_protocol_adapter;
 import 'features/ai/service/lsp_client_service.dart';
+import 'features/ai/service/self_learning_dispatcher.dart';
 import 'features/ai/service/self_learning_runner.dart';
 import 'features/ai/service/self_learning_scheduler.dart';
 import 'features/crons/crons_controller.dart';
@@ -160,100 +160,20 @@ Future<void> _bootstrap() async {
   // and register the `agent` cron handler so the system-managed
   // `self_learning.hermes_talker` entry can fire every 5 minutes.
   //
-  // The dispatcher issues a single non-tool text-in/text-out chat call to
-  // the session's last-used model (falling back to the globally selected
-  // model) and records the reply + reasoning content on the self-learning
-  // card. This gives the user visibility into *why* the AI did or did not
-  // learn anything on a given tick (see the `AI 响应` / `AI 思考` expanders
-  // on the self-learning card).
+  // The dispatcher runs a restricted sub-agent: it exposes ONLY the `Memory`
+  // and `SkillManager` built-in tools to the model and drives a streaming
+  // tool-call loop so the LLM can actually persist memory / profile / skill
+  // changes (not just summarise them). Text + reasoning deltas are piped
+  // into the self-learning card for live observability.
   final selfLearningChatClient = AiChatService();
   final selfLearningRunner = SelfLearningRunner(
     sessionController: aiSessionController,
     memoryController: memoryController,
-    llmDispatcher: (context) async {
-      final session = context.session;
-      final providerConfigId = session.lastUsedModelId?.trim();
-      final models = settingsController.aiModels;
-      AiModelConfig? selected;
-      if (providerConfigId != null && providerConfigId.isNotEmpty) {
-        for (final candidate in models) {
-          if (candidate.id == providerConfigId) {
-            selected = candidate;
-            break;
-          }
-        }
-      }
-      selected ??= settingsController.selectedAiModel;
-      if (selected == null) {
-        return const SelfLearningOutcome(
-          summary: '未找到可用的 AI 模型配置，无法执行自主学习。',
-          mutations: <String, Object?>{'status_detail': 'no_model'},
-        );
-      }
-      final responseTimeout = Duration(
-        seconds: settingsController.aiResponseTimeoutSeconds,
-      );
-      final streaming = await selfLearningChatClient.sendMessageStream(
-        model: selected,
-        messages: <ai_protocol_adapter.AiChatTurn>[
-          ai_protocol_adapter.AiChatTurn(
-            role: ai_protocol_adapter.AiChatRole.system,
-            content: context.prompt,
-          ),
-          const ai_protocol_adapter.AiChatTurn(
-            role: ai_protocol_adapter.AiChatRole.user,
-            content: '请按系统提示执行本轮自我学习，并用中文总结本轮学到的要点。',
-          ),
-        ],
-        timeout: responseTimeout,
-      );
-      final responseBuffer = StringBuffer();
-      final reasoningBuffer = StringBuffer();
-      final progress = context.onProgress;
-      final eventsSubFuture = streaming.events.listen((event) {
-        switch (event.type) {
-          case AiChatStreamEventType.textDelta:
-            if (event.textDelta != null) {
-              responseBuffer.write(event.textDelta);
-              if (progress != null) {
-                // Fire-and-forget; runner debounces persistence internally.
-                progress(aiResponse: responseBuffer.toString());
-              }
-            }
-            break;
-          case AiChatStreamEventType.reasoningDelta:
-            if (event.reasoningDelta != null) {
-              reasoningBuffer.write(event.reasoningDelta);
-              if (progress != null) {
-                progress(aiReasoning: reasoningBuffer.toString());
-              }
-            }
-            break;
-          case AiChatStreamEventType.toolCallDelta:
-          case AiChatStreamEventType.usage:
-            break;
-        }
-      }).asFuture<void>();
-      final result = await streaming.result;
-      await eventsSubFuture;
-      final reply = result.reply.trim();
-      final reasoning = result.reasoning.trim();
-      final summary = reply.isEmpty
-          ? '模型返回为空，本轮未产生可用学习内容。'
-          : (reply.length <= 160
-              ? reply
-              : '${reply.substring(0, 157)}…');
-      return SelfLearningOutcome(
-        summary: summary,
-        mutations: <String, Object?>{
-          'model_id': selected.modelId,
-          'provider_id': selected.id,
-          if (result.usage != null) 'usage': result.usage!.toJson(),
-        },
-        aiResponse: reply.isEmpty ? null : reply,
-        aiReasoning: reasoning.isEmpty ? null : reasoning,
-      );
-    },
+    llmDispatcher: buildSelfLearningDispatcher(
+      chatClient: selfLearningChatClient,
+      settingsController: settingsController,
+      memoryController: memoryController,
+    ),
   );
   final selfLearningScheduler = SelfLearningScheduler(
     sessionStore: aiSessionController.store,
