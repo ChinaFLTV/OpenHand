@@ -966,32 +966,57 @@ class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
               ),
             ),
           ),
-          if (_expanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: SizedBox(
-                height: math.min(520.0, widget.entries.length * 132.0),
-                child: ListView.separated(
-                  primary: false,
-                  padding: EdgeInsets.zero,
-                  itemCount: widget.entries.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final entry = widget.entries[index];
-                    return _MemoryEntryCard(
-                      key: ValueKey<String>('memory-autolearned-${entry.id}'),
-                      entry: entry,
-                      onTap: () => widget.onTapEntry(entry),
-                      onActionSelected: (action) =>
-                          widget.onActionSelected(entry, action),
-                    );
-                  },
-                ),
-              ),
+          // Smoothly grow / shrink the auto-learned drawer.  AnimatedSize is
+          // a RenderObject animation (not ticker-based), so it composes
+          // safely with the surrounding ListView.separated.  We pair it with
+          // an AnimatedOpacity for a coordinated fade so the bottom edge
+          // does not appear to "wipe" the cards in.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _expanded ? 1.0 : 0.0,
+              curve: Curves.easeOut,
+              child: _expanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(height: 1),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                          child: SizedBox(
+                            height: math.min(
+                              520.0,
+                              widget.entries.length * 132.0,
+                            ),
+                            child: ListView.separated(
+                              primary: false,
+                              padding: EdgeInsets.zero,
+                              itemCount: widget.entries.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final entry = widget.entries[index];
+                                return _MemoryEntryCard(
+                                  key: ValueKey<String>(
+                                    'memory-autolearned-${entry.id}',
+                                  ),
+                                  entry: entry,
+                                  onTap: () => widget.onTapEntry(entry),
+                                  onActionSelected: (action) =>
+                                      widget.onActionSelected(entry, action),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(width: double.infinity),
             ),
-          ],
+          ),
         ],
       ),
     );

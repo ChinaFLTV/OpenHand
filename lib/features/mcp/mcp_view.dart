@@ -1427,43 +1427,50 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
           ],
         ),
         const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final tool in previewTools)
-                ActionChip(
-                  avatar: Icon(
-                    tool.hasMetadataWarning
-                        ? Icons.warning_amber_rounded
-                        : Icons.build_circle_outlined,
-                    size: 18,
+        // Wrap chip count animates smoothly when the user expands /
+        // collapses the preview, instead of snapping to the new height.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final tool in previewTools)
+                  ActionChip(
+                    avatar: Icon(
+                      tool.hasMetadataWarning
+                          ? Icons.warning_amber_rounded
+                          : Icons.build_circle_outlined,
+                      size: 18,
+                    ),
+                    label: Text(tool.name),
+                    onPressed: () {
+                      _showToolDetailsDialog(
+                        context,
+                        mcpController: context.read<McpController>(),
+                        server: widget.server,
+                        toolCatalog: widget.toolCatalog,
+                        tool: tool,
+                      );
+                    },
                   ),
-                  label: Text(tool.name),
-                  onPressed: () {
-                    _showToolDetailsDialog(
-                      context,
-                      mcpController: context.read<McpController>(),
-                      server: widget.server,
-                      toolCatalog: widget.toolCatalog,
-                      tool: tool,
-                    );
-                  },
-                ),
-              if (hiddenToolCount > 0)
-                Chip(
-                  avatar: const Icon(Icons.more_horiz_rounded),
-                  label: Text(
-                    _localizedText(
-                      context,
-                      zh: '还有 $hiddenToolCount 个',
-                      en: '+$hiddenToolCount more',
+                if (hiddenToolCount > 0)
+                  Chip(
+                    avatar: const Icon(Icons.more_horiz_rounded),
+                    label: Text(
+                      _localizedText(
+                        context,
+                        zh: '还有 $hiddenToolCount 个',
+                        en: '+$hiddenToolCount more',
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
