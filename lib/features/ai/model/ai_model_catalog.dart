@@ -37,6 +37,11 @@ class AiModelCatalog {
       AiProtocolType.kimi => _kimi(id),
       AiProtocolType.seed => _seed(id),
       AiProtocolType.stepfun => _stepfun(id),
+      AiProtocolType.minimax => _minimax(id),
+      AiProtocolType.longcat => _longcat(id),
+      AiProtocolType.joycode => _joycode(id),
+      AiProtocolType.wenxin => _wenxin(id),
+      AiProtocolType.meta => _meta(id),
       AiProtocolType.grok => _grok(id),
       AiProtocolType.hunyuan => _hunyuan(id),
       AiProtocolType.mimo => _mimo(id),
@@ -59,6 +64,11 @@ class AiModelCatalog {
         _kimi(id) ??
         _seed(id) ??
         _stepfun(id) ??
+        _minimax(id) ??
+        _longcat(id) ??
+        _joycode(id) ??
+        _wenxin(id) ??
+        _meta(id) ??
         _grok(id) ??
         _hunyuan(id);
   }
@@ -196,7 +206,17 @@ class AiModelCatalog {
       );
     }
 
-    // ── GPT-5.4 series ───────────────────────────────────────────────────
+    // ── GPT-5.5 / GPT-5.4 series ────────────────────────────────────────
+    if (id.startsWith('gpt-5.5')) {
+      return _p(
+        name: 'GPT-5.5',
+        desc: 'Flagship with 1M context, vision, and agentic tools',
+        multimodal: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+      );
+    }
     if (id.startsWith('gpt-5.4-nano')) {
       return _p(
         name: 'GPT-5.4 Nano',
@@ -318,6 +338,40 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _claude(String id) {
+    // ── Claude 4.7 / 4.6 / 4.5 ─────────────────────────────────────────
+    if (id.contains('opus-4-7') || id.contains('4.7-opus')) {
+      return _p(
+        name: 'Claude Opus 4.7',
+        desc: 'Most capable Claude model with extended thinking',
+        multimodal: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+      );
+    }
+    if (id.contains('sonnet-4-6') || id.contains('4.6-sonnet')) {
+      return _p(
+        name: 'Claude Sonnet 4.6',
+        desc: 'High-performance Claude model with extended thinking',
+        multimodal: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 64000,
+        thinking: 64000,
+      );
+    }
+    if (id.contains('haiku-4-5') || id.contains('4.5-haiku')) {
+      return _p(
+        name: 'Claude Haiku 4.5',
+        desc: 'Fast Claude 4.5 model with vision',
+        multimodal: true,
+        modalities: _textImage,
+        context: 200000,
+        output: 64000,
+      );
+    }
+
     // ── Claude 4 ─────────────────────────────────────────────────────────
     if (id.startsWith('claude-4-opus') || id.startsWith('claude-opus-4')) {
       return _p(
@@ -508,6 +562,28 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _deepseek(String id) {
+    // ── V4 family ───────────────────────────────────────────────────────
+    if (id.startsWith('deepseek-v4-flash')) {
+      return _p(
+        name: 'DeepSeek V4 Flash',
+        desc: 'Fast latest-generation model with optional thinking',
+        context: 1000000,
+        output: 384000,
+        thinking: 384000,
+      );
+    }
+    if (id.startsWith('deepseek-v4-pro') || id.startsWith('deepseek-v4')) {
+      return _p(
+        name: id.startsWith('deepseek-v4-pro')
+            ? 'DeepSeek V4 Pro'
+            : 'DeepSeek V4',
+        desc: 'Latest DeepSeek model with long context and thinking mode',
+        context: 1000000,
+        output: 384000,
+        thinking: 384000,
+      );
+    }
+
     // ── Distilled models ─────────────────────────────────────────────────
     if (id.startsWith('deepseek-r1-distill')) {
       return _p(
@@ -1040,6 +1116,15 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kimi(String id) {
+    if (id.contains('kimi-k2.6') || id.contains('kimi-k2-6')) {
+      return _p(
+        name: 'Kimi K2.6',
+        desc: 'Latest flagship reasoning and agent model',
+        context: 262144,
+        output: 98304,
+        thinking: 81920,
+      );
+    }
     if (id.contains('kimi-k2.5') || id.contains('kimi-k2-5')) {
       return _p(
         name: 'Kimi K2.5',
@@ -1445,6 +1530,265 @@ class AiModelCatalog {
       return _p(name: 'Hunyuan', desc: 'Tencent Hunyuan model');
     }
 
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MiniMax
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _minimax(String id) {
+    if (id.contains('image')) {
+      return _p(
+        name: 'MiniMax Image',
+        desc: 'Image generation model',
+        capabilities: _imageGen,
+      );
+    }
+    if (id.contains('video')) {
+      return _p(
+        name: 'MiniMax Video',
+        desc: 'Video generation model',
+        capabilities: _videoGen,
+      );
+    }
+    if (id.contains('speech') || id.contains('audio') || id.contains('music')) {
+      return _p(
+        name: 'MiniMax Audio',
+        desc: 'Audio generation model',
+        capabilities: const <AiModelCapability>{
+          AiModelCapability.audioGeneration,
+        },
+      );
+    }
+    if (id.contains('m2.7') || id.contains('m2-7')) {
+      return _p(
+        name: 'MiniMax M2.7',
+        desc: 'Flagship agent and reasoning model',
+        context: 204000,
+        output: 131000,
+        thinking: 131000,
+      );
+    }
+    if (id.contains('m2.5') || id.contains('m2-5')) {
+      return _p(
+        name: 'MiniMax M2.5',
+        desc: 'Long-context reasoning and coding model',
+        context: 196000,
+        output: 32768,
+        thinking: 32768,
+      );
+    }
+    if (id.contains('m1')) {
+      return _p(
+        name: 'MiniMax M1',
+        desc: 'Hybrid reasoning model',
+        context: 1000000,
+        output: 8000,
+        thinking: 80000,
+      );
+    }
+    if (id.contains('abab')) {
+      return _p(
+        name: 'MiniMax ABAB',
+        desc: 'General-purpose MiniMax chat model',
+        context: 245000,
+        output: 8000,
+      );
+    }
+    if (id.startsWith('minimax') || id.startsWith('mini-max')) {
+      return _p(name: 'MiniMax', desc: 'MiniMax model');
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LongCat
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _longcat(String id) {
+    if (id.contains('vision') || id.contains('-vl') || id.contains('_vl')) {
+      return _p(
+        name: 'LongCat Vision',
+        desc: 'LongCat multimodal model',
+        multimodal: true,
+        modalities: _textImage,
+        context: 128000,
+        output: 32768,
+      );
+    }
+    if (id.contains('flash')) {
+      return _p(
+        name: 'LongCat Flash',
+        desc: 'Fast long-context chat model',
+        context: 128000,
+        output: 32768,
+      );
+    }
+    if (id.startsWith('longcat')) {
+      return _p(
+        name: 'LongCat',
+        desc: 'Long-context chat model',
+        context: 128000,
+        output: 32768,
+      );
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // JoyCode / JoyCoder
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _joycode(String id) {
+    if (id.contains('joycoder') || id.contains('joycode')) {
+      return _p(
+        name: id.contains('coder') ? 'JoyCoder' : 'JoyCode',
+        desc: 'Coding-focused model for agentic development tasks',
+        context: 128000,
+        output: 32768,
+      );
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Wenxin / ERNIE (Baidu 文心一言)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _wenxin(String id) {
+    if (id.contains('ernie-vilg') || id.contains('image')) {
+      return _p(
+        name: 'ERNIE Image',
+        desc: 'Baidu image generation model',
+        capabilities: _imageGen,
+      );
+    }
+    if (id.contains('ernie-4.5-vl') ||
+        id.contains('ernie-4-5-vl') ||
+        id.contains('ernie-vl')) {
+      return _p(
+        name: 'ERNIE 4.5 VL',
+        desc: 'Baidu multimodal vision model',
+        multimodal: true,
+        modalities: _textImage,
+        context: 131072,
+        output: 8192,
+      );
+    }
+    if (id.contains('ernie-x1')) {
+      return _p(
+        name: 'ERNIE X1',
+        desc: 'Baidu deep reasoning model',
+        context: 128000,
+        output: 32768,
+        thinking: 32768,
+      );
+    }
+    if (id.contains('ernie-4.5') || id.contains('ernie-4-5')) {
+      return _p(
+        name: 'ERNIE 4.5',
+        desc: 'Baidu flagship text model',
+        context: 128000,
+        output: 32768,
+      );
+    }
+    if (id.contains('ernie-4') || id.contains('ernie-bot-4')) {
+      return _p(
+        name: 'ERNIE 4.0',
+        desc: 'Baidu ERNIE flagship model',
+        context: 128000,
+        output: 8192,
+      );
+    }
+    if (id.contains('ernie-3.5') || id.contains('ernie-bot')) {
+      return _p(
+        name: 'ERNIE 3.5',
+        desc: 'Baidu ERNIE general-purpose model',
+        context: 128000,
+        output: 8192,
+      );
+    }
+    if (id.contains('ernie') || id.contains('wenxin')) {
+      return _p(name: 'ERNIE', desc: 'Baidu Wenxin / ERNIE model');
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Meta AI / Llama
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static AiModelProfile? _meta(String id) {
+    if (id.contains('llama-4-scout') || id.contains('llama4-scout')) {
+      return _p(
+        name: 'Llama 4 Scout',
+        desc: 'Meta multimodal long-context model',
+        multimodal: true,
+        modalities: _textImage,
+        context: 10000000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-4-maverick') || id.contains('llama4-maverick')) {
+      return _p(
+        name: 'Llama 4 Maverick',
+        desc: 'Meta multimodal flagship model',
+        multimodal: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-4') || id.contains('llama4')) {
+      return _p(
+        name: 'Llama 4',
+        desc: 'Meta multimodal model family',
+        multimodal: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-3.2-vision') ||
+        id.contains('llama3.2-vision') ||
+        id.contains('llama-3-2-vision')) {
+      return _p(
+        name: 'Llama 3.2 Vision',
+        desc: 'Meta image understanding model',
+        multimodal: true,
+        modalities: _textImage,
+        context: 128000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-3.3') || id.contains('llama3.3')) {
+      return _p(
+        name: 'Llama 3.3',
+        desc: 'Meta text model',
+        context: 128000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-3.1') || id.contains('llama3.1')) {
+      return _p(
+        name: 'Llama 3.1',
+        desc: 'Meta long-context text model',
+        context: 128000,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama-3') || id.contains('llama3')) {
+      return _p(
+        name: 'Llama 3',
+        desc: 'Meta open model family',
+        context: 8192,
+        output: 8192,
+      );
+    }
+    if (id.contains('llama') || id.startsWith('meta')) {
+      return _p(name: 'Meta AI', desc: 'Meta AI / Llama model');
+    }
     return null;
   }
 

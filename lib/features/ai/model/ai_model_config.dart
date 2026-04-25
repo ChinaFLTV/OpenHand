@@ -60,6 +60,11 @@ enum AiProtocolType {
   sglang('sglang'),
   seed('seed'),
   stepfun('stepfun'),
+  minimax('minimax'),
+  longcat('longcat'),
+  joycode('joycode'),
+  wenxin('wenxin'),
+  meta('meta'),
   mimo('mimo'),
   hunyuan('hunyuan');
 
@@ -93,6 +98,11 @@ enum AiProtocolType {
       AiProtocolType.sglang => l10n.aiProtocolSglang,
       AiProtocolType.seed => l10n.aiProtocolSeed,
       AiProtocolType.stepfun => l10n.aiProtocolStepFun,
+      AiProtocolType.minimax => l10n.aiProtocolMinimax,
+      AiProtocolType.longcat => l10n.aiProtocolLongCat,
+      AiProtocolType.joycode => l10n.aiProtocolJoyCode,
+      AiProtocolType.wenxin => l10n.aiProtocolWenxin,
+      AiProtocolType.meta => l10n.aiProtocolMeta,
       AiProtocolType.mimo => l10n.aiProtocolMimo,
       AiProtocolType.hunyuan => l10n.aiProtocolHunyuan,
     };

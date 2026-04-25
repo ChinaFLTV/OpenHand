@@ -511,6 +511,21 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiProtocolStepFun => '阶跃星辰';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => 'Wenxin / ERNIE';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI / Llama';
+
+  @override
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
@@ -806,6 +821,95 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get skillsPathSaved => 'スキル保存場所を更新しました';
+
+  @override
+  String get instructionPageTitle => '指示';
+
+  @override
+  String get instructionPageSubtitle =>
+      '再利用できるプロンプト断片を管理します。有効な指示は現在の順序で各スレッドの system prompt に注入され、送信ごとに切り替えられるチップとして入力欄の上に表示されます。';
+
+  @override
+  String get instructionRefresh => '更新';
+
+  @override
+  String get instructionNewEntry => '新規指示';
+
+  @override
+  String get instructionEmptyTitle => '指示はまだありません';
+
+  @override
+  String get instructionEmptyBody =>
+      '最初の再利用可能な指示を作成すると、OpenHand がローカルの指示ストアに保存します。';
+
+  @override
+  String get instructionLoadFailedTitle => '指示ストアを読み込めませんでした';
+
+  @override
+  String get instructionDeleteConfirmTitle => '指示を削除';
+
+  @override
+  String get instructionDeleteConfirmBody => 'この指示を削除しますか？この操作は元に戻せません。';
+
+  @override
+  String get instructionEnabledStatus => '有効・注入中';
+
+  @override
+  String get instructionDisabledStatus => '無効';
+
+  @override
+  String get instructionApplyToChipLabel => '適用先';
+
+  @override
+  String get instructionNotesChipLabel => 'メモ';
+
+  @override
+  String get instructionDialogCreateTitle => '新規指示';
+
+  @override
+  String get instructionDialogEditTitle => '指示を編集';
+
+  @override
+  String get instructionEnabledLabel => '有効';
+
+  @override
+  String get instructionEnabledBody => 'この指示を現在のプロンプトチェーンへ注入します。';
+
+  @override
+  String get instructionNameField => '名前 *';
+
+  @override
+  String get instructionNameRequired => '名前を入力してください。';
+
+  @override
+  String get instructionDescriptionField => '説明';
+
+  @override
+  String get instructionVersionField => 'バージョン';
+
+  @override
+  String get instructionApplyToField => '適用先（この指示を読み込む条件）';
+
+  @override
+  String get instructionTaskTypesField => 'トリガーするタスク種別（カンマ区切り）';
+
+  @override
+  String get instructionKeywordsField => 'トリガーするキーワード（カンマ区切り）';
+
+  @override
+  String get instructionNotesField => 'メモ（1行に1件）';
+
+  @override
+  String get instructionBodyField => '指示本文 *（Markdown）';
+
+  @override
+  String get instructionBodyRequired => '指示本文を入力してください。';
+
+  @override
+  String get instructionCreateAction => '作成';
+
+  @override
+  String get instructionSaveFailed => '保存に失敗しました。必須項目が空でないか確認してください。';
 
   @override
   String get memoryPageTitle => '记忆';

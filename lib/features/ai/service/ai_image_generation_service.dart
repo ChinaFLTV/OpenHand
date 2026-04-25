@@ -77,6 +77,11 @@ class AiImageGenerationService {
       case AiProtocolType.deepseek:
       case AiProtocolType.seed:
       case AiProtocolType.stepfun:
+      case AiProtocolType.minimax:
+      case AiProtocolType.longcat:
+      case AiProtocolType.joycode:
+      case AiProtocolType.wenxin:
+      case AiProtocolType.meta:
       case AiProtocolType.mimo:
       case AiProtocolType.hunyuan:
       case AiProtocolType.vllm:
@@ -301,7 +306,12 @@ class AiImageGenerationService {
       final decoded = jsonDecode(body);
       if (decoded is Map<String, Object?>) return decoded;
     } catch (error, stack) {
-      silentLog('ai_image_generation_service', 'decode response body', error, stack);
+      silentLog(
+        'ai_image_generation_service',
+        'decode response body',
+        error,
+        stack,
+      );
     }
     throw AiMediaGenerationException(
       'Image endpoint returned a non-JSON response.',
@@ -376,7 +386,12 @@ class AiImageGenerationService {
         return response.bodyBytes;
       }
     } catch (error, stack) {
-      silentLog('ai_image_generation_service', 'fetch remote image bytes', error, stack);
+      silentLog(
+        'ai_image_generation_service',
+        'fetch remote image bytes',
+        error,
+        stack,
+      );
     }
     return null;
   }
@@ -406,7 +421,12 @@ class AiImageGenerationService {
         if (message.isNotEmpty) return message;
       }
     } catch (error, stack) {
-      silentLog('ai_image_generation_service', 'decode error response body', error, stack);
+      silentLog(
+        'ai_image_generation_service',
+        'decode error response body',
+        error,
+        stack,
+      );
     }
     return body.trim().isEmpty ? 'Unknown error' : body.trim();
   }

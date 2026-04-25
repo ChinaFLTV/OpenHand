@@ -1072,6 +1072,36 @@ abstract class AppLocalizations {
   /// **'阶跃星辰'**
   String get aiProtocolStepFun;
 
+  /// No description provided for @aiProtocolMinimax.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'MiniMax'**
+  String get aiProtocolMinimax;
+
+  /// No description provided for @aiProtocolLongCat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'LongCat'**
+  String get aiProtocolLongCat;
+
+  /// No description provided for @aiProtocolJoyCode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JoyCode'**
+  String get aiProtocolJoyCode;
+
+  /// No description provided for @aiProtocolWenxin.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文心一言 (ERNIE)'**
+  String get aiProtocolWenxin;
+
+  /// No description provided for @aiProtocolMeta.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Meta AI (Llama)'**
+  String get aiProtocolMeta;
+
   /// No description provided for @aiProtocolMimo.
   ///
   /// In zh_Hans, this message translates to:
@@ -1653,6 +1683,180 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'技能存放位置已更新'**
   String get skillsPathSaved;
+
+  /// No description provided for @instructionPageTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'指令'**
+  String get instructionPageTitle;
+
+  /// No description provided for @instructionPageSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'维护应用内的可复用提示词片段。启用的指令会按当前顺序注入到所有线程模板的 system prompt，并在会话输入框上方以胶囊形式列出，可在单次发送前临时取消或重新加入。'**
+  String get instructionPageSubtitle;
+
+  /// No description provided for @instructionRefresh.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新'**
+  String get instructionRefresh;
+
+  /// No description provided for @instructionNewEntry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建指令'**
+  String get instructionNewEntry;
+
+  /// No description provided for @instructionEmptyTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未创建指令'**
+  String get instructionEmptyTitle;
+
+  /// No description provided for @instructionEmptyBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建第一条可复用指令后，OpenHand 会把它保存到本地指令库中。'**
+  String get instructionEmptyBody;
+
+  /// No description provided for @instructionLoadFailedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'指令库读取失败'**
+  String get instructionLoadFailedTitle;
+
+  /// No description provided for @instructionDeleteConfirmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除指令'**
+  String get instructionDeleteConfirmTitle;
+
+  /// No description provided for @instructionDeleteConfirmBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除这条指令吗？删除后无法恢复。'**
+  String get instructionDeleteConfirmBody;
+
+  /// No description provided for @instructionEnabledStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已启用并注入'**
+  String get instructionEnabledStatus;
+
+  /// No description provided for @instructionDisabledStatus.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停用'**
+  String get instructionDisabledStatus;
+
+  /// No description provided for @instructionApplyToChipLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'适用'**
+  String get instructionApplyToChipLabel;
+
+  /// No description provided for @instructionNotesChipLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'备注'**
+  String get instructionNotesChipLabel;
+
+  /// No description provided for @instructionDialogCreateTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新建指令'**
+  String get instructionDialogCreateTitle;
+
+  /// No description provided for @instructionDialogEditTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑指令'**
+  String get instructionDialogEditTitle;
+
+  /// No description provided for @instructionEnabledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用'**
+  String get instructionEnabledLabel;
+
+  /// No description provided for @instructionEnabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将这条指令注入到当前提示链中。'**
+  String get instructionEnabledBody;
+
+  /// No description provided for @instructionNameField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'名称 *'**
+  String get instructionNameField;
+
+  /// No description provided for @instructionNameRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入名称。'**
+  String get instructionNameRequired;
+
+  /// No description provided for @instructionDescriptionField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'描述'**
+  String get instructionDescriptionField;
+
+  /// No description provided for @instructionVersionField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'版本'**
+  String get instructionVersionField;
+
+  /// No description provided for @instructionApplyToField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'适用范围（描述何时加载这条指令）'**
+  String get instructionApplyToField;
+
+  /// No description provided for @instructionTaskTypesField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发任务类型（逗号分隔）'**
+  String get instructionTaskTypesField;
+
+  /// No description provided for @instructionKeywordsField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发关键词（逗号分隔）'**
+  String get instructionKeywordsField;
+
+  /// No description provided for @instructionNotesField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'备注（每行一条）'**
+  String get instructionNotesField;
+
+  /// No description provided for @instructionBodyField.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'指令正文 *（Markdown）'**
+  String get instructionBodyField;
+
+  /// No description provided for @instructionBodyRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入指令正文。'**
+  String get instructionBodyRequired;
+
+  /// No description provided for @instructionCreateAction.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建'**
+  String get instructionCreateAction;
+
+  /// No description provided for @instructionSaveFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存失败，请检查必填项是否为空。'**
+  String get instructionSaveFailed;
 
   /// No description provided for @memoryPageTitle.
   ///

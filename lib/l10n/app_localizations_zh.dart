@@ -510,6 +510,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProtocolStepFun => '阶跃星辰';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => '文心一言 (ERNIE)';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI (Llama)';
+
+  @override
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
@@ -801,6 +816,94 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get skillsPathSaved => '技能存放位置已更新';
+
+  @override
+  String get instructionPageTitle => '指令';
+
+  @override
+  String get instructionPageSubtitle =>
+      '维护应用内的可复用提示词片段。启用的指令会按当前顺序注入到所有线程模板的 system prompt，并在会话输入框上方以胶囊形式列出，可在单次发送前临时取消或重新加入。';
+
+  @override
+  String get instructionRefresh => '刷新';
+
+  @override
+  String get instructionNewEntry => '新建指令';
+
+  @override
+  String get instructionEmptyTitle => '尚未创建指令';
+
+  @override
+  String get instructionEmptyBody => '新建第一条可复用指令后，OpenHand 会把它保存到本地指令库中。';
+
+  @override
+  String get instructionLoadFailedTitle => '指令库读取失败';
+
+  @override
+  String get instructionDeleteConfirmTitle => '删除指令';
+
+  @override
+  String get instructionDeleteConfirmBody => '确认删除这条指令吗？删除后无法恢复。';
+
+  @override
+  String get instructionEnabledStatus => '已启用并注入';
+
+  @override
+  String get instructionDisabledStatus => '已停用';
+
+  @override
+  String get instructionApplyToChipLabel => '适用';
+
+  @override
+  String get instructionNotesChipLabel => '备注';
+
+  @override
+  String get instructionDialogCreateTitle => '新建指令';
+
+  @override
+  String get instructionDialogEditTitle => '编辑指令';
+
+  @override
+  String get instructionEnabledLabel => '启用';
+
+  @override
+  String get instructionEnabledBody => '将这条指令注入到当前提示链中。';
+
+  @override
+  String get instructionNameField => '名称 *';
+
+  @override
+  String get instructionNameRequired => '请输入名称。';
+
+  @override
+  String get instructionDescriptionField => '描述';
+
+  @override
+  String get instructionVersionField => '版本';
+
+  @override
+  String get instructionApplyToField => '适用范围（描述何时加载这条指令）';
+
+  @override
+  String get instructionTaskTypesField => '触发任务类型（逗号分隔）';
+
+  @override
+  String get instructionKeywordsField => '触发关键词（逗号分隔）';
+
+  @override
+  String get instructionNotesField => '备注（每行一条）';
+
+  @override
+  String get instructionBodyField => '指令正文 *（Markdown）';
+
+  @override
+  String get instructionBodyRequired => '请输入指令正文。';
+
+  @override
+  String get instructionCreateAction => '创建';
+
+  @override
+  String get instructionSaveFailed => '保存失败，请检查必填项是否为空。';
 
   @override
   String get memoryPageTitle => '记忆';
@@ -1719,6 +1822,21 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiProtocolStepFun => '阶跃星辰';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => '文心一言 (ERNIE)';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI (Llama)';
+
+  @override
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
@@ -2010,6 +2128,94 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get skillsPathSaved => '技能存放位置已更新';
+
+  @override
+  String get instructionPageTitle => '指令';
+
+  @override
+  String get instructionPageSubtitle =>
+      '维护应用内的可复用提示词片段。启用的指令会按当前顺序注入到所有线程模板的 system prompt，并在会话输入框上方以胶囊形式列出，可在单次发送前临时取消或重新加入。';
+
+  @override
+  String get instructionRefresh => '刷新';
+
+  @override
+  String get instructionNewEntry => '新建指令';
+
+  @override
+  String get instructionEmptyTitle => '尚未创建指令';
+
+  @override
+  String get instructionEmptyBody => '新建第一条可复用指令后，OpenHand 会把它保存到本地指令库中。';
+
+  @override
+  String get instructionLoadFailedTitle => '指令库读取失败';
+
+  @override
+  String get instructionDeleteConfirmTitle => '删除指令';
+
+  @override
+  String get instructionDeleteConfirmBody => '确认删除这条指令吗？删除后无法恢复。';
+
+  @override
+  String get instructionEnabledStatus => '已启用并注入';
+
+  @override
+  String get instructionDisabledStatus => '已停用';
+
+  @override
+  String get instructionApplyToChipLabel => '适用';
+
+  @override
+  String get instructionNotesChipLabel => '备注';
+
+  @override
+  String get instructionDialogCreateTitle => '新建指令';
+
+  @override
+  String get instructionDialogEditTitle => '编辑指令';
+
+  @override
+  String get instructionEnabledLabel => '启用';
+
+  @override
+  String get instructionEnabledBody => '将这条指令注入到当前提示链中。';
+
+  @override
+  String get instructionNameField => '名称 *';
+
+  @override
+  String get instructionNameRequired => '请输入名称。';
+
+  @override
+  String get instructionDescriptionField => '描述';
+
+  @override
+  String get instructionVersionField => '版本';
+
+  @override
+  String get instructionApplyToField => '适用范围（描述何时加载这条指令）';
+
+  @override
+  String get instructionTaskTypesField => '触发任务类型（逗号分隔）';
+
+  @override
+  String get instructionKeywordsField => '触发关键词（逗号分隔）';
+
+  @override
+  String get instructionNotesField => '备注（每行一条）';
+
+  @override
+  String get instructionBodyField => '指令正文 *（Markdown）';
+
+  @override
+  String get instructionBodyRequired => '请输入指令正文。';
+
+  @override
+  String get instructionCreateAction => '创建';
+
+  @override
+  String get instructionSaveFailed => '保存失败，请检查必填项是否为空。';
 
   @override
   String get memoryPageTitle => '记忆';
@@ -2609,6 +2815,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsSkillsSubtitle => '管理本地技能目錄、模板建立與已安裝技能展示。';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => '文心一言 (ERNIE)';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI (Llama)';
+
+  @override
   String get skillsPageTitle => '技能';
 
   @override
@@ -2740,6 +2961,94 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get skillsPathSaved => '技能存放位置已更新';
+
+  @override
+  String get instructionPageTitle => '指令';
+
+  @override
+  String get instructionPageSubtitle =>
+      '維護應用內的可複用提示詞片段。啟用的指令會按目前順序注入到所有執行緒模板的 system prompt，並在會話輸入框上方以膠囊形式列出，可在單次送出前臨時取消或重新加入。';
+
+  @override
+  String get instructionRefresh => '重新整理';
+
+  @override
+  String get instructionNewEntry => '新增指令';
+
+  @override
+  String get instructionEmptyTitle => '尚未建立指令';
+
+  @override
+  String get instructionEmptyBody => '新增第一條可複用指令後，OpenHand 會把它保存到本機指令庫中。';
+
+  @override
+  String get instructionLoadFailedTitle => '指令庫讀取失敗';
+
+  @override
+  String get instructionDeleteConfirmTitle => '刪除指令';
+
+  @override
+  String get instructionDeleteConfirmBody => '確認刪除這條指令嗎？刪除後無法復原。';
+
+  @override
+  String get instructionEnabledStatus => '已啟用並注入';
+
+  @override
+  String get instructionDisabledStatus => '已停用';
+
+  @override
+  String get instructionApplyToChipLabel => '適用';
+
+  @override
+  String get instructionNotesChipLabel => '備註';
+
+  @override
+  String get instructionDialogCreateTitle => '新增指令';
+
+  @override
+  String get instructionDialogEditTitle => '編輯指令';
+
+  @override
+  String get instructionEnabledLabel => '啟用';
+
+  @override
+  String get instructionEnabledBody => '將這條指令注入到目前提示鏈中。';
+
+  @override
+  String get instructionNameField => '名稱 *';
+
+  @override
+  String get instructionNameRequired => '請輸入名稱。';
+
+  @override
+  String get instructionDescriptionField => '描述';
+
+  @override
+  String get instructionVersionField => '版本';
+
+  @override
+  String get instructionApplyToField => '適用範圍（描述何時載入這條指令）';
+
+  @override
+  String get instructionTaskTypesField => '觸發任務類型（逗號分隔）';
+
+  @override
+  String get instructionKeywordsField => '觸發關鍵字（逗號分隔）';
+
+  @override
+  String get instructionNotesField => '備註（每行一條）';
+
+  @override
+  String get instructionBodyField => '指令正文 *（Markdown）';
+
+  @override
+  String get instructionBodyRequired => '請輸入指令正文。';
+
+  @override
+  String get instructionCreateAction => '建立';
+
+  @override
+  String get instructionSaveFailed => '保存失敗，請檢查必填項是否為空。';
 
   @override
   String get threadsEmptyBody => '目前還沒有任何對話執行緒，建立一個新執行緒即可開始。';

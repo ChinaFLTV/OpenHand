@@ -10,10 +10,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
+
+enum _InstructionCardAction { edit, delete }
 
 class InstructionsView extends StatelessWidget {
   const InstructionsView({super.key});
@@ -21,6 +25,7 @@ class InstructionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final snapshot = context
         .select<
           InstructionsController,
@@ -29,11 +34,13 @@ class InstructionsView extends StatelessWidget {
             String? errorMessage,
             List<UserInstructionEntry> entries,
           })
-        >((c) => (
-              isLoading: c.isLoading,
-              errorMessage: c.errorMessage,
-              entries: c.entries,
-            ));
+        >(
+          (c) => (
+            isLoading: c.isLoading,
+            errorMessage: c.errorMessage,
+            entries: c.entries,
+          ),
+        );
     final controller = context.read<InstructionsController>();
 
     return Column(
@@ -48,22 +55,22 @@ class InstructionsView extends StatelessWidget {
               alignment: WrapAlignment.end,
               children: [
                 FilledButton.tonalIcon(
-                  onPressed:
-                      snapshot.isLoading ? null : () => controller.refresh(),
+                  onPressed: snapshot.isLoading
+                      ? null
+                      : () => controller.refresh(),
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('刷新'),
+                  label: Text(l10n.instructionRefresh),
                 ),
                 FilledButton.icon(
                   onPressed: () => _openEditor(context, controller, null),
                   icon: const Icon(Icons.add_rounded),
-                  label: const Text('新建指令'),
+                  label: Text(l10n.instructionNewEntry),
                 ),
               ],
             );
-            const header = _InstructionsHeader(
-              title: '指令',
-              subtitle: '维护应用内的可复用提示词片段。启用的指令会按当前顺序注入到所有线程模板的 system prompt，'
-                  '并在会话窗口的输入框顶部以胶囊形式列出，可在单次发送前临时取消或重新加入。',
+            final header = _InstructionsHeader(
+              title: l10n.instructionPageTitle,
+              subtitle: l10n.instructionPageSubtitle,
             );
             if (stacked) {
               return Column(
@@ -71,34 +78,28 @@ class InstructionsView extends StatelessWidget {
                 children: [
                   header,
                   const SizedBox(height: 20),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: actions,
-                  ),
+                  Align(alignment: Alignment.centerRight, child: actions),
                 ],
               );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const Expanded(child: header),
+                Expanded(child: header),
                 const SizedBox(width: 20),
                 Flexible(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: actions,
-                  ),
+                  child: Align(alignment: Alignment.topRight, child: actions),
                 ),
               ],
             );
           },
         ),
         const SizedBox(height: 20),
-        if (snapshot.errorMessage != null) ...[
-          _InstructionsBanner(
+        if (snapshot.errorMessage != null && snapshot.entries.isNotEmpty) ...[
+          _InstructionsStateCard(
             icon: Icons.error_outline_rounded,
             color: theme.colorScheme.error,
-            title: '加载失败',
+            title: l10n.instructionLoadFailedTitle,
             body: snapshot.errorMessage!,
           ),
           const SizedBox(height: 16),
@@ -116,50 +117,36 @@ class InstructionsView extends StatelessWidget {
   Widget _buildBody(
     BuildContext context,
     InstructionsController controller,
-    ({
-      bool isLoading,
-      String? errorMessage,
-      List<UserInstructionEntry> entries,
-    }) snapshot,
+    ({bool isLoading, String? errorMessage, List<UserInstructionEntry> entries})
+    snapshot,
   ) {
+    final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
     if (snapshot.isLoading && snapshot.entries.isEmpty) {
       return const Center(
         key: ValueKey('loading'),
         child: CircularProgressIndicator(),
       );
     }
+    if (snapshot.errorMessage != null && snapshot.entries.isEmpty) {
+      return Center(
+        key: const ValueKey('error'),
+        child: _InstructionsStateCard(
+          icon: Icons.error_outline_rounded,
+          color: colorScheme.error,
+          title: l10n.instructionLoadFailedTitle,
+          body: snapshot.errorMessage!,
+        ),
+      );
+    }
     if (snapshot.entries.isEmpty) {
       return Center(
         key: const ValueKey('empty'),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.tips_and_updates_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurfaceVariant
-                  .withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '尚未创建指令',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '点击右上角「新建指令」创建第一条。',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.7),
-                  ),
-            ),
-          ],
+        child: _InstructionsStateCard(
+          icon: Icons.tips_and_updates_outlined,
+          color: colorScheme.primary,
+          title: l10n.instructionEmptyTitle,
+          body: l10n.instructionEmptyBody,
         ),
       );
     }
@@ -180,12 +167,23 @@ class InstructionsView extends StatelessWidget {
           key: ValueKey(entry.id),
           padding: const EdgeInsets.only(bottom: 12),
           child: AppearOnce(
-            child: _InstructionCard(
-              entry: entry,
-              dragIndex: index,
-              onToggle: (value) => controller.setEnabled(entry.id, value),
-              onEdit: () => _openEditor(context, controller, entry),
-              onDelete: () => _confirmDelete(context, controller, entry),
+            child: RepaintBoundary(
+              child: _InstructionCard(
+                entry: entry,
+                dragIndex: index,
+                onToggle: (value) => controller.setEnabled(entry.id, value),
+                onTap: () => _openEditor(context, controller, entry),
+                onActionSelected: (action) {
+                  switch (action) {
+                    case _InstructionCardAction.edit:
+                      _openEditor(context, controller, entry);
+                      break;
+                    case _InstructionCardAction.delete:
+                      _confirmDelete(context, controller, entry);
+                      break;
+                  }
+                },
+              ),
             ),
           ),
         );
@@ -201,10 +199,8 @@ class InstructionsView extends StatelessWidget {
     await showAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _InstructionEditorDialog(
-        controller: controller,
-        source: source,
-      ),
+      builder: (_) =>
+          _InstructionEditorDialog(controller: controller, source: source),
     );
   }
 
@@ -213,19 +209,20 @@ class InstructionsView extends StatelessWidget {
     InstructionsController controller,
     UserInstructionEntry entry,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除指令'),
-        content: Text('确定要删除指令"${entry.name}"吗？此操作无法撤销。'),
+        title: Text(l10n.instructionDeleteConfirmTitle),
+        content: Text('${l10n.instructionDeleteConfirmBody}\n\n${entry.name}'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -238,6 +235,7 @@ class InstructionsView extends StatelessWidget {
 
 class _InstructionsHeader extends StatelessWidget {
   const _InstructionsHeader({required this.title, required this.subtitle});
+
   final String title;
   final String subtitle;
 
@@ -247,11 +245,11 @@ class _InstructionsHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: theme.textTheme.headlineMedium),
+        Text(title, style: theme.textTheme.displaySmall),
         const SizedBox(height: 8),
         Text(
           subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
+          style: theme.textTheme.bodyLarge?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
@@ -260,13 +258,14 @@ class _InstructionsHeader extends StatelessWidget {
   }
 }
 
-class _InstructionsBanner extends StatelessWidget {
-  const _InstructionsBanner({
+class _InstructionsStateCard extends StatelessWidget {
+  const _InstructionsStateCard({
     required this.icon,
     required this.color,
     required this.title,
     required this.body,
   });
+
   final IconData icon;
   final Color color;
   final String title;
@@ -276,6 +275,7 @@ class _InstructionsBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
+      constraints: const BoxConstraints(maxWidth: 560),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
@@ -308,112 +308,191 @@ class _InstructionCard extends StatelessWidget {
     required this.entry,
     required this.dragIndex,
     required this.onToggle,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
+    required this.onActionSelected,
   });
 
   final UserInstructionEntry entry;
   final int dragIndex;
   final ValueChanged<bool> onToggle;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
+  final ValueChanged<_InstructionCardAction> onActionSelected;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = entry.enabled
-        ? theme.colorScheme.primary
-        : theme.colorScheme.outline;
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final taskTypes = entry.taskTypes.take(4).toList(growable: false);
+    final hiddenTaskTypeCount = entry.taskTypes.length - taskTypes.length;
+    final keywords = entry.keywords.take(4).toList(growable: false);
+    final hiddenKeywordCount = entry.keywords.length - keywords.length;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onEdit,
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
+          padding: const EdgeInsets.all(20),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ReorderableDragStartListener(
-                index: dragIndex,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Icon(
-                    Icons.drag_indicator_rounded,
-                    color: theme.colorScheme.outline,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: color,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _MetadataChip(
-                          icon: Icons.label_outline_rounded,
-                          label: 'v${entry.version}',
-                        ),
-                      ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ReorderableDragStartListener(
+                    index: dragIndex,
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Icon(
+                        Icons.drag_indicator_rounded,
+                        color: colorScheme.outline,
+                      ),
                     ),
-                    if (entry.description.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        entry.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          color: entry.enabled
+                              ? colorScheme.primaryContainer
+                              : colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.auto_awesome_motion_outlined,
+                          color: entry.enabled
+                              ? colorScheme.onPrimaryContainer
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Positioned(
+                        right: -2,
+                        bottom: -2,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: entry.enabled
+                                ? colorScheme.primary
+                                : colorScheme.outlineVariant,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: colorScheme.surface),
+                          ),
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: <Widget>[
-                        if (entry.applyTo.trim().isNotEmpty)
-                          _MetadataChip(
-                            icon: Icons.account_tree_outlined,
-                            label: 'applyTo · ${entry.applyTo}',
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: entry.enabled
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurfaceVariant,
                           ),
-                        for (final t in entry.taskTypes)
-                          _MetadataChip(
-                            icon: Icons.category_outlined,
-                            label: t,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          entry.enabled
+                              ? l10n.instructionEnabledStatus
+                              : l10n.instructionDisabledStatus,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: entry.enabled
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
                           ),
-                        for (final k in entry.keywords)
-                          _MetadataChip(
-                            icon: Icons.tag_rounded,
-                            label: k,
+                        ),
+                        if (entry.description.trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            entry.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
+                        ],
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                children: [
-                  Switch(value: entry.enabled, onChanged: onToggle),
-                  IconButton(
-                    tooltip: '删除',
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    onPressed: onDelete,
                   ),
+                  const SizedBox(width: 12),
+                  _InstructionEnabledSwitch(
+                    value: entry.enabled,
+                    onChanged: onToggle,
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: AnimatedPopupMenuButton<_InstructionCardAction>(
+                      onSelected: onActionSelected,
+                      itemBuilder: (context) => [
+                        PopupMenuItem<_InstructionCardAction>(
+                          value: _InstructionCardAction.edit,
+                          child: Text(l10n.commonEdit),
+                        ),
+                        PopupMenuItem<_InstructionCardAction>(
+                          value: _InstructionCardAction.delete,
+                          child: Text(l10n.commonDelete),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  _MetadataChip(
+                    icon: Icons.label_outline_rounded,
+                    label: 'v${entry.version}',
+                  ),
+                  if (entry.applyTo.trim().isNotEmpty)
+                    _MetadataChip(
+                      icon: Icons.account_tree_outlined,
+                      label:
+                          '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
+                    ),
+                  if (entry.notes.isNotEmpty)
+                    _MetadataChip(
+                      icon: Icons.notes_outlined,
+                      label:
+                          '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                    ),
+                  for (final taskType in taskTypes)
+                    _MetadataChip(
+                      icon: Icons.category_outlined,
+                      label: taskType,
+                    ),
+                  if (hiddenTaskTypeCount > 0)
+                    _MetadataChip(
+                      icon: Icons.more_horiz_rounded,
+                      label: '+$hiddenTaskTypeCount',
+                    ),
+                  for (final keyword in keywords)
+                    _MetadataChip(icon: Icons.tag_rounded, label: keyword),
+                  if (hiddenKeywordCount > 0)
+                    _MetadataChip(
+                      icon: Icons.more_horiz_rounded,
+                      label: '+$hiddenKeywordCount',
+                    ),
                 ],
               ),
             ],
@@ -424,38 +503,158 @@ class _InstructionCard extends StatelessWidget {
   }
 }
 
-class _MetadataChip extends StatelessWidget {
-  const _MetadataChip({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
+class _InstructionEnabledSwitch extends StatelessWidget {
+  const _InstructionEnabledSwitch({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Switch(
+      value: value,
+      onChanged: onChanged,
+      thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const Icon(Icons.check_rounded, size: 14);
+        }
+        return const Icon(Icons.close_rounded, size: 14);
+      }),
+      trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.selected)) return Colors.transparent;
+        return colorScheme.outlineVariant;
+      }),
+    );
+  }
+}
+
+class _InstructionToggleCard extends StatelessWidget {
+  const _InstructionToggleCard({
+    required this.value,
+    required this.onChanged,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final String title;
+  final String subtitle;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 14, color: theme.colorScheme.outline),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+    final colorScheme = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 340),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onChanged == null ? null : () => onChanged!(!value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: value
+                  ? colorScheme.primaryContainer.withValues(alpha: 0.55)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: value
+                    ? colorScheme.primary.withValues(alpha: 0.36)
+                    : colorScheme.outlineVariant,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: value ? colorScheme.primary : colorScheme.surface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    value
+                        ? Icons.bolt_rounded
+                        : Icons.power_settings_new_rounded,
+                    size: 18,
+                    color: value ? colorScheme.onPrimary : colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: value
+                              ? colorScheme.onPrimaryContainer
+                              : colorScheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _InstructionEnabledSwitch(value: value, onChanged: onChanged),
+              ],
             ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+}
+
+class _MetadataChip extends StatelessWidget {
+  const _MetadataChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Chip(
+      avatar: Icon(icon, size: 18, color: colorScheme.outline),
+      label: Text(label),
+      side: BorderSide.none,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      labelStyle: theme.textTheme.labelSmall?.copyWith(
+        color: colorScheme.onSurfaceVariant,
+      ),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }
 
 class _InstructionEditorDialog extends StatefulWidget {
   const _InstructionEditorDialog({required this.controller, this.source});
+
   final InstructionsController controller;
   final UserInstructionEntry? source;
 
@@ -470,8 +669,8 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   late final TextEditingController _description;
   late final TextEditingController _version;
   late final TextEditingController _applyTo;
-  late final TextEditingController _notes; // newline separated
-  late final TextEditingController _taskTypes; // comma separated
+  late final TextEditingController _notes;
+  late final TextEditingController _taskTypes;
   late final TextEditingController _keywords;
   late final TextEditingController _body;
   late bool _enabled;
@@ -486,10 +685,12 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
     _version = TextEditingController(text: s?.version ?? '1.0');
     _applyTo = TextEditingController(text: s?.applyTo ?? '');
     _notes = TextEditingController(text: (s?.notes ?? const []).join('\n'));
-    _taskTypes =
-        TextEditingController(text: (s?.taskTypes ?? const []).join(', '));
-    _keywords =
-        TextEditingController(text: (s?.keywords ?? const []).join(', '));
+    _taskTypes = TextEditingController(
+      text: (s?.taskTypes ?? const []).join(', '),
+    );
+    _keywords = TextEditingController(
+      text: (s?.keywords ?? const []).join(', '),
+    );
     _body = TextEditingController(text: s?.body ?? '');
     _enabled = s?.enabled ?? true;
   }
@@ -510,7 +711,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.source != null;
-    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     return Dialog(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760, maxHeight: 720),
@@ -521,28 +722,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isEdit ? '编辑指令' : '新建指令',
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                    ),
-                    Text(
-                      '启用',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Switch.adaptive(
-                      value: _enabled,
-                      onChanged:
-                          _saving ? null : (v) => setState(() => _enabled = v),
-                    ),
-                  ],
-                ),
+                _buildHeader(context, isEdit, l10n),
                 const Divider(height: 24),
                 Expanded(
                   child: SingleChildScrollView(
@@ -552,62 +732,75 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                         TextFormField(
                           controller: _name,
                           maxLength: UserInstructionEntry.maxNameLength,
-                          decoration: const InputDecoration(
-                            labelText: '名称 *',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionNameField,
                             counterText: '',
                           ),
                           validator: (v) {
-                            if ((v ?? '').trim().isEmpty) return '名称不能为空';
+                            if ((v ?? '').trim().isEmpty) {
+                              return l10n.instructionNameRequired;
+                            }
                             return null;
                           },
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _description,
-                                maxLength:
-                                    UserInstructionEntry.maxDescriptionLength,
-                                decoration: const InputDecoration(
-                                  labelText: '描述',
-                                  counterText: '',
-                                ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final stacked = constraints.maxWidth < 560;
+                            final description = TextFormField(
+                              controller: _description,
+                              maxLength:
+                                  UserInstructionEntry.maxDescriptionLength,
+                              decoration: InputDecoration(
+                                labelText: l10n.instructionDescriptionField,
+                                counterText: '',
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _version,
-                                decoration: const InputDecoration(
-                                  labelText: '版本',
-                                ),
+                            );
+                            final version = TextFormField(
+                              controller: _version,
+                              decoration: InputDecoration(
+                                labelText: l10n.instructionVersionField,
                               ),
-                            ),
-                          ],
+                            );
+                            if (stacked) {
+                              return Column(
+                                children: [
+                                  description,
+                                  const SizedBox(height: 12),
+                                  version,
+                                ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(flex: 2, child: description),
+                                const SizedBox(width: 12),
+                                Expanded(child: version),
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _applyTo,
                           maxLength: UserInstructionEntry.maxApplyToLength,
-                          decoration: const InputDecoration(
-                            labelText: 'applyTo（自由文本，描述何时加载）',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionApplyToField,
                             counterText: '',
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _taskTypes,
-                          decoration: const InputDecoration(
-                            labelText: 'trigger.taskTypes（逗号分隔）',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionTaskTypesField,
                           ),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _keywords,
-                          decoration: const InputDecoration(
-                            labelText: 'trigger.keywords（逗号分隔）',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionKeywordsField,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -615,8 +808,8 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           controller: _notes,
                           minLines: 2,
                           maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'notes（每行一条）',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionNotesField,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -630,13 +823,15 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                               UserInstructionEntry.maxBodyLength,
                             ),
                           ],
-                          decoration: const InputDecoration(
-                            labelText: '指令正文 *（Markdown）',
+                          decoration: InputDecoration(
+                            labelText: l10n.instructionBodyField,
                             alignLabelWithHint: true,
                             counterText: '',
                           ),
                           validator: (v) {
-                            if ((v ?? '').trim().isEmpty) return '正文不能为空';
+                            if ((v ?? '').trim().isEmpty) {
+                              return l10n.instructionBodyRequired;
+                            }
                             return null;
                           },
                         ),
@@ -648,15 +843,38 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
-                    TextButton(
-                      onPressed:
-                          _saving ? null : () => Navigator.of(context).pop(),
-                      child: const Text('取消'),
+                    SizedBox(
+                      width: 88,
+                      height: 56,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          minimumSize: const Size(88, 56),
+                          shape: const StadiumBorder(),
+                        ),
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        child: Text(l10n.commonCancel),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _saving ? null : _save,
-                      child: Text(isEdit ? '保存修改' : '创建'),
+                    SizedBox(
+                      width: 88,
+                      height: 56,
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          minimumSize: const Size(88, 56),
+                          shape: const StadiumBorder(),
+                        ),
+                        onPressed: _saving ? null : _save,
+                        child: Text(
+                          isEdit
+                              ? l10n.commonSave
+                              : l10n.instructionCreateAction,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -668,6 +886,43 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
     );
   }
 
+  Widget _buildHeader(
+    BuildContext context,
+    bool isEdit,
+    AppLocalizations l10n,
+  ) {
+    final theme = Theme.of(context);
+    final title = Text(
+      isEdit
+          ? l10n.instructionDialogEditTitle
+          : l10n.instructionDialogCreateTitle,
+      style: theme.textTheme.headlineSmall,
+    );
+    final toggle = _InstructionToggleCard(
+      value: _enabled,
+      title: l10n.instructionEnabledLabel,
+      subtitle: l10n.instructionEnabledBody,
+      onChanged: _saving ? null : (v) => setState(() => _enabled = v),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [title, const SizedBox(height: 12), toggle],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: title),
+            const SizedBox(width: 16),
+            toggle,
+          ],
+        );
+      },
+    );
+  }
+
   List<String> _splitCsv(String value) =>
       value.split(RegExp(r'[,，;；]')).map((e) => e.trim()).toList();
 
@@ -676,6 +931,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _saving = true);
     try {
       final notes = _splitLines(_notes.text);
@@ -709,9 +965,9 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
       if (ok) {
         Navigator.of(context).pop();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('保存失败，请检查必填项是否为空。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.instructionSaveFailed)));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

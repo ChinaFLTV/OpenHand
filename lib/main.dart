@@ -211,28 +211,24 @@ Future<void> _bootstrap() async {
           'ok: scanned=${result.scanned} triggered=${result.triggered} '
           'skipped=${result.skipped} errors=${result.errors}';
       final appContext = <String, String>{};
-      // 仅在确实存在执行报告时附加 Hermes Talker 富数据，避免污染普通
-      // agent 任务的历史卡片。
-      if (result.reports.isNotEmpty) {
-        try {
+      try {
+        appContext[CronsController.hermesTalkerStatsKey] =
+            jsonEncode(<String, int>{
+              'scanned': result.scanned,
+              'triggered': result.triggered,
+              'skipped': result.skipped,
+              'errors': result.errors,
+            });
+        // 仅在确实存在执行报告时附加 Hermes Talker 会话富数据；统计信息
+        // 始终保存，便于历史记录展示无变更的巡检现场。
+        if (result.reports.isNotEmpty) {
           appContext[CronsController.hermesTalkerReportsKey] = jsonEncode(
             result.reports.map((r) => r.toJson()).toList(),
           );
-          appContext[CronsController.hermesTalkerStatsKey] = jsonEncode(<String, int>{
-            'scanned': result.scanned,
-            'triggered': result.triggered,
-            'skipped': result.skipped,
-            'errors': result.errors,
-          });
-        } catch (error, stack) {
-          // JSON 编码失败时降级为纯 stdout，保留诊断线索但不影响调度链路。
-          silentLog(
-            'main',
-            'encode hermes talker reports',
-            error,
-            stack,
-          );
         }
+      } catch (error, stack) {
+        // JSON 编码失败时降级为纯 stdout，保留诊断线索但不影响调度链路。
+        silentLog('main', 'encode hermes talker context', error, stack);
       }
       return AgentHandlerResult(stdout: stdout, appContext: appContext);
     }

@@ -89,7 +89,8 @@ class AiModelScanner {
         return _scanSeed(config, timeout: timeout);
       default:
         // OpenAI-compatible: openai, deepseek, qwen, kimi, glm, grok,
-        // vllm, sglang, stepfun, mimo
+        // vllm, sglang, seed-adjacent providers, stepfun, minimax,
+        // longcat, joycode, wenxin, meta, mimo, hunyuan
         return _scanOpenAiCompatible(config, timeout: timeout);
     }
   }

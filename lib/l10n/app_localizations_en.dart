@@ -527,6 +527,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProtocolStepFun => 'StepFun';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => 'Wenxin / ERNIE';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI / Llama';
+
+  @override
   String get aiProtocolMimo => 'MIMO';
 
   @override
@@ -825,6 +840,100 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get skillsPathSaved => 'The skills storage location has been updated';
+
+  @override
+  String get instructionPageTitle => 'Instructions';
+
+  @override
+  String get instructionPageSubtitle =>
+      'Manage reusable prompt fragments. Enabled instructions are injected into every thread system prompt in the current order and shown above the composer as chips that can be toggled for a single send.';
+
+  @override
+  String get instructionRefresh => 'Refresh';
+
+  @override
+  String get instructionNewEntry => 'New Instruction';
+
+  @override
+  String get instructionEmptyTitle => 'No instructions yet';
+
+  @override
+  String get instructionEmptyBody =>
+      'Create the first reusable instruction and OpenHand will keep it in the local instruction store.';
+
+  @override
+  String get instructionLoadFailedTitle => 'Instruction Store Failed to Load';
+
+  @override
+  String get instructionDeleteConfirmTitle => 'Delete Instruction';
+
+  @override
+  String get instructionDeleteConfirmBody =>
+      'Delete this instruction? This action cannot be undone.';
+
+  @override
+  String get instructionEnabledStatus => 'Enabled and injected';
+
+  @override
+  String get instructionDisabledStatus => 'Disabled';
+
+  @override
+  String get instructionApplyToChipLabel => 'Apply to';
+
+  @override
+  String get instructionNotesChipLabel => 'Notes';
+
+  @override
+  String get instructionDialogCreateTitle => 'New Instruction';
+
+  @override
+  String get instructionDialogEditTitle => 'Edit Instruction';
+
+  @override
+  String get instructionEnabledLabel => 'Enabled';
+
+  @override
+  String get instructionEnabledBody =>
+      'Inject this instruction into the active prompt chain.';
+
+  @override
+  String get instructionNameField => 'Name *';
+
+  @override
+  String get instructionNameRequired => 'Enter a name.';
+
+  @override
+  String get instructionDescriptionField => 'Description';
+
+  @override
+  String get instructionVersionField => 'Version';
+
+  @override
+  String get instructionApplyToField =>
+      'Apply to (describe when this instruction loads)';
+
+  @override
+  String get instructionTaskTypesField =>
+      'Trigger task types (comma-separated)';
+
+  @override
+  String get instructionKeywordsField => 'Trigger keywords (comma-separated)';
+
+  @override
+  String get instructionNotesField => 'Notes (one per line)';
+
+  @override
+  String get instructionBodyField => 'Instruction body * (Markdown)';
+
+  @override
+  String get instructionBodyRequired => 'Enter the instruction body.';
+
+  @override
+  String get instructionCreateAction => 'Create';
+
+  @override
+  String get instructionSaveFailed =>
+      'Save failed. Check that required fields are not empty.';
 
   @override
   String get memoryPageTitle => 'Memory';

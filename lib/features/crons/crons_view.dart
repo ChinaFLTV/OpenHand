@@ -2384,8 +2384,11 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             // 时优先展开，并把对应的 JSON 键从下方"执行上下文"原始 KV
             // 列表中过滤掉，避免重复且避免一坨 JSON 文本污染界面。
             if (record.appContext.containsKey(
-              CronsController.hermesTalkerReportsKey,
-            )) ...[
+                  CronsController.hermesTalkerReportsKey,
+                ) ||
+                record.appContext.containsKey(
+                  CronsController.hermesTalkerStatsKey,
+                )) ...[
               const SizedBox(height: 8),
               _HermesTalkerHistoryPanel(
                 isZh: isZh,
@@ -2849,12 +2852,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       }
       return out;
     } catch (error, stack) {
-      silentLog(
-        'crons_view',
-        'decode hermes talker reports',
-        error,
-        stack,
-      );
+      silentLog('crons_view', 'decode hermes talker reports', error, stack);
       return const <_HermesTalkerSessionReport>[];
     }
   }
@@ -2952,7 +2950,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
           colorScheme,
           icon: Icons.account_circle_outlined,
           label: isZh
-              ? '画像变更 ${report.profileChanges.length}'
+              ? '用户轮廓 ${report.profileChanges.length}'
               : 'profile ${report.profileChanges.length}',
         ),
       if (report.toolCallRounds > 0)
@@ -2999,38 +2997,41 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '画像变更' : 'Profile changes',
+          title: isZh ? '用户轮廓变动' : 'User profile changes',
           icon: Icons.account_circle_outlined,
           changes: report.profileChanges,
+          isZh: isZh,
         ),
       if (report.memoryChanges.isNotEmpty)
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '记忆变更' : 'Memory changes',
+          title: isZh ? '记忆变动' : 'Memory changes',
           icon: Icons.memory,
           changes: report.memoryChanges,
+          isZh: isZh,
         ),
       if (report.skillChanges.isNotEmpty)
         _changeGroup(
           theme: theme,
           colorScheme: colorScheme,
-          title: isZh ? '技能变更' : 'Skill changes',
+          title: isZh ? '技能变动' : 'Skill changes',
           icon: Icons.psychology_alt_outlined,
           changes: report.skillChanges,
-        ),
-      if (report.aiResponse != null && report.aiResponse!.isNotEmpty)
-        _CollapsibleLongText(
-          title: isZh ? 'AI 回复' : 'AI response',
-          icon: Icons.chat_bubble_outline,
-          body: report.aiResponse!,
+          isZh: isZh,
         ),
       if (report.aiReasoning != null && report.aiReasoning!.isNotEmpty)
         _CollapsibleLongText(
-          title: isZh ? 'AI 思考' : 'AI reasoning',
+          title: isZh ? '当时现场的 AI 思考' : 'AI reasoning on scene',
           icon: Icons.tips_and_updates_outlined,
           body: report.aiReasoning!,
           subdued: true,
+        ),
+      if (report.aiResponse != null && report.aiResponse!.isNotEmpty)
+        _CollapsibleLongText(
+          title: isZh ? '当时现场的 AI 响应' : 'AI response on scene',
+          icon: Icons.chat_bubble_outline,
+          body: report.aiResponse!,
         ),
       if (report.error != null && report.error!.isNotEmpty)
         Padding(
@@ -3056,9 +3057,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: accent.withValues(alpha: 0.22),
-            ),
+            border: Border.all(color: accent.withValues(alpha: 0.22)),
           ),
           child: ExpansionTile(
             tilePadding: const EdgeInsets.symmetric(
@@ -3076,11 +3075,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: chips,
-              ),
+              child: Wrap(spacing: 6, runSpacing: 6, children: chips),
             ),
             children: hasExpandableBody
                 ? children
@@ -3177,36 +3172,187 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     required String title,
     required IconData icon,
     required List<Map<String, Object?>> changes,
+    required bool isZh,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 14, color: colorScheme.primary),
-              const SizedBox(width: 6),
-              Text(
-                '$title (${changes.length})',
-                style: theme.textTheme.labelMedium?.copyWith(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.32),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 14,
+                    color: colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$title (${changes.length})',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...changes.map(
+              (m) => _changeRow(
+                theme: theme,
+                colorScheme: colorScheme,
+                change: m,
+                isZh: isZh,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _changeRow({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required Map<String, Object?> change,
+    required bool isZh,
+  }) {
+    final action = _firstText(change, const ['action', 'type', 'operation']);
+    final heading = _firstText(change, const [
+      'summary',
+      'description',
+      'content',
+      'name',
+      'title',
+    ]);
+    final id = _firstText(change, const ['id', 'key', 'path', 'target']);
+    final details = _detailEntries(change)
+        .map((entry) => '${_labelFor(entry.key, isZh)}: ${entry.value}')
+        .toList(growable: false);
+    final fallback = _jsonFallback(change);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (action != null)
+                  _miniPill(
+                    theme,
+                    colorScheme,
+                    label: action,
+                    icon: Icons.bolt_rounded,
+                  ),
+                if (id != null)
+                  _miniPill(
+                    theme,
+                    colorScheme,
+                    label: id,
+                    icon: Icons.tag_rounded,
+                    subdued: true,
+                  ),
+              ],
+            ),
+            if (heading != null) ...[
+              const SizedBox(height: 6),
+              SelectableText(
+                heading,
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurface,
+                  height: 1.35,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          ...changes.map(
-            (m) => Padding(
-              padding: const EdgeInsets.only(bottom: 3, left: 20),
-              child: SelectableText(
-                _formatChange(m),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  height: 1.35,
+            if (details.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              ...details.map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: SelectableText(
+                    line,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.32,
+                    ),
+                  ),
                 ),
               ),
+            ] else if (heading == null) ...[
+              const SizedBox(height: 6),
+              SelectableText(
+                fallback,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  height: 1.32,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniPill(
+    ThemeData theme,
+    ColorScheme colorScheme, {
+    required String label,
+    required IconData icon,
+    bool subdued = false,
+  }) {
+    final background = subdued
+        ? colorScheme.surfaceContainerHighest
+        : colorScheme.secondaryContainer;
+    final foreground = subdued
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.onSecondaryContainer;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: foreground),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -3214,23 +3360,69 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     );
   }
 
-  String _formatChange(Map<String, Object?> m) {
-    // 优先使用 'summary' / 'description' / 'content' / 'name' 等常见字段；
-    // 兜底用 JSON 编码，避免出现 "Instance of ..." 之类无意义文本。
-    const preferKeys = ['summary', 'description', 'content', 'name'];
-    for (final k in preferKeys) {
-      final v = m[k];
-      if (v is String && v.trim().isNotEmpty) {
-        final action = m['action'];
-        return action is String && action.isNotEmpty
-            ? '[$action] ${v.trim()}'
-            : '• ${v.trim()}';
+  String? _firstText(Map<String, Object?> map, List<String> keys) {
+    for (final key in keys) {
+      final value = map[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      if (value is num || value is bool) {
+        return '$value';
       }
     }
+    return null;
+  }
+
+  List<MapEntry<String, String>> _detailEntries(Map<String, Object?> map) {
+    const skip = <String>{
+      'action',
+      'type',
+      'operation',
+      'summary',
+      'description',
+      'content',
+      'name',
+      'title',
+      'id',
+      'key',
+      'path',
+      'target',
+    };
+    final out = <MapEntry<String, String>>[];
+    for (final entry in map.entries) {
+      if (skip.contains(entry.key)) continue;
+      final value = _formatValue(entry.value);
+      if (value.isNotEmpty) out.add(MapEntry(entry.key, value));
+    }
+    return out.take(6).toList(growable: false);
+  }
+
+  String _labelFor(String key, bool isZh) {
+    if (!isZh) return key;
+    return switch (key) {
+      'before' => '变更前',
+      'after' => '变更后',
+      'value' => '值',
+      'source' => '来源',
+      'reason' => '原因',
+      'metadata' => '元数据',
+      'error' => '错误',
+      _ => key,
+    };
+  }
+
+  String _formatValue(Object? value) {
+    if (value == null) return '';
+    if (value is String) return value.trim();
+    if (value is num || value is bool) return '$value';
+    return _jsonFallback(value);
+  }
+
+  String _jsonFallback(Object? value) {
     try {
-      return '• ${jsonEncode(m)}';
+      return jsonEncode(value);
     } catch (_) {
-      return '• ${m.toString()}';
+      return '$value';
     }
   }
 }
@@ -3267,7 +3459,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
     final shown = (_expanded || !exceeds)
         ? body
         : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
-    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -3309,8 +3501,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
                       minimumSize: const Size(0, 28),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    onPressed: () =>
-                        setState(() => _expanded = !_expanded),
+                    onPressed: () => setState(() => _expanded = !_expanded),
                     child: Text(
                       _expanded
                           ? (isZh ? '折叠' : 'Collapse')

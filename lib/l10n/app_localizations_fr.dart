@@ -521,6 +521,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolStepFun => '阶跃星辰';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => 'Wenxin / ERNIE';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI / Llama';
+
+  @override
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
@@ -821,6 +836,102 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get skillsPathSaved =>
       'L\'emplacement des compétences a été mis à jour';
+
+  @override
+  String get instructionPageTitle => 'Instructions';
+
+  @override
+  String get instructionPageSubtitle =>
+      'Gérez des fragments de prompt réutilisables. Les instructions activées sont injectées dans chaque prompt système selon l\'ordre actuel et apparaissent au-dessus du composeur sous forme de puces activables pour un seul envoi.';
+
+  @override
+  String get instructionRefresh => 'Actualiser';
+
+  @override
+  String get instructionNewEntry => 'Nouvelle instruction';
+
+  @override
+  String get instructionEmptyTitle => 'Aucune instruction pour le moment';
+
+  @override
+  String get instructionEmptyBody =>
+      'Créez la première instruction réutilisable. OpenHand la conservera dans le stockage local des instructions.';
+
+  @override
+  String get instructionLoadFailedTitle =>
+      'Impossible de charger les instructions';
+
+  @override
+  String get instructionDeleteConfirmTitle => 'Supprimer l\'instruction';
+
+  @override
+  String get instructionDeleteConfirmBody =>
+      'Supprimer cette instruction ? Cette action est irréversible.';
+
+  @override
+  String get instructionEnabledStatus => 'Activée et injectée';
+
+  @override
+  String get instructionDisabledStatus => 'Désactivée';
+
+  @override
+  String get instructionApplyToChipLabel => 'S\'applique à';
+
+  @override
+  String get instructionNotesChipLabel => 'Notes';
+
+  @override
+  String get instructionDialogCreateTitle => 'Nouvelle instruction';
+
+  @override
+  String get instructionDialogEditTitle => 'Modifier l\'instruction';
+
+  @override
+  String get instructionEnabledLabel => 'Activée';
+
+  @override
+  String get instructionEnabledBody =>
+      'Injecter cette instruction dans la chaîne de prompt active.';
+
+  @override
+  String get instructionNameField => 'Nom *';
+
+  @override
+  String get instructionNameRequired => 'Saisissez un nom.';
+
+  @override
+  String get instructionDescriptionField => 'Description';
+
+  @override
+  String get instructionVersionField => 'Version';
+
+  @override
+  String get instructionApplyToField =>
+      'S\'applique à (décrire quand charger cette instruction)';
+
+  @override
+  String get instructionTaskTypesField =>
+      'Types de tâches déclencheurs (séparés par des virgules)';
+
+  @override
+  String get instructionKeywordsField =>
+      'Mots-clés déclencheurs (séparés par des virgules)';
+
+  @override
+  String get instructionNotesField => 'Notes (une par ligne)';
+
+  @override
+  String get instructionBodyField => 'Corps de l\'instruction * (Markdown)';
+
+  @override
+  String get instructionBodyRequired => 'Saisissez le corps de l\'instruction.';
+
+  @override
+  String get instructionCreateAction => 'Créer';
+
+  @override
+  String get instructionSaveFailed =>
+      'Échec de l\'enregistrement. Vérifiez que les champs obligatoires ne sont pas vides.';
 
   @override
   String get memoryPageTitle => '记忆';

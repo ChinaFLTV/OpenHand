@@ -521,6 +521,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiProtocolStepFun => '阶跃星辰';
 
   @override
+  String get aiProtocolMinimax => 'MiniMax';
+
+  @override
+  String get aiProtocolLongCat => 'LongCat';
+
+  @override
+  String get aiProtocolJoyCode => 'JoyCode';
+
+  @override
+  String get aiProtocolWenxin => 'Wenxin / ERNIE';
+
+  @override
+  String get aiProtocolMeta => 'Meta AI / Llama';
+
+  @override
   String get aiProtocolMimo => 'MIMO (小米)';
 
   @override
@@ -819,6 +834,102 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get skillsPathSaved => 'Der Skill-Speicherort wurde aktualisiert';
+
+  @override
+  String get instructionPageTitle => 'Anweisungen';
+
+  @override
+  String get instructionPageSubtitle =>
+      'Verwalte wiederverwendbare Prompt-Bausteine. Aktivierte Anweisungen werden in aktueller Reihenfolge in jeden System-Prompt eingefügt und oberhalb des Composers als Chips angezeigt, die sich für einen einzelnen Versand umschalten lassen.';
+
+  @override
+  String get instructionRefresh => 'Aktualisieren';
+
+  @override
+  String get instructionNewEntry => 'Neue Anweisung';
+
+  @override
+  String get instructionEmptyTitle => 'Noch keine Anweisungen';
+
+  @override
+  String get instructionEmptyBody =>
+      'Erstelle die erste wiederverwendbare Anweisung. OpenHand speichert sie im lokalen Anweisungsspeicher.';
+
+  @override
+  String get instructionLoadFailedTitle =>
+      'Anweisungsspeicher konnte nicht geladen werden';
+
+  @override
+  String get instructionDeleteConfirmTitle => 'Anweisung löschen';
+
+  @override
+  String get instructionDeleteConfirmBody =>
+      'Diese Anweisung löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get instructionEnabledStatus => 'Aktiviert und eingefügt';
+
+  @override
+  String get instructionDisabledStatus => 'Deaktiviert';
+
+  @override
+  String get instructionApplyToChipLabel => 'Gilt für';
+
+  @override
+  String get instructionNotesChipLabel => 'Notizen';
+
+  @override
+  String get instructionDialogCreateTitle => 'Neue Anweisung';
+
+  @override
+  String get instructionDialogEditTitle => 'Anweisung bearbeiten';
+
+  @override
+  String get instructionEnabledLabel => 'Aktiviert';
+
+  @override
+  String get instructionEnabledBody =>
+      'Diese Anweisung in die aktive Prompt-Kette einfügen.';
+
+  @override
+  String get instructionNameField => 'Name *';
+
+  @override
+  String get instructionNameRequired => 'Gib einen Namen ein.';
+
+  @override
+  String get instructionDescriptionField => 'Beschreibung';
+
+  @override
+  String get instructionVersionField => 'Version';
+
+  @override
+  String get instructionApplyToField =>
+      'Gilt für (beschreibe, wann diese Anweisung geladen wird)';
+
+  @override
+  String get instructionTaskTypesField =>
+      'Auslösende Aufgabentypen (durch Kommas getrennt)';
+
+  @override
+  String get instructionKeywordsField =>
+      'Auslösende Schlüsselwörter (durch Kommas getrennt)';
+
+  @override
+  String get instructionNotesField => 'Notizen (eine pro Zeile)';
+
+  @override
+  String get instructionBodyField => 'Anweisungstext * (Markdown)';
+
+  @override
+  String get instructionBodyRequired => 'Gib den Anweisungstext ein.';
+
+  @override
+  String get instructionCreateAction => 'Erstellen';
+
+  @override
+  String get instructionSaveFailed =>
+      'Speichern fehlgeschlagen. Prüfe, ob Pflichtfelder leer sind.';
 
   @override
   String get memoryPageTitle => '记忆';

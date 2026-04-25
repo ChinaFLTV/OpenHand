@@ -1523,6 +1523,31 @@ abstract final class AiProtocolRegistry {
   /// MIMO: Vision-capable model IDs.
   static const _mimoVisionPatterns = <String>['vision', 'vl'];
 
+  /// MiniMax: M-series text models plus explicit vision/VL variants.
+  static const _minimaxVisionPatterns = <String>['vision', 'vl', 'm2-vl'];
+
+  /// LongCat / JoyCode are OpenAI-compatible providers; treat only explicit
+  /// vision model IDs as attachment-capable.
+  static const _longCatVisionPatterns = <String>['vision', 'vl'];
+  static const _joyCodeVisionPatterns = <String>['vision', 'vl'];
+
+  /// Baidu ERNIE / Wenxin: ERNIE-VL model families.
+  static const _wenxinVisionPatterns = <String>[
+    'ernie-vl',
+    'ernie-4.5-vl',
+    'vision',
+    'vl',
+  ];
+
+  /// Meta AI / Llama: official multimodal Llama families.
+  static const _metaVisionPatterns = <String>[
+    'llama-4',
+    'llama3.2-vision',
+    'llama-3.2-vision',
+    'vision',
+    'vl',
+  ];
+
   /// Hunyuan (Tencent): Vision models via OpenAI-compatible endpoint.
   /// Official API: api.hunyuan.cloud.tencent.com/v1 with image_url format.
   static const _hunyuanVisionPatterns = <String>[
@@ -1576,6 +1601,26 @@ abstract final class AiProtocolRegistry {
         AiProtocolType.stepfun: const OpenAiProtocolAdapter(
           AiProtocolType.stepfun,
           visionModelPatterns: _stepfunVisionPatterns,
+        ),
+        AiProtocolType.minimax: const OpenAiProtocolAdapter(
+          AiProtocolType.minimax,
+          visionModelPatterns: _minimaxVisionPatterns,
+        ),
+        AiProtocolType.longcat: const OpenAiProtocolAdapter(
+          AiProtocolType.longcat,
+          visionModelPatterns: _longCatVisionPatterns,
+        ),
+        AiProtocolType.joycode: const OpenAiProtocolAdapter(
+          AiProtocolType.joycode,
+          visionModelPatterns: _joyCodeVisionPatterns,
+        ),
+        AiProtocolType.wenxin: const OpenAiProtocolAdapter(
+          AiProtocolType.wenxin,
+          visionModelPatterns: _wenxinVisionPatterns,
+        ),
+        AiProtocolType.meta: const OpenAiProtocolAdapter(
+          AiProtocolType.meta,
+          visionModelPatterns: _metaVisionPatterns,
         ),
         AiProtocolType.mimo: const OpenAiProtocolAdapter(
           AiProtocolType.mimo,
