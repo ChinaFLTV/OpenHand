@@ -241,6 +241,33 @@
   "imageEditorReset": "Reset",
   "imageEditorLoadFailed": "Unable to load the selected image.",
   "imageEditorProcessFailed": "Unable to process the selected image.",
+  "imageEditorSectionBasic": "Basic adjustments",
+  "imageEditorSectionColor": "Color (temperature / tint / gamma)",
+  "imageEditorSectionSplitToning": "Split toning (HSL)",
+  "imageEditorSectionDetail": "Detail (clarity / sharpness / denoise / grain)",
+  "imageEditorSectionEffects": "Effects (dispersion / distortion / vignette)",
+  "imageEditorSectionWatermark": "Text watermark / mark",
+  "imageEditorTemperatureLabel": "Temperature",
+  "imageEditorTintLabel": "Tint shift",
+  "imageEditorGammaLabel": "Gamma (curve)",
+  "imageEditorShadowHueLabel": "Shadow hue",
+  "imageEditorShadowStrengthLabel": "Shadow strength",
+  "imageEditorHighlightHueLabel": "Highlight hue",
+  "imageEditorHighlightStrengthLabel": "Highlight strength",
+  "imageEditorClarityLabel": "Clarity",
+  "imageEditorSharpnessLabel": "Sharpness",
+  "imageEditorDenoiseLabel": "Denoise",
+  "imageEditorGrainLabel": "Grain",
+  "imageEditorDispersionLabel": "Dispersion",
+  "imageEditorDistortLabel": "Distortion (positive bulges / negative stretches)",
+  "imageEditorWatermarkTextLabel": "Watermark text",
+  "imageEditorWatermarkTextHint": "Enter text to overlay (leave empty to skip)",
+  "imageEditorWatermarkSizeLabel": "Text size",
+  "imageEditorWatermarkOpacityLabel": "Opacity",
+  "imageEditorWatermarkPositionLabel": "Position",
+  "imageEditorWatermarkColorLight": "Light",
+  "imageEditorWatermarkColorDark": "Dark",
+  "imageEditorAdvancedApplyHint": "Adjustments in expanded panels are applied to the original image when you save.",
   "skillsEditorSave": "Save",
   "skillsEditorCancel": "Cancel",
   "skillsEditSuccess": "Skill content saved",
@@ -406,20 +433,36 @@
   "imageEditorCopyToClipboard": "Copy To Clipboard",
   "imageEditorSavedTo": "Saved: {path}",
   "@imageEditorSavedTo": {
-    "placeholders": {"path": {"type": "String"}}
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorSaveFailed": "Save failed: {error}",
   "@imageEditorSaveFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorClipboardCopiedBitmap": "Image copied to the clipboard. The file path was also copied as text.",
   "imageEditorClipboardCopiedPath": "Image file path copied to the clipboard: {path}",
   "@imageEditorClipboardCopiedPath": {
-    "placeholders": {"path": {"type": "String"}}
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorClipboardFailed": "Copy failed: {error}",
   "@imageEditorClipboardFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorApplyButton": "Apply",
   "imageEditorUndoButton": "Undo",

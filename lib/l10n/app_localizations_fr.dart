@@ -25,7 +25,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get skills => 'Compétences';
 
   @override
-  String get memory => '记忆';
+  String get memory => 'Memory';
 
   @override
   String get mcp => 'MCP';
@@ -47,10 +47,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get composerSend => 'Envoyer';
 
   @override
-  String get chatSending => '发送中';
+  String get chatSending => 'Sending';
 
   @override
-  String get chatRequestFailed => '模型请求失败，请检查模型配置、网络连通性或接口协议。';
+  String get chatRequestFailed =>
+      'Model request failed. Check the model configuration, network connectivity, or protocol type.';
 
   @override
   String get composerUnavailable =>
@@ -101,7 +102,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérez ici le thème, la langue et les informations de l\'application.';
 
   @override
-  String get settingsFilePathLabel => '设置文件';
+  String get settingsFilePathLabel => 'Settings File';
 
   @override
   String get themeSectionTitle => 'Thème de l\'application';
@@ -120,71 +121,71 @@ class AppLocalizationsFr extends AppLocalizations {
   String get themeDark => 'Sombre';
 
   @override
-  String get themePaletteSectionTitle => '主题配色';
+  String get themePaletteSectionTitle => 'Theme Palette';
 
   @override
   String get themePaletteSectionBody =>
-      '选择全局主题配色，系统会基于该配色生成 Material 3 Expressive 主题层次。';
+      'Choose a global color preset. OpenHand will derive the Material 3 Expressive surfaces and accents from it.';
 
   @override
-  String get themePresetDarkNightPurple => '暗夜紫';
+  String get themePresetDarkNightPurple => 'Dark Night Purple';
 
   @override
-  String get themePresetDeepSeaBlue => '深海蓝';
+  String get themePresetDeepSeaBlue => 'Deep Sea Blue';
 
   @override
-  String get themePresetMistGray => '雾霭灰';
+  String get themePresetMistGray => 'Mist Gray';
 
   @override
-  String get themePresetObsidianBlack => '曜石黑';
+  String get themePresetObsidianBlack => 'Obsidian Black';
 
   @override
-  String get themePresetPolarWhite => '极昼白';
+  String get themePresetPolarWhite => 'Polar White';
 
   @override
-  String get themePresetFrostMorningBlue => '霜晨蓝';
+  String get themePresetFrostMorningBlue => 'Frost Morning Blue';
 
   @override
-  String get themePresetDuskMountainGreen => '暮山青';
+  String get themePresetDuskMountainGreen => 'Dusk Mountain Green';
 
   @override
-  String get themePresetNebulaPurple => '星云紫';
+  String get themePresetNebulaPurple => 'Nebula Purple';
 
   @override
-  String get themePresetEmberOrange => '余烬橙';
+  String get themePresetEmberOrange => 'Ember Orange';
 
   @override
-  String get themePresetTundraGreen => '苔原绿';
+  String get themePresetTundraGreen => 'Tundra Green';
 
   @override
-  String get themePresetMoonShadowSilver => '月影银';
+  String get themePresetMoonShadowSilver => 'Moon Shadow Silver';
 
   @override
-  String get themePresetAmberGold => '琥珀金';
+  String get themePresetAmberGold => 'Amber Gold';
 
   @override
-  String get themePresetRainyCyan => '烟雨青';
+  String get themePresetRainyCyan => 'Rainy Cyan';
 
   @override
-  String get themePresetGraphiteGray => '石墨灰';
+  String get themePresetGraphiteGray => 'Graphite Gray';
 
   @override
-  String get themePresetGlacierBlue => '冰川蓝';
+  String get themePresetGlacierBlue => 'Glacier Blue';
 
   @override
-  String get themePresetBlazeRed => '赤焰红';
+  String get themePresetBlazeRed => 'Blaze Red';
 
   @override
-  String get themePresetNightfallBlue => '夜幕蓝';
+  String get themePresetNightfallBlue => 'Nightfall Blue';
 
   @override
-  String get themePresetColdMoonWhite => '冷月白';
+  String get themePresetColdMoonWhite => 'Cold Moon White';
 
   @override
-  String get themePresetPineInk => '松烟墨';
+  String get themePresetPineInk => 'Pine Ink';
 
   @override
-  String get themePresetSkyCyan => '苍穹青';
+  String get themePresetSkyCyan => 'Sky Cyan';
 
   @override
   String get languageSectionTitle => 'Langue de l\'application';
@@ -234,16 +235,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aboutBuild => 'Build';
 
   @override
-  String get commonCancel => '取消';
+  String get commonCancel => 'Cancel';
 
   @override
-  String get commonSave => '保存';
+  String get commonSave => 'Save';
 
   @override
-  String get commonDelete => '删除';
+  String get commonDelete => 'Delete';
 
   @override
-  String get commonEdit => '编辑';
+  String get commonEdit => 'Edit';
 
   @override
   String get previewSectionTitle => 'Direction du design';
@@ -286,26 +287,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsCategorySkills => 'Compétences';
 
   @override
-  String get settingsCategoryMemory => '记忆';
+  String get settingsCategoryMemory => 'Memory';
 
   @override
-  String get mcpSectionTitle => 'MCP 服务';
+  String get mcpSectionTitle => 'MCP Services';
 
   @override
   String get mcpSectionBody =>
-      '管理全局 MCP 开关和服务配置文件位置。服务条目的新增、更新、删除与启用状态会同步写入 MCP JSON 文件。';
+      'Manage the global MCP switch and the service configuration file path. Creating, updating, deleting, and enabling services all sync to the MCP JSON file.';
 
   @override
-  String get mcpEnabledLabel => '启用 MCP 服务';
+  String get mcpEnabledLabel => 'Enable MCP Services';
 
   @override
-  String get mcpEnabledBody => '关闭后不会启用 MCP 服务能力，但仍然保留已保存的服务配置。';
+  String get mcpEnabledBody =>
+      'When disabled, MCP capabilities stay off at runtime while keeping the saved server configurations.';
 
   @override
-  String get mcpFilePathLabel => 'MCP 配置文件';
+  String get mcpFilePathLabel => 'MCP Config File';
 
   @override
-  String get mcpOpenDirectory => '打开目录';
+  String get mcpOpenDirectory => 'Open Directory';
 
   @override
   String get settingsGeneralTitle => 'Général';
@@ -315,7 +317,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérez le thème, la langue et les informations principales de l\'application.';
 
   @override
-  String get settingsAiSubtitle => '管理聊天模型、鉴权方式与协议适配。';
+  String get settingsAiSubtitle =>
+      'Manage chat models, authentication, and protocol adapters.';
 
   @override
   String get settingsSkillsTitle => 'Compétences';
@@ -325,152 +328,156 @@ class AppLocalizationsFr extends AppLocalizations {
       'Gérez le dossier local des compétences, la création de modèles et les compétences installées.';
 
   @override
-  String get settingsMemorySubtitle => '管理用户记忆开关与持久化文件位置。';
+  String get settingsMemorySubtitle =>
+      'Manage the user-memory switch and the persistence file path.';
 
   @override
-  String get settingsPersistenceRecoveredTitle => '设置文件已自动恢复';
+  String get settingsPersistenceRecoveredTitle => 'Settings File Recovered';
 
   @override
   String get settingsPersistenceRecoveredBody =>
-      '检测到设置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为安全默认值。';
+      'OpenHand detected that the settings file was damaged or tampered with, backed it up, and restored safe defaults.';
 
   @override
-  String get settingsPersistenceSanitizedTitle => '设置内容已自动修正';
+  String get settingsPersistenceSanitizedTitle => 'Settings Content Sanitized';
 
   @override
   String get settingsPersistenceSanitizedBody =>
-      '检测到部分设置内容无效，OpenHand 已忽略异常字段并重新写回有效配置。';
+      'OpenHand detected invalid settings fields, ignored them, and rewrote a valid configuration.';
 
   @override
-  String get settingsPersistenceSaveFailedTitle => '设置保存失败';
+  String get settingsPersistenceSaveFailedTitle => 'Settings Save Failed';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      '设置文件写入失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+      'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
 
   @override
-  String get settingsPersistenceDismiss => '关闭提示';
+  String get settingsPersistenceDismiss => 'Dismiss';
 
   @override
-  String get aiModelAdd => '新增提供商';
+  String get aiModelAdd => 'Add Provider';
 
   @override
-  String get aiModelsEmptyTitle => '还没有可用模型提供商';
+  String get aiModelsEmptyTitle => 'No model providers yet';
 
   @override
-  String get aiModelsEmptyBody => '先添加至少一个模型提供商配置，后续线程聊天窗口会直接复用这里的模型列表。';
+  String get aiModelsEmptyBody =>
+      'Add at least one model provider configuration here, and the thread composer will reuse it directly.';
 
   @override
-  String get aiModelDialogCreateTitle => '新增模型提供商';
+  String get aiModelDialogCreateTitle => 'Add Model Provider';
 
   @override
-  String get aiModelDialogEditTitle => '编辑模型提供商';
+  String get aiModelDialogEditTitle => 'Edit Model Provider';
 
   @override
   String get aiModelBaseUrl => 'Base URL';
 
   @override
-  String get aiModelBaseUrlRequired => '请输入 Base URL';
+  String get aiModelBaseUrlRequired => 'Enter a base URL.';
 
   @override
-  String get aiModelBaseUrlInvalid => '请输入有效的 Base URL';
+  String get aiModelBaseUrlInvalid => 'Enter a valid base URL.';
 
   @override
-  String get aiModelAuthScheme => '鉴权方式';
+  String get aiModelAuthScheme => 'Auth Scheme';
 
   @override
-  String get aiModelToken => '令牌';
+  String get aiModelToken => 'Token';
 
   @override
-  String get aiModelIdField => '模型 ID';
+  String get aiModelIdField => 'Model ID';
 
   @override
-  String get aiModelIdRequired => '请输入模型 ID';
+  String get aiModelIdRequired => 'Enter a model ID.';
 
   @override
-  String get aiModelProtocol => '协议类型';
+  String get aiModelProtocol => 'Protocol';
 
   @override
-  String get aiModelSaveSuccess => '模型提供商配置已保存。';
+  String get aiModelSaveSuccess => 'Model provider configuration saved.';
 
   @override
-  String get aiModelDeleteConfirmTitle => '删除模型提供商';
+  String get aiModelDeleteConfirmTitle => 'Delete Model Provider';
 
   @override
-  String get aiModelDeleteConfirmBody => '确认删除这条模型提供商配置吗？';
+  String get aiModelDeleteConfirmBody =>
+      'Delete this model provider configuration?';
 
   @override
-  String get aiModelDeleteSuccess => '模型提供商配置已删除。';
+  String get aiModelDeleteSuccess => 'Model provider configuration deleted.';
 
   @override
-  String get aiModelMoveUp => '上移';
+  String get aiModelMoveUp => 'Move Up';
 
   @override
-  String get aiModelMoveDown => '下移';
+  String get aiModelMoveDown => 'Move Down';
 
   @override
-  String get aiModelSelected => '当前活跃提供商';
+  String get aiModelSelected => 'Active model provider';
 
   @override
-  String get aiModelNoToken => '未配置令牌';
+  String get aiModelNoToken => 'No token configured';
 
   @override
-  String get aiModelTest => '测试';
+  String get aiModelTest => 'Test';
 
   @override
-  String get aiModelTesting => '测试中';
+  String get aiModelTesting => 'Testing';
 
   @override
   String aiModelTestSuccess(Object modelName) {
-    return '$modelName 测试通过。';
+    return '$modelName passed the test.';
   }
 
   @override
   String aiModelTestFailure(Object modelName, Object reason) {
-    return '$modelName 测试失败：$reason';
+    return '$modelName test failed: $reason';
   }
 
   @override
-  String get aiModelSelectionRequired => '请先在设置中添加并选择一个 AI 模型提供商。';
+  String get aiModelSelectionRequired =>
+      'Add and select an AI model provider in Settings first.';
 
   @override
-  String get aiModelScanButton => '扫描模型';
+  String get aiModelScanButton => 'Scan Models';
 
   @override
-  String get aiModelScanning => '正在扫描可用模型…';
+  String get aiModelScanning => 'Scanning available models…';
 
   @override
   String aiModelScanSuccess(Object count) {
-    return '发现 $count 个模型。';
+    return 'Found $count models.';
   }
 
   @override
   String aiModelScanFailed(Object reason) {
-    return '扫描失败：$reason';
+    return 'Scan failed: $reason';
   }
 
   @override
-  String get aiModelScanEmpty => '未从该提供商扫描到模型。';
+  String get aiModelScanEmpty => 'No models found from this provider.';
 
   @override
-  String get aiModelAvailableModels => '可用模型';
+  String get aiModelAvailableModels => 'Available Models';
 
   @override
-  String get aiModelManualIdHint => '手动输入模型 ID';
+  String get aiModelManualIdHint => 'Add model ID manually';
 
   @override
-  String get aiModelManualIdAdd => '添加';
+  String get aiModelManualIdAdd => 'Add';
 
   @override
   String aiModelCount(Object count) {
-    return '$count 个模型';
+    return '$count models';
   }
 
   @override
-  String get chatModelButton => '选择模型';
+  String get chatModelButton => 'Choose Model';
 
   @override
-  String get aiAuthNone => '无';
+  String get aiAuthNone => 'None';
 
   @override
   String get aiAuthBearer => 'Bearer';
@@ -512,13 +519,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolSglang => 'SGLang';
 
   @override
-  String get aiProtocolQwen => '通义千问';
+  String get aiProtocolQwen => 'Qwen';
 
   @override
-  String get aiProtocolSeed => '豆包 (火山方舟)';
+  String get aiProtocolSeed => 'Seed (Doubao)';
 
   @override
-  String get aiProtocolStepFun => '阶跃星辰';
+  String get aiProtocolStepFun => 'StepFun';
 
   @override
   String get aiProtocolMinimax => 'MiniMax';
@@ -536,10 +543,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aiProtocolMeta => 'Meta AI / Llama';
 
   @override
-  String get aiProtocolMimo => 'MIMO (小米)';
+  String get aiProtocolMimo => 'MIMO';
 
   @override
-  String get aiProtocolHunyuan => '混元 (腾讯)';
+  String get aiProtocolHunyuan => 'Hunyuan';
 
   @override
   String get skillsPageTitle => 'Compétences';
@@ -615,158 +622,164 @@ class AppLocalizationsFr extends AppLocalizations {
   String get skillsEditorLabel => 'Contenu de SKILL.md';
 
   @override
-  String get skillsCreateDialogTitle => '新增技能';
+  String get skillsCreateDialogTitle => 'Create Skill';
 
   @override
-  String get skillsCreateNameLabel => '技能名称';
+  String get skillsCreateNameLabel => 'Skill Name';
 
   @override
-  String get skillsCreateNameRequired => '请输入技能名称';
+  String get skillsCreateNameRequired => 'Enter the skill name.';
 
   @override
-  String get skillsCreateIconLabel => '技能图标';
+  String get skillsCreateIconLabel => 'Skill Icon';
 
   @override
-  String get skillsCreateIconHint => '请选择表情或本地图片';
+  String get skillsCreateIconHint => 'Choose an emoji or a local image.';
 
   @override
-  String get skillsCreateIconRequired => '请选择技能图标';
+  String get skillsCreateIconRequired => 'Choose an icon.';
 
   @override
-  String get skillsCreateIconChoose => '选择表情';
+  String get skillsCreateIconChoose => 'Choose Emoji';
 
   @override
-  String get skillsCreateIconChange => '重新选择';
+  String get skillsCreateIconChange => 'Change';
 
   @override
-  String get skillsCreateImageChoose => '选择图片';
+  String get skillsCreateImageChoose => 'Choose Image';
 
   @override
-  String get skillsCreateImageChange => '更换图片';
+  String get skillsCreateImageChange => 'Replace Image';
 
   @override
-  String get skillsCreateImageSelected => '已选择本地图片';
+  String get skillsCreateImageSelected => 'Local image selected';
 
   @override
-  String get skillsCreateDescriptionLabel => '技能简介';
+  String get skillsCreateDescriptionLabel => 'Short Description';
 
   @override
-  String get skillsCreateDescriptionRequired => '请输入技能简介';
+  String get skillsCreateDescriptionRequired => 'Enter the short description.';
 
   @override
-  String get skillsCreateContentRequired => '请输入 SKILL.md 内容';
+  String get skillsCreateContentRequired => 'Enter the SKILL.md content.';
 
   @override
-  String get imageEditorTitle => '编辑图片';
+  String get imageEditorTitle => 'Edit Image';
 
   @override
   String get imageEditorCropHint =>
-      '拖动方框调整裁剪区域，可继续缩放、旋转、翻转，展开下方面板可使用 HSL、色调分离、清晰度、颗粒、降噪、色散、扭曲、水印等高级调整（高级调整在保存时应用）。';
+      'Drag the image to reposition the square crop area, then adjust zoom, rotation, brightness, and contrast.';
 
   @override
-  String get imageEditorZoomLabel => '缩放';
+  String get imageEditorZoomLabel => 'Zoom';
 
   @override
-  String get imageEditorBrightnessLabel => '亮度';
+  String get imageEditorBrightnessLabel => 'Brightness';
 
   @override
-  String get imageEditorContrastLabel => '对比度';
+  String get imageEditorContrastLabel => 'Contrast';
 
   @override
-  String get imageEditorRotateLeft => '左转';
+  String get imageEditorRotateLeft => 'Rotate Left';
 
   @override
-  String get imageEditorRotateRight => '右转';
+  String get imageEditorRotateRight => 'Rotate Right';
 
   @override
-  String get imageEditorReset => '重置';
+  String get imageEditorReset => 'Reset';
 
   @override
-  String get imageEditorLoadFailed => '无法加载所选图片';
+  String get imageEditorLoadFailed => 'Unable to load the selected image.';
 
   @override
-  String get imageEditorProcessFailed => '无法处理所选图片';
+  String get imageEditorProcessFailed =>
+      'Unable to process the selected image.';
 
   @override
-  String get imageEditorSectionBasic => '基础调整';
+  String get imageEditorSectionBasic => 'Basic adjustments';
 
   @override
-  String get imageEditorSectionColor => '色彩（色温 / 色调 / 伽马）';
+  String get imageEditorSectionColor => 'Color (temperature / tint / gamma)';
 
   @override
-  String get imageEditorSectionSplitToning => '色调分离（HSL）';
+  String get imageEditorSectionSplitToning => 'Split toning (HSL)';
 
   @override
-  String get imageEditorSectionDetail => '细节（清晰度 / 锐度 / 降噪 / 颗粒）';
+  String get imageEditorSectionDetail =>
+      'Detail (clarity / sharpness / denoise / grain)';
 
   @override
-  String get imageEditorSectionEffects => '特效（色散 / 扭曲 / 晕影）';
+  String get imageEditorSectionEffects =>
+      'Effects (dispersion / distortion / vignette)';
 
   @override
-  String get imageEditorSectionWatermark => '文字水印 / 标记';
+  String get imageEditorSectionWatermark => 'Text watermark / mark';
 
   @override
-  String get imageEditorTemperatureLabel => '色温';
+  String get imageEditorTemperatureLabel => 'Temperature';
 
   @override
-  String get imageEditorTintLabel => '色调偏移';
+  String get imageEditorTintLabel => 'Tint shift';
 
   @override
-  String get imageEditorGammaLabel => '伽马（曲线）';
+  String get imageEditorGammaLabel => 'Gamma (curve)';
 
   @override
-  String get imageEditorShadowHueLabel => '暗部色相';
+  String get imageEditorShadowHueLabel => 'Shadow hue';
 
   @override
-  String get imageEditorShadowStrengthLabel => '暗部强度';
+  String get imageEditorShadowStrengthLabel => 'Shadow strength';
 
   @override
-  String get imageEditorHighlightHueLabel => '亮部色相';
+  String get imageEditorHighlightHueLabel => 'Highlight hue';
 
   @override
-  String get imageEditorHighlightStrengthLabel => '亮部强度';
+  String get imageEditorHighlightStrengthLabel => 'Highlight strength';
 
   @override
-  String get imageEditorClarityLabel => '清晰度';
+  String get imageEditorClarityLabel => 'Clarity';
 
   @override
-  String get imageEditorSharpnessLabel => '锐度';
+  String get imageEditorSharpnessLabel => 'Sharpness';
 
   @override
-  String get imageEditorDenoiseLabel => '降噪';
+  String get imageEditorDenoiseLabel => 'Denoise';
 
   @override
-  String get imageEditorGrainLabel => '颗粒';
+  String get imageEditorGrainLabel => 'Grain';
 
   @override
-  String get imageEditorDispersionLabel => '色散';
+  String get imageEditorDispersionLabel => 'Dispersion';
 
   @override
-  String get imageEditorDistortLabel => '扭曲（正值凸出 / 负值拉伸）';
+  String get imageEditorDistortLabel =>
+      'Distortion (positive bulges / negative stretches)';
 
   @override
-  String get imageEditorWatermarkTextLabel => '水印文字';
+  String get imageEditorWatermarkTextLabel => 'Watermark text';
 
   @override
-  String get imageEditorWatermarkTextHint => '输入要叠加的文字（留空则不添加）';
+  String get imageEditorWatermarkTextHint =>
+      'Enter text to overlay (leave empty to skip)';
 
   @override
-  String get imageEditorWatermarkSizeLabel => '文字大小';
+  String get imageEditorWatermarkSizeLabel => 'Text size';
 
   @override
-  String get imageEditorWatermarkOpacityLabel => '不透明度';
+  String get imageEditorWatermarkOpacityLabel => 'Opacity';
 
   @override
-  String get imageEditorWatermarkPositionLabel => '位置';
+  String get imageEditorWatermarkPositionLabel => 'Position';
 
   @override
-  String get imageEditorWatermarkColorLight => '浅色';
+  String get imageEditorWatermarkColorLight => 'Light';
 
   @override
-  String get imageEditorWatermarkColorDark => '深色';
+  String get imageEditorWatermarkColorDark => 'Dark';
 
   @override
-  String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
+  String get imageEditorAdvancedApplyHint =>
+      'Adjustments in expanded panels are applied to the original image when you save.';
 
   @override
   String get skillsEditorSave => 'Enregistrer';
@@ -934,223 +947,231 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec de l\'enregistrement. Vérifiez que les champs obligatoires ne sont pas vides.';
 
   @override
-  String get memoryPageTitle => '记忆';
+  String get memoryPageTitle => 'Memory';
 
   @override
-  String get memoryPageSubtitle => '统一维护用户可编辑记忆，所有条目会持久化到本地 JSON 文件。';
+  String get memoryPageSubtitle =>
+      'Manage editable user memories in one place. Every entry is persisted to a local JSON file.';
 
   @override
-  String get memoryRefresh => '刷新';
+  String get memoryRefresh => 'Refresh';
 
   @override
-  String get memoryNewEntry => '新增记忆';
+  String get memoryNewEntry => 'New Memory';
 
   @override
-  String get memoryEmptyTitle => '还没有任何用户记忆';
+  String get memoryEmptyTitle => 'No user memories yet';
 
   @override
-  String get memoryEmptyBody => '新增一条用户记忆后，它会持久化保存到当前配置的记忆文件中。';
+  String get memoryEmptyBody =>
+      'Add a user memory and OpenHand will persist it into the current memory file.';
 
   @override
-  String get memoryLoadFailedTitle => '记忆文件读取失败';
+  String get memoryLoadFailedTitle => 'Failed to load memory file';
 
   @override
-  String get memoryOperationFailed => '记忆操作失败，请稍后重试。';
+  String get memoryOperationFailed =>
+      'The memory action failed. Please try again.';
 
   @override
-  String get memoryDialogCreateTitle => '新增用户记忆';
+  String get memoryDialogCreateTitle => 'Add User Memory';
 
   @override
-  String get memoryDialogEditTitle => '编辑用户记忆';
+  String get memoryDialogEditTitle => 'Edit User Memory';
 
   @override
-  String get memoryContentField => '记忆内容';
+  String get memoryContentField => 'Memory Content';
 
   @override
-  String get memoryContentRequired => '请输入记忆内容';
+  String get memoryContentRequired => 'Enter the memory content.';
 
   @override
-  String get memoryTagsField => '标签';
+  String get memoryTagsField => 'Tags';
 
   @override
-  String get memoryTagsHint => '输入一个标签后按回车添加';
+  String get memoryTagsHint => 'Type a tag and press Enter to add it';
 
   @override
-  String get memoryDeleteConfirmTitle => '删除用户记忆';
+  String get memoryDeleteConfirmTitle => 'Delete User Memory';
 
   @override
-  String get memoryDeleteConfirmBody => '确认删除这条用户记忆吗？删除后无法恢复。';
+  String get memoryDeleteConfirmBody =>
+      'Delete this user memory? This action cannot be undone.';
 
   @override
-  String get memoryTypeUser => '用户编辑';
+  String get memoryTypeUser => 'User Edited';
 
   @override
-  String get memoryEntryCreated => '用户记忆已创建';
+  String get memoryEntryCreated => 'User memory created.';
 
   @override
-  String get memoryEntryUpdated => '用户记忆已更新';
+  String get memoryEntryUpdated => 'User memory updated.';
 
   @override
-  String get memoryEntryDeleted => '用户记忆已删除';
+  String get memoryEntryDeleted => 'User memory deleted.';
 
   @override
-  String get memoryEnabledLabel => '启用记忆能力';
+  String get memoryEnabledLabel => 'Enable Memory';
 
   @override
-  String get memoryEnabledBody => '关闭后不会在运行时使用用户记忆，但仍然保留已保存的记忆内容。';
+  String get memoryEnabledBody =>
+      'When disabled, saved user memories stay on disk but are not used at runtime.';
 
   @override
-  String get userMemoryFileLabel => '用户记忆文件';
+  String get userMemoryFileLabel => 'User Memory File';
 
   @override
   String get memoryFileBody =>
-      '配置用户记忆 JSON 文件位置。默认会使用当前程序目录下的 .openhand/memory/user-memory.json。';
+      'Configure the JSON file used for user memories. By default it points to .openhand/memory/user-memory.json under the current app directory.';
 
   @override
-  String get memoryFileDefaultPath => '默认文件';
+  String get memoryFileDefaultPath => 'Default File';
 
   @override
-  String get memoryFileSave => '保存路径';
+  String get memoryFileSave => 'Save Path';
 
   @override
-  String get memoryFileBrowse => '选择文件';
+  String get memoryFileBrowse => 'Choose File';
 
   @override
-  String get memoryFileReset => '恢复默认';
+  String get memoryFileReset => 'Restore Default';
 
   @override
-  String get memoryOpenDirectory => '打开目录';
+  String get memoryOpenDirectory => 'Open Directory';
 
   @override
-  String get memoryPathSaved => '用户记忆文件路径已更新';
+  String get memoryPathSaved => 'The user memory file path has been updated';
 
   @override
-  String get memoryDisabledTitle => '记忆能力当前已关闭';
+  String get memoryDisabledTitle => 'Memory is currently disabled';
 
   @override
-  String get memoryDisabledBody => '你仍然可以在这里维护用户记忆内容；如需在运行时启用，请到设置页记忆板块打开记忆开关。';
+  String get memoryDisabledBody =>
+      'You can still manage user memories here. To use them at runtime, turn Memory on in Settings > Memory.';
 
   @override
-  String get memoryCreatedAtLabel => '创建时间';
+  String get memoryCreatedAtLabel => 'Created At';
 
   @override
-  String get memoryPersistenceRecoveredTitle => '记忆文件已自动恢复';
+  String get memoryPersistenceRecoveredTitle => 'Memory File Recovered';
 
   @override
   String get memoryPersistenceRecoveredBody =>
-      '检测到记忆文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空列表。';
+      'OpenHand detected that the memory file was damaged or tampered with, backed it up, and restored an empty list.';
 
   @override
-  String get memoryPersistenceSanitizedTitle => '记忆内容已自动修正';
+  String get memoryPersistenceSanitizedTitle => 'Memory Content Sanitized';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      '检测到部分记忆字段无效，OpenHand 已忽略异常条目并重新写回有效内容。';
+      'OpenHand detected invalid memory fields, ignored the bad entries, and rewrote valid content.';
 
   @override
-  String get memoryPersistenceSaveFailedTitle => '记忆文件保存失败';
+  String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      '写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。';
+      'Writing the memory file failed. The UI has been rolled back to the last valid content. Check file permissions or disk state.';
 
   @override
   String get mcpPageTitle => 'MCP';
 
   @override
-  String get mcpPageSubtitle => '参考 Cursor 的 MCP 服务管理结构，统一维护本地 MCP Server 配置。';
+  String get mcpPageSubtitle =>
+      'Manage local MCP Server configurations with a Cursor-style layout adapted to OpenHand.';
 
   @override
-  String get mcpRefresh => '刷新';
+  String get mcpRefresh => 'Refresh';
 
   @override
-  String get mcpNewServer => '新增服务';
+  String get mcpNewServer => 'New Server';
 
   @override
-  String get mcpEmptyTitle => '还没有配置任何 MCP 服务';
+  String get mcpEmptyTitle => 'No MCP services configured yet';
 
   @override
   String get mcpEmptyBody =>
-      '先新增一个 MCP Server，OpenHand 会把它保存到 ~/.openhand/mcp/mcp_servers.json 中。';
+      'Add an MCP Server first. OpenHand will save it into ~/.openhand/mcp/mcp_servers.json.';
 
   @override
-  String get mcpLoadFailedTitle => 'MCP 配置读取失败';
+  String get mcpLoadFailedTitle => 'Failed to load MCP config';
 
   @override
-  String get mcpOperationFailed => 'MCP 操作失败，请稍后重试。';
+  String get mcpOperationFailed => 'The MCP action failed. Please try again.';
 
   @override
-  String get mcpDialogCreateTitle => '新增 MCP 服务';
+  String get mcpDialogCreateTitle => 'Add MCP Service';
 
   @override
-  String get mcpDialogEditTitle => '编辑 MCP 服务';
+  String get mcpDialogEditTitle => 'Edit MCP Service';
 
   @override
-  String get mcpNameField => '服务名称';
+  String get mcpNameField => 'Service Name';
 
   @override
-  String get mcpNameRequired => '请输入服务名称';
+  String get mcpNameRequired => 'Enter a service name.';
 
   @override
-  String get mcpNameDuplicate => '服务名称已存在';
+  String get mcpNameDuplicate => 'That service name already exists.';
 
   @override
-  String get mcpTypeField => '服务类型';
+  String get mcpTypeField => 'Service Type';
 
   @override
-  String get mcpUrlField => '服务 URL';
+  String get mcpUrlField => 'Service URL';
 
   @override
-  String get mcpUrlRequired => '请输入服务 URL';
+  String get mcpUrlRequired => 'Enter a service URL.';
 
   @override
-  String get mcpUrlInvalid => '请输入有效的服务 URL';
+  String get mcpUrlInvalid => 'Enter a valid service URL.';
 
   @override
-  String get mcpCommandField => '启动命令';
+  String get mcpCommandField => 'Launch Command';
 
   @override
-  String get mcpCommandRequired => '请输入启动命令';
+  String get mcpCommandRequired => 'Enter a launch command.';
 
   @override
-  String get mcpArgsField => '命令参数';
+  String get mcpArgsField => 'Command Arguments';
 
   @override
-  String get mcpArgsHint => '每行一个参数';
+  String get mcpArgsHint => 'One argument per line';
 
   @override
-  String get mcpServerEnabledLabel => '启用该服务';
+  String get mcpServerEnabledLabel => 'Enable this service';
 
   @override
-  String get mcpServerEnabledBody => '关闭后会保留服务配置，但不会在运行时启用它。';
+  String get mcpServerEnabledBody =>
+      'When disabled, the service config is kept but the server is not enabled at runtime.';
 
   @override
-  String get mcpServerStatusEnabled => '已启用';
+  String get mcpServerStatusEnabled => 'Enabled';
 
   @override
-  String get mcpServerStatusDisabled => '已禁用';
+  String get mcpServerStatusDisabled => 'Disabled';
 
   @override
-  String get mcpServerCreated => 'MCP 服务已创建';
+  String get mcpServerCreated => 'MCP service created.';
 
   @override
-  String get mcpServerUpdated => 'MCP 服务已更新';
+  String get mcpServerUpdated => 'MCP service updated.';
 
   @override
-  String get mcpServerDeleted => 'MCP 服务已删除';
+  String get mcpServerDeleted => 'MCP service deleted.';
 
   @override
-  String get mcpDeleteConfirmTitle => '删除 MCP 服务';
+  String get mcpDeleteConfirmTitle => 'Delete MCP Service';
 
   @override
-  String get mcpDeleteConfirmBody => '确认删除这条 MCP 服务配置吗？';
+  String get mcpDeleteConfirmBody => 'Delete this MCP service configuration?';
 
   @override
-  String get mcpDisabledTitle => 'MCP 服务当前已关闭';
+  String get mcpDisabledTitle => 'MCP services are currently disabled';
 
   @override
   String get mcpDisabledBody =>
-      '你仍然可以在这里维护服务配置；如需在运行时启用，请到设置页 MCP 板块打开 MCP 开关。';
+      'You can still manage service configs here. To enable them at runtime, turn the MCP switch on in Settings > MCP.';
 
   @override
   String get mcpTransportStreamableHttp => 'Streamable HTTP';
@@ -1162,25 +1183,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'MCP 配置文件已自动恢复';
+  String get mcpPersistenceRecoveredTitle => 'MCP Config Recovered';
 
   @override
   String get mcpPersistenceRecoveredBody =>
-      '检测到 MCP 配置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空配置。';
+      'OpenHand detected that the MCP config file was damaged or tampered with, backed it up, and restored an empty configuration.';
 
   @override
-  String get mcpPersistenceSanitizedTitle => 'MCP 配置内容已自动修正';
+  String get mcpPersistenceSanitizedTitle => 'MCP Config Sanitized';
 
   @override
   String get mcpPersistenceSanitizedBody =>
-      '检测到部分 MCP 服务字段无效，OpenHand 已忽略异常条目并重新写回有效配置。';
+      'OpenHand detected invalid MCP service fields, ignored the bad entries, and rewrote a valid configuration.';
 
   @override
-  String get mcpPersistenceSaveFailedTitle => 'MCP 配置保存失败';
+  String get mcpPersistenceSaveFailedTitle => 'MCP Config Save Failed';
 
   @override
   String get mcpPersistenceSaveFailedBody =>
-      '写入 MCP 配置文件失败，界面已回滚到上一次有效配置，请检查文件权限或磁盘状态。';
+      'Writing the MCP config file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
 
   @override
   String get threadsEmptyBody =>
@@ -1219,29 +1240,30 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enter a valid positive integer threshold.';
 
   @override
-  String get aiImageSizeLimitLabel => '图片大小上限';
+  String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override
   String get aiImageSizeLimitBody =>
-      '当用户添加的图片附件超过该上限时，OpenHand 会自动按质量 + 尺寸两级压缩后再发送。支持小数 MB；范围 0.0625 MB（64 KB）至 64 MB。';
+      'When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.';
 
   @override
-  String get aiImageSizeLimitFieldLabel => '上限 (MB)';
+  String get aiImageSizeLimitFieldLabel => 'Limit (MB)';
 
   @override
-  String get aiImageSizeLimitSave => '保存上限';
+  String get aiImageSizeLimitSave => 'Save Limit';
 
   @override
-  String get aiImageSizeLimitSaved => '图片附件大小上限已更新。';
+  String get aiImageSizeLimitSaved =>
+      'The image attachment size limit has been updated.';
 
   @override
-  String get aiImageSizeLimitInvalid => '请输入有效的正数 MB 值。';
+  String get aiImageSizeLimitInvalid => 'Enter a valid positive number of MB.';
 
   @override
-  String get imageEditorAspectFree => '自由';
+  String get imageEditorAspectFree => 'Free';
 
   @override
-  String get imageEditorAspectOriginal => '原始';
+  String get imageEditorAspectOriginal => 'Original';
 
   @override
   String get imageEditorAspectSquare => '1:1';
@@ -1259,91 +1281,92 @@ class AppLocalizationsFr extends AppLocalizations {
   String get imageEditorAspect9x16 => '9:16';
 
   @override
-  String get imageEditorAspectCircle => '圆形';
+  String get imageEditorAspectCircle => 'Circle';
 
   @override
-  String get imageEditorFlipHorizontal => '水平翻转';
+  String get imageEditorFlipHorizontal => 'Flip Horizontal';
 
   @override
-  String get imageEditorFlipVertical => '垂直翻转';
+  String get imageEditorFlipVertical => 'Flip Vertical';
 
   @override
-  String get imageEditorSaturationLabel => '饱和度';
+  String get imageEditorSaturationLabel => 'Saturation';
 
   @override
-  String get imageEditorExposureLabel => '曝光';
+  String get imageEditorExposureLabel => 'Exposure';
 
   @override
-  String get imageEditorHueLabel => '色相';
+  String get imageEditorHueLabel => 'Hue';
 
   @override
-  String get imageEditorVignetteLabel => '暗角';
+  String get imageEditorVignetteLabel => 'Vignette';
 
   @override
-  String get imageEditorFineRotationLabel => '微调旋转 (°)';
+  String get imageEditorFineRotationLabel => 'Fine Rotation (°)';
 
   @override
-  String get imageEditorSaveToFile => '另存到本地';
+  String get imageEditorSaveToFile => 'Save To File';
 
   @override
-  String get imageEditorCopyToClipboard => '复制到剪贴板';
+  String get imageEditorCopyToClipboard => 'Copy To Clipboard';
 
   @override
   String imageEditorSavedTo(String path) {
-    return '已另存：$path';
+    return 'Saved: $path';
   }
 
   @override
   String imageEditorSaveFailed(String error) {
-    return '另存失败：$error';
+    return 'Save failed: $error';
   }
 
   @override
-  String get imageEditorClipboardCopiedBitmap => '已复制图片到剪贴板（文件路径同时复制为文本）。';
+  String get imageEditorClipboardCopiedBitmap =>
+      'Image copied to the clipboard. The file path was also copied as text.';
 
   @override
   String imageEditorClipboardCopiedPath(String path) {
-    return '已复制图片文件路径到剪贴板：$path';
+    return 'Image file path copied to the clipboard: $path';
   }
 
   @override
   String imageEditorClipboardFailed(String error) {
-    return '复制失败：$error';
+    return 'Copy failed: $error';
   }
 
   @override
-  String get imageEditorApplyButton => '应用';
+  String get imageEditorApplyButton => 'Apply';
 
   @override
-  String get imageEditorUndoButton => '回退';
+  String get imageEditorUndoButton => 'Undo';
 
   @override
-  String get imageEditorResetAllButton => '重置全部';
+  String get imageEditorResetAllButton => 'Reset All';
 
   @override
-  String get imageEditorCompareHold => '按住对比';
+  String get imageEditorCompareHold => 'Hold To Compare';
 
   @override
-  String get imageEditorCompareRelease => '松开返回';
+  String get imageEditorCompareRelease => 'Release';
 
   @override
-  String get imageEditorCompareOriginal => '原图';
+  String get imageEditorCompareOriginal => 'Original';
 
   @override
-  String get imageEditorWatermarkColorLabel => '文字颜色';
+  String get imageEditorWatermarkColorLabel => 'Text Color';
 
   @override
-  String get imageEditorWatermarkColorHue => '颜色（Hue）';
+  String get imageEditorWatermarkColorHue => 'Hue';
 
   @override
-  String get imageEditorWatermarkColorSaturation => '饱和度';
+  String get imageEditorWatermarkColorSaturation => 'Saturation';
 
   @override
-  String get imageEditorWatermarkColorLightness => '明度';
+  String get imageEditorWatermarkColorLightness => 'Lightness';
 
   @override
-  String get imageEditorApplySuccess => '调整已应用';
+  String get imageEditorApplySuccess => 'Adjustments applied';
 
   @override
-  String get imageEditorProcessing => '处理中…';
+  String get imageEditorProcessing => 'Processing...';
 }

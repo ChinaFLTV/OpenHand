@@ -62,7 +62,6 @@ class DatabaseService {
     final effectiveFactory = useNoIsolateFactory
         ? databaseFactoryFfiNoIsolate
         : databaseFactoryFfi;
-    databaseFactory = effectiveFactory;
 
     final effectivePath = databasePath ?? defaultDatabasePath();
     final dbDirectory = Directory(p.dirname(effectivePath));

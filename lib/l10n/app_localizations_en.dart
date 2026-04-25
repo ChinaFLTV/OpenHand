@@ -695,85 +695,90 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to process the selected image.';
 
   @override
-  String get imageEditorSectionBasic => '基础调整';
+  String get imageEditorSectionBasic => 'Basic adjustments';
 
   @override
-  String get imageEditorSectionColor => '色彩（色温 / 色调 / 伽马）';
+  String get imageEditorSectionColor => 'Color (temperature / tint / gamma)';
 
   @override
-  String get imageEditorSectionSplitToning => '色调分离（HSL）';
+  String get imageEditorSectionSplitToning => 'Split toning (HSL)';
 
   @override
-  String get imageEditorSectionDetail => '细节（清晰度 / 锐度 / 降噪 / 颗粒）';
+  String get imageEditorSectionDetail =>
+      'Detail (clarity / sharpness / denoise / grain)';
 
   @override
-  String get imageEditorSectionEffects => '特效（色散 / 扭曲 / 晕影）';
+  String get imageEditorSectionEffects =>
+      'Effects (dispersion / distortion / vignette)';
 
   @override
-  String get imageEditorSectionWatermark => '文字水印 / 标记';
+  String get imageEditorSectionWatermark => 'Text watermark / mark';
 
   @override
-  String get imageEditorTemperatureLabel => '色温';
+  String get imageEditorTemperatureLabel => 'Temperature';
 
   @override
-  String get imageEditorTintLabel => '色调偏移';
+  String get imageEditorTintLabel => 'Tint shift';
 
   @override
-  String get imageEditorGammaLabel => '伽马（曲线）';
+  String get imageEditorGammaLabel => 'Gamma (curve)';
 
   @override
-  String get imageEditorShadowHueLabel => '暗部色相';
+  String get imageEditorShadowHueLabel => 'Shadow hue';
 
   @override
-  String get imageEditorShadowStrengthLabel => '暗部强度';
+  String get imageEditorShadowStrengthLabel => 'Shadow strength';
 
   @override
-  String get imageEditorHighlightHueLabel => '亮部色相';
+  String get imageEditorHighlightHueLabel => 'Highlight hue';
 
   @override
-  String get imageEditorHighlightStrengthLabel => '亮部强度';
+  String get imageEditorHighlightStrengthLabel => 'Highlight strength';
 
   @override
-  String get imageEditorClarityLabel => '清晰度';
+  String get imageEditorClarityLabel => 'Clarity';
 
   @override
-  String get imageEditorSharpnessLabel => '锐度';
+  String get imageEditorSharpnessLabel => 'Sharpness';
 
   @override
-  String get imageEditorDenoiseLabel => '降噪';
+  String get imageEditorDenoiseLabel => 'Denoise';
 
   @override
-  String get imageEditorGrainLabel => '颗粒';
+  String get imageEditorGrainLabel => 'Grain';
 
   @override
-  String get imageEditorDispersionLabel => '色散';
+  String get imageEditorDispersionLabel => 'Dispersion';
 
   @override
-  String get imageEditorDistortLabel => '扭曲（正值凸出 / 负值拉伸）';
+  String get imageEditorDistortLabel =>
+      'Distortion (positive bulges / negative stretches)';
 
   @override
-  String get imageEditorWatermarkTextLabel => '水印文字';
+  String get imageEditorWatermarkTextLabel => 'Watermark text';
 
   @override
-  String get imageEditorWatermarkTextHint => '输入要叠加的文字（留空则不添加）';
+  String get imageEditorWatermarkTextHint =>
+      'Enter text to overlay (leave empty to skip)';
 
   @override
-  String get imageEditorWatermarkSizeLabel => '文字大小';
+  String get imageEditorWatermarkSizeLabel => 'Text size';
 
   @override
-  String get imageEditorWatermarkOpacityLabel => '不透明度';
+  String get imageEditorWatermarkOpacityLabel => 'Opacity';
 
   @override
-  String get imageEditorWatermarkPositionLabel => '位置';
+  String get imageEditorWatermarkPositionLabel => 'Position';
 
   @override
-  String get imageEditorWatermarkColorLight => '浅色';
+  String get imageEditorWatermarkColorLight => 'Light';
 
   @override
-  String get imageEditorWatermarkColorDark => '深色';
+  String get imageEditorWatermarkColorDark => 'Dark';
 
   @override
-  String get imageEditorAdvancedApplyHint => '展开面板中的调整会在“保存”时一次性应用到原图。';
+  String get imageEditorAdvancedApplyHint =>
+      'Adjustments in expanded panels are applied to the original image when you save.';
 
   @override
   String get skillsEditorSave => 'Save';
