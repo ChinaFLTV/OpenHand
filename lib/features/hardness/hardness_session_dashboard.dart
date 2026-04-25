@@ -1701,6 +1701,10 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         child: ListView.builder(
           controller: _feedController,
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+          // Phase cards are tall + carry tool-trace / markdown subtrees;
+          // a generous cache reduces rebuild churn while scrolling near
+          // the fold.
+          cacheExtent: 1000,
           // +1 if awaiting approval (for the approval banner).
           itemCount:
               logs.length +

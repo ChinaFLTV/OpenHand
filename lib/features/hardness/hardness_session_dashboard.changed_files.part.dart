@@ -42,6 +42,7 @@ class _HeChangedFilesList extends StatelessWidget {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            cacheExtent: 400,
             itemCount: files.length,
             itemBuilder: (context, index) {
               final file = files[index];
@@ -283,6 +284,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           )
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(vertical: 4),
+                            cacheExtent: 400,
                             itemCount: diffLines.length,
                             itemBuilder: (_, i) => _DiffLine(
                               line: diffLines[i],

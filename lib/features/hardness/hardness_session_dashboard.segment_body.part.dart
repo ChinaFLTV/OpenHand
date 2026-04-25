@@ -481,8 +481,17 @@ class _HeMarkdownPreviewBodyState extends State<_HeMarkdownPreviewBody> {
                             (currentHeight - nextHeight).abs() < 0.5) {
                           return;
                         }
-                        setState(() {
-                          _contentHeight = nextHeight;
+                        // Defer the height-driven setState to the next frame
+                        // so a single layout pass that emits multiple
+                        // intermediate sizes (common with streaming
+                        // markdown) collapses into one rebuild instead of
+                        // many.
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          if (_contentHeight == nextHeight) return;
+                          setState(() {
+                            _contentHeight = nextHeight;
+                          });
                         });
                       },
                       child: IgnorePointer(

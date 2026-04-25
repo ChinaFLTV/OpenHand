@@ -612,6 +612,7 @@ class _HeDiffBlock extends StatelessWidget {
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            cacheExtent: 600,
             addRepaintBoundaries: false, // each row is simple — skip overhead
             itemCount: trimmed.length,
             itemBuilder: (_, i) =>

@@ -183,7 +183,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          cacheExtent: 400,
+          cacheExtent: 800,
           itemCount: display.length,
           itemBuilder: (_, i) =>
               _LogLine(line: display[i], colorScheme: colorScheme),
