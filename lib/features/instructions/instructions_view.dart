@@ -342,52 +342,61 @@ class _InstructionCard extends StatelessWidget {
                 children: [
                   ReorderableDragStartListener(
                     index: dragIndex,
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Icon(
-                        Icons.drag_indicator_rounded,
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: entry.enabled
-                              ? colorScheme.primaryContainer
-                              : colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.auto_awesome_motion_outlined,
-                          color: entry.enabled
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: Container(
-                          width: 14,
-                          height: 14,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
                           decoration: BoxDecoration(
                             color: entry.enabled
-                                ? colorScheme.primary
-                                : colorScheme.outlineVariant,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: colorScheme.surface),
+                                ? colorScheme.primaryContainer
+                                : colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.auto_awesome_motion_outlined,
+                            color: entry.enabled
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSurfaceVariant,
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          left: -4,
+                          top: -4,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHigh,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: colorScheme.surface),
+                            ),
+                            child: Icon(
+                              Icons.drag_indicator_rounded,
+                              size: 15,
+                              color: colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: entry.enabled
+                                  ? colorScheme.primary
+                                  : colorScheme.outlineVariant,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: colorScheme.surface),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -398,11 +407,7 @@ class _InstructionCard extends StatelessWidget {
                           entry.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: entry.enabled
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurfaceVariant,
-                          ),
+                          style: theme.textTheme.titleLarge,
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -413,7 +418,6 @@ class _InstructionCard extends StatelessWidget {
                             color: entry.enabled
                                 ? colorScheme.primary
                                 : colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         if (entry.description.trim().isNotEmpty) ...[
@@ -431,11 +435,6 @@ class _InstructionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _InstructionEnabledSwitch(
-                    value: entry.enabled,
-                    onChanged: onToggle,
-                  ),
-                  const SizedBox(width: 4),
                   SizedBox(
                     width: 44,
                     height: 44,
@@ -456,49 +455,108 @@ class _InstructionCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: <Widget>[
-                  _MetadataChip(
-                    icon: Icons.label_outline_rounded,
-                    label: 'v${entry.version}',
-                  ),
-                  if (entry.applyTo.trim().isNotEmpty)
-                    _MetadataChip(
-                      icon: Icons.account_tree_outlined,
-                      label:
-                          '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: <Widget>[
+                    _InstructionToggleChip(
+                      enabled: entry.enabled,
+                      enabledLabel: l10n.instructionEnabledStatus,
+                      disabledLabel: l10n.instructionDisabledStatus,
+                      onPressed: () => onToggle(!entry.enabled),
                     ),
-                  if (entry.notes.isNotEmpty)
                     _MetadataChip(
-                      icon: Icons.notes_outlined,
-                      label:
-                          '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                      icon: Icons.label_outline_rounded,
+                      label: 'v${entry.version}',
                     ),
-                  for (final taskType in taskTypes)
-                    _MetadataChip(
-                      icon: Icons.category_outlined,
-                      label: taskType,
-                    ),
-                  if (hiddenTaskTypeCount > 0)
-                    _MetadataChip(
-                      icon: Icons.more_horiz_rounded,
-                      label: '+$hiddenTaskTypeCount',
-                    ),
-                  for (final keyword in keywords)
-                    _MetadataChip(icon: Icons.tag_rounded, label: keyword),
-                  if (hiddenKeywordCount > 0)
-                    _MetadataChip(
-                      icon: Icons.more_horiz_rounded,
-                      label: '+$hiddenKeywordCount',
-                    ),
-                ],
+                    if (entry.applyTo.trim().isNotEmpty)
+                      _MetadataChip(
+                        icon: Icons.account_tree_outlined,
+                        label:
+                            '${l10n.instructionApplyToChipLabel}: ${entry.applyTo}',
+                      ),
+                    if (entry.notes.isNotEmpty)
+                      _MetadataChip(
+                        icon: Icons.notes_outlined,
+                        label:
+                            '${l10n.instructionNotesChipLabel}: ${entry.notes.length}',
+                      ),
+                    for (final taskType in taskTypes)
+                      _MetadataChip(
+                        icon: Icons.category_outlined,
+                        label: taskType,
+                      ),
+                    if (hiddenTaskTypeCount > 0)
+                      _MetadataChip(
+                        icon: Icons.more_horiz_rounded,
+                        label: '+$hiddenTaskTypeCount',
+                      ),
+                    for (final keyword in keywords)
+                      _MetadataChip(icon: Icons.tag_rounded, label: keyword),
+                    if (hiddenKeywordCount > 0)
+                      _MetadataChip(
+                        icon: Icons.more_horiz_rounded,
+                        label: '+$hiddenKeywordCount',
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _InstructionToggleChip extends StatelessWidget {
+  const _InstructionToggleChip({
+    required this.enabled,
+    required this.enabledLabel,
+    required this.disabledLabel,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final String enabledLabel;
+  final String disabledLabel;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final backgroundColor = enabled
+        ? colorScheme.primaryContainer
+        : colorScheme.surfaceContainerHighest;
+    final foregroundColor = enabled
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
+    final borderColor = enabled
+        ? colorScheme.primary.withValues(alpha: 0.28)
+        : colorScheme.outlineVariant;
+
+    return ActionChip(
+      avatar: Icon(
+        enabled
+            ? Icons.check_circle_outline_rounded
+            : Icons.pause_circle_outline_rounded,
+        size: 18,
+        color: foregroundColor,
+      ),
+      label: Text(enabled ? enabledLabel : disabledLabel),
+      onPressed: onPressed,
+      backgroundColor: backgroundColor,
+      side: BorderSide(color: borderColor),
+      shape: const StadiumBorder(),
+      labelStyle: theme.textTheme.labelLarge?.copyWith(
+        color: foregroundColor,
+        fontWeight: FontWeight.w600,
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -642,7 +700,7 @@ class _MetadataChip extends StatelessWidget {
       avatar: Icon(icon, size: 18, color: colorScheme.outline),
       label: Text(label),
       side: BorderSide.none,
-      backgroundColor: colorScheme.surfaceContainerHigh,
+      backgroundColor: colorScheme.surfaceContainerHighest,
       labelStyle: theme.textTheme.labelSmall?.copyWith(
         color: colorScheme.onSurfaceVariant,
       ),
