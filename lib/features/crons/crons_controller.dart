@@ -28,11 +28,40 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     await effectiveStore.ensureTable();
     final entries = await effectiveStore.loadAll();
     // 2026-04-25 (Task 19) — Seed the Hermes Talker self-learning system
-    // entry on first launch if it does not already exist. The entry is
-    // treated as read-only by the UI (see crons_view.dart system tag check).
-    if (!entries.any((e) => e.id == selfLearningSystemEntryId)) {
+    // entry on first launch if it does not already exist. Also refresh the
+    // system-managed display fields (name / description / schedule /
+    // notification policy) every launch so that first-seeded-with-English
+    // installs pick up the latest simplified-Chinese copy. User-toggleable
+    // fields (e.g. `enabled`) and runtime state fields are preserved.
+    final existingIndex = entries.indexWhere(
+      (e) => e.id == selfLearningSystemEntryId,
+    );
+    if (existingIndex == -1) {
       entries.add(_buildSelfLearningSystemEntry());
       await effectiveStore.saveAll(entries);
+    } else {
+      final existing = entries[existingIndex];
+      final canonical = _buildSelfLearningSystemEntry();
+      final refreshed = existing.copyWith(
+        name: canonical.name,
+        description: canonical.description,
+        scriptType: canonical.scriptType,
+        cronExpression: canonical.cronExpression,
+        timeoutSeconds: canonical.timeoutSeconds,
+        tags: canonical.tags,
+        onSuccessNotify: canonical.onSuccessNotify,
+        onFailureNotify: canonical.onFailureNotify,
+        onTimeoutNotify: canonical.onTimeoutNotify,
+      );
+      final needsRefresh = existing.name != refreshed.name ||
+          existing.description != refreshed.description ||
+          existing.scriptType != refreshed.scriptType ||
+          existing.cronExpression != refreshed.cronExpression ||
+          existing.timeoutSeconds != refreshed.timeoutSeconds;
+      if (needsRefresh) {
+        entries[existingIndex] = refreshed;
+        await effectiveStore.saveAll(entries);
+      }
     }
     final controller = CronsController._(
       store: effectiveStore,
@@ -59,8 +88,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       id: selfLearningSystemEntryId,
       name: 'Hermes Talker 自我学习',
       description:
-          'System-managed: dispatches the Hermes Talker self-learning agent '
-          'every 5 minutes.',
+          '系统内置：每 5 分钟触发一次 Hermes Talker 自我学习，'
+          '让 AI 在后台把近期对话中沉淀的知识与偏好静默写入记忆 / 画像 / 技能库。'
+          '本任务为系统管理，无法删除；如需暂停，请使用右侧开关关闭。',
       scriptType: CronScriptType.agent,
       cronExpression: '*/5 * * * *',
       timeoutSeconds: 600,
