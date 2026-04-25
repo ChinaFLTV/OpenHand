@@ -18,6 +18,7 @@
 library;
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/silent_log.dart';
 import '../../memory/memory_controller.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
@@ -292,6 +293,27 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
     if (roundsRun >= maxToolCallRounds && terminatedReason == 'completed') {
       terminatedReason = 'max_rounds';
+    }
+
+    // 2026-04-25 — diagnostic: 当一整轮跑完，模型既没产出任何文本/思考，
+    // 也未调用任何工具时（responseBuffer + reasoningBuffer 全空、
+    // memoryCallsOk + skillCallsOk == 0、lastReply 也空），把
+    // model/usage/terminated_reason 等关键状态打印到 silentLog，便于
+    // 后续排查"自我学习卡片为空"是后端 buffered SSE / finish_reason / 限流
+    // 还是模型本身拒答。仅 debug 构建有效，release 树摇移除。
+    if (responseBuffer.isEmpty &&
+        reasoningBuffer.isEmpty &&
+        memoryCallsOk == 0 &&
+        skillCallsOk == 0 &&
+        lastReply.isEmpty) {
+      silentLog(
+        'self_learning_dispatcher',
+        'empty self-learning round',
+        'model=${selected.modelId} provider=${selected.id} '
+            'rounds=$roundsRun terminated=$terminatedReason '
+            'memory_errors=$memoryCallsError skill_errors=$skillCallsError '
+            'usage=${aggregateUsage?.toJson()}',
+      );
     }
 
     final finalReply = lastReply;

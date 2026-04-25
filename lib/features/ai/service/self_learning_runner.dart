@@ -136,11 +136,19 @@ class SelfLearningRunner {
       final slice = _buildConversationSlice(latest);
       final sliceMessageCount = _countSliceMessages(latest);
       if (sliceMessageCount < minConversationTurns) {
-        await _writeCard(
-          session.id,
-          summary: '对话轮次不足 ($minConversationTurns)，跳过本轮自我学习。',
-          status: 'skipped',
-          extra: <String, Object?>{'conversation_turns': sliceMessageCount},
+        // 2026-04-25 — BUG fix: 此前会写一条 status='skipped' 的 selfLearning
+        // 卡片，但该卡片本身就是一个 selfLearning checkpoint：下一轮
+        // [_countSliceMessages] / [_buildConversationSlice] 会把"已写入卡片之
+        // 后"作为新的统计起点，于是真实对话没有积累就被这条占位卡片重置，
+        // 用户需要再积累 minConversationTurns 轮**之后**才会真正学习一次，
+        // 误以为前面的对话都已被认真学习。修复策略：未达到门槛时彻底跳过
+        // 任何持久化写入（含 placeholder / 卡片），仅在 debug 日志里留痕，
+        // 让真正的对话轮次能持续累积。
+        silentLog(
+          'self_learning_runner',
+          'runForSession.skipped (insufficient turns)',
+          'turns=$sliceMessageCount min=$minConversationTurns '
+              'session=${session.id}',
         );
         return;
       }
@@ -167,17 +175,14 @@ class SelfLearningRunner {
       // 3) 派发给 LLM 驱动层（可选）。
       final dispatcher = llmDispatcher;
       if (dispatcher == null) {
-        await _writeCard(
-          session.id,
-          summary: '未配置 LLM 自主学习分发器（llmDispatcher），本轮仅记录上下文快照。',
-          status: 'skipped',
-          extra: <String, Object?>{
-            'user_profile_present': userProfileContent.isNotEmpty,
-            'auto_learned_count': memoryController
-                .memoriesWithTag(autoLearnedMemoriesTag)
-                .length,
-            'conversation_turns': sliceMessageCount,
-          },
+        // 同样的 checkpoint-poisoning 风险：dispatcher 缺失只是配置问题，
+        // 不应消费用户的真实对话进度。仅记日志后返回。
+        silentLog(
+          'self_learning_runner',
+          'runForSession.skipped (no dispatcher)',
+          'session=${session.id} '
+              'profile_present=${userProfileContent.isNotEmpty} '
+              'auto_learned=${memoryController.memoriesWithTag(autoLearnedMemoriesTag).length}',
         );
         return;
       }
@@ -425,6 +430,10 @@ class SelfLearningRunner {
      user_profile 记忆);在已有画像基础上纠正/精炼,而不是覆盖无关字段。
    - 对 type=user 的自主学习记忆,使用 '$autoLearnedMemoriesTag' 标签;优先更新已有相
      关条目,而不是无限新增。
+   - **每次 append / update 一条 type=user 的记忆时,务必同时提供一个 `title`
+     字段**: 一句话浓缩本条记忆的主旨, ≤30 个汉字 / ≤80 个 ASCII 字符,
+     用于 UI 卡片头部展示。如果是 update 且原标题已经准确,可以省略 `title`
+     保留旧标题; 否则请显式给出新标题。
 3. 调用 skill_manager 工具 (仅在出现可复用工作流时):
    - 优先使用 patch 细调,而非 edit 全量重写。
    - 默认保存到用户全局设置中的技能目录。

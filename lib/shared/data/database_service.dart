@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 1;
+  static const int schemaVersion = 2;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -173,6 +173,7 @@ class DatabaseService {
         type        TEXT NOT NULL DEFAULT 'user',
         created_at  TEXT NOT NULL,
         content     TEXT NOT NULL DEFAULT '',
+        title       TEXT NOT NULL DEFAULT '',
         tags_json   TEXT NOT NULL DEFAULT '[]'
       )
     ''');
@@ -212,8 +213,15 @@ class DatabaseService {
     int oldVersion,
     int newVersion,
   ) async {
-    // Future schema migrations go here.
-    // Example:
-    // if (oldVersion < 2) { ... }
+    // 2026-04-25: schema v2 — add `title` column to memories so the AI
+    // self-learning sub-agent can keep a separate, readable title alongside
+    // each memory's full content. Existing rows default to an empty title;
+    // UI falls back to deriving a preview from `content` when title is
+    // empty, preserving backward compatibility.
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE memories ADD COLUMN title TEXT NOT NULL DEFAULT ''",
+      );
+    }
   }
 }

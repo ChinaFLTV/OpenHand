@@ -110,6 +110,9 @@ class MemoryStore {
             createdAt: createdAt.toUtc(),
             content: content,
             tags: tags,
+            title: UserMemoryEntry.normalizeTitle(
+              (row['title'] as String?) ?? '',
+            ),
           ),
         );
       }
@@ -269,6 +272,7 @@ class MemoryStore {
       'type': entry.type,
       'created_at': entry.createdAtStorageValue,
       'content': entry.content,
+      'title': UserMemoryEntry.normalizeTitle(entry.title),
       'tags_json': jsonEncode(entry.tags),
     };
   }

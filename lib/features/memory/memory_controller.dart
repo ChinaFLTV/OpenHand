@@ -130,12 +130,14 @@ class MemoryController extends ChangeNotifier {
   Future<bool> createMemory({
     required String content,
     required List<String> tags,
+    String title = '',
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
       return false;
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
+    final normalizedTitle = UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
       final nextEntries = <UserMemoryEntry>[
         UserMemoryEntry(
@@ -144,6 +146,7 @@ class MemoryController extends ChangeNotifier {
           createdAt: _clock().toUtc(),
           content: normalizedContent,
           tags: normalizedTags,
+          title: normalizedTitle,
         ),
         ..._entries,
       ];
@@ -155,12 +158,17 @@ class MemoryController extends ChangeNotifier {
     UserMemoryEntry entry, {
     required String content,
     required List<String> tags,
+    String? title,
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
       return false;
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(tags);
+    // null = 不变（保留旧值）；空串/非空串 = 显式覆盖（含清空）。
+    final normalizedTitle = title == null
+        ? null
+        : UserMemoryEntry.normalizeTitle(title);
     return _enqueueOperation(() async {
       final index = _entries.indexWhere((item) => item.id == entry.id);
       if (index == -1) {
@@ -171,6 +179,7 @@ class MemoryController extends ChangeNotifier {
         content: normalizedContent,
         tags: normalizedTags,
         type: UserMemoryEntry.userType,
+        title: normalizedTitle,
       );
       return _commitSaveLocked(nextEntries);
     });

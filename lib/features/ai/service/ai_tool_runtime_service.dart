@@ -1836,6 +1836,14 @@ class AiToolRuntimeService {
                 'Memory content. Required for `append`/`upsert_profile`/'
                 '`update`.',
           },
+          'title': <String, Object?>{
+            'type': 'string',
+            'description':
+                'Optional short title (≤80 chars) for the memory entry. '
+                'Used by the UI as the card heading; falls back to a '
+                'preview of `content` when omitted. For `update`, omit to '
+                'keep the existing title, pass an empty string to clear it.',
+          },
           'tags': <String, Object?>{
             'type': 'array',
             'items': <String, Object?>{'type': 'string'},

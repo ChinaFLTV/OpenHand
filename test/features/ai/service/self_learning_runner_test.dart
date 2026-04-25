@@ -133,12 +133,12 @@ void main() {
       await runner.runForSession(session);
       expect(dispatcherCalls, 0);
 
+      // 2026-04-25: 跳过场景不再写入占位卡片，避免下一次自我学习时
+      // 因新增的 selfLearning 消息把 conversation_turns 重新计为 0、
+      // 进而需要更多轮对话才能真正学习。仅通过 silentLog 留痕。
       final reloaded = sessionController.sessionById('sess-short')!;
-      final card = _lastSelfLearning(reloaded)!;
-      expect(card.metadata['status'], 'skipped');
-      expect(card.content, contains('对话轮次不足'));
-      expect(card.metadata['conversation_turns'], 2);
-      expect(reloaded.metadata['self_learning_in_progress'], false);
+      expect(_lastSelfLearning(reloaded), isNull);
+      expect(reloaded.metadata['self_learning_in_progress'], isNot(true));
     });
 
     test(
@@ -159,14 +159,10 @@ void main() {
         );
         await runner.runForSession(session);
 
+        // 2026-04-25: 同样不再写入占位卡片，仅 silentLog 记录。
         final reloaded = sessionController.sessionById('sess-no-disp')!;
-        final card = _lastSelfLearning(reloaded)!;
-        expect(card.metadata['status'], 'skipped');
-        expect(card.content, contains('未配置 LLM'));
-        expect(card.metadata['conversation_turns'], 12);
-        expect(card.metadata['user_profile_present'], false);
-        expect(card.metadata['auto_learned_count'], 0);
-        expect(reloaded.metadata['self_learning_in_progress'], false);
+        expect(_lastSelfLearning(reloaded), isNull);
+        expect(reloaded.metadata['self_learning_in_progress'], isNot(true));
       },
     );
 

@@ -412,6 +412,7 @@ class _MemoryEditorDialog extends StatefulWidget {
 class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _contentController;
+  late final TextEditingController _titleController;
   late final TextEditingController _tagInputController;
   late final FocusNode _tagInputFocusNode;
   late final List<String> _tags;
@@ -424,14 +425,30 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
     _contentController = TextEditingController(
       text: widget.initialEntry?.content ?? '',
     );
+    _titleController = TextEditingController(
+      text: widget.initialEntry?.title ?? '',
+    );
     _tagInputController = TextEditingController();
     _tagInputFocusNode = FocusNode(onKeyEvent: _handleTagInputKeyEvent);
     _tags = List<String>.from(widget.initialEntry?.tags ?? const <String>[]);
   }
 
+  /// 该条目是否为"自主学习"特殊记忆。该标签由 LLM 自我学习子 Agent 自动
+  /// 写入，是区分自主学习与普通记忆的唯一信号；为防止误删/误加：
+  /// * 普通记忆编辑/新建时，无法手动添加 `自主学习` 标签（输入会被静默过滤）；
+  /// * 自主学习记忆编辑时，无法移除 `自主学习` 标签（Chip 不渲染删除手柄，
+  ///   且任何 split-input 都会强制保留该标签）。
+  bool get _isAutoLearnedEntry => widget.initialEntry?.isAutoLearned ?? false;
+
+  static bool _isAutoLearnedTag(String tag) {
+    return tag.trim().toLowerCase() ==
+        UserMemoryEntry.autoLearnedTag.toLowerCase();
+  }
+
   @override
   void dispose() {
     _contentController.dispose();
+    _titleController.dispose();
     _tagInputController.dispose();
     _tagInputFocusNode.dispose();
     super.dispose();
@@ -464,6 +481,20 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 2026-04-25: 标题字段（可选）。AI 自我学习写入与
+                          // 用户编辑都共用此字段；空字符串表示未设置（卡片
+                          // 头部会回退到正文 preview）。
+                          TextFormField(
+                            controller: _titleController,
+                            enabled: !_isSaving,
+                            maxLength: UserMemoryEntry.maxTitleLength,
+                            decoration: const InputDecoration(
+                              labelText: '标题（可选）',
+                              hintText: '一句话浓缩本条记忆的主旨；留空则使用正文预览',
+                              counterText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           TextFormField(
                             controller: _contentController,
                             minLines: 7,
@@ -533,7 +564,12 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                                   .map(
                                     (tag) => InputChip(
                                       label: Text(tag),
-                                      onDeleted: _isSaving
+                                      // 自主学习标签在自主学习记忆上不可删除：
+                                      // 不渲染 onDeleted 回调即可隐藏 X 手柄。
+                                      onDeleted:
+                                          _isSaving ||
+                                              (_isAutoLearnedEntry &&
+                                                  _isAutoLearnedTag(tag))
                                           ? null
                                           : () => _removeTag(tag),
                                     ),
@@ -541,6 +577,17 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                                   .toList(growable: false),
                             ),
                           ],
+                          // 防误操作提示：解释为什么 `自主学习` 标签被特殊处理。
+                          const SizedBox(height: 8),
+                          Text(
+                            _isAutoLearnedEntry
+                                ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
+                                : '"${UserMemoryEntry.autoLearnedTag}" 是自主学习专用标签，普通记忆无法手动添加。',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                          ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 16),
                             Text(
@@ -606,12 +653,17 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
     });
 
     final content = _contentController.text;
+    final title = _titleController.text;
     final controller = context.read<MemoryController>();
 
     late final bool saved;
     try {
       if (widget.initialEntry == null) {
-        saved = await controller.createMemory(content: content, tags: tags);
+        saved = await controller.createMemory(
+          content: content,
+          tags: tags,
+          title: title,
+        );
       } else if (widget.initialEntry!.isUserProfile) {
         await controller.upsertUserProfile(content: content, tags: tags);
         saved = true;
@@ -620,6 +672,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
           widget.initialEntry!,
           content: content,
           tags: tags,
+          title: title,
         );
       }
     } catch (e) {
@@ -691,10 +744,32 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
   }
 
   List<String> _mergedTagsWithInput() {
-    return UserMemoryEntry.normalizeTags(<String>[
+    final raw = <String>[
       ..._tags,
       ..._splitTagInput(_tagInputController.text),
-    ]);
+    ];
+    // 防御性过滤：普通记忆永远剔除 `自主学习` 标签；自主学习记忆永远保留。
+    final isAutoLearnedEntry = _isAutoLearnedEntry;
+    final filtered = <String>[];
+    var sawAutoLearned = false;
+    for (final tag in raw) {
+      if (_isAutoLearnedTag(tag)) {
+        if (!isAutoLearnedEntry) {
+          // 普通条目：丢弃用户尝试添加的 `自主学习` 标签。
+          continue;
+        }
+        if (sawAutoLearned) {
+          continue;
+        }
+        sawAutoLearned = true;
+      }
+      filtered.add(tag);
+    }
+    if (isAutoLearnedEntry && !sawAutoLearned) {
+      // 用户某种方式抹掉了，强制补回（兜底）。
+      filtered.insert(0, UserMemoryEntry.autoLearnedTag);
+    }
+    return UserMemoryEntry.normalizeTags(filtered);
   }
 
   List<String> _splitTagInput(String value) {
@@ -840,11 +915,18 @@ class _MemoryEntryCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 2026-04-25: 仅当 preview（去除换行后的首段）真正
-                        // 提供了"标题感"信息（即与正文不同——通常是因为
-                        // 正文较长被截断，或为多行内容）时才展示标题；否则
-                        // 隐藏标题以避免与下方正文重复显示。
-                        if (_shouldShowTitle(entry)) ...[
+                        // 2026-04-25: 优先展示 [UserMemoryEntry.title]
+                        // (AI 自我学习生成 / 用户编辑保存)。当 title 为空时
+                        // 退化到 [_shouldShowTitle] 判断 preview 是否值得展示。
+                        if (entry.title.trim().isNotEmpty) ...[
+                          Text(
+                            entry.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 6),
+                        ] else if (_shouldShowTitle(entry)) ...[
                           Text(
                             entry.preview,
                             maxLines: 1,

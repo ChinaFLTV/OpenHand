@@ -121,6 +121,7 @@ class AiMemoryTool extends AiTool {
     Stopwatch sw,
   ) async {
     final content = '${args['content'] ?? ''}';
+    final title = '${args['title'] ?? ''}';
     final rawTags = args['tags'];
     final tags = _readStringList(rawTags);
     if (content.trim().isEmpty) {
@@ -129,7 +130,11 @@ class AiMemoryTool extends AiTool {
         'append requires non-empty "content".',
       );
     }
-    final ok = await controller.createMemory(content: content, tags: tags);
+    final ok = await controller.createMemory(
+      content: content,
+      tags: tags,
+      title: title,
+    );
     if (!ok) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -177,6 +182,10 @@ class AiMemoryTool extends AiTool {
     final id = '${args['id'] ?? ''}'.trim();
     final content = '${args['content'] ?? ''}';
     final tags = _readStringList(args['tags']);
+    // 2026-04-25: title 是可选。传 null 表示保留原有标题，
+    // 传空串 / 非空串表示显式覆盖。
+    final titleArg = args['title'];
+    final String? title = titleArg == null ? null : '$titleArg';
     if (id.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'update requires "id".');
     }
@@ -197,6 +206,7 @@ class AiMemoryTool extends AiTool {
       target,
       content: content,
       tags: tags,
+      title: title,
     );
     if (!ok) {
       return AiToolUtils.invalidResult(

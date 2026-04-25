@@ -5,6 +5,7 @@ class UserMemoryEntry {
     required this.createdAt,
     required this.content,
     required this.tags,
+    this.title = '',
   });
 
   static const String userType = 'user';
@@ -24,6 +25,11 @@ class UserMemoryEntry {
   final String content;
   final List<String> tags;
 
+  /// 可选的标题。空字符串表示未设置（向下兼容老数据）。优先用于 UI
+  /// 卡片头部展示；为空时 UI 将退化到根据 [content] 派生的 [preview]。
+  /// AI 自我学习子 Agent 会在 append/update memory 时尝试同步更新该字段。
+  final String title;
+
   String get createdAtStorageValue => createdAt.toUtc().toIso8601String();
 
   String get preview {
@@ -34,12 +40,20 @@ class UserMemoryEntry {
     return '${normalized.substring(0, 72)}...';
   }
 
+  /// 用于 UI 显示的最终标题：[title] 优先；为空时回退到 [preview]。
+  String get displayTitle {
+    final trimmed = title.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    return preview;
+  }
+
   UserMemoryEntry copyWith({
     String? id,
     String? type,
     DateTime? createdAt,
     String? content,
     List<String>? tags,
+    String? title,
   }) {
     return UserMemoryEntry(
       id: id ?? this.id,
@@ -47,6 +61,7 @@ class UserMemoryEntry {
       createdAt: createdAt ?? this.createdAt,
       content: content ?? this.content,
       tags: tags ?? this.tags,
+      title: title ?? this.title,
     );
   }
 
@@ -57,12 +72,23 @@ class UserMemoryEntry {
       'created_at': createdAtStorageValue,
       'content': content,
       'tags': List<String>.from(tags),
+      if (title.isNotEmpty) 'title': title,
     };
   }
 
   static String normalizeContent(String value) {
     return value.trim();
   }
+
+  /// 标题归一化：trim + 折叠所有空白为单空格 + 截断到 [maxTitleLength]。
+  /// 长度上限避免 AI 偶尔吐出整段正文当标题。
+  static String normalizeTitle(String value) {
+    final flat = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (flat.length <= maxTitleLength) return flat;
+    return flat.substring(0, maxTitleLength);
+  }
+
+  static const int maxTitleLength = 80;
 
   static List<String> normalizeTags(Iterable<String> values) {
     final normalized = <String>[];
