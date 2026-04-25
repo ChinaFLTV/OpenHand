@@ -843,18 +843,16 @@ class AiBashToolService {
 
   Future<Process> _startProcess(String command, String workingDirectory) {
     if (Platform.isWindows) {
-      return Process.start(
-        'cmd',
-        <String>['/c', command],
-        workingDirectory: workingDirectory,
-      );
+      return Process.start('cmd', <String>[
+        '/c',
+        command,
+      ], workingDirectory: workingDirectory);
     }
     final shellExecutable = _resolveShellExecutable();
-    return Process.start(
-      shellExecutable,
-      <String>['-lc', command],
-      workingDirectory: workingDirectory,
-    );
+    return Process.start(shellExecutable, <String>[
+      '-lc',
+      command,
+    ], workingDirectory: workingDirectory);
   }
 
   Future<_PersistentBashSession> _ensurePersistentSession({
@@ -884,7 +882,9 @@ class AiBashToolService {
     // special characters (e.g. osascript with AppleScript strings that include
     // brackets, asterisks, question marks) don't trigger "bad pattern" errors.
     if (!Platform.isWindows) {
-      process.stdin.write('set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n');
+      process.stdin.write(
+        'set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n',
+      );
       // Flush so the shell processes the noglob setup before the first command.
       try {
         await process.stdin.flush();
@@ -1053,7 +1053,8 @@ class AiBashToolService {
     var tagSuffix = 0;
     while (command.contains(heredocTag)) {
       tagSuffix += 1;
-      heredocTag = '__OPENHAND_SCRIPT_${markerToken}_$tagSuffix'
+      heredocTag =
+          '__OPENHAND_SCRIPT_${markerToken}_$tagSuffix'
           '__';
     }
     final tmpScriptPath = '/tmp/.openhand_cmd_$markerToken.sh';
@@ -1689,9 +1690,7 @@ class _ShellWriteCommandAnalyzer {
     // `open` on macOS only launches apps / URLs — it doesn't mutate files
     // by itself.
     if (commandName == 'open' && Platform.isMacOS) {
-      return BashWriteAnalysis.readOnly(
-        'macOS open command $commandName',
-      );
+      return BashWriteAnalysis.readOnly('macOS open command $commandName');
     }
     // `defaults read` is read-only; `defaults write/delete` mutates.
     if (commandName == 'defaults') {
@@ -1710,9 +1709,7 @@ class _ShellWriteCommandAnalyzer {
     // Remote/cross-host execution commands effectively run arbitrary
     // instructions on another system — treat as write by default.
     if (commandName == 'ssh' || commandName == 'doas') {
-      return BashWriteAnalysis.write(
-        'remote execution command $commandName',
-      );
+      return BashWriteAnalysis.write('remote execution command $commandName');
     }
     // Cross-terminal injection via tmux/screen send-keys is a write operation
     // on another session, even though the local process itself is innocent.
@@ -1870,8 +1867,10 @@ class _ShellWriteCommandAnalyzer {
   ) {
     for (final token in invocation.skip(1)) {
       final value = token.text.toLowerCase();
-      if (value == 'search' || value == 'getactivewindow' ||
-          value == 'getwindowname' || value == 'getmouselocation') {
+      if (value == 'search' ||
+          value == 'getactivewindow' ||
+          value == 'getwindowname' ||
+          value == 'getmouselocation') {
         return BashWriteAnalysis.readOnly(
           '$commandName read-only subcommand $value',
         );
@@ -1879,19 +1878,22 @@ class _ShellWriteCommandAnalyzer {
       if (value.startsWith('-')) continue;
       break;
     }
-    return BashWriteAnalysis.write(
-      '$commandName injects keyboard/mouse input',
-    );
+    return BashWriteAnalysis.write('$commandName injects keyboard/mouse input');
   }
 
   BashWriteAnalysis _analyzeDefaultsInvocation(List<_ShellToken> invocation) {
     for (final token in invocation.skip(1)) {
       final value = token.text;
-      if (value == 'read' || value == 'read-type' || value == 'domains' ||
-          value == 'find' || value == 'help') {
+      if (value == 'read' ||
+          value == 'read-type' ||
+          value == 'domains' ||
+          value == 'find' ||
+          value == 'help') {
         return BashWriteAnalysis.readOnly('defaults $value is read-only');
       }
-      if (value == 'write' || value == 'delete' || value == 'rename' ||
+      if (value == 'write' ||
+          value == 'delete' ||
+          value == 'rename' ||
           value == 'import') {
         return BashWriteAnalysis.write('defaults $value mutates preferences');
       }
@@ -1956,7 +1958,9 @@ class _ShellWriteCommandAnalyzer {
     List<_ShellToken> invocation,
   ) {
     if (commandName == 'awk') {
-      return const BashWriteAnalysis.write('awk programs can write files and state');
+      return const BashWriteAnalysis.write(
+        'awk programs can write files and state',
+      );
     }
     final inlineScriptToken = _findInlineScriptToken(invocation, const <String>{
       '-c',

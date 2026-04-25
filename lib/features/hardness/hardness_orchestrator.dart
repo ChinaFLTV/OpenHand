@@ -1371,10 +1371,7 @@ class HardnessOrchestrator extends ChangeNotifier {
         final missingArtifacts = _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
-          _appendLine(
-            log,
-            '⚠ 阶段产物验证失败：以下必需文件未被创建：',
-          );
+          _appendLine(log, '⚠ 阶段产物验证失败：以下必需文件未被创建：');
           for (final path in missingArtifacts) {
             _appendLine(log, '  • $path');
           }
@@ -1575,18 +1572,12 @@ class HardnessOrchestrator extends ChangeNotifier {
         final missingArtifacts = _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
-          _appendLine(
-            log,
-            '⚠ 阶段产物验证失败：以下必需文件未被创建：',
-          );
+          _appendLine(log, '⚠ 阶段产物验证失败：以下必需文件未被创建：');
           for (final path in missingArtifacts) {
             _appendLine(log, '  • $path');
           }
           _appendLine(log, '');
-          _appendLine(
-            log,
-            '✗ 本阶段被判定为失败，因为 CLI 未能生成预期的输出产物。',
-          );
+          _appendLine(log, '✗ 本阶段被判定为失败，因为 CLI 未能生成预期的输出产物。');
           log.status = HardnessPhaseStatus.failed;
           _errorMessage = '阶段产物验证失败：必需文件未生成。';
         }
@@ -1773,8 +1764,8 @@ class HardnessOrchestrator extends ChangeNotifier {
             // Use summary mode for lessons when configured
             lessonsContent =
                 contextConfig.lessonsMode == HardnessLessonInclusionMode.summary
-                    ? hardnessPromptBuilder.renderLessonsSummary(fullContent)
-                    : fullContent;
+                ? hardnessPromptBuilder.renderLessonsSummary(fullContent)
+                : fullContent;
           }
         }
       } catch (error) {
@@ -2474,19 +2465,21 @@ class HardnessOrchestrator extends ChangeNotifier {
         if (!File(convPath).existsSync()) missing.add(convPath);
       case HardnessPhase.planning:
         final planDir = Directory(p.join(steeringDir, 'plan'));
-        final hasPlanFile = planDir.existsSync() &&
+        final hasPlanFile =
+            planDir.existsSync() &&
             planDir.listSync().whereType<File>().any(
-                  (f) => f.path.endsWith('.md'),
-                );
+              (f) => f.path.endsWith('.md'),
+            );
         if (!hasPlanFile) {
           missing.add('${planDir.path}/*.md (no plan file found)');
         }
       case HardnessPhase.reviewing:
         final feedbackDir = Directory(p.join(steeringDir, 'feedback'));
-        final hasFeedbackFile = feedbackDir.existsSync() &&
+        final hasFeedbackFile =
+            feedbackDir.existsSync() &&
             feedbackDir.listSync().whereType<File>().any(
-                  (f) => f.path.endsWith('.md'),
-                );
+              (f) => f.path.endsWith('.md'),
+            );
         if (!hasFeedbackFile) {
           missing.add('${feedbackDir.path}/*.md (no feedback file found)');
         }

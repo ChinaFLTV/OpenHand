@@ -50,7 +50,18 @@ class AppSettingsSnapshot {
       shortcutBindings: defaultOpenHandShortcutBindings(),
       dialogAnimationSettings: const DialogAnimationSettings(),
       menuAnimationSettings: const DialogAnimationSettings(),
-      panelAnimationSettings: const DialogAnimationSettings(),
+      pageAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.fade,
+        exitStyle: DialogAnimationStyle.fade,
+        durationMs: 800,
+        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+      ),
+      panelAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.fade,
+        exitStyle: DialogAnimationStyle.fade,
+        durationMs: 600,
+        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+      ),
       builtinToolConfigs: AiBuiltinToolConfig.defaults(),
       telemetryDebugEnabled: false,
       telemetryCaptureRawPayload: true,
@@ -91,6 +102,7 @@ class AppSettingsSnapshot {
     required this.shortcutBindings,
     required this.dialogAnimationSettings,
     required this.menuAnimationSettings,
+    required this.pageAnimationSettings,
     required this.panelAnimationSettings,
     required this.builtinToolConfigs,
     required this.telemetryDebugEnabled,
@@ -108,20 +120,24 @@ class AppSettingsSnapshot {
   static const int maxSelfLearningConcurrency = 10;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
+
   /// Default cap for per-message raw payload capture (characters).
   static const int defaultTelemetryMaxPayloadChars = 200000;
   static const int minTelemetryMaxPayloadChars = 4000;
   static const int maxTelemetryMaxPayloadChars = 2000000;
   static const int defaultAiSingleRoundToolCallLimit = 40;
   static const int defaultAiSequentialToolRoundLimit = 24;
+
   /// Default per-image attachment size cap (1 MiB).
   ///
   /// When a user attaches an image larger than this threshold, the attachment
   /// pipeline downscales it before the editor opens so that storage, prompt
   /// payload and clipboard handoff remain bounded.
   static const int defaultAiImageSizeLimitBytes = 1024 * 1024;
+
   /// Hard floor to prevent users from saving an unusable threshold.
   static const int minAiImageSizeLimitBytes = 64 * 1024;
+
   /// Hard ceiling so a misconfigured value cannot blow up memory at runtime.
   static const int maxAiImageSizeLimitBytes = 64 * 1024 * 1024;
 
@@ -178,10 +194,12 @@ class AppSettingsSnapshot {
   final Map<OpenHandShortcutAction, List<int>> shortcutBindings;
   final DialogAnimationSettings dialogAnimationSettings;
   final DialogAnimationSettings menuAnimationSettings;
+  final DialogAnimationSettings pageAnimationSettings;
   final DialogAnimationSettings panelAnimationSettings;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final bool telemetryDebugEnabled;
   final bool telemetryCaptureRawPayload;
+
   /// Controls whether a session/message-level environment snapshot
   /// (working directory, OS env variables, platform info) is persisted
   /// into message metadata for audit. Off by default because
@@ -236,6 +254,7 @@ class AppSettingsSnapshot {
     Map<OpenHandShortcutAction, List<int>>? shortcutBindings,
     DialogAnimationSettings? dialogAnimationSettings,
     DialogAnimationSettings? menuAnimationSettings,
+    DialogAnimationSettings? pageAnimationSettings,
     DialogAnimationSettings? panelAnimationSettings,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
     bool? telemetryDebugEnabled,
@@ -297,6 +316,8 @@ class AppSettingsSnapshot {
           dialogAnimationSettings ?? this.dialogAnimationSettings,
       menuAnimationSettings:
           menuAnimationSettings ?? this.menuAnimationSettings,
+      pageAnimationSettings:
+          pageAnimationSettings ?? this.pageAnimationSettings,
       panelAnimationSettings:
           panelAnimationSettings ?? this.panelAnimationSettings,
       builtinToolConfigs: builtinToolConfigs ?? this.builtinToolConfigs,
@@ -319,10 +340,7 @@ class AppSettingsSnapshot {
 
 /// A recently selected model entry for quick access in the model selector.
 class RecentModelSelection {
-  const RecentModelSelection({
-    required this.configId,
-    required this.modelId,
-  });
+  const RecentModelSelection({required this.configId, required this.modelId});
 
   factory RecentModelSelection.fromJson(Map<String, Object?> json) {
     return RecentModelSelection(
@@ -335,10 +353,7 @@ class RecentModelSelection {
   final String modelId;
 
   Map<String, Object?> toJson() {
-    return <String, Object?>{
-      'config_id': configId,
-      'model_id': modelId,
-    };
+    return <String, Object?>{'config_id': configId, 'model_id': modelId};
   }
 
   @override

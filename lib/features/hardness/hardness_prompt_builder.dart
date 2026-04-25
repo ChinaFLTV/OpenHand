@@ -119,7 +119,8 @@ class HardnessPromptBuilder {
     // Phases that produce mandatory output artifacts (architecture.md,
     // plan files, feedback files) need the Write tool; only the reading
     // phase is truly read-only with no file output.
-    final phaseNeedsWrite = phase == HardnessPhase.metaCollection ||
+    final phaseNeedsWrite =
+        phase == HardnessPhase.metaCollection ||
         phase == HardnessPhase.planning ||
         phase == HardnessPhase.reviewing;
 

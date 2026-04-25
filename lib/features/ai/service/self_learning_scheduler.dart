@@ -66,8 +66,7 @@ class SelfLearningTickResult {
 /// * 调用 [AiSessionController] / chat 服务运行受限工具集的子 Agent
 /// * 收集变更并写入 `selfLearning` 消息卡片
 /// * 清理 `metadata['self_learning_in_progress']` 标记
-typedef SelfLearningRunForSession =
-    Future<void> Function(AiSession session);
+typedef SelfLearningRunForSession = Future<void> Function(AiSession session);
 
 class SelfLearningScheduler {
   SelfLearningScheduler({
@@ -147,9 +146,11 @@ class SelfLearningScheduler {
         continue;
       }
       triggered += 1;
-      futures.add(_dispatch(session).catchError((_) {
-        errors += 1;
-      }));
+      futures.add(
+        _dispatch(session).catchError((_) {
+          errors += 1;
+        }),
+      );
     }
 
     await Future.wait(futures);

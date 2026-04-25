@@ -99,7 +99,9 @@ class AiBuiltinToolConfig {
 
   /// 生效的工具名称。
   String get effectiveName {
-    if (isCustom && customToolName != null && customToolName!.trim().isNotEmpty) {
+    if (isCustom &&
+        customToolName != null &&
+        customToolName!.trim().isNotEmpty) {
       return customToolName!.trim();
     }
     return displayName?.trim().isNotEmpty == true
@@ -151,24 +153,29 @@ class AiBuiltinToolConfig {
       enabled: enabled ?? this.enabled,
       displayName: clearDisplayName ? null : (displayName ?? this.displayName),
       summary: clearSummary ? null : (summary ?? this.summary),
-      promptOverride:
-          clearPromptOverride ? null : (promptOverride ?? this.promptOverride),
-      schemaOverride:
-          clearSchemaOverride ? null : (schemaOverride ?? this.schemaOverride),
+      promptOverride: clearPromptOverride
+          ? null
+          : (promptOverride ?? this.promptOverride),
+      schemaOverride: clearSchemaOverride
+          ? null
+          : (schemaOverride ?? this.schemaOverride),
       priority: priority ?? this.priority,
       sortOrder: sortOrder ?? this.sortOrder,
       loadStrategy: loadStrategy ?? this.loadStrategy,
       tags: tags ?? this.tags,
-      maxOutputChars:
-          clearMaxOutputChars ? null : (maxOutputChars ?? this.maxOutputChars),
-      timeoutSeconds:
-          clearTimeoutSeconds ? null : (timeoutSeconds ?? this.timeoutSeconds),
+      maxOutputChars: clearMaxOutputChars
+          ? null
+          : (maxOutputChars ?? this.maxOutputChars),
+      timeoutSeconds: clearTimeoutSeconds
+          ? null
+          : (timeoutSeconds ?? this.timeoutSeconds),
       requireConfirmation: clearRequireConfirmation
           ? null
           : (requireConfirmation ?? this.requireConfirmation),
       isCustom: isCustom ?? this.isCustom,
-      customToolName:
-          clearCustomToolName ? null : (customToolName ?? this.customToolName),
+      customToolName: clearCustomToolName
+          ? null
+          : (customToolName ?? this.customToolName),
       customDescription: clearCustomDescription
           ? null
           : (customDescription ?? this.customDescription),
@@ -185,8 +192,7 @@ class AiBuiltinToolConfig {
       if (displayName != null) 'display_name': displayName,
       if (summary != null) 'summary': summary,
       if (promptOverride != null) 'prompt_override': promptOverride,
-      if (schemaOverride != null)
-        'schema_override': jsonEncode(schemaOverride),
+      if (schemaOverride != null) 'schema_override': jsonEncode(schemaOverride),
       'priority': priority,
       'sort_order': sortOrder,
       'load_strategy': loadStrategy.name,
@@ -204,9 +210,9 @@ class AiBuiltinToolConfig {
 
   static AiBuiltinToolConfig fromJson(Map<String, Object?> json) {
     final kindStr = '${json['kind'] ?? ''}'.trim();
-    final kind = AiBuiltinToolKind.values.where(
-      (k) => k.name == kindStr,
-    ).firstOrNull;
+    final kind = AiBuiltinToolKind.values
+        .where((k) => k.name == kindStr)
+        .firstOrNull;
     if (kind == null) {
       throw FormatException('Unknown AiBuiltinToolKind: $kindStr');
     }
@@ -224,9 +230,11 @@ class AiBuiltinToolConfig {
     }
 
     final rawLoadStrategy = '${json['load_strategy'] ?? ''}'.trim();
-    final loadStrategy = AiBuiltinToolLoadStrategy.values.where(
-      (s) => s.name == rawLoadStrategy,
-    ).firstOrNull ?? AiBuiltinToolLoadStrategy.eager;
+    final loadStrategy =
+        AiBuiltinToolLoadStrategy.values
+            .where((s) => s.name == rawLoadStrategy)
+            .firstOrNull ??
+        AiBuiltinToolLoadStrategy.eager;
 
     final rawTags = json['tags'];
     final tags = <String>[];
@@ -273,12 +281,7 @@ class AiBuiltinToolConfig {
   /// 为所有内建工具类型生成默认配置列表。
   static List<AiBuiltinToolConfig> defaults() {
     return AiBuiltinToolKind.values
-        .map(
-          (kind) => AiBuiltinToolConfig(
-            kind: kind,
-            sortOrder: kind.index,
-          ),
-        )
+        .map((kind) => AiBuiltinToolConfig(kind: kind, sortOrder: kind.index))
         .toList();
   }
 }

@@ -47,7 +47,8 @@ class AiPromptTemplateRepository {
       id: 'hardness_engineering',
       name: 'Hardness Engineering',
       iconName: 'hub_rounded',
-      description: '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
+      description:
+          '多角色编排协调模式。OpenHand 作为 OS 层统一编排，将编码任务委托给用户配置的 CLI 工具（调查者→规划者→实施者→验收者），并管理结构化持久化上下文。',
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/hardness_engineering',
     ),
@@ -55,7 +56,8 @@ class AiPromptTemplateRepository {
       id: 'programming_expert',
       name: '编程专家',
       iconName: 'code_rounded',
-      description: '对标 Cursor Agent 的全栈 AI 编程助手。具备语义代码搜索、LSP 诊断、Git 集成、自主 Agent 循环，支持 Research→Synthesis→Implementation→Verification 四阶段工作流。',
+      description:
+          '对标 Cursor Agent 的全栈 AI 编程助手。具备语义代码搜索、LSP 诊断、Git 集成、自主 Agent 循环，支持 Research→Synthesis→Implementation→Verification 四阶段工作流。',
       internalVersion: '1.0.0',
       promptAssetDirectory: 'assets/prompts/programming_expert',
     ),
@@ -345,7 +347,8 @@ Format as a structured Hardness Engineering Session Summary.
 // template and append a `## Hermes Talker Extensions` section describing the
 // extra capabilities.
 
-const String _hermesTalkerSystemInstructions = '''
+const String _hermesTalkerSystemInstructions =
+    '''
 $_defaultSystemInstructions
 
 ## Hermes Talker Extensions
@@ -367,7 +370,8 @@ tell-tales. Treat memory as invisible context, not as something the user
 needs to be reminded you're tracking.
 ''';
 
-const String _hermesTalkerDeveloperInstructions = '''
+const String _hermesTalkerDeveloperInstructions =
+    '''
 $_defaultDeveloperInstructions
 
 ## Hermes Talker Extensions — SkillManager usage

@@ -15,7 +15,6 @@ enum AiDenyCommandMatchMode {
 }
 
 class AiDenyCommandRule {
-
   factory AiDenyCommandRule.fromJson(Map<String, Object?> json) {
     return AiDenyCommandRule(
       id: '${json['id'] ?? ''}'.trim(),

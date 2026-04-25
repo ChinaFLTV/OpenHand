@@ -1,5 +1,7 @@
 part of 'settings_view.dart';
 
+const int _aiModelChipPreviewLimit = 8;
+
 class _PaneHeader extends StatelessWidget {
   const _PaneHeader({required this.title, required this.subtitle});
 
@@ -449,11 +451,7 @@ class _AiProviderModelChip extends StatelessWidget {
     );
     final activePressedColor = Color.alphaBlend(
       colorScheme.primary.withValues(alpha: isDark ? 0.18 : 0.08),
-      Color.lerp(
-            activeBaseColor,
-            colorScheme.primary,
-            isDark ? 0.14 : 0.10,
-          ) ??
+      Color.lerp(activeBaseColor, colorScheme.primary, isDark ? 0.14 : 0.10) ??
           activeBaseColor,
     );
     final labelColor = isActive
@@ -477,8 +475,8 @@ class _AiProviderModelChip extends StatelessWidget {
     final baseColor = enabled
         ? (isActive ? activeBaseColor : inactiveBaseColor)
         : (isActive
-            ? activeBaseColor.withValues(alpha: isDark ? 0.56 : 0.72)
-            : inactiveBaseColor.withValues(alpha: isDark ? 0.42 : 0.72));
+              ? activeBaseColor.withValues(alpha: isDark ? 0.56 : 0.72)
+              : inactiveBaseColor.withValues(alpha: isDark ? 0.42 : 0.72));
 
     Widget chip = Material(
       clipBehavior: Clip.antiAlias,
@@ -519,13 +517,16 @@ class _AiProviderModelChip extends StatelessWidget {
                 child: Text(
                   modelId,
                   overflow: TextOverflow.ellipsis,
-                  style: (compact
-                          ? theme.textTheme.labelSmall
-                          : theme.textTheme.labelMedium)
-                      ?.copyWith(
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: labelColor,
-                      ),
+                  style:
+                      (compact
+                              ? theme.textTheme.labelSmall
+                              : theme.textTheme.labelMedium)
+                          ?.copyWith(
+                            fontWeight: isActive
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: labelColor,
+                          ),
                 ),
               ),
               if (effectiveOnEdit != null) ...<Widget>[
@@ -743,59 +744,64 @@ class _AiModelTile extends StatelessWidget {
               if (allModels.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 RepaintBoundary(
-                  child: Builder(builder: (ctx) {
-                    const maxVisible = 20;
-                    final activeId = model.modelId;
-                    // Ensure the active model always appears first.
-                    final ordered = <String>[
-                      if (allModels.contains(activeId)) activeId,
-                      ...allModels.where((id) => id != activeId),
-                    ];
-                    final visible = ordered.length <= maxVisible
-                        ? ordered
-                        : ordered.sublist(0, maxVisible);
-                    final hiddenCount = ordered.length - visible.length;
-                    return Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        for (final id in visible)
-                          _AiProviderModelChip(
-                            modelId: id,
-                            isActive: id == activeId,
-                            compact: true,
-                            tooltip: id == activeId
-                                ? _localizedText(
-                                    ctx,
-                                    zh: '当前活跃模型',
-                                    en: 'Currently active model',
-                                  )
-                                : _localizedText(
-                                    ctx,
-                                    zh: '点击切换为活跃模型',
-                                    en: 'Click to set as active model',
-                                  ),
-                            onPressed: id == activeId
-                                ? () {}
-                                : () => onActiveModelChanged(id),
-                          ),
-                        if (hiddenCount > 0)
-                          Tooltip(
-                            message: _localizedText(
-                              ctx,
-                              zh: '还有 $hiddenCount 个模型，点击编辑查看全部',
-                              en: '$hiddenCount more models – edit to see all',
+                  child: Builder(
+                    builder: (ctx) {
+                      final activeId = model.modelId;
+                      // Ensure the active model always appears first.
+                      final ordered = <String>[
+                        if (allModels.contains(activeId)) activeId,
+                        ...allModels.where((id) => id != activeId),
+                      ];
+                      final visible = ordered.length <= _aiModelChipPreviewLimit
+                          ? ordered
+                          : ordered.sublist(0, _aiModelChipPreviewLimit);
+                      final hiddenCount = ordered.length - visible.length;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          for (final id in visible)
+                            _AiProviderModelChip(
+                              modelId: id,
+                              isActive: id == activeId,
+                              compact: true,
+                              tooltip: id == activeId
+                                  ? _localizedText(
+                                      ctx,
+                                      zh: '当前活跃模型',
+                                      en: 'Currently active model',
+                                    )
+                                  : _localizedText(
+                                      ctx,
+                                      zh: '点击切换为活跃模型',
+                                      en: 'Click to set as active model',
+                                    ),
+                              onPressed: id == activeId
+                                  ? () {}
+                                  : () => onActiveModelChanged(id),
                             ),
-                            child: Chip(
-                              avatar: const Icon(Icons.more_horiz_rounded, size: 16),
-                              label: Text('+$hiddenCount'),
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          if (hiddenCount > 0)
+                            Tooltip(
+                              message: _localizedText(
+                                ctx,
+                                zh: '还有 $hiddenCount 个模型，点击编辑查看全部',
+                                en: '$hiddenCount more models – edit to see all',
+                              ),
+                              child: Chip(
+                                avatar: const Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 16,
+                                ),
+                                label: Text('+$hiddenCount'),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
                             ),
-                          ),
-                      ],
-                    );
-                  }),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ],
             ],

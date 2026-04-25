@@ -20,21 +20,26 @@ class AiMultiEditTool extends AiTool {
     final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult(
-          'MultiEdit', 'MultiEdit requires a non-empty file_path.');
+        'MultiEdit',
+        'MultiEdit requires a non-empty file_path.',
+      );
     }
     final filePath = AiToolUtils.resolvePath(rawFilePath);
     final edits = args['edits'];
     if (edits is! List || edits.isEmpty) {
       return AiToolUtils.invalidResult(
-          'MultiEdit', 'MultiEdit requires a non-empty edits array.');
+        'MultiEdit',
+        'MultiEdit requires a non-empty edits array.',
+      );
     }
     final file = File(filePath);
     final bool fileExists = await file.exists();
-    
+
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'MultiEdit',
-      operationDescription: 'Apply ${edits.length} edit${edits.length > 1 ? 's' : ''} to file',
+      operationDescription:
+          'Apply ${edits.length} edit${edits.length > 1 ? 's' : ''} to file',
       targetPath: filePath,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
@@ -43,11 +48,13 @@ class AiMultiEditTool extends AiTool {
     if (confirmationResult != null) {
       return confirmationResult;
     }
-    
+
     // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
-    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
-    
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory =
+        context.metadata['file_history'] as AiFileHistoryService?;
+
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'MultiEdit',
       filePath: filePath,
@@ -56,7 +63,7 @@ class AiMultiEditTool extends AiTool {
       fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
-    
+
     // 2026-04-12: 保存历史版本（仅对已存在的文件）
     String? versionId;
     if (fileExists) {
@@ -67,13 +74,16 @@ class AiMultiEditTool extends AiTool {
         fileHistory: fileHistory,
       );
     }
-    
+
     final String initialContent;
     if (fileExists) {
       try {
         initialContent = await file.readAsString();
       } on FormatException {
-        return AiToolUtils.invalidResult('MultiEdit', 'File does not appear to be a valid text file: $filePath');
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'File does not appear to be a valid text file: $filePath',
+        );
       }
     } else {
       initialContent = '';
@@ -82,7 +92,10 @@ class AiMultiEditTool extends AiTool {
     var isCreatingFile = !fileExists;
     for (final rawEdit in edits) {
       if (rawEdit is! Map) {
-        return AiToolUtils.invalidResult('MultiEdit', 'Each edit must be an object.');
+        return AiToolUtils.invalidResult(
+          'MultiEdit',
+          'Each edit must be an object.',
+        );
       }
       final edit = Map<String, Object?>.from(rawEdit);
       final oldString = '${edit['old_string'] ?? ''}';
@@ -105,32 +118,36 @@ class AiMultiEditTool extends AiTool {
       content = replacement.content;
     }
     await AiToolUtils.writeTextFileSafely(file, content);
-    
+
     // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
     await AiToolUtils.updateTrackerAfterMutation(
       filePath: filePath,
       fileTracker: fileTracker,
     );
-    
+
     // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
     try {
       verificationContent = await file.readAsString();
     } catch (e) {
-      return AiToolUtils.invalidResult('MultiEdit', 'File was written but verification read failed: $e');
+      return AiToolUtils.invalidResult(
+        'MultiEdit',
+        'File was written but verification read failed: $e',
+      );
     }
     final verificationPassed = verificationContent == content;
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
-        'MultiEdit', 
+        'MultiEdit',
         'File was written but verification failed: content mismatch after write. '
-        'This may indicate a write permission issue or concurrent modification.',
+            'This may indicate a write permission issue or concurrent modification.',
       );
     }
-    
+
     return AiToolUtils.simpleSuccessResult(
       command: 'MultiEdit $filePath',
-      output: 'Updated $filePath with ${edits.length} edit${edits.length > 1 ? 's' : ''} (verified)',
+      output:
+          'Updated $filePath with ${edits.length} edit${edits.length > 1 ? 's' : ''} (verified)',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: p.dirname(filePath),
       isWriteCommand: true,

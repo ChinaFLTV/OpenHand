@@ -168,66 +168,75 @@ class CronsStore {
     final entries = <CronEntry>[];
     for (final row in rows) {
       try {
-        entries.add(CronEntry(
-          id: '${row['id']}'.trim(),
-          name: '${row['name'] ?? ''}'.trim(),
-          description: '${row['description'] ?? ''}'.trim(),
-          scriptType:
-              CronScriptType.fromStorage('${row['script_type'] ?? ''}') ??
-              CronScriptType.command,
-          scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
-          scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
-          cronExpression: '${row['cron_expression'] ?? '* * * * *'}'.trim(),
-          retryCount: (row['retry_count'] as int?) ?? 0,
-          timeoutSeconds: (row['timeout_seconds'] as int?) ?? 60,
-          runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
-          tags: _parseTags('${row['tags'] ?? ''}'),
-          enabled: (row['enabled'] as int?) == 1,
-          status: CronJobStatus.fromStorage('${row['status'] ?? ''}'),
-          onSuccessNotify: CronNotifyType.fromStorage(
-            '${row['on_success_notify'] ?? ''}',
+        entries.add(
+          CronEntry(
+            id: '${row['id']}'.trim(),
+            name: '${row['name'] ?? ''}'.trim(),
+            description: '${row['description'] ?? ''}'.trim(),
+            scriptType:
+                CronScriptType.fromStorage('${row['script_type'] ?? ''}') ??
+                CronScriptType.command,
+            scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
+            scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
+            cronExpression: '${row['cron_expression'] ?? '* * * * *'}'.trim(),
+            retryCount: (row['retry_count'] as int?) ?? 0,
+            timeoutSeconds: (row['timeout_seconds'] as int?) ?? 60,
+            runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
+            tags: _parseTags('${row['tags'] ?? ''}'),
+            enabled: (row['enabled'] as int?) == 1,
+            status: CronJobStatus.fromStorage('${row['status'] ?? ''}'),
+            onSuccessNotify: CronNotifyType.fromStorage(
+              '${row['on_success_notify'] ?? ''}',
+            ),
+            onFailureNotify: CronNotifyType.fromStorage(
+              '${row['on_failure_notify'] ?? ''}',
+            ),
+            onTimeoutNotify: CronNotifyType.fromStorage(
+              '${row['on_timeout_notify'] ?? ''}',
+            ),
+            onSuccessSeverity: CronNotifySeverity.fromStorage(
+              '${row['on_success_severity'] ?? ''}',
+              fallback: CronNotifySeverity.success,
+            ),
+            onFailureSeverity: CronNotifySeverity.fromStorage(
+              '${row['on_failure_severity'] ?? ''}',
+              fallback: CronNotifySeverity.error,
+            ),
+            onTimeoutSeverity: CronNotifySeverity.fromStorage(
+              '${row['on_timeout_severity'] ?? ''}',
+              fallback: CronNotifySeverity.warning,
+            ),
+            onSuccessPlaySound: (row['on_success_play_sound'] as int?) == 1,
+            onFailurePlaySound: (row['on_failure_play_sound'] as int?) != 0,
+            onTimeoutPlaySound: (row['on_timeout_play_sound'] as int?) != 0,
+            onSuccessVibrate: (row['on_success_vibrate'] as int?) == 1,
+            onFailureVibrate: (row['on_failure_vibrate'] as int?) != 0,
+            onTimeoutVibrate: (row['on_timeout_vibrate'] as int?) != 0,
+            onSuccessMessage: _nullIfEmpty(
+              '${row['on_success_message'] ?? ''}',
+            ),
+            onFailureMessage: _nullIfEmpty(
+              '${row['on_failure_message'] ?? ''}',
+            ),
+            onTimeoutMessage: _nullIfEmpty(
+              '${row['on_timeout_message'] ?? ''}',
+            ),
+            collectAppMetadata: (row['collect_app_metadata'] as int?) != 0,
+            collectHostMetadata: (row['collect_host_metadata'] as int?) != 0,
+            collectEnvironmentSnapshot:
+                (row['collect_environment_snapshot'] as int?) == 1,
+            workingDirectory: _nullIfEmpty('${row['working_directory'] ?? ''}'),
+            environment: _parseEnv('${row['environment'] ?? ''}'),
+            maxRetryDelaySeconds:
+                (row['max_retry_delay_seconds'] as int?) ?? 30,
+            lastRunAt: _parseDateTime('${row['last_run_at'] ?? ''}'),
+            nextRunAt: _parseDateTime('${row['next_run_at'] ?? ''}'),
+            lastExitCode: row['last_exit_code'] as int?,
+            consecutiveFailures: (row['consecutive_failures'] as int?) ?? 0,
+            createdAt: _parseDateTime('${row['created_at'] ?? ''}'),
+            updatedAt: _parseDateTime('${row['updated_at'] ?? ''}'),
           ),
-          onFailureNotify: CronNotifyType.fromStorage(
-            '${row['on_failure_notify'] ?? ''}',
-          ),
-          onTimeoutNotify: CronNotifyType.fromStorage(
-            '${row['on_timeout_notify'] ?? ''}',
-          ),
-          onSuccessSeverity: CronNotifySeverity.fromStorage(
-            '${row['on_success_severity'] ?? ''}',
-            fallback: CronNotifySeverity.success,
-          ),
-          onFailureSeverity: CronNotifySeverity.fromStorage(
-            '${row['on_failure_severity'] ?? ''}',
-            fallback: CronNotifySeverity.error,
-          ),
-          onTimeoutSeverity: CronNotifySeverity.fromStorage(
-            '${row['on_timeout_severity'] ?? ''}',
-            fallback: CronNotifySeverity.warning,
-          ),
-          onSuccessPlaySound: (row['on_success_play_sound'] as int?) == 1,
-          onFailurePlaySound: (row['on_failure_play_sound'] as int?) != 0,
-          onTimeoutPlaySound: (row['on_timeout_play_sound'] as int?) != 0,
-          onSuccessVibrate: (row['on_success_vibrate'] as int?) == 1,
-          onFailureVibrate: (row['on_failure_vibrate'] as int?) != 0,
-          onTimeoutVibrate: (row['on_timeout_vibrate'] as int?) != 0,
-          onSuccessMessage: _nullIfEmpty('${row['on_success_message'] ?? ''}'),
-          onFailureMessage: _nullIfEmpty('${row['on_failure_message'] ?? ''}'),
-          onTimeoutMessage: _nullIfEmpty('${row['on_timeout_message'] ?? ''}'),
-          collectAppMetadata: (row['collect_app_metadata'] as int?) != 0,
-          collectHostMetadata: (row['collect_host_metadata'] as int?) != 0,
-          collectEnvironmentSnapshot:
-              (row['collect_environment_snapshot'] as int?) == 1,
-          workingDirectory: _nullIfEmpty('${row['working_directory'] ?? ''}'),
-          environment: _parseEnv('${row['environment'] ?? ''}'),
-          maxRetryDelaySeconds: (row['max_retry_delay_seconds'] as int?) ?? 30,
-          lastRunAt: _parseDateTime('${row['last_run_at'] ?? ''}'),
-          nextRunAt: _parseDateTime('${row['next_run_at'] ?? ''}'),
-          lastExitCode: row['last_exit_code'] as int?,
-          consecutiveFailures: (row['consecutive_failures'] as int?) ?? 0,
-          createdAt: _parseDateTime('${row['created_at'] ?? ''}'),
-          updatedAt: _parseDateTime('${row['updated_at'] ?? ''}'),
-        ));
+        );
       } catch (error) {
         assert(() {
           debugPrint(
@@ -326,8 +335,7 @@ class CronsStore {
       'on_timeout_message': entry.onTimeoutMessage ?? '',
       'collect_app_metadata': entry.collectAppMetadata ? 1 : 0,
       'collect_host_metadata': entry.collectHostMetadata ? 1 : 0,
-      'collect_environment_snapshot':
-          entry.collectEnvironmentSnapshot ? 1 : 0,
+      'collect_environment_snapshot': entry.collectEnvironmentSnapshot ? 1 : 0,
       'working_directory': entry.workingDirectory ?? '',
       'environment': entry.environment.entries
           .map((en) => '${en.key}=${en.value}')
@@ -373,10 +381,10 @@ class CronsStore {
       'environment': record.environment.entries
           .map((e) => '${e.key}=${e.value}')
           .join('\n'),
-        'app_context': record.appContext.entries
+      'app_context': record.appContext.entries
           .map((e) => '${e.key}=${e.value}')
           .join('\n'),
-        'environment_snapshot': record.environmentSnapshot.entries
+      'environment_snapshot': record.environmentSnapshot.entries
           .map((e) => '${e.key}=${e.value}')
           .join('\n'),
       'pid': record.pid,
@@ -415,29 +423,32 @@ class CronsStore {
     final records = <CronExecutionRecord>[];
     for (final row in rows) {
       try {
-        records.add(CronExecutionRecord(
-          id: '${row['id']}'.trim(),
-          cronId: '${row['cron_id']}'.trim(),
-          startedAt: DateTime.tryParse('${row['started_at'] ?? ''}') ??
-              DateTime.now(),
-          finishedAt: _parseDateTime('${row['finished_at'] ?? ''}'),
-          status: '${row['status'] ?? 'unknown'}'.trim(),
-          exitCode: row['exit_code'] as int?,
-          stdout: '${row['stdout'] ?? ''}'.trim(),
-          stderr: '${row['stderr'] ?? ''}'.trim(),
-          errorMessage: _nullIfEmpty('${row['error_message'] ?? ''}'),
-          elapsedMs: (row['elapsed_ms'] as int?) ?? 0,
-          retryAttempt: (row['retry_attempt'] as int?) ?? 0,
-          runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
-          workingDirectory:
-              _nullIfEmpty('${row['working_directory'] ?? ''}'),
-          environment: _parseEnv('${row['environment'] ?? ''}'),
+        records.add(
+          CronExecutionRecord(
+            id: '${row['id']}'.trim(),
+            cronId: '${row['cron_id']}'.trim(),
+            startedAt:
+                DateTime.tryParse('${row['started_at'] ?? ''}') ??
+                DateTime.now(),
+            finishedAt: _parseDateTime('${row['finished_at'] ?? ''}'),
+            status: '${row['status'] ?? 'unknown'}'.trim(),
+            exitCode: row['exit_code'] as int?,
+            stdout: '${row['stdout'] ?? ''}'.trim(),
+            stderr: '${row['stderr'] ?? ''}'.trim(),
+            errorMessage: _nullIfEmpty('${row['error_message'] ?? ''}'),
+            elapsedMs: (row['elapsed_ms'] as int?) ?? 0,
+            retryAttempt: (row['retry_attempt'] as int?) ?? 0,
+            runAsUser: _nullIfEmpty('${row['run_as_user'] ?? ''}'),
+            workingDirectory: _nullIfEmpty('${row['working_directory'] ?? ''}'),
+            environment: _parseEnv('${row['environment'] ?? ''}'),
             appContext: _parseEnv('${row['app_context'] ?? ''}'),
-            environmentSnapshot:
-              _parseEnv('${row['environment_snapshot'] ?? ''}'),
-          pid: row['pid'] as int?,
-          triggerType: '${row['trigger_type'] ?? 'scheduled'}'.trim(),
-        ));
+            environmentSnapshot: _parseEnv(
+              '${row['environment_snapshot'] ?? ''}',
+            ),
+            pid: row['pid'] as int?,
+            triggerType: '${row['trigger_type'] ?? 'scheduled'}'.trim(),
+          ),
+        );
       } catch (error) {
         assert(() {
           debugPrint(
@@ -477,7 +488,8 @@ class CronsStore {
       offset: keep,
     );
     if (rows.isEmpty) return;
-    await _db.rawDelete('''
+    await _db.rawDelete(
+      '''
       DELETE FROM $_historyTable
       WHERE cron_id = ? AND started_at < (
         SELECT started_at FROM $_historyTable
@@ -485,7 +497,9 @@ class CronsStore {
         ORDER BY started_at DESC
         LIMIT 1 OFFSET ?
       )
-    ''', [cronId, cronId, keep]);
+    ''',
+      [cronId, cronId, keep],
+    );
   }
 
   Future<void> _ensureColumn(

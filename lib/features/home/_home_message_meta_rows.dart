@@ -317,4 +317,3 @@ class _SweepBadgeState extends State<_SweepBadge>
     );
   }
 }
-

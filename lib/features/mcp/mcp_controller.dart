@@ -33,6 +33,9 @@ class McpController extends ChangeNotifier {
     return controller;
   }
 
+  static const Duration _pageActivationWorkDelay = Duration(milliseconds: 450);
+  static const Duration _autoProbeGap = Duration(milliseconds: 80);
+
   final McpStore _store;
   final McpToolDiscoveryService _toolDiscoveryService;
   final Duration _healthCheckInterval;
@@ -40,6 +43,7 @@ class McpController extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<McpServer> _servers = const <McpServer>[];
+  List<McpServer> _serversView = const <McpServer>[];
   final Map<String, McpToolCatalog> _toolCatalogByServerName =
       <String, McpToolCatalog>{};
   final Map<String, int> _toolRefreshGenerationByServerName = <String, int>{};
@@ -49,12 +53,15 @@ class McpController extends ChangeNotifier {
   McpPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   bool _isPageActive = false;
+  bool _autoToolRefreshInProgress = false;
+  bool _autoHealthCheckInProgress = false;
   Future<void> _operationQueue = Future<void>.value();
+  Timer? _pageActivationWorkTimer;
   Timer? _healthCheckTimer;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  List<McpServer> get servers => List<McpServer>.unmodifiable(_servers);
+  List<McpServer> get servers => _serversView;
   String get serversFilePath => _store.serversFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   McpPersistenceIssue? get persistenceIssue => _persistenceIssue;
@@ -79,6 +86,7 @@ class McpController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _pageActivationWorkTimer?.cancel();
     _healthCheckTimer?.cancel();
     try {
       _toolDiscoveryService.dispose();
@@ -102,13 +110,25 @@ class McpController extends ChangeNotifier {
     }
     _isPageActive = isActive;
     if (_isPageActive) {
-      _autoRefreshEnabledServerTools();
-      _forceCheckEnabledServerHealth();
+      _schedulePageActivationWork();
     } else {
+      _pageActivationWorkTimer?.cancel();
       _invalidateToolRefreshGenerations();
       _invalidateHealthCheckGenerations();
     }
     _reconcileHealthCheckTimer();
+  }
+
+  void _schedulePageActivationWork() {
+    _pageActivationWorkTimer?.cancel();
+    _pageActivationWorkTimer = Timer(_pageActivationWorkDelay, () {
+      _pageActivationWorkTimer = null;
+      if (_isDisposed || !_isPageActive) {
+        return;
+      }
+      _autoRefreshEnabledServerTools();
+      _autoCheckEnabledServerHealth(force: true);
+    });
   }
 
   Future<void> refresh() async {
@@ -120,12 +140,12 @@ class McpController extends ChangeNotifier {
 
       try {
         final loadResult = await _store.load();
-        _servers = loadResult.servers;
+        _setServers(loadResult.servers);
         _syncToolCatalogsWithServers(_servers);
         _syncHealthStatusesWithServers(_servers);
         _persistenceIssue = loadResult.issue;
       } catch (error) {
-        _servers = const <McpServer>[];
+        _setServers(const <McpServer>[]);
         _toolCatalogByServerName.clear();
         _toolRefreshGenerationByServerName.clear();
         _healthByServerName.clear();
@@ -187,10 +207,7 @@ class McpController extends ChangeNotifier {
       if (updatedServers.length == _servers.length) {
         return true;
       }
-      return _commitSaveLocked(
-        updatedServers,
-        previousServerName: server.name,
-      );
+      return _commitSaveLocked(updatedServers, previousServerName: server.name);
     });
   }
 
@@ -373,7 +390,7 @@ class McpController extends ChangeNotifier {
     final previousHealthCheckGenerationByServerName = Map<String, int>.from(
       _healthCheckGenerationByServerName,
     );
-    _servers = nextServers;
+    _setServers(nextServers);
     _syncToolCatalogsWithServers(nextServers);
     _syncHealthStatusesWithServers(nextServers);
     if (previousServerName != null && previousServerName != changedServerName) {
@@ -409,7 +426,7 @@ class McpController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
-      _servers = previousServers;
+      _setServers(previousServers);
       _toolCatalogByServerName
         ..clear()
         ..addAll(previousToolCatalogByServerName);
@@ -430,6 +447,11 @@ class McpController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  void _setServers(List<McpServer> servers) {
+    _servers = servers;
+    _serversView = List<McpServer>.unmodifiable(servers);
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
@@ -483,47 +505,76 @@ class McpController extends ChangeNotifier {
   }
 
   void _autoRefreshEnabledServerTools({bool force = false}) {
-    for (final server in _servers) {
-      if (!server.enabled) {
-        continue;
+    if (_autoToolRefreshInProgress) {
+      return;
+    }
+    _autoToolRefreshInProgress = true;
+    unawaited(_runAutoToolRefreshes(force: force));
+  }
+
+  Future<void> _runAutoToolRefreshes({required bool force}) async {
+    try {
+      for (final server in _servers) {
+        if (_isDisposed || !_isPageActive) {
+          return;
+        }
+        if (!server.enabled) {
+          continue;
+        }
+        final catalog = toolCatalogFor(server.name);
+        if (!force &&
+            (catalog.isLoading ||
+                catalog.status == McpToolCatalogStatus.ready &&
+                    catalog.lastScannedAt != null)) {
+          continue;
+        }
+        await refreshServerTools(server.name);
+        if (_isDisposed || !_isPageActive) {
+          return;
+        }
+        await Future<void>.delayed(_autoProbeGap);
       }
-      final catalog = toolCatalogFor(server.name);
-      if (!force &&
-          (catalog.isLoading ||
-              catalog.status == McpToolCatalogStatus.ready &&
-                  catalog.lastScannedAt != null)) {
-        continue;
-      }
-      unawaited(refreshServerTools(server.name));
+    } finally {
+      _autoToolRefreshInProgress = false;
     }
   }
 
   void _autoCheckEnabledServerHealth({bool force = false}) {
-    final now = DateTime.now().toUtc();
-    for (final server in _servers) {
-      if (!server.enabled) {
-        continue;
-      }
-      final healthStatus = healthStatusFor(server.name);
-      if (healthStatus.isChecking) {
-        continue;
-      }
-      if (!force && healthStatus.lastCheckedAt != null) {
-        final age = now.difference(healthStatus.lastCheckedAt!);
-        if (age < _healthCheckInterval) {
-          continue;
-        }
-      }
-      unawaited(checkServerHealth(server.name));
+    if (_autoHealthCheckInProgress) {
+      return;
     }
+    _autoHealthCheckInProgress = true;
+    unawaited(_runAutoHealthChecks(force: force));
   }
 
-  void _forceCheckEnabledServerHealth() {
-    for (final server in _servers) {
-      if (!server.enabled) {
-        continue;
+  Future<void> _runAutoHealthChecks({required bool force}) async {
+    try {
+      final now = DateTime.now().toUtc();
+      for (final server in _servers) {
+        if (_isDisposed || !_isPageActive) {
+          return;
+        }
+        if (!server.enabled) {
+          continue;
+        }
+        final healthStatus = healthStatusFor(server.name);
+        if (healthStatus.isChecking) {
+          continue;
+        }
+        if (!force && healthStatus.lastCheckedAt != null) {
+          final age = now.difference(healthStatus.lastCheckedAt!);
+          if (age < _healthCheckInterval) {
+            continue;
+          }
+        }
+        await checkServerHealth(server.name);
+        if (_isDisposed || !_isPageActive) {
+          return;
+        }
+        await Future<void>.delayed(_autoProbeGap);
       }
-      unawaited(checkServerHealth(server.name));
+    } finally {
+      _autoHealthCheckInProgress = false;
     }
   }
 

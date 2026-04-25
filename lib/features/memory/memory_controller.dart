@@ -36,14 +36,14 @@ class MemoryController extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   List<UserMemoryEntry> _entries = const <UserMemoryEntry>[];
+  List<UserMemoryEntry> _entriesView = const <UserMemoryEntry>[];
   MemoryPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _operationQueue = Future<void>.value();
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  List<UserMemoryEntry> get entries =>
-      List<UserMemoryEntry>.unmodifiable(_entries);
+  List<UserMemoryEntry> get entries => _entriesView;
   String get userMemoryFilePath => _store.userMemoryFilePath;
   String get storageDirectoryPath => _store.storageDirectoryPath;
   MemoryPersistenceIssue? get persistenceIssue => _persistenceIssue;
@@ -65,9 +65,7 @@ class MemoryController extends ChangeNotifier {
       return const <UserMemoryEntry>[];
     }
     return _entries
-        .where(
-          (entry) => entry.tags.any((t) => t.toLowerCase() == needle),
-        )
+        .where((entry) => entry.tags.any((t) => t.toLowerCase() == needle))
         .toList(growable: false);
   }
 
@@ -199,10 +197,10 @@ class MemoryController extends ChangeNotifier {
 
     try {
       final loadResult = await _store.load();
-      _entries = loadResult.entries;
+      _setEntries(loadResult.entries);
       _persistenceIssue = loadResult.issue;
     } catch (error) {
-      _entries = const <UserMemoryEntry>[];
+      _setEntries(const <UserMemoryEntry>[]);
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -212,8 +210,10 @@ class MemoryController extends ChangeNotifier {
 
   Future<bool> _commitSaveLocked(List<UserMemoryEntry> nextEntries) async {
     final previousEntries = List<UserMemoryEntry>.from(_entries);
-    _entries = List<UserMemoryEntry>.from(nextEntries)
-      ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+    _setEntries(
+      List<UserMemoryEntry>.from(nextEntries)
+        ..sort((left, right) => right.createdAt.compareTo(left.createdAt)),
+    );
     _errorMessage = null;
     notifyListeners();
     try {
@@ -224,7 +224,7 @@ class MemoryController extends ChangeNotifier {
       }
       return true;
     } catch (error) {
-      _entries = previousEntries;
+      _setEntries(previousEntries);
       _persistenceIssue = MemoryPersistenceIssue(
         kind: MemoryPersistenceIssueKind.saveFailed,
         filePath: _store.userMemoryFilePath,
@@ -233,6 +233,11 @@ class MemoryController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  void _setEntries(List<UserMemoryEntry> entries) {
+    _entries = entries;
+    _entriesView = List<UserMemoryEntry>.unmodifiable(entries);
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {

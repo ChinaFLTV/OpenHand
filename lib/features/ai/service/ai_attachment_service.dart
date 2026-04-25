@@ -23,8 +23,7 @@ class AiAttachmentService {
     required String attachmentsDirectoryPath,
     String Function(String sessionId)? perSessionAttachmentsDirectoryPath,
   }) : _attachmentsDirectoryPath = attachmentsDirectoryPath,
-       _perSessionAttachmentsDirectoryPath =
-           perSessionAttachmentsDirectoryPath;
+       _perSessionAttachmentsDirectoryPath = perSessionAttachmentsDirectoryPath;
 
   static const int maxAttachmentPromptCharactersPerFile = 8000;
   static const int maxAttachmentPromptCharactersPerMessage = 32000;
@@ -365,7 +364,9 @@ class AiAttachmentService {
     }
     summary.write(').');
     final summaryText = summary.toString();
-    final pixelCount = (width != null && height != null) ? width * height : null;
+    final pixelCount = (width != null && height != null)
+        ? width * height
+        : null;
     final compressionRatio = originalSize > 0
         ? outputBytes.length / originalSize
         : null;
@@ -407,10 +408,7 @@ class AiAttachmentService {
       }
     }
     while (current.width > 256 && current.height > 256) {
-      current = img.copyResize(
-        current,
-        width: (current.width * 0.75).round(),
-      );
+      current = img.copyResize(current, width: (current.width * 0.75).round());
       for (var quality = 80; quality >= 30; quality -= 10) {
         bytes = Uint8List.fromList(img.encodeJpg(current, quality: quality));
         if (bytes.length <= limitBytes) {

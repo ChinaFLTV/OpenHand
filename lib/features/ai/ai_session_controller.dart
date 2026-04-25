@@ -34,14 +34,19 @@ import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
 import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
 
-
 part '_ai_session_models.dart';
 part '_ai_session_utils.dart';
 
 typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
-enum AiSendPhase { idle, compressing, sendingMessage, responding, awaitingApproval }
+enum AiSendPhase {
+  idle,
+  compressing,
+  sendingMessage,
+  responding,
+  awaitingApproval,
+}
 
 class AiRuntimeToolPreview {
   const AiRuntimeToolPreview({
@@ -70,7 +75,6 @@ class AiRuntimeToolPreview {
 }
 
 class AiSessionController extends ChangeNotifier {
-
   AiSessionController._({
     required AiSessionStore store,
     required AiChatClient chatClient,
@@ -292,6 +296,8 @@ class AiSessionController extends ChangeNotifier {
   String? _lastErrorMessage;
   final Map<String, String> _lastErrorMessagesBySession = <String, String>{};
   List<AiSession> _sessions = const <AiSession>[];
+  List<AiSession> _sessionsView = const <AiSession>[];
+  Map<String, AiSession> _sessionsById = const <String, AiSession>{};
   List<AiSessionPersistenceIssue> _persistenceIssues =
       const <AiSessionPersistenceIssue>[];
   Future<void> _operationQueue = Future<void>.value();
@@ -326,7 +332,7 @@ class AiSessionController extends ChangeNotifier {
     return _lastErrorMessage;
   }
 
-  List<AiSession> get sessions => List<AiSession>.unmodifiable(_sessions);
+  List<AiSession> get sessions => _sessionsView;
   List<AiSessionPersistenceIssue> get persistenceIssues =>
       List<AiSessionPersistenceIssue>.unmodifiable(_persistenceIssues);
   List<AiThreadTemplate> get templates => _templateRepository.templates;
@@ -390,18 +396,12 @@ class AiSessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-
   AiSession? get currentSession {
     final currentSessionId = _currentSessionId;
     if (currentSessionId == null) {
       return null;
     }
-    for (final session in _sessions) {
-      if (session.id == currentSessionId) {
-        return session;
-      }
-    }
-    return null;
+    return _sessionsById[currentSessionId];
   }
 
   AiSessionMessage? get editingMessage {
@@ -490,19 +490,21 @@ class AiSessionController extends ChangeNotifier {
       notifyListeners();
       try {
         final loadResult = await _store.loadAll();
-        _sessions = loadResult.sessions
-            .map(
-              (session) => _normalizeStaleCompletedPlanState(
-                session,
-                normalizedAt: session.updatedAt,
-              ),
-            )
-            .toList(growable: false);
+        _setSessions(
+          loadResult.sessions
+              .map(
+                (session) => _normalizeStaleCompletedPlanState(
+                  session,
+                  normalizedAt: session.updatedAt,
+                ),
+              )
+              .toList(growable: false),
+        );
         _pruneSessionScopedSendState();
         _persistenceIssues = loadResult.issues;
         final currentSessionId = _currentSessionId;
         if (currentSessionId == null ||
-            !_sessions.any((session) => session.id == currentSessionId)) {
+            !_sessionsById.containsKey(currentSessionId)) {
           _currentSessionId = null;
         }
         final editingMessageId = _editingMessageId;
@@ -517,7 +519,7 @@ class AiSessionController extends ChangeNotifier {
           _editingMessageId = null;
         }
       } catch (error) {
-        _sessions = const <AiSession>[];
+        _setSessions(const <AiSession>[]);
         _currentSessionId = null;
         _editingMessageId = null;
         _lastErrorMessage = '$error';
@@ -554,7 +556,7 @@ class AiSessionController extends ChangeNotifier {
 
   Future<void> selectSession(String sessionId) async {
     if (_currentSessionId == sessionId ||
-        !_sessions.any((session) => session.id == sessionId)) {
+        !_sessionsById.containsKey(sessionId)) {
       return;
     }
     _currentSessionId = sessionId;
@@ -667,15 +669,13 @@ class AiSessionController extends ChangeNotifier {
     // Directly replace in the _sessions list to bypass
     // _mergeLiveSessionState which would otherwise revert the permission
     // back to the previous (live) value.
-    final existingIndex = _sessions.indexWhere(
-      (item) => item.id == sessionId,
-    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
     if (existingIndex == -1) {
       return false;
     }
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = updatedSession;
-    _sessions = updatedSessions;
+    _setSessions(updatedSessions);
     notifyListeners();
     // Persist to disk asynchronously. Even if this save races with a
     // concurrent save from sendMessage, the final committed state will be
@@ -717,15 +717,13 @@ class AiSessionController extends ChangeNotifier {
       metadata: nextMetadata,
       updatedAt: _clock().toUtc(),
     );
-    final existingIndex = _sessions.indexWhere(
-      (item) => item.id == sessionId,
-    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
     if (existingIndex == -1) {
       return false;
     }
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = updatedSession;
-    _sessions = updatedSessions;
+    _setSessions(updatedSessions);
     notifyListeners();
     try {
       await _store.save(updatedSession);
@@ -755,16 +753,13 @@ class AiSessionController extends ChangeNotifier {
     final updatedMessages = List<AiSessionMessage>.from(session.messages)
       ..add(msg);
     final updatedSession = _rebuildSession(
-      session.copyWith(
-        messages: updatedMessages,
-        updatedAt: _clock().toUtc(),
-      ),
+      session.copyWith(messages: updatedMessages, updatedAt: _clock().toUtc()),
     );
     final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
     if (existingIndex == -1) return null;
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = updatedSession;
-    _sessions = updatedSessions;
+    _setSessions(updatedSessions);
     notifyListeners();
     try {
       await _store.save(updatedSession);
@@ -815,23 +810,17 @@ class AiSessionController extends ChangeNotifier {
       }
     }
 
-    final updated = original.copyWith(
-      content: content,
-      metadata: nextMetadata,
-    );
+    final updated = original.copyWith(content: content, metadata: nextMetadata);
     final updatedMessages = List<AiSessionMessage>.from(session.messages);
     updatedMessages[index] = updated;
     final updatedSession = _rebuildSession(
-      session.copyWith(
-        messages: updatedMessages,
-        updatedAt: _clock().toUtc(),
-      ),
+      session.copyWith(messages: updatedMessages, updatedAt: _clock().toUtc()),
     );
     final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
     if (existingIndex == -1) return false;
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = updatedSession;
-    _sessions = updatedSessions;
+    _setSessions(updatedSessions);
     notifyListeners();
     try {
       await _store.save(updatedSession);
@@ -864,15 +853,13 @@ class AiSessionController extends ChangeNotifier {
       lastUsedModelLabel: modelId,
       updatedAt: _clock().toUtc(),
     );
-    final existingIndex = _sessions.indexWhere(
-      (item) => item.id == sessionId,
-    );
+    final existingIndex = _sessions.indexWhere((item) => item.id == sessionId);
     if (existingIndex == -1) {
       return false;
     }
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = updatedSession;
-    _sessions = updatedSessions;
+    _setSessions(updatedSessions);
     notifyListeners();
     try {
       await _store.save(updatedSession);
@@ -925,7 +912,7 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       _deletedSessionIds.add(sessionId);
-      _sessions = updatedSessions;
+      _setSessions(updatedSessions);
       if (_currentSessionId == sessionId) {
         _currentSessionId = updatedSessions.isEmpty
             ? null
@@ -973,7 +960,7 @@ class AiSessionController extends ChangeNotifier {
           return true;
         }
         _deletedSessionIds.remove(sessionId);
-        _sessions = previousSessions;
+        _setSessions(previousSessions);
         _currentSessionId = previousCurrentSessionId;
         _editingMessageId = previousEditingMessageId;
         _didCompressInLastSendBySession
@@ -1232,7 +1219,8 @@ class AiSessionController extends ChangeNotifier {
     _clearSessionScopedSendState(sessionId);
   }
 
-  Future<({String content, List<AiMessageAttachment> attachments})?> beginEditingMessage(String messageId) async {
+  Future<({String content, List<AiMessageAttachment> attachments})?>
+  beginEditingMessage(String messageId) async {
     return _enqueueOperation(() async {
       final session = currentSession;
       if (session == null) {
@@ -1502,9 +1490,7 @@ class AiSessionController extends ChangeNotifier {
         await _safeRunUserHook(
           event: HookEvent.userPromptSubmit,
           sessionId: session.id,
-          payload: <String, Object?>{
-            'prompt': normalizedContent,
-          },
+          payload: <String, Object?>{'prompt': normalizedContent},
         );
         // Re-read session since _safeRunUserHook may have committed hook messages.
         session = _sessionById(session.id) ?? session;
@@ -1527,8 +1513,8 @@ class AiSessionController extends ChangeNotifier {
         }
         final userMessageMetadata = <String, Object?>{};
         if (creationRequest.isActive) {
-          userMessageMetadata[AiCreationRequest.metadataKey] =
-              creationRequest.toMetadata();
+          userMessageMetadata[AiCreationRequest.metadataKey] = creationRequest
+              .toMetadata();
         }
         if (userHookResult.userFeedback.isNotEmpty) {
           userMessageMetadata[aiUserPromptHookFeedbackMetadataKey] =
@@ -1563,8 +1549,7 @@ class AiSessionController extends ChangeNotifier {
         // skill capsule under the timestamp; it is NOT consumed by the LLM
         // prompt builder (the LLM-facing manifest arrives via
         // [aiHookSystemRemindersMetadataKey] above).
-        if (selectedSkillMetadata != null &&
-            selectedSkillMetadata.isNotEmpty) {
+        if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
           userMessageMetadata[aiUserSkillSelectionMetadataKey] =
               Map<String, Object?>.from(selectedSkillMetadata);
         }
@@ -2635,16 +2620,17 @@ class AiSessionController extends ChangeNotifier {
           // nothing to say in response to the user's message.  On subsequent
           // rounds an empty reply is suspicious if finishReason is absent
           // (abnormal stream close) or 'stop' with no content.
-          final treatAsError = toolRoundCount == 0 ||
+          final treatAsError =
+              toolRoundCount == 0 ||
               result.finishReason == null ||
               result.finishReason!.isEmpty;
           if (treatAsError) {
             final errorDetail = result.finishReason == null
                 ? 'The model returned an empty response and the stream closed without a finish reason. '
-                    'This may indicate a network interruption, an API error, or a content filter.'
+                      'This may indicate a network interruption, an API error, or a content filter.'
                 : 'The model returned an empty response '
-                    '(finish_reason: ${result.finishReason}). '
-                    'This may indicate a content filter or an API-side issue.';
+                      '(finish_reason: ${result.finishReason}). '
+                      'This may indicate a content filter or an API-side issue.';
             _debugSessionLog(
               workingSession.id,
               'empty_response_detected round=${toolRoundCount + 1} '
@@ -5183,10 +5169,12 @@ class AiSessionController extends ChangeNotifier {
   }) {
     final messages = session.messages;
     final int messagesLength = messages.length;
-    
+
     if (messagesLength > 0 && messages[messagesLength - 1].id == messageId) {
       final updatedMessages = List<AiSessionMessage>.of(messages);
-      updatedMessages[messagesLength - 1] = update(updatedMessages[messagesLength - 1]);
+      updatedMessages[messagesLength - 1] = update(
+        updatedMessages[messagesLength - 1],
+      );
       return session.copyWith(
         messages: updatedMessages,
         updatedAt: _clock().toUtc(),
@@ -5242,7 +5230,7 @@ class AiSessionController extends ChangeNotifier {
     final liveSession = existingIndex == -1 ? null : _sessions[existingIndex];
     final effectiveSession = _mergeLiveSessionState(session, liveSession);
     if (existingIndex == -1) {
-      _sessions = <AiSession>[effectiveSession, ..._sessions];
+      _setSessions(<AiSession>[effectiveSession, ..._sessions]);
     } else {
       final updatedSessions = List<AiSession>.from(_sessions);
       updatedSessions[existingIndex] = effectiveSession;
@@ -5251,7 +5239,7 @@ class AiSessionController extends ChangeNotifier {
           (left, right) => right.updatedAt.compareTo(left.updatedAt),
         );
       }
-      _sessions = updatedSessions;
+      _setSessions(updatedSessions);
     }
     return true;
   }
@@ -5287,7 +5275,7 @@ class AiSessionController extends ChangeNotifier {
           (left, right) => right.updatedAt.compareTo(left.updatedAt),
         );
       }
-      _sessions = restoredSessions;
+      _setSessions(restoredSessions);
       _persistenceIssues = previousIssues;
       _lastErrorMessage = '$error';
       notifyListeners();
@@ -5295,13 +5283,16 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
+  void _setSessions(List<AiSession> sessions) {
+    _sessions = sessions;
+    _sessionsView = List<AiSession>.unmodifiable(sessions);
+    _sessionsById = <String, AiSession>{
+      for (final session in sessions) session.id: session,
+    };
+  }
+
   AiSession? _sessionById(String sessionId) {
-    for (final session in _sessions) {
-      if (session.id == sessionId) {
-        return session;
-      }
-    }
-    return null;
+    return _sessionsById[sessionId];
   }
 
   Future<void> _emitSessionStartHook({
@@ -5537,11 +5528,11 @@ class AiSessionController extends ChangeNotifier {
     final newMessages = <AiSessionMessage>[];
     for (final hookResult in result.hookResults) {
       final createdAt = _clock().toUtc();
-      final toolInput = hookResult.scriptPath != null &&
-              hookResult.scriptPath!.isNotEmpty
+      final toolInput =
+          hookResult.scriptPath != null && hookResult.scriptPath!.isNotEmpty
           ? hookResult.scriptPath!
           : hookResult.scriptContent != null &&
-              hookResult.scriptContent!.isNotEmpty
+                hookResult.scriptContent!.isNotEmpty
           ? hookResult.scriptContent!
           : event.storageValue;
       newMessages.add(
@@ -5616,7 +5607,8 @@ class AiSessionController extends ChangeNotifier {
 
       // ── Session metadata ──
       'session_metadata': session?.metadata ?? <String, Object?>{},
-      'last_prompt_metadata': session?.lastPromptMetadata ?? <String, Object?>{},
+      'last_prompt_metadata':
+          session?.lastPromptMetadata ?? <String, Object?>{},
 
       // ── Statistics ──
       'statistics': session?.statistics.toJson() ?? <String, Object?>{},
@@ -6440,7 +6432,9 @@ class AiSessionController extends ChangeNotifier {
     for (var i = 0; i < turns.length; i++) {
       final turn = turns[i];
       if (i > 0) buffer.writeln('\n---\n');
-      buffer.writeln('# [${i + 1}/${turns.length}] ${turn.roleName.toUpperCase()}');
+      buffer.writeln(
+        '# [${i + 1}/${turns.length}] ${turn.roleName.toUpperCase()}',
+      );
       if (turn.toolCallId != null && turn.toolCallId!.isNotEmpty) {
         buffer.writeln('> tool_call_id: ${turn.toolCallId}');
       }
@@ -6550,13 +6544,11 @@ class AiSessionController extends ChangeNotifier {
     final payload = <String, Object?>{
       if (result.startedAt != null)
         'started_at': result.startedAt!.toIso8601String(),
-      if (result.endedAt != null)
-        'ended_at': result.endedAt!.toIso8601String(),
+      if (result.endedAt != null) 'ended_at': result.endedAt!.toIso8601String(),
       if (result.durationMs != null) 'duration_ms': result.durationMs,
       if (result.finishReason != null) 'finish_reason': result.finishReason,
       if (result.requestUrl != null) 'request_url': result.requestUrl,
-      if (result.requestMethod != null)
-        'request_method': result.requestMethod,
+      if (result.requestMethod != null) 'request_method': result.requestMethod,
       if (result.requestHeaders != null && result.requestHeaders!.isNotEmpty)
         'request_headers': Map<String, String>.from(result.requestHeaders!),
       if (result.requestBody != null)
@@ -6565,8 +6557,10 @@ class AiSessionController extends ChangeNotifier {
     if (runtimeContext.telemetryCaptureRawPayload &&
         result.rawResponse != null &&
         result.rawResponse!.isNotEmpty) {
-      payload['response_raw'] =
-          _clampTelemetryPayload(result.rawResponse, maxChars);
+      payload['response_raw'] = _clampTelemetryPayload(
+        result.rawResponse,
+        maxChars,
+      );
     }
     if (runtimeContext.telemetryCaptureEnvironment) {
       payload['environment'] = _captureRuntimeEnvironmentSnapshot(
@@ -6621,10 +6615,7 @@ class AiSessionController extends ChangeNotifier {
         updatedMessages.add(message);
         continue;
       }
-      final nextMetadata = <String, Object?>{
-        ...message.metadata,
-        ...telemetry,
-      };
+      final nextMetadata = <String, Object?>{...message.metadata, ...telemetry};
       updatedMessages.add(message.copyWith(metadata: nextMetadata));
       changed = true;
     }

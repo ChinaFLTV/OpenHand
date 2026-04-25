@@ -4,23 +4,22 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// 文件编辑历史版本服务
-/// 
+///
 /// 核心机制：
 /// 1. 每次 Edit/Write 前保存文件当前内容的快照
 /// 2. 每个文件保留最近 N 个版本
 /// 3. 支持回滚到指定版本
 class AiFileHistoryService {
-  AiFileHistoryService({
-    String? historyDirectory,
-    this.maxVersionsPerFile = 10,
-  }) : _historyDirectory = historyDirectory;
+  AiFileHistoryService({String? historyDirectory, this.maxVersionsPerFile = 10})
+    : _historyDirectory = historyDirectory;
 
   final String? _historyDirectory;
   final int maxVersionsPerFile;
 
   /// 获取历史版本存储目录
   Future<Directory> _getHistoryDir() async {
-    final baseDir = _historyDirectory ?? 
+    final baseDir =
+        _historyDirectory ??
         p.join(Directory.systemTemp.path, '.openhand-file-history');
     final dir = Directory(baseDir);
     if (!await dir.exists()) {
@@ -30,7 +29,7 @@ class AiFileHistoryService {
   }
 
   /// 保存文件的历史版本（在编辑前调用）
-  /// 
+  ///
   /// 返回版本 ID，用于可能的回滚
   Future<String?> saveVersion({
     required String filePath,
@@ -43,7 +42,7 @@ class AiFileHistoryService {
     try {
       final historyDir = await _getHistoryDir();
       final normalizedPath = p.normalize(filePath);
-      
+
       // 生成文件哈希作为子目录名（避免路径冲突）
       final pathHash = _hashPath(normalizedPath);
       final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
@@ -53,11 +52,12 @@ class AiFileHistoryService {
 
       // 版本 ID = 时间戳 + UUID 后缀
       final timestamp = DateTime.now().toUtc();
-      final versionId = '${timestamp.millisecondsSinceEpoch}_${toolCallId ?? 'manual'}';
-      
+      final versionId =
+          '${timestamp.millisecondsSinceEpoch}_${toolCallId ?? 'manual'}';
+
       // 读取当前内容
       final content = await file.readAsString();
-      
+
       // 保存版本元数据
       final versionMetadata = <String, Object?>{
         'version_id': versionId,
@@ -69,11 +69,15 @@ class AiFileHistoryService {
       };
 
       // 保存内容文件
-      final contentFile = File(p.join(fileHistoryDir.path, '$versionId.content'));
+      final contentFile = File(
+        p.join(fileHistoryDir.path, '$versionId.content'),
+      );
       await contentFile.writeAsString(content);
 
       // 保存元数据文件
-      final metadataFile = File(p.join(fileHistoryDir.path, '$versionId.meta.json'));
+      final metadataFile = File(
+        p.join(fileHistoryDir.path, '$versionId.meta.json'),
+      );
       await metadataFile.writeAsString(jsonEncode(versionMetadata));
 
       // 清理旧版本
@@ -93,7 +97,7 @@ class AiFileHistoryService {
       final normalizedPath = p.normalize(filePath);
       final pathHash = _hashPath(normalizedPath);
       final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
-      
+
       if (!await fileHistoryDir.exists()) {
         return const <FileVersionInfo>[];
       }
@@ -129,8 +133,10 @@ class AiFileHistoryService {
       final normalizedPath = p.normalize(filePath);
       final pathHash = _hashPath(normalizedPath);
       final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
-      
-      final contentFile = File(p.join(fileHistoryDir.path, '$versionId.content'));
+
+      final contentFile = File(
+        p.join(fileHistoryDir.path, '$versionId.content'),
+      );
       if (!await contentFile.exists()) {
         return const RollbackResult.failure('Version not found');
       }
@@ -171,8 +177,7 @@ class AiFileHistoryService {
         final stat = await file.stat();
         fileStats[file] = stat.modified;
       }
-      metaFiles.sort((a, b) => 
-        fileStats[b]!.compareTo(fileStats[a]!));
+      metaFiles.sort((a, b) => fileStats[b]!.compareTo(fileStats[a]!));
 
       // 删除超出限制的旧版本
       for (var i = maxVersionsPerFile; i < metaFiles.length; i++) {
@@ -204,8 +209,8 @@ class AiFileHistoryService {
     final basename = p.basenameWithoutExtension(path);
     final safeBasename = basename.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     // 2026-04-14: 修复边界条件 - 当 basename 为空时使用 'file' 作为前缀
-    final prefix = safeBasename.isEmpty 
-        ? 'file' 
+    final prefix = safeBasename.isEmpty
+        ? 'file'
         : safeBasename.substring(0, safeBasename.length.clamp(0, 20));
     return '${prefix}_$hash';
   }
@@ -223,7 +228,9 @@ class AiFileHistoryService {
       final pathHash = _hashPath(normalizedPath);
       final fileHistoryDir = Directory(p.join(historyDir.path, pathHash));
 
-      final contentFile = File(p.join(fileHistoryDir.path, '$versionId.content'));
+      final contentFile = File(
+        p.join(fileHistoryDir.path, '$versionId.content'),
+      );
       if (!await contentFile.exists()) {
         return (null, null);
       }
@@ -232,7 +239,9 @@ class AiFileHistoryService {
 
       // 尝试读取元数据
       FileVersionInfo? metadata;
-      final metaFile = File(p.join(fileHistoryDir.path, '$versionId.meta.json'));
+      final metaFile = File(
+        p.join(fileHistoryDir.path, '$versionId.meta.json'),
+      );
       if (await metaFile.exists()) {
         try {
           final metaContent = await metaFile.readAsString();
@@ -293,8 +302,9 @@ class FileVersionInfo {
       versionId: json['version_id'] as String? ?? '',
       filePath: json['file_path'] as String? ?? '',
       sessionId: json['session_id'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? 
-                 DateTime.now(),
+      createdAt:
+          DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
       toolCallId: json['tool_call_id'] as String?,
       fileSizeBytes: json['file_size_bytes'] as int?,
     );
@@ -311,11 +321,11 @@ class FileVersionInfo {
 /// 回滚结果
 class RollbackResult {
   const RollbackResult.success(this.versionId)
-      : success = true,
-        errorMessage = '';
+    : success = true,
+      errorMessage = '';
   const RollbackResult.failure(this.errorMessage)
-      : success = false,
-        versionId = '';
+    : success = false,
+      versionId = '';
 
   final bool success;
   final String versionId;

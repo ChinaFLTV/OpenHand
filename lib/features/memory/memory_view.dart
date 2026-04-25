@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,14 +15,58 @@ import 'model/user_memory_entry.dart';
 
 enum _MemoryCardAction { edit, delete }
 
+const int _memoryTagPreviewLimit = 8;
+
+enum _MemoryDisplayItemKind { profile, autoLearned, regular }
+
+class _MemoryDisplayItem {
+  const _MemoryDisplayItem._({
+    required this.kind,
+    this.entry,
+    this.entries = const <UserMemoryEntry>[],
+  });
+
+  const _MemoryDisplayItem.profile(UserMemoryEntry entry)
+    : this._(kind: _MemoryDisplayItemKind.profile, entry: entry);
+
+  const _MemoryDisplayItem.autoLearned(List<UserMemoryEntry> entries)
+    : this._(kind: _MemoryDisplayItemKind.autoLearned, entries: entries);
+
+  const _MemoryDisplayItem.regular(UserMemoryEntry entry)
+    : this._(kind: _MemoryDisplayItemKind.regular, entry: entry);
+
+  final _MemoryDisplayItemKind kind;
+  final UserMemoryEntry? entry;
+  final List<UserMemoryEntry> entries;
+}
+
 class MemoryView extends StatelessWidget {
   const MemoryView({super.key});
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final memoryController = context.watch<MemoryController>();
-    final settingsController = context.watch<SettingsController>();
+    final memorySnapshot = context
+        .select<
+          MemoryController,
+          ({
+            bool isLoading,
+            String? errorMessage,
+            List<UserMemoryEntry> entries,
+            MemoryPersistenceIssue? persistenceIssue,
+          })
+        >((controller) {
+          return (
+            isLoading: controller.isLoading,
+            errorMessage: controller.errorMessage,
+            entries: controller.entries,
+            persistenceIssue: controller.persistenceIssue,
+          );
+        });
+    final memoryController = context.read<MemoryController>();
+    final memoryEnabled = context.select<SettingsController, bool>(
+      (controller) => controller.memoryEnabled,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,7 +79,7 @@ class MemoryView extends StatelessWidget {
               runSpacing: 12,
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: memoryController.isLoading
+                  onPressed: memorySnapshot.isLoading
                       ? null
                       : () => memoryController.refresh(),
                   icon: const Icon(Icons.refresh_rounded),
@@ -82,7 +128,7 @@ class MemoryView extends StatelessWidget {
           },
         ),
         const SizedBox(height: 20),
-        if (!settingsController.memoryEnabled) ...[
+        if (!memoryEnabled) ...[
           _MemoryInfoCard(
             icon: Icons.toggle_off_rounded,
             title: l10n.memoryDisabledTitle,
@@ -90,9 +136,9 @@ class MemoryView extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        if (memoryController.persistenceIssue != null) ...[
+        if (memorySnapshot.persistenceIssue != null) ...[
           _MemoryPersistenceIssueCard(
-            issue: memoryController.persistenceIssue!,
+            issue: memorySnapshot.persistenceIssue!,
             onDismiss: memoryController.clearPersistenceIssue,
           ),
           const SizedBox(height: 16),
@@ -100,29 +146,39 @@ class MemoryView extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
-            child: _buildBody(context, memoryController),
+            child: _buildBody(
+              context,
+              isLoading: memorySnapshot.isLoading,
+              errorMessage: memorySnapshot.errorMessage,
+              entries: memorySnapshot.entries,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBody(BuildContext context, MemoryController memoryController) {
+  Widget _buildBody(
+    BuildContext context, {
+    required bool isLoading,
+    required String? errorMessage,
+    required List<UserMemoryEntry> entries,
+  }) {
     final l10n = AppLocalizations.of(context)!;
-    if (memoryController.isLoading) {
+    if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (memoryController.errorMessage != null) {
+    if (errorMessage != null) {
       return _MemoryStateCard(
         key: const ValueKey<String>('memory-error'),
         icon: Icons.error_outline_rounded,
         title: l10n.memoryLoadFailedTitle,
-        body: memoryController.errorMessage!,
+        body: errorMessage,
         primaryActionLabel: l10n.memoryRefresh,
-        onPrimaryAction: () => memoryController.refresh(),
+        onPrimaryAction: () => context.read<MemoryController>().refresh(),
       );
     }
-    if (memoryController.entries.isEmpty) {
+    if (entries.isEmpty) {
       return _MemoryStateCard(
         key: const ValueKey<String>('memory-empty'),
         icon: Icons.psychology_alt_outlined,
@@ -131,71 +187,30 @@ class MemoryView extends StatelessWidget {
       );
     }
 
-    final profile = memoryController.userProfile;
-    final autoLearned = memoryController.memoriesWithTag(
-      UserMemoryEntry.autoLearnedTag,
-    );
-    final excludedIds = <String>{
-      if (profile != null) profile.id,
-      for (final e in autoLearned) e.id,
-    };
-    final regular = memoryController.entries
-        .where((entry) => !excludedIds.contains(entry.id))
-        .toList(growable: false);
+    UserMemoryEntry? profile;
+    final autoLearned = <UserMemoryEntry>[];
+    final regular = <UserMemoryEntry>[];
+    for (final entry in entries) {
+      if (entry.type == UserMemoryEntry.userProfileType && profile == null) {
+        profile = entry;
+        continue;
+      }
+      if (entry.isAutoLearned) {
+        autoLearned.add(entry);
+        continue;
+      }
+      regular.add(entry);
+    }
 
-    final items = <Widget>[];
+    final items = <_MemoryDisplayItem>[];
     if (profile != null) {
-      items.add(
-        _MemoryEntryCard(
-          key: ValueKey<String>('memory-profile-${profile.id}'),
-          entry: profile,
-          isProfile: true,
-          onTap: () => _showMemoryDialog(context, initialEntry: profile),
-          onActionSelected: (action) {
-            switch (action) {
-              case _MemoryCardAction.edit:
-                _showMemoryDialog(context, initialEntry: profile);
-              case _MemoryCardAction.delete:
-                _confirmDeleteMemory(context, profile);
-            }
-          },
-        ),
-      );
+      items.add(_MemoryDisplayItem.profile(profile));
     }
     if (autoLearned.isNotEmpty) {
-      items.add(
-        _AutoLearnedSection(
-          key: const PageStorageKey<String>('memory-auto-learned-section'),
-          entries: autoLearned,
-          onTapEntry: (entry) =>
-              _showMemoryDialog(context, initialEntry: entry),
-          onActionSelected: (entry, action) {
-            switch (action) {
-              case _MemoryCardAction.edit:
-                _showMemoryDialog(context, initialEntry: entry);
-              case _MemoryCardAction.delete:
-                _confirmDeleteMemory(context, entry);
-            }
-          },
-        ),
-      );
+      items.add(_MemoryDisplayItem.autoLearned(autoLearned));
     }
     for (final entry in regular) {
-      items.add(
-        _MemoryEntryCard(
-          key: ValueKey<String>('memory-entry-${entry.id}'),
-          entry: entry,
-          onTap: () => _showMemoryDialog(context, initialEntry: entry),
-          onActionSelected: (action) {
-            switch (action) {
-              case _MemoryCardAction.edit:
-                _showMemoryDialog(context, initialEntry: entry);
-              case _MemoryCardAction.delete:
-                _confirmDeleteMemory(context, entry);
-            }
-          },
-        ),
-      );
+      items.add(_MemoryDisplayItem.regular(entry));
     }
 
     return ListView.separated(
@@ -203,7 +218,57 @@ class MemoryView extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       itemCount: items.length,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
-      itemBuilder: (context, index) => items[index],
+      itemBuilder: (context, index) {
+        final item = items[index];
+        switch (item.kind) {
+          case _MemoryDisplayItemKind.profile:
+            final entry = item.entry!;
+            return _MemoryEntryCard(
+              key: ValueKey<String>('memory-profile-${entry.id}'),
+              entry: entry,
+              isProfile: true,
+              onTap: () => _showMemoryDialog(context, initialEntry: entry),
+              onActionSelected: (action) {
+                switch (action) {
+                  case _MemoryCardAction.edit:
+                    _showMemoryDialog(context, initialEntry: entry);
+                  case _MemoryCardAction.delete:
+                    _confirmDeleteMemory(context, entry);
+                }
+              },
+            );
+          case _MemoryDisplayItemKind.autoLearned:
+            return _AutoLearnedSection(
+              key: const PageStorageKey<String>('memory-auto-learned-section'),
+              entries: item.entries,
+              onTapEntry: (entry) =>
+                  _showMemoryDialog(context, initialEntry: entry),
+              onActionSelected: (entry, action) {
+                switch (action) {
+                  case _MemoryCardAction.edit:
+                    _showMemoryDialog(context, initialEntry: entry);
+                  case _MemoryCardAction.delete:
+                    _confirmDeleteMemory(context, entry);
+                }
+              },
+            );
+          case _MemoryDisplayItemKind.regular:
+            final entry = item.entry!;
+            return _MemoryEntryCard(
+              key: ValueKey<String>('memory-entry-${entry.id}'),
+              entry: entry,
+              onTap: () => _showMemoryDialog(context, initialEntry: entry),
+              onActionSelected: (action) {
+                switch (action) {
+                  case _MemoryCardAction.edit:
+                    _showMemoryDialog(context, initialEntry: entry);
+                  case _MemoryCardAction.delete:
+                    _confirmDeleteMemory(context, entry);
+                }
+              },
+            );
+        }
+      },
     );
   }
 
@@ -692,10 +757,22 @@ class _MemoryEntryCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final isAutoLearned = entry.isAutoLearned;
+    final displayTags = entry.tags
+        .where(
+          (tag) =>
+              !isAutoLearned ||
+              tag.toLowerCase() != UserMemoryEntry.autoLearnedTag.toLowerCase(),
+        )
+        .toList(growable: false);
+    final visibleTags = displayTags
+        .take(_memoryTagPreviewLimit)
+        .toList(growable: false);
+    final hiddenTagCount = displayTags.length - visibleTags.length;
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      color: isProfile ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+      color: isProfile
+          ? colorScheme.primaryContainer.withValues(alpha: 0.35)
           : null,
       child: InkWell(
         onTap: onTap,
@@ -785,23 +862,23 @@ class _MemoryEntryCard extends StatelessWidget {
                           : Icons.person_outline_rounded,
                       size: 18,
                     ),
-                    label: Text(
-                      isProfile ? '用户画像' : l10n.memoryTypeUser,
-                    ),
+                    label: Text(isProfile ? '用户画像' : l10n.memoryTypeUser),
                   ),
                   if (isAutoLearned)
                     const Chip(
                       avatar: Icon(Icons.auto_awesome_outlined, size: 18),
                       label: Text(UserMemoryEntry.autoLearnedTag),
                     ),
-                  for (final tag in entry.tags)
-                    if (!isAutoLearned ||
-                        tag.toLowerCase() !=
-                            UserMemoryEntry.autoLearnedTag.toLowerCase())
-                      Chip(
-                        avatar: const Icon(Icons.sell_outlined, size: 18),
-                        label: Text(tag),
-                      ),
+                  for (final tag in visibleTags)
+                    Chip(
+                      avatar: const Icon(Icons.sell_outlined, size: 18),
+                      label: Text(tag),
+                    ),
+                  if (hiddenTagCount > 0)
+                    Chip(
+                      avatar: const Icon(Icons.more_horiz_rounded, size: 18),
+                      label: Text('+$hiddenTagCount'),
+                    ),
                 ],
               ),
             ],
@@ -834,14 +911,14 @@ class _AutoLearnedSection extends StatefulWidget {
   final List<UserMemoryEntry> entries;
   final ValueChanged<UserMemoryEntry> onTapEntry;
   final void Function(UserMemoryEntry entry, _MemoryCardAction action)
-      onActionSelected;
+  onActionSelected;
 
   @override
   State<_AutoLearnedSection> createState() => _AutoLearnedSectionState();
 }
 
 class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
-  bool _expanded = true;
+  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -857,16 +934,10 @@ class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.auto_awesome_outlined,
-                    color: colorScheme.primary,
-                  ),
+                  Icon(Icons.auto_awesome_outlined, color: colorScheme.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -890,23 +961,25 @@ class _AutoLearnedSectionState extends State<_AutoLearnedSection> {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: Column(
-                children: [
-                  for (int i = 0; i < widget.entries.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
-                    _MemoryEntryCard(
-                      key: ValueKey<String>(
-                        'memory-autolearned-${widget.entries[i].id}',
-                      ),
-                      entry: widget.entries[i],
-                      onTap: () => widget.onTapEntry(widget.entries[i]),
-                      onActionSelected: (action) => widget.onActionSelected(
-                        widget.entries[i],
-                        action,
-                      ),
-                    ),
-                  ],
-                ],
+              child: SizedBox(
+                height: math.min(520.0, widget.entries.length * 132.0),
+                child: ListView.separated(
+                  primary: false,
+                  padding: EdgeInsets.zero,
+                  itemCount: widget.entries.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final entry = widget.entries[index];
+                    return _MemoryEntryCard(
+                      key: ValueKey<String>('memory-autolearned-${entry.id}'),
+                      entry: entry,
+                      onTap: () => widget.onTapEntry(entry),
+                      onActionSelected: (action) =>
+                          widget.onActionSelected(entry, action),
+                    );
+                  },
+                ),
               ),
             ),
           ],

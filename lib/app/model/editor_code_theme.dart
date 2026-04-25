@@ -27,8 +27,7 @@ enum EditorCodeTheme {
       EditorCodeTheme.solarized =>
         darkSurface ? 'Solarized Dark' : 'Solarized Light',
       EditorCodeTheme.oneDark => 'One Dark',
-      EditorCodeTheme.github =>
-        darkSurface ? 'GitHub Dark' : 'GitHub Light',
+      EditorCodeTheme.github => darkSurface ? 'GitHub Dark' : 'GitHub Light',
       EditorCodeTheme.dracula => 'Dracula',
     };
   }
@@ -40,8 +39,7 @@ enum EditorCodeTheme {
       EditorCodeTheme.solarized =>
         darkSurface ? 'Solarized Dark' : 'Solarized Light',
       EditorCodeTheme.oneDark => 'One Dark',
-      EditorCodeTheme.github =>
-        darkSurface ? 'GitHub Dark' : 'GitHub Light',
+      EditorCodeTheme.github => darkSurface ? 'GitHub Dark' : 'GitHub Light',
       EditorCodeTheme.dracula => 'Dracula',
     };
   }

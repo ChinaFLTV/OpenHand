@@ -16,10 +16,7 @@ const int _maxCronTimeoutSeconds = 3600; // 1 hour
 
 /// Handle returned for a running cron execution.
 class CronExecutionHandle {
-  const CronExecutionHandle({
-    required this.result,
-    required this.cancel,
-  });
+  const CronExecutionHandle({required this.result, required this.cancel});
 
   final Future<CronExecutionRecord> result;
   final void Function() cancel;
@@ -125,8 +122,10 @@ class CronExecutor {
       if (attempt > 0) {
         // Exponential back-off with cap.
         final delay = Duration(
-          seconds: (1 << (attempt - 1))
-              .clamp(1, entry.maxRetryDelaySeconds.clamp(1, 300)),
+          seconds: (1 << (attempt - 1)).clamp(
+            1,
+            entry.maxRetryDelaySeconds.clamp(1, 300),
+          ),
         );
         await Future.any<void>(<Future<void>>[
           Future<void>.delayed(delay),
@@ -290,8 +289,8 @@ class CronExecutor {
     }
 
     final cmd = _buildCommand(entry);
-    final workDir = entry.workingDirectory ??
-        OpenHandPaths.applicationDirectoryPath();
+    final workDir =
+        entry.workingDirectory ?? OpenHandPaths.applicationDirectoryPath();
 
     final process = await Process.start(
       cmd.executable,
@@ -328,16 +327,19 @@ class CronExecutor {
     int? exitCode;
 
     try {
-      exitCode = await process.exitCode.timeout(timeout, onTimeout: () {
-        timedOut = true;
-        unawaited(_terminateProcessTree(process, force: false));
-        unawaited(
-          Future<void>.delayed(const Duration(seconds: 2), () {
-            return _terminateProcessTree(process, force: true);
-          }),
-        );
-        return -1;
-      });
+      exitCode = await process.exitCode.timeout(
+        timeout,
+        onTimeout: () {
+          timedOut = true;
+          unawaited(_terminateProcessTree(process, force: false));
+          unawaited(
+            Future<void>.delayed(const Duration(seconds: 2), () {
+              return _terminateProcessTree(process, force: true);
+            }),
+          );
+          return -1;
+        },
+      );
     } catch (_) {
       timedOut = true;
       await _terminateProcessTree(process, force: true);
@@ -430,10 +432,12 @@ class CronExecutor {
       if (Platform.isWindows) {
         final ext = p.extension(entry.scriptPath!).toLowerCase();
         if (ext == '.ps1') {
-          return _ShellCommand(
-            'powershell',
-            ['-ExecutionPolicy', 'Bypass', '-File', entry.scriptPath!],
-          );
+          return _ShellCommand('powershell', [
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            entry.scriptPath!,
+          ]);
         }
         return _ShellCommand('cmd', ['/c', entry.scriptPath!]);
       }
@@ -454,7 +458,13 @@ class CronExecutor {
       return _ShellCommand('powershell', ['-Command', content]);
     }
     if (entry.runAsUser != null && entry.runAsUser!.isNotEmpty) {
-      return _ShellCommand('sudo', ['-u', entry.runAsUser!, 'bash', '-c', content]);
+      return _ShellCommand('sudo', [
+        '-u',
+        entry.runAsUser!,
+        'bash',
+        '-c',
+        content,
+      ]);
     }
     return _ShellCommand('bash', ['-c', content]);
   }
@@ -467,10 +477,7 @@ class CronExecutor {
       )) {
         if (buffer.length + chunk.length > _maxCronOutputCharacters) {
           buffer.write(
-            chunk.substring(
-              0,
-              _maxCronOutputCharacters - buffer.length,
-            ),
+            chunk.substring(0, _maxCronOutputCharacters - buffer.length),
           );
           break;
         }

@@ -37,8 +37,7 @@ Future<T?> showAnimatedMenu<T>({
     );
   }
 
-  final navigator =
-      Navigator.of(context, rootNavigator: useRootNavigator);
+  final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   return navigator.push<T>(
     _AnimatedPopupMenuRoute<T>(
       position: position,
@@ -48,8 +47,7 @@ Future<T?> showAnimatedMenu<T>({
       color: color,
       shape: shape,
       animationSettings: effectiveSettings,
-      barrierLabel:
-          MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       capturedThemes: InheritedTheme.capture(
         from: context,
         to: navigator.context,
@@ -116,9 +114,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    final menuContent = capturedThemes.wrap(_PopupMenuContent<T>(
-      route: this,
-    ));
+    final menuContent = capturedThemes.wrap(_PopupMenuContent<T>(route: this));
 
     final mediaQuery = MediaQuery.of(context);
     return MediaQuery.removePadding(
@@ -174,22 +170,18 @@ class _PopupMenuContent<T> extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 112, maxWidth: 280),
       child: Material(
         type: MaterialType.card,
-        elevation: route.elevation ??
-            popupMenuTheme.elevation ??
-            defaults.elevation!,
+        elevation:
+            route.elevation ?? popupMenuTheme.elevation ?? defaults.elevation!,
         shadowColor: popupMenuTheme.shadowColor ?? defaults.shadowColor,
-        surfaceTintColor: popupMenuTheme.surfaceTintColor ??
-            defaults.surfaceTintColor,
+        surfaceTintColor:
+            popupMenuTheme.surfaceTintColor ?? defaults.surfaceTintColor,
         color: route.color ?? popupMenuTheme.color ?? defaults.color,
-        shape: route.shape ??
-            popupMenuTheme.shape ??
-            defaults.shape,
+        shape: route.shape ?? popupMenuTheme.shape ?? defaults.shape,
         clipBehavior: Clip.hardEdge,
         child: IntrinsicWidth(
           stepWidth: 56,
           child: SingleChildScrollView(
-            padding: popupMenuTheme.menuPadding ??
-                defaults.menuPadding,
+            padding: popupMenuTheme.menuPadding ?? defaults.menuPadding,
             child: ListBody(children: children),
           ),
         ),
@@ -199,10 +191,7 @@ class _PopupMenuContent<T> extends StatelessWidget {
 }
 
 class _MenuItemWidget extends SingleChildRenderObjectWidget {
-  const _MenuItemWidget({
-    required this.onLayout,
-    required super.child,
-  });
+  const _MenuItemWidget({required this.onLayout, required super.child});
 
   final ValueChanged<Size> onLayout;
 
@@ -280,8 +269,10 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
     }
     // Clamp to screen.
     x = x.clamp(padding.left, size.width - childSize.width - padding.right);
-    final clampedY =
-        y.clamp(padding.top, size.height - childSize.height - padding.bottom);
+    final clampedY = y.clamp(
+      padding.top,
+      size.height - childSize.height - padding.bottom,
+    );
     return Offset(x, clampedY);
   }
 
@@ -302,7 +293,8 @@ Widget _buildMenuTransition(
   DialogAnimationSettings settings,
   Widget child,
 ) {
-  final forward = animation.status == AnimationStatus.forward ||
+  final forward =
+      animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
@@ -314,75 +306,76 @@ Widget _buildMenuTransition(
 
   return switch (style) {
     DialogAnimationStyle.none => FadeTransition(
-        opacity: animation,
+      opacity: animation,
+      child: child,
+    ),
+    DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
+    DialogAnimationStyle.fadeScale => FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+        alignment: Alignment.topLeft,
         child: child,
       ),
-    DialogAnimationStyle.fadeScale => FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
-          alignment: Alignment.topLeft,
-          child: child,
-        ),
-      ),
+    ),
     DialogAnimationStyle.slideUp => FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.08),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
       ),
+    ),
     DialogAnimationStyle.slideDown => FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, -0.08),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, -0.08),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
       ),
+    ),
     DialogAnimationStyle.expand => FadeTransition(
-        opacity: CurvedAnimation(
-          parent: curved,
-          curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
-        ),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.0, end: 1.0).animate(
-            CurvedAnimation(
-              parent: curved,
-              curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
-            ),
-          ),
-          alignment: Alignment.topLeft,
-          child: child,
-        ),
+      opacity: CurvedAnimation(
+        parent: curved,
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
       ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: curved,
+            curve: const Interval(0.0, 1.0, curve: Curves.easeOutCubic),
+          ),
+        ),
+        alignment: Alignment.topLeft,
+        child: child,
+      ),
+    ),
     DialogAnimationStyle.rotateScale => FadeTransition(
-        opacity: curved,
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.7, end: 1.0).animate(curved),
-          child: RotationTransition(
-            turns: Tween<double>(begin: -0.03, end: 0.0).animate(curved),
-            child: child,
-          ),
-        ),
-      ),
-    DialogAnimationStyle.elastic => FadeTransition(
-        opacity: CurvedAnimation(
-          parent: animation,
-          curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
-          reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
-        ),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
-          alignment: Alignment.topLeft,
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.7, end: 1.0).animate(curved),
+        child: RotationTransition(
+          turns: Tween<double>(begin: -0.03, end: 0.0).animate(curved),
           child: child,
         ),
       ),
+    ),
+    DialogAnimationStyle.elastic => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
+        reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+        alignment: Alignment.topLeft,
+        child: child,
+      ),
+    ),
   };
 }
 
@@ -438,8 +431,7 @@ class _AnimatedPopupMenuButtonState<T>
   void _showMenu() {
     final button = context.findRenderObject()! as RenderBox;
     final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()!
-            as RenderBox;
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
     final offset = widget.offset;
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
@@ -517,8 +509,7 @@ class PopupMenuSectionHeader<T> extends PopupMenuEntry<T> {
       _PopupMenuSectionHeaderState<T>();
 }
 
-class _PopupMenuSectionHeaderState<T>
-    extends State<PopupMenuSectionHeader<T>> {
+class _PopupMenuSectionHeaderState<T> extends State<PopupMenuSectionHeader<T>> {
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -526,9 +517,9 @@ class _PopupMenuSectionHeaderState<T>
       child: Text(
         widget.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -539,8 +530,7 @@ class _PopupMenuSectionHeaderState<T>
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
-  const _PopupMenuDefaultsM2(this.context)
-      : super(elevation: 8.0);
+  const _PopupMenuDefaultsM2(this.context) : super(elevation: 8.0);
 
   final BuildContext context;
 
@@ -548,16 +538,16 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
   Color? get color => Theme.of(context).cardColor;
 
   @override
-  ShapeBorder? get shape =>
-      const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4)));
+  ShapeBorder? get shape => const RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(4)),
+  );
 
   @override
   EdgeInsets? get menuPadding => const EdgeInsets.symmetric(vertical: 8);
 }
 
 class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
-  const _PopupMenuDefaultsM3(this.context)
-      : super(elevation: 3.0);
+  const _PopupMenuDefaultsM3(this.context) : super(elevation: 3.0);
 
   final BuildContext context;
 
@@ -571,8 +561,9 @@ class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
   Color? get surfaceTintColor => Colors.transparent;
 
   @override
-  ShapeBorder? get shape =>
-      const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4)));
+  ShapeBorder? get shape => const RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(4)),
+  );
 
   @override
   EdgeInsets? get menuPadding => const EdgeInsets.symmetric(vertical: 8);

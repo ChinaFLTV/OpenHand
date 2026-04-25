@@ -252,6 +252,7 @@ extension on _SettingsViewState {
     SettingsController settingsController,
   ) {
     final bindings = settingsController.editorShortcutBindings;
+    const actions = EditorShortcutAction.values;
     return _SettingsSubsectionCard(
       title: _localizedText(context, zh: '编辑器快捷键', en: 'Editor Shortcuts'),
       description: _localizedText(
@@ -261,39 +262,35 @@ extension on _SettingsViewState {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
-        child: Scrollbar(
-          controller: _editorShortcutListScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
+        child: PrimaryScrollController.none(
+          child: Scrollbar(
             controller: _editorShortcutListScrollController,
-            child: Column(
-              children: EditorShortcutAction.values
-                  .map(
-                    (action) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ShortcutBindingTile(
-                        actionStorageKey:
-                            editorShortcutActionStorageKey(action),
-                        title: _editorShortcutActionTitle(context, action),
-                        subtitle:
-                            _editorShortcutActionSubtitle(context, action),
-                        value: formatShortcutLabel(
-                          bindings[action] ?? const <int>[],
-                        ),
-                        onRecord: () =>
-                            _showEditorShortcutRecorderDialog(context, action),
-                        onReset: () async {
-                          final saved = await settingsController
-                              .resetEditorShortcutBinding(action);
-                          if (!context.mounted || saved) {
-                            return;
-                          }
-                          _showPersistenceFailureSnackBar(context);
-                        },
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
+            thumbVisibility: true,
+            child: ListView.separated(
+              controller: _editorShortcutListScrollController,
+              primary: false,
+              padding: EdgeInsets.zero,
+              itemCount: actions.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final action = actions[index];
+                return _ShortcutBindingTile(
+                  actionStorageKey: editorShortcutActionStorageKey(action),
+                  title: _editorShortcutActionTitle(context, action),
+                  subtitle: _editorShortcutActionSubtitle(context, action),
+                  value: formatShortcutLabel(bindings[action] ?? const <int>[]),
+                  onRecord: () =>
+                      _showEditorShortcutRecorderDialog(context, action),
+                  onReset: () async {
+                    final saved = await settingsController
+                        .resetEditorShortcutBinding(action);
+                    if (!context.mounted || saved) {
+                      return;
+                    }
+                    _showPersistenceFailureSnackBar(context);
+                  },
+                );
+              },
             ),
           ),
         ),

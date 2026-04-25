@@ -51,27 +51,29 @@ void main() {
       expect(entry.type, UserMemoryEntry.userType);
     });
 
-    test('upsert_profile creates then replaces the single user_profile',
-        () async {
-      final first = await tool.run(<String, Object?>{
-        'action': 'upsert_profile',
-        'content': 'prefers Flutter + Rust',
-      });
-      expect(first.stdout, contains('user_profile upserted'));
-      expect(memoryController.userProfile, isNotNull);
-      expect(memoryController.userProfile!.content, 'prefers Flutter + Rust');
+    test(
+      'upsert_profile creates then replaces the single user_profile',
+      () async {
+        final first = await tool.run(<String, Object?>{
+          'action': 'upsert_profile',
+          'content': 'prefers Flutter + Rust',
+        });
+        expect(first.stdout, contains('user_profile upserted'));
+        expect(memoryController.userProfile, isNotNull);
+        expect(memoryController.userProfile!.content, 'prefers Flutter + Rust');
 
-      final second = await tool.run(<String, Object?>{
-        'action': 'upsert_profile',
-        'content': 'prefers Flutter + Rust; prefers CLI tools',
-      });
-      expect(second.stdout, contains('user_profile upserted'));
-      final profiles = memoryController.entries
-          .where((e) => e.type == UserMemoryEntry.userProfileType)
-          .toList();
-      expect(profiles.length, 1);
-      expect(profiles.single.content, contains('CLI tools'));
-    });
+        final second = await tool.run(<String, Object?>{
+          'action': 'upsert_profile',
+          'content': 'prefers Flutter + Rust; prefers CLI tools',
+        });
+        expect(second.stdout, contains('user_profile upserted'));
+        final profiles = memoryController.entries
+            .where((e) => e.type == UserMemoryEntry.userProfileType)
+            .toList();
+        expect(profiles.length, 1);
+        expect(profiles.single.content, contains('CLI tools'));
+      },
+    );
 
     test('list filters by tag (case-insensitive)', () async {
       await tool.run(<String, Object?>{
@@ -155,11 +157,13 @@ void main() {
       expect(result.stderr, isNotEmpty);
     });
 
-    test('returns invalid result when memoryControllerProvider yields null',
-        () async {
-      final detached = AiMemoryTool(memoryControllerProvider: () => null);
-      final result = await detached.run(<String, Object?>{'action': 'list'});
-      expect(result.stderr, contains('Memory controller is not available'));
-    });
+    test(
+      'returns invalid result when memoryControllerProvider yields null',
+      () async {
+        final detached = AiMemoryTool(memoryControllerProvider: () => null);
+        final result = await detached.run(<String, Object?>{'action': 'list'});
+        expect(result.stderr, contains('Memory controller is not available'));
+      },
+    );
   });
 }

@@ -157,7 +157,8 @@ class _NavigationPaneState extends State<_NavigationPane> {
       activeSessionIds.add(session.id);
       final sendPhase =
           widget.sessionSendPhases[session.id] ?? AiSendPhase.idle;
-      final isSelected = widget.selectedSection == AppSection.workspace &&
+      final isSelected =
+          widget.selectedSection == AppSection.workspace &&
           widget.currentSessionId == session.id;
       final cached = _threadTileCache[session.id];
       // Note: we intentionally do NOT identity-check the callbacks. Method
@@ -380,4 +381,3 @@ class _HardnessTileCacheEntry {
   final bool isSelected;
   final Widget widget;
 }
-

@@ -51,10 +51,9 @@ class AiImageSummaryExtractor {
         strippedContent: content,
       );
     }
-    final stripped = content.replaceAll(_pattern, '').replaceAll(
-      RegExp(r'\n{3,}'),
-      '\n\n',
-    );
+    final stripped = content
+        .replaceAll(_pattern, '')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n');
     return AiImageSummaryExtractionResult(
       summariesByAttachmentId: summaries,
       strippedContent: stripped.trim(),

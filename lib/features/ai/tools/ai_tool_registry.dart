@@ -36,7 +36,6 @@ export 'ai_tool.dart';
 export 'ai_tool_execution_context.dart';
 
 class AiToolRegistry {
-
   // ──────────────────────────────────────────────────────────────
   // 工厂：仅注册无外部 IO 依赖的轻量工具（用于测试和内部组合）
   // ──────────────────────────────────────────────────────────────
@@ -75,38 +74,43 @@ class AiToolRegistry {
     final registry = AiToolRegistry.lightweightOnly();
 
     // Bash — 需要 AiBashToolService + AiClaudeHookService（Permission hooks）
-    registry.register(AiBashTool(
-      bashToolService: bashToolService,
-      hookService: hookService,
-    ));
+    registry.register(
+      AiBashTool(bashToolService: bashToolService, hookService: hookService),
+    );
 
     // SkillManager — 需要 skills directory provider (Hermes Talker builtin).
     // Only registered when a provider is wired; sessions where the user has
     // not configured a skills directory will surface a friendly error at
     // runtime via the provider returning an empty string.
     if (skillsDirProvider != null) {
-      registry.register(AiSkillManagerTool(skillsDirProvider: skillsDirProvider));
+      registry.register(
+        AiSkillManagerTool(skillsDirProvider: skillsDirProvider),
+      );
     }
 
     // Memory — Hermes Talker self-learning sub-agent writes here.
     if (memoryControllerProvider != null) {
-      registry.register(AiMemoryTool(
-        memoryControllerProvider: memoryControllerProvider,
-      ));
+      registry.register(
+        AiMemoryTool(memoryControllerProvider: memoryControllerProvider),
+      );
     }
 
     // WebFetch — 需要 http.Client + AiChatClient
-    registry.register(AiWebFetchTool(
-      backgroundChatClient: backgroundChatClient,
-      httpClient: httpClient,
-      hostLookup: hostLookup,
-    ));
+    registry.register(
+      AiWebFetchTool(
+        backgroundChatClient: backgroundChatClient,
+        httpClient: httpClient,
+        hostLookup: hostLookup,
+      ),
+    );
 
     // WebSearch — 需要 http.Client + AiChatClient
-    registry.register(AiWebSearchTool(
-      backgroundChatClient: backgroundChatClient,
-      httpClient: httpClient,
-    ));
+    registry.register(
+      AiWebSearchTool(
+        backgroundChatClient: backgroundChatClient,
+        httpClient: httpClient,
+      ),
+    );
 
     // Task — 需要 AiChatClient + AiClaudeHookService + Sub-tool executor
     final taskTool = AiTaskTool(
@@ -130,14 +134,18 @@ class AiToolRegistry {
               'status: invalid_arguments\nerror: Unsupported sub-tool: ${subContext.toolCall.name}',
         );
       }
-      final result = await registry.tryExecute(subContext, resolvedTool!.builtinKind!);
+      final result = await registry.tryExecute(
+        subContext,
+        resolvedTool!.builtinKind!,
+      );
       if (result != null) return result;
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: subContext.toolCall.name,
         workingDirectory: '',
         stdout: '',
-        stderr: 'Sub-tool not available in subagent context: ${subContext.toolCall.name}',
+        stderr:
+            'Sub-tool not available in subagent context: ${subContext.toolCall.name}',
         durationMs: 0,
         resultText:
             'status: invalid_arguments\nerror: Sub-tool not available in subagent context: ${subContext.toolCall.name}',
@@ -230,4 +238,3 @@ class AiToolRegistry {
     return _tools[aliasKind];
   }
 }
-

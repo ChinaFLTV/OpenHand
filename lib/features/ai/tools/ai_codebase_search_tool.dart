@@ -119,18 +119,15 @@ class AiCodebaseSearchTool extends AiTool {
     // Signal 1: Exact keyword grep (highest weight)
     // Try each keyword individually, then combined
     for (final keyword in keywords.take(5)) {
-      final results = await _ripgrepSearch(
-        searchRoot,
-        keyword,
-        maxResults: 10,
-      );
+      final results = await _ripgrepSearch(searchRoot, keyword, maxResults: 10);
       for (final r in results) {
         final key = '${r.filePath}:${r.lineNumber}';
         if (!allResults.containsKey(key)) {
           allResults[key] = r.copyWith(weight: r.weight + 3);
         } else {
-          allResults[key] = allResults[key]!
-              .copyWith(weight: allResults[key]!.weight + 2);
+          allResults[key] = allResults[key]!.copyWith(
+            weight: allResults[key]!.weight + 2,
+          );
         }
       }
     }
@@ -139,18 +136,15 @@ class AiCodebaseSearchTool extends AiTool {
     if (keywords.length >= 2) {
       // Search for files containing multiple keywords
       final pattern = keywords.take(4).join('|');
-      final results = await _ripgrepSearch(
-        searchRoot,
-        pattern,
-        maxResults: 15,
-      );
+      final results = await _ripgrepSearch(searchRoot, pattern, maxResults: 15);
       for (final r in results) {
         final key = '${r.filePath}:${r.lineNumber}';
         if (!allResults.containsKey(key)) {
           allResults[key] = r;
         } else {
-          allResults[key] =
-              allResults[key]!.copyWith(weight: allResults[key]!.weight + 1);
+          allResults[key] = allResults[key]!.copyWith(
+            weight: allResults[key]!.weight + 1,
+          );
         }
       }
     }
@@ -174,8 +168,9 @@ class AiCodebaseSearchTool extends AiTool {
         if (!allResults.containsKey(key)) {
           allResults[key] = result;
         } else {
-          allResults[key] =
-              allResults[key]!.copyWith(weight: allResults[key]!.weight + 2);
+          allResults[key] = allResults[key]!.copyWith(
+            weight: allResults[key]!.weight + 2,
+          );
         }
       }
     }
@@ -232,8 +227,7 @@ class AiCodebaseSearchTool extends AiTool {
       if (camelParts.length > 1) fragments.addAll(camelParts);
       // Split snake_case
       if (word.contains('_')) {
-        fragments.addAll(
-            word.split('_').where((p) => p.length >= 3));
+        fragments.addAll(word.split('_').where((p) => p.length >= 3));
       }
     }
 
@@ -245,8 +239,7 @@ class AiCodebaseSearchTool extends AiTool {
   // 2026-04-13: 修复 rg 命令路径解析问题，使用共享工具方法
   Future<List<_SearchResult>> _ripgrepSearch(
     String searchRoot,
-    String pattern,
-    {
+    String pattern, {
     int contextLines = 3,
     int maxResults = 20,
     bool caseInsensitive = true,
@@ -263,7 +256,8 @@ class AiCodebaseSearchTool extends AiTool {
       '-C', '$contextLines',
       if (caseInsensitive) '-i',
       '--max-count', '5', // max matches per file
-      '--type-add', 'code:*.{dart,ts,tsx,js,jsx,py,go,rs,java,kt,swift,c,cpp,h,hpp,cs,rb,php,yaml,yml,json,toml,md}',
+      '--type-add',
+      'code:*.{dart,ts,tsx,js,jsx,py,go,rs,java,kt,swift,c,cpp,h,hpp,cs,rb,php,yaml,yml,json,toml,md}',
       '--type', 'code',
       pattern,
       '.', // 在工作目录中搜索
@@ -303,10 +297,14 @@ class AiCodebaseSearchTool extends AiTool {
         final type = entry['type'] as String? ?? '';
 
         if (type == 'match') {
-          final data = entry['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-          final path = (data['path'] as Map<String, dynamic>?)?['text'] as String? ?? '';
+          final data =
+              entry['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+          final path =
+              (data['path'] as Map<String, dynamic>?)?['text'] as String? ?? '';
           final lineNum = data['line_number'] as int? ?? 0;
-          final text = (data['lines'] as Map<String, dynamic>?)?['text'] as String? ?? '';
+          final text =
+              (data['lines'] as Map<String, dynamic>?)?['text'] as String? ??
+              '';
 
           if (currentFile != null && currentFile != path && matchLine != null) {
             final key = '$currentFile:$matchLine';
@@ -325,9 +323,12 @@ class AiCodebaseSearchTool extends AiTool {
           matchLine = lineNum;
           contextBuffer.writeln('$lineNum: ${text.trimRight()}');
         } else if (type == 'context') {
-          final data = entry['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+          final data =
+              entry['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
           final lineNum = data['line_number'] as int? ?? 0;
-          final text = (data['lines'] as Map<String, dynamic>?)?['text'] as String? ?? '';
+          final text =
+              (data['lines'] as Map<String, dynamic>?)?['text'] as String? ??
+              '';
           contextBuffer.writeln('$lineNum: ${text.trimRight()}');
         }
       } catch (_) {
@@ -362,14 +363,19 @@ class AiCodebaseSearchTool extends AiTool {
   static const _jsonCodec = JsonCodec();
 
   Future<List<String>> _findFilesByName(
-      String searchRoot, String keyword) async {
+    String searchRoot,
+    String keyword,
+  ) async {
     // Use glob-style file search
     final lowerKeyword = keyword.toLowerCase();
     final results = <String>[];
 
     try {
       final dir = Directory(searchRoot);
-      await for (final entity in dir.list(recursive: true, followLinks: false)) {
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           final basename = p.basename(entity.path).toLowerCase();
           // Skip hidden files, build artifacts, node_modules

@@ -29,8 +29,9 @@ class AiReadLintsTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     final paths = _parsePaths(args['paths']);
-    final workingDirectory =
-        AiToolUtils.resolvePath('${args['working_directory'] ?? ''}'.trim());
+    final workingDirectory = AiToolUtils.resolvePath(
+      '${args['working_directory'] ?? ''}'.trim(),
+    );
 
     try {
       final output = await _runAnalyze(workingDirectory, paths);
@@ -85,14 +86,16 @@ class AiReadLintsTool extends AiTool {
       }
     }
 
-    final result = await Process.run(
-      executable,
-      analyzeArgs,
-      workingDirectory: workingDirectory,
-    ).timeout(
-      const Duration(seconds: 60),
-      onTimeout: () => ProcessResult(0, 124, '', 'Analysis timed out after 60 seconds'),
-    );
+    final result =
+        await Process.run(
+          executable,
+          analyzeArgs,
+          workingDirectory: workingDirectory,
+        ).timeout(
+          const Duration(seconds: 60),
+          onTimeout: () =>
+              ProcessResult(0, 124, '', 'Analysis timed out after 60 seconds'),
+        );
 
     final stdout = (result.stdout as String).trimRight();
     final stderr = (result.stderr as String).trimRight();

@@ -19,7 +19,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     required CronsStore store,
     required List<CronEntry> entries,
   }) : _store = store,
-       _entries = entries;
+       _entries = entries,
+       _entriesView = List<CronEntry>.unmodifiable(entries);
 
   static const Uuid _uuid = Uuid();
 
@@ -53,7 +54,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         onFailureNotify: canonical.onFailureNotify,
         onTimeoutNotify: canonical.onTimeoutNotify,
       );
-      final needsRefresh = existing.name != refreshed.name ||
+      final needsRefresh =
+          existing.name != refreshed.name ||
           existing.description != refreshed.description ||
           existing.scriptType != refreshed.scriptType ||
           existing.cronExpression != refreshed.cronExpression ||
@@ -74,8 +76,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Stable id of the system-seeded Hermes Talker self-learning cron entry.
-  static const String selfLearningSystemEntryId =
-      'self_learning.hermes_talker';
+  static const String selfLearningSystemEntryId = 'self_learning.hermes_talker';
 
   /// Tag that marks a cron entry as system-managed (read-only in UI).
   static const String systemTag = 'system';
@@ -103,6 +104,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   final CronsStore _store;
   List<CronEntry> _entries;
+  List<CronEntry> _entriesView;
   bool _isDisposed = false;
   bool _isShuttingDown = false;
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
@@ -128,7 +130,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// Detected system users for the run-as-user picker.
   List<String> _systemUsers = const <String>['root'];
 
-  List<CronEntry> get entries => List<CronEntry>.unmodifiable(_entries);
+  List<CronEntry> get entries => _entriesView;
   List<String> get systemUsers => _systemUsers;
 
   List<CronExecutionRecord> historyFor(String cronId) {
@@ -176,7 +178,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         createdAt: now,
         updatedAt: now,
       );
-      _entries = <CronEntry>[..._entries, newEntry];
+      _setEntries(<CronEntry>[..._entries, newEntry]);
       await _store.saveAll(_entries);
       _scheduleJob(newEntry);
       return true;
@@ -188,11 +190,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       final index = _entries.indexWhere((item) => item.id == updated.id);
       if (index < 0) return false;
       final entry = updated.copyWith(updatedAt: DateTime.now());
-      _entries = <CronEntry>[
+      _setEntries(<CronEntry>[
         ..._entries.sublist(0, index),
         entry,
         ..._entries.sublist(index + 1),
-      ];
+      ]);
       await _store.saveAll(_entries);
       _cancelTimer(entry.id);
       _scheduleJob(entry);
@@ -210,7 +212,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       if (identical(target, _missingSentinel)) return false;
       // 2026-04-25 (Task 20) — guard system-managed entries from deletion.
       if (target.tags.contains(systemTag)) return false;
-      _entries = _entries.where((item) => item.id != id).toList();
+      _setEntries(_entries.where((item) => item.id != id).toList());
       if (_entries.length == before) return false;
       await _store.saveAll(_entries);
       _cancelTimer(id);
@@ -232,9 +234,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Registers (or replaces) the in-process handler for Agent-typed cron
   /// entries. Passing `null` removes the handler.
-  void registerAgentHandler(
-    Future<String> Function(CronEntry entry)? handler,
-  ) {
+  void registerAgentHandler(Future<String> Function(CronEntry entry)? handler) {
     _agentHandler = handler;
   }
 
@@ -281,9 +281,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _updateEntry(
       entry.id,
       (e) => e.copyWith(
-        status: status == 'success'
-            ? CronJobStatus.idle
-            : CronJobStatus.failed,
+        status: status == 'success' ? CronJobStatus.idle : CronJobStatus.failed,
         lastRunAt: startedAt,
         consecutiveFailures: status == 'success'
             ? 0
@@ -312,11 +310,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         status: enabled ? CronJobStatus.idle : CronJobStatus.paused,
         updatedAt: DateTime.now(),
       );
-      _entries = <CronEntry>[
+      _setEntries(<CronEntry>[
         ..._entries.sublist(0, index),
         entry,
         ..._entries.sublist(index + 1),
-      ];
+      ]);
       await _store.saveAll(_entries);
       if (enabled) {
         _scheduleJob(entry);
@@ -368,7 +366,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> refresh() async {
     final entries = await _store.loadAll();
-    _entries = entries;
+    _setEntries(entries);
     _restartScheduler();
     notifyListeners();
   }
@@ -441,8 +439,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_canExecuteInCurrentState) return;
     scanSystemUsers();
     for (final entry in _entries) {
-      _scheduleJob(entry);
+      _scheduleJob(entry, refreshEntriesView: false);
     }
+    _refreshEntriesView();
   }
 
   void _restartScheduler() {
@@ -459,7 +458,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _scheduledTimers.remove(id);
   }
 
-  void _scheduleJob(CronEntry entry) {
+  void _scheduleJob(CronEntry entry, {bool refreshEntriesView = true}) {
     if (!_canExecuteInCurrentState) return;
     _cancelTimer(entry.id);
     if (!entry.enabled) return;
@@ -493,6 +492,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final index = _entries.indexWhere((e) => e.id == entry.id);
     if (index >= 0) {
       _entries[index] = _entries[index].copyWith(nextRunAt: nextRun);
+      if (refreshEntriesView) {
+        _refreshEntriesView();
+      }
     }
   }
 
@@ -588,9 +590,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           updatedAt: DateTime.now(),
         ),
       );
-      await _store.updateOne(
-        _entries.firstWhere((e) => e.id == entry.id),
-      );
+      await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
 
       await _sendExecutionNotification(entry, record);
 
@@ -612,6 +612,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return;
     _entries[index] = _entries[index].copyWith(status: status);
+    _refreshEntriesView();
     notifyListeners();
   }
 
@@ -619,6 +620,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final index = _entries.indexWhere((e) => e.id == id);
     if (index < 0) return;
     _entries[index] = updater(_entries[index]);
+    _refreshEntriesView();
+  }
+
+  void _setEntries(List<CronEntry> entries) {
+    _entries = entries;
+    _refreshEntriesView();
+  }
+
+  void _refreshEntriesView() {
+    _entriesView = List<CronEntry>.unmodifiable(_entries);
   }
 
   Future<void> _sendExecutionNotification(
@@ -680,10 +691,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     CronNotifySeverity severity,
     bool playSound,
     bool vibrate,
-  }) _resolveNotifyConfig(
-    CronEntry entry,
-    CronExecutionRecord record,
-  ) {
+  })
+  _resolveNotifyConfig(CronEntry entry, CronExecutionRecord record) {
     return switch (record.status) {
       'success' => (
         type: entry.onSuccessNotify,
@@ -735,9 +744,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
     final elapsed = '${record.elapsedMs}ms';
     if (record.status == 'success') {
-      return isZh
-          ? '$statusLabel，耗时 $elapsed。'
-          : '$statusLabel in $elapsed.';
+      return isZh ? '$statusLabel，耗时 $elapsed。' : '$statusLabel in $elapsed.';
     }
 
     final error = (record.errorMessage ?? '').trim();

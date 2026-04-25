@@ -36,16 +36,19 @@ class HooksStore {
     final entries = <HookEntry>[];
     for (final row in rows) {
       try {
-        entries.add(HookEntry(
-          id: '${row['id']}'.trim(),
-          event: HookEvent.fromStorage('${row['event']}') ??
-              HookEvent.sessionStart,
-          label: '${row['label'] ?? ''}'.trim(),
-          scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
-          scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
-          enabled: (row['enabled'] as int?) == 1,
-          timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
-        ));
+        entries.add(
+          HookEntry(
+            id: '${row['id']}'.trim(),
+            event:
+                HookEvent.fromStorage('${row['event']}') ??
+                HookEvent.sessionStart,
+            label: '${row['label'] ?? ''}'.trim(),
+            scriptPath: _nullIfEmpty('${row['script_path'] ?? ''}'),
+            scriptContent: _nullIfEmpty('${row['script_content'] ?? ''}'),
+            enabled: (row['enabled'] as int?) == 1,
+            timeoutSeconds: (row['timeout_seconds'] as int?) ?? 12,
+          ),
+        );
       } catch (error) {
         assert(() {
           debugPrint(
@@ -59,20 +62,16 @@ class HooksStore {
   }
 
   Future<void> save(HookEntry entry, int sortOrder) async {
-    await _db.insert(
-      _tableName,
-      <String, Object?>{
-        'id': entry.id,
-        'event': entry.event.storageValue,
-        'label': entry.label,
-        'script_path': entry.scriptPath ?? '',
-        'script_content': entry.scriptContent ?? '',
-        'enabled': entry.enabled ? 1 : 0,
-        'timeout_seconds': entry.timeoutSeconds,
-        'sort_order': sortOrder,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db.insert(_tableName, <String, Object?>{
+      'id': entry.id,
+      'event': entry.event.storageValue,
+      'label': entry.label,
+      'script_path': entry.scriptPath ?? '',
+      'script_content': entry.scriptContent ?? '',
+      'enabled': entry.enabled ? 1 : 0,
+      'timeout_seconds': entry.timeoutSeconds,
+      'sort_order': sortOrder,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<void> saveAll(List<HookEntry> entries) async {

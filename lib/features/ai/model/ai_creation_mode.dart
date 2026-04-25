@@ -152,7 +152,9 @@ class AiCreationRequest {
     final parts = <String>[mode.storageValue];
     final optionsMeta = options.toMetadata();
     if (optionsMeta.isNotEmpty) {
-      parts.add(optionsMeta.entries.map((e) => '${e.key}=${e.value}').join(','));
+      parts.add(
+        optionsMeta.entries.map((e) => '${e.key}=${e.value}').join(','),
+      );
     }
     return parts.join(' ');
   }

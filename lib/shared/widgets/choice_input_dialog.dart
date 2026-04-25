@@ -69,7 +69,10 @@ Future<ChoiceInputResult?> showChoiceInputDialog({
   String? initialCustomInput,
   bool barrierDismissible = true,
 }) {
-  assert(options.isNotEmpty, 'Choice input dialog requires at least one option.');
+  assert(
+    options.isNotEmpty,
+    'Choice input dialog requires at least one option.',
+  );
   return showAnimatedDialog<ChoiceInputResult>(
     context: context,
     barrierDismissible: barrierDismissible,
@@ -183,13 +186,11 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
-    final customLabel = widget.customOptionLabel ??
-        _localized(zh: '自定义输入', en: 'Custom input');
-    final hintText = widget.customInputHint ??
-        _localized(
-          zh: '在此输入你的回答…',
-          en: 'Type your answer here…',
-        );
+    final customLabel =
+        widget.customOptionLabel ?? _localized(zh: '自定义输入', en: 'Custom input');
+    final hintText =
+        widget.customInputHint ??
+        _localized(zh: '在此输入你的回答…', en: 'Type your answer here…');
     final confirm = widget.confirmLabel ?? _localized(zh: '确定', en: 'Confirm');
     final cancel = widget.cancelLabel ?? _localized(zh: '取消', en: 'Cancel');
 
@@ -282,10 +283,10 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                                     decoration: InputDecoration(
                                       hintText: hintText,
                                       filled: true,
-                                      fillColor: colorScheme.surfaceContainerHigh,
+                                      fillColor:
+                                          colorScheme.surfaceContainerHigh,
                                       border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14),
+                                        borderRadius: BorderRadius.circular(14),
                                         borderSide: BorderSide.none,
                                       ),
                                     ),
@@ -349,8 +350,7 @@ class _ChoiceTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -386,8 +386,9 @@ class _ChoiceTile extends StatelessWidget {
                           subtitle!,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: selected
-                                ? colorScheme.onPrimaryContainer
-                                    .withValues(alpha: 0.85)
+                                ? colorScheme.onPrimaryContainer.withValues(
+                                    alpha: 0.85,
+                                  )
                                 : colorScheme.onSurfaceVariant,
                           ),
                         ),

@@ -37,10 +37,8 @@ typedef SelfLearningLlmDispatcher =
 /// 由派发器在流式生成期间调用的进度回调。每次调用都会传入当前**累计**的
 /// 文本内容（而非增量），运行器内部会节流持久化到 selfLearning 卡片的
 /// metadata['ai_response'] / metadata['ai_reasoning'] 字段以驱动 UI 流式展示。
-typedef SelfLearningProgressCallback = Future<void> Function({
-  String? aiResponse,
-  String? aiReasoning,
-});
+typedef SelfLearningProgressCallback =
+    Future<void> Function({String? aiResponse, String? aiReasoning});
 
 /// 构造给 LLM 子 Agent 的上下文。
 class SelfLearningContext {
@@ -126,14 +124,12 @@ class SelfLearningRunner {
   /// 由 [SelfLearningScheduler] 调用。为单个会话执行一次自我学习流程。
   Future<void> runForSession(AiSession session) async {
     // 1) 标记开始。
-    await sessionController.updateSessionMetadata(
-      session.id,
-      <String, Object?>{'self_learning_in_progress': true},
-    );
+    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
+      'self_learning_in_progress': true,
+    });
 
     try {
-      final latest =
-          sessionController.sessionById(session.id) ?? session;
+      final latest = sessionController.sessionById(session.id) ?? session;
 
       // 2) 构造上下文。
       final slice = _buildConversationSlice(latest);
@@ -143,9 +139,7 @@ class SelfLearningRunner {
           session.id,
           summary: '对话轮次不足 ($minConversationTurns)，跳过本轮自我学习。',
           status: 'skipped',
-          extra: <String, Object?>{
-            'conversation_turns': sliceMessageCount,
-          },
+          extra: <String, Object?>{'conversation_turns': sliceMessageCount},
         );
         return;
       }
@@ -174,13 +168,13 @@ class SelfLearningRunner {
       if (dispatcher == null) {
         await _writeCard(
           session.id,
-          summary:
-              '未配置 LLM 自主学习分发器（llmDispatcher），本轮仅记录上下文快照。',
+          summary: '未配置 LLM 自主学习分发器（llmDispatcher），本轮仅记录上下文快照。',
           status: 'skipped',
           extra: <String, Object?>{
             'user_profile_present': userProfileContent.isNotEmpty,
-            'auto_learned_count':
-                memoryController.memoriesWithTag(autoLearnedMemoriesTag).length,
+            'auto_learned_count': memoryController
+                .memoriesWithTag(autoLearnedMemoriesTag)
+                .length,
             'conversation_turns': sliceMessageCount,
           },
         );
@@ -272,8 +266,7 @@ class SelfLearningRunner {
             metadataPatch: <String, Object?>{
               'status': 'ok',
               ...outcome.mutations,
-              if (outcome.aiResponse != null)
-                'ai_response': outcome.aiResponse,
+              if (outcome.aiResponse != null) 'ai_response': outcome.aiResponse,
               if (outcome.aiReasoning != null)
                 'ai_reasoning': outcome.aiReasoning,
             },
@@ -286,8 +279,7 @@ class SelfLearningRunner {
             status: 'ok',
             extra: <String, Object?>{
               ...outcome.mutations,
-              if (outcome.aiResponse != null)
-                'ai_response': outcome.aiResponse,
+              if (outcome.aiResponse != null) 'ai_response': outcome.aiResponse,
               if (outcome.aiReasoning != null)
                 'ai_reasoning': outcome.aiReasoning,
             },
@@ -326,10 +318,7 @@ class SelfLearningRunner {
         session.id,
         summary: '自我学习失败: $error',
         status: 'error',
-        extra: <String, Object?>{
-          'error': '$error',
-          'stack': stack.toString(),
-        },
+        extra: <String, Object?>{'error': '$error', 'stack': stack.toString()},
       );
     } finally {
       // 5) 清理 in-progress 标记。

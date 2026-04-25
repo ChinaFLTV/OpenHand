@@ -5,6 +5,9 @@ enum DialogAnimationStyle {
   /// No animation — dialogs appear and disappear instantly.
   none('none', 'None', '无动画'),
 
+  /// Plain opacity-only transition.
+  fade('fade', 'Fade', '淡入淡出'),
+
   /// Classic Material fade + scale from center.
   fadeScale('fade_scale', 'Fade & Scale', '渐显缩放'),
 
@@ -53,11 +56,7 @@ enum DialogAnimationCurve {
   bounceOut('bounce_out', 'Bounce Out', '弹跳'),
   decelerate('decelerate', 'Decelerate', '减速');
 
-  const DialogAnimationCurve(
-    this.storageValue,
-    this.labelEn,
-    this.labelZh,
-  );
+  const DialogAnimationCurve(this.storageValue, this.labelEn, this.labelZh);
 
   final String storageValue;
   final String labelEn;

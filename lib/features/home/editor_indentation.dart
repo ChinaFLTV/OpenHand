@@ -132,9 +132,9 @@ EditorIndentationEdit applyEditorAutoIndentNewline({
   final indentation = _leadingIndentation(lineText);
   final beforeCursor = text.substring(lineStart, startOffset);
   final afterCursor = text.substring(endOffset, lineEnd);
-    final normalizedLanguage = (language ?? '').trim().toLowerCase();
+  final normalizedLanguage = (language ?? '').trim().toLowerCase();
   final openingDelimiter = _trailingOpeningDelimiter(beforeCursor);
-    final shouldIndentExtra =
+  final shouldIndentExtra =
       openingDelimiter != null ||
       _shouldIncreaseIndentForLanguage(normalizedLanguage, beforeCursor);
   final expectedClosingDelimiter = openingDelimiter == null
@@ -256,7 +256,8 @@ EditorIndentationEdit applyEditorToggleLineComment({
       if (_lineHasCommentPrefix(lineText, indentationEnd, commentPrefix)) {
         var removedLength = commentPrefix.length;
         final removalEnd = indentationEnd + removedLength;
-        if (lineText.length > removalEnd && lineText.codeUnitAt(removalEnd) == 32) {
+        if (lineText.length > removalEnd &&
+            lineText.codeUnitAt(removalEnd) == 32) {
           removedLength += 1;
         }
         buffer.write(lineText.substring(0, indentationEnd));
@@ -364,7 +365,8 @@ EditorIndentationEdit _applyEditorToggleBlockComment({
     blockCommentStart: blockCommentStart,
     blockCommentEnd: blockCommentEnd,
   );
-  final replacement = unwrapped ??
+  final replacement =
+      unwrapped ??
       (targetText.contains('\n')
           ? '$blockCommentStart\n$targetText\n$blockCommentEnd'
           : '$blockCommentStart $targetText $blockCommentEnd');
@@ -424,8 +426,7 @@ EditorCommentStyle? editorCommentStyleForLanguage(String language) {
     'elixir' ||
     'graphql' ||
     'dockerfile' => const EditorCommentStyle(linePrefix: '#'),
-    'lua' || 'sql' || 'haskell' =>
-      const EditorCommentStyle(linePrefix: '--'),
+    'lua' || 'sql' || 'haskell' => const EditorCommentStyle(linePrefix: '--'),
     'erlang' => const EditorCommentStyle(linePrefix: '%'),
     'clojure' => const EditorCommentStyle(linePrefix: ';'),
     'html' || 'markdown' => const EditorCommentStyle(
@@ -626,7 +627,8 @@ String _leadingIndentation(String lineText) {
 
 int _leadingIndentEnd(String lineText) {
   var offset = 0;
-  while (offset < lineText.length && _isIndentChar(lineText.codeUnitAt(offset))) {
+  while (offset < lineText.length &&
+      _isIndentChar(lineText.codeUnitAt(offset))) {
     offset += 1;
   }
   return offset;
@@ -750,9 +752,7 @@ final RegExp _pythonBlockOpener = RegExp(
   r'^(?:async\s+def|async\s+for|async\s+with|if|elif|else|for|while|try|except|finally|with|def|class|match|case)\b.*:\s*$',
 );
 
-final RegExp _switchCaseBlockOpener = RegExp(
-  r'^(?:case\b.*|default)\s*:\s*$',
-);
+final RegExp _switchCaseBlockOpener = RegExp(r'^(?:case\b.*|default)\s*:\s*$');
 
 const Set<String> _caseIndentLanguages = <String>{
   'dart',

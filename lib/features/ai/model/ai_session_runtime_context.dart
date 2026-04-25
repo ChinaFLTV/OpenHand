@@ -6,7 +6,6 @@ import 'ai_allow_command_rule.dart';
 import 'ai_builtin_tool_config.dart';
 
 class AiRepositorySnapshot {
-
   factory AiRepositorySnapshot.fromJson(Map<String, Object?> json) {
     final recentCommitsValue = json['recent_commits'];
     return AiRepositorySnapshot(
@@ -127,34 +126,44 @@ class AiSessionRuntimeContext {
   final int compressionThresholdChars;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
+
   /// Identifier of the thread template currently active for this session.
   /// Used by the tool runtime to scope template-specific builtins such as
   /// `skill_manager` (Hermes Talker only).
   final String templateId;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
+
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
   /// before persisting and before the editor opens.
   final int imageSizeLimitBytes;
   final bool writeCommandConfirmationEnabled;
+
   /// HTTP connection/send timeout for AI requests (seconds).
   final int connectTimeoutSeconds;
+
   /// Response timeout for non-streaming AI requests (seconds).
   final int responseTimeoutSeconds;
+
   /// Per-chunk stream idle timeout for streaming AI requests (seconds).
   final int streamIdleTimeoutSeconds;
+
   /// Whether to auto-generate session titles.
   final bool autoTitleEnabled;
+
   /// Whether telemetry debug mode is enabled (populates request/response
   /// metadata on messages for the audit dialogs).
   final bool telemetryDebugEnabled;
+
   /// Whether to persist the raw AI response body alongside other telemetry.
   final bool telemetryCaptureRawPayload;
+
   /// Whether to capture process environment variables, working directory
   /// and platform info into message metadata. Off by default because env
   /// vars can contain secrets.
   final bool telemetryCaptureEnvironment;
+
   /// Hard cap on how many characters of captured payload to persist per
   /// message to keep on-disk session files bounded.
   final int telemetryMaxPayloadChars;

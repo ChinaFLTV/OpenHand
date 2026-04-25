@@ -178,7 +178,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     int atIndex = -1;
     for (var i = cursor - 1; i >= 0; i--) {
       final ch = text.codeUnitAt(i);
-      if (ch == 0x40 /* @ */) {
+      if (ch == 0x40 /* @ */ ) {
         atIndex = i;
         break;
       }
@@ -235,27 +235,38 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         final aIsDir = a is Directory;
         final bIsDir = b is Directory;
         if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p.basename(a.path).toLowerCase().compareTo(
-          p.basename(b.path).toLowerCase(),
-        );
+        return p
+            .basename(a.path)
+            .toLowerCase()
+            .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
         if (results.length >= 50) break;
         final name = p.basename(entry.path);
         if (name.startsWith('.')) continue;
         const ignored = {
-          'node_modules', 'build', '.dart_tool', '__pycache__',
-          '.git', '.idea', '.vscode', 'target', 'dist', '.gradle',
+          'node_modules',
+          'build',
+          '.dart_tool',
+          '__pycache__',
+          '.git',
+          '.idea',
+          '.vscode',
+          'target',
+          'dist',
+          '.gradle',
         };
         if (ignored.contains(name)) continue;
         if (trimmedQuery.isEmpty || name.toLowerCase().contains(trimmedQuery)) {
           final relativePath = p.relative(entry.path, from: rootPath);
-          results.add(_AtMentionItem(
-            name: name,
-            path: entry.path,
-            relativePath: relativePath,
-            isDirectory: entry is Directory,
-          ));
+          results.add(
+            _AtMentionItem(
+              name: name,
+              path: entry.path,
+              relativePath: relativePath,
+              isDirectory: entry is Directory,
+            ),
+          );
         }
       }
       // If trimmedQuery is non-empty and we have few results, also search
@@ -294,23 +305,39 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         final name = p.basename(entry.path);
         if (name.startsWith('.')) continue;
         const ignored = {
-          'node_modules', 'build', '.dart_tool', '__pycache__',
-          '.git', '.idea', '.vscode', 'target', 'dist', '.gradle',
+          'node_modules',
+          'build',
+          '.dart_tool',
+          '__pycache__',
+          '.git',
+          '.idea',
+          '.vscode',
+          'target',
+          'dist',
+          '.gradle',
         };
         if (ignored.contains(name)) continue;
         final relativePath = p.relative(entry.path, from: rootPath);
         // Avoid duplicates already in the shallow list.
         if (name.toLowerCase().contains(query) &&
             !results.any((r) => r.path == entry.path)) {
-          results.add(_AtMentionItem(
-            name: name,
-            path: entry.path,
-            relativePath: relativePath,
-            isDirectory: entry is Directory,
-          ));
+          results.add(
+            _AtMentionItem(
+              name: name,
+              path: entry.path,
+              relativePath: relativePath,
+              isDirectory: entry is Directory,
+            ),
+          );
         }
         if (entry is Directory) {
-          await _deepSearchAtMention(entry, query, results, rootPath, depth + 1);
+          await _deepSearchAtMention(
+            entry,
+            query,
+            results,
+            rootPath,
+            depth + 1,
+          );
         }
       }
     } catch (_) {}
@@ -381,12 +408,16 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     // Remove the '@query' text from the input.
     if (_atMentionTriggerOffset >= 0 &&
         _atMentionTriggerOffset <= widget.controller.text.length) {
-      final cursor = widget.controller.selection.baseOffset
-          .clamp(0, widget.controller.text.length);
+      final cursor = widget.controller.selection.baseOffset.clamp(
+        0,
+        widget.controller.text.length,
+      );
       _atMentionSuppressListener = true;
       try {
         widget.controller.text = widget.controller.text.replaceRange(
-          _atMentionTriggerOffset, cursor, '',
+          _atMentionTriggerOffset,
+          cursor,
+          '',
         );
         widget.controller.selection = TextSelection.collapsed(
           offset: _atMentionTriggerOffset,
@@ -408,25 +439,25 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     if (root == null) return;
     setState(() {
       _atMentionCurrentDirectory = p.relative(item.path, from: root);
-      _atMentionBreadcrumbs = p.split(_atMentionCurrentDirectory)
+      _atMentionBreadcrumbs = p
+          .split(_atMentionCurrentDirectory)
           .where((s) => s.isNotEmpty)
           .toList();
     });
     // Replace the query text after @ with just @
     final textLen = widget.controller.text.length;
     if (_atMentionTriggerOffset >= 0 && _atMentionTriggerOffset < textLen) {
-      final cursor = widget.controller.selection.baseOffset
-          .clamp(0, textLen);
+      final cursor = widget.controller.selection.baseOffset.clamp(0, textLen);
       final start = _atMentionTriggerOffset + 1;
       if (start <= cursor) {
         _atMentionSuppressListener = true;
         try {
           widget.controller.text = widget.controller.text.replaceRange(
-            start, cursor, '',
+            start,
+            cursor,
+            '',
           );
-          widget.controller.selection = TextSelection.collapsed(
-            offset: start,
-          );
+          widget.controller.selection = TextSelection.collapsed(offset: start);
         } finally {
           _atMentionSuppressListener = false;
         }
@@ -463,7 +494,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
     if (!selection.isValid || !selection.isCollapsed) return null;
-    if (text.isEmpty || text.codeUnitAt(0) != 0x2F /* '/' */) return null;
+    if (text.isEmpty || text.codeUnitAt(0) != 0x2F /* '/' */ ) return null;
     var tokenEnd = text.length;
     for (var i = 0; i < text.length; i++) {
       final ch = text.codeUnitAt(i);
@@ -503,8 +534,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final matches = trimmed.isEmpty
         ? skills
         : skills.where((skill) {
-            final haystack =
-                '${skill.name} ${skill.description}'.toLowerCase();
+            final haystack = '${skill.name} ${skill.description}'.toLowerCase();
             return haystack.contains(trimmed);
           }).toList();
     setState(() {
@@ -613,7 +643,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       _atMentionSuppressListener = true;
       try {
         final text = widget.controller.text;
-        final remainderStart = trigger.tokenEnd < text.length &&
+        final remainderStart =
+            trigger.tokenEnd < text.length &&
                 (text.codeUnitAt(trigger.tokenEnd) == 0x20 ||
                     text.codeUnitAt(trigger.tokenEnd) == 0x09)
             ? trigger.tokenEnd + 1
@@ -629,8 +660,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _slashDismissedOffset = -1;
     String? manifestContent;
     try {
-      final controller =
-          Provider.of<SkillsController>(context, listen: false);
+      final controller = Provider.of<SkillsController>(context, listen: false);
       manifestContent = await controller.readSkillManifest(skill);
     } catch (_) {
       manifestContent = null;
@@ -715,8 +745,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final manifestBody = manifest.isNotEmpty
         ? manifest
         : (fallbackDescription.isNotEmpty
-            ? fallbackDescription
-            : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
+              ? fallbackDescription
+              : 'No SKILL.md content is available; honour the user intent implied by the skill name.');
     final buffer = StringBuffer()
       ..writeln(
         'The user explicitly selected the local skill "${skill.name}" for this request.',
@@ -750,10 +780,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   /// parent via [GlobalKey] for keyboard-shortcut sends.
   void _injectReferencesIntoText() {
     if (_projectFileReferences.isEmpty) return;
-    final refs = _projectFileReferences.map((r) {
-      final suffix = r.isDirectory ? '/' : '';
-      return '@${r.relativePath}$suffix';
-    }).join(' ');
+    final refs = _projectFileReferences
+        .map((r) {
+          final suffix = r.isDirectory ? '/' : '';
+          return '@${r.relativePath}$suffix';
+        })
+        .join(' ');
     _atMentionSuppressListener = true;
     try {
       final currentText = widget.controller.text;
@@ -1227,13 +1259,13 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             zh: !widget.autoFollowEnabled
                 ? '开启自动滚动'
                 : (widget.autoFollowPaused
-                    ? '自动滚动已暂停（已上滑）· 点击恢复并跳至最新'
-                    : '关闭自动滚动'),
+                      ? '自动滚动已暂停（已上滑）· 点击恢复并跳至最新'
+                      : '关闭自动滚动'),
             en: !widget.autoFollowEnabled
                 ? 'Enable Auto Follow'
                 : (widget.autoFollowPaused
-                    ? 'Auto Follow paused (scrolled up) · tap to resume & jump to latest'
-                    : 'Disable Auto Follow'),
+                      ? 'Auto Follow paused (scrolled up) · tap to resume & jump to latest'
+                      : 'Disable Auto Follow'),
           ),
           child: SizedBox(
             width: 52,
@@ -1246,25 +1278,25 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 backgroundColor: !widget.autoFollowEnabled
                     ? colorScheme.surfaceContainerHighest
                     : (widget.autoFollowPaused
-                    ? colorScheme.primaryContainer
-                        : colorScheme.primary),
+                          ? colorScheme.primaryContainer
+                          : colorScheme.primary),
                 foregroundColor: !widget.autoFollowEnabled
                     ? colorScheme.onSurfaceVariant
                     : (widget.autoFollowPaused
-                    ? colorScheme.onPrimaryContainer
-                        : colorScheme.onPrimary),
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onPrimary),
                 side: !widget.autoFollowEnabled
                     ? BorderSide(color: colorScheme.outlineVariant)
                     : (widget.autoFollowPaused
-                    ? BorderSide(color: colorScheme.primary)
-                        : null),
+                          ? BorderSide(color: colorScheme.primary)
+                          : null),
               ),
               child: Icon(
                 !widget.autoFollowEnabled
                     ? Icons.vertical_align_bottom_outlined
                     : (widget.autoFollowPaused
-                        ? Icons.arrow_downward_rounded
-                        : Icons.vertical_align_bottom_rounded),
+                          ? Icons.arrow_downward_rounded
+                          : Icons.vertical_align_bottom_rounded),
               ),
             ),
           ),
@@ -1286,7 +1318,8 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         // RenderAnimatedOpacity.markNeedsPaint and never calls setState.
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 240),
-          child: widget.creationMode != _CreationMode.none &&
+          child:
+              widget.creationMode != _CreationMode.none &&
                   widget.onEditOptionsRequested != null
               ? Padding(
                   key: ValueKey<String>(
@@ -1421,8 +1454,7 @@ class _ComposerFullAccessModeButtonState
   void _showAccessMenu() {
     final button = context.findRenderObject()! as RenderBox;
     final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()!
-            as RenderBox;
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
@@ -1464,11 +1496,7 @@ class _ComposerFullAccessModeButtonState
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _localizedText(
-                    context,
-                    zh: '完全访问权限',
-                    en: 'Full Access',
-                  ),
+                  _localizedText(context, zh: '完全访问权限', en: 'Full Access'),
                 ),
               ),
               if (widget.fullAccess)
@@ -1516,9 +1544,7 @@ class _ComposerFullAccessModeButtonState
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1778,8 +1804,7 @@ class _ComposerCreationModeButtonState
   void _showCreationMenu() {
     final button = context.findRenderObject()! as RenderBox;
     final overlay =
-        Navigator.of(context).overlay!.context.findRenderObject()!
-            as RenderBox;
+        Navigator.of(context).overlay!.context.findRenderObject()! as RenderBox;
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         button.localToGlobal(Offset.zero, ancestor: overlay),
@@ -1814,11 +1839,7 @@ class _ComposerCreationModeButtonState
                 ),
               ),
               if (widget.creationMode == _CreationMode.image)
-                Icon(
-                  Icons.check_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
-                ),
+                Icon(Icons.check_rounded, size: 18, color: colorScheme.primary),
             ],
           ),
         ),
@@ -2096,18 +2117,12 @@ class _ReorderableProjectReferenceWrapState
                 borderRadius: BorderRadius.circular(14),
                 child: Opacity(
                   opacity: 0.85,
-                  child: _ProjectReferenceChip(
-                    item: ref,
-                    onRemove: () {},
-                  ),
+                  child: _ProjectReferenceChip(item: ref, onRemove: () {}),
                 ),
               ),
               childWhenDragging: Opacity(
                 opacity: 0.3,
-                child: _ProjectReferenceChip(
-                  item: ref,
-                  onRemove: () {},
-                ),
+                child: _ProjectReferenceChip(item: ref, onRemove: () {}),
               ),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -2133,10 +2148,7 @@ class _ReorderableProjectReferenceWrapState
 }
 
 class _ProjectReferenceChip extends StatelessWidget {
-  const _ProjectReferenceChip({
-    required this.item,
-    required this.onRemove,
-  });
+  const _ProjectReferenceChip({required this.item, required this.onRemove});
 
   final _AtMentionItem item;
   final VoidCallback onRemove;
@@ -2150,9 +2162,7 @@ class _ProjectReferenceChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2168,9 +2178,7 @@ class _ProjectReferenceChip extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
             child: Text(
-              item.isDirectory
-                  ? '${item.relativePath}/'
-                  : item.relativePath,
+              item.isDirectory ? '${item.relativePath}/' : item.relativePath,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurface,
@@ -2242,8 +2250,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     return Stack(
       children: [
@@ -2259,10 +2266,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 460,
-              maxHeight: 340,
-            ),
+            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
             child: Material(
               elevation: 8,
               shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
@@ -2329,10 +2333,13 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       child: Center(
                         child: Text(
-                          isZh ? '未找到匹配文件或目录' : 'No matching files or directories',
+                          isZh
+                              ? '未找到匹配文件或目录'
+                              : 'No matching files or directories',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ),
@@ -2348,8 +2355,9 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                           final isSelected = index == selectedIndex;
                           return Material(
                             color: isSelected
-                                ? colorScheme.primaryContainer
-                                    .withValues(alpha: 0.4)
+                                ? colorScheme.primaryContainer.withValues(
+                                    alpha: 0.4,
+                                  )
                                 : Colors.transparent,
                             child: InkWell(
                               onTap: () => onSelect(item),
@@ -2406,7 +2414,9 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                                         child: IconButton(
                                           padding: EdgeInsets.zero,
                                           constraints: const BoxConstraints(),
-                                          tooltip: isZh ? '进入目录' : 'Open directory',
+                                          tooltip: isZh
+                                              ? '进入目录'
+                                              : 'Open directory',
                                           onPressed: () => onDrillDown(item),
                                           icon: Icon(
                                             Icons.chevron_right_rounded,
@@ -2445,10 +2455,19 @@ class _AtMentionOverlayPanel extends StatelessWidget {
       '.md' => Icons.article_rounded,
       '.html' || '.htm' => Icons.web_rounded,
       '.css' || '.scss' || '.less' => Icons.palette_rounded,
-      '.png' || '.jpg' || '.jpeg' || '.gif' || '.svg' || '.webp' =>
-        Icons.image_rounded,
-      '.go' || '.rs' || '.java' || '.kt' || '.swift' || '.c' || '.cpp' =>
-        Icons.code_rounded,
+      '.png' ||
+      '.jpg' ||
+      '.jpeg' ||
+      '.gif' ||
+      '.svg' ||
+      '.webp' => Icons.image_rounded,
+      '.go' ||
+      '.rs' ||
+      '.java' ||
+      '.kt' ||
+      '.swift' ||
+      '.c' ||
+      '.cpp' => Icons.code_rounded,
       '.sql' => Icons.storage_rounded,
       '.sh' || '.bash' || '.zsh' => Icons.terminal_rounded,
       '.vue' => Icons.web_rounded,
@@ -2555,9 +2574,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
     // inline picker never feels laggy (>420ms) nor flashes without affordance
     // (<120ms) for non-zero settings.  Zero preserves instant-show semantics.
     final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0
-        ? 0
-        : baseMs.clamp(120, 420).toInt();
+    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(120, 420).toInt();
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: durationMs),
@@ -2630,7 +2647,8 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
       );
     } else if (target + _estimatedItemExtent > viewportEnd) {
       final next =
-          target + _estimatedItemExtent -
+          target +
+          _estimatedItemExtent -
           _listController.position.viewportDimension;
       _listController.animateTo(
         next.clamp(0.0, _listController.position.maxScrollExtent),
@@ -2645,16 +2663,13 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     final panel = Material(
       elevation: 8,
       shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
       borderRadius: BorderRadius.circular(16),
-      color: isDark
-          ? colorScheme.surfaceContainerHigh
-          : colorScheme.surface,
+      color: isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
       surfaceTintColor: colorScheme.surfaceTint,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -2699,8 +2714,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
                 child: Text(
                   isZh ? '未找到匹配技能' : 'No matching skills',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.6),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -2717,8 +2731,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
                   final isSelected = index == widget.selectedIndex;
                   return Material(
                     color: isSelected
-                        ? colorScheme.primaryContainer
-                            .withValues(alpha: 0.4)
+                        ? colorScheme.primaryContainer.withValues(alpha: 0.4)
                         : Colors.transparent,
                     child: InkWell(
                       onTap: () => widget.onSelect(item),
@@ -2734,36 +2747,27 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     item.name,
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  if (item.description
-                                      .trim()
-                                      .isNotEmpty)
+                                  if (item.description.trim().isNotEmpty)
                                     Text(
                                       item.description,
-                                      style: theme
-                                          .textTheme.labelSmall
+                                      style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                            color: colorScheme
-                                                .onSurfaceVariant
-                                                .withValues(
-                                                  alpha: 0.7,
-                                                ),
+                                            color: colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.7),
                                             fontSize: 10,
                                           ),
                                       maxLines: 2,
-                                      overflow:
-                                          TextOverflow.ellipsis,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                 ],
                               ),
@@ -2793,10 +2797,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel>
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 480,
-              maxHeight: 360,
-            ),
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 360),
             child: _SkillPickerTransition(
               animation: _animation,
               settings: widget.animationSettings,
@@ -2829,11 +2830,14 @@ class _SkillPickerTransition extends StatelessWidget {
   Widget build(BuildContext context) {
     // Pick entrance vs exit style based on direction so reverse animations
     // can differ from entrance when the user configured them separately.
-    final forward = animation.status == AnimationStatus.forward ||
+    final forward =
+        animation.status == AnimationStatus.forward ||
         animation.status == AnimationStatus.completed;
     final style = forward ? settings.entranceStyle : settings.exitStyle;
     switch (style) {
       case DialogAnimationStyle.none:
+        return FadeTransition(opacity: animation, child: child);
+      case DialogAnimationStyle.fade:
         return FadeTransition(opacity: animation, child: child);
       case DialogAnimationStyle.fadeScale:
         return FadeTransition(
@@ -2913,10 +2917,7 @@ class _SkillPickerLeading extends StatelessWidget {
         width: 28,
         height: 28,
         child: Center(
-          child: Text(
-            skill.emojiIcon!,
-            style: const TextStyle(fontSize: 18),
-          ),
+          child: Text(skill.emojiIcon!, style: const TextStyle(fontSize: 18)),
         ),
       );
     }
@@ -2945,10 +2946,7 @@ class _SkillPickerLeading extends StatelessWidget {
 /// Codex-style pill shown in the input area and exposes a close button to
 /// clear the selection.
 class _SelectedSkillChip extends StatelessWidget {
-  const _SelectedSkillChip({
-    required this.skill,
-    required this.onRemoved,
-  });
+  const _SelectedSkillChip({required this.skill, required this.onRemoved});
 
   final LocalSkill skill;
   final VoidCallback onRemoved;
@@ -2957,8 +2955,7 @@ class _SelectedSkillChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isZh =
-        Localizations.localeOf(context).languageCode.startsWith('zh');
+    final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -3057,7 +3054,6 @@ IconData _iconForAttachmentKind(AiAttachmentKind kind) {
 // Mirrors the visual design of _ThreadTile for consistency.
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 /// Small chip rendered next to the creation-mode button that summarises the
 /// currently chosen options. Styled to match the send button and acts as a
 /// one-tap escape hatch back to plain text mode.
@@ -3086,14 +3082,11 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
         ratio != null && ratio.isNotEmpty
             ? ratio
             : _localizedText(context, zh: '视频', en: 'VID'),
-      _CreationMode.audio => options.durationSeconds != null
-          ? '${options.durationSeconds}s'
-          : _localizedText(context, zh: '音频', en: 'AUD'),
-      _CreationMode.deepResearch => _localizedText(
-        context,
-        zh: '研究',
-        en: 'R',
-      ),
+      _CreationMode.audio =>
+        options.durationSeconds != null
+            ? '${options.durationSeconds}s'
+            : _localizedText(context, zh: '音频', en: 'AUD'),
+      _CreationMode.deepResearch => _localizedText(context, zh: '研究', en: 'R'),
       _CreationMode.none => _localizedText(context, zh: '开', en: 'ON'),
     };
     return Tooltip(

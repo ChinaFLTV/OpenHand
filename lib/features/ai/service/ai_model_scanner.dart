@@ -8,10 +8,7 @@ import '../model/ai_model_config.dart';
 
 /// Result of a model scan attempt.
 class AiModelScanResult {
-  const AiModelScanResult({
-    required this.modelIds,
-    this.error,
-  });
+  const AiModelScanResult({required this.modelIds, this.error});
 
   /// Successfully discovered model IDs (empty if scan failed).
   final List<String> modelIds;
@@ -25,7 +22,7 @@ class AiModelScanResult {
 /// Scans an AI provider's API to discover available model IDs.
 class AiModelScanner {
   AiModelScanner({http.Client? httpClient})
-      : _httpClient = httpClient ?? http.Client();
+    : _httpClient = httpClient ?? http.Client();
 
   final http.Client _httpClient;
 
@@ -432,9 +429,7 @@ class AiModelScanner {
   }
 
   Map<String, String> _buildHeaders(AiModelConfig config) {
-    final headers = <String, String>{
-      'accept': 'application/json',
-    };
+    final headers = <String, String>{'accept': 'application/json'};
     final rawToken = config.token.trim();
     if (rawToken.isEmpty || config.authScheme == AiAuthScheme.none) {
       _mergeCustomHeaders(headers, config);
@@ -450,10 +445,7 @@ class AiModelScanner {
     return headers;
   }
 
-  void _mergeCustomHeaders(
-    Map<String, String> headers,
-    AiModelConfig config,
-  ) {
+  void _mergeCustomHeaders(Map<String, String> headers, AiModelConfig config) {
     if (config.customHeaders.isEmpty) return;
     for (final entry in config.customHeaders.entries) {
       final key = entry.key.trim();

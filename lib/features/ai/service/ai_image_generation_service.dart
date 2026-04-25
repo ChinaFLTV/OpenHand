@@ -59,7 +59,7 @@ class AiMediaGenerationException implements Exception {
 /// DALL·E 3's quality/style flags, …) without destabilising the chat path.
 class AiImageGenerationService {
   AiImageGenerationService({http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
   final http.Client _client;
 
@@ -90,10 +90,7 @@ class AiImageGenerationService {
 
   /// Returns the model id to use for image generation. The user is expected
   /// to configure an image-capable model directly in their provider settings.
-  static String resolveImageModelId(
-    AiModelConfig model,
-    AiCreationMode mode,
-  ) {
+  static String resolveImageModelId(AiModelConfig model, AiCreationMode mode) {
     return model.modelId.trim();
   }
 
@@ -133,11 +130,7 @@ class AiImageGenerationService {
     final http.Response response;
     try {
       response = await _client
-          .post(
-            Uri.parse(url),
-            headers: headers,
-            body: jsonEncode(body),
-          )
+          .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
           .timeout(timeout);
     } on TimeoutException {
       throw const AiMediaGenerationException('Image request timed out.');

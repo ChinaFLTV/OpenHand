@@ -47,10 +47,7 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
         duration: const Duration(milliseconds: 1400),
         curve: Curves.elasticOut,
         builder: (context, scale, child) {
-          return Transform.scale(
-            scale: scale,
-            child: child,
-          );
+          return Transform.scale(scale: scale, child: child);
         },
         child: SizedBox(
           width: 140,
@@ -61,7 +58,9 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
               borderRadius: BorderRadius.circular(40),
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.shadow.withValues(alpha: isDark ? 0.4 : 0.08),
+                  color: colorScheme.shadow.withValues(
+                    alpha: isDark ? 0.4 : 0.08,
+                  ),
                   blurRadius: 28,
                   offset: const Offset(0, 12),
                 ),
@@ -90,7 +89,8 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
                   animation: _animController,
                   builder: (context, _) {
                     // Smooth rocking rotation
-                    final rotation = math.sin(_animController.value * math.pi * 2) * 0.2;
+                    final rotation =
+                        math.sin(_animController.value * math.pi * 2) * 0.2;
                     return Transform.rotate(
                       angle: rotation,
                       child: Icon(
@@ -99,7 +99,8 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
                         color: Color.lerp(
                           primaryColor,
                           tertiaryColor,
-                          (math.sin(_animController.value * math.pi * 1) + 1) / 2,
+                          (math.sin(_animController.value * math.pi * 1) + 1) /
+                              2,
                         ),
                       ),
                     );
@@ -128,7 +129,7 @@ class _AiRingsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    
+
     // Smooth breathing sine wave based on progress
     final breath = (math.sin(progress * math.pi * 2) + 1) / 2;
 

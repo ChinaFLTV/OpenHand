@@ -112,7 +112,9 @@ class AiLspTool extends AiTool {
     }
     final buffer = StringBuffer('$label (${locations.length} result(s)):\n');
     for (final location in locations) {
-      buffer.writeln('  ${location.filePath}:${location.line}:${location.character}');
+      buffer.writeln(
+        '  ${location.filePath}:${location.line}:${location.character}',
+      );
     }
     return buffer.toString().trimRight();
   }
@@ -137,7 +139,11 @@ class AiLspTool extends AiTool {
     return buffer.toString().trimRight();
   }
 
-  void _writeSymbol(StringBuffer buffer, AiLspDocumentSymbol symbol, int depth) {
+  void _writeSymbol(
+    StringBuffer buffer,
+    AiLspDocumentSymbol symbol,
+    int depth,
+  ) {
     final indent = '  ' * depth;
     final detail = symbol.detail?.trim().isNotEmpty == true
         ? ' — ${symbol.detail!.trim()}'
@@ -204,7 +210,8 @@ class AiLspTool extends AiTool {
       if (item is! Map<String, Object?>) {
         continue;
       }
-      final target = item['from'] as Map<String, Object?>? ??
+      final target =
+          item['from'] as Map<String, Object?>? ??
           item['to'] as Map<String, Object?>?;
       if (target == null) {
         continue;

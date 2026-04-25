@@ -471,11 +471,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              _localizedText(
-                context,
-                zh: '下载失败。',
-                en: 'Download failed.',
-              ),
+              _localizedText(context, zh: '下载失败。', en: 'Download failed.'),
             ),
           ),
         );
@@ -485,10 +481,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
   void _runHtmlPreview() {
     showAnimatedDialog<void>(
       context: context,
-      builder: (dialogContext) => _HtmlPreviewDialog(
-        htmlContent: widget.content,
-        theme: widget.theme,
-      ),
+      builder: (dialogContext) =>
+          _HtmlPreviewDialog(htmlContent: widget.content, theme: widget.theme),
     );
   }
 }
@@ -674,7 +668,8 @@ String _closeUnterminatedFencedCodeBlock(String source) {
   Color type,
   Color meta,
   Color operator,
-}) _codeThemeColors(EditorCodeTheme theme, bool darkSurface) {
+})
+_codeThemeColors(EditorCodeTheme theme, bool darkSurface) {
   return switch (theme) {
     EditorCodeTheme.materialYou => (
       comment: darkSurface ? const Color(0xFF7DD3A7) : const Color(0xFF5B6472),
@@ -994,10 +989,7 @@ String _getFileExtensionForLanguage(String? language) {
 }
 
 class _HtmlPreviewDialog extends StatefulWidget {
-  const _HtmlPreviewDialog({
-    required this.htmlContent,
-    required this.theme,
-  });
+  const _HtmlPreviewDialog({required this.htmlContent, required this.theme});
 
   final String htmlContent;
   final ThemeData theme;
@@ -1044,7 +1036,9 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: widget.theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                    color: widget.theme.colorScheme.outlineVariant.withValues(
+                      alpha: 0.5,
+                    ),
                   ),
                 ),
               ),
@@ -1112,7 +1106,8 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       final tempDir = Directory.systemTemp;
       int deletedCount = 0;
       await for (final entity in tempDir.list()) {
-        if (entity is Directory && p.basename(entity.path).startsWith('openhand_html_')) {
+        if (entity is Directory &&
+            p.basename(entity.path).startsWith('openhand_html_')) {
           try {
             await entity.delete(recursive: true);
             deletedCount++;
@@ -1149,9 +1144,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              isZh ? '清理缓存失败: $e' : 'Failed to clean cache: $e',
-            ),
+            content: Text(isZh ? '清理缓存失败: $e' : 'Failed to clean cache: $e'),
           ),
         );
     }
@@ -1179,9 +1172,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              isZh ? '无法在浏览器中打开。' : 'Could not open in browser.',
-            ),
+            content: Text(isZh ? '无法在浏览器中打开。' : 'Could not open in browser.'),
           ),
         );
     }
@@ -1232,16 +1223,16 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       _errorMessage = null;
       _loadingProgress = 0;
     });
-    
+
     try {
       if (!mounted) return;
 
       // Initialize WebViewController with platform-safe configuration.
       final controller = WebViewController();
-      
+
       // Set JavaScript mode (safe on all platforms).
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-      
+
       // Set navigation delegate for progress and error handling.
       await controller.setNavigationDelegate(
         NavigationDelegate(
@@ -1290,7 +1281,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       // If direct HTML loading fails, try with file-based approach.
       await _tryLoadFromFile();
     }

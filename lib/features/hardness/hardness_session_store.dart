@@ -59,14 +59,10 @@ class HardnessSessionStore {
           where: 'id != ?',
           whereArgs: [record.id],
         );
-        await txn.insert(
-          'hardness_sessions',
-          <String, Object?>{
-            'id': record.id,
-            'data_json': dataJson,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert('hardness_sessions', <String, Object?>{
+          'id': record.id,
+          'data_json': dataJson,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       });
     } catch (e) {
       rethrow;

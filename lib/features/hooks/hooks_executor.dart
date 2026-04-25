@@ -84,7 +84,7 @@ class HookEntryResult {
 /// reflects the latest user configuration.
 class HooksExecutor {
   const HooksExecutor({required HooksController controller})
-      : _controller = controller;
+    : _controller = controller;
 
   final HooksController _controller;
 
@@ -164,18 +164,20 @@ class HooksExecutor {
           errors.add(
             'Hook "${hook.label}" timed out after ${hook.timeoutSeconds}s.',
           );
-          hookResults.add(HookEntryResult(
-            hookLabel: hook.label,
-            hookEvent: hook.event,
-            status: 'timed_out',
-            elapsedMs: stopwatch.elapsedMilliseconds,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            stdoutFile: result.stdoutFile,
-            stderrFile: result.stderrFile,
-            scriptPath: hook.scriptPath,
-            scriptContent: hook.scriptContent,
-          ));
+          hookResults.add(
+            HookEntryResult(
+              hookLabel: hook.label,
+              hookEvent: hook.event,
+              status: 'timed_out',
+              elapsedMs: stopwatch.elapsedMilliseconds,
+              stdout: result.stdout,
+              stderr: result.stderr,
+              stdoutFile: result.stdoutFile,
+              stderrFile: result.stderrFile,
+              scriptPath: hook.scriptPath,
+              scriptContent: hook.scriptContent,
+            ),
+          );
           continue;
         }
         if (result.exitCode == 2) {
@@ -183,18 +185,20 @@ class HooksExecutor {
           blockReason = result.stdout.isNotEmpty
               ? result.stdout
               : 'Blocked by hook "${hook.label}".';
-          hookResults.add(HookEntryResult(
-            hookLabel: hook.label,
-            hookEvent: hook.event,
-            status: 'blocked',
-            elapsedMs: stopwatch.elapsedMilliseconds,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            stdoutFile: result.stdoutFile,
-            stderrFile: result.stderrFile,
-            scriptPath: hook.scriptPath,
-            scriptContent: hook.scriptContent,
-          ));
+          hookResults.add(
+            HookEntryResult(
+              hookLabel: hook.label,
+              hookEvent: hook.event,
+              status: 'blocked',
+              elapsedMs: stopwatch.elapsedMilliseconds,
+              stdout: result.stdout,
+              stderr: result.stderr,
+              stdoutFile: result.stdoutFile,
+              stderrFile: result.stderrFile,
+              scriptPath: hook.scriptPath,
+              scriptContent: hook.scriptContent,
+            ),
+          );
           break;
         }
         if (result.exitCode != null && result.exitCode != 0) {
@@ -203,10 +207,28 @@ class HooksExecutor {
             'Hook "${hook.label}" exited with code ${result.exitCode}.'
             '${result.stderr.isNotEmpty ? ' stderr: ${result.stderr}' : ''}',
           );
-          hookResults.add(HookEntryResult(
+          hookResults.add(
+            HookEntryResult(
+              hookLabel: hook.label,
+              hookEvent: hook.event,
+              status: 'failed',
+              elapsedMs: stopwatch.elapsedMilliseconds,
+              stdout: result.stdout,
+              stderr: result.stderr,
+              stdoutFile: result.stdoutFile,
+              stderrFile: result.stderrFile,
+              scriptPath: hook.scriptPath,
+              scriptContent: hook.scriptContent,
+            ),
+          );
+          continue;
+        }
+        successCount++;
+        hookResults.add(
+          HookEntryResult(
             hookLabel: hook.label,
             hookEvent: hook.event,
-            status: 'failed',
+            status: 'success',
             elapsedMs: stopwatch.elapsedMilliseconds,
             stdout: result.stdout,
             stderr: result.stderr,
@@ -214,35 +236,23 @@ class HooksExecutor {
             stderrFile: result.stderrFile,
             scriptPath: hook.scriptPath,
             scriptContent: hook.scriptContent,
-          ));
-          continue;
-        }
-        successCount++;
-        hookResults.add(HookEntryResult(
-          hookLabel: hook.label,
-          hookEvent: hook.event,
-          status: 'success',
-          elapsedMs: stopwatch.elapsedMilliseconds,
-          stdout: result.stdout,
-          stderr: result.stderr,
-          stdoutFile: result.stdoutFile,
-          stderrFile: result.stderrFile,
-          scriptPath: hook.scriptPath,
-          scriptContent: hook.scriptContent,
-        ));
+          ),
+        );
       } catch (error) {
         stopwatch.stop();
         failedCount++;
         errors.add('Hook "${hook.label}" failed to start: $error');
-        hookResults.add(HookEntryResult(
-          hookLabel: hook.label,
-          hookEvent: hook.event,
-          status: 'failed',
-          elapsedMs: stopwatch.elapsedMilliseconds,
-          stderr: '$error',
-          scriptPath: hook.scriptPath,
-          scriptContent: hook.scriptContent,
-        ));
+        hookResults.add(
+          HookEntryResult(
+            hookLabel: hook.label,
+            hookEvent: hook.event,
+            status: 'failed',
+            elapsedMs: stopwatch.elapsedMilliseconds,
+            stderr: '$error',
+            scriptPath: hook.scriptPath,
+            scriptContent: hook.scriptContent,
+          ),
+        );
       }
     }
 
@@ -264,8 +274,7 @@ class HooksExecutor {
     required Map<String, Object?> payload,
   }) async {
     final timeout = Duration(
-      seconds: hook.timeoutSeconds
-          .clamp(1, _maxHookTimeoutSeconds),
+      seconds: hook.timeoutSeconds.clamp(1, _maxHookTimeoutSeconds),
     );
     final shellCommand = _buildCommand(hook);
     final workingDirectory = OpenHandPaths.applicationDirectoryPath();
@@ -291,15 +300,20 @@ class HooksExecutor {
           .replaceAll(RegExp(r'[^\w\-]'), '_')
           .toLowerCase();
       final truncatedSafeName = safeName.substring(
-        0, safeName.length.clamp(0, 32),
+        0,
+        safeName.length.clamp(0, 32),
       );
       final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
       final safeHookId = hook.id.replaceAll(RegExp(r'[^\w\-]'), '-');
       contextFile = File(
-        p.join(tmpDir.path, '$safeSessionId-$truncatedSafeName-$safeHookId.json'),
+        p.join(
+          tmpDir.path,
+          '$safeSessionId-$truncatedSafeName-$safeHookId.json',
+        ),
       );
       if (contextJson.length > _maxContextJsonBytes) {
-        contextJson = '${contextJson.substring(0, _maxContextJsonBytes)}...[truncated]';
+        contextJson =
+            '${contextJson.substring(0, _maxContextJsonBytes)}...[truncated]';
       }
       await contextFile.writeAsString(contextJson, flush: true);
     } catch (_) {
@@ -309,8 +323,7 @@ class HooksExecutor {
 
     final environment = <String, String>{
       'OPENHAND_HOOK_CONTEXT': contextJson,
-      if (contextFile != null)
-        'OPENHAND_HOOK_CONTEXT_FILE': contextFile.path,
+      if (contextFile != null) 'OPENHAND_HOOK_CONTEXT_FILE': contextFile.path,
     };
 
     try {
@@ -386,8 +399,10 @@ class HooksExecutor {
         _CollectedOutput stdoutOutput;
         _CollectedOutput stderrOutput;
         try {
-          final results = await Future.wait([stdoutFuture, stderrFuture])
-              .timeout(const Duration(seconds: 2));
+          final results = await Future.wait([
+            stdoutFuture,
+            stderrFuture,
+          ]).timeout(const Duration(seconds: 2));
           stdoutOutput = results[0];
           stderrOutput = results[1];
         } on TimeoutException {
@@ -531,12 +546,16 @@ class HooksExecutor {
           .replaceAll(RegExp(r'[^\w\-]'), '_')
           .toLowerCase();
       final truncatedSafeName = safeName.substring(
-        0, safeName.length.clamp(0, 32),
+        0,
+        safeName.length.clamp(0, 32),
       );
       final safeSessionId = sessionId.replaceAll(RegExp(r'[^\w\-]'), '-');
       final ts = DateTime.now().microsecondsSinceEpoch;
       final file = File(
-        p.join(tmpDir.path, 'output-$safeSessionId-$truncatedSafeName-$ts.$suffix'),
+        p.join(
+          tmpDir.path,
+          'output-$safeSessionId-$truncatedSafeName-$ts.$suffix',
+        ),
       );
       await file.writeAsString(content, flush: true);
       return file.path;

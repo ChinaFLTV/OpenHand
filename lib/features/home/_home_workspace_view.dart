@@ -146,9 +146,7 @@ class _WorkspaceView extends StatelessWidget {
                       )
                     : currentSession!.messages.isEmpty
                     ? Column(
-                        key: ValueKey<String>(
-                          'empty-${currentSession!.id}',
-                        ),
+                        key: ValueKey<String>('empty-${currentSession!.id}'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _SessionToolbar(
@@ -171,76 +169,80 @@ class _WorkspaceView extends StatelessWidget {
                         ],
                       )
                     : KeyedSubtree(
-                        key: ValueKey<String>(
-                          'content-${currentSession!.id}',
-                        ),
+                        key: ValueKey<String>('content-${currentSession!.id}'),
                         child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: AnimatedOpacity(
-                            // 瞬间使其隐身以彻底遮盖背后的列表疯狂重排乱跳的现象
-                            opacity: transcriptPreparing ? 0.0 : 1.0,
-                            duration: transcriptPreparing
-                                ? Duration.zero
-                                : const Duration(milliseconds: 160),
-                            curve: Curves.easeOutCubic,
-                            child: _SessionTranscript(
-                              key: ValueKey<String>(
-                                'messages-${currentSession!.id}',
-                              ),
-                              controller: messageScrollController,
-                              onScrollNotification: onMessageScrollNotification,
-                              session: currentSession!,
-                              liveRuntimeToolPreview: liveRuntimeToolPreview,
-                              sendPhase: sendPhase,
-                              planTimelineCollapsed: planTimelineCollapsed,
-                              onPlanTimelineCollapsedChanged:
-                                  onPlanTimelineCollapsedChanged,
-                              onLayoutChanged: onTranscriptLayoutChanged,
-                              onRevealOlderMessages: onRevealOlderMessages,
-                              onEditMessage: onEditMessage,
-                              onCopyMessage: onCopyMessage,
-                              onDeleteMessage: onDeleteMessage,
-                              onDeleteMessageFromHere: onDeleteMessageFromHere,
-                              onDismissError: onDismissError,
-                              // Jump to the very bottom on the first frame when the
-                              // session was just activated, so the user never sees a
-                              // flash from scroll-top to scroll-bottom.
-                              jumpToBottomOnInit: jumpToBottomOnInit,
-                              fileExplorerVisible: fileExplorerVisible,
-                              onFileExplorerToggled: onFileExplorerToggled,
-                            ),
-                          ),
-                        ),
-                        // Overlay mask that visually hides the initial rendering
-                        // and scroll-to-bottom operations of the transcript list.
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            ignoring: !transcriptPreparing,
-                            child: AnimatedOpacity(
-                              opacity: transcriptPreparing ? 1.0 : 0.0,
-                              // 进场需提前快过底部列表跳跃，退场再慢慢淡出
-                              duration: transcriptPreparing
-                                  ? const Duration(milliseconds: 80)
-                                  : const Duration(milliseconds: 160),
-                              curve: Curves.easeOutCubic,
-                              child: _SessionTranscriptLoadingPlaceholder(
-                                key: ValueKey<String>(
-                                  'session-transcript-loading-${currentSession!.id}',
+                          children: [
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                // 瞬间使其隐身以彻底遮盖背后的列表疯狂重排乱跳的现象
+                                opacity: transcriptPreparing ? 0.0 : 1.0,
+                                duration: transcriptPreparing
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 160),
+                                curve: Curves.easeOutCubic,
+                                child: _SessionTranscript(
+                                  key: ValueKey<String>(
+                                    'messages-${currentSession!.id}',
+                                  ),
+                                  controller: messageScrollController,
+                                  onScrollNotification:
+                                      onMessageScrollNotification,
+                                  session: currentSession!,
+                                  liveRuntimeToolPreview:
+                                      liveRuntimeToolPreview,
+                                  sendPhase: sendPhase,
+                                  planTimelineCollapsed: planTimelineCollapsed,
+                                  onPlanTimelineCollapsedChanged:
+                                      onPlanTimelineCollapsedChanged,
+                                  onLayoutChanged: onTranscriptLayoutChanged,
+                                  onRevealOlderMessages: onRevealOlderMessages,
+                                  onEditMessage: onEditMessage,
+                                  onCopyMessage: onCopyMessage,
+                                  onDeleteMessage: onDeleteMessage,
+                                  onDeleteMessageFromHere:
+                                      onDeleteMessageFromHere,
+                                  onDismissError: onDismissError,
+                                  // Jump to the very bottom on the first frame when the
+                                  // session was just activated, so the user never sees a
+                                  // flash from scroll-top to scroll-bottom.
+                                  jumpToBottomOnInit: jumpToBottomOnInit,
+                                  fileExplorerVisible: fileExplorerVisible,
+                                  onFileExplorerToggled: onFileExplorerToggled,
                                 ),
-                                session: currentSession!,
-                                liveRuntimeToolPreview: liveRuntimeToolPreview,
-                                sendPhase: sendPhase,
-                                planTimelineCollapsed: planTimelineCollapsed,
-                                onPlanTimelineCollapsedChanged:
-                                    onPlanTimelineCollapsedChanged,
-                                fileExplorerVisible: fileExplorerVisible,
-                                onFileExplorerToggled: onFileExplorerToggled,
                               ),
                             ),
-                          ),
-                        ),
-                      ],
+                            // Overlay mask that visually hides the initial rendering
+                            // and scroll-to-bottom operations of the transcript list.
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                ignoring: !transcriptPreparing,
+                                child: AnimatedOpacity(
+                                  opacity: transcriptPreparing ? 1.0 : 0.0,
+                                  // 进场需提前快过底部列表跳跃，退场再慢慢淡出
+                                  duration: transcriptPreparing
+                                      ? const Duration(milliseconds: 80)
+                                      : const Duration(milliseconds: 160),
+                                  curve: Curves.easeOutCubic,
+                                  child: _SessionTranscriptLoadingPlaceholder(
+                                    key: ValueKey<String>(
+                                      'session-transcript-loading-${currentSession!.id}',
+                                    ),
+                                    session: currentSession!,
+                                    liveRuntimeToolPreview:
+                                        liveRuntimeToolPreview,
+                                    sendPhase: sendPhase,
+                                    planTimelineCollapsed:
+                                        planTimelineCollapsed,
+                                    onPlanTimelineCollapsedChanged:
+                                        onPlanTimelineCollapsedChanged,
+                                    fileExplorerVisible: fileExplorerVisible,
+                                    onFileExplorerToggled:
+                                        onFileExplorerToggled,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
               ),
@@ -337,9 +339,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     // looks graceful for an inline hero placeholder rather than a modal
     // dialog (which can afford longer transitions).
     final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0
-        ? 0
-        : baseMs.clamp(240, 520).toInt();
+    final durationMs = baseMs == 0 ? 0 : baseMs.clamp(240, 520).toInt();
     _controller = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: durationMs),
@@ -417,10 +417,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
       opacity: _fade,
       child: SlideTransition(
         position: _slide,
-        child: ScaleTransition(
-          scale: _scale,
-          child: emptyStateContent,
-        ),
+        child: ScaleTransition(scale: _scale, child: emptyStateContent),
       ),
     );
 
@@ -439,8 +436,7 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
 }
 
 /// Animates the workspace primary content (empty-state / transcript) across
-/// session/template changes using a fade + subtle slide transition that
-/// respects the user's global dialog animation settings.
+/// session/template changes using the global page animation settings.
 ///
 /// The transcript reuses a long-lived [ScrollController] owned by the home
 /// page. Keeping an outgoing transcript mounted during an [AnimatedSwitcher]
@@ -454,6 +450,9 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
   final Widget child;
 
   static bool _allowsOutgoingOverlap(Widget child) {
+    if (child is KeyedSubtree) {
+      return _allowsOutgoingOverlap(child.child);
+    }
     final key = child.key;
     if (key is! ValueKey<String>) {
       return false;
@@ -461,27 +460,32 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
     return key.value == 'no-session' || key.value.startsWith('empty-');
   }
 
+  static bool _transitionAllowsOutgoingOverlap(Widget child) {
+    if (child is _WorkspacePrimarySwitchTransition) {
+      return child.allowOutgoingOverlap;
+    }
+    if (child is KeyedSubtree) {
+      return _transitionAllowsOutgoingOverlap(child.child);
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     DialogAnimationSettings settings;
     try {
-      settings = context.read<SettingsController>().dialogAnimationSettings;
+      settings = context.read<SettingsController>().pageAnimationSettings;
     } catch (_) {
       settings = const DialogAnimationSettings();
     }
-    final baseMs = settings.duration.inMilliseconds;
-    final durationMs = baseMs == 0
-        ? 0
-        : baseMs.clamp(200, 460).toInt();
     final curveData = settings.curve;
     return AnimatedSwitcher(
-      duration: Duration(milliseconds: durationMs),
+      duration: _effectiveSwitchDuration(settings),
       switchInCurve: curveData.curve,
       switchOutCurve: curveData.reverseCurve,
       layoutBuilder: (currentChild, previousChildren) {
         final safePreviousChildren = previousChildren.where((previousChild) {
-          return previousChild is _WorkspacePrimarySwitchTransition &&
-              previousChild.allowOutgoingOverlap;
+          return _transitionAllowsOutgoingOverlap(previousChild);
         });
         return Stack(
           alignment: Alignment.topCenter,
@@ -492,15 +496,13 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
         );
       },
       transitionBuilder: (animatedChild, animation) {
-        final slide = Tween<Offset>(
-          begin: const Offset(0, 0.04),
-          end: Offset.zero,
-        ).animate(animation);
         return _WorkspacePrimarySwitchTransition(
           allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
-          child: FadeTransition(
-            opacity: animation,
-            child: SlideTransition(position: slide, child: animatedChild),
+          child: _buildPanelTransition(
+            child: animatedChild,
+            animation: animation,
+            entranceStyle: settings.entranceStyle,
+            exitStyle: settings.exitStyle,
           ),
         );
       },
@@ -521,4 +523,3 @@ class _WorkspacePrimarySwitchTransition extends StatelessWidget {
   @override
   Widget build(BuildContext context) => child;
 }
-

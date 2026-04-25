@@ -140,8 +140,7 @@ void main() {
       expect(dispatched, ['sess-eligible']);
     });
 
-    test('skips sessions whose last message is already selfLearning',
-        () async {
+    test('skips sessions whose last message is already selfLearning', () async {
       final now = DateTime.now().toUtc();
       final msgs = _sixTurns(now)
         ..add(
@@ -181,11 +180,7 @@ void main() {
           templateId: 'hermes_talker',
           createdAt: now,
           messages: <AiSessionMessage>[
-            AiSessionMessage.user(
-              id: 'u0',
-              content: 'hi',
-              createdAt: now,
-            ),
+            AiSessionMessage.user(id: 'u0', content: 'hi', createdAt: now),
             AiSessionMessage.assistant(
               id: 'a0',
               content: 'hello',
@@ -272,50 +267,52 @@ void main() {
       expect(dispatched, isEmpty);
     });
 
-    test('counts errors thrown by runForSession without aborting tick',
-        () async {
-      final now = DateTime.now().toUtc();
-      for (final id in ['a', 'b', 'c']) {
-        await store.save(
-          _buildSession(
-            id: 'sess-$id',
-            templateId: 'hermes_talker',
-            createdAt: now,
-            messages: _sixTurns(now, idPrefix: '$id-'),
-          ),
+    test(
+      'counts errors thrown by runForSession without aborting tick',
+      () async {
+        final now = DateTime.now().toUtc();
+        for (final id in ['a', 'b', 'c']) {
+          await store.save(
+            _buildSession(
+              id: 'sess-$id',
+              templateId: 'hermes_talker',
+              createdAt: now,
+              messages: _sixTurns(now, idPrefix: '$id-'),
+            ),
+          );
+        }
+        final dispatched = <String>[];
+        final scheduler = SelfLearningScheduler(
+          sessionStore: store,
+          settingsController: settings,
+          runForSession: (s) async {
+            dispatched.add(s.id);
+            if (s.id == 'sess-b') throw StateError('boom');
+          },
         );
-      }
-      final dispatched = <String>[];
-      final scheduler = SelfLearningScheduler(
-        sessionStore: store,
-        settingsController: settings,
-        runForSession: (s) async {
-          dispatched.add(s.id);
-          if (s.id == 'sess-b') throw StateError('boom');
-        },
-      );
-      final result = await scheduler.tick(now: now);
-      expect(result.triggered, 3);
-      expect(result.errors, 1);
-      expect(dispatched.length, 3);
-    });
+        final result = await scheduler.tick(now: now);
+        expect(result.triggered, 3);
+        expect(result.errors, 1);
+        expect(dispatched.length, 3);
+      },
+    );
 
-    test('updateConcurrency clamps to [1, 10] and updates the semaphore',
-        () async {
-      final scheduler = SelfLearningScheduler(
-        sessionStore: store,
-        settingsController: settings,
-        runForSession: (_) async {},
-        concurrency: 3,
-      );
-      // Smoke-test: should not throw, and subsequent ticks should still work.
-      scheduler.updateConcurrency(0); // clamped to 1
-      scheduler.updateConcurrency(999); // clamped to 10
-      scheduler.updateConcurrency(5);
-      final result = await scheduler.tick(
-        now: DateTime.now().toUtc(),
-      );
-      expect(result.scanned, 0);
-    });
+    test(
+      'updateConcurrency clamps to [1, 10] and updates the semaphore',
+      () async {
+        final scheduler = SelfLearningScheduler(
+          sessionStore: store,
+          settingsController: settings,
+          runForSession: (_) async {},
+          concurrency: 3,
+        );
+        // Smoke-test: should not throw, and subsequent ticks should still work.
+        scheduler.updateConcurrency(0); // clamped to 1
+        scheduler.updateConcurrency(999); // clamped to 10
+        scheduler.updateConcurrency(5);
+        final result = await scheduler.tick(now: DateTime.now().toUtc());
+        expect(result.scanned, 0);
+      },
+    );
   });
 }

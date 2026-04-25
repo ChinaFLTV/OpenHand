@@ -5843,10 +5843,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _commitProgrammaticEditorValueChange(
       filePath,
       controller,
-      TextEditingValue(
-        text: edit.text,
-        selection: edit.selection,
-      ),
+      TextEditingValue(text: edit.text, selection: edit.selection),
       dismissCompletionOverlay: true,
     );
     return true;
@@ -5883,10 +5880,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _commitProgrammaticEditorValueChange(
       filePath,
       controller,
-      TextEditingValue(
-        text: edit.text,
-        selection: edit.selection,
-      ),
+      TextEditingValue(text: edit.text, selection: edit.selection),
       dismissCompletionOverlay: true,
     );
     return true;
@@ -5939,10 +5933,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _commitProgrammaticEditorValueChange(
       filePath,
       controller,
-      TextEditingValue(
-        text: edit.text,
-        selection: edit.selection,
-      ),
+      TextEditingValue(text: edit.text, selection: edit.selection),
       dismissCompletionOverlay: true,
     );
     return true;
@@ -7438,7 +7429,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final hasCodeActions = _lspResultCodeActions.isNotEmpty;
     final hover = _lspHoverResult;
     final message = _lspResultMessage;
-    final hasScrollableContent = hover != null || hasLocations || hasCodeActions;
+    final hasScrollableContent =
+        hover != null || hasLocations || hasCodeActions;
     final resultCount = hasLocations
         ? _lspResultLocations.length
         : hasCodeActions
@@ -7597,8 +7589,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     fontSize: 12.5,
                     height: 1.45,
                     color: colorScheme.onSurface,
-                    fontFamily:
-                        'JetBrains Mono, Menlo, Consolas, monospace',
+                    fontFamily: 'JetBrains Mono, Menlo, Consolas, monospace',
                   ),
                 ),
         ),
@@ -8116,9 +8107,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       en: 'Format Document',
     );
     final formatShortcut = formatShortcutLabel(
-      settingsController.editorShortcutBindings[
-            EditorShortcutAction.formatDocument
-          ] ??
+      settingsController.editorShortcutBindings[EditorShortcutAction
+              .formatDocument] ??
           const <int>[],
     );
     final hoverTitle = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');

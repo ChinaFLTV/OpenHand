@@ -18,11 +18,9 @@ class AiWebFetchTool extends AiTool {
     required AiChatClient backgroundChatClient,
     required http.Client httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
-  })  : _backgroundChatClient = backgroundChatClient,
-        _httpClient = httpClient,
-        _hostLookup = hostLookup ??
-            ((host) =>
-                InternetAddress.lookup(host));
+  }) : _backgroundChatClient = backgroundChatClient,
+       _httpClient = httpClient,
+       _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host));
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;
@@ -45,7 +43,10 @@ class AiWebFetchTool extends AiTool {
     final rawUrl = '${args['url'] ?? ''}'.trim();
     final prompt = '${args['prompt'] ?? ''}'.trim();
     if (rawUrl.isEmpty || prompt.isEmpty) {
-      return AiToolUtils.invalidResult('WebFetch', 'WebFetch requires url and prompt.');
+      return AiToolUtils.invalidResult(
+        'WebFetch',
+        'WebFetch requires url and prompt.',
+      );
     }
     final uri = tryParseValidHttpUrl(rawUrl);
     if (uri == null) {
@@ -58,7 +59,9 @@ class AiWebFetchTool extends AiTool {
     final fetchResult = await _fetch(uri, cancelSignal: context.cancelSignal);
     if (fetchResult.cancelled) {
       return AiToolUtils.cancelledResult(
-          command: 'WebFetch $rawUrl', durationMs: startedAt.elapsedMilliseconds);
+        command: 'WebFetch $rawUrl',
+        durationMs: startedAt.elapsedMilliseconds,
+      );
     }
     if (fetchResult.crossHostRedirectUrl != null) {
       final redirectUrl = fetchResult.crossHostRedirectUrl!;
@@ -102,7 +105,8 @@ class AiWebFetchTool extends AiTool {
           ),
           AiChatTurn(
             role: AiChatRole.user,
-            content: 'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n$normalizedContent',
+            content:
+                'URL: $rawUrl\nPrompt: $prompt\n\nFetched content:\n$normalizedContent',
           ),
         ],
       ),
@@ -110,7 +114,9 @@ class AiWebFetchTool extends AiTool {
     );
     if (completion == null) {
       return AiToolUtils.cancelledResult(
-          command: 'WebFetch $rawUrl', durationMs: startedAt.elapsedMilliseconds);
+        command: 'WebFetch $rawUrl',
+        durationMs: startedAt.elapsedMilliseconds,
+      );
     }
     final output = completion.reply.trim().isEmpty
         ? normalizedContent
@@ -129,11 +135,14 @@ class AiWebFetchTool extends AiTool {
 
   Future<String?> _blockedReason(Uri uri) async {
     final directReason = agentFetchBlockReasonForUri(uri);
-    if (directReason != null) return 'WebFetch blocks $directReason: ${uri.host}';
+    if (directReason != null) {
+      return 'WebFetch blocks $directReason: ${uri.host}';
+    }
     if (InternetAddress.tryParse(uri.host) != null) return null;
     try {
-      final resolvedAddresses =
-          await _hostLookup(uri.host).timeout(const Duration(seconds: 2));
+      final resolvedAddresses = await _hostLookup(
+        uri.host,
+      ).timeout(const Duration(seconds: 2));
       for (final address in resolvedAddresses) {
         final addressReason = agentFetchBlockReasonForAddress(address);
         if (addressReason != null) {
@@ -150,24 +159,32 @@ class AiWebFetchTool extends AiTool {
     return null;
   }
 
-  Future<_FetchResult> _fetch(Uri initialUri, {Future<void>? cancelSignal}) async {
+  Future<_FetchResult> _fetch(
+    Uri initialUri, {
+    Future<void>? cancelSignal,
+  }) async {
     _pruneCache();
     final cached = _cache[initialUri.toString()];
     if (cached != null && !_isCacheExpired(cached)) {
       return _FetchResult(
-          body: cached.body,
-          contentType: cached.contentType,
-          finalUrl: cached.finalUrl,
-          fromCache: true);
+        body: cached.body,
+        contentType: cached.contentType,
+        finalUrl: cached.finalUrl,
+        fromCache: true,
+      );
     }
     var currentUri = initialUri;
     final visitedUrls = <String>{};
-    for (var redirectCount = 0;
-        redirectCount <= _maxRedirects;
-        redirectCount++) {
+    for (
+      var redirectCount = 0;
+      redirectCount <= _maxRedirects;
+      redirectCount++
+    ) {
       final visitKey = currentUri.toString();
       if (!visitedUrls.add(visitKey)) {
-        return const _FetchResult(errorMessage: 'Redirect loop detected while fetching the URL.');
+        return const _FetchResult(
+          errorMessage: 'Redirect loop detected while fetching the URL.',
+        );
       }
       final request = http.Request('GET', currentUri)
         ..followRedirects = false
@@ -176,13 +193,15 @@ class AiWebFetchTool extends AiTool {
       try {
         final maybeResponse =
             await AiToolUtils.awaitWithCancellation<http.StreamedResponse>(
-          _httpClient.send(request).timeout(const Duration(seconds: 20)),
-          cancelSignal: cancelSignal,
-        );
+              _httpClient.send(request).timeout(const Duration(seconds: 20)),
+              cancelSignal: cancelSignal,
+            );
         if (maybeResponse == null) return const _FetchResult(cancelled: true);
         response = maybeResponse;
       } on TimeoutException {
-        return const _FetchResult(errorMessage: 'WebFetch timed out while retrieving the URL.');
+        return const _FetchResult(
+          errorMessage: 'WebFetch timed out while retrieving the URL.',
+        );
       } catch (error) {
         return _FetchResult(errorMessage: '$error');
       }
@@ -191,13 +210,16 @@ class AiWebFetchTool extends AiTool {
         if (location.isEmpty) {
           _discard(response);
           return _FetchResult(
-              errorMessage:
-                  'Received redirect response without a location header from $currentUri.');
+            errorMessage:
+                'Received redirect response without a location header from $currentUri.',
+          );
         }
         final nextUri = normalizeValidHttpUri(currentUri.resolve(location));
         if (nextUri == null) {
           _discard(response);
-          return _FetchResult(errorMessage: 'Invalid redirect target: $location');
+          return _FetchResult(
+            errorMessage: 'Invalid redirect target: $location',
+          );
         }
         final blocked = await _blockedReason(nextUri);
         if (blocked != null) {
@@ -207,8 +229,9 @@ class AiWebFetchTool extends AiTool {
         if (currentUri.host.toLowerCase() != nextUri.host.toLowerCase()) {
           _discard(response);
           return _FetchResult(
-              crossHostRedirectUrl: nextUri.toString(),
-              finalUrl: currentUri.toString());
+            crossHostRedirectUrl: nextUri.toString(),
+            finalUrl: currentUri.toString(),
+          );
         }
         _discard(response);
         currentUri = nextUri;
@@ -217,8 +240,9 @@ class AiWebFetchTool extends AiTool {
       if (response.statusCode < 200 || response.statusCode >= 400) {
         _discard(response);
         return _FetchResult(
-            errorMessage:
-                'WebFetch failed with HTTP ${response.statusCode} for $currentUri.');
+          errorMessage:
+              'WebFetch failed with HTTP ${response.statusCode} for $currentUri.',
+        );
       }
       final bodyBytes = await _readBody(response, cancelSignal: cancelSignal);
       if (bodyBytes.cancelled) return const _FetchResult(cancelled: true);
@@ -239,15 +263,20 @@ class AiWebFetchTool extends AiTool {
       _cache[initialUri.toString()] = entry;
       _cache[currentUri.toString()] = entry;
       return _FetchResult(
-          body: entry.body,
-          contentType: entry.contentType,
-          finalUrl: entry.finalUrl);
+        body: entry.body,
+        contentType: entry.contentType,
+        finalUrl: entry.finalUrl,
+      );
     }
-    return const _FetchResult(errorMessage: 'WebFetch exceeded the maximum redirect limit.');
+    return const _FetchResult(
+      errorMessage: 'WebFetch exceeded the maximum redirect limit.',
+    );
   }
 
-  Future<_BodyReadResult> _readBody(http.StreamedResponse response,
-      {Future<void>? cancelSignal}) async {
+  Future<_BodyReadResult> _readBody(
+    http.StreamedResponse response, {
+    Future<void>? cancelSignal,
+  }) async {
     final completer = Completer<_BodyReadResult>();
     final buffer = BytesBuilder(copy: false);
 
@@ -260,14 +289,18 @@ class AiWebFetchTool extends AiTool {
       (chunk) {
         if (buffer.length + chunk.length > _maxResponseBytes) {
           subscription.cancel().ignore();
-          complete(const _BodyReadResult(
+          complete(
+            const _BodyReadResult(
               errorMessage:
-                  'WebFetch refused to download the response because it exceeded the $_maxResponseBytes-byte safety limit.'));
+                  'WebFetch refused to download the response because it exceeded the $_maxResponseBytes-byte safety limit.',
+            ),
+          );
           return;
         }
         buffer.add(chunk);
       },
-      onError: (Object error) => complete(_BodyReadResult(errorMessage: '$error')),
+      onError: (Object error) =>
+          complete(_BodyReadResult(errorMessage: '$error')),
       onDone: () {
         if (!completer.isCompleted) {
           completer.complete(_BodyReadResult(bytes: buffer.takeBytes()));
@@ -354,7 +387,11 @@ class _FetchResult {
 }
 
 class _BodyReadResult {
-  const _BodyReadResult({this.bytes, this.errorMessage, this.cancelled = false});
+  const _BodyReadResult({
+    this.bytes,
+    this.errorMessage,
+    this.cancelled = false,
+  });
   final List<int>? bytes;
   final String? errorMessage;
   final bool cancelled;

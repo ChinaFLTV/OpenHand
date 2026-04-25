@@ -71,23 +71,14 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
       curve = widget.customCurve ?? Curves.easeOutCubic;
     }
 
-    _controller = AnimationController(
-      vsync: this,
-      duration: duration,
-    );
+    _controller = AnimationController(vsync: this, duration: duration);
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: curve,
-    );
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: curve);
 
     _scaleAnimation = Tween<double>(
       begin: widget.scaleBegin,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: curve,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: curve));
   }
 
   @override
@@ -98,7 +89,9 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
         _controller.duration != null) {
       // Update duration from settings if available.
       try {
-        final settings = context.read<SettingsController>().menuAnimationSettings;
+        final settings = context
+            .read<SettingsController>()
+            .menuAnimationSettings;
         if (settings.entranceStyle != DialogAnimationStyle.none) {
           final newDuration = settings.duration;
           if (_controller.duration != newDuration && !_controller.isAnimating) {
@@ -125,10 +118,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     );
 
     if (widget.enableScaleAnimation) {
-      result = ScaleTransition(
-        scale: _scaleAnimation,
-        child: result,
-      );
+      result = ScaleTransition(scale: _scaleAnimation, child: result);
     }
 
     return result;
@@ -161,14 +151,8 @@ class _FadeInOverlayContentState extends State<FadeInOverlayContent>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: widget.curve,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
+    _animation = CurvedAnimation(parent: _controller, curve: widget.curve);
     _controller.forward();
   }
 
@@ -180,9 +164,6 @@ class _FadeInOverlayContentState extends State<FadeInOverlayContent>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: widget.child,
-    );
+    return FadeTransition(opacity: _animation, child: widget.child);
   }
 }

@@ -13,6 +13,8 @@ import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'cron_parser.dart';
 import 'crons_controller.dart';
 
+const int _cronTagPreviewLimit = 6;
+
 class CronsView extends StatelessWidget {
   const CronsView({super.key});
 
@@ -20,8 +22,10 @@ class CronsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final controller = context.watch<CronsController>();
-    final entries = controller.entries;
+    final entries = context.select<CronsController, List<CronEntry>>(
+      (controller) => controller.entries,
+    );
+    final controller = context.read<CronsController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     return Column(
@@ -35,10 +39,7 @@ class CronsView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Crons',
-                    style: theme.textTheme.displaySmall,
-                  ),
+                  Text('Crons', style: theme.textTheme.displaySmall),
                   const SizedBox(height: 8),
                   Text(
                     isZh
@@ -66,28 +67,26 @@ class CronsView extends StatelessWidget {
         else
           Expanded(
             child: ScrollConfiguration(
-              behavior:
-                  ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
               child: ListView.separated(
                 itemCount: entries.length,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
+                  final entry = entries[index];
                   return _CronEntryCard(
-                    entry: entries[index],
+                    key: ValueKey<String>('cron-entry-${entry.id}'),
+                    entry: entry,
                     isZh: isZh,
-                    onEdit: () =>
-                        _showCronEditorDialog(context, entries[index]),
+                    onEdit: () => _showCronEditorDialog(context, entry),
                     onToggle: (enabled) {
-                      controller.toggleCronEnabled(
-                        entries[index].id,
-                        enabled: enabled,
-                      );
+                      controller.toggleCronEnabled(entry.id, enabled: enabled);
                     },
-                    onDelete: () => _confirmDelete(context, entries[index]),
-                    onHistory: () =>
-                        _showHistoryDialog(context, entries[index]),
-                    onRunNow: () => controller.runNow(entries[index].id),
+                    onDelete: () => _confirmDelete(context, entry),
+                    onHistory: () => _showHistoryDialog(context, entry),
+                    onRunNow: () => controller.runNow(entry.id),
                   );
                 },
               ),
@@ -194,6 +193,7 @@ class _CronEmptyState extends StatelessWidget {
 
 class _CronEntryCard extends StatelessWidget {
   const _CronEntryCard({
+    super.key,
     required this.entry,
     required this.isZh,
     required this.onEdit,
@@ -215,6 +215,10 @@ class _CronEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final visibleTags = entry.tags
+        .take(_cronTagPreviewLimit)
+        .toList(growable: false);
+    final hiddenTagCount = entry.tags.length - visibleTags.length;
 
     return Card(
       child: Padding(
@@ -262,8 +266,10 @@ class _CronEntryCard extends StatelessWidget {
                 Tooltip(
                   message: isZh ? 'Cron 表达式' : 'Cron expression',
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.tertiaryContainer,
                       borderRadius: BorderRadius.circular(12),
@@ -283,8 +289,10 @@ class _CronEntryCard extends StatelessWidget {
                 Tooltip(
                   message: isZh ? '超时时间' : 'Timeout',
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHigh,
                       borderRadius: BorderRadius.circular(12),
@@ -304,7 +312,9 @@ class _CronEntryCard extends StatelessWidget {
                     message: isZh ? '重试次数' : 'Retry count',
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(12),
@@ -312,8 +322,11 @@ class _CronEntryCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.replay_rounded,
-                              size: 12, color: colorScheme.onSurfaceVariant),
+                          Icon(
+                            Icons.replay_rounded,
+                            size: 12,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             '${entry.retryCount}',
@@ -328,10 +341,7 @@ class _CronEntryCard extends StatelessWidget {
                   const SizedBox(width: 8),
                 ],
                 // Toggle switch
-                Switch(
-                  value: entry.enabled,
-                  onChanged: onToggle,
-                ),
+                Switch(value: entry.enabled, onChanged: onToggle),
                 const SizedBox(width: 8),
                 // 2026-04-25 (Task 20) — system-managed entries show a lock
                 // icon and disable the edit/delete actions. The enabled
@@ -392,23 +402,44 @@ class _CronEntryCard extends StatelessWidget {
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children: entry.tags.map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: colorScheme.secondaryContainer,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              tag,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSecondaryContainer,
-                                fontSize: 10,
+                        children: [
+                          for (final tag in visibleTags)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                tag,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSecondaryContainer,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
-                          );
-                        }).toList(),
+                          if (hiddenTagCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '+$hiddenTagCount',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   // Status chip
@@ -420,8 +451,9 @@ class _CronEntryCard extends StatelessWidget {
                           ? '上次: ${_formatTime(entry.lastRunAt!)}'
                           : 'Last: ${_formatTime(entry.lastRunAt!)}',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.7),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
                         fontSize: 10,
                       ),
                     ),
@@ -470,10 +502,7 @@ class _CronStatusDot extends StatelessWidget {
     return Container(
       width: 12,
       height: 12,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
@@ -539,12 +568,7 @@ class _CronEditorDialog extends StatefulWidget {
   State<_CronEditorDialog> createState() => _CronEditorDialogState();
 }
 
-enum _NotificationTestScenario {
-  success,
-  failure,
-  timeout,
-  all,
-}
+enum _NotificationTestScenario { success, failure, timeout, all }
 
 class _CronEditorDialogState extends State<_CronEditorDialog> {
   static const Uuid _uuid = Uuid();
@@ -598,40 +622,53 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     _nameController = TextEditingController(text: e?.name ?? '');
     _descriptionController = TextEditingController(text: e?.description ?? '');
     _scriptPathController = TextEditingController(text: e?.scriptPath ?? '');
-    _scriptContentController =
-        TextEditingController(text: e?.scriptContent ?? '');
-    _timeoutController =
-        TextEditingController(text: '${e?.timeoutSeconds ?? 60}');
+    _scriptContentController = TextEditingController(
+      text: e?.scriptContent ?? '',
+    );
+    _timeoutController = TextEditingController(
+      text: '${e?.timeoutSeconds ?? 60}',
+    );
     _retryController = TextEditingController(text: '${e?.retryCount ?? 0}');
     _tagsController = TextEditingController(text: e?.tags.join(', ') ?? '');
-    _workingDirController =
-        TextEditingController(text: e?.workingDirectory ?? '');
+    _workingDirController = TextEditingController(
+      text: e?.workingDirectory ?? '',
+    );
     _envController = TextEditingController(
-      text: e?.environment.entries
+      text:
+          e?.environment.entries
               .map((en) => '${en.key}=${en.value}')
               .join('\n') ??
           '',
     );
-    _maxRetryDelayController =
-        TextEditingController(text: '${e?.maxRetryDelaySeconds ?? 30}');
-    _onSuccessMsgController =
-        TextEditingController(text: e?.onSuccessMessage ?? '');
-    _onFailureMsgController =
-        TextEditingController(text: e?.onFailureMessage ?? '');
-    _onTimeoutMsgController =
-        TextEditingController(text: e?.onTimeoutMessage ?? '');
+    _maxRetryDelayController = TextEditingController(
+      text: '${e?.maxRetryDelaySeconds ?? 30}',
+    );
+    _onSuccessMsgController = TextEditingController(
+      text: e?.onSuccessMessage ?? '',
+    );
+    _onFailureMsgController = TextEditingController(
+      text: e?.onFailureMessage ?? '',
+    );
+    _onTimeoutMsgController = TextEditingController(
+      text: e?.onTimeoutMessage ?? '',
+    );
 
     final cronParts = (e?.cronExpression ?? '* * * * *').split(RegExp(r'\s+'));
-    _cronMinController =
-      TextEditingController(text: cronParts.isNotEmpty ? cronParts[0] : '*');
-    _cronHourController =
-        TextEditingController(text: cronParts.length > 1 ? cronParts[1] : '*');
-    _cronDomController =
-        TextEditingController(text: cronParts.length > 2 ? cronParts[2] : '*');
-    _cronMonController =
-        TextEditingController(text: cronParts.length > 3 ? cronParts[3] : '*');
-    _cronDowController =
-        TextEditingController(text: cronParts.length > 4 ? cronParts[4] : '*');
+    _cronMinController = TextEditingController(
+      text: cronParts.isNotEmpty ? cronParts[0] : '*',
+    );
+    _cronHourController = TextEditingController(
+      text: cronParts.length > 1 ? cronParts[1] : '*',
+    );
+    _cronDomController = TextEditingController(
+      text: cronParts.length > 2 ? cronParts[2] : '*',
+    );
+    _cronMonController = TextEditingController(
+      text: cronParts.length > 3 ? cronParts[3] : '*',
+    );
+    _cronDowController = TextEditingController(
+      text: cronParts.length > 4 ? cronParts[4] : '*',
+    );
 
     _scriptType = e?.scriptType ?? CronScriptType.command;
     _enabled = e?.enabled ?? true;
@@ -691,13 +728,16 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final cronsController = context.watch<CronsController>();
-    final systemUsers = cronsController.systemUsers;
+    final systemUsers = context.select<CronsController, List<String>>(
+      (controller) => controller.systemUsers,
+    );
 
     return AlertDialog(
-      title: Text(_isEditing
-          ? (isZh ? '编辑定时任务' : 'Edit Cron Job')
-          : (isZh ? '新增定时任务' : 'New Cron Job')),
+      title: Text(
+        _isEditing
+            ? (isZh ? '编辑定时任务' : 'Edit Cron Job')
+            : (isZh ? '新增定时任务' : 'New Cron Job'),
+      ),
       content: SizedBox(
         width: 620,
         child: SingleChildScrollView(
@@ -711,8 +751,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: isZh ? '任务名称' : 'Name',
-                  hintText:
-                      isZh ? '例如: 每日备份' : 'e.g. Daily Backup',
+                  hintText: isZh ? '例如: 每日备份' : 'e.g. Daily Backup',
                 ),
               ),
               const SizedBox(height: 14),
@@ -726,10 +765,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
               const SizedBox(height: 18),
               // Script type toggle
-              Text(
-                isZh ? '类型' : 'Type',
-                style: theme.textTheme.titleSmall,
-              ),
+              Text(isZh ? '类型' : 'Type', style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               SegmentedButton<CronScriptType>(
                 segments: [
@@ -787,14 +823,13 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     labelText: isZh ? '命令内容' : 'Command',
                     hintText: Platform.isWindows
                         ? (isZh
-                            ? '输入 PowerShell / BAT 命令'
-                            : 'Enter PowerShell / BAT command')
-                        : (isZh
-                            ? '输入 Shell 命令'
-                            : 'Enter shell command'),
+                              ? '输入 PowerShell / BAT 命令'
+                              : 'Enter PowerShell / BAT command')
+                        : (isZh ? '输入 Shell 命令' : 'Enter shell command'),
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color:
-                          colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                       fontFamily: 'monospace',
                       fontSize: 13,
                     ),
@@ -818,15 +853,18 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       enabled: false,
                       textAlign: TextAlign.center,
                       decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 8,
+                        ),
                         hintText: '0',
                       ),
                       controller: TextEditingController(text: '0'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontFamily: 'monospace',
-                        color: colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ),
@@ -877,8 +915,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -895,8 +935,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -913,8 +955,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.center,
                       decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
                       ),
                     ),
                   ),
@@ -931,8 +975,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 initialValue: _runAsUser,
                 decoration: InputDecoration(
                   hintText: isZh ? '默认（当前用户）' : 'Default (current user)',
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                 ),
                 items: [
                   DropdownMenuItem<String>(
@@ -959,7 +1005,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 controller: _workingDirController,
                 decoration: InputDecoration(
                   labelText: isZh ? '工作目录' : 'Working Directory',
-                  hintText: isZh ? '可选，默认为应用目录' : 'Optional, defaults to app dir',
+                  hintText: isZh
+                      ? '可选，默认为应用目录'
+                      : 'Optional, defaults to app dir',
                 ),
               ),
               const SizedBox(height: 18),
@@ -1056,20 +1104,28 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: _NotificationTestScenario.success,
-                        child: Text(isZh ? '测试成功通知' : 'Test success notification'),
+                        child: Text(
+                          isZh ? '测试成功通知' : 'Test success notification',
+                        ),
                       ),
                       PopupMenuItem(
                         value: _NotificationTestScenario.failure,
-                        child: Text(isZh ? '测试失败通知' : 'Test failure notification'),
+                        child: Text(
+                          isZh ? '测试失败通知' : 'Test failure notification',
+                        ),
                       ),
                       PopupMenuItem(
                         value: _NotificationTestScenario.timeout,
-                        child: Text(isZh ? '测试超时通知' : 'Test timeout notification'),
+                        child: Text(
+                          isZh ? '测试超时通知' : 'Test timeout notification',
+                        ),
                       ),
                       const PopupMenuDivider(),
                       PopupMenuItem(
                         value: _NotificationTestScenario.all,
-                        child: Text(isZh ? '测试全部（顺序）' : 'Test all (sequential)'),
+                        child: Text(
+                          isZh ? '测试全部（顺序）' : 'Test all (sequential)',
+                        ),
                       ),
                     ],
                     child: Container(
@@ -1081,7 +1137,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                         color: colorScheme.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(22),
                         border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(alpha: 0.9),
+                          color: colorScheme.outlineVariant.withValues(
+                            alpha: 0.9,
+                          ),
                         ),
                       ),
                       child: Row(
@@ -1128,8 +1186,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 soundEnabled: _onSuccessSound,
                 vibrationEnabled: _onSuccessVibration,
                 msgController: _onSuccessMsgController,
-                onNotifyChanged: (v) =>
-                    setState(() => _onSuccessNotify = v),
+                onNotifyChanged: (v) => setState(() => _onSuccessNotify = v),
                 onSeverityChanged: (v) =>
                     setState(() => _onSuccessSeverity = v),
                 onSoundChanged: (v) => setState(() => _onSuccessSound = v),
@@ -1144,8 +1201,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 soundEnabled: _onFailureSound,
                 vibrationEnabled: _onFailureVibration,
                 msgController: _onFailureMsgController,
-                onNotifyChanged: (v) =>
-                    setState(() => _onFailureNotify = v),
+                onNotifyChanged: (v) => setState(() => _onFailureNotify = v),
                 onSeverityChanged: (v) =>
                     setState(() => _onFailureSeverity = v),
                 onSoundChanged: (v) => setState(() => _onFailureSound = v),
@@ -1160,8 +1216,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 soundEnabled: _onTimeoutSound,
                 vibrationEnabled: _onTimeoutVibration,
                 msgController: _onTimeoutMsgController,
-                onNotifyChanged: (v) =>
-                    setState(() => _onTimeoutNotify = v),
+                onNotifyChanged: (v) => setState(() => _onTimeoutNotify = v),
                 onSeverityChanged: (v) =>
                     setState(() => _onTimeoutSeverity = v),
                 onSoundChanged: (v) => setState(() => _onTimeoutSound = v),
@@ -1179,8 +1234,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   const Spacer(),
                   Switch(
                     value: _enabled,
-                    onChanged: (value) =>
-                        setState(() => _enabled = value),
+                    onChanged: (value) => setState(() => _enabled = value),
                   ),
                 ],
               ),
@@ -1215,8 +1269,10 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 fontFamily: 'monospace',
               ),
               decoration: const InputDecoration(
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 8,
+                ),
               ),
               onChanged: (_) => _validateCron(),
             ),
@@ -1351,8 +1407,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             TextField(
               controller: msgController,
               decoration: InputDecoration(
-                hintText:
-                    isZh ? '自定义通知内容（可选）' : 'Custom message (optional)',
+                hintText: isZh ? '自定义通知内容（可选）' : 'Custom message (optional)',
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -1388,21 +1443,12 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     final List<XTypeGroup> typeGroups;
     if (Platform.isWindows) {
       typeGroups = [
-        const XTypeGroup(
-          label: 'Scripts',
-          extensions: ['ps1', 'bat', 'cmd'],
-        ),
+        const XTypeGroup(label: 'Scripts', extensions: ['ps1', 'bat', 'cmd']),
       ];
     } else {
       typeGroups = [
-        const XTypeGroup(
-          label: 'Shell Scripts',
-          extensions: ['sh'],
-        ),
-        const XTypeGroup(
-          label: 'All Files',
-          extensions: ['*'],
-        ),
+        const XTypeGroup(label: 'Shell Scripts', extensions: ['sh']),
+        const XTypeGroup(label: 'All Files', extensions: ['*']),
       ];
     }
     final file = await openFile(acceptedTypeGroups: typeGroups);
@@ -1449,14 +1495,12 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       name: name,
       description: _descriptionController.text.trim(),
       scriptType: _scriptType,
-      scriptPath:
-          _scriptType == CronScriptType.script
-              ? _scriptPathController.text.trim()
-              : null,
-      scriptContent:
-          _scriptType == CronScriptType.command
-              ? _scriptContentController.text
-              : null,
+      scriptPath: _scriptType == CronScriptType.script
+          ? _scriptPathController.text.trim()
+          : null,
+      scriptContent: _scriptType == CronScriptType.command
+          ? _scriptContentController.text
+          : null,
       cronExpression: cronExpr,
       retryCount: retryCount.clamp(0, 10),
       timeoutSeconds: timeout.clamp(1, 3600),
@@ -1570,7 +1614,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
         : 'Notification test message for ${config.labelEn.toLowerCase()}.';
     final body = _nullIfEmpty(config.messageController.text) ?? defaultBody;
 
-    if (config.type == CronNotifyType.none || config.type == CronNotifyType.log) {
+    if (config.type == CronNotifyType.none ||
+        config.type == CronNotifyType.log) {
       await OpenHandNotificationService.showInApp(
         title: title,
         body: isZh
@@ -1631,7 +1676,8 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     TextEditingController messageController,
     String labelZh,
     String labelEn,
-  }) _resolveTestNotificationConfig(_NotificationTestScenario scenario) {
+  })
+  _resolveTestNotificationConfig(_NotificationTestScenario scenario) {
     return switch (scenario) {
       _NotificationTestScenario.success => (
         type: _onSuccessNotify,
@@ -1710,16 +1756,13 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 
   String _soundSupportTooltip(bool enabled) {
-    final state = enabled
-        ? (isZh ? '已开启' : 'On')
-        : (isZh ? '已关闭' : 'Off');
+    final state = enabled ? (isZh ? '已开启' : 'On') : (isZh ? '已关闭' : 'Off');
     final support = _supportsSoundAlert;
 
     if (support) {
-      final detail = (Platform.isMacOS || Platform.isLinux || Platform.isWindows)
-          ? (isZh
-              ? '支持（尽力触发系统声音）'
-              : 'Supported (best effort via system sound)')
+      final detail =
+          (Platform.isMacOS || Platform.isLinux || Platform.isWindows)
+          ? (isZh ? '支持（尽力触发系统声音）' : 'Supported (best effort via system sound)')
           : (isZh ? '支持' : 'Supported');
       return isZh
           ? '声音：$state\n平台：$_platformLabel\n状态：$detail'
@@ -1732,18 +1775,16 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
   }
 
   String _vibrationSupportTooltip(bool enabled) {
-    final state = enabled
-        ? (isZh ? '已开启' : 'On')
-        : (isZh ? '已关闭' : 'Off');
+    final state = enabled ? (isZh ? '已开启' : 'On') : (isZh ? '已关闭' : 'Off');
     final supported = OpenHandNotificationService.supportsVibration;
 
     return supported
         ? (isZh
-            ? '震动：$state\n平台：$_platformLabel\n状态：支持'
-            : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Supported')
+              ? '震动：$state\n平台：$_platformLabel\n状态：支持'
+              : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Supported')
         : (isZh
-            ? '震动：$state\n平台：$_platformLabel\n状态：不支持（开启后将自动忽略）'
-            : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Not supported (will be ignored)');
+              ? '震动：$state\n平台：$_platformLabel\n状态：不支持（开启后将自动忽略）'
+              : 'Vibration: $state\nPlatform: $_platformLabel\nSupport: Not supported (will be ignored)');
   }
 
   Widget _contextCollectTile({
@@ -1880,16 +1921,16 @@ class _CronHistoryDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
-    final controller = context.watch<CronsController>();
-    final history = controller.historyFor(entry.id);
+    final history = context.select<CronsController, List<CronExecutionRecord>>(
+      (controller) => controller.historyFor(entry.id),
+    );
+    final controller = context.read<CronsController>();
 
     return AlertDialog(
       title: Row(
         children: [
           Expanded(
-            child: Text(
-              isZh ? '定时任务执行历史' : 'Scheduled Task Execution History',
-            ),
+            child: Text(isZh ? '定时任务执行历史' : 'Scheduled Task Execution History'),
           ),
           if (history.isNotEmpty)
             Tooltip(
@@ -1917,10 +1958,7 @@ class _CronHistoryDialog extends StatelessWidget {
                 ),
               )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 itemCount: history.length,
                 itemBuilder: (context, index) {
                   final record = history[index];
@@ -1929,10 +1967,8 @@ class _CronHistoryDialog extends StatelessWidget {
                     child: Dismissible(
                       key: ValueKey(record.id),
                       direction: DismissDirection.endToStart,
-                      confirmDismiss: (_) => _confirmDeleteRecord(
-                        context,
-                        isZh,
-                      ),
+                      confirmDismiss: (_) =>
+                          _confirmDeleteRecord(context, isZh),
                       onDismissed: (_) {
                         controller.deleteHistoryRecord(entry.id, record.id);
                       },
@@ -2005,9 +2041,7 @@ class _CronHistoryDialog extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: Text(isZh ? '删除执行记录' : 'Delete Execution Record'),
-        content: Text(
-          isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?',
-        ),
+        content: Text(isZh ? '确定删除这条执行记录吗？' : 'Delete this execution record?'),
         actions: [
           OpenHandDialogActionButton.secondary(
             label: isZh ? '取消' : 'Cancel',
@@ -2048,10 +2082,8 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
   @override
   void initState() {
     super.initState();
-    final settings =
-        context.read<SettingsController>().dialogAnimationSettings;
-    final isNone =
-        settings.entranceStyle.name == 'none';
+    final settings = context.read<SettingsController>().dialogAnimationSettings;
+    final isNone = settings.entranceStyle.name == 'none';
     final duration = isNone
         ? Duration.zero
         : Duration(milliseconds: (settings.durationMs * 0.8).round());
@@ -2122,8 +2154,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
         : colorScheme.outlineVariant.withValues(alpha: 0.22);
 
     return AnimatedContainer(
-      duration:
-          _animController.duration ?? const Duration(milliseconds: 250),
+      duration: _animController.duration ?? const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: tileBackground,
@@ -2189,8 +2220,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                     const SizedBox(width: 8),
                     // Trigger type badge
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: record.triggerType == 'manual'
                             ? colorScheme.tertiaryContainer
@@ -2214,7 +2247,9 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       icon: Icon(
                         Icons.delete_outline_rounded,
                         size: 16,
-                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                       iconSize: 16,
                       visualDensity: VisualDensity.compact,
@@ -2229,7 +2264,8 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                     const SizedBox(width: 4),
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0.0,
-                      duration: _animController.duration ??
+                      duration:
+                          _animController.duration ??
                           const Duration(milliseconds: 250),
                       curve: Curves.easeOutCubic,
                       child: Icon(
@@ -2285,9 +2321,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           ],
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: accentColor.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2302,12 +2336,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           // PID
           if (record.pid != null)
-            _detailRow(
-              'PID',
-              '${record.pid}',
-              theme,
-              colorScheme,
-            ),
+            _detailRow('PID', '${record.pid}', theme, colorScheme),
           // Run-as user
           if (record.runAsUser != null)
             _detailRow(
@@ -2335,17 +2364,19 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               ),
             ),
             const SizedBox(height: 2),
-            ...record.environment.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    '${e.key}=${e.value}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+            ...record.environment.entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Text(
+                  '${e.key}=${e.value}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                )),
+                ),
+              ),
+            ),
           ],
           if (record.appContext.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -2368,7 +2399,8 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           // Error message
-          if (record.errorMessage != null && record.errorMessage!.isNotEmpty) ...[
+          if (record.errorMessage != null &&
+              record.errorMessage!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               isZh ? '错误原因:' : 'Error:',

@@ -41,7 +41,6 @@ class AiToolUtils {
     return const <String, Object?>{};
   }
 
-
   static String? requireAbsoluteFilePath(String rawPath) {
     final normalizedInput = rawPath.trim();
     if (normalizedInput.isEmpty || !p.isAbsolute(normalizedInput)) return null;
@@ -74,8 +73,14 @@ class AiToolUtils {
 
   static String htmlToText(String html) {
     final withoutScripts = html
-        .replaceAll(RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), ' ')
-        .replaceAll(RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), ' ');
+        .replaceAll(
+          RegExp(r'<script[\s\S]*?</script>', caseSensitive: false),
+          ' ',
+        )
+        .replaceAll(
+          RegExp(r'<style[\s\S]*?</style>', caseSensitive: false),
+          ' ',
+        );
     final withoutTags = withoutScripts.replaceAll(RegExp(r'<[^>]+>'), ' ');
     final withoutEntities = withoutTags
         .replaceAll('&nbsp;', ' ')
@@ -91,7 +96,8 @@ class AiToolUtils {
     final normalizedValue = value.replaceAll('\\', '/');
     final normalizedPattern = pattern.replaceAll('\\', '/');
     final regex = _globToRegExp(normalizedPattern);
-    return regex.hasMatch(normalizedValue) || regex.hasMatch('/$normalizedValue');
+    return regex.hasMatch(normalizedValue) ||
+        regex.hasMatch('/$normalizedValue');
   }
 
   static bool matchesAnyGlob(String value, List<String> patterns) {
@@ -116,8 +122,14 @@ class AiToolUtils {
         }
         continue;
       }
-      if (char == '?') { buffer.write('.'); continue; }
-      if (r'\\.^$+()[]{}|'.contains(char)) { buffer.write('\\$char'); continue; }
+      if (char == '?') {
+        buffer.write('.');
+        continue;
+      }
+      if (r'\\.^$+()[]{}|'.contains(char)) {
+        buffer.write('\\$char');
+        continue;
+      }
       buffer.write(char);
     }
     buffer.write(r'$');
@@ -133,13 +145,18 @@ class AiToolUtils {
     if (oldString.isEmpty) {
       return const ReplacementResult.failure('old_string must not be empty.');
     }
-    final matchCount = RegExp(RegExp.escape(oldString)).allMatches(content).length;
+    final matchCount = RegExp(
+      RegExp.escape(oldString),
+    ).allMatches(content).length;
     if (matchCount == 0) {
-      return const ReplacementResult.failure('old_string was not found in the file.');
+      return const ReplacementResult.failure(
+        'old_string was not found in the file.',
+      );
     }
     if (!replaceAll && matchCount > 1) {
       return const ReplacementResult.failure(
-          'old_string matched multiple locations. Provide more context or set replace_all.');
+        'old_string matched multiple locations. Provide more context or set replace_all.',
+      );
     }
     return ReplacementResult.success(
       replaceAll
@@ -216,7 +233,7 @@ class AiToolUtils {
         '$toolName requires reading the file with Read before mutating it: $filePath',
       );
     }
-    
+
     // 2026-04-12: 脏写检测 - 检查文件是否在读取后被外部修改
     if (fileTracker != null) {
       final dirtyWriteError = await fileTracker.validateSafeToWrite(filePath);
@@ -224,12 +241,12 @@ class AiToolUtils {
         return invalidResult(toolName, dirtyWriteError);
       }
     }
-    
+
     return null;
   }
 
   /// 在文件修改前保存历史版本
-  /// 
+  ///
   /// 2026-04-12: 实现 OpenCode 历史版本机制
   static Future<String?> saveFileVersionBeforeMutation({
     required String filePath,
@@ -246,7 +263,7 @@ class AiToolUtils {
   }
 
   /// 在文件修改后更新追踪器
-  /// 
+  ///
   /// 2026-04-12: 写入成功后更新 lastReadTime
   static Future<void> updateTrackerAfterMutation({
     required String filePath,
@@ -257,16 +274,21 @@ class AiToolUtils {
   }
 
   static Future<void> writeTextFileSafely(File file, String content) async {
-    final entityType = await FileSystemEntity.type(file.path, followLinks: false);
+    final entityType = await FileSystemEntity.type(
+      file.path,
+      followLinks: false,
+    );
     await file.parent.create(recursive: true);
     if (entityType == FileSystemEntityType.link) {
       await file.writeAsString(content, flush: true);
       return;
     }
-    final tempFile = File(p.join(
-      file.parent.path,
-      '.${p.basename(file.path)}.${DateTime.now().microsecondsSinceEpoch}.tmp',
-    ));
+    final tempFile = File(
+      p.join(
+        file.parent.path,
+        '.${p.basename(file.path)}.${DateTime.now().microsecondsSinceEpoch}.tmp',
+      ),
+    );
     final backupFile = File('${file.path}.bak');
     if (await tempFile.exists()) await tempFile.delete();
     await tempFile.writeAsString(content, flush: true);
@@ -290,17 +312,24 @@ class AiToolUtils {
     }
   }
 
-  static Future<void> _copyExistingFileMode(File sourceFile, File targetFile) async {
+  static Future<void> _copyExistingFileMode(
+    File sourceFile,
+    File targetFile,
+  ) async {
     if (Platform.isWindows) return;
     final sourceStat = await FileStat.stat(sourceFile.path);
     if (sourceStat.type == FileSystemEntityType.notFound) return;
     final permissionBits = sourceStat.mode & 0x1FF;
-    final chmodResult = await Process.run(
-        'chmod', <String>[permissionBits.toRadixString(8), targetFile.path]);
+    final chmodResult = await Process.run('chmod', <String>[
+      permissionBits.toRadixString(8),
+      targetFile.path,
+    ]);
     if (chmodResult.exitCode == 0) return;
     final message = '${chmodResult.stderr}'.trim();
     throw FileSystemException(
-      message.isEmpty ? 'Unable to preserve existing file permissions.' : message,
+      message.isEmpty
+          ? 'Unable to preserve existing file permissions.'
+          : message,
       targetFile.path,
     );
   }
@@ -340,18 +369,64 @@ class AiToolUtils {
 
   static bool isRasterImageExtension(String extension) {
     return const <String>{
-      '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.ico', '.tga'
+      '.png',
+      '.jpg',
+      '.jpeg',
+      '.gif',
+      '.webp',
+      '.bmp',
+      '.ico',
+      '.tga',
     }.contains(extension);
   }
 
   static bool isKnownTextExtension(String extension) {
     if (extension.isEmpty) return false;
     return const <String>{
-      '.txt', '.md', '.markdown', '.json', '.yaml', '.yml', '.toml', '.xml',
-      '.html', '.htm', '.css', '.scss', '.sass', '.js', '.jsx', '.ts', '.tsx',
-      '.dart', '.go', '.py', '.java', '.kt', '.kts', '.rb', '.rs', '.c',
-      '.cc', '.cpp', '.h', '.hpp', '.sh', '.zsh', '.bash', '.fish', '.sql',
-      '.csv', '.tsv', '.env', '.ini', '.cfg', '.conf', '.log', '.svg', '.vue',
+      '.txt',
+      '.md',
+      '.markdown',
+      '.json',
+      '.yaml',
+      '.yml',
+      '.toml',
+      '.xml',
+      '.html',
+      '.htm',
+      '.css',
+      '.scss',
+      '.sass',
+      '.js',
+      '.jsx',
+      '.ts',
+      '.tsx',
+      '.dart',
+      '.go',
+      '.py',
+      '.java',
+      '.kt',
+      '.kts',
+      '.rb',
+      '.rs',
+      '.c',
+      '.cc',
+      '.cpp',
+      '.h',
+      '.hpp',
+      '.sh',
+      '.zsh',
+      '.bash',
+      '.fish',
+      '.sql',
+      '.csv',
+      '.tsv',
+      '.env',
+      '.ini',
+      '.cfg',
+      '.conf',
+      '.log',
+      '.svg',
+      '.vue',
     }.contains(extension);
   }
 
@@ -366,10 +441,12 @@ class AiToolUtils {
   }) async {
     if (cancelSignal == null) return future;
     final sentinel = Object();
-    final firstResult = await Future.any(<Future<Object?>?>[
-      future,
-      cancelSignal.then<Object?>((_) => sentinel),
-    ].whereType<Future<Object?>>().toList());
+    final firstResult = await Future.any(
+      <Future<Object?>?>[
+        future,
+        cancelSignal.then<Object?>((_) => sentinel),
+      ].whereType<Future<Object?>>().toList(),
+    );
     if (identical(firstResult, sentinel)) {
       future.then<void>((_) {}, onError: (Object e, StackTrace st) {});
       return null;
@@ -405,7 +482,7 @@ class AiToolUtils {
     final String arch;
     final version = Platform.version.toLowerCase();
     final executable = Platform.resolvedExecutable.toLowerCase();
-    
+
     if (Platform.isMacOS) {
       // macOS: 通过可执行文件路径或 uname 推断
       // Apple Silicon 通常在 arm64 目录，Intel 在 x86_64
@@ -417,7 +494,8 @@ class AiToolUtils {
       }
     } else if (Platform.isWindows) {
       // Windows: 检查环境变量
-      final processorArch = Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '';
+      final processorArch =
+          Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '';
       if (processorArch.contains('ARM64')) {
         arch = 'arm64';
       } else {
@@ -477,38 +555,57 @@ class AiToolUtils {
       // macOS 打包后：MyApp.app/Contents/MacOS/MyApp
       // vendor 应该在：MyApp.app/Contents/Resources/vendor
       final appBundle = p.dirname(executableDir); // Contents
-      final resourcesDir = p.join(appBundle, 'Resources', 'vendor', 'ripgrep', platformDir, rgName);
+      final resourcesDir = p.join(
+        appBundle,
+        'Resources',
+        'vendor',
+        'ripgrep',
+        platformDir,
+        rgName,
+      );
       candidates.add(resourcesDir);
-      
+
       // 开发模式：直接使用项目目录
       // 项目结构：OpenHand/vendor/ripgrep/...
       // 可执行文件在：OpenHand/build/macos/Build/Products/Debug/openhand.app/...
       final projectRoot = _findProjectRoot(executableDir);
       if (projectRoot != null) {
-        candidates.add(p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName));
+        candidates.add(
+          p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
+        );
       }
     } else if (Platform.isWindows) {
       // Windows 打包后：安装目录/MyApp.exe
       // vendor 应该在：安装目录/vendor/ripgrep
-      candidates.add(p.join(executableDir, 'vendor', 'ripgrep', platformDir, rgName));
-      
+      candidates.add(
+        p.join(executableDir, 'vendor', 'ripgrep', platformDir, rgName),
+      );
+
       // 开发模式
       final projectRoot = _findProjectRoot(executableDir);
       if (projectRoot != null) {
-        candidates.add(p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName));
+        candidates.add(
+          p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
+        );
       }
     } else if (Platform.isLinux) {
       // Linux 类似 Windows
-      candidates.add(p.join(executableDir, 'vendor', 'ripgrep', platformDir, rgName));
-      
+      candidates.add(
+        p.join(executableDir, 'vendor', 'ripgrep', platformDir, rgName),
+      );
+
       final projectRoot = _findProjectRoot(executableDir);
       if (projectRoot != null) {
-        candidates.add(p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName));
+        candidates.add(
+          p.join(projectRoot, 'vendor', 'ripgrep', platformDir, rgName),
+        );
       }
     }
 
     // 添加当前工作目录作为最后备选（开发模式）
-    candidates.add(p.join(Directory.current.path, 'vendor', 'ripgrep', platformDir, rgName));
+    candidates.add(
+      p.join(Directory.current.path, 'vendor', 'ripgrep', platformDir, rgName),
+    );
 
     // 检查每个候选路径
     for (final candidate in candidates) {
@@ -581,7 +678,11 @@ class AiToolUtils {
       final whichCmd = Platform.isWindows ? 'where' : 'which';
       final whichResult = await Process.run(whichCmd, <String>['rg']);
       if (whichResult.exitCode == 0) {
-        final foundPath = whichResult.stdout.toString().trim().split('\n').first;
+        final foundPath = whichResult.stdout
+            .toString()
+            .trim()
+            .split('\n')
+            .first;
         if (foundPath.isNotEmpty && await File(foundPath).exists()) {
           _cachedRgPath = foundPath;
           return _cachedRgPath;
@@ -607,7 +708,9 @@ class AiToolUtils {
         final shellResult = await Process.run(
           '/bin/zsh',
           <String>['-l', '-c', 'which rg'],
-          environment: <String, String>{'HOME': Platform.environment['HOME'] ?? ''},
+          environment: <String, String>{
+            'HOME': Platform.environment['HOME'] ?? '',
+          },
         );
         if (shellResult.exitCode == 0) {
           final foundPath = shellResult.stdout.toString().trim();
@@ -652,7 +755,12 @@ class AiToolUtils {
         environment: inheritEnvironment ? Platform.environment : null,
       );
     } on ProcessException catch (error) {
-      return ProcessResult(0, 127, '', 'Process execution failed: ${error.message}');
+      return ProcessResult(
+        0,
+        127,
+        '',
+        'Process execution failed: ${error.message}',
+      );
     } on FileSystemException catch (error) {
       return ProcessResult(0, 126, '', 'File system error: ${error.message}');
     } catch (error) {
@@ -680,7 +788,7 @@ class AiToolUtils {
     required String targetPath,
     required bool requireWriteConfirmation,
     required Future<bool> Function(BashCommandApprovalRequest request)?
-        confirmWriteCommand,
+    confirmWriteCommand,
     Future<void>? cancelSignal,
   }) async {
     // 如果不需要写确认，直接通过
@@ -707,9 +815,7 @@ class AiToolUtils {
     late final _WriteConfirmationOutcome outcome;
     try {
       final approvalFuture = confirmWriteCommand(request)
-          .timeout(
-            const Duration(milliseconds: _writeConfirmationTimeoutMs),
-          )
+          .timeout(const Duration(milliseconds: _writeConfirmationTimeoutMs))
           .then<_WriteConfirmationOutcome>(
             (approved) => approved
                 ? const _WriteConfirmationOutcome.approved()
@@ -721,9 +827,7 @@ class AiToolUtils {
       } else {
         outcome = await Future.any<_WriteConfirmationOutcome>([
           approvalFuture,
-          cancelSignal.then(
-            (_) => const _WriteConfirmationOutcome.cancelled(),
-          ),
+          cancelSignal.then((_) => const _WriteConfirmationOutcome.cancelled()),
         ]);
       }
     } on TimeoutException {
@@ -782,14 +886,14 @@ class AiToolUtils {
 /// 2026-04-13 写确认结果内部类型。
 class _WriteConfirmationOutcome {
   const _WriteConfirmationOutcome.approved()
-      : approved = true,
-        cancelled = false;
+    : approved = true,
+      cancelled = false;
   const _WriteConfirmationOutcome.rejected()
-      : approved = false,
-        cancelled = false;
+    : approved = false,
+      cancelled = false;
   const _WriteConfirmationOutcome.cancelled()
-      : approved = false,
-        cancelled = true;
+    : approved = false,
+      cancelled = true;
 
   final bool approved;
   final bool cancelled;
@@ -797,11 +901,11 @@ class _WriteConfirmationOutcome {
 
 class ReplacementResult {
   const ReplacementResult.success(this.content)
-      : success = true,
-        errorMessage = '';
+    : success = true,
+      errorMessage = '';
   const ReplacementResult.failure(this.errorMessage)
-      : success = false,
-        content = '';
+    : success = false,
+      content = '';
 
   final bool success;
   final String content;

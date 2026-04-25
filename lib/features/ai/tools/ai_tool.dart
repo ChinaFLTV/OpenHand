@@ -46,7 +46,8 @@ abstract class AiTool {
 
   /// 用户发送新消息时工具的中断行为。
   /// 默认 [AiToolInterruptBehavior.block]（fail-closed，不丢弃进行中的操作）。
-  AiToolInterruptBehavior get interruptBehavior => AiToolInterruptBehavior.block;
+  AiToolInterruptBehavior get interruptBehavior =>
+      AiToolInterruptBehavior.block;
 
   /// 工具执行前的权限校验钩子。
   ///

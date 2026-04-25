@@ -73,10 +73,7 @@ abstract final class AppRuntimeContext {
     int maxEntries = 120,
     int maxValueChars = 512,
   }) {
-    final merged = <String, String>{
-      ...Platform.environment,
-      ...overrides,
-    };
+    final merged = <String, String>{...Platform.environment, ...overrides};
 
     final keys = merged.keys.toList()..sort();
     final result = <String, String>{};

@@ -17,8 +17,10 @@ class HooksView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final hooksController = context.watch<HooksController>();
-    final entries = hooksController.entries;
+    final entries = context.select<HooksController, List<HookEntry>>(
+      (controller) => controller.entries,
+    );
+    final hooksController = context.read<HooksController>();
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
 
     return Column(
@@ -32,10 +34,7 @@ class HooksView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Hooks',
-                    style: theme.textTheme.displaySmall,
-                  ),
+                  Text('Hooks', style: theme.textTheme.displaySmall),
                   const SizedBox(height: 8),
                   Text(
                     isZh
@@ -63,23 +62,26 @@ class HooksView extends StatelessWidget {
         else
           Expanded(
             child: ScrollConfiguration(
-              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+              behavior: ScrollConfiguration.of(
+                context,
+              ).copyWith(scrollbars: false),
               child: ListView.separated(
                 itemCount: entries.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
+                  final entry = entries[index];
                   return _HookEntryCard(
-                    entry: entries[index],
+                    key: ValueKey<String>('hook-entry-${entry.id}'),
+                    entry: entry,
                     isZh: isZh,
-                    onEdit: () =>
-                        _showHookEditorDialog(context, entries[index]),
+                    onEdit: () => _showHookEditorDialog(context, entry),
                     onToggle: (enabled) {
                       hooksController.toggleHookEnabled(
-                        entries[index].id,
+                        entry.id,
                         enabled: enabled,
                       );
                     },
-                    onDelete: () => _confirmDelete(context, entries[index]),
+                    onDelete: () => _confirmDelete(context, entry),
                   );
                 },
               ),
@@ -169,6 +171,7 @@ class _EmptyState extends StatelessWidget {
 
 class _HookEntryCard extends StatelessWidget {
   const _HookEntryCard({
+    super.key,
     required this.entry,
     required this.isZh,
     required this.onEdit,
@@ -260,10 +263,7 @@ class _HookEntryCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             // Toggle switch
-            Switch(
-              value: entry.enabled,
-              onChanged: onToggle,
-            ),
+            Switch(value: entry.enabled, onChanged: onToggle),
             const SizedBox(width: 8),
             // Actions
             IconButton(
@@ -331,18 +331,20 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final existing = widget.existing;
     _selectedEvent = existing?.event ?? HookEvent.sessionStart;
     _labelController = TextEditingController(text: existing?.label ?? '');
-    _scriptPathController =
-        TextEditingController(text: existing?.scriptPath ?? '');
-    _scriptContentController =
-        TextEditingController(text: existing?.scriptContent ?? '');
+    _scriptPathController = TextEditingController(
+      text: existing?.scriptPath ?? '',
+    );
+    _scriptContentController = TextEditingController(
+      text: existing?.scriptContent ?? '',
+    );
     _timeoutController = TextEditingController(
       text: '${existing?.timeoutSeconds ?? 12}',
     );
     _enabled = existing?.enabled ?? true;
     _scriptSource =
         (existing?.scriptPath != null && existing!.scriptPath!.isNotEmpty)
-            ? _HookScriptSource.file
-            : _HookScriptSource.inline;
+        ? _HookScriptSource.file
+        : _HookScriptSource.inline;
   }
 
   @override
@@ -364,9 +366,11 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final colorScheme = theme.colorScheme;
 
     return AlertDialog(
-      title: Text(_isEditing
-          ? (isZh ? '编辑 Hook' : 'Edit Hook')
-          : (isZh ? '新增 Hook' : 'New Hook')),
+      title: Text(
+        _isEditing
+            ? (isZh ? '编辑 Hook' : 'Edit Hook')
+            : (isZh ? '新增 Hook' : 'New Hook'),
+      ),
       content: SizedBox(
         width: 560,
         child: SingleChildScrollView(
@@ -461,13 +465,13 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 SelectableText(
                   isZh
                       ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
-                        '① 临时文件: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
-                        '② stdin 原始字节: jq -r .session_id\n'
-                        '包含 session_id、session_file_path、environment 等字段。'
+                            '① 临时文件: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
+                            '② stdin 原始字节: jq -r .session_id\n'
+                            '包含 session_id、session_file_path、environment 等字段。'
                       : 'Context JSON is passed in two safe ways (both work with jq):\n'
-                        '① Temp file: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
-                        '② Raw stdin: jq -r .session_id\n'
-                        'Fields: session_id, session_file_path, environment, etc.',
+                            '① Temp file: jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE"\n'
+                            '② Raw stdin: jq -r .session_id\n'
+                            'Fields: session_id, session_file_path, environment, etc.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -484,10 +488,16 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.all(12),
                     hintText: Platform.isWindows
-                        ? (isZh ? '输入 PowerShell / BAT 脚本' : 'Enter PowerShell / BAT script')
-                        : (isZh ? '输入 Shell 脚本（无需 #!/bin/bash）' : 'Enter shell script (#!/bin/bash not required)'),
+                        ? (isZh
+                              ? '输入 PowerShell / BAT 脚本'
+                              : 'Enter PowerShell / BAT script')
+                        : (isZh
+                              ? '输入 Shell 脚本（无需 #!/bin/bash）'
+                              : 'Enter shell script (#!/bin/bash not required)'),
                     hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
                       fontFamily: 'monospace',
                       fontSize: 13,
                     ),
@@ -497,13 +507,13 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 SelectableText(
                   isZh
                       ? '上下文 JSON 通过两种方式传入（均可安全用于 jq）：\n'
-                        '① 临时文件: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
-                        '② stdin 原始字节: SID=\$(jq -r .session_id)\n'
-                        '包含 session_id、session_file_path、environment、statistics 等字段。'
+                            '① 临时文件: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
+                            '② stdin 原始字节: SID=\$(jq -r .session_id)\n'
+                            '包含 session_id、session_file_path、environment、statistics 等字段。'
                       : 'Context JSON is passed in two safe ways (both work with jq):\n'
-                        '① Temp file: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
-                        '② Raw stdin: SID=\$(jq -r .session_id)\n'
-                        'Fields: session_id, session_file_path, environment, statistics, etc.',
+                            '① Temp file: SID=\$(jq -r .session_id "\$OPENHAND_HOOK_CONTEXT_FILE")\n'
+                            '② Raw stdin: SID=\$(jq -r .session_id)\n'
+                            'Fields: session_id, session_file_path, environment, statistics, etc.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
@@ -570,21 +580,12 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
     final List<XTypeGroup> typeGroups;
     if (Platform.isWindows) {
       typeGroups = [
-        const XTypeGroup(
-          label: 'Scripts',
-          extensions: ['ps1', 'bat', 'cmd'],
-        ),
+        const XTypeGroup(label: 'Scripts', extensions: ['ps1', 'bat', 'cmd']),
       ];
     } else {
       typeGroups = [
-        const XTypeGroup(
-          label: 'Shell Scripts',
-          extensions: ['sh'],
-        ),
-        const XTypeGroup(
-          label: 'All Files',
-          extensions: ['*'],
-        ),
+        const XTypeGroup(label: 'Shell Scripts', extensions: ['sh']),
+        const XTypeGroup(label: 'All Files', extensions: ['*']),
       ];
     }
     final file = await openFile(acceptedTypeGroups: typeGroups);

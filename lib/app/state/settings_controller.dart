@@ -37,7 +37,7 @@ class SettingsController extends ChangeNotifier {
        _memoryEnabled = snapshot.memoryEnabled,
        _userMemoryFilePath = snapshot.userMemoryFilePath,
        _editorWordWrap = snapshot.editorWordWrap,
-      _editorIndentSpaces = snapshot.editorIndentSpaces,
+       _editorIndentSpaces = snapshot.editorIndentSpaces,
        _editorCodeTheme = snapshot.editorCodeTheme,
        _editorLspSettings = _cloneEditorLspSettingsMap(
          snapshot.editorLspSettings,
@@ -72,6 +72,7 @@ class SettingsController extends ChangeNotifier {
        _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings),
        _dialogAnimationSettings = snapshot.dialogAnimationSettings,
        _menuAnimationSettings = snapshot.menuAnimationSettings,
+       _pageAnimationSettings = snapshot.pageAnimationSettings,
        _panelAnimationSettings = snapshot.panelAnimationSettings,
        _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
          snapshot.builtinToolConfigs,
@@ -85,7 +86,7 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _persistenceIssue = persistenceIssue;
 
-      static const int _maxRecentModelSelections = 10;
+  static const int _maxRecentModelSelections = 10;
   static const Uuid _uuid = Uuid();
 
   static Future<SettingsController> create({SettingsStore? store}) async {
@@ -131,6 +132,7 @@ class SettingsController extends ChangeNotifier {
   Map<OpenHandShortcutAction, List<int>> _shortcutBindings;
   DialogAnimationSettings _dialogAnimationSettings;
   DialogAnimationSettings _menuAnimationSettings;
+  DialogAnimationSettings _pageAnimationSettings;
   DialogAnimationSettings _panelAnimationSettings;
   List<AiBuiltinToolConfig> _builtinToolConfigs;
   bool _telemetryDebugEnabled;
@@ -225,6 +227,7 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings get dialogAnimationSettings =>
       _dialogAnimationSettings;
   DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
+  DialogAnimationSettings get pageAnimationSettings => _pageAnimationSettings;
   DialogAnimationSettings get panelAnimationSettings => _panelAnimationSettings;
   List<AiBuiltinToolConfig> get builtinToolConfigs =>
       List<AiBuiltinToolConfig>.unmodifiable(_builtinToolConfigs);
@@ -494,7 +497,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiConnectTimeoutSeconds(int value) async {
-    final normalizedValue = value < AppSettingsSnapshot.minAiConnectTimeoutSeconds
+    final normalizedValue =
+        value < AppSettingsSnapshot.minAiConnectTimeoutSeconds
         ? AppSettingsSnapshot.defaultAiConnectTimeoutSeconds
         : value.clamp(
             AppSettingsSnapshot.minAiConnectTimeoutSeconds,
@@ -938,6 +942,18 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updatePageAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_pageAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _pageAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updatePanelAnimationSettings(
     DialogAnimationSettings value,
   ) async {
@@ -1069,9 +1085,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> removeBuiltinToolConfig(AiBuiltinToolKind kind) async {
     return _commitMutation(() {
-      _builtinToolConfigs.removeWhere(
-        (c) => c.kind == kind && c.isCustom,
-      );
+      _builtinToolConfigs.removeWhere((c) => c.kind == kind && c.isCustom);
       return _MutationDisposition.apply;
     });
   }
@@ -1140,10 +1154,9 @@ class SettingsController extends ChangeNotifier {
       shortcutBindings: _cloneShortcutBindings(_shortcutBindings),
       dialogAnimationSettings: _dialogAnimationSettings,
       menuAnimationSettings: _menuAnimationSettings,
+      pageAnimationSettings: _pageAnimationSettings,
       panelAnimationSettings: _panelAnimationSettings,
-      builtinToolConfigs: List<AiBuiltinToolConfig>.from(
-        _builtinToolConfigs,
-      ),
+      builtinToolConfigs: List<AiBuiltinToolConfig>.from(_builtinToolConfigs),
       telemetryDebugEnabled: _telemetryDebugEnabled,
       telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
       telemetryCaptureEnvironment: _telemetryCaptureEnvironment,
@@ -1198,6 +1211,7 @@ class SettingsController extends ChangeNotifier {
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;
+    _pageAnimationSettings = snapshot.pageAnimationSettings;
     _panelAnimationSettings = snapshot.panelAnimationSettings;
     _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
       snapshot.builtinToolConfigs,

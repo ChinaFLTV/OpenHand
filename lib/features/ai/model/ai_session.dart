@@ -153,7 +153,6 @@ class AiSessionPlanRecord {
 }
 
 class AiSession {
-
   factory AiSession.fromJson(Map<String, Object?> json) {
     final sessionJson = _requireMap(json['session'], 'session');
     final messagesJson = _requireList(json['messages'], 'messages');
@@ -163,10 +162,14 @@ class AiSession {
     final environmentJson = _requireMap(json['environment'], 'environment');
     final statisticsJson = _requireMap(json['statistics'], 'statistics');
     final now = DateTime.now().toUtc();
-    final createdAt =
-        _parseDateTime(sessionJson['created_at'], fallback: () => now);
-    final updatedAt =
-        _parseDateTime(sessionJson['updated_at'], fallback: () => now);
+    final createdAt = _parseDateTime(
+      sessionJson['created_at'],
+      fallback: () => now,
+    );
+    final updatedAt = _parseDateTime(
+      sessionJson['updated_at'],
+      fallback: () => now,
+    );
     return AiSession(
       id: '${sessionJson['id'] ?? ''}',
       title: '${sessionJson['title'] ?? ''}',
@@ -200,16 +203,18 @@ class AiSession {
       isTitleManuallyEdited: sessionJson['is_title_manually_edited'] is bool
           ? sessionJson['is_title_manually_edited'] as bool
           : false,
-      autoTitleGeneratedAt:
-          _parseNullableDateTime(sessionJson['auto_title_generated_at']),
+      autoTitleGeneratedAt: _parseNullableDateTime(
+        sessionJson['auto_title_generated_at'],
+      ),
       autoTitleSourceMessageId: _readNullableString(
         sessionJson['auto_title_source_message_id'],
       ),
       latestCompressionCheckpointMessageId: _readNullableString(
         sessionJson['latest_compression_checkpoint_message_id'],
       ),
-      latestCompressionAt:
-          _parseNullableDateTime(sessionJson['latest_compression_at']),
+      latestCompressionAt: _parseNullableDateTime(
+        sessionJson['latest_compression_at'],
+      ),
       mode: AiSessionMode.fromStorage('${sessionJson['mode'] ?? 'chat'}'),
       awaitingPlanApproval: sessionJson['awaiting_plan_approval'] is bool
           ? sessionJson['awaiting_plan_approval'] as bool
@@ -562,7 +567,6 @@ class AiSession {
 }
 
 class AiSessionEnvironment {
-
   factory AiSessionEnvironment.fromJson(Map<String, Object?> json) {
     return AiSessionEnvironment(
       localeTag: '${json['locale_tag'] ?? ''}',
@@ -678,7 +682,6 @@ class AiSessionEnvironment {
 }
 
 class AiSessionStatistics {
-
   factory AiSessionStatistics.fromJson(Map<String, Object?> json) {
     return AiSessionStatistics(
       totalMessageCount: _readInt(json['total_message_count']),
@@ -932,11 +935,11 @@ class AiSessionStatistics {
 }
 
 class AiSessionErrorRecord {
-
   factory AiSessionErrorRecord.fromJson(Map<String, Object?> json) {
     return AiSessionErrorRecord(
       id: '${json['id'] ?? ''}',
-      createdAt: DateTime.tryParse('${json['created_at']}')?.toUtc() ??
+      createdAt:
+          DateTime.tryParse('${json['created_at']}')?.toUtc() ??
           DateTime.now().toUtc(),
       stage: '${json['stage'] ?? ''}',
       message: '${json['message'] ?? ''}',

@@ -114,18 +114,28 @@ class AiSkillManagerTool extends AiTool {
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
     if (category.isNotEmpty) {
       final categoryError = _validateCategory(category);
-      if (categoryError != null) return AiToolUtils.invalidResult(_toolName, categoryError);
+      if (categoryError != null) {
+        return AiToolUtils.invalidResult(_toolName, categoryError);
+      }
     }
     final sizeError = _validateContentSize(content);
-    if (sizeError != null) return AiToolUtils.invalidResult(_toolName, sizeError);
+    if (sizeError != null) {
+      return AiToolUtils.invalidResult(_toolName, sizeError);
+    }
     final frontmatterError = _validateFrontmatter(content);
-    if (frontmatterError != null) return AiToolUtils.invalidResult(_toolName, frontmatterError);
+    if (frontmatterError != null) {
+      return AiToolUtils.invalidResult(_toolName, frontmatterError);
+    }
 
     final collisionError = await _checkNameCollision(skillsRoot, name);
-    if (collisionError != null) return AiToolUtils.invalidResult(_toolName, collisionError);
+    if (collisionError != null) {
+      return AiToolUtils.invalidResult(_toolName, collisionError);
+    }
 
     final skillDir = _skillDir(skillsRoot, category, name);
     final skillFile = File(p.join(skillDir, 'SKILL.md'));
@@ -164,9 +174,13 @@ class AiSkillManagerTool extends AiTool {
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
     final sizeError = _validateContentSize(content);
-    if (sizeError != null) return AiToolUtils.invalidResult(_toolName, sizeError);
+    if (sizeError != null) {
+      return AiToolUtils.invalidResult(_toolName, sizeError);
+    }
     final frontmatterError = _validateFrontmatter(content);
     if (frontmatterError != null) {
       return AiToolUtils.invalidResult(_toolName, frontmatterError);
@@ -204,7 +218,9 @@ class AiSkillManagerTool extends AiTool {
   ) async {
     final name = '${args['name'] ?? ''}'.trim();
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
 
     final skillFile = await _locateSkillFile(skillsRoot, name);
     if (skillFile == null) {
@@ -261,7 +277,9 @@ class AiSkillManagerTool extends AiTool {
     final filePathArg = '${args['file_path'] ?? ''}'.trim();
 
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
     if (oldString.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
@@ -339,7 +357,9 @@ class AiSkillManagerTool extends AiTool {
 
     if (patchingSkillMd) {
       final sizeError = _validateContentSize(updated);
-      if (sizeError != null) return AiToolUtils.invalidResult(_toolName, sizeError);
+      if (sizeError != null) {
+        return AiToolUtils.invalidResult(_toolName, sizeError);
+      }
       final frontmatterError = _validateFrontmatter(updated);
       if (frontmatterError != null) {
         return AiToolUtils.invalidResult(
@@ -353,7 +373,8 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager patch $name',
-      output: 'Patched ${targetFile.path} ($occurrences replacement'
+      output:
+          'Patched ${targetFile.path} ($occurrences replacement'
           '${occurrences == 1 ? '' : 's'}).',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillDir,
@@ -378,7 +399,9 @@ class AiSkillManagerTool extends AiTool {
     final content = '${args['content'] ?? ''}';
 
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
     if (filePathArg.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
     }
@@ -437,7 +460,9 @@ class AiSkillManagerTool extends AiTool {
     final filePathArg = '${args['file_path'] ?? ''}'.trim();
 
     final nameError = _validateName(name);
-    if (nameError != null) return AiToolUtils.invalidResult(_toolName, nameError);
+    if (nameError != null) {
+      return AiToolUtils.invalidResult(_toolName, nameError);
+    }
     if (filePathArg.isEmpty) {
       return AiToolUtils.invalidResult(_toolName, 'file_path is required.');
     }
@@ -679,10 +704,12 @@ class AiSkillManagerTool extends AiTool {
   Future<void> _atomicWriteString(File file, String content) async {
     await file.parent.create(recursive: true);
     final random = Random().nextInt(1 << 32).toRadixString(16);
-    final temp = File(p.join(
-      file.parent.path,
-      '.tmp_${DateTime.now().microsecondsSinceEpoch}_$random',
-    ));
+    final temp = File(
+      p.join(
+        file.parent.path,
+        '.tmp_${DateTime.now().microsecondsSinceEpoch}_$random',
+      ),
+    );
     try {
       await temp.writeAsString(content, flush: true);
       await temp.rename(file.path);

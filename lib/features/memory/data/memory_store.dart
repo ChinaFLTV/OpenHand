@@ -41,10 +41,7 @@ class MemoryStore {
 
   Future<MemoryLoadResult> load() async {
     try {
-      final rows = await _db.query(
-        'memories',
-        orderBy: 'created_at DESC',
-      );
+      final rows = await _db.query('memories', orderBy: 'created_at DESC');
 
       final entries = <UserMemoryEntry>[];
       final seenIds = <String>{};
@@ -163,11 +160,7 @@ class MemoryStore {
 
   /// Deletes a single entry by id.
   Future<void> deleteEntry(String id) async {
-    await _db.delete(
-      'memories',
-      where: 'id = ?',
-      whereArgs: <Object?>[id],
-    );
+    await _db.delete('memories', where: 'id = ?', whereArgs: <Object?>[id]);
   }
 
   /// Updates a single entry.
@@ -203,10 +196,7 @@ class MemoryStore {
     }
     final entries = (await load()).entries;
     return entries
-        .where(
-          (entry) =>
-              entry.tags.any((t) => t.toLowerCase() == target),
-        )
+        .where((entry) => entry.tags.any((t) => t.toLowerCase() == target))
         .toList();
   }
 
@@ -238,7 +228,8 @@ class MemoryStore {
       if (existingRows.isEmpty) {
         entryId = UserMemoryEntry.userProfileEntryId;
       } else {
-        entryId = (existingRows.first['id'] as String?) ??
+        entryId =
+            (existingRows.first['id'] as String?) ??
             UserMemoryEntry.userProfileEntryId;
         if (existingRows.length > 1) {
           await txn.delete(

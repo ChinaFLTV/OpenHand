@@ -165,34 +165,45 @@ class CronEntry {
           ? json['enabled'] as bool
           : (json['enabled'] as num?)?.toInt() == 1,
       status: CronJobStatus.fromStorage('${json['status'] ?? ''}'),
-      onSuccessNotify:
-          CronNotifyType.fromStorage('${json['on_success_notify'] ?? ''}'),
-      onFailureNotify:
-          CronNotifyType.fromStorage('${json['on_failure_notify'] ?? ''}'),
-      onTimeoutNotify:
-          CronNotifyType.fromStorage('${json['on_timeout_notify'] ?? ''}'),
-        onSuccessSeverity: CronNotifySeverity.fromStorage(
+      onSuccessNotify: CronNotifyType.fromStorage(
+        '${json['on_success_notify'] ?? ''}',
+      ),
+      onFailureNotify: CronNotifyType.fromStorage(
+        '${json['on_failure_notify'] ?? ''}',
+      ),
+      onTimeoutNotify: CronNotifyType.fromStorage(
+        '${json['on_timeout_notify'] ?? ''}',
+      ),
+      onSuccessSeverity: CronNotifySeverity.fromStorage(
         '${json['on_success_severity'] ?? ''}',
         fallback: CronNotifySeverity.success,
-        ),
-        onFailureSeverity: CronNotifySeverity.fromStorage(
+      ),
+      onFailureSeverity: CronNotifySeverity.fromStorage(
         '${json['on_failure_severity'] ?? ''}',
         fallback: CronNotifySeverity.error,
-        ),
-        onTimeoutSeverity: CronNotifySeverity.fromStorage(
+      ),
+      onTimeoutSeverity: CronNotifySeverity.fromStorage(
         '${json['on_timeout_severity'] ?? ''}',
         fallback: CronNotifySeverity.warning,
-        ),
-        onSuccessPlaySound: _parseBool(json['on_success_play_sound']),
-        onFailurePlaySound:
-          _parseBool(json['on_failure_play_sound'], defaultValue: true),
-        onTimeoutPlaySound:
-          _parseBool(json['on_timeout_play_sound'], defaultValue: true),
-        onSuccessVibrate: _parseBool(json['on_success_vibrate']),
-        onFailureVibrate:
-          _parseBool(json['on_failure_vibrate'], defaultValue: true),
-        onTimeoutVibrate:
-          _parseBool(json['on_timeout_vibrate'], defaultValue: true),
+      ),
+      onSuccessPlaySound: _parseBool(json['on_success_play_sound']),
+      onFailurePlaySound: _parseBool(
+        json['on_failure_play_sound'],
+        defaultValue: true,
+      ),
+      onTimeoutPlaySound: _parseBool(
+        json['on_timeout_play_sound'],
+        defaultValue: true,
+      ),
+      onSuccessVibrate: _parseBool(json['on_success_vibrate']),
+      onFailureVibrate: _parseBool(
+        json['on_failure_vibrate'],
+        defaultValue: true,
+      ),
+      onTimeoutVibrate: _parseBool(
+        json['on_timeout_vibrate'],
+        defaultValue: true,
+      ),
       onSuccessMessage: _nullIfEmpty('${json['on_success_message'] ?? ''}'),
       onFailureMessage: _nullIfEmpty('${json['on_failure_message'] ?? ''}'),
       onTimeoutMessage: _nullIfEmpty('${json['on_timeout_message'] ?? ''}'),
@@ -214,8 +225,7 @@ class CronEntry {
       lastRunAt: _parseDateTime(json['last_run_at']),
       nextRunAt: _parseDateTime(json['next_run_at']),
       lastExitCode: (json['last_exit_code'] as num?)?.toInt(),
-      consecutiveFailures:
-          (json['consecutive_failures'] as num?)?.toInt() ?? 0,
+      consecutiveFailures: (json['consecutive_failures'] as num?)?.toInt() ?? 0,
       createdAt: _parseDateTime(json['created_at']),
       updatedAt: _parseDateTime(json['updated_at']),
     );
@@ -333,8 +343,9 @@ class CronEntry {
       description: description ?? this.description,
       scriptType: scriptType ?? this.scriptType,
       scriptPath: clearScriptPath ? null : (scriptPath ?? this.scriptPath),
-      scriptContent:
-          clearScriptContent ? null : (scriptContent ?? this.scriptContent),
+      scriptContent: clearScriptContent
+          ? null
+          : (scriptContent ?? this.scriptContent),
       cronExpression: cronExpression ?? this.cronExpression,
       retryCount: retryCount ?? this.retryCount,
       timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
@@ -368,8 +379,9 @@ class CronEntry {
       maxRetryDelaySeconds: maxRetryDelaySeconds ?? this.maxRetryDelaySeconds,
       lastRunAt: clearLastRunAt ? null : (lastRunAt ?? this.lastRunAt),
       nextRunAt: clearNextRunAt ? null : (nextRunAt ?? this.nextRunAt),
-      lastExitCode:
-          clearLastExitCode ? null : (lastExitCode ?? this.lastExitCode),
+      lastExitCode: clearLastExitCode
+          ? null
+          : (lastExitCode ?? this.lastExitCode),
       consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -451,8 +463,8 @@ class CronExecutionRecord {
     return CronExecutionRecord(
       id: '${json['id'] ?? ''}'.trim(),
       cronId: '${json['cron_id'] ?? ''}'.trim(),
-      startedAt: DateTime.tryParse('${json['started_at'] ?? ''}') ??
-          DateTime.now(),
+      startedAt:
+          DateTime.tryParse('${json['started_at'] ?? ''}') ?? DateTime.now(),
       finishedAt: _parseDateTime(json['finished_at']),
       status: '${json['status'] ?? 'unknown'}'.trim(),
       exitCode: (json['exit_code'] as num?)?.toInt(),
@@ -519,7 +531,9 @@ class CronExecutionRecord {
       'environment': environment.entries
           .map((e) => '${e.key}=${e.value}')
           .join('\n'),
-      'app_context': appContext.entries.map((e) => '${e.key}=${e.value}').join('\n'),
+      'app_context': appContext.entries
+          .map((e) => '${e.key}=${e.value}')
+          .join('\n'),
       'environment_snapshot': environmentSnapshot.entries
           .map((e) => '${e.key}=${e.value}')
           .join('\n'),

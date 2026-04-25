@@ -67,13 +67,7 @@ class CronParser {
     }
     const labels = ['minute', 'hour', 'day-of-month', 'month', 'day-of-week'];
     const zhLabels = ['分钟', '小时', '日', '月', '星期'];
-    const ranges = [
-      (0, 59),
-      (0, 23),
-      (1, 31),
-      (1, 12),
-      (0, 7),
-    ];
+    const ranges = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 7)];
     for (var i = 0; i < 5; i++) {
       final parsed = _parseField(fields[i], ranges[i].$1, ranges[i].$2);
       if (parsed == null) {
@@ -94,9 +88,7 @@ class CronParser {
       // Handle step: */n or range/n
       final stepParts = part.split('/');
       if (stepParts.length > 2) return null;
-      final step = stepParts.length == 2
-          ? int.tryParse(stepParts[1])
-          : null;
+      final step = stepParts.length == 2 ? int.tryParse(stepParts[1]) : null;
       if (stepParts.length == 2 && (step == null || step <= 0)) return null;
 
       final rangePart = stepParts[0];

@@ -46,10 +46,7 @@ class AskUserChoiceOption {
 ///
 /// A `null` response is treated as user dismissal / cancellation.
 class AskUserChoiceResponse {
-  const AskUserChoiceResponse({
-    required this.value,
-    required this.isCustom,
-  });
+  const AskUserChoiceResponse({required this.value, required this.isCustom});
 
   final String value;
   final bool isCustom;
@@ -61,9 +58,8 @@ class AskUserChoiceResponse {
 /// [AiAskUserChoiceTool.registerPresenter]. The tool calls this presenter
 /// whenever the model invokes the `AskUserChoice` tool, and awaits the
 /// user's choice (or cancellation).
-typedef AskUserChoicePresenter = Future<AskUserChoiceResponse?> Function(
-  AskUserChoiceRequest request,
-);
+typedef AskUserChoicePresenter =
+    Future<AskUserChoiceResponse?> Function(AskUserChoiceRequest request);
 
 /// A built-in AI tool that lets the model ask the user to pick one answer
 /// from a small, well-defined list of options — plus an optional free-form
@@ -144,11 +140,13 @@ class AiAskUserChoiceTool extends AiTool {
       final optDescription = entry['description'] is String
           ? (entry['description'] as String).trim()
           : null;
-      parsedOptions.add(AskUserChoiceOption(
-        value: value,
-        label: label,
-        description: optDescription?.isEmpty == true ? null : optDescription,
-      ));
+      parsedOptions.add(
+        AskUserChoiceOption(
+          value: value,
+          label: label,
+          description: optDescription?.isEmpty == true ? null : optDescription,
+        ),
+      );
     }
     final allowCustomInput = args['allow_custom_input'] is bool
         ? args['allow_custom_input'] as bool
@@ -171,16 +169,18 @@ class AiAskUserChoiceTool extends AiTool {
 
     AskUserChoiceResponse? response;
     try {
-      response = await presenter(AskUserChoiceRequest(
-        title: title,
-        description: (description?.isEmpty ?? true) ? null : description,
-        options: parsedOptions,
-        allowCustomInput: allowCustomInput,
-        confirmLabel: _optionalString(args['confirm_label']),
-        cancelLabel: _optionalString(args['cancel_label']),
-        customOptionLabel: _optionalString(args['custom_option_label']),
-        customInputHint: _optionalString(args['custom_input_hint']),
-      ));
+      response = await presenter(
+        AskUserChoiceRequest(
+          title: title,
+          description: (description?.isEmpty ?? true) ? null : description,
+          options: parsedOptions,
+          allowCustomInput: allowCustomInput,
+          confirmLabel: _optionalString(args['confirm_label']),
+          cancelLabel: _optionalString(args['cancel_label']),
+          customOptionLabel: _optionalString(args['custom_option_label']),
+          customInputHint: _optionalString(args['custom_input_hint']),
+        ),
+      );
     } on TimeoutException catch (error) {
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.timedOut,

@@ -22,7 +22,10 @@ class AiGlobTool extends AiTool {
     final rootPath = AiToolUtils.resolvePath('${args['path'] ?? ''}'.trim());
     final rootEntity = FileSystemEntity.typeSync(rootPath);
     if (rootEntity == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult('Glob', 'Path does not exist: $rootPath');
+      return AiToolUtils.invalidResult(
+        'Glob',
+        'Path does not exist: $rootPath',
+      );
     }
     // Safety limit to prevent memory exhaustion on broad patterns.
     const maxMatches = 1000;
@@ -35,8 +38,9 @@ class AiGlobTool extends AiTool {
         matches.add(filePath);
       }
     } else {
-      await for (final entity in Directory(rootPath)
-          .list(recursive: true, followLinks: false)) {
+      await for (final entity in Directory(
+        rootPath,
+      ).list(recursive: true, followLinks: false)) {
         final normalizedPath = p.normalize(entity.path);
         final relativePath = p
             .relative(normalizedPath, from: rootPath)
@@ -59,8 +63,10 @@ class AiGlobTool extends AiTool {
       }
     }
     matches.sort((left, right) {
-      final leftModified = fileStats[left] ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final rightModified = fileStats[right] ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final leftModified =
+          fileStats[left] ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final rightModified =
+          fileStats[right] ?? DateTime.fromMillisecondsSinceEpoch(0);
       final modifiedComparison = rightModified.compareTo(leftModified);
       if (modifiedComparison != 0) return modifiedComparison;
       return left.compareTo(right);

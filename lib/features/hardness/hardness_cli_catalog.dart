@@ -673,7 +673,10 @@ Future<({bool success, String message})> performCliLogout(
 ) async {
   final cli = entry.cli;
   if (!cli.hasLogoutTrigger) {
-    return (success: false, message: 'No logout method defined for ${cli.name}.');
+    return (
+      success: false,
+      message: 'No logout method defined for ${cli.name}.',
+    );
   }
   if (!entry.installed) {
     return (success: false, message: '${cli.name} is not installed.');
@@ -730,13 +733,13 @@ Future<({bool success, String message})> _performLocalStateLogout(
   }
 
   if (deletedFiles.isEmpty) {
-    return (success: true, message: 'No auth state files found (already logged out).');
+    return (
+      success: true,
+      message: 'No auth state files found (already logged out).',
+    );
   }
 
-  return (
-    success: true,
-    message: 'Removed: ${deletedFiles.join(', ')}',
-  );
+  return (success: true, message: 'Removed: ${deletedFiles.join(', ')}');
 }
 
 Future<({bool success, String message})> _performCommandLogout(
@@ -977,9 +980,9 @@ Future<String?> _tryLoginShellExec(String executable) async {
 ///   • Simple two-byte escapes  (ESC followed by a single char 0x40–0x5F)
 final RegExp _terminalEscapePattern = RegExp(
   r'\x1B(?:'
-  r'\[[0-?]*[ -/]*[@-~]'       // CSI: ESC [ params intermediates final
+  r'\[[0-?]*[ -/]*[@-~]' // CSI: ESC [ params intermediates final
   r'|\][^\x07\x1B]*(?:\x07|\x1B\\)' // OSC: ESC ] … BEL or ESC ] … ST
-  r'|[@-Z\\-_]'                 // Two-byte: ESC + single 0x40–0x5F char
+  r'|[@-Z\\-_]' // Two-byte: ESC + single 0x40–0x5F char
   r')',
 );
 

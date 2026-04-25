@@ -23,7 +23,9 @@ class AiNotebookEditTool extends AiTool {
     );
     if (notebookPath == null) {
       return AiToolUtils.invalidResult(
-          'NotebookEdit', 'NotebookEdit requires an absolute notebook_path.');
+        'NotebookEdit',
+        'NotebookEdit requires an absolute notebook_path.',
+      );
     }
     final newSource = '${args['new_source'] ?? ''}';
     final editMode = _normalizeEditMode('${args['edit_mode'] ?? 'replace'}');
@@ -32,17 +34,23 @@ class AiNotebookEditTool extends AiTool {
     final file = File(notebookPath);
     if (!await file.exists()) {
       return AiToolUtils.invalidResult(
-          'NotebookEdit', 'Notebook does not exist: $notebookPath');
+        'NotebookEdit',
+        'Notebook does not exist: $notebookPath',
+      );
     }
     if (editMode == null) {
-      return AiToolUtils.invalidResult('NotebookEdit',
-          'NotebookEdit edit_mode must be one of replace, insert, or delete.');
+      return AiToolUtils.invalidResult(
+        'NotebookEdit',
+        'NotebookEdit edit_mode must be one of replace, insert, or delete.',
+      );
     }
     if (cellType == null) {
-      return AiToolUtils.invalidResult('NotebookEdit',
-          'NotebookEdit cell_type must be code, markdown, or raw when provided.');
+      return AiToolUtils.invalidResult(
+        'NotebookEdit',
+        'NotebookEdit cell_type must be code, markdown, or raw when provided.',
+      );
     }
-    
+
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'NotebookEdit',
@@ -55,11 +63,13 @@ class AiNotebookEditTool extends AiTool {
     if (confirmationResult != null) {
       return confirmationResult;
     }
-    
+
     // 2026-04-12: 从 metadata 获取追踪服务
-    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
-    
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory =
+        context.metadata['file_history'] as AiFileHistoryService?;
+
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'NotebookEdit',
       filePath: notebookPath,
@@ -67,7 +77,7 @@ class AiNotebookEditTool extends AiTool {
       fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
-    
+
     // 2026-04-12: 保存历史版本
     final versionId = await AiToolUtils.saveFileVersionBeforeMutation(
       filePath: notebookPath,
@@ -75,7 +85,7 @@ class AiNotebookEditTool extends AiTool {
       toolCallId: context.toolCall.id,
       fileHistory: fileHistory,
     );
-    
+
     late final Object? decoded;
     try {
       decoded = jsonDecode(await file.readAsString());
@@ -84,18 +94,24 @@ class AiNotebookEditTool extends AiTool {
     }
     if (decoded is! Map) {
       return AiToolUtils.invalidResult(
-          'NotebookEdit', 'Notebook JSON root is invalid.');
+        'NotebookEdit',
+        'Notebook JSON root is invalid.',
+      );
     }
     final notebook = Map<String, Object?>.from(decoded);
     final rawCells = notebook['cells'];
     if (rawCells is! List) {
       return AiToolUtils.invalidResult(
-          'NotebookEdit', 'Notebook cells array is invalid.');
+        'NotebookEdit',
+        'Notebook cells array is invalid.',
+      );
     }
     final cells = rawCells
-        .map((item) => item is Map
-            ? Map<String, Object?>.from(item)
-            : <String, Object?>{})
+        .map(
+          (item) => item is Map
+              ? Map<String, Object?>.from(item)
+              : <String, Object?>{},
+        )
         .toList(growable: true);
     final index = cellId.isEmpty
         ? -1
@@ -104,7 +120,9 @@ class AiNotebookEditTool extends AiTool {
       case 'insert':
         if (cellType.isEmpty) {
           return AiToolUtils.invalidResult(
-              'NotebookEdit', 'NotebookEdit insert requires cell_type.');
+            'NotebookEdit',
+            'NotebookEdit insert requires cell_type.',
+          );
         }
         final insertedCell = <String, Object?>{
           'cell_type': cellType,
@@ -119,13 +137,17 @@ class AiNotebookEditTool extends AiTool {
       case 'delete':
         if (index == -1) {
           return AiToolUtils.invalidResult(
-              'NotebookEdit', 'Target cell_id was not found.');
+            'NotebookEdit',
+            'Target cell_id was not found.',
+          );
         }
         cells.removeAt(index);
       case 'replace':
         if (index == -1) {
           return AiToolUtils.invalidResult(
-              'NotebookEdit', 'Target cell_id was not found.');
+            'NotebookEdit',
+            'Target cell_id was not found.',
+          );
         }
         final updatedCell = Map<String, Object?>.from(cells[index]);
         if (cellType.isNotEmpty) updatedCell['cell_type'] = cellType;
@@ -137,13 +159,13 @@ class AiNotebookEditTool extends AiTool {
       file,
       const JsonEncoder.withIndent('  ').convert(notebook),
     );
-    
+
     // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
     await AiToolUtils.updateTrackerAfterMutation(
       filePath: notebookPath,
       fileTracker: fileTracker,
     );
-    
+
     return AiToolUtils.simpleSuccessResult(
       command: 'NotebookEdit $notebookPath',
       output: 'Updated notebook $notebookPath',

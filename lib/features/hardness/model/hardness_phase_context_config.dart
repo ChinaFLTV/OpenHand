@@ -57,7 +57,7 @@ class HardnessPhaseContextConfig {
 /// - implementing: full context except handoff (uses plan + feedback)
 /// - reviewing: architecture + conventions + plan (verifying implementation)
 const Map<HardnessPhase, HardnessPhaseContextConfig>
-    kHardnessPhaseContextConfigs = {
+kHardnessPhaseContextConfigs = {
   HardnessPhase.metaCollection: HardnessPhaseContextConfig(
     includeArchitecture: false,
     includeConventions: false,

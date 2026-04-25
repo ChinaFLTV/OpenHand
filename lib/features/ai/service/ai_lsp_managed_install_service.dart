@@ -429,8 +429,7 @@ abstract final class AiLspManagedInstallService {
             sdkPath: sdkPath,
           )
           ..addAll(<String>[
-            if (sdkPath.isNotEmpty)
-              'export GOROOT=${_quotePosix(sdkPath)}',
+            if (sdkPath.isNotEmpty) 'export GOROOT=${_quotePosix(sdkPath)}',
           ])
           ..add(r'mkdir -p "$ROOT/bin"')
           ..add(
@@ -1025,15 +1024,20 @@ abstract final class AiLspManagedInstallService {
   static String? _luaLsArchiveName() {
     if (Platform.isMacOS) {
       return switch (_currentArchitecture) {
-        'arm64' || 'aarch64' => 'lua-language-server-3.13.5-darwin-arm64.tar.gz',
-        'x64' || 'x86_64' || 'amd64' => 'lua-language-server-3.13.5-darwin-x64.tar.gz',
+        'arm64' ||
+        'aarch64' => 'lua-language-server-3.13.5-darwin-arm64.tar.gz',
+        'x64' ||
+        'x86_64' ||
+        'amd64' => 'lua-language-server-3.13.5-darwin-x64.tar.gz',
         _ => null,
       };
     }
     if (Platform.isLinux) {
       return switch (_currentArchitecture) {
         'arm64' || 'aarch64' => 'lua-language-server-3.13.5-linux-arm64.tar.gz',
-        'x64' || 'x86_64' || 'amd64' => 'lua-language-server-3.13.5-linux-x64.tar.gz',
+        'x64' ||
+        'x86_64' ||
+        'amd64' => 'lua-language-server-3.13.5-linux-x64.tar.gz',
         _ => null,
       };
     }

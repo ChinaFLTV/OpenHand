@@ -58,20 +58,20 @@ class _BuiltinToolTile extends StatelessWidget {
   ) {
     return switch (strategy) {
       AiBuiltinToolLoadStrategy.eager => _localizedText(
-          context,
-          zh: '立即',
-          en: 'Eager',
-        ),
+        context,
+        zh: '立即',
+        en: 'Eager',
+      ),
       AiBuiltinToolLoadStrategy.lazy => _localizedText(
-          context,
-          zh: '懒加载',
-          en: 'Lazy',
-        ),
+        context,
+        zh: '懒加载',
+        en: 'Lazy',
+      ),
       AiBuiltinToolLoadStrategy.deferred => _localizedText(
-          context,
-          zh: '缓加载',
-          en: 'Deferred',
-        ),
+        context,
+        zh: '缓加载',
+        en: 'Deferred',
+      ),
     };
   }
 
@@ -122,8 +122,9 @@ class _BuiltinToolTile extends StatelessWidget {
                           style: theme.textTheme.titleSmall?.copyWith(
                             color: config.enabled
                                 ? colorScheme.onSurface
-                                : colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.6),
+                                : colorScheme.onSurfaceVariant.withValues(
+                                    alpha: 0.6,
+                                  ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -141,11 +142,7 @@ class _BuiltinToolTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            _localizedText(
-                              context,
-                              zh: '自定义',
-                              en: 'Custom',
-                            ),
+                            _localizedText(context, zh: '自定义', en: 'Custom'),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.tertiary,
                             ),
@@ -159,8 +156,9 @@ class _BuiltinToolTile extends StatelessWidget {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.secondaryContainer
-                              .withValues(alpha: 0.6),
+                          color: colorScheme.secondaryContainer.withValues(
+                            alpha: 0.6,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -177,8 +175,9 @@ class _BuiltinToolTile extends StatelessWidget {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.6),
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.6,
+                          ),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -214,8 +213,9 @@ class _BuiltinToolTile extends StatelessWidget {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: colorScheme.primaryContainer
-                                    .withValues(alpha: 0.4),
+                                color: colorScheme.primaryContainer.withValues(
+                                  alpha: 0.4,
+                                ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -248,11 +248,7 @@ class _BuiltinToolTile extends StatelessWidget {
                 if (onMoveDown != null)
                   IconButton(
                     icon: const Icon(Icons.arrow_downward_rounded, size: 18),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '下移',
-                      en: 'Move Down',
-                    ),
+                    tooltip: _localizedText(context, zh: '下移', en: 'Move Down'),
                     onPressed: onMoveDown,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -263,7 +259,7 @@ class _BuiltinToolTile extends StatelessWidget {
                   onPressed: onEdit,
                   visualDensity: VisualDensity.compact,
                 ),
-                if (onDelete != null) ...[                  
+                if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   IconButton(
                     icon: Icon(
@@ -277,10 +273,7 @@ class _BuiltinToolTile extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(width: 8),
-                Switch(
-                  value: config.enabled,
-                  onChanged: onToggle,
-                ),
+                Switch(value: config.enabled, onChanged: onToggle),
               ],
             ),
           ],
@@ -395,12 +388,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       }
     }
     final priority = int.tryParse(_priorityController.text.trim()) ?? 100;
-    final maxOutputChars = int.tryParse(
-      _maxOutputCharsController.text.trim(),
-    );
-    final timeoutSeconds = int.tryParse(
-      _timeoutSecondsController.text.trim(),
-    );
+    final maxOutputChars = int.tryParse(_maxOutputCharsController.text.trim());
+    final timeoutSeconds = int.tryParse(_timeoutSecondsController.text.trim());
     final rawTags = _tagsController.text
         .split(',')
         .map((t) => t.trim())
@@ -612,33 +601,37 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                             ),
                             const SizedBox(width: 14),
                             Expanded(
-                              child: DropdownButtonFormField<
-                                AiBuiltinToolLoadStrategy
-                              >(
-                                initialValue: _loadStrategy,
-                                decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    context,
-                                    zh: '加载策略',
-                                    en: 'Load Strategy',
-                                  ),
-                                ),
-                                items: AiBuiltinToolLoadStrategy.values
-                                    .map(
-                                      (s) => DropdownMenuItem(
-                                        value: s,
-                                        child: Text(
-                                          _loadStrategyLabelStatic(context, s),
-                                        ),
+                              child:
+                                  DropdownButtonFormField<
+                                    AiBuiltinToolLoadStrategy
+                                  >(
+                                    initialValue: _loadStrategy,
+                                    decoration: InputDecoration(
+                                      labelText: _localizedText(
+                                        context,
+                                        zh: '加载策略',
+                                        en: 'Load Strategy',
                                       ),
-                                    )
-                                    .toList(growable: false),
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() => _loadStrategy = value);
-                                  }
-                                },
-                              ),
+                                    ),
+                                    items: AiBuiltinToolLoadStrategy.values
+                                        .map(
+                                          (s) => DropdownMenuItem(
+                                            value: s,
+                                            child: Text(
+                                              _loadStrategyLabelStatic(
+                                                context,
+                                                s,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                    onChanged: (value) {
+                                      if (value != null) {
+                                        setState(() => _loadStrategy = value);
+                                      }
+                                    },
+                                  ),
                             ),
                           ],
                         ),
@@ -792,7 +785,8 @@ class _RequireConfirmationField extends StatelessWidget {
           _localizedText(
             context,
             zh: '是否在执行前弹窗让用户确认。选"默认"时使用工具自身的行为。',
-            en: 'Whether to prompt user confirmation before execution. '
+            en:
+                'Whether to prompt user confirmation before execution. '
                 '"Default" uses the tool\'s built-in behavior.',
           ),
           style: theme.textTheme.bodySmall?.copyWith(

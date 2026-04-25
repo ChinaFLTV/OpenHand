@@ -919,9 +919,7 @@ class SkillsRepository {
   }
 
   Future<void> _copyDirectory(Directory source, Directory target) async {
-    await for (final entity in source.list(
-      followLinks: false,
-    )) {
+    await for (final entity in source.list(followLinks: false)) {
       final targetPath = p.join(
         target.path,
         OpenHandPaths.basename(entity.path),

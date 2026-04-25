@@ -3,13 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-enum OpenHandNotificationLevel {
-  info,
-  success,
-  warning,
-  error,
-  critical,
-}
+enum OpenHandNotificationLevel { info, success, warning, error, critical }
 
 abstract final class OpenHandNotificationService {
   static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
@@ -31,30 +25,30 @@ abstract final class OpenHandNotificationService {
     final colorScheme = Theme.of(context).colorScheme;
     final (icon, backgroundColor, foregroundColor) = switch (level) {
       OpenHandNotificationLevel.info => (
-          Icons.info_outline_rounded,
-          colorScheme.secondaryContainer,
-          colorScheme.onSecondaryContainer,
-        ),
+        Icons.info_outline_rounded,
+        colorScheme.secondaryContainer,
+        colorScheme.onSecondaryContainer,
+      ),
       OpenHandNotificationLevel.success => (
-          Icons.check_circle_outline_rounded,
-          colorScheme.primaryContainer,
-          colorScheme.onPrimaryContainer,
-        ),
+        Icons.check_circle_outline_rounded,
+        colorScheme.primaryContainer,
+        colorScheme.onPrimaryContainer,
+      ),
       OpenHandNotificationLevel.warning => (
-          Icons.warning_amber_rounded,
-          colorScheme.tertiaryContainer,
-          colorScheme.onTertiaryContainer,
-        ),
+        Icons.warning_amber_rounded,
+        colorScheme.tertiaryContainer,
+        colorScheme.onTertiaryContainer,
+      ),
       OpenHandNotificationLevel.error => (
-          Icons.error_outline_rounded,
-          colorScheme.errorContainer,
-          colorScheme.onErrorContainer,
-        ),
+        Icons.error_outline_rounded,
+        colorScheme.errorContainer,
+        colorScheme.onErrorContainer,
+      ),
       OpenHandNotificationLevel.critical => (
-          Icons.dangerous_rounded,
-          colorScheme.error,
-          colorScheme.onError,
-        ),
+        Icons.dangerous_rounded,
+        colorScheme.error,
+        colorScheme.onError,
+      ),
     };
 
     final text = body.trim().isEmpty ? title : '$title\n$body';
@@ -145,7 +139,12 @@ abstract final class OpenHandNotificationService {
         OpenHandNotificationLevel.warning => 'normal',
         _ => 'low',
       };
-      final result = await Process.run('notify-send', ['-u', urgency, title, body]);
+      final result = await Process.run('notify-send', [
+        '-u',
+        urgency,
+        title,
+        body,
+      ]);
       return result.exitCode == 0;
     } catch (_) {
       return false;
@@ -159,7 +158,8 @@ abstract final class OpenHandNotificationService {
     final safeTitle = _escapeForSingleQuotedPowerShell(title);
     final safeBody = _escapeForSingleQuotedPowerShell(body);
 
-    final script = r'''
+    final script =
+        r'''
 $ErrorActionPreference = 'Stop'
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
@@ -180,8 +180,8 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('OpenHand')
 $notifier.Show($toast)
 '''
-        .replaceAll('TITLE_VALUE', safeTitle)
-        .replaceAll('BODY_VALUE', safeBody);
+            .replaceAll('TITLE_VALUE', safeTitle)
+            .replaceAll('BODY_VALUE', safeBody);
 
     try {
       final result = await Process.run('powershell', [
@@ -281,9 +281,7 @@ $notifier.Show($toast)
     return false;
   }
 
-  static Future<bool> _playSoundWindows(
-    OpenHandNotificationLevel level,
-  ) async {
+  static Future<bool> _playSoundWindows(OpenHandNotificationLevel level) async {
     final command = switch (level) {
       OpenHandNotificationLevel.success =>
         '[System.Media.SystemSounds]::Asterisk.Play()',

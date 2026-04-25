@@ -51,12 +51,14 @@ Future<(String, String)?> showModelSearchSelector({
       continue;
     }
     for (final modelId in allIds) {
-      entries.add(ModelEntry(
-        configId: config.id,
-        modelId: modelId,
-        providerLabel: config.providerLabel,
-        protocolLabel: config.protocolType.storageValue,
-      ));
+      entries.add(
+        ModelEntry(
+          configId: config.id,
+          modelId: modelId,
+          providerLabel: config.providerLabel,
+          protocolLabel: config.protocolType.storageValue,
+        ),
+      );
     }
   }
 
@@ -154,11 +156,13 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
     final recentFiltered = isSearching
         ? const <ModelEntry>[]
         : widget.recentEntries
-              .where((entry) => _filtered.any(
-                    (item) =>
-                        item.configId == entry.configId &&
-                        item.modelId == entry.modelId,
-                  ))
+              .where(
+                (entry) => _filtered.any(
+                  (item) =>
+                      item.configId == entry.configId &&
+                      item.modelId == entry.modelId,
+                ),
+              )
               .toList(growable: false);
     final hasAnyModels = widget.entries.isNotEmpty;
 
@@ -204,8 +208,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                   // Select the first filtered result on Enter.
                   if (_filtered.isNotEmpty) {
                     final first = _filtered.first;
-                    Navigator.of(context)
-                        .pop((first.configId, first.modelId));
+                    Navigator.of(context).pop((first.configId, first.modelId));
                   }
                 },
               ),
@@ -274,15 +277,18 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                                   entry.configId == widget.selectedConfigId &&
                                   entry.modelId == widget.selectedModelId,
                               onTap: () {
-                                Navigator.of(context)
-                                    .pop((entry.configId, entry.modelId));
+                                Navigator.of(
+                                  context,
+                                ).pop((entry.configId, entry.modelId));
                               },
                             ),
                           const SizedBox(height: 4),
                         ],
-                        for (var groupIndex = 0;
-                            groupIndex < grouped.length;
-                            groupIndex++) ...[
+                        for (
+                          var groupIndex = 0;
+                          groupIndex < grouped.length;
+                          groupIndex++
+                        ) ...[
                           Builder(
                             builder: (context) {
                               final groupKey = grouped.keys.elementAt(
@@ -305,8 +311,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                                       groupKey,
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
-                                            color:
-                                                colorScheme.onSurfaceVariant,
+                                            color: colorScheme.onSurfaceVariant,
                                             fontWeight: FontWeight.w600,
                                           ),
                                     ),
@@ -321,10 +326,9 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                                           entry.modelId ==
                                               widget.selectedModelId,
                                       onTap: () {
-                                        Navigator.of(context).pop((
-                                          entry.configId,
-                                          entry.modelId,
-                                        ));
+                                        Navigator.of(
+                                          context,
+                                        ).pop((entry.configId, entry.modelId));
                                       },
                                     ),
                                 ],

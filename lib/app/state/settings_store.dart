@@ -168,7 +168,8 @@ class SettingsStore {
       'ai_stream_idle_timeout_seconds': snapshot.aiStreamIdleTimeoutSeconds,
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
-      'ai_default_full_access_permission': snapshot.aiDefaultFullAccessPermission,
+      'ai_default_full_access_permission':
+          snapshot.aiDefaultFullAccessPermission,
       'selected_ai_model_id': snapshot.selectedAiModelId ?? '',
       'recent_model_selections': snapshot.recentModelSelections
           .map((item) => item.toJson())
@@ -181,6 +182,7 @@ class SettingsStore {
       },
       'dialog_animation_settings': snapshot.dialogAnimationSettings.toJson(),
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
+      'page_animation_settings': snapshot.pageAnimationSettings.toJson(),
       'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
       'builtin_tool_configs': snapshot.builtinToolConfigs
           .map((item) => item.toJson())
@@ -286,7 +288,8 @@ class SettingsStore {
         ? json['ai_sequential_tool_round_limit'] as int
         : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
-    final aiImageSizeLimitBytes = (rawImageSizeLimit is int && rawImageSizeLimit > 0)
+    final aiImageSizeLimitBytes =
+        (rawImageSizeLimit is int && rawImageSizeLimit > 0)
         ? rawImageSizeLimit.clamp(
             AppSettingsSnapshot.minAiImageSizeLimitBytes,
             AppSettingsSnapshot.maxAiImageSizeLimitBytes,
@@ -360,10 +363,11 @@ class SettingsStore {
     final aiAutoTitleEnabled = json['ai_auto_title_enabled'] is bool
         ? json['ai_auto_title_enabled'] as bool
         : true;
-    final rawDefaultSessionMode =
-        '${json['ai_default_session_mode'] ?? ''}'.trim();
-    final aiDefaultSessionMode =
-        rawDefaultSessionMode == 'plan' ? 'plan' : 'chat';
+    final rawDefaultSessionMode = '${json['ai_default_session_mode'] ?? ''}'
+        .trim();
+    final aiDefaultSessionMode = rawDefaultSessionMode == 'plan'
+        ? 'plan'
+        : 'chat';
     final aiDefaultFullAccessPermission =
         json['ai_default_full_access_permission'] is bool
         ? json['ai_default_full_access_permission'] as bool
@@ -445,10 +449,72 @@ class SettingsStore {
     if (rawMenuAnim is Map<String, dynamic>) {
       menuAnimationSettings = DialogAnimationSettings.fromJson(rawMenuAnim);
     }
+    final rawPageAnim = json['page_animation_settings'];
+    const pageAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.fade,
+      exitStyle: DialogAnimationStyle.fade,
+      durationMs: 800,
+      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+    );
+    var pageAnimationSettings = pageAnimationDefault;
+    if (rawPageAnim is Map<String, dynamic>) {
+      pageAnimationSettings = DialogAnimationSettings.fromJson(rawPageAnim);
+      // Auto-repair legacy / under-tuned persisted snapshots so the page
+      // transition is actually perceptible. Only triggers on the exact
+      // historical default tuples below — anything the user explicitly
+      // customized (any field differs) is left untouched.
+      //
+      // Case 1: both styles `none` → user effectively sees instant cut.
+      // Case 2: original v1 default fade/fade/240ms/easeOutCubic — too
+      //         subtle on similar Material layouts.
+      // Case 3: previous migration target fade/fade/420ms/
+      //         easeInOutCubicEmphasized — emphasized curve front-loads the
+      //         flat portion, making 420ms still hard to see; bump to 800ms.
+      final isAllNone =
+          pageAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
+          pageAnimationSettings.exitStyle == DialogAnimationStyle.none;
+      final isLegacyDefaultV1 =
+          pageAnimationSettings.entranceStyle == DialogAnimationStyle.fade &&
+          pageAnimationSettings.exitStyle == DialogAnimationStyle.fade &&
+          pageAnimationSettings.durationMs == 240 &&
+          pageAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      final isLegacyDefaultV2 =
+          pageAnimationSettings.entranceStyle == DialogAnimationStyle.fade &&
+          pageAnimationSettings.exitStyle == DialogAnimationStyle.fade &&
+          pageAnimationSettings.durationMs == 420 &&
+          pageAnimationSettings.curve ==
+              DialogAnimationCurve.easeInOutCubicEmphasized;
+      if (isAllNone || isLegacyDefaultV1 || isLegacyDefaultV2) {
+        pageAnimationSettings = pageAnimationDefault;
+      }
+    }
     final rawPanelAnim = json['panel_animation_settings'];
-    var panelAnimationSettings = const DialogAnimationSettings();
+    const panelAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.fade,
+      exitStyle: DialogAnimationStyle.fade,
+      durationMs: 600,
+      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+    );
+    var panelAnimationSettings = panelAnimationDefault;
     if (rawPanelAnim is Map<String, dynamic>) {
       panelAnimationSettings = DialogAnimationSettings.fromJson(rawPanelAnim);
+      // Repair the legacy/unset panel default (fadeScale/fadeScale/320ms/
+      // easeOutCubic, produced by `const DialogAnimationSettings()`) so the
+      // workspace left/right panel switches share the new emphasized fade
+      // identity. Same protection: only triggers on the exact legacy tuple.
+      // Also auto-recover from both-styles=`none`.
+      final isAllNonePanel =
+          panelAnimationSettings.entranceStyle == DialogAnimationStyle.none &&
+          panelAnimationSettings.exitStyle == DialogAnimationStyle.none;
+      final isLegacyPanelDefault =
+          panelAnimationSettings.entranceStyle ==
+              DialogAnimationStyle.fadeScale &&
+          panelAnimationSettings.exitStyle == DialogAnimationStyle.fadeScale &&
+          panelAnimationSettings.durationMs == 320 &&
+          panelAnimationSettings.curve == DialogAnimationCurve.easeOutCubic;
+      if (isAllNonePanel || isLegacyPanelDefault) {
+        panelAnimationSettings = panelAnimationDefault;
+      }
     }
 
     // Builtin tool configs.
@@ -483,20 +549,20 @@ class SettingsStore {
         : false;
     final telemetryCaptureRawPayload =
         json['telemetry_capture_raw_payload'] is bool
-            ? json['telemetry_capture_raw_payload'] as bool
-            : true;
+        ? json['telemetry_capture_raw_payload'] as bool
+        : true;
     final telemetryCaptureEnvironment =
         json['telemetry_capture_environment'] is bool
-            ? json['telemetry_capture_environment'] as bool
-            : false;
+        ? json['telemetry_capture_environment'] as bool
+        : false;
     final rawTelemetryMaxPayload = json['telemetry_max_payload_chars'];
     final telemetryMaxPayloadChars =
         (rawTelemetryMaxPayload is int && rawTelemetryMaxPayload > 0)
-            ? rawTelemetryMaxPayload.clamp(
-                AppSettingsSnapshot.minTelemetryMaxPayloadChars,
-                AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
-              )
-            : AppSettingsSnapshot.defaultTelemetryMaxPayloadChars;
+        ? rawTelemetryMaxPayload.clamp(
+            AppSettingsSnapshot.minTelemetryMaxPayloadChars,
+            AppSettingsSnapshot.maxTelemetryMaxPayloadChars,
+          )
+        : AppSettingsSnapshot.defaultTelemetryMaxPayloadChars;
 
     final selfLearningEnabled = json['self_learning_enabled'] is bool
         ? json['self_learning_enabled'] as bool
@@ -504,11 +570,11 @@ class SettingsStore {
     final rawSelfLearningConcurrency = json['self_learning_concurrency'];
     final selfLearningConcurrency =
         (rawSelfLearningConcurrency is int && rawSelfLearningConcurrency > 0)
-            ? rawSelfLearningConcurrency.clamp(
-                AppSettingsSnapshot.minSelfLearningConcurrency,
-                AppSettingsSnapshot.maxSelfLearningConcurrency,
-              )
-            : AppSettingsSnapshot.defaultSelfLearningConcurrency;
+        ? rawSelfLearningConcurrency.clamp(
+            AppSettingsSnapshot.minSelfLearningConcurrency,
+            AppSettingsSnapshot.maxSelfLearningConcurrency,
+          )
+        : AppSettingsSnapshot.defaultSelfLearningConcurrency;
 
     final showSelfLearningMessages = json['show_self_learning_messages'] is bool
         ? json['show_self_learning_messages'] as bool
@@ -547,6 +613,7 @@ class SettingsStore {
       shortcutBindings: shortcutBindings,
       dialogAnimationSettings: dialogAnimationSettings,
       menuAnimationSettings: menuAnimationSettings,
+      pageAnimationSettings: pageAnimationSettings,
       panelAnimationSettings: panelAnimationSettings,
       builtinToolConfigs: builtinToolConfigs,
       telemetryDebugEnabled: telemetryDebugEnabled,

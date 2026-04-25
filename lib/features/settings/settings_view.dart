@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,21 @@ part '_settings_helper_widgets.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
+
+enum _SettingsSection {
+  header,
+  persistenceIssue,
+  general,
+  shortcuts,
+  ai,
+  builtinTools,
+  mcp,
+  skills,
+  memory,
+  hermesTalker,
+  editor,
+  about,
+}
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -138,7 +154,6 @@ class _SettingsViewState extends State<SettingsView> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final settingsController = context.watch<SettingsController>();
     final appInfo = context.read<AppInfo>();
 
@@ -176,8 +191,7 @@ class _SettingsViewState extends State<SettingsView> {
         _imageSizeLimitController.text != imageSizeLimitText) {
       _imageSizeLimitController.text = imageSizeLimitText;
     }
-    final connectTimeoutText =
-        '${settingsController.aiConnectTimeoutSeconds}';
+    final connectTimeoutText = '${settingsController.aiConnectTimeoutSeconds}';
     if (!_connectTimeoutFocusNode.hasFocus &&
         _connectTimeoutController.text != connectTimeoutText) {
       _connectTimeoutController.text = connectTimeoutText;
@@ -195,272 +209,294 @@ class _SettingsViewState extends State<SettingsView> {
       _streamIdleTimeoutController.text = streamIdleTimeoutText;
     }
 
+    final sections = <_SettingsSection>[
+      _SettingsSection.header,
+      if (settingsController.persistenceIssue != null)
+        _SettingsSection.persistenceIssue,
+      _SettingsSection.general,
+      _SettingsSection.shortcuts,
+      _SettingsSection.ai,
+      _SettingsSection.builtinTools,
+      _SettingsSection.mcp,
+      _SettingsSection.skills,
+      _SettingsSection.memory,
+      _SettingsSection.hermesTalker,
+      _SettingsSection.editor,
+      _SettingsSection.about,
+    ];
+
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-      child: SingleChildScrollView(
+      child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _PaneHeader(
-              title: l10n.settingsTitle,
-              subtitle: l10n.settingsSubtitle,
-            ),
-            if (settingsController.persistenceIssue != null) ...[
-              const SizedBox(height: 18),
-              _SettingsPersistenceIssueCard(
-                issue: settingsController.persistenceIssue!,
-                onDismiss: settingsController.clearPersistenceIssue,
-              ),
-            ],
-            const SizedBox(height: 24),
-            _SettingsGroupCard(
-              title: l10n.settingsCategoryGeneral,
-              description: l10n.settingsGeneralSubtitle,
-              children: [
-                _ResponsiveSettingRow(
-                  title: l10n.themeSectionTitle,
-                  subtitle: l10n.themeSectionBody,
-                  controlMaxWidth: 440,
-                  control: SizedBox(
-                    width: double.infinity,
-                    child: SegmentedButton<ThemeMode>(
-                      segments: [
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.system,
-                          icon: const Icon(Icons.contrast_outlined),
-                          label: Text(l10n.themeSystem, softWrap: false),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.light,
-                          icon: const Icon(Icons.light_mode_outlined),
-                          label: Text(l10n.themeLight, softWrap: false),
-                        ),
-                        ButtonSegment<ThemeMode>(
-                          value: ThemeMode.dark,
-                          icon: const Icon(Icons.dark_mode_outlined),
-                          label: Text(l10n.themeDark, softWrap: false),
-                        ),
-                      ],
-                      selected: <ThemeMode>{settingsController.themeMode},
-                      onSelectionChanged: (selection) async {
-                        if (selection.isEmpty) {
-                          return;
-                        }
-                        final saved = await settingsController.updateThemeMode(
-                          selection.first,
-                        );
-                        if (!context.mounted || saved) {
-                          return;
-                        }
-                        _showPersistenceFailureSnackBar(context);
-                      },
-                    ),
-                  ),
-                ),
-                _ResponsiveSettingRow(
-                  title: l10n.themePaletteSectionTitle,
-                  subtitle: l10n.themePaletteSectionBody,
-                  controlMaxWidth: 440,
-                  control: SizedBox(
-                    width: double.infinity,
-                    child: DropdownButtonFormField<OpenHandThemePreset>(
-                      initialValue: settingsController.themePreset,
-                      decoration: InputDecoration(
-                        prefixIcon: Padding(
-                          padding: const EdgeInsetsDirectional.only(
-                            start: 12,
-                            end: 8,
-                          ),
-                          child: _ThemePresetSwatch(
-                            color: settingsController.themePreset.seedColor,
-                          ),
-                        ),
-                      ),
-                      items: OpenHandThemePreset.values
-                          .map(
-                            (preset) => DropdownMenuItem<OpenHandThemePreset>(
-                              value: preset,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _ThemePresetSwatch(color: preset.seedColor),
-                                  const SizedBox(width: 12),
-                                  Text(preset.label(l10n)),
-                                ],
-                              ),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) async {
-                        if (value == null) {
-                          return;
-                        }
-                        final saved = await settingsController
-                            .updateThemePreset(value);
-                        if (!context.mounted || saved) {
-                          return;
-                        }
-                        _showPersistenceFailureSnackBar(context);
-                      },
-                    ),
-                  ),
-                ),
-                _ResponsiveSettingRow(
-                  title: l10n.languageSectionTitle,
-                  subtitle: l10n.languageSectionBody,
-                  controlMaxWidth: 440,
-                  control: SizedBox(
-                    width: double.infinity,
-                    child: DropdownButtonFormField<AppLanguage>(
-                      initialValue: settingsController.language,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.translate_outlined),
-                      ),
-                      items: AppLanguage.values
-                          .map(
-                            (language) => DropdownMenuItem<AppLanguage>(
-                              value: language,
-                              child: Text(language.label(l10n)),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) async {
-                        if (value == null) {
-                          return;
-                        }
-                        final saved = await settingsController.updateLanguage(
-                          value,
-                        );
-                        if (!context.mounted || saved) {
-                          return;
-                        }
-                        _showPersistenceFailureSnackBar(context);
-                      },
-                    ),
-                  ),
-                ),
-                _DialogAnimationSettingsSection(
-                  settingsController: settingsController,
-                ),
-                _MenuAnimationSettingsSection(
-                  settingsController: settingsController,
-                ),
-                _PanelAnimationSettingsSection(
-                  settingsController: settingsController,
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: _localizedText(context, zh: '快捷键', en: 'Shortcuts'),
-              description: _localizedText(
-                context,
-                zh: '为常用操作配置组合键。当前最多支持同时按下 4 个按键。',
-                en: 'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.',
-              ),
-              children: [_buildShortcutsSection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: l10n.settingsCategoryAi,
-              description: l10n.settingsAiSubtitle,
-              children: [_buildAiModelsSection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: _localizedText(
-                context,
-                zh: '内建工具',
-                en: 'Built-in Tools',
-              ),
-              description: _localizedText(
-                context,
-                zh: '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、'
-                    'Schema、优先级、排序、加载策略和其他参数。',
-                en: 'Manage the built-in AI tools. Adjust each tool\'s enabled '
-                    'state, name, description, schema, priority, sort order, '
-                    'load strategy, and other parameters.',
-              ),
-              children: [
-                _buildBuiltinToolsSection(context, settingsController),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: l10n.mcpSectionTitle,
-              description: l10n.mcpSectionBody,
-              children: [_buildMcpSettingsSection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: l10n.settingsCategorySkills,
-              description: l10n.settingsSkillsSubtitle,
-              children: [_buildSkillsSection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: l10n.settingsCategoryMemory,
-              description: l10n.settingsMemorySubtitle,
-              children: [_buildMemorySection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: _localizedText(
-                context,
-                zh: 'Hermes Talker',
-                en: 'Hermes Talker',
-              ),
-              description: _localizedText(
-                context,
-                zh: '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。',
-                en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
-              ),
-              children: [
-                _buildHermesTalkerSection(context, settingsController),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: _localizedText(context, zh: '编辑器', en: 'Editor'),
-              description: _localizedText(
-                context,
-                zh: '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。',
-                en: 'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.',
-              ),
-              children: [_buildEditorSection(context, settingsController)],
-            ),
-            const SizedBox(height: 18),
-            _SettingsGroupCard(
-              title: l10n.aboutSectionTitle,
-              description: l10n.aboutSectionBody,
-              children: [
-                _ReadonlySettingRow(
-                  label: l10n.aboutVersion,
-                  value: appInfo.version,
-                ),
-                _ReadonlySettingRow(
-                  label: l10n.aboutBuild,
-                  value: appInfo.buildNumber,
-                ),
-                _ReadonlySettingRow(
-                  label: l10n.aboutPackage,
-                  value: appInfo.packageName,
-                ),
-                _ReadonlySettingRow(
-                  label: l10n.aboutPlatforms,
-                  value: l10n.aboutPlatformsValue,
-                ),
-                _ReadonlySettingRow(
-                  label: l10n.settingsFilePathLabel,
-                  value: settingsController.displaySettingsFilePath,
-                ),
-              ],
-            ),
-          ],
-        ),
+        itemCount: sections.length,
+        separatorBuilder: (context, index) {
+          final current = sections[index];
+          if (current == _SettingsSection.header &&
+              sections[index + 1] == _SettingsSection.persistenceIssue) {
+            return const SizedBox(height: 18);
+          }
+          if (current == _SettingsSection.header ||
+              current == _SettingsSection.persistenceIssue) {
+            return const SizedBox(height: 24);
+          }
+          return const SizedBox(height: 18);
+        },
+        itemBuilder: (context, index) {
+          return _buildSettingsSection(
+            context,
+            settingsController,
+            appInfo,
+            sections[index],
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildSettingsSection(
+    BuildContext context,
+    SettingsController settingsController,
+    AppInfo appInfo,
+    _SettingsSection section,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (section) {
+      _SettingsSection.header => _PaneHeader(
+        title: l10n.settingsTitle,
+        subtitle: l10n.settingsSubtitle,
+      ),
+      _SettingsSection.persistenceIssue => _SettingsPersistenceIssueCard(
+        issue: settingsController.persistenceIssue!,
+        onDismiss: settingsController.clearPersistenceIssue,
+      ),
+      _SettingsSection.general => _SettingsGroupCard(
+        title: l10n.settingsCategoryGeneral,
+        description: l10n.settingsGeneralSubtitle,
+        children: [
+          _ResponsiveSettingRow(
+            title: l10n.themeSectionTitle,
+            subtitle: l10n.themeSectionBody,
+            controlMaxWidth: 440,
+            control: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                segments: [
+                  ButtonSegment<ThemeMode>(
+                    value: ThemeMode.system,
+                    icon: const Icon(Icons.contrast_outlined),
+                    label: Text(l10n.themeSystem, softWrap: false),
+                  ),
+                  ButtonSegment<ThemeMode>(
+                    value: ThemeMode.light,
+                    icon: const Icon(Icons.light_mode_outlined),
+                    label: Text(l10n.themeLight, softWrap: false),
+                  ),
+                  ButtonSegment<ThemeMode>(
+                    value: ThemeMode.dark,
+                    icon: const Icon(Icons.dark_mode_outlined),
+                    label: Text(l10n.themeDark, softWrap: false),
+                  ),
+                ],
+                selected: <ThemeMode>{settingsController.themeMode},
+                onSelectionChanged: (selection) async {
+                  if (selection.isEmpty) {
+                    return;
+                  }
+                  final saved = await settingsController.updateThemeMode(
+                    selection.first,
+                  );
+                  if (!context.mounted || saved) {
+                    return;
+                  }
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+          ),
+          _ResponsiveSettingRow(
+            title: l10n.themePaletteSectionTitle,
+            subtitle: l10n.themePaletteSectionBody,
+            controlMaxWidth: 440,
+            control: SizedBox(
+              width: double.infinity,
+              child: DropdownButtonFormField<OpenHandThemePreset>(
+                initialValue: settingsController.themePreset,
+                decoration: InputDecoration(
+                  prefixIcon: Padding(
+                    padding: const EdgeInsetsDirectional.only(
+                      start: 12,
+                      end: 8,
+                    ),
+                    child: _ThemePresetSwatch(
+                      color: settingsController.themePreset.seedColor,
+                    ),
+                  ),
+                ),
+                items: OpenHandThemePreset.values
+                    .map(
+                      (preset) => DropdownMenuItem<OpenHandThemePreset>(
+                        value: preset,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _ThemePresetSwatch(color: preset.seedColor),
+                            const SizedBox(width: 12),
+                            Text(preset.label(l10n)),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) async {
+                  if (value == null) {
+                    return;
+                  }
+                  final saved = await settingsController.updateThemePreset(
+                    value,
+                  );
+                  if (!context.mounted || saved) {
+                    return;
+                  }
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+          ),
+          _ResponsiveSettingRow(
+            title: l10n.languageSectionTitle,
+            subtitle: l10n.languageSectionBody,
+            controlMaxWidth: 440,
+            control: SizedBox(
+              width: double.infinity,
+              child: DropdownButtonFormField<AppLanguage>(
+                initialValue: settingsController.language,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.translate_outlined),
+                ),
+                items: AppLanguage.values
+                    .map(
+                      (language) => DropdownMenuItem<AppLanguage>(
+                        value: language,
+                        child: Text(language.label(l10n)),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) async {
+                  if (value == null) {
+                    return;
+                  }
+                  final saved = await settingsController.updateLanguage(value);
+                  if (!context.mounted || saved) {
+                    return;
+                  }
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+          ),
+          _AnimationRestoreDefaultsSection(
+            settingsController: settingsController,
+          ),
+          _DialogAnimationSettingsSection(
+            settingsController: settingsController,
+          ),
+          _MenuAnimationSettingsSection(settingsController: settingsController),
+          _PageAnimationSettingsSection(settingsController: settingsController),
+          _PanelAnimationSettingsSection(
+            settingsController: settingsController,
+          ),
+        ],
+      ),
+      _SettingsSection.shortcuts => _SettingsGroupCard(
+        title: _localizedText(context, zh: '快捷键', en: 'Shortcuts'),
+        description: _localizedText(
+          context,
+          zh: '为常用操作配置组合键。当前最多支持同时按下 4 个按键。',
+          en: 'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.',
+        ),
+        children: [_buildShortcutsSection(context, settingsController)],
+      ),
+      _SettingsSection.ai => _SettingsGroupCard(
+        title: l10n.settingsCategoryAi,
+        description: l10n.settingsAiSubtitle,
+        children: [_buildAiModelsSection(context, settingsController)],
+      ),
+      _SettingsSection.builtinTools => _SettingsGroupCard(
+        title: _localizedText(context, zh: '内建工具', en: 'Built-in Tools'),
+        description: _localizedText(
+          context,
+          zh:
+              '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、'
+              'Schema、优先级、排序、加载策略和其他参数。',
+          en:
+              'Manage the built-in AI tools. Adjust each tool\'s enabled '
+              'state, name, description, schema, priority, sort order, '
+              'load strategy, and other parameters.',
+        ),
+        children: [_buildBuiltinToolsSection(context, settingsController)],
+      ),
+      _SettingsSection.mcp => _SettingsGroupCard(
+        title: l10n.mcpSectionTitle,
+        description: l10n.mcpSectionBody,
+        children: [_buildMcpSettingsSection(context, settingsController)],
+      ),
+      _SettingsSection.skills => _SettingsGroupCard(
+        title: l10n.settingsCategorySkills,
+        description: l10n.settingsSkillsSubtitle,
+        children: [_buildSkillsSection(context, settingsController)],
+      ),
+      _SettingsSection.memory => _SettingsGroupCard(
+        title: l10n.settingsCategoryMemory,
+        description: l10n.settingsMemorySubtitle,
+        children: [_buildMemorySection(context, settingsController)],
+      ),
+      _SettingsSection.hermesTalker => _SettingsGroupCard(
+        title: _localizedText(
+          context,
+          zh: 'Hermes Talker',
+          en: 'Hermes Talker',
+        ),
+        description: _localizedText(
+          context,
+          zh: '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。',
+          en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
+        ),
+        children: [_buildHermesTalkerSection(context, settingsController)],
+      ),
+      _SettingsSection.editor => _SettingsGroupCard(
+        title: _localizedText(context, zh: '编辑器', en: 'Editor'),
+        description: _localizedText(
+          context,
+          zh: '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。',
+          en: 'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.',
+        ),
+        children: [_buildEditorSection(context, settingsController)],
+      ),
+      _SettingsSection.about => _SettingsGroupCard(
+        title: l10n.aboutSectionTitle,
+        description: l10n.aboutSectionBody,
+        children: [
+          _ReadonlySettingRow(label: l10n.aboutVersion, value: appInfo.version),
+          _ReadonlySettingRow(
+            label: l10n.aboutBuild,
+            value: appInfo.buildNumber,
+          ),
+          _ReadonlySettingRow(
+            label: l10n.aboutPackage,
+            value: appInfo.packageName,
+          ),
+          _ReadonlySettingRow(
+            label: l10n.aboutPlatforms,
+            value: l10n.aboutPlatformsValue,
+          ),
+          _ReadonlySettingRow(
+            label: l10n.settingsFilePathLabel,
+            value: settingsController.displaySettingsFilePath,
+          ),
+        ],
+      ),
+    };
   }
 
   Widget _buildAiModelsSection(
@@ -469,6 +505,8 @@ class _SettingsViewState extends State<SettingsView> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     final aiModels = settingsController.aiModels;
+    final allowCommandRules = settingsController.aiAllowCommandRules;
+    final denyCommandRules = settingsController.aiDenyCommandRules;
     final compressionControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -592,7 +630,8 @@ class _SettingsViewState extends State<SettingsView> {
           decoration: InputDecoration(
             labelText: l10n.aiImageSizeLimitFieldLabel,
             hintText:
-                (AppSettingsSnapshot.defaultAiImageSizeLimitBytes / (1024 * 1024))
+                (AppSettingsSnapshot.defaultAiImageSizeLimitBytes /
+                        (1024 * 1024))
                     .toStringAsFixed(0),
             helperText: l10n.aiImageSizeLimitBody,
           ),
@@ -603,10 +642,8 @@ class _SettingsViewState extends State<SettingsView> {
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
             key: const ValueKey<String>('settingsImageSizeLimitSaveButton'),
-            onPressed: () => _saveImageSizeLimit(
-              context,
-              _imageSizeLimitController.text,
-            ),
+            onPressed: () =>
+                _saveImageSizeLimit(context, _imageSizeLimitController.text),
             icon: const Icon(Icons.save_outlined),
             label: Text(l10n.aiImageSizeLimitSave),
           ),
@@ -617,11 +654,7 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
-          title: _localizedText(
-            context,
-            zh: '会话设置',
-            en: 'Session Settings',
-          ),
+          title: _localizedText(context, zh: '会话设置', en: 'Session Settings'),
           description: _localizedText(
             context,
             zh: '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。',
@@ -798,11 +831,7 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '自动标题',
-                  en: 'Auto Title',
-                ),
+                title: _localizedText(context, zh: '自动标题', en: 'Auto Title'),
                 subtitle: _localizedText(
                   context,
                   zh: '开启后，新会话发送首条消息时将自动生成会话标题。',
@@ -837,11 +866,7 @@ class _SettingsViewState extends State<SettingsView> {
                         value: 'chat',
                         icon: const Icon(Icons.chat_outlined),
                         label: Text(
-                          _localizedText(
-                            context,
-                            zh: '对话',
-                            en: 'Chat',
-                          ),
+                          _localizedText(context, zh: '对话', en: 'Chat'),
                           softWrap: false,
                         ),
                       ),
@@ -849,11 +874,7 @@ class _SettingsViewState extends State<SettingsView> {
                         value: 'plan',
                         icon: const Icon(Icons.account_tree_outlined),
                         label: Text(
-                          _localizedText(
-                            context,
-                            zh: '规划',
-                            en: 'Plan',
-                          ),
+                          _localizedText(context, zh: '规划', en: 'Plan'),
                           softWrap: false,
                         ),
                       ),
@@ -932,16 +953,20 @@ class _SettingsViewState extends State<SettingsView> {
                   // of the settings page, which dominated Build time when
                   // opening the Settings section.
                   child: ListView.separated(
+                    primary: false,
+                    cacheExtent: 240,
                     itemCount: aiModels.length,
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 14),
                     itemBuilder: (context, index) {
                       return _AiModelTile(
                         model: aiModels[index],
-                        isSelected: settingsController.selectedAiModelId ==
+                        isSelected:
+                            settingsController.selectedAiModelId ==
                             aiModels[index].id,
-                        isTesting:
-                            _testingAiModelIds.contains(aiModels[index].id),
+                        isTesting: _testingAiModelIds.contains(
+                          aiModels[index].id,
+                        ),
                         isFirst: index == 0,
                         isLast: index == aiModels.length - 1,
                         onSelect: () => settingsController
@@ -959,9 +984,9 @@ class _SettingsViewState extends State<SettingsView> {
                             _confirmDeleteAiModel(context, aiModels[index]),
                         onActiveModelChanged: (modelId) =>
                             settingsController.updateProviderActiveModel(
-                          aiModels[index].id,
-                          modelId,
-                        ),
+                              aiModels[index].id,
+                              modelId,
+                            ),
                       );
                     },
                   ),
@@ -1028,10 +1053,8 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 subtitle: _localizedText(
                   context,
-                  zh:
-                      '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。',
-                  en:
-                      'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.',
+                  zh: '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。',
+                  en: 'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.',
                 ),
                 control: imageSizeLimitControl,
                 controlMaxWidth: 360,
@@ -1098,7 +1121,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (settingsController.aiAllowCommandRules.isEmpty)
+              if (allowCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.verified_user_outlined,
                   title: _localizedText(
@@ -1113,23 +1136,26 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 )
               else
-                Column(
-                  children: settingsController.aiAllowCommandRules
-                      .map(
-                        (rule) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _AllowCommandRuleTile(
-                            rule: rule,
-                            onEdit: () => _showAllowCommandRuleDialog(
-                              context,
-                              initialRule: rule,
-                            ),
-                            onDelete: () =>
-                                _deleteAllowCommandRule(context, rule),
-                          ),
+                SizedBox(
+                  height: math.min(360.0, allowCommandRules.length * 94.0),
+                  child: ListView.separated(
+                    primary: false,
+                    padding: EdgeInsets.zero,
+                    itemCount: allowCommandRules.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final rule = allowCommandRules[index];
+                      return _AllowCommandRuleTile(
+                        rule: rule,
+                        onEdit: () => _showAllowCommandRuleDialog(
+                          context,
+                          initialRule: rule,
                         ),
-                      )
-                      .toList(growable: false),
+                        onDelete: () => _deleteAllowCommandRule(context, rule),
+                      );
+                    },
+                  ),
                 ),
               const SizedBox(height: 18),
               Text(
@@ -1156,7 +1182,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (settingsController.aiDenyCommandRules.isEmpty)
+              if (denyCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.rule_folder_outlined,
                   title: _localizedText(
@@ -1171,23 +1197,26 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 )
               else
-                Column(
-                  children: settingsController.aiDenyCommandRules
-                      .map(
-                        (rule) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _DenyCommandRuleTile(
-                            rule: rule,
-                            onEdit: () => _showDenyCommandRuleDialog(
-                              context,
-                              initialRule: rule,
-                            ),
-                            onDelete: () =>
-                                _deleteDenyCommandRule(context, rule),
-                          ),
+                SizedBox(
+                  height: math.min(360.0, denyCommandRules.length * 94.0),
+                  child: ListView.separated(
+                    primary: false,
+                    padding: EdgeInsets.zero,
+                    itemCount: denyCommandRules.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final rule = denyCommandRules[index];
+                      return _DenyCommandRuleTile(
+                        rule: rule,
+                        onEdit: () => _showDenyCommandRuleDialog(
+                          context,
+                          initialRule: rule,
                         ),
-                      )
-                      .toList(growable: false),
+                        onDelete: () => _deleteDenyCommandRule(context, rule),
+                      );
+                    },
+                  ),
                 ),
             ],
           ),
@@ -1207,8 +1236,7 @@ class _SettingsViewState extends State<SettingsView> {
       description: _localizedText(
         context,
         zh: '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。',
-        en:
-            'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.',
+        en: 'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1218,8 +1246,7 @@ class _SettingsViewState extends State<SettingsView> {
             subtitle: _localizedText(
               context,
               zh: '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。',
-              en:
-                  'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.',
+              en: 'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.',
             ),
             control: Switch(
               key: const ValueKey<String>('settingsTelemetryDebugSwitch'),
@@ -1244,13 +1271,10 @@ class _SettingsViewState extends State<SettingsView> {
             subtitle: _localizedText(
               context,
               zh: '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。',
-              en:
-                  'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.',
+              en: 'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.',
             ),
             control: Switch(
-              key: const ValueKey<String>(
-                'settingsTelemetryRawPayloadSwitch',
-              ),
+              key: const ValueKey<String>('settingsTelemetryRawPayloadSwitch'),
               value: settingsController.telemetryCaptureRawPayload,
               onChanged: settingsController.telemetryDebugEnabled
                   ? (value) async {
@@ -1274,8 +1298,7 @@ class _SettingsViewState extends State<SettingsView> {
             subtitle: _localizedText(
               context,
               zh: '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。',
-              en:
-                  'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.',
+              en: 'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.',
             ),
             control: Switch(
               key: const ValueKey<String>(
@@ -1304,6 +1327,7 @@ class _SettingsViewState extends State<SettingsView> {
     SettingsController settingsController,
   ) {
     final bindings = settingsController.shortcutBindings;
+    const actions = OpenHandShortcutAction.values;
     return _SettingsSubsectionCard(
       title: _localizedText(context, zh: '快捷键绑定', en: 'Shortcut Bindings'),
       description: _localizedText(
@@ -1313,40 +1337,35 @@ class _SettingsViewState extends State<SettingsView> {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
-        child: Scrollbar(
-          controller: _shortcutListScrollController,
-          thumbVisibility: true,
-          child: SingleChildScrollView(
+        child: PrimaryScrollController.none(
+          child: Scrollbar(
             controller: _shortcutListScrollController,
-            child: Column(
-              children: OpenHandShortcutAction.values
-                  .map(
-                    (action) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ShortcutBindingTile(
-                        actionStorageKey:
-                            openHandShortcutActionStorageKey(action),
-                        title: _shortcutActionTitle(context, action),
-                        subtitle: _shortcutActionSubtitle(context, action),
-                        value: formatShortcutLabel(
-                          bindings[action] ?? const <int>[],
-                        ),
-                        onRecord: () =>
-                            _showShortcutRecorderDialog(context, action),
-                        onReset: () async {
-                          final saved =
-                              await settingsController.resetShortcutBinding(
-                            action,
-                          );
-                          if (!context.mounted || saved) {
-                            return;
-                          }
-                          _showPersistenceFailureSnackBar(context);
-                        },
-                      ),
-                    ),
-                  )
-                  .toList(growable: false),
+            thumbVisibility: true,
+            child: ListView.separated(
+              controller: _shortcutListScrollController,
+              primary: false,
+              padding: EdgeInsets.zero,
+              itemCount: actions.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final action = actions[index];
+                return _ShortcutBindingTile(
+                  actionStorageKey: openHandShortcutActionStorageKey(action),
+                  title: _shortcutActionTitle(context, action),
+                  subtitle: _shortcutActionSubtitle(context, action),
+                  value: formatShortcutLabel(bindings[action] ?? const <int>[]),
+                  onRecord: () => _showShortcutRecorderDialog(context, action),
+                  onReset: () async {
+                    final saved = await settingsController.resetShortcutBinding(
+                      action,
+                    );
+                    if (!context.mounted || saved) {
+                      return;
+                    }
+                    _showPersistenceFailureSnackBar(context);
+                  },
+                );
+              },
             ),
           ),
         ),
@@ -1446,8 +1465,9 @@ class _SettingsViewState extends State<SettingsView> {
           control: Switch(
             value: enabled,
             onChanged: (value) async {
-              final saved =
-                  await settingsController.updateSelfLearningEnabled(value);
+              final saved = await settingsController.updateSelfLearningEnabled(
+                value,
+              );
               if (!context.mounted || saved) return;
               _showPersistenceFailureSnackBar(context);
             },
@@ -1484,8 +1504,8 @@ class _SettingsViewState extends State<SettingsView> {
             en: 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.',
           ),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 18),
         _ResponsiveSettingRow(
@@ -1622,9 +1642,11 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           description: _localizedText(
             context,
-            zh: '当前共 ${sorted.length} 个内建工具，已启用 $enabledCount 个。'
+            zh:
+                '当前共 ${sorted.length} 个内建工具，已启用 $enabledCount 个。'
                 '可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。',
-            en: '${sorted.length} built-in tools, $enabledCount enabled. '
+            en:
+                '${sorted.length} built-in tools, $enabledCount enabled. '
                 'Adjust name, description, schema, priority, sort order, and load strategy for each.',
           ),
           child: Column(
@@ -1656,7 +1678,10 @@ class _SettingsViewState extends State<SettingsView> {
                   OutlinedButton.icon(
                     onPressed: () {
                       _toggleAllBuiltinTools(
-                          context, settingsController, false);
+                        context,
+                        settingsController,
+                        false,
+                      );
                     },
                     icon: const Icon(Icons.remove_circle_outline_rounded),
                     label: Text(
@@ -1683,70 +1708,66 @@ class _SettingsViewState extends State<SettingsView> {
               else
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 520),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < sorted.length; i++) ...[
-                          _BuiltinToolTile(
-                            config: sorted[i],
-                            isFirst: i == 0,
-                            isLast: i == sorted.length - 1,
-                            onToggle: (enabled) async {
-                              final updated =
-                                  sorted[i].copyWith(enabled: enabled);
-                              await settingsController
-                                  .updateBuiltinToolConfig(updated);
-                            },
-                            onEdit: () => _showBuiltinToolEditorDialog(
-                              context,
-                              settingsController,
-                              config: sorted[i],
-                            ),
-                            onMoveUp: i > 0
-                                ? () {
-                                    final realOldIndex =
-                                        configs.indexOf(sorted[i]);
-                                    final realNewIndex =
-                                        configs.indexOf(sorted[i - 1]);
-                                    if (realOldIndex >= 0 &&
-                                        realNewIndex >= 0) {
-                                      settingsController
-                                          .moveBuiltinToolConfig(
-                                        realOldIndex,
-                                        realNewIndex,
-                                      );
-                                    }
-                                  }
-                                : null,
-                            onMoveDown: i < sorted.length - 1
-                                ? () {
-                                    final realOldIndex =
-                                        configs.indexOf(sorted[i]);
-                                    final realNewIndex =
-                                        configs.indexOf(sorted[i + 1]);
-                                    if (realOldIndex >= 0 &&
-                                        realNewIndex >= 0) {
-                                      settingsController
-                                          .moveBuiltinToolConfig(
-                                        realOldIndex,
-                                        realNewIndex,
-                                      );
-                                    }
-                                  }
-                                : null,
-                            onDelete: sorted[i].isCustom
-                                ? () => _confirmDeleteBuiltinTool(
-                                      context,
-                                      settingsController,
-                                      sorted[i],
-                                    )
-                                : null,
-                          ),
-                          if (i != sorted.length - 1)
-                            const SizedBox(height: 10),
-                        ],
-                      ],
-                    ),
+                  child: ListView.separated(
+                    primary: false,
+                    padding: EdgeInsets.zero,
+                    itemCount: sorted.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final config = sorted[index];
+                      return _BuiltinToolTile(
+                        config: config,
+                        isFirst: index == 0,
+                        isLast: index == sorted.length - 1,
+                        onToggle: (enabled) async {
+                          final updated = config.copyWith(enabled: enabled);
+                          await settingsController.updateBuiltinToolConfig(
+                            updated,
+                          );
+                        },
+                        onEdit: () => _showBuiltinToolEditorDialog(
+                          context,
+                          settingsController,
+                          config: config,
+                        ),
+                        onMoveUp: index > 0
+                            ? () {
+                                final realOldIndex = configs.indexOf(config);
+                                final realNewIndex = configs.indexOf(
+                                  sorted[index - 1],
+                                );
+                                if (realOldIndex >= 0 && realNewIndex >= 0) {
+                                  settingsController.moveBuiltinToolConfig(
+                                    realOldIndex,
+                                    realNewIndex,
+                                  );
+                                }
+                              }
+                            : null,
+                        onMoveDown: index < sorted.length - 1
+                            ? () {
+                                final realOldIndex = configs.indexOf(config);
+                                final realNewIndex = configs.indexOf(
+                                  sorted[index + 1],
+                                );
+                                if (realOldIndex >= 0 && realNewIndex >= 0) {
+                                  settingsController.moveBuiltinToolConfig(
+                                    realOldIndex,
+                                    realNewIndex,
+                                  );
+                                }
+                              }
+                            : null,
+                        onDelete: config.isCustom
+                            ? () => _confirmDeleteBuiltinTool(
+                                context,
+                                settingsController,
+                                config,
+                              )
+                            : null,
+                      );
+                    },
                   ),
                 ),
             ],
@@ -1789,9 +1810,11 @@ class _SettingsViewState extends State<SettingsView> {
           content: Text(
             _localizedText(
               context,
-              zh: '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、'
+              zh:
+                  '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、'
                   'Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。',
-              en: 'This will restore all built-in tool configurations to factory '
+              en:
+                  'This will restore all built-in tool configurations to factory '
                   'defaults, including name, description, schema overrides, '
                   'priority, sort order, and load strategy. This cannot be undone.',
             ),
@@ -1799,15 +1822,11 @@ class _SettingsViewState extends State<SettingsView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                _localizedText(context, zh: '取消', en: 'Cancel'),
-              ),
+              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                _localizedText(context, zh: '重置', en: 'Reset'),
-              ),
+              child: Text(_localizedText(context, zh: '重置', en: 'Reset')),
             ),
           ],
         );
@@ -1830,43 +1849,35 @@ class _SettingsViewState extends State<SettingsView> {
         return AlertDialog(
           icon: const Icon(Icons.delete_outline_rounded),
           title: Text(
-            _localizedText(
-              context,
-              zh: '删除自定义工具',
-              en: 'Delete Custom Tool',
-            ),
+            _localizedText(context, zh: '删除自定义工具', en: 'Delete Custom Tool'),
           ),
           content: Text(
             _localizedText(
               context,
               zh: '确定要删除 "${config.effectiveName}" 吗？此操作不可撤销。',
-              en: 'Are you sure you want to delete "${config.effectiveName}"? '
+              en:
+                  'Are you sure you want to delete "${config.effectiveName}"? '
                   'This cannot be undone.',
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(
-                _localizedText(context, zh: '取消', en: 'Cancel'),
-              ),
+              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(
-                _localizedText(context, zh: '删除', en: 'Delete'),
-              ),
+              child: Text(_localizedText(context, zh: '删除', en: 'Delete')),
             ),
           ],
         );
       },
     );
     if (confirmed != true || !context.mounted) return;
-    final saved =
-        await settingsController.removeBuiltinToolConfig(config.kind);
+    final saved = await settingsController.removeBuiltinToolConfig(config.kind);
     if (!context.mounted || saved) return;
     _showPersistenceFailureSnackBar(context);
   }
@@ -2130,11 +2141,7 @@ class _SettingsViewState extends State<SettingsView> {
     _connectTimeoutController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '发送超时时间已保存。',
-        en: 'Send timeout saved.',
-      ),
+      _localizedText(context, zh: '发送超时时间已保存。', en: 'Send timeout saved.'),
     );
   }
 
@@ -2171,11 +2178,7 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '响应超时时间已保存。',
-        en: 'Response timeout saved.',
-      ),
+      _localizedText(context, zh: '响应超时时间已保存。', en: 'Response timeout saved.'),
     );
   }
 
@@ -2334,7 +2337,10 @@ class _SettingsViewState extends State<SettingsView> {
     return trimmed.isEmpty ? '1' : trimmed;
   }
 
-  Future<void> _saveImageSizeLimit(BuildContext context, String rawValue) async {
+  Future<void> _saveImageSizeLimit(
+    BuildContext context,
+    String rawValue,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = double.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
@@ -2355,8 +2361,9 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    final effectiveBytes =
-        context.read<SettingsController>().aiImageSizeLimitBytes;
+    final effectiveBytes = context
+        .read<SettingsController>()
+        .aiImageSizeLimitBytes;
     _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
     _showSnackBar(context, l10n.aiImageSizeLimitSaved);
   }
@@ -3056,7 +3063,6 @@ class _SettingsViewState extends State<SettingsView> {
       messenger?.showSnackBar(SnackBar(content: Text(message)));
     });
   }
-
 }
 
 List<Widget> _intersperse(List<Widget> items, Widget separator) {

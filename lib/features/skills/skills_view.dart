@@ -54,10 +54,7 @@ class SkillsView extends StatefulWidget {
 /// calls [Navigator.pop] with its value so the result is returned via
 /// [showAnimatedMenu].
 class _EmojiGridPopupEntry extends PopupMenuEntry<String> {
-  const _EmojiGridPopupEntry({
-    required this.emojis,
-    this.selectedEmoji,
-  });
+  const _EmojiGridPopupEntry({required this.emojis, this.selectedEmoji});
 
   final List<String> emojis;
   final String? selectedEmoji;
@@ -98,10 +95,7 @@ class _EmojiGridPopupEntryState extends State<_EmojiGridPopupEntry> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 24)),
                 ),
               )
               .toList(growable: false),

@@ -200,7 +200,8 @@ class AiPromptBuilder {
 
     // 2026-04-13: default template also uses compact metadata format to reduce
     // token overhead by ~40%. This follows the refactoring proposal.
-    final isCompactTemplate = templateBundle.template.id == 'default' ||
+    final isCompactTemplate =
+        templateBundle.template.id == 'default' ||
         templateBundle.template.id == 'programming_expert';
     final promptMetadata = isCompactTemplate
         ? _buildCompactPromptMetadata(
@@ -252,14 +253,14 @@ class AiPromptBuilder {
         role: AiChatRole.system,
         content: isCompactTemplate
             ? '# [4] User Memory\n\n'
-                'Integrate memory facts naturally — do not hint at their source.\n\n'
-                '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
+                  'Integrate memory facts naturally — do not hint at their source.\n\n'
+                  '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
             : '# [4] User Memory (long-term facts)\n\n'
-                'IMPORTANT: Integrate memory facts naturally into your responses. '
-                'Do NOT explicitly state or hint that information comes from memory, '
-                'saved notes, or prior records. Use memory content as if it is common '
-                'knowledge you already possess.\n\n'
-                '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
+                  'IMPORTANT: Integrate memory facts naturally into your responses. '
+                  'Do NOT explicitly state or hint that information comes from memory, '
+                  'saved notes, or prior records. Use memory content as if it is common '
+                  'knowledge you already possess.\n\n'
+                  '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
       AiChatTurn(
         role: AiChatRole.system,
@@ -566,11 +567,13 @@ class AiPromptBuilder {
     if (skillTools.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln(compact
-            ? (isMachineExpert ? '## Skills (auxiliary only)' : '## Skills')
-            : (isMachineExpert
-                ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
-                : '## Skill Tools (highest priority)'));
+        ..writeln(
+          compact
+              ? (isMachineExpert ? '## Skills (auxiliary only)' : '## Skills')
+              : (isMachineExpert
+                    ? '## Skill Tools (auxiliary knowledge only — do NOT replace built-in terminal workflow)'
+                    : '## Skill Tools (highest priority)'),
+        );
       for (final tool in skillTools) {
         _renderToolEntry(buffer, tool, compact: compact);
       }
@@ -591,7 +594,12 @@ class AiPromptBuilder {
         // For programming_expert compact mode, builtin tools use ultra-compact
         // entries: 80-char descriptions, no args listing.  Full parameter
         // schemas are already sent via the API tools array.
-        _renderToolEntry(buffer, tool, compact: compact, builtinCompact: compact);
+        _renderToolEntry(
+          buffer,
+          tool,
+          compact: compact,
+          builtinCompact: compact,
+        );
       }
     }
     return buffer.toString().trimRight();
@@ -749,8 +757,7 @@ class AiPromptBuilder {
       if (!isProgrammingExpert) 'template_id': template.id,
       'locale_tag': runtimeContext.localeTag,
       if (!isProgrammingExpert)
-        'compression_threshold_chars':
-            runtimeContext.compressionThresholdChars,
+        'compression_threshold_chars': runtimeContext.compressionThresholdChars,
       'previous_checkpoint_present': previousCompressionPoint != null,
       'messages_to_compress_count': messagesToCompress.length,
     };
@@ -1055,9 +1062,7 @@ class AiPromptBuilder {
         // later turns can reason about the image.
         if (!isLatestUserMessage) {
           parts.add(
-            AiChatContentPart.text(
-              _composeImagePlaceholder(attachment),
-            ),
+            AiChatContentPart.text(_composeImagePlaceholder(attachment)),
           );
           continue;
         }
@@ -1104,9 +1109,7 @@ class AiPromptBuilder {
               ),
             );
           } else {
-            parts.add(
-              const AiChatContentPart.text(modelWarning),
-            );
+            parts.add(const AiChatContentPart.text(modelWarning));
           }
           continue;
         }

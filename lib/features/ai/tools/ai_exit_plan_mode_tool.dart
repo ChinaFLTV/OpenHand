@@ -14,7 +14,9 @@ class AiExitPlanModeTool extends AiTool {
     final plan = '${args['plan'] ?? ''}'.trim();
     if (plan.isEmpty) {
       return AiToolUtils.invalidResult(
-          'ExitPlanMode', 'ExitPlanMode requires a non-empty plan.');
+        'ExitPlanMode',
+        'ExitPlanMode requires a non-empty plan.',
+      );
     }
     return AiToolUtils.simpleSuccessResult(
       command: 'ExitPlanMode',

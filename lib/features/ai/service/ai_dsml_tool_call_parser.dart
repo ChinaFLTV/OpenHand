@@ -67,11 +67,11 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
   }
   // Detect trailing incomplete DSML markup (opening tag without matching close).
   // This happens when the model output is truncated mid–tool call.
-  final lastMatchEnd = invokeMatches.isEmpty
-      ? 0
-      : invokeMatches.last.end;
+  final lastMatchEnd = invokeMatches.isEmpty ? 0 : invokeMatches.last.end;
   final remaining = canonical.substring(lastMatchEnd);
-  final hasTrailingIncomplete = _trailingIncompleteDsmlPattern.hasMatch(remaining);
+  final hasTrailingIncomplete = _trailingIncompleteDsmlPattern.hasMatch(
+    remaining,
+  );
 
   return AiDsmlToolCallExtractionResult(
     sanitizedText: sanitizeVisibleDsmlContent(value),
@@ -150,7 +150,9 @@ String _canonicalizeDsmlMarkup(String value) {
   normalized = normalized
       .replaceAllMapped(_rawFunctionCallsTagPattern, (m) {
         final slash = m.group(1) ?? '';
-        return slash.isNotEmpty ? '</DSML:function_calls>' : '<DSML:function_calls>';
+        return slash.isNotEmpty
+            ? '</DSML:function_calls>'
+            : '<DSML:function_calls>';
       })
       .replaceAllMapped(_rawInvokeTagPattern, (m) {
         final slash = m.group(1) ?? '';
@@ -160,13 +162,17 @@ String _canonicalizeDsmlMarkup(String value) {
       .replaceAllMapped(_rawParameterTagPattern, (m) {
         final slash = m.group(1) ?? '';
         final attrs = m.group(2) ?? '';
-        return slash.isNotEmpty ? '</DSML:parameter>' : '<DSML:parameter$attrs>';
+        return slash.isNotEmpty
+            ? '</DSML:parameter>'
+            : '<DSML:parameter$attrs>';
       });
   // Also canonicalize the antml variant used by some Claude-based models.
   normalized = normalized
       .replaceAllMapped(_antmlFunctionCallsTagPattern, (m) {
         final slash = m.group(1) ?? '';
-        return slash.isNotEmpty ? '</DSML:function_calls>' : '<DSML:function_calls>';
+        return slash.isNotEmpty
+            ? '</DSML:function_calls>'
+            : '<DSML:function_calls>';
       })
       .replaceAllMapped(_antmlInvokeTagPattern, (m) {
         final slash = m.group(1) ?? '';
@@ -176,7 +182,9 @@ String _canonicalizeDsmlMarkup(String value) {
       .replaceAllMapped(_antmlParameterTagPattern, (m) {
         final slash = m.group(1) ?? '';
         final attrs = m.group(2) ?? '';
-        return slash.isNotEmpty ? '</DSML:parameter>' : '<DSML:parameter$attrs>';
+        return slash.isNotEmpty
+            ? '</DSML:parameter>'
+            : '<DSML:parameter$attrs>';
       });
   return normalized;
 }

@@ -96,7 +96,6 @@ enum AiBuiltinToolKind {
 }
 
 class AiToolExecutionResult {
-
   factory AiToolExecutionResult.fromBash(
     BashToolExecutionResult result, {
     Map<String, Object?> metadata = const <String, Object?>{},
@@ -189,14 +188,14 @@ class AiToolRuntimeService {
   final http.Client _httpClient;
   final Future<List<InternetAddress>> Function(String host) _hostLookup;
   late final AiToolRegistry _toolRegistry;
-  
+
   // 2026-04-12: 文件追踪和历史版本服务
   final AiFileTrackerService _fileTracker;
   final AiFileHistoryService _fileHistory;
-  
+
   /// 获取文件追踪服务（供外部访问，如会话重置时清理）
   AiFileTrackerService get fileTracker => _fileTracker;
-  
+
   /// 获取文件历史服务（供外部访问，如回滚功能）
   AiFileHistoryService get fileHistory => _fileHistory;
 
@@ -251,14 +250,17 @@ class AiToolRuntimeService {
       final baseTool = toolByKind[cfg.kind];
       if (baseTool == null) continue;
       // Apply overrides.
-      final overrideName =
-          cfg.displayName?.trim().isNotEmpty == true ? cfg.displayName! : null;
+      final overrideName = cfg.displayName?.trim().isNotEmpty == true
+          ? cfg.displayName!
+          : null;
       final overrideDesc = cfg.promptOverride?.trim().isNotEmpty == true
           ? cfg.promptOverride!
           : null;
-      final overrideSummary =
-          cfg.summary?.trim().isNotEmpty == true ? cfg.summary! : null;
-      final needsOverride = overrideName != null ||
+      final overrideSummary = cfg.summary?.trim().isNotEmpty == true
+          ? cfg.summary!
+          : null;
+      final needsOverride =
+          overrideName != null ||
           overrideDesc != null ||
           overrideSummary != null ||
           cfg.schemaOverride != null;
@@ -273,22 +275,23 @@ class AiToolRuntimeService {
       if (overrideSummary != null) {
         desc = '$desc\n\n$overrideSummary';
       }
-      result.add(AiResolvedTool(
-        name: overrideName ?? baseTool.name,
-        definition: AiToolDefinition(
-          name: overrideName ?? baseTool.definition.name,
-          description: desc,
-          parameters: cfg.schemaOverride ?? baseTool.definition.parameters,
+      result.add(
+        AiResolvedTool(
+          name: overrideName ?? baseTool.name,
+          definition: AiToolDefinition(
+            name: overrideName ?? baseTool.definition.name,
+            description: desc,
+            parameters: cfg.schemaOverride ?? baseTool.definition.parameters,
+          ),
+          source: baseTool.source,
+          builtinKind: baseTool.builtinKind,
         ),
-        source: baseTool.source,
-        builtinKind: baseTool.builtinKind,
-      ));
+      );
     }
     return result;
   }
 
   Future<AiResolvedToolCatalog> resolveCatalog({
-
     required AiSessionRuntimeContext runtimeContext,
     String? templateId,
   }) async {
@@ -663,7 +666,10 @@ class AiToolRuntimeService {
         'file_history': _fileHistory,
       },
     );
-    final registryResult = await _toolRegistry.tryExecute(registryContext, kind);
+    final registryResult = await _toolRegistry.tryExecute(
+      registryContext,
+      kind,
+    );
     if (registryResult != null) return registryResult;
     // 2026-04-01 所有工具均已通过 Registry 注册，此路径不可达。
     return _invalidToolResult(
@@ -710,7 +716,6 @@ class AiToolRuntimeService {
       },
     );
   }
-
 
   Future<AiToolExecutionResult> _executeSkillTool({
     required AiResolvedTool tool,
@@ -909,7 +914,6 @@ class AiToolRuntimeService {
     );
   }
 
-
   Future<String> _loadSkillLinkedResources(
     String skillDirectoryPath,
     String manifestContent,
@@ -955,9 +959,13 @@ class AiToolRuntimeService {
       try {
         final linkedFile = File(resolvedPath);
         final linkedFileLength = await linkedFile.length();
-        final previewBytes = await AiToolUtils.readFilePrefix(linkedFile, linkedFileLength);
+        final previewBytes = await AiToolUtils.readFilePrefix(
+          linkedFile,
+          linkedFileLength,
+        );
         final extension = p.extension(resolvedPath).toLowerCase();
-        if (AiToolUtils.looksBinary(previewBytes) && !AiToolUtils.isKnownTextExtension(extension)) {
+        if (AiToolUtils.looksBinary(previewBytes) &&
+            !AiToolUtils.isKnownTextExtension(extension)) {
           buffer.writeln('  content: [binary file omitted]');
           if (linkedFileLength > previewBytes.length) {
             buffer.writeln(
@@ -984,7 +992,6 @@ class AiToolRuntimeService {
     }
     return buffer.toString().trimRight();
   }
-
 
   String _safeToolName(String prefix, String token, Set<String> takenNames) {
     final normalizedPrefix = _normalizeToolToken(prefix);
@@ -1082,7 +1089,6 @@ class AiToolRuntimeService {
     );
   }
 
-
   AiToolExecutionResult _invalidToolResult(String command, String message) {
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.invalidArguments,
@@ -1146,7 +1152,6 @@ class AiToolRuntimeService {
     };
   }
 
-
   void dispose() {
     _bashToolService.dispose();
     _httpClient.close();
@@ -1198,7 +1203,8 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'pattern': <String, Object?>{
             'type': 'string',
-            'description': 'The glob pattern to match (e.g. "*.md", "**/*.dart").',
+            'description':
+                'The glob pattern to match (e.g. "*.md", "**/*.dart").',
           },
           'path': <String, Object?>{
             'type': 'string',
@@ -1213,7 +1219,8 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.lsp,
       name: 'Lsp',
-      description: 'Code intelligence (definitions, references, symbols, hover) based on LSP.',
+      description:
+          'Code intelligence (definitions, references, symbols, hover) based on LSP.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1228,7 +1235,7 @@ class AiToolRuntimeService {
               'goToImplementation',
               'prepareCallHierarchy',
               'incomingCalls',
-              'outgoingCalls'
+              'outgoingCalls',
             ],
             'description': 'The LSP operation to perform',
           },
@@ -1242,7 +1249,8 @@ class AiToolRuntimeService {
           },
           'character': <String, Object?>{
             'type': 'integer',
-            'description': 'The character offset (1-based, as shown in editors)',
+            'description':
+                'The character offset (1-based, as shown in editors)',
           },
         },
         'required': <String>['operation', 'file_path', 'line', 'character'],
@@ -1331,8 +1339,7 @@ class AiToolRuntimeService {
           },
           'limit': <String, Object?>{
             'type': 'integer',
-            'description':
-                'Maximum number of lines to read. Defaults to 2000.',
+            'description': 'Maximum number of lines to read. Defaults to 2000.',
           },
         },
         'required': <String>['file_path'],
@@ -1682,7 +1689,8 @@ class AiToolRuntimeService {
                 },
                 'label': <String, Object?>{
                   'type': 'string',
-                  'description': 'Human-readable primary label shown in the radio tile.',
+                  'description':
+                      'Human-readable primary label shown in the radio tile.',
                 },
                 'description': <String, Object?>{
                   'type': 'string',
@@ -1714,7 +1722,8 @@ class AiToolRuntimeService {
           },
           'custom_input_hint': <String, Object?>{
             'type': 'string',
-            'description': 'Optional placeholder hint inside the free-form text field.',
+            'description':
+                'Optional placeholder hint inside the free-form text field.',
           },
         },
         'required': <String>['title', 'options'],
@@ -1874,4 +1883,3 @@ class AiToolRuntimeService {
     return null;
   }
 }
-

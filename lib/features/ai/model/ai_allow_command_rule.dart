@@ -1,7 +1,6 @@
 import 'ai_deny_command_rule.dart';
 
 class AiAllowCommandRule {
-
   factory AiAllowCommandRule.fromJson(Map<String, Object?> json) {
     return AiAllowCommandRule(
       id: '${json['id'] ?? ''}'.trim(),

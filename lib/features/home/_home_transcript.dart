@@ -362,10 +362,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         final delta = newMaxExtent - currentMaxExtent;
 
         if (delta > 0) {
-          final targetOffset = (currentOffset + delta).clamp(
-            0.0,
-            newMaxExtent,
-          );
+          final targetOffset = (currentOffset + delta).clamp(0.0, newMaxExtent);
           scrollController.jumpTo(targetOffset);
         }
       });
@@ -507,7 +504,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // explicit failure card (carrying the same error message the generic
     // banner would have shown). This keeps the failed turn visually tied to
     // the user's request instead of floating as a disconnected banner.
-    final failedCreationRequest = (pendingCreationRequest == null &&
+    final failedCreationRequest =
+        (pendingCreationRequest == null &&
             userVisibleError != null &&
             widget.sendPhase == AiSendPhase.idle)
         ? _resolvePendingCreationPlaceholder(
@@ -525,7 +523,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         (userVisibleError == null || suppressGenericErrorBanner) ? 0 : 1;
     final pendingPlaceholderCount = pendingCreationRequest == null ? 0 : 1;
     final failureCardCount = failedCreationRequest == null ? 0 : 1;
-    final listItemCount = _renderEntries.length +
+    final listItemCount =
+        _renderEntries.length +
         hiddenLoadMoreCount +
         errorBannerCount +
         pendingPlaceholderCount +
@@ -1089,7 +1088,6 @@ class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText> {
   }
 }
 
-
 /// Resolves the creation request that should be shown as a pending placeholder
 /// directly beneath the latest user message while the assistant works, or
 /// surfaced as a failure card when generation finished with an error and the
@@ -1174,9 +1172,7 @@ class _PendingCreationPlaceholderCardState
     final baseColor = isDark
         ? cs.surfaceContainer
         : cs.surfaceContainerHighest.withValues(alpha: 0.6);
-    final highlightColor = isDark
-        ? cs.surfaceContainerHighest
-        : cs.surface;
+    final highlightColor = isDark ? cs.surfaceContainerHighest : cs.surface;
     final borderColor = cs.outlineVariant.withValues(
       alpha: isDark ? 0.25 : 0.18,
     );
@@ -1306,9 +1302,7 @@ class _CreationFailureCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.errorContainer.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: cs.error.withValues(alpha: 0.35),
-            ),
+            border: Border.all(color: cs.error.withValues(alpha: 0.35)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

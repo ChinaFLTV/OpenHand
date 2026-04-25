@@ -32,38 +32,44 @@ void main() {
       expect(profile, isNull);
     });
 
-    test('upsertUserProfile creates a profile with user_profile type',
-        () async {
-      final created = await store.upsertUserProfile(content: 'A');
-      expect(created.type, UserMemoryEntry.userProfileType);
-      expect(created.content, 'A');
+    test(
+      'upsertUserProfile creates a profile with user_profile type',
+      () async {
+        final created = await store.upsertUserProfile(content: 'A');
+        expect(created.type, UserMemoryEntry.userProfileType);
+        expect(created.content, 'A');
 
-      final loaded = await store.loadUserProfile();
-      expect(loaded, isNotNull);
-      expect(loaded!.type, UserMemoryEntry.userProfileType);
-      expect(loaded.content, 'A');
-    });
+        final loaded = await store.loadUserProfile();
+        expect(loaded, isNotNull);
+        expect(loaded!.type, UserMemoryEntry.userProfileType);
+        expect(loaded.content, 'A');
+      },
+    );
 
-    test('upsertUserProfile twice keeps exactly one profile row with latest content',
-        () async {
-      await store.upsertUserProfile(content: 'first');
-      await store.upsertUserProfile(content: 'second');
+    test(
+      'upsertUserProfile twice keeps exactly one profile row with latest content',
+      () async {
+        await store.upsertUserProfile(content: 'first');
+        await store.upsertUserProfile(content: 'second');
 
-      final result = await store.load();
-      final profiles = result.entries
-          .where((e) => e.type == UserMemoryEntry.userProfileType)
-          .toList();
-      expect(profiles.length, 1);
-      expect(profiles.single.content, 'second');
-    });
+        final result = await store.load();
+        final profiles = result.entries
+            .where((e) => e.type == UserMemoryEntry.userProfileType)
+            .toList();
+        expect(profiles.length, 1);
+        expect(profiles.single.content, 'second');
+      },
+    );
 
-    test('upsertUserProfile with whitespace-only content throws ArgumentError',
-        () async {
-      expect(
-        () => store.upsertUserProfile(content: '   '),
-        throwsA(isA<ArgumentError>()),
-      );
-    });
+    test(
+      'upsertUserProfile with whitespace-only content throws ArgumentError',
+      () async {
+        expect(
+          () => store.upsertUserProfile(content: '   '),
+          throwsA(isA<ArgumentError>()),
+        );
+      },
+    );
 
     test('loadByTag returns only entries that carry the tag', () async {
       await store.insertEntry(
@@ -106,21 +112,23 @@ void main() {
       expect(matches.single.id, 'm-auto');
     });
 
-    test('profile rows survive load() round-trip with type preserved',
-        () async {
-      await store.upsertUserProfile(
-        content: 'a profile',
-        tags: const ['profile-tag'],
-      );
+    test(
+      'profile rows survive load() round-trip with type preserved',
+      () async {
+        await store.upsertUserProfile(
+          content: 'a profile',
+          tags: const ['profile-tag'],
+        );
 
-      final result = await store.load();
-      final profile = result.entries.firstWhere(
-        (e) => e.id == UserMemoryEntry.userProfileEntryId,
-      );
-      expect(profile.type, UserMemoryEntry.userProfileType);
-      expect(profile.content, 'a profile');
-      expect(profile.tags, contains('profile-tag'));
-      expect(result.issue, isNull);
-    });
+        final result = await store.load();
+        final profile = result.entries.firstWhere(
+          (e) => e.id == UserMemoryEntry.userProfileEntryId,
+        );
+        expect(profile.type, UserMemoryEntry.userProfileType);
+        expect(profile.content, 'a profile');
+        expect(profile.tags, contains('profile-tag'));
+        expect(result.issue, isNull);
+      },
+    );
   });
 }

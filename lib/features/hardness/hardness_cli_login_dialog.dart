@@ -243,14 +243,25 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         final terminals = ['gnome-terminal', 'xterm', 'konsole'];
         for (final term in terminals) {
           try {
-            await Process.start(term, ['--', 'bash', '-c', '$_commandPreview; exec bash']);
+            await Process.start(term, [
+              '--',
+              'bash',
+              '-c',
+              '$_commandPreview; exec bash',
+            ]);
             break;
           } catch (_) {
             continue;
           }
         }
       } else if (Platform.isWindows) {
-        await Process.start('cmd', ['/c', 'start', 'cmd', '/k', _commandPreview], runInShell: true);
+        await Process.start('cmd', [
+          '/c',
+          'start',
+          'cmd',
+          '/k',
+          _commandPreview,
+        ], runInShell: true);
       }
     } catch (e) {
       if (!mounted) return;

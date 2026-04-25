@@ -15,7 +15,8 @@ class HooksController extends ChangeNotifier {
     required HooksStore store,
     required List<HookEntry> entries,
   }) : _store = store,
-       _entries = entries;
+       _entries = entries,
+       _entriesView = List<HookEntry>.unmodifiable(entries);
 
   static const Uuid _uuid = Uuid();
 
@@ -28,15 +29,18 @@ class HooksController extends ChangeNotifier {
 
   final HooksStore _store;
   List<HookEntry> _entries;
+  List<HookEntry> _entriesView;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
 
-  List<HookEntry> get entries => List<HookEntry>.unmodifiable(_entries);
+  List<HookEntry> get entries => _entriesView;
 
   /// Returns all enabled hooks for a specific event.
   List<HookEntry> enabledHooksForEvent(HookEvent event) {
     return _entries
-        .where((entry) => entry.event == event && entry.enabled && entry.hasScript)
+        .where(
+          (entry) => entry.event == event && entry.enabled && entry.hasScript,
+        )
         .toList(growable: false);
   }
 
@@ -54,10 +58,8 @@ class HooksController extends ChangeNotifier {
 
   Future<bool> addHook(HookEntry entry) async {
     return _commitMutation(() async {
-      final newEntry = entry.copyWith(
-        id: entry.id.isEmpty ? _uuid.v4() : null,
-      );
-      _entries = <HookEntry>[..._entries, newEntry];
+      final newEntry = entry.copyWith(id: entry.id.isEmpty ? _uuid.v4() : null);
+      _setEntries(<HookEntry>[..._entries, newEntry]);
       await _store.saveAll(_entries);
       return true;
     });
@@ -67,11 +69,11 @@ class HooksController extends ChangeNotifier {
     return _commitMutation(() async {
       final index = _entries.indexWhere((item) => item.id == updated.id);
       if (index < 0) return false;
-      _entries = <HookEntry>[
+      _setEntries(<HookEntry>[
         ..._entries.sublist(0, index),
         updated,
         ..._entries.sublist(index + 1),
-      ];
+      ]);
       await _store.saveAll(_entries);
       return true;
     });
@@ -80,7 +82,7 @@ class HooksController extends ChangeNotifier {
   Future<bool> deleteHook(String id) async {
     return _commitMutation(() async {
       final before = _entries.length;
-      _entries = _entries.where((item) => item.id != id).toList();
+      _setEntries(_entries.where((item) => item.id != id).toList());
       if (_entries.length == before) return false;
       await _store.saveAll(_entries);
       return true;
@@ -91,11 +93,11 @@ class HooksController extends ChangeNotifier {
     return _commitMutation(() async {
       final index = _entries.indexWhere((item) => item.id == id);
       if (index < 0) return false;
-      _entries = <HookEntry>[
+      _setEntries(<HookEntry>[
         ..._entries.sublist(0, index),
         _entries[index].copyWith(enabled: enabled),
         ..._entries.sublist(index + 1),
-      ];
+      ]);
       await _store.saveAll(_entries);
       return true;
     });
@@ -103,8 +105,13 @@ class HooksController extends ChangeNotifier {
 
   Future<void> refresh() async {
     final entries = await _store.loadAll();
-    _entries = entries;
+    _setEntries(entries);
     notifyListeners();
+  }
+
+  void _setEntries(List<HookEntry> entries) {
+    _entries = entries;
+    _entriesView = List<HookEntry>.unmodifiable(entries);
   }
 
   Future<bool> _commitMutation(Future<bool> Function() mutation) {

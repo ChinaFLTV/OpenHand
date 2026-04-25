@@ -110,11 +110,7 @@ void main() {
         id: 'sess-short',
         createdAt: now,
         messages: <AiSessionMessage>[
-          AiSessionMessage.user(
-            id: 'u0',
-            content: 'hi',
-            createdAt: now,
-          ),
+          AiSessionMessage.user(id: 'u0', content: 'hi', createdAt: now),
           AiSessionMessage.assistant(
             id: 'a0',
             content: 'hello',
@@ -145,32 +141,34 @@ void main() {
       expect(reloaded.metadata['self_learning_in_progress'], false);
     });
 
-    test('writes skipped card + context snapshot when dispatcher missing',
-        () async {
-      final now = DateTime.now().toUtc();
-      final session = _buildSession(
-        id: 'sess-no-disp',
-        createdAt: now,
-        messages: _sixTurns(now),
-      );
-      await store.save(session);
-      await sessionController.refresh();
+    test(
+      'writes skipped card + context snapshot when dispatcher missing',
+      () async {
+        final now = DateTime.now().toUtc();
+        final session = _buildSession(
+          id: 'sess-no-disp',
+          createdAt: now,
+          messages: _sixTurns(now),
+        );
+        await store.save(session);
+        await sessionController.refresh();
 
-      final runner = SelfLearningRunner(
-        sessionController: sessionController,
-        memoryController: memoryController,
-      );
-      await runner.runForSession(session);
+        final runner = SelfLearningRunner(
+          sessionController: sessionController,
+          memoryController: memoryController,
+        );
+        await runner.runForSession(session);
 
-      final reloaded = sessionController.sessionById('sess-no-disp')!;
-      final card = _lastSelfLearning(reloaded)!;
-      expect(card.metadata['status'], 'skipped');
-      expect(card.content, contains('未配置 LLM'));
-      expect(card.metadata['conversation_turns'], 12);
-      expect(card.metadata['user_profile_present'], false);
-      expect(card.metadata['auto_learned_count'], 0);
-      expect(reloaded.metadata['self_learning_in_progress'], false);
-    });
+        final reloaded = sessionController.sessionById('sess-no-disp')!;
+        final card = _lastSelfLearning(reloaded)!;
+        expect(card.metadata['status'], 'skipped');
+        expect(card.content, contains('未配置 LLM'));
+        expect(card.metadata['conversation_turns'], 12);
+        expect(card.metadata['user_profile_present'], false);
+        expect(card.metadata['auto_learned_count'], 0);
+        expect(reloaded.metadata['self_learning_in_progress'], false);
+      },
+    );
 
     test('writes ok card with dispatcher mutations on success', () async {
       final now = DateTime.now().toUtc();
@@ -201,7 +199,10 @@ void main() {
 
       expect(captured, isNotNull);
       expect(captured!.conversationSlice, contains('user: user msg 0'));
-      expect(captured!.conversationSlice, contains('assistant: assistant reply 5'));
+      expect(
+        captured!.conversationSlice,
+        contains('assistant: assistant reply 5'),
+      );
       expect(captured!.prompt, contains('自我学习'));
 
       final reloaded = sessionController.sessionById('sess-ok')!;
@@ -212,86 +213,87 @@ void main() {
       expect(reloaded.metadata['self_learning_in_progress'], false);
     });
 
-    test('writes error card and clears in-progress flag when dispatcher throws',
-        () async {
-      final now = DateTime.now().toUtc();
-      final session = _buildSession(
-        id: 'sess-err',
-        createdAt: now,
-        messages: _sixTurns(now, idPrefix: 'err-'),
-      );
-      await store.save(session);
-      await sessionController.refresh();
-
-      final runner = SelfLearningRunner(
-        sessionController: sessionController,
-        memoryController: memoryController,
-        llmDispatcher: (_) async {
-          throw StateError('boom');
-        },
-      );
-      await runner.runForSession(session);
-
-      final reloaded = sessionController.sessionById('sess-err')!;
-      final card = _lastSelfLearning(reloaded)!;
-      expect(card.metadata['status'], 'error');
-      expect(card.content, contains('自我学习失败'));
-      expect(card.metadata['error'], contains('boom'));
-      expect(reloaded.metadata['self_learning_in_progress'], false);
-    });
-
-    test('slices conversation starting after the last selfLearning checkpoint',
-        () async {
-      final now = DateTime.now().toUtc();
-      final messages = <AiSessionMessage>[
-        // Old turns (should be excluded by slice).
-        AiSessionMessage.user(
-          id: 'old-u',
-          content: 'OLD_USER',
+    test(
+      'writes error card and clears in-progress flag when dispatcher throws',
+      () async {
+        final now = DateTime.now().toUtc();
+        final session = _buildSession(
+          id: 'sess-err',
           createdAt: now,
-        ),
-        AiSessionMessage.assistant(
-          id: 'old-a',
-          content: 'OLD_ASSISTANT',
-          createdAt: now.add(const Duration(seconds: 1)),
-        ),
-        AiSessionMessage.selfLearning(
-          id: 'checkpoint',
-          content: 'previous learn',
-          createdAt: now.add(const Duration(seconds: 2)),
-          metadata: const <String, Object?>{'status': 'ok'},
-        ),
-        // New turns after the checkpoint — these should appear in the slice
-        // and are enough to pass minConversationTurns=4.
-        ..._sixTurns(
-          now.add(const Duration(minutes: 10)),
-          idPrefix: 'new-',
-        ),
-      ];
-      final session = _buildSession(
-        id: 'sess-slice',
-        createdAt: now,
-        messages: messages,
-      );
-      await store.save(session);
-      await sessionController.refresh();
+          messages: _sixTurns(now, idPrefix: 'err-'),
+        );
+        await store.save(session);
+        await sessionController.refresh();
 
-      SelfLearningContext? captured;
-      final runner = SelfLearningRunner(
-        sessionController: sessionController,
-        memoryController: memoryController,
-        llmDispatcher: (ctx) async {
-          captured = ctx;
-          return const SelfLearningOutcome(summary: 'done');
-        },
-      );
-      await runner.runForSession(session);
+        final runner = SelfLearningRunner(
+          sessionController: sessionController,
+          memoryController: memoryController,
+          llmDispatcher: (_) async {
+            throw StateError('boom');
+          },
+        );
+        await runner.runForSession(session);
 
-      expect(captured, isNotNull);
-      expect(captured!.conversationSlice, isNot(contains('OLD_USER')));
-      expect(captured!.conversationSlice, isNot(contains('OLD_ASSISTANT')));
-      expect(captured!.conversationSlice, isNot(contains('previous learn')));
-      expect(captured!.conversationSlice, contains('user: user msg 0'));
-    });
+        final reloaded = sessionController.sessionById('sess-err')!;
+        final card = _lastSelfLearning(reloaded)!;
+        expect(card.metadata['status'], 'error');
+        expect(card.content, contains('自我学习失败'));
+        expect(card.metadata['error'], contains('boom'));
+        expect(reloaded.metadata['self_learning_in_progress'], false);
+      },
+    );
+
+    test(
+      'slices conversation starting after the last selfLearning checkpoint',
+      () async {
+        final now = DateTime.now().toUtc();
+        final messages = <AiSessionMessage>[
+          // Old turns (should be excluded by slice).
+          AiSessionMessage.user(
+            id: 'old-u',
+            content: 'OLD_USER',
+            createdAt: now,
+          ),
+          AiSessionMessage.assistant(
+            id: 'old-a',
+            content: 'OLD_ASSISTANT',
+            createdAt: now.add(const Duration(seconds: 1)),
+          ),
+          AiSessionMessage.selfLearning(
+            id: 'checkpoint',
+            content: 'previous learn',
+            createdAt: now.add(const Duration(seconds: 2)),
+            metadata: const <String, Object?>{'status': 'ok'},
+          ),
+          // New turns after the checkpoint — these should appear in the slice
+          // and are enough to pass minConversationTurns=4.
+          ..._sixTurns(now.add(const Duration(minutes: 10)), idPrefix: 'new-'),
+        ];
+        final session = _buildSession(
+          id: 'sess-slice',
+          createdAt: now,
+          messages: messages,
+        );
+        await store.save(session);
+        await sessionController.refresh();
+
+        SelfLearningContext? captured;
+        final runner = SelfLearningRunner(
+          sessionController: sessionController,
+          memoryController: memoryController,
+          llmDispatcher: (ctx) async {
+            captured = ctx;
+            return const SelfLearningOutcome(summary: 'done');
+          },
+        );
+        await runner.runForSession(session);
+
+        expect(captured, isNotNull);
+        expect(captured!.conversationSlice, isNot(contains('OLD_USER')));
+        expect(captured!.conversationSlice, isNot(contains('OLD_ASSISTANT')));
+        expect(captured!.conversationSlice, isNot(contains('previous learn')));
+        expect(captured!.conversationSlice, contains('user: user msg 0'));
+      },
+    );
   });
 }

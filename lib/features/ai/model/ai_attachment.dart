@@ -35,7 +35,6 @@ List<String> aiAttachmentPickerExtensions() {
 }
 
 class AiMessageAttachment {
-
   factory AiMessageAttachment.fromJson(Map<String, Object?> json) {
     return AiMessageAttachment(
       id: '${json['id'] ?? ''}'.trim(),

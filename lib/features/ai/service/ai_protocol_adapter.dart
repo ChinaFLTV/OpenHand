@@ -207,10 +207,7 @@ abstract class AiProtocolAdapter {
   /// Merges user-defined custom headers from [model.customHeaders] into the
   /// [headers] map. Custom headers are applied last so they can override
   /// previously set values (e.g. content-type, authorization).
-  void _mergeCustomHeaders(
-    Map<String, String> headers,
-    AiModelConfig model,
-  ) {
+  void _mergeCustomHeaders(Map<String, String> headers, AiModelConfig model) {
     if (model.customHeaders.isEmpty) return;
     for (final entry in model.customHeaders.entries) {
       final key = entry.key.trim();
@@ -567,8 +564,9 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     // tool_calls — return reasoning_content to let the DSML parser extract them.
     final reasoningContent = message['reasoning_content'];
     if (reasoningContent != null) {
-      final reasoningText =
-          await _extractOpenAiContentWithMediaSafe(reasoningContent);
+      final reasoningText = await _extractOpenAiContentWithMediaSafe(
+        reasoningContent,
+      );
       if (reasoningText.isNotEmpty) {
         return reasoningText;
       }
@@ -668,8 +666,9 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
-    final nonSystemMessages =
-        messages.where((item) => item.role != AiChatRole.system).toList();
+    final nonSystemMessages = messages
+        .where((item) => item.role != AiChatRole.system)
+        .toList();
     final requestMessages = await _mapClaudeMessages(nonSystemMessages);
     final effectiveMaxTokens = model.maxTokens ?? 1024;
     return <String, Object?>{
@@ -980,9 +979,11 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         .map((item) => item.content.trim())
         .where((item) => item.isNotEmpty)
         .join('\n\n');
-    final nonSystemMessages =
-        messages.where((item) => item.role != AiChatRole.system).toList();
+    final nonSystemMessages = messages
+        .where((item) => item.role != AiChatRole.system)
+        .toList();
     final requestContents = await _mapGeminiMessages(nonSystemMessages);
+
     /// Determine effective response modalities:
     /// 1. If the caller explicitly requests modalities (e.g. from creation mode),
     ///    use those directly.
@@ -990,8 +991,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     final effectiveModalities = responseModalities.isNotEmpty
         ? responseModalities
         : model.modelId.toLowerCase().contains('image')
-            ? const <String>['Text', 'Image']
-            : const <String>[];
+        ? const <String>['Text', 'Image']
+        : const <String>[];
 
     return <String, Object?>{
       if (systemContent.isNotEmpty)
@@ -1011,11 +1012,13 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         'tools': <Map<String, Object?>>[
           <String, Object?>{
             'functionDeclarations': tools
-                .map((item) => <String, Object?>{
-                      'name': item.name,
-                      'description': item.description,
-                      'parameters': item.parameters,
-                    })
+                .map(
+                  (item) => <String, Object?>{
+                    'name': item.name,
+                    'description': item.description,
+                    'parameters': item.parameters,
+                  },
+                )
                 .toList(growable: false),
           },
         ],
@@ -1211,8 +1214,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       final inlineData = item['inline_data'] ?? item['inlineData'];
       if (inlineData is Map<String, Object?>) {
         final mimeType =
-            '${inlineData['mime_type'] ?? inlineData['mimeType'] ?? ''}'
-                .trim();
+            '${inlineData['mime_type'] ?? inlineData['mimeType'] ?? ''}'.trim();
         final data = '${inlineData['data'] ?? ''}'.trim();
         if (mimeType.isNotEmpty && data.isNotEmpty) {
           final md = await saveInlineMediaToMarkdown(
@@ -1231,14 +1233,14 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       if (fileData is Map<String, Object?>) {
         final mimeType =
             '${fileData['mime_type'] ?? fileData['mimeType'] ?? ''}'.trim();
-        final fileUri =
-            '${fileData['file_uri'] ?? fileData['fileUri'] ?? ''}'.trim();
+        final fileUri = '${fileData['file_uri'] ?? fileData['fileUri'] ?? ''}'
+            .trim();
         if (fileUri.isNotEmpty) {
           final label = mimeType.startsWith('image/')
               ? 'AI Generated Image'
               : mimeType.startsWith('audio/')
-                  ? 'AI Generated Audio'
-                  : 'AI Generated File';
+              ? 'AI Generated Audio'
+              : 'AI Generated File';
           if (buffer.isNotEmpty) buffer.writeln();
           buffer.writeln();
           if (mimeType.startsWith('image/')) {
@@ -1314,10 +1316,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
   const OllamaProtocolAdapter({
     List<String> visionModelPatterns = const <String>[],
-  }) : super(
-         AiProtocolType.ollama,
-         visionModelPatterns: visionModelPatterns,
-       );
+  }) : super(AiProtocolType.ollama, visionModelPatterns: visionModelPatterns);
 
   @override
   Map<String, String> buildHeaders(AiModelConfig model) {
@@ -1399,7 +1398,6 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     }
     return rawResponse.trim();
   }
-
 }
 
 abstract final class AiProtocolRegistry {
@@ -1430,80 +1428,108 @@ abstract final class AiProtocolRegistry {
   /// DeepSeek: Only explicitly vision-capable model IDs.
   /// Note: deepseek-chat / deepseek-reasoner are text-only per official API.
   static const _deepseekVisionPatterns = <String>[
-    'vision', 'vl', 'janus',
-    'multimodal', 'multi-modal',
+    'vision',
+    'vl',
+    'janus',
+    'multimodal',
+    'multi-modal',
   ];
 
   /// Qwen (DashScope): VL / Omni models via OpenAI-compatible endpoint.
   /// Note: qwen-plus / qwen-max / qwen-turbo without -vl are text-only.
-  static const _qwenVisionPatterns = <String>[
-    'vl', 'omni', 'vision', 'doc',
-  ];
+  static const _qwenVisionPatterns = <String>['vl', 'omni', 'vision', 'doc'];
 
   /// Kimi (Moonshot): Vision and multimodal model IDs.
   static const _kimiVisionPatterns = <String>[
-    'vision', 'vl',
+    'vision',
+    'vl',
     'moonshot-v',
-    'k1.5-vision', 'k2-vision', 'k2.5-vision',
+    'k1.5-vision',
+    'k2-vision',
+    'k2.5-vision',
   ];
 
   /// GLM (Zhipu BigModel): GLM-4V / GLM-4.5V vision models.
   static const _glmVisionPatterns = <String>[
-    'glm-4v', 'glm-4.5v', '4v',
-    'vision', 'vl', 'vlm',
+    'glm-4v',
+    'glm-4.5v',
+    '4v',
+    'vision',
+    'vl',
+    'vlm',
   ];
 
   /// Grok (xAI): Vision-capable Grok model IDs.
   static const _grokVisionPatterns = <String>[
     'vision',
-    'grok-2-vision', 'grok-vision',
+    'grok-2-vision',
+    'grok-vision',
   ];
 
   /// Ollama: Common local multimodal models.
   static const _ollamaVisionPatterns = <String>[
-    'llava', 'llama3.2-vision', 'moondream', 'bakllava',
-    'minicpm-v', 'cogvlm', 'internvl',
+    'llava',
+    'llama3.2-vision',
+    'moondream',
+    'bakllava',
+    'minicpm-v',
+    'cogvlm',
+    'internvl',
     'vision',
   ];
 
   /// vLLM: Open-source VLMs served via vLLM.
   static const _vllmVisionPatterns = <String>[
-    'llava', 'pixtral', 'internvl',
-    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
-    'minicpm-v', 'cogvlm',
+    'llava',
+    'pixtral',
+    'internvl',
+    'qwen-vl',
+    'qwen2-vl',
+    'qwen2.5-vl',
+    'minicpm-v',
+    'cogvlm',
     'vision',
   ];
 
   /// SGLang: Open-source VLMs served via SGLang.
   static const _sglangVisionPatterns = <String>[
-    'llava', 'pixtral', 'internvl',
-    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
+    'llava',
+    'pixtral',
+    'internvl',
+    'qwen-vl',
+    'qwen2-vl',
+    'qwen2.5-vl',
     'vision',
   ];
 
   /// Seed / Doubao (Volcengine): Vision models.
   /// Official API uses standard OpenAI image_url format.
   static const _seedVisionPatterns = <String>[
-    'vision', 'vl',
-    'doubao-vision', 'doubao-1.5-vision',
+    'vision',
+    'vl',
+    'doubao-vision',
+    'doubao-1.5-vision',
   ];
 
   /// StepFun: Step vision model IDs.
   static const _stepfunVisionPatterns = <String>[
-    'step-2v', 'step-1.5v', 'step-1v',
-    'vision', 'vl',
+    'step-2v',
+    'step-1.5v',
+    'step-1v',
+    'vision',
+    'vl',
   ];
 
   /// MIMO: Vision-capable model IDs.
-  static const _mimoVisionPatterns = <String>[
-    'vision', 'vl',
-  ];
+  static const _mimoVisionPatterns = <String>['vision', 'vl'];
 
   /// Hunyuan (Tencent): Vision models via OpenAI-compatible endpoint.
   /// Official API: api.hunyuan.cloud.tencent.com/v1 with image_url format.
   static const _hunyuanVisionPatterns = <String>[
-    'hunyuan-vision', 'hunyuan-turbos-vision',
-    'vision', 'vl',
+    'hunyuan-vision',
+    'hunyuan-turbos-vision',
+    'vision',
+    'vl',
   ];
 
   static final Map<AiProtocolType, AiProtocolAdapter> _adapters =
@@ -1718,10 +1744,7 @@ bool _containsAny(String value, List<String> candidates) {
 
 /// Decoded inline media block from an AI response.
 class AiInlineMedia {
-  const AiInlineMedia({
-    required this.mimeType,
-    required this.base64Data,
-  });
+  const AiInlineMedia({required this.mimeType, required this.base64Data});
 
   final String mimeType;
   final String base64Data;

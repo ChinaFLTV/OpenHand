@@ -36,11 +36,8 @@ class OpenHandBouncingScrollPhysics extends BouncingScrollPhysics {
   /// Higher stiffness → snappier return.
   /// Higher damping  → less oscillation / fewer secondary bounces.
   @override
-  SpringDescription get spring => const SpringDescription(
-    mass: 0.5,
-    stiffness: 180.0,
-    damping: 24.0,
-  );
+  SpringDescription get spring =>
+      const SpringDescription(mass: 0.5, stiffness: 180.0, damping: 24.0);
 
   /// More aggressive friction than the default (0.52 → 0.32).
   ///

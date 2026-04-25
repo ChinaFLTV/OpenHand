@@ -28,7 +28,8 @@ class AiToolExecutionContext {
   final Set<String> previouslyReadFiles;
   final List<AiDenyCommandRule> denyCommandRules;
   final bool requireWriteCommandConfirmation;
-  final Future<bool> Function(BashCommandApprovalRequest request)? confirmWriteCommand;
+  final Future<bool> Function(BashCommandApprovalRequest request)?
+  confirmWriteCommand;
   final Future<void>? cancelSignal;
   final void Function(BashToolExecutionUpdate update)? onBashUpdate;
 
@@ -38,4 +39,3 @@ class AiToolExecutionContext {
   /// 所有扩展参数通过此 Map 传递，并在具体工具实现中安全读取。
   final Map<String, Object?> metadata;
 }
-

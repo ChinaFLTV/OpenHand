@@ -1,5 +1,4 @@
 class AiTokenUsage {
-
   factory AiTokenUsage.fromJson(Map<String, Object?> json) {
     return AiTokenUsage(
       promptTokens: _readInt(json['prompt_tokens']),
@@ -45,8 +44,10 @@ class AiTokenUsage {
       promptTokens: _sumNullable(promptTokens, other.promptTokens),
       completionTokens: _sumNullable(completionTokens, other.completionTokens),
       totalTokens: _sumNullable(totalTokens, other.totalTokens),
-      cacheCreationTokens:
-          _sumNullable(cacheCreationTokens, other.cacheCreationTokens),
+      cacheCreationTokens: _sumNullable(
+        cacheCreationTokens,
+        other.cacheCreationTokens,
+      ),
       cacheReadTokens: _sumNullable(cacheReadTokens, other.cacheReadTokens),
     );
   }

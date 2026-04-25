@@ -214,20 +214,37 @@ Widget _buildPanelTransition({
   required DialogAnimationStyle entranceStyle,
   required DialogAnimationStyle exitStyle,
 }) {
+  final safeAnimation = _ClampedDoubleAnimation(animation);
   final isEntering =
       animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
   final effectiveStyle = isEntering ? entranceStyle : exitStyle;
   return switch (effectiveStyle) {
     DialogAnimationStyle.none => FadeTransition(
-      opacity: animation,
+      opacity: safeAnimation,
       child: child,
+    ),
+    DialogAnimationStyle.fade => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 14,
+        child: child,
+      ),
     ),
     // All variants use FadeTransition only — different curves give subtle
     // personality without resorting to AnimatedWidget subclasses.
     DialogAnimationStyle.fadeScale => FadeTransition(
       opacity: CurvedAnimation(
-        parent: animation,
+        parent: safeAnimation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       ),
@@ -235,7 +252,7 @@ Widget _buildPanelTransition({
     ),
     DialogAnimationStyle.slideUp => FadeTransition(
       opacity: CurvedAnimation(
-        parent: animation,
+        parent: safeAnimation,
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
       ),
@@ -243,7 +260,7 @@ Widget _buildPanelTransition({
     ),
     DialogAnimationStyle.slideDown => FadeTransition(
       opacity: CurvedAnimation(
-        parent: animation,
+        parent: safeAnimation,
         curve: Curves.easeOut,
         reverseCurve: Curves.easeIn,
       ),
@@ -251,27 +268,135 @@ Widget _buildPanelTransition({
     ),
     DialogAnimationStyle.expand => FadeTransition(
       opacity: CurvedAnimation(
-        parent: animation,
+        parent: safeAnimation,
         curve: Curves.easeInOutCubic,
       ),
       child: child,
     ),
     DialogAnimationStyle.rotateScale => FadeTransition(
       opacity: CurvedAnimation(
-        parent: animation,
+        parent: safeAnimation,
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       ),
       child: child,
     ),
     DialogAnimationStyle.elastic => FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOut,
-      ),
+      opacity: CurvedAnimation(parent: safeAnimation, curve: Curves.easeOut),
       child: child,
     ),
   };
+}
+
+Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
+  // Always return a non-zero duration so page / panel switches are visibly
+  // animated even when the user (or stale persisted settings) selected the
+  // `none` style. The `none` style itself is rendered as a plain
+  // FadeTransition in `_buildPanelTransition`, so giving it a real duration
+  // produces a subtle, fast fade rather than an instant cut.
+  final clamped = settings.durationMs.clamp(80, 800).toInt();
+  final minMs =
+      (settings.entranceStyle == DialogAnimationStyle.none &&
+          settings.exitStyle == DialogAnimationStyle.none)
+      ? 200
+      : clamped;
+  return Duration(milliseconds: clamped < minMs ? minMs : clamped);
+}
+
+class _ClampedDoubleAnimation extends Animation<double>
+    with AnimationWithParentMixin<double> {
+  const _ClampedDoubleAnimation(this.parent);
+
+  @override
+  final Animation<double> parent;
+
+  @override
+  double get value => parent.value.clamp(0.0, 1.0).toDouble();
+}
+
+/// Layout-safe paint-time vertical translation driven by an [Animation].
+///
+/// Implemented as a [SingleChildRenderObjectWidget] whose render object only
+/// shifts the paint offset on each animation tick via [markNeedsPaint] — it
+/// never allocates or holds onto any [Layer], so it cannot run into the
+/// "disposed layer" assertions that handwritten `pushOpacity` paths can
+/// trigger. Pair it with a [FadeTransition] (which manages its own
+/// [OpacityLayer] correctly through [RenderAnimatedOpacity]) when you also
+/// need an opacity animation.
+class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
+  const _PaintOffsetTransition({
+    required this.animation,
+    required this.maxYOffset,
+    required Widget super.child,
+  });
+
+  final Animation<double> animation;
+  final double maxYOffset;
+
+  @override
+  _PaintOffsetRenderObject createRenderObject(BuildContext context) {
+    return _PaintOffsetRenderObject(
+      animation: animation,
+      maxYOffset: maxYOffset,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _PaintOffsetRenderObject renderObject,
+  ) {
+    renderObject
+      ..animation = animation
+      ..maxYOffset = maxYOffset;
+  }
+}
+
+class _PaintOffsetRenderObject extends RenderProxyBox {
+  _PaintOffsetRenderObject({
+    required Animation<double> animation,
+    required double maxYOffset,
+  }) : _animation = animation,
+       _maxYOffset = maxYOffset;
+
+  Animation<double> _animation;
+  double _maxYOffset;
+
+  set animation(Animation<double> value) {
+    if (identical(_animation, value)) return;
+    if (attached) {
+      _animation.removeListener(markNeedsPaint);
+      value.addListener(markNeedsPaint);
+    }
+    _animation = value;
+    markNeedsPaint();
+  }
+
+  set maxYOffset(double value) {
+    if (_maxYOffset == value) return;
+    _maxYOffset = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _animation.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _animation.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child == null) return;
+    final value = _animation.value.clamp(0.0, 1.0);
+    final dy = (1 - value) * _maxYOffset;
+    super.paint(context, offset + Offset(0, dy));
+  }
 }
 
 void _scheduleOverlayActionAfterMenuDismissal(
@@ -1706,12 +1831,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final settingsController = context.read<SettingsController>();
     final sessionController = context.read<AiSessionController>();
     final providerExists = settingsController.aiModels.any(
-      (item) => item.id == providerConfigId && item.allModelIds.contains(modelId),
+      (item) =>
+          item.id == providerConfigId && item.allModelIds.contains(modelId),
     );
     if (!providerExists) {
       return;
     }
-    await settingsController.updateProviderActiveModel(providerConfigId, modelId);
+    await settingsController.updateProviderActiveModel(
+      providerConfigId,
+      modelId,
+    );
     await settingsController.addRecentModelSelection(providerConfigId, modelId);
     final currentSessionId = sessionController.currentSessionId;
     if (currentSessionId != null) {
@@ -1899,8 +2028,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       initialMode: AiSessionMode.fromStorage(
         context.read<SettingsController>().aiDefaultSessionMode,
       ),
-      initialFullAccessPermission:
-          context.read<SettingsController>().aiDefaultFullAccessPermission,
+      initialFullAccessPermission: context
+          .read<SettingsController>()
+          .aiDefaultFullAccessPermission,
     );
   }
 
@@ -2024,10 +2154,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (effectiveRecord != record) {
         _scheduleHardnessSessionSave(effectiveRecord, immediate: true);
       }
-      _activeHardnessOrchestrator?.removeListener(_onHardnessOrchestratorChanged);
+      _activeHardnessOrchestrator?.removeListener(
+        _onHardnessOrchestratorChanged,
+      );
       final restoredOrchestrator = HardnessOrchestrator(effectiveRecord.config);
       restoredOrchestrator.fullAccessPermission = _heFullAccessPermission;
-      restoredOrchestrator.onPhaseApprovalRequired = _handlePhaseApprovalRequired;
+      restoredOrchestrator.onPhaseApprovalRequired =
+          _handlePhaseApprovalRequired;
       _wireHardnessApiMode(restoredOrchestrator);
       restoredOrchestrator.restoreSnapshot(
         status: effectiveRecord.status,
@@ -2036,7 +2169,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         currentPhase: effectiveRecord.currentPhase,
         manualPhaseInputRequested: effectiveRecord.manualPhaseInputRequested,
         queuedManualPhaseInput: effectiveRecord.queuedManualPhaseInput,
-        queuedManualPhaseInputPhase: effectiveRecord.queuedManualPhaseInputPhase,
+        queuedManualPhaseInputPhase:
+            effectiveRecord.queuedManualPhaseInputPhase,
       );
       restoredOrchestrator.addListener(_onHardnessOrchestratorChanged);
       _cacheHardnessShellState(restoredOrchestrator);
@@ -2299,8 +2433,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
-      telemetryCaptureRawPayload:
-          settingsController.telemetryCaptureRawPayload,
+      telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
       telemetryCaptureEnvironment:
           settingsController.telemetryCaptureEnvironment,
       telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
@@ -2352,8 +2485,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       streamIdleTimeoutSeconds: settingsController.aiStreamIdleTimeoutSeconds,
       autoTitleEnabled: settingsController.aiAutoTitleEnabled,
       telemetryDebugEnabled: settingsController.telemetryDebugEnabled,
-      telemetryCaptureRawPayload:
-          settingsController.telemetryCaptureRawPayload,
+      telemetryCaptureRawPayload: settingsController.telemetryCaptureRawPayload,
       telemetryCaptureEnvironment:
           settingsController.telemetryCaptureEnvironment,
       telemetryMaxPayloadChars: settingsController.telemetryMaxPayloadChars,
@@ -2534,8 +2666,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // Warn (non-blocking) when the user attaches images but the model is
     // not detected as supporting inline image content.
     if (pendingAttachments.any(
-      (a) => aiAttachmentKindForPath(a.filePath) == AiAttachmentKind.image,
-    ) && !AiProtocolRegistry.supportsInlineImages(selectedModel)) {
+          (a) => aiAttachmentKindForPath(a.filePath) == AiAttachmentKind.image,
+        ) &&
+        !AiProtocolRegistry.supportsInlineImages(selectedModel)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -2558,7 +2691,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         return;
       }
       if (templateId == 'machine_expert') {
-        machineExpertConfig = await _showMachineExpertDialog(initialTask: prompt);
+        machineExpertConfig = await _showMachineExpertDialog(
+          initialTask: prompt,
+        );
         if (!mounted || machineExpertConfig == null) {
           return;
         }
@@ -2717,18 +2852,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case _CreationMode.none:
         return AiCreationRequest.none;
       case _CreationMode.image:
-        final options = _creationOptions.size != null ||
+        final options =
+            _creationOptions.size != null ||
                 _creationOptions.aspectRatio != null ||
                 _creationOptions.count != 1
             ? _creationOptions
-            : const AiCreationOptions(
-                size: '1024x1024',
-                aspectRatio: '1:1',
-              );
-        return AiCreationRequest(
-          mode: AiCreationMode.image,
-          options: options,
-        );
+            : const AiCreationOptions(size: '1024x1024', aspectRatio: '1:1');
+        return AiCreationRequest(mode: AiCreationMode.image, options: options);
       case _CreationMode.video:
         return AiCreationRequest(
           mode: AiCreationMode.video,
@@ -2749,15 +2879,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AiCreationOptions _defaultOptionsForComposerMode(_CreationMode mode) {
     switch (mode) {
       case _CreationMode.image:
-        return const AiCreationOptions(
-          size: '1024x1024',
-          aspectRatio: '1:1',
-        );
+        return const AiCreationOptions(size: '1024x1024', aspectRatio: '1:1');
       case _CreationMode.video:
-        return const AiCreationOptions(
-          aspectRatio: '16:9',
-          durationSeconds: 5,
-        );
+        return const AiCreationOptions(aspectRatio: '16:9', durationSeconds: 5);
       case _CreationMode.audio:
         return const AiCreationOptions(durationSeconds: 10);
       case _CreationMode.deepResearch:
@@ -2798,10 +2922,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 color: dialogColorScheme.surfaceContainerHigh,
                 surfaceTintColor: dialogColorScheme.surfaceTint,
                 borderRadius: BorderRadius.circular(28),
-                child: _CreationOptionsSheet(
-                  mode: mode,
-                  initial: initial,
-                ),
+                child: _CreationOptionsSheet(mode: mode, initial: initial),
               ),
             ),
           ),
@@ -3036,8 +3157,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final nextAttachments = List<_ComposerAttachmentDraft>.from(
       _pendingAttachments,
     );
-    final imageSizeLimitBytes =
-        context.read<SettingsController>().aiImageSizeLimitBytes;
+    final imageSizeLimitBytes = context
+        .read<SettingsController>()
+        .aiImageSizeLimitBytes;
     var addedCount = 0;
     for (final file in pickedFiles) {
       final path = file.path.trim();
@@ -4082,6 +4204,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final theme = Theme.of(context);
     final palette = theme.extension<OpenHandPalette>()!;
     final sessionController = context.watch<AiSessionController>();
+    final panelAnimationSettings = context
+        .select<SettingsController, DialogAnimationSettings>((controller) {
+          return controller.panelAnimationSettings;
+        });
+    final pageAnimationSettings = context
+        .select<SettingsController, DialogAnimationSettings>((controller) {
+          return controller.pageAnimationSettings;
+        });
 
     return Focus(
       focusNode: _globalShortcutFocusNode,
@@ -4145,10 +4275,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _fileExplorerVisible &&
                     projectRoot != null &&
                     _selectedSection == AppSection.workspace;
-                final panelAnim = context
-                    .read<SettingsController>()
-                    .panelAnimationSettings;
-                final panelDuration = panelAnim.duration;
+                final panelAnim = panelAnimationSettings;
+                final panelDuration = _effectiveSwitchDuration(panelAnim);
                 final panelCurve = panelAnim.curve.curve;
                 final panelReverseCurve = panelAnim.curve.reverseCurve;
                 final Widget leftPaneContent = showFileExplorer
@@ -4193,6 +4321,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _selectedSection == AppSection.workspace &&
                     _activeFilePath != null &&
                     _openFilePaths.isNotEmpty;
+                // Fallback: if the user explicitly set page animation to
+                // none/none we still want section→section to feel alive when
+                // panel animation is enabled, so use panel settings as a
+                // backstop. This keeps Settings/MCP/Memory/Hooks/Crons/Skills
+                // switches visibly animated even with a misconfigured page
+                // animation preset.
+                final effectiveSectionAnim =
+                    (pageAnimationSettings.entranceStyle ==
+                            DialogAnimationStyle.none &&
+                        pageAnimationSettings.exitStyle ==
+                            DialogAnimationStyle.none &&
+                        !(panelAnim.entranceStyle ==
+                                DialogAnimationStyle.none &&
+                            panelAnim.exitStyle == DialogAnimationStyle.none))
+                    ? panelAnim
+                    : pageAnimationSettings;
+                // Single right-pane AnimatedSwitcher keyed by full identity
+                // (`editor-pane` vs `section-<name>`). This guarantees every
+                // page-level swap — both editor↔section and section↔section
+                // — is detected as a child change and triggers the configured
+                // page transition. Previously a nested inner switcher was
+                // used, but the outer switcher saw the wrapper widget as
+                // unchanged and the inner one's state could be elided,
+                // making the cross-fade invisible in some rebuild paths.
                 final Widget rightPaneContent = showEditor
                     ? Padding(
                         key: const ValueKey<String>('editor-pane'),
@@ -4219,19 +4371,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         ),
                       )
                     : _ContentPane(
-                        key: const ValueKey<String>('section-content-pane'),
+                        key: ValueKey<String>(
+                          'section-${_selectedSection.name}',
+                        ),
                         child: _buildSectionContent(context),
                       );
+                final rightPaneDuration = _effectiveSwitchDuration(
+                  effectiveSectionAnim,
+                );
+                final rightPaneCurve = effectiveSectionAnim.curve.curve;
+                final rightPaneReverseCurve =
+                    effectiveSectionAnim.curve.reverseCurve;
                 final Widget rightPane = AnimatedSwitcher(
-                  duration: panelDuration,
-                  switchInCurve: panelCurve,
-                  switchOutCurve: panelReverseCurve,
+                  duration: rightPaneDuration,
+                  switchInCurve: rightPaneCurve,
+                  switchOutCurve: rightPaneReverseCurve,
                   transitionBuilder: (child, animation) {
                     return _buildPanelTransition(
                       child: child,
                       animation: animation,
-                      entranceStyle: panelAnim.entranceStyle,
-                      exitStyle: panelAnim.exitStyle,
+                      entranceStyle: effectiveSectionAnim.entranceStyle,
+                      exitStyle: effectiveSectionAnim.exitStyle,
                     );
                   },
                   layoutBuilder: (currentChild, previousChildren) {
@@ -4304,10 +4464,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Widget _buildSectionContent(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final settingsController = context.watch<SettingsController>();
-    final skillsController = context.watch<SkillsController>();
-    final mcpController = context.watch<McpController>();
-    final sessionController = context.watch<AiSessionController>();
+    final workspaceSelected = _selectedSection == AppSection.workspace;
+    final settingsController = workspaceSelected
+        ? context.watch<SettingsController>()
+        : context.read<SettingsController>();
+    final skillsController = workspaceSelected
+        ? context.watch<SkillsController>()
+        : context.read<SkillsController>();
+    final mcpController = workspaceSelected
+        ? context.watch<McpController>()
+        : context.read<McpController>();
+    final sessionController = workspaceSelected
+        ? context.watch<AiSessionController>()
+        : context.read<AiSessionController>();
     final appInfo = context.read<AppInfo>();
     final currentSession = sessionController.currentSession;
     final transcriptPreparing = _isPreparingTranscriptForSession(
@@ -4317,7 +4486,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // computations involve DateTime.now(), object allocation, and tool catalog
     // resolution that are wasted when viewing other sections.
     AiRuntimeToolPreview? liveRuntimeToolPreview;
-    if (_selectedSection == AppSection.workspace) {
+    if (workspaceSelected) {
       final runtimeCatalogPreviewContext = _buildRuntimeCatalogPreviewContext(
         settingsController: settingsController,
         skillsController: skillsController,
@@ -4357,10 +4526,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             providerConfigId,
             modelId,
           );
-          settingsController.addRecentModelSelection(
-            providerConfigId,
-            modelId,
-          );
+          settingsController.addRecentModelSelection(providerConfigId, modelId);
           // Persist the model selection to the current session.
           final session = sessionController.currentSession;
           if (session != null) {
@@ -4481,7 +4647,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             // settled to avoid LayoutBuilder callback assertions.
             await _awaitEndOfFrame();
             if (!mounted || _creationMode != mode) return;
-            final picked = await _showCreationOptionsSheet(mode, _creationOptions);
+            final picked = await _showCreationOptionsSheet(
+              mode,
+              _creationOptions,
+            );
             // Wait for the dialog's closing animation to finish before
             // calling setState.  The dialog's future resolves immediately
             // when Navigator.pop is called, while the route's animation is
@@ -4779,8 +4948,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                     ChoiceChip(
                       label: Text(ratio),
                       selected: _aspectRatio == ratio,
-                      onSelected: (_) =>
-                          setState(() => _aspectRatio = ratio),
+                      onSelected: (_) => setState(() => _aspectRatio = ratio),
                     ),
               ],
             ),
@@ -4817,9 +4985,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 width: 46,
                 height: 46,
                 child: IconButton(
-                  onPressed: _count > 1
-                      ? () => setState(() => _count--)
-                      : null,
+                  onPressed: _count > 1 ? () => setState(() => _count--) : null,
                   icon: const Icon(Icons.remove_circle_outline),
                 ),
               ),
@@ -4835,9 +5001,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 width: 46,
                 height: 46,
                 child: IconButton(
-                  onPressed: _count < 4
-                      ? () => setState(() => _count++)
-                      : null,
+                  onPressed: _count < 4 ? () => setState(() => _count++) : null,
                   icon: const Icon(Icons.add_circle_outline),
                 ),
               ),
@@ -4893,7 +5057,11 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                                 ),
                               ),
                               child: Text(
-                                _localizedText(context, zh: '确认', en: 'Confirm'),
+                                _localizedText(
+                                  context,
+                                  zh: '确认',
+                                  en: 'Confirm',
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),

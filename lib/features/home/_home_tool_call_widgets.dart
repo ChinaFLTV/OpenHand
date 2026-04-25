@@ -441,10 +441,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     const SizedBox(width: 8),
                     TextButton.icon(
                       onPressed: () => _showFullContentDialog(context),
-                      icon: const Icon(
-                        Icons.open_in_new_rounded,
-                        size: 14,
-                      ),
+                      icon: const Icon(Icons.open_in_new_rounded, size: 14),
                       label: Text(
                         _localizedText(
                           context,
@@ -455,10 +452,8 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         minimumSize: const Size(0, 28),
-                        foregroundColor:
-                            widget.theme.colorScheme.tertiary,
-                        textStyle:
-                            widget.theme.textTheme.labelSmall?.copyWith(
+                        foregroundColor: widget.theme.colorScheme.tertiary,
+                        textStyle: widget.theme.textTheme.labelSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -506,8 +501,7 @@ class _ToolContentFullDialog extends StatefulWidget {
   final String? fullContentFile;
 
   @override
-  State<_ToolContentFullDialog> createState() =>
-      _ToolContentFullDialogState();
+  State<_ToolContentFullDialog> createState() => _ToolContentFullDialogState();
 }
 
 class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
@@ -763,8 +757,7 @@ class _ToolContentSafeRender extends StatefulWidget {
   final VoidCallback onRenderError;
 
   @override
-  State<_ToolContentSafeRender> createState() =>
-      _ToolContentSafeRenderState();
+  State<_ToolContentSafeRender> createState() => _ToolContentSafeRenderState();
 }
 
 class _ToolContentSafeRenderState extends State<_ToolContentSafeRender> {
@@ -929,11 +922,8 @@ class _FileMutationRow extends StatelessWidget {
     final isZh = Localizations.localeOf(context).languageCode == 'zh';
     showAnimatedDialog(
       context: context,
-      builder: (ctx) => _FileDiffDialog(
-        filePath: filePath,
-        changeKind: kind,
-        isZh: isZh,
-      ),
+      builder: (ctx) =>
+          _FileDiffDialog(filePath: filePath, changeKind: kind, isZh: isZh),
     );
   }
 
@@ -1103,18 +1093,18 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Text(
-                                _error!,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.error,
-                                ),
-                              ),
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _error!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.error,
                             ),
-                          )
-                        : _buildDiffView(theme, colorScheme),
+                          ),
+                        ),
+                      )
+                    : _buildDiffView(theme, colorScheme),
               ),
             ],
           ),
@@ -1149,10 +1139,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
             }
             return TextSpan(
               text: '$line\n',
-              style: TextStyle(
-                backgroundColor: bgColor,
-                color: textColor,
-              ),
+              style: TextStyle(backgroundColor: bgColor, color: textColor),
             );
           }).toList(),
         ),
@@ -1200,8 +1187,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
   }
 
   /// Compute LCS for line-by-line comparison.
-  List<String> _longestCommonSubsequence(
-      List<String> a, List<String> b) {
+  List<String> _longestCommonSubsequence(List<String> a, List<String> b) {
     final m = a.length, n = b.length;
     final dp = List.generate(m + 1, (_) => List.filled(n + 1, 0));
 
@@ -1353,10 +1339,10 @@ class _ToolCallViewData {
         resultText.isNotEmpty ||
         exitCode != null ||
         status.isNotEmpty;
-    final stdoutFile =
-        '${message.metadata['tool_execution_stdout_file'] ?? ''}'.trim();
-    final stderrFile =
-        '${message.metadata['tool_execution_stderr_file'] ?? ''}'.trim();
+    final stdoutFile = '${message.metadata['tool_execution_stdout_file'] ?? ''}'
+        .trim();
+    final stderrFile = '${message.metadata['tool_execution_stderr_file'] ?? ''}'
+        .trim();
     final viewData = _ToolCallViewData(
       presentation: presentation,
       status: status,
@@ -2954,11 +2940,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (profileDiff.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: _localizedText(
-              context,
-              zh: '画像差异摘要',
-              en: 'Profile Diff',
-            ),
+            title: _localizedText(context, zh: '画像差异摘要', en: 'Profile Diff'),
             preview: profileDiff,
             expanded: _profileExpanded,
             onToggle: () {
@@ -3274,4 +3256,3 @@ String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
   final days = diff.inDays;
   return _localizedText(context, zh: '$days天前', en: '${days}d ago');
 }
-

@@ -262,4 +262,3 @@ class _WriteCommandConfirmationDialogState
     );
   }
 }
-

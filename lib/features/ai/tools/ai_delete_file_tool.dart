@@ -32,11 +32,11 @@ class AiDeleteFileTool extends AiTool {
 
     final rawPath = '${args['file_path'] ?? args['target_file'] ?? ''}'.trim();
     if (rawPath.isEmpty) {
-      return AiToolUtils.invalidResult(
-          'DeleteFile', 'file_path is required.');
+      return AiToolUtils.invalidResult('DeleteFile', 'file_path is required.');
     }
 
-    final filePath = AiToolUtils.requireAbsoluteFilePath(rawPath) ??
+    final filePath =
+        AiToolUtils.requireAbsoluteFilePath(rawPath) ??
         AiToolUtils.resolvePath(rawPath);
 
     // Safety: prevent deleting directories, root paths, and common critical files
@@ -44,7 +44,7 @@ class AiDeleteFileTool extends AiTool {
       return AiToolUtils.invalidResult(
         'DeleteFile',
         'Refused to delete unsafe path: $filePath. '
-        'Directory deletion and critical system paths are not allowed.',
+            'Directory deletion and critical system paths are not allowed.',
       );
     }
 
@@ -64,7 +64,7 @@ class AiDeleteFileTool extends AiTool {
       return AiToolUtils.invalidResult(
         'DeleteFile',
         'Path is a directory, not a file: $filePath. '
-        'Use Bash with explicit user confirmation for directory removal.',
+            'Use Bash with explicit user confirmation for directory removal.',
       );
     }
 

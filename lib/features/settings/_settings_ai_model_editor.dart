@@ -537,8 +537,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         _visibleModelIds.length > 30,
                                     child: SingleChildScrollView(
                                       controller: _chipScrollController,
-                                      physics:
-                                          const ClampingScrollPhysics(),
+                                      physics: const ClampingScrollPhysics(),
                                       child: Wrap(
                                         spacing: 8,
                                         runSpacing: 6,
@@ -552,18 +551,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                                 enabled: !_isSaving,
                                                 hasProfile:
                                                     _modelProfiles[id]
-                                                            ?.hasUserOverrides ==
-                                                        true,
+                                                        ?.hasUserOverrides ==
+                                                    true,
                                                 tooltip: isActive
                                                     ? _localizedText(
                                                         zh: '当前活跃模型',
-                                                        en:
-                                                            'Currently active model',
+                                                        en: 'Currently active model',
                                                       )
                                                     : _localizedText(
                                                         zh: '点击切换为活跃模型',
-                                                        en:
-                                                            'Click to set as active model',
+                                                        en: 'Click to set as active model',
                                                       ),
                                                 onPressed: () =>
                                                     _selectModelId(id),
@@ -1136,21 +1133,28 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       _capabilities = Set<AiModelCapability>.of(p.capabilities);
     } else {
       // Fresh profile — try catalog first, fall back to heuristic inference.
-      final catalog = AiModelCatalog.lookup(widget.modelId, widget.protocolType);
+      final catalog = AiModelCatalog.lookup(
+        widget.modelId,
+        widget.protocolType,
+      );
       if (catalog != null) {
         _displayNameController.text = catalog.displayName ?? widget.modelId;
         _descriptionController.text = catalog.description ?? '';
         _isMultimodal = catalog.isMultimodal;
-        _supportedModalities = Set<AiModelModality>.of(catalog.supportedModalities);
+        _supportedModalities = Set<AiModelModality>.of(
+          catalog.supportedModalities,
+        );
         _capabilities = Set<AiModelCapability>.of(catalog.capabilities);
         if (catalog.maxContextLength != null) {
-          _maxContextLengthController.text = catalog.maxContextLength.toString();
+          _maxContextLengthController.text = catalog.maxContextLength
+              .toString();
         }
         if (catalog.maxOutputLength != null) {
           _maxOutputLengthController.text = catalog.maxOutputLength.toString();
         }
         if (catalog.maxThinkingLength != null) {
-          _maxThinkingLengthController.text = catalog.maxThinkingLength.toString();
+          _maxThinkingLengthController.text = catalog.maxThinkingLength
+              .toString();
         }
       } else {
         _isMultimodal = null; // auto-detect
@@ -1183,9 +1187,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   /// Infer generation capabilities from protocol-level rules.
   Set<AiModelCapability> _inferCapabilities() {
     final result = <AiModelCapability>{};
-    if (AiImageGenerationService.supportsImageGeneration(
-      widget.protocolType,
-    )) {
+    if (AiImageGenerationService.supportsImageGeneration(widget.protocolType)) {
       result.add(AiModelCapability.imageGeneration);
     }
     return result;
@@ -1266,10 +1268,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _displayNameController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
-                    zh: '显示名称',
-                    en: 'Display Name',
-                  ),
+                  labelText: _localizedText(zh: '显示名称', en: 'Display Name'),
                   hintText: _localizedText(
                     zh: '可选，用于界面展示',
                     en: 'Optional, shown in the UI',
@@ -1283,10 +1282,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(
-                    zh: '模型描述',
-                    en: 'Description',
-                  ),
+                  labelText: _localizedText(zh: '模型描述', en: 'Description'),
                   isDense: true,
                 ),
                 maxLines: 2,
@@ -1303,9 +1299,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 runSpacing: 6,
                 children: <Widget>[
                   ChoiceChip(
-                    label: Text(
-                      _localizedText(zh: '自动检测', en: 'Auto-detect'),
-                    ),
+                    label: Text(_localizedText(zh: '自动检测', en: 'Auto-detect')),
                     selected: _isMultimodal == null,
                     onSelected: (_) => setState(() => _isMultimodal = null),
                   ),
@@ -1331,31 +1325,41 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
-                children: AiModelModality.values.map((m) {
-                  final label = switch (m) {
-                    AiModelModality.text =>
-                      _localizedText(zh: '文本', en: 'Text'),
-                    AiModelModality.image =>
-                      _localizedText(zh: '图片', en: 'Image'),
-                    AiModelModality.video =>
-                      _localizedText(zh: '视频', en: 'Video'),
-                    AiModelModality.audio =>
-                      _localizedText(zh: '音频', en: 'Audio'),
-                  };
-                  return FilterChip(
-                    label: Text(label),
-                    selected: _supportedModalities.contains(m),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _supportedModalities.add(m);
-                        } else {
-                          _supportedModalities.remove(m);
-                        }
-                      });
-                    },
-                  );
-                }).toList(growable: false),
+                children: AiModelModality.values
+                    .map((m) {
+                      final label = switch (m) {
+                        AiModelModality.text => _localizedText(
+                          zh: '文本',
+                          en: 'Text',
+                        ),
+                        AiModelModality.image => _localizedText(
+                          zh: '图片',
+                          en: 'Image',
+                        ),
+                        AiModelModality.video => _localizedText(
+                          zh: '视频',
+                          en: 'Video',
+                        ),
+                        AiModelModality.audio => _localizedText(
+                          zh: '音频',
+                          en: 'Audio',
+                        ),
+                      };
+                      return FilterChip(
+                        label: Text(label),
+                        selected: _supportedModalities.contains(m),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _supportedModalities.add(m);
+                            } else {
+                              _supportedModalities.remove(m);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(growable: false),
               ),
               const SizedBox(height: 16),
 
@@ -1367,33 +1371,45 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
-                children: AiModelCapability.values.map((c) {
-                  final label = switch (c) {
-                    AiModelCapability.imageGeneration =>
-                      _localizedText(zh: '图片生成', en: 'Image'),
-                    AiModelCapability.videoGeneration =>
-                      _localizedText(zh: '视频生成', en: 'Video'),
-                    AiModelCapability.audioGeneration =>
-                      _localizedText(zh: '音频生成', en: 'Audio'),
-                    AiModelCapability.pdfGeneration =>
-                      _localizedText(zh: 'PDF 生成', en: 'PDF'),
-                    AiModelCapability.pptGeneration =>
-                      _localizedText(zh: 'PPT 生成', en: 'PPT'),
-                  };
-                  return FilterChip(
-                    label: Text(label),
-                    selected: _capabilities.contains(c),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _capabilities.add(c);
-                        } else {
-                          _capabilities.remove(c);
-                        }
-                      });
-                    },
-                  );
-                }).toList(growable: false),
+                children: AiModelCapability.values
+                    .map((c) {
+                      final label = switch (c) {
+                        AiModelCapability.imageGeneration => _localizedText(
+                          zh: '图片生成',
+                          en: 'Image',
+                        ),
+                        AiModelCapability.videoGeneration => _localizedText(
+                          zh: '视频生成',
+                          en: 'Video',
+                        ),
+                        AiModelCapability.audioGeneration => _localizedText(
+                          zh: '音频生成',
+                          en: 'Audio',
+                        ),
+                        AiModelCapability.pdfGeneration => _localizedText(
+                          zh: 'PDF 生成',
+                          en: 'PDF',
+                        ),
+                        AiModelCapability.pptGeneration => _localizedText(
+                          zh: 'PPT 生成',
+                          en: 'PPT',
+                        ),
+                      };
+                      return FilterChip(
+                        label: Text(label),
+                        selected: _capabilities.contains(c),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _capabilities.add(c);
+                            } else {
+                              _capabilities.remove(c);
+                            }
+                          });
+                        },
+                      );
+                    })
+                    .toList(growable: false),
               ),
               const SizedBox(height: 16),
 

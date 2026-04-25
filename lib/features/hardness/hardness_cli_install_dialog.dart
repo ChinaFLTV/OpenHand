@@ -15,7 +15,8 @@ class HardnessCliInstallDialog extends StatefulWidget {
   final HardnessCli cli;
 
   @override
-  State<HardnessCliInstallDialog> createState() => _HardnessCliInstallDialogState();
+  State<HardnessCliInstallDialog> createState() =>
+      _HardnessCliInstallDialogState();
 }
 
 class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
@@ -169,13 +170,17 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     } else if (installer == 'brew') {
       if (_isPermissionError) {
         _appendLine('  → Homebrew 通常不应以 sudo 安装，请检查目录权限');
-        _appendLine('  → 修复建议：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed');
+        _appendLine(
+          '  → 修复建议：https://docs.brew.sh/FAQ#why-does-homebrew-say-sudo-is-not-allowed',
+        );
       }
     } else if (installer == 'pip') {
       if (exitCode == null) {
         _appendLine('  → 请先安装 Python：https://www.python.org');
       } else if (_isPermissionError) {
-        _appendLine('  → 尝试：pip install --user ${widget.cli.installCommand!.last}');
+        _appendLine(
+          '  → 尝试：pip install --user ${widget.cli.installCommand!.last}',
+        );
       }
     }
     if (widget.cli.installDocUrl != null) {
@@ -236,8 +241,10 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       }
     } catch (_) {}
 
-    final shellCmdStr =
-        ([installerPath, ...cmd.sublist(1)]).map(_shellQuote).join(' ');
+    final shellCmdStr = ([
+      installerPath,
+      ...cmd.sublist(1),
+    ]).map(_shellQuote).join(' ');
     _appendLine('> [管理员] $shellCmdStr');
     _appendLine('');
 
@@ -252,12 +259,15 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       // \$? → literal $? at runtime (Dart escapes $ to prevent interpolation)
       // Note: '2>&1' must not be split; keep it as a raw string fragment.
       final appleScript =
-          'do shell script "$escapedCmd 2>&' '1; echo __EC__:\$?" '
+          'do shell script "$escapedCmd 2>&'
+          '1; echo __EC__:\$?" '
           'with administrator privileges';
 
       try {
-        final result = await Process.run('osascript', ['-e', appleScript])
-            .timeout(const Duration(minutes: 5));
+        final result = await Process.run('osascript', [
+          '-e',
+          appleScript,
+        ]).timeout(const Duration(minutes: 5));
 
         if (!mounted || _cancelled) return;
 
@@ -274,7 +284,10 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
             });
             _appendLine('⚠ 用户已取消授权');
           } else {
-            setState(() { _running = false; _success = false; });
+            setState(() {
+              _running = false;
+              _success = false;
+            });
             _appendLine('✗ 无法获取管理员权限');
             if (stderr.isNotEmpty) _appendLine('  $stderr');
             if (widget.cli.installDocUrl != null) {
@@ -306,7 +319,8 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
 
         if (probe.installed) {
           _appendLine(
-              '✓ 安装成功（路径：${probe.resolvedPath ?? widget.cli.executable}）');
+            '✓ 安装成功（路径：${probe.resolvedPath ?? widget.cli.executable}）',
+          );
         } else if (innerExitCode != null && innerExitCode != 0) {
           _appendLine('✗ 安装失败（退出码：$innerExitCode）');
           if (widget.cli.installDocUrl != null) {
@@ -314,29 +328,40 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
           }
         } else {
           // Installed but not yet on PATH — might need a new shell session.
-          _appendLine(
-              '⚠ 安装完成，但未在当前 PATH 中检测到 ${widget.cli.executable}');
+          _appendLine('⚠ 安装完成，但未在当前 PATH 中检测到 ${widget.cli.executable}');
           _appendLine('  → 请尝试重新启动 OpenHand 或从终端启动以加载新 PATH');
           // Treat as success so the caller re-scans.
           if (mounted) setState(() => _success = true);
         }
       } on TimeoutException {
         if (!mounted) return;
-        setState(() { _running = false; _success = false; });
+        setState(() {
+          _running = false;
+          _success = false;
+        });
         _appendLine('✗ 安装超时（超过 5 分钟），请手动运行：');
         _appendLine('  sudo ${cmd.join(' ')}');
       } on ProcessException catch (e) {
         if (!mounted) return;
-        setState(() { _running = false; _success = false; });
+        setState(() {
+          _running = false;
+          _success = false;
+        });
         _appendLine('✗ 无法启动 osascript：${e.message}');
       } catch (e) {
         if (!mounted) return;
-        setState(() { _running = false; _success = false; });
+        setState(() {
+          _running = false;
+          _success = false;
+        });
         _appendLine('✗ 发生错误：$e');
       }
     } else {
       // Linux: no GUI sudo helper — show manual command to copy.
-      setState(() { _running = false; _success = false; });
+      setState(() {
+        _running = false;
+        _success = false;
+      });
       _appendLine('请在终端手动执行（需要 root 权限）：');
       _appendLine('  sudo ${cmd.join(' ')}');
       if (widget.cli.installDocUrl != null) {

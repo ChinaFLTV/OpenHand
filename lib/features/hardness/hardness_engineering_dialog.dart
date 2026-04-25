@@ -1169,7 +1169,7 @@ class _RoleConfigRow extends StatelessWidget {
   final ValueChanged<String?> onCliChanged;
   final ValueChanged<String?> onModelChanged;
   final void Function(String? configId, String? modelId)?
-      onAiModelConfigChanged;
+  onAiModelConfigChanged;
   final VoidCallback? onInstall;
   final VoidCallback? onViewDocs;
   final VoidCallback? onLogin;
@@ -1595,8 +1595,7 @@ class _QuickApplyBar extends StatelessWidget {
   final ValueChanged<HardnessExecutionMode?> onExecutionModeChanged;
   final ValueChanged<String?> onCliChanged;
   final ValueChanged<String?> onModelChanged;
-  final void Function(String? configId, String? modelId)
-      onAiModelConfigChanged;
+  final void Function(String? configId, String? modelId) onAiModelConfigChanged;
   final VoidCallback onApply;
   final List<String> Function(String?) modelsForCli;
 
@@ -1948,8 +1947,7 @@ class _MenuAnchorModelSelectorState extends State<_MenuAnchorModelSelector> {
   String? get _displayLabel {
     final id = widget.selectedAiModelConfigId?.trim();
     if (id == null || id.isEmpty) return null;
-    final config =
-        widget.settingsModels.where((m) => m.id == id).firstOrNull;
+    final config = widget.settingsModels.where((m) => m.id == id).firstOrNull;
     if (config == null) return null;
     final modelId = widget.selectedUrlModeModelId?.trim();
     if (modelId != null && modelId.isNotEmpty) return modelId;

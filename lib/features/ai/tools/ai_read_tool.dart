@@ -13,7 +13,7 @@ import 'ai_tool_utils.dart';
 
 class AiReadTool extends AiTool {
   AiReadTool({AiFileReadRenderer? renderer})
-      : _renderer = renderer ?? const AiFileReadRenderer();
+    : _renderer = renderer ?? const AiFileReadRenderer();
 
   final AiFileReadRenderer _renderer;
 
@@ -26,28 +26,39 @@ class AiReadTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     if (rawFilePath.isEmpty) {
-      return AiToolUtils.invalidResult('Read', 'Read requires a non-empty file_path.');
+      return AiToolUtils.invalidResult(
+        'Read',
+        'Read requires a non-empty file_path.',
+      );
     }
     final filePath = AiToolUtils.resolvePath(rawFilePath);
     final file = File(filePath);
     if (!await file.exists()) {
-      return AiToolUtils.invalidResult('Read', 'File does not exist: $filePath');
+      return AiToolUtils.invalidResult(
+        'Read',
+        'File does not exist: $filePath',
+      );
     }
-    
+
     // 2026-04-12: 从 metadata 获取追踪服务
-    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
-    
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+
     final offset = AiToolUtils.readInt(args['offset']);
-    final limit = AiToolUtils.readInt(args['limit']) ?? AiToolUtils.defaultReadLimit;
+    final limit =
+        AiToolUtils.readInt(args['limit']) ?? AiToolUtils.defaultReadLimit;
     if (limit <= 0) {
-      return AiToolUtils.invalidResult('Read', 'Read limit must be a positive integer.');
+      return AiToolUtils.invalidResult(
+        'Read',
+        'Read limit must be a positive integer.',
+      );
     }
     final renderedRead = await _renderer.render(file, filePath);
     final rawContent = renderedRead.content;
-    
+
     // 2026-04-12: 记录文件读取时间（用于脏写检测）
     await fileTracker?.recordFileRead(filePath);
-    
+
     if (rawContent.isEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'Read $filePath',
@@ -79,26 +90,29 @@ class AiReadTool extends AiTool {
     }
     final lines = const LineSplitter().convert(rawContent);
     final startIndex = offset == null || offset <= 1 ? 0 : offset - 1;
-    final safeStartIndex = startIndex < lines.length ? startIndex : lines.length;
+    final safeStartIndex = startIndex < lines.length
+        ? startIndex
+        : lines.length;
     final endIndex = (safeStartIndex + limit) < lines.length
         ? safeStartIndex + limit
         : lines.length;
     final visibleLines = lines.sublist(safeStartIndex, endIndex);
-    final lineNumberWidth =
-        endIndex.toString().length < 4 ? 4 : endIndex.toString().length;
+    final lineNumberWidth = endIndex.toString().length < 4
+        ? 4
+        : endIndex.toString().length;
     final output = visibleLines.isEmpty
         ? 'No lines available in the requested range.'
         : visibleLines
-            .asMap()
-            .entries
-            .map((entry) {
-              final lineNumber = safeStartIndex + entry.key + 1;
-              final line = entry.value.length > AiToolUtils.maxReadLineLength
-                  ? '${entry.value.substring(0, AiToolUtils.maxReadLineLength)}...'
-                  : entry.value;
-              return '${lineNumber.toString().padLeft(lineNumberWidth)}\t$line';
-            })
-            .join('\n');
+              .asMap()
+              .entries
+              .map((entry) {
+                final lineNumber = safeStartIndex + entry.key + 1;
+                final line = entry.value.length > AiToolUtils.maxReadLineLength
+                    ? '${entry.value.substring(0, AiToolUtils.maxReadLineLength)}...'
+                    : entry.value;
+                return '${lineNumber.toString().padLeft(lineNumberWidth)}\t$line';
+              })
+              .join('\n');
     return AiToolUtils.simpleSuccessResult(
       command: 'Read $filePath',
       output: output,

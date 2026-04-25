@@ -225,12 +225,11 @@ class AiModelProfile {
     Set<AiModelCapability>? capabilities,
   }) {
     return AiModelProfile(
-      displayName:
-          clearDisplayName ? null : displayName ?? this.displayName,
-      description:
-          clearDescription ? null : description ?? this.description,
-      isMultimodal:
-          clearIsMultimodal ? null : isMultimodal ?? this.isMultimodal,
+      displayName: clearDisplayName ? null : displayName ?? this.displayName,
+      description: clearDescription ? null : description ?? this.description,
+      isMultimodal: clearIsMultimodal
+          ? null
+          : isMultimodal ?? this.isMultimodal,
       supportedModalities: supportedModalities ?? this.supportedModalities,
       maxContextLength: clearMaxContextLength
           ? null

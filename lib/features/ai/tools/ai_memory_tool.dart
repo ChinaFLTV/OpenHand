@@ -66,9 +66,9 @@ class AiMemoryTool extends AiTool {
         'update' => await _update(controller, args, stopwatch),
         'delete' => await _delete(controller, args, stopwatch),
         _ => AiToolUtils.invalidResult(
-            _toolName,
-            'Unknown action "$action". Valid: list | append | upsert_profile | update | delete.',
-          ),
+          _toolName,
+          'Unknown action "$action". Valid: list | append | upsert_profile | update | delete.',
+        ),
       };
     } catch (error) {
       return AiToolExecutionResult(
@@ -178,10 +178,7 @@ class AiMemoryTool extends AiTool {
     final content = '${args['content'] ?? ''}';
     final tags = _readStringList(args['tags']);
     if (id.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'update requires "id".',
-      );
+      return AiToolUtils.invalidResult(_toolName, 'update requires "id".');
     }
     UserMemoryEntry? target;
     for (final entry in controller.entries) {
@@ -222,10 +219,7 @@ class AiMemoryTool extends AiTool {
   ) async {
     final id = '${args['id'] ?? ''}'.trim();
     if (id.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'delete requires "id".',
-      );
+      return AiToolUtils.invalidResult(_toolName, 'delete requires "id".');
     }
     UserMemoryEntry? target;
     for (final entry in controller.entries) {

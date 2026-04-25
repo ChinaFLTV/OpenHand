@@ -65,10 +65,7 @@ class MachineExpertDialogResult {
       rawTerminal = '$terminalApp (macOS 系统自带终端)';
     }
 
-    final positionParts = <String>[
-      '窗口：$windowId',
-      '会话：$tabId',
-    ];
+    final positionParts = <String>['窗口：$windowId', '会话：$tabId'];
 
     // Append precise AppleScript addressing hint when indices are available.
     String addressingHint = '';
@@ -79,8 +76,7 @@ class MachineExpertDialogResult {
       addressingHint =
           '\n- AppleScript 精确定位：【window $windowIndex → tab $tabIndex】';
     } else if (windowIndex != null) {
-      addressingHint =
-          '\n- AppleScript 精确定位：【window $windowIndex】';
+      addressingHint = '\n- AppleScript 精确定位：【window $windowIndex】';
     }
 
     return '''- 终端应用：【$rawTerminal】
@@ -434,7 +430,10 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
   bool _hasValidModelSelection() {
     final configId = _selectedModelConfigId;
     final modelId = _selectedModelId;
-    if (configId == null || configId.isEmpty || modelId == null || modelId.isEmpty) {
+    if (configId == null ||
+        configId.isEmpty ||
+        modelId == null ||
+        modelId.isEmpty) {
       return false;
     }
     return widget.availableModels.any(
@@ -448,7 +447,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
     if (configId == null || configId.isEmpty) {
       return null;
     }
-    final config = widget.availableModels.where((item) => item.id == configId).firstOrNull;
+    final config = widget.availableModels
+        .where((item) => item.id == configId)
+        .firstOrNull;
     if (config == null) {
       return null;
     }

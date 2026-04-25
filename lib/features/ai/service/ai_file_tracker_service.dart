@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 /// 文件追踪器服务，用于检测脏写（dirty write）
-/// 
+///
 /// 核心机制：
 /// 1. Read 时记录 lastReadTime（读取时刻的文件 modTime）
 /// 2. Edit/Write 前检查当前 modTime > lastReadTime → 文件已被外部修改
@@ -15,7 +15,7 @@ class AiFileTrackerService {
   final Map<String, DateTime> _lastReadTimes = <String, DateTime>{};
 
   /// 记录文件读取时间
-  /// 
+  ///
   /// 在 Read 工具执行成功后调用
   Future<void> recordFileRead(String filePath) async {
     final normalizedPath = p.normalize(filePath);
@@ -33,17 +33,17 @@ class AiFileTrackerService {
   }
 
   /// 检查文件是否可以安全写入（未被外部修改）
-  /// 
+  ///
   /// 返回值：
   /// - null: 可以安全写入
   /// - String: 错误消息，说明文件已被外部修改
   Future<String?> validateSafeToWrite(String filePath) async {
     final normalizedPath = p.normalize(filePath);
     final file = File(normalizedPath);
-    
+
     // 文件不存在 → 新文件，可以写入
     if (!await file.exists()) return null;
-    
+
     // 从未读取过 → 不应该直接修改
     final lastReadTime = _lastReadTimes[normalizedPath];
     if (lastReadTime == null) {
@@ -51,10 +51,10 @@ class AiFileTrackerService {
       // 这里只处理时间戳检查
       return null;
     }
-    
+
     final stat = await file.stat();
     final currentModTime = stat.modified;
-    
+
     // If the current modTime is after the lastReadTime, the file was modified
     // externally.  We apply a small tolerance (2 seconds) because some file
     // systems (e.g. FAT32, HFS+) have limited timestamp resolution and the
@@ -62,9 +62,9 @@ class AiFileTrackerService {
     if (currentModTime.isAfter(lastReadTime.add(const Duration(seconds: 2)))) {
       final timeDiff = currentModTime.difference(lastReadTime);
       return 'File was modified externally after last read (${_formatDuration(timeDiff)} ago). '
-             'Re-read the file before editing to avoid overwriting external changes: $filePath';
+          'Re-read the file before editing to avoid overwriting external changes: $filePath';
     }
-    
+
     return null;
   }
 

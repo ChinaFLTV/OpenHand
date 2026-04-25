@@ -201,8 +201,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 !(session.templateId ==
                                         'hardness_engineering' &&
                                     e.key == 'hardness_config') &&
-                                !(session.templateId ==
-                                        'programming_expert' &&
+                                !(session.templateId == 'programming_expert' &&
                                     e.key == 'programming_expert_config'),
                           )
                           .isNotEmpty) ...[
@@ -1252,4 +1251,3 @@ class _MetadataJsonPanel extends StatelessWidget {
     );
   }
 }
-

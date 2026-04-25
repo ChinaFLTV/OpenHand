@@ -1,5 +1,10 @@
 part of 'openhand_home_page.dart';
 
+const int _messageMarkdownCollapseCharThreshold = 5000;
+const int _toolResultMarkdownCollapseCharThreshold = 1200;
+const int _messageMarkdownCollapseLineThreshold = 90;
+const int _toolResultMarkdownCollapseLineThreshold = 32;
+
 class _CompressionCheckpointBody extends StatelessWidget {
   const _CompressionCheckpointBody({
     required this.content,
@@ -254,6 +259,176 @@ class _StreamingReasoningBody extends StatelessWidget {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _CollapsibleMessageMarkdownBody extends StatefulWidget {
+  const _CollapsibleMessageMarkdownBody({
+    required this.data,
+    required this.selectable,
+    required this.styleSheet,
+    required this.builders,
+    required this.inlineSyntaxes,
+    required this.pathRoots,
+    required this.parseKey,
+    required this.fadeColor,
+    required this.collapseCharThreshold,
+    required this.collapseLineThreshold,
+    required this.previewMaxHeight,
+  });
+
+  final String data;
+  final bool selectable;
+  final MarkdownStyleSheet styleSheet;
+  final Map<String, MarkdownElementBuilder> builders;
+  final List<md.InlineSyntax> inlineSyntaxes;
+  final List<String> pathRoots;
+  final String parseKey;
+  final Color fadeColor;
+  final int collapseCharThreshold;
+  final int collapseLineThreshold;
+  final double previewMaxHeight;
+
+  @override
+  State<_CollapsibleMessageMarkdownBody> createState() =>
+      _CollapsibleMessageMarkdownBodyState();
+}
+
+class _CollapsibleMessageMarkdownBodyState
+    extends State<_CollapsibleMessageMarkdownBody> {
+  late bool _collapsed = _shouldCollapse(widget.data);
+  bool _userToggled = false;
+
+  @override
+  void didUpdateWidget(covariant _CollapsibleMessageMarkdownBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.parseKey != widget.parseKey) {
+      _collapsed = _shouldCollapse(widget.data);
+      _userToggled = false;
+      return;
+    }
+    if (!_userToggled && oldWidget.data != widget.data) {
+      _collapsed = _shouldCollapse(widget.data);
+    }
+  }
+
+  bool _shouldCollapse(String value) {
+    if (value.length > widget.collapseCharThreshold) {
+      return true;
+    }
+    var lineCount = 1;
+    for (final unit in value.codeUnits) {
+      if (unit == 0x0A) {
+        lineCount += 1;
+        if (lineCount > widget.collapseLineThreshold) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = widget.data.isEmpty ? ' ' : widget.data;
+    final shouldCollapse = _shouldCollapse(data);
+    if (!shouldCollapse) {
+      return _SafeMarkdownBody(
+        data: data,
+        selectable: widget.selectable,
+        builders: widget.builders,
+        styleSheet: widget.styleSheet,
+        inlineSyntaxes: widget.inlineSyntaxes,
+        pathRoots: widget.pathRoots,
+        parseKey: widget.parseKey,
+      );
+    }
+
+    final theme = Theme.of(context);
+    final label = _collapsed
+        ? _localizedText(context, zh: '展开完整内容', en: 'Show Full Content')
+        : _localizedText(context, zh: '收起长内容', en: 'Collapse Content');
+    final detail = _localizedText(
+      context,
+      zh: '${data.length} 字符',
+      en: '${data.length} chars',
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: _borderRadius18,
+            onTap: () {
+              setState(() {
+                _collapsed = !_collapsed;
+                _userToggled = true;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Icon(
+                    _collapsed
+                        ? Icons.unfold_more_rounded
+                        : Icons.unfold_less_rounded,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$label · $detail',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        ClipRect(
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topLeft,
+            child: _collapsed
+                ? KeyedSubtree(
+                    key: const ValueKey<String>('message-markdown-preview'),
+                    child: _MarkdownPreviewBody(
+                      data: data,
+                      maxHeight: widget.previewMaxHeight,
+                      styleSheet: widget.styleSheet,
+                      builders: widget.builders,
+                      inlineSyntaxes: widget.inlineSyntaxes,
+                      pathRoots: widget.pathRoots,
+                      parseKey: '${widget.parseKey}|message-preview',
+                      fadeColor: widget.fadeColor,
+                    ),
+                  )
+                : KeyedSubtree(
+                    key: const ValueKey<String>('message-markdown-expanded'),
+                    child: _SafeMarkdownBody(
+                      data: data,
+                      selectable: widget.selectable,
+                      builders: widget.builders,
+                      styleSheet: widget.styleSheet,
+                      inlineSyntaxes: widget.inlineSyntaxes,
+                      pathRoots: widget.pathRoots,
+                      parseKey: '${widget.parseKey}|message-expanded',
+                    ),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1071,8 +1246,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 // ─────────────────────────────────────────────────────────────────────────────
 const Duration _markdownImageExistsTtl = Duration(seconds: 2);
 const int _markdownImageExistsCacheCap = 256;
-final Map<String, _MarkdownImageExistsCacheEntry>
-    _markdownImageExistsCache = <String, _MarkdownImageExistsCacheEntry>{};
+final Map<String, _MarkdownImageExistsCacheEntry> _markdownImageExistsCache =
+    <String, _MarkdownImageExistsCacheEntry>{};
 
 class _MarkdownImageExistsCacheEntry {
   const _MarkdownImageExistsCacheEntry(this.exists, this.checkedAt);
@@ -1089,8 +1264,7 @@ bool _cachedMarkdownImageFileExists(String path) {
     return cached.exists;
   }
   final exists = File(path).existsSync();
-  _markdownImageExistsCache[path] =
-      _MarkdownImageExistsCacheEntry(exists, now);
+  _markdownImageExistsCache[path] = _MarkdownImageExistsCacheEntry(exists, now);
   if (_markdownImageExistsCache.length > _markdownImageExistsCacheCap) {
     final oldestKey = _markdownImageExistsCache.entries
         .reduce((a, b) => a.value.checkedAt.isBefore(b.value.checkedAt) ? a : b)

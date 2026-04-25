@@ -181,9 +181,8 @@ class AiChatStreamingResponse {
 
 class AiChatService implements AiChatClient {
   AiChatService({http.Client? client, AiImageGenerationService? imageService})
-      : _client = client ?? http.Client(),
-        _imageService =
-            imageService ?? AiImageGenerationService(client: client);
+    : _client = client ?? http.Client(),
+      _imageService = imageService ?? AiImageGenerationService(client: client);
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
@@ -325,8 +324,8 @@ class AiChatService implements AiChatClient {
         // reasoning text.  Deduplicate: keep reasoning separate and clear
         // the reply so the UI doesn't show the same text in both a thinking
         // card and an assistant card.
-        final replyIsReasoning = reasoningText != null &&
-            parsedReply.trim() == reasoningText.trim();
+        final replyIsReasoning =
+            reasoningText != null && parsedReply.trim() == reasoningText.trim();
         return AiChatCompletion(
           reply: replyIsReasoning ? '' : dsmlExtraction.sanitizedText,
           reasoningContent: reasoningText,
@@ -576,8 +575,8 @@ class AiChatService implements AiChatClient {
       // as a reliable fallback signal.
       final effectiveFinishReason =
           dsmlExtraction.hasTrailingIncompleteMarkup && finishReason == null
-              ? 'length'
-              : finishReason;
+          ? 'length'
+          : finishReason;
 
       resultCompleter.complete(
         AiChatStreamResult(
@@ -653,8 +652,8 @@ class AiChatService implements AiChatClient {
       if (errorField != null) {
         String errorMessage;
         if (errorField is Map<String, Object?>) {
-          errorMessage =
-              '${errorField['message'] ?? errorField['msg'] ?? ''}'.trim();
+          errorMessage = '${errorField['message'] ?? errorField['msg'] ?? ''}'
+              .trim();
           if (errorMessage.isEmpty) {
             errorMessage = '$errorField';
           }
@@ -1093,7 +1092,9 @@ void _processClaudeStreamEvent(
             promptTokens: promptTokens,
             completionTokens: completionTokens,
             totalTokens: (promptTokens ?? 0) + (completionTokens ?? 0),
-            cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
+            cacheCreationTokens: _readInt(
+              usageMap['cache_creation_input_tokens'],
+            ),
             cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
           );
           if (!parsedUsage.isEmpty) {
@@ -1199,7 +1200,9 @@ void _processClaudeStreamEvent(
           promptTokens: inputTokens,
           completionTokens: outputTokens,
           totalTokens: (inputTokens ?? 0) + (outputTokens ?? 0),
-          cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
+          cacheCreationTokens: _readInt(
+            usageMap['cache_creation_input_tokens'],
+          ),
           cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
         );
         if (!parsedUsage.isEmpty) {
@@ -1222,8 +1225,7 @@ void _processClaudeStreamEvent(
       final errorPayload = decoded['error'];
       String errorMessage = '';
       if (errorPayload is Map<String, Object?>) {
-        errorMessage =
-            '${errorPayload['message'] ?? ''}'.trim();
+        errorMessage = '${errorPayload['message'] ?? ''}'.trim();
         if (errorMessage.isEmpty) {
           errorMessage = '$errorPayload';
         }

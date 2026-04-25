@@ -56,7 +56,10 @@ class AiFileReadRenderer {
           '${AiToolUtils.truncateContent(content, AiToolUtils.maxFileCharacters)}'
           '\n\n[truncated: showing the first ${bytes.length} bytes of $fileLength bytes]';
     } else {
-      content = AiToolUtils.truncateContent(content, AiToolUtils.maxFileCharacters);
+      content = AiToolUtils.truncateContent(
+        content,
+        AiToolUtils.maxFileCharacters,
+      );
     }
     return RenderedReadContent(
       content: content,
@@ -111,7 +114,9 @@ class AiFileReadRenderer {
     final buffer = StringBuffer()
       ..writeln('file_type: image')
       ..writeln('path: $filePath')
-      ..writeln('format: ${extension.isEmpty ? 'unknown' : extension.substring(1)}')
+      ..writeln(
+        'format: ${extension.isEmpty ? 'unknown' : extension.substring(1)}',
+      )
       ..writeln('size_bytes: $byteSize');
     if (decodedImage != null) {
       buffer
@@ -119,7 +124,8 @@ class AiFileReadRenderer {
         ..writeln('height: ${decodedImage.height}');
     }
     buffer.writeln(
-        'preview: Raster image files are not line-addressable in this runtime.');
+      'preview: Raster image files are not line-addressable in this runtime.',
+    );
     return RenderedReadContent(
       content: buffer.toString().trimRight(),
       fileKind: extension.isEmpty ? 'image' : extension,
@@ -131,8 +137,7 @@ class AiFileReadRenderer {
   RenderedReadContent _renderPdf(List<int> bytes, String filePath) {
     final latinText = latin1.decode(bytes, allowInvalid: true);
     final headerLine = latinText.split(RegExp(r'[\r\n]')).first.trim();
-    final pageCount =
-        RegExp(r'/Type\s*/Page\b').allMatches(latinText).length;
+    final pageCount = RegExp(r'/Type\s*/Page\b').allMatches(latinText).length;
     final buffer = StringBuffer()
       ..writeln('file_type: pdf')
       ..writeln('path: $filePath')
@@ -140,7 +145,8 @@ class AiFileReadRenderer {
     if (headerLine.isNotEmpty) buffer.writeln('header: $headerLine');
     if (pageCount > 0) buffer.writeln('page_count_estimate: $pageCount');
     buffer.writeln(
-        'preview: PDF files are not line-addressable in this runtime.');
+      'preview: PDF files are not line-addressable in this runtime.',
+    );
     return RenderedReadContent(
       content: buffer.toString().trimRight(),
       fileKind: '.pdf',
@@ -168,10 +174,12 @@ class AiFileReadRenderer {
     if (hexPreview.isNotEmpty) buffer.writeln('hex_preview: $hexPreview');
     if (truncated) {
       buffer.writeln(
-          'preview_scope: first ${bytes.length} bytes captured for binary inspection');
+        'preview_scope: first ${bytes.length} bytes captured for binary inspection',
+      );
     }
     buffer.writeln(
-        'preview: Binary files are not line-addressable in this runtime.');
+      'preview: Binary files are not line-addressable in this runtime.',
+    );
     return RenderedReadContent(
       content: buffer.toString().trimRight(),
       fileKind: extension.isEmpty ? 'binary' : extension,

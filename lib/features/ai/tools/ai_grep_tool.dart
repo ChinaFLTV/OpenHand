@@ -27,15 +27,16 @@ class AiGrepTool extends AiTool {
     final rawPath = '${args['path'] ?? ''}'.trim();
     final path = rawPath.isEmpty
         ? AiToolUtils.defaultWorkingDirectory()
-        : (p.isAbsolute(rawPath) ? p.normalize(rawPath) : p.normalize(p.join(AiToolUtils.defaultWorkingDirectory(), rawPath)));
+        : (p.isAbsolute(rawPath)
+              ? p.normalize(rawPath)
+              : p.normalize(
+                  p.join(AiToolUtils.defaultWorkingDirectory(), rawPath),
+                ));
 
     // 验证路径存在性
     final pathType = FileSystemEntity.typeSync(path);
     if (pathType == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult(
-        'Grep',
-        'Path does not exist: $path',
-      );
+      return AiToolUtils.invalidResult('Grep', 'Path does not exist: $path');
     }
 
     final glob = '${args['glob'] ?? ''}'.trim();
@@ -57,7 +58,8 @@ class AiGrepTool extends AiTool {
         command: 'Grep $pattern',
         workingDirectory: path,
         stdout: '',
-        stderr: 'ripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
+        stderr:
+            'ripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
         durationMs: startedAt.elapsedMilliseconds,
         exitCode: 127,
         resultText:
@@ -77,14 +79,42 @@ class AiGrepTool extends AiTool {
       default:
         rgArgs.add('--files-with-matches');
     }
-    if (before != null) rgArgs..add('-B')..add('$before');
-    if (after != null) rgArgs..add('-A')..add('$after');
-    if (contextLines != null) rgArgs..add('-C')..add('$contextLines');
-    if (showLineNumbers) rgArgs.add('-n');
-    if (caseInsensitive) rgArgs.add('-i');
-    if (type.isNotEmpty) rgArgs..add('--type')..add(type);
-    if (glob.isNotEmpty) rgArgs..add('--glob')..add(glob);
-    if (multiline) rgArgs..add('-U')..add('--multiline-dotall');
+    if (before != null) {
+      rgArgs
+        ..add('-B')
+        ..add('$before');
+    }
+    if (after != null) {
+      rgArgs
+        ..add('-A')
+        ..add('$after');
+    }
+    if (contextLines != null) {
+      rgArgs
+        ..add('-C')
+        ..add('$contextLines');
+    }
+    if (showLineNumbers) {
+      rgArgs.add('-n');
+    }
+    if (caseInsensitive) {
+      rgArgs.add('-i');
+    }
+    if (type.isNotEmpty) {
+      rgArgs
+        ..add('--type')
+        ..add(type);
+    }
+    if (glob.isNotEmpty) {
+      rgArgs
+        ..add('--glob')
+        ..add(glob);
+    }
+    if (multiline) {
+      rgArgs
+        ..add('-U')
+        ..add('--multiline-dotall');
+    }
 
     // 确定搜索目标和工作目录
     final String workingDir;
@@ -98,7 +128,9 @@ class AiGrepTool extends AiTool {
       workingDir = p.dirname(path);
       searchTarget = p.basename(path);
     }
-    rgArgs..add(pattern)..add(searchTarget);
+    rgArgs
+      ..add(pattern)
+      ..add(searchTarget);
 
     // 执行 rg 命令（使用共享工具方法）
     final rgResult = await AiToolUtils.runProcessSafely(
@@ -115,7 +147,8 @@ class AiGrepTool extends AiTool {
         output = output.split('\n').take(headLimit).join('\n');
       }
       if (output.length > AiToolUtils.maxSearchOutputCharacters) {
-        output = '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}...';
+        output =
+            '${output.substring(0, AiToolUtils.maxSearchOutputCharacters)}...';
       }
       return AiToolUtils.simpleSuccessResult(
         command: 'Grep $pattern',
@@ -152,14 +185,24 @@ class AiGrepTool extends AiTool {
   }) {
     final buffer = StringBuffer('status: failed\nexit_code: $exitCode');
     if (stdout.isNotEmpty) {
-      buffer..writeln()..write('stdout:\n')..write(stdout);
+      buffer
+        ..writeln()
+        ..write('stdout:\n')
+        ..write(stdout);
     }
     if (stderr.isNotEmpty) {
-      buffer..writeln()..write('stderr:\n')..write(stderr);
+      buffer
+        ..writeln()
+        ..write('stderr:\n')
+        ..write(stderr);
     }
     // 为常见错误码添加提示
     if (exitCode == 2) {
-      buffer..writeln()..write('hint: Exit code 2 typically indicates a syntax error in the regex pattern.');
+      buffer
+        ..writeln()
+        ..write(
+          'hint: Exit code 2 typically indicates a syntax error in the regex pattern.',
+        );
     }
     return buffer.toString().trim();
   }

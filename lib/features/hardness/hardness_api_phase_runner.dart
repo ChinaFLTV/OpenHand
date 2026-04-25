@@ -155,7 +155,8 @@ class HardnessApiPhaseRunner {
       ..writeln('时区：${runtimeContext.timeZoneName}');
 
     // Inject memory if enabled.
-    if (runtimeContext.memoryEnabled && runtimeContext.memoryEntries.isNotEmpty) {
+    if (runtimeContext.memoryEnabled &&
+        runtimeContext.memoryEntries.isNotEmpty) {
       systemContent
         ..writeln()
         ..writeln('# 用户记忆')
@@ -169,10 +170,12 @@ class HardnessApiPhaseRunner {
     if (phaseToolCatalog.definitions.isNotEmpty) {
       systemContent
         ..writeln()
-        ..writeln(hardnessPromptBuilder.renderCompactToolCatalog(
-          tools: phaseToolCatalog.definitions,
-          phase: phase,
-        ));
+        ..writeln(
+          hardnessPromptBuilder.renderCompactToolCatalog(
+            tools: phaseToolCatalog.definitions,
+            phase: phase,
+          ),
+        );
     }
 
     // Inject compact XML tool instructions only if the model doesn't
@@ -215,14 +218,8 @@ class HardnessApiPhaseRunner {
     }
 
     final conversation = <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: systemContent.toString(),
-      ),
-      AiChatTurn(
-        role: AiChatRole.user,
-        content: phasePrompt,
-      ),
+      AiChatTurn(role: AiChatRole.system, content: systemContent.toString()),
+      AiChatTurn(role: AiChatRole.user, content: phasePrompt),
     ];
 
     // Agentic tool loop — mirrors AiSessionController._runAssistantConversation.
@@ -345,7 +342,8 @@ class HardnessApiPhaseRunner {
           // Emit a role marker before the reply so the sub-conversation
           // parser creates a separate card instead of merging the reply
           // into the previous tool-call segment.
-          if (toolRound > 0 || (reasoning != null && reasoning.trim().isNotEmpty)) {
+          if (toolRound > 0 ||
+              (reasoning != null && reasoning.trim().isNotEmpty)) {
             emit('');
             emit('assistant');
           }
@@ -368,11 +366,13 @@ class HardnessApiPhaseRunner {
         }
 
         // Add assistant message (text + tool calls) to conversation.
-        conversation.add(AiChatTurn(
-          role: AiChatRole.assistant,
-          content: reply,
-          toolCalls: toolCalls,
-        ));
+        conversation.add(
+          AiChatTurn(
+            role: AiChatRole.assistant,
+            content: reply,
+            toolCalls: toolCalls,
+          ),
+        );
 
         // Execute tool calls.
         final effectiveToolCalls = toolCalls.length > maxToolCallsPerRound
@@ -388,9 +388,7 @@ class HardnessApiPhaseRunner {
           final argsMap = _tryDecodeJsonMap(toolCall.arguments);
           if (argsMap.isNotEmpty) {
             try {
-              emit(
-                '  📥 ${const JsonEncoder().convert(argsMap)}',
-              );
+              emit('  📥 ${const JsonEncoder().convert(argsMap)}');
             } catch (_) {
               emit('  📥 ${toolCall.arguments.trim()}');
             }
@@ -431,7 +429,9 @@ class HardnessApiPhaseRunner {
           final cwdLabel = result.workingDirectory.isNotEmpty
               ? ' | cwd: ${result.workingDirectory}'
               : '';
-          emit('  📤 status: $statusLabel | $durLabel$exitLabel$cmdLabel$cwdLabel');
+          emit(
+            '  📤 status: $statusLabel | $durLabel$exitLabel$cmdLabel$cwdLabel',
+          );
 
           final toolOutput = result.toToolOutput();
           // Show abbreviated tool output in the log.
@@ -445,11 +445,13 @@ class HardnessApiPhaseRunner {
           }
 
           // Add tool result to conversation.
-          conversation.add(AiChatTurn(
-            role: AiChatRole.tool,
-            content: toolOutput,
-            toolCallId: toolCall.id,
-          ));
+          conversation.add(
+            AiChatTurn(
+              role: AiChatRole.tool,
+              content: toolOutput,
+              toolCallId: toolCall.id,
+            ),
+          );
         }
 
         // If we had to truncate tool calls, note the excess.
@@ -459,11 +461,14 @@ class HardnessApiPhaseRunner {
           emit('ℹ 跳过 $skipped 个超出单轮限制的工具调用。');
           // Add error results for skipped tool calls.
           for (var i = maxToolCallsPerRound; i < toolCalls.length; i++) {
-            conversation.add(AiChatTurn(
-              role: AiChatRole.tool,
-              content: 'Tool call skipped: per-round tool call limit reached.',
-              toolCallId: toolCalls[i].id,
-            ));
+            conversation.add(
+              AiChatTurn(
+                role: AiChatRole.tool,
+                content:
+                    'Tool call skipped: per-round tool call limit reached.',
+                toolCallId: toolCalls[i].id,
+              ),
+            );
           }
         }
       }
@@ -505,11 +510,11 @@ class HardnessApiPhaseRunner {
     if (!hasSubstantiveOutput) {
       emit('');
       // 2026-04-13 Enhanced diagnostic message
-      final mcpNoticeCount =
-          outputLines.where((l) => l.trim().startsWith('ℹ MCP ')).length;
+      final mcpNoticeCount = outputLines
+          .where((l) => l.trim().startsWith('ℹ MCP '))
+          .length;
       if (mcpNoticeCount > 0) {
-        emit(
-            '⚠ 检测到 $mcpNoticeCount 条 MCP 服务异常提示，但这不是导致失败的直接原因。');
+        emit('⚠ 检测到 $mcpNoticeCount 条 MCP 服务异常提示，但这不是导致失败的直接原因。');
       }
       emit('✗ API 会话未产生有效输出。可能原因：');
       emit('  • 模型配置无效或 API 密钥过期');
@@ -523,10 +528,7 @@ class HardnessApiPhaseRunner {
       );
     }
 
-    return HardnessApiPhaseResult(
-      success: true,
-      outputLines: outputLines,
-    );
+    return HardnessApiPhaseResult(success: true, outputLines: outputLines);
   }
 
   /// Returns deny rules appropriate for the phase.
@@ -543,7 +545,8 @@ class HardnessApiPhaseRunner {
     return const <AiDenyCommandRule>[
       AiDenyCommandRule(
         id: 'hardness_readonly_phase',
-        pattern: r'^(rm|mv|cp|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
+        pattern:
+            r'^(rm|mv|cp|chmod|chown|ln|install|make|cmake|gradle|cargo|go build|npm run|yarn|pnpm|flutter build)',
         matchMode: AiDenyCommandMatchMode.regex,
         note: '当前阶段为只读阶段，不允许执行修改文件系统的命令。',
       ),
@@ -588,11 +591,9 @@ class HardnessApiPhaseRunner {
       final params = match.group(2)?.trim() ?? '{}';
       if (name.isEmpty) continue;
       counter++;
-      calls.add(AiToolCall(
-        id: 'xml_tc_$counter',
-        name: name,
-        arguments: params,
-      ));
+      calls.add(
+        AiToolCall(id: 'xml_tc_$counter', name: name, arguments: params),
+      );
     }
     return calls;
   }
@@ -607,8 +608,10 @@ class HardnessApiPhaseRunner {
     }
     // Mask query params that might contain keys (e.g. ?key=...).
     sanitized = sanitized.replaceAll(
-      RegExp(r'[?&](key|token|api_key|apikey|access_token)=[^&\s]+',
-          caseSensitive: false),
+      RegExp(
+        r'[?&](key|token|api_key|apikey|access_token)=[^&\s]+',
+        caseSensitive: false,
+      ),
       '',
     );
     return sanitized;
@@ -670,19 +673,15 @@ class HardnessApiPhaseRunner {
     if (totalChars < (effectiveCharThreshold * 0.85).round()) return null;
 
     emit('');
-    emit('📋 上下文接近阈值（${totalChars ~/ 1024}KB / ${effectiveCharThreshold ~/ 1024}KB），正在生成交接文档…');
+    emit(
+      '📋 上下文接近阈值（${totalChars ~/ 1024}KB / ${effectiveCharThreshold ~/ 1024}KB），正在生成交接文档…',
+    );
 
     // ── Step 1: Generate handoff document via the model ──────────────────
     final handoffPrompt = _buildHandoffPrompt(conversation, phase);
     final handoffConversation = <AiChatTurn>[
-      const AiChatTurn(
-        role: AiChatRole.system,
-        content: _handoffSystemPrompt,
-      ),
-      AiChatTurn(
-        role: AiChatRole.user,
-        content: handoffPrompt,
-      ),
+      const AiChatTurn(role: AiChatRole.system, content: _handoffSystemPrompt),
+      AiChatTurn(role: AiChatRole.user, content: handoffPrompt),
     ];
 
     String handoffDocContent;
@@ -739,10 +738,7 @@ class HardnessApiPhaseRunner {
 
     // ── Step 3: Build fresh conversation with handoff context ────────────
     final freshConversation = <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: systemContent,
-      ),
+      AiChatTurn(role: AiChatRole.system, content: systemContent),
       AiChatTurn(
         role: AiChatRole.user,
         content: _buildHandoffResumePrompt(
@@ -777,10 +773,10 @@ class HardnessApiPhaseRunner {
       final role = turn.role == AiChatRole.system
           ? '系统'
           : turn.role == AiChatRole.user
-              ? '用户'
-              : turn.role == AiChatRole.assistant
-                  ? '助手'
-                  : '工具';
+          ? '用户'
+          : turn.role == AiChatRole.assistant
+          ? '助手'
+          : '工具';
       sb.writeln('### [$role]');
 
       // Truncate very long tool result contents to keep the prompt manageable.
@@ -792,7 +788,9 @@ class HardnessApiPhaseRunner {
       }
 
       for (final tc in turn.toolCalls) {
-        sb.writeln('  → 工具调用：${tc.name}(${tc.arguments.length > 200 ? '${tc.arguments.substring(0, 200)}…' : tc.arguments})');
+        sb.writeln(
+          '  → 工具调用：${tc.name}(${tc.arguments.length > 200 ? '${tc.arguments.substring(0, 200)}…' : tc.arguments})',
+        );
       }
       sb.writeln();
     }

@@ -118,4 +118,3 @@ class _TokenDialState extends State<_TokenDial> {
     );
   }
 }
-

@@ -340,7 +340,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                         const SizedBox(height: 10),
                       ],
-                      _SafeMarkdownBody(
+                      _CollapsibleMessageMarkdownBody(
                         data: effectiveContent.isEmpty ? ' ' : effectiveContent,
                         selectable: widget.isSelected,
                         builders: markdownBuilders,
@@ -348,6 +348,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         inlineSyntaxes: inlineSyntaxes,
                         pathRoots: filePathRoots,
                         parseKey: filePathParseKey,
+                        fadeColor: backgroundColor,
+                        collapseCharThreshold: isToolResult
+                            ? _toolResultMarkdownCollapseCharThreshold
+                            : _messageMarkdownCollapseCharThreshold,
+                        collapseLineThreshold: isToolResult
+                            ? _toolResultMarkdownCollapseLineThreshold
+                            : _messageMarkdownCollapseLineThreshold,
+                        previewMaxHeight: isToolResult ? 176 : 240,
                       ),
                     ],
                   ),
@@ -367,8 +375,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 if (isUser)
                   _UserSkillSelectionChip(
-                    metadata: message
-                        .metadata[aiUserSkillSelectionMetadataKey],
+                    metadata: message.metadata[aiUserSkillSelectionMetadataKey],
                     textColor: textColor,
                   ),
               ],
@@ -729,10 +736,8 @@ class _ImageShimmerPlaceholderState extends State<_ImageShimmerPlaceholder>
 
 /// Full-screen image preview dialog with zoom and pan support.
 class _ImagePreviewDialog extends StatelessWidget {
-  const _ImagePreviewDialog.file({
-    required this.filePath,
-    required this.title,
-  }) : imageUri = null;
+  const _ImagePreviewDialog.file({required this.filePath, required this.title})
+    : imageUri = null;
 
   const _ImagePreviewDialog.network({
     required this.imageUri,
@@ -1164,10 +1169,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
 
   Widget? _buildLeading(String? emoji, String? iconPath, String? iconKind) {
     if (emoji != null && emoji.isNotEmpty) {
-      return Text(
-        emoji,
-        style: const TextStyle(fontSize: 12, height: 1.0),
-      );
+      return Text(emoji, style: const TextStyle(fontSize: 12, height: 1.0));
     }
     if (iconPath != null && iconPath.isNotEmpty && iconKind == 'raster') {
       return SizedBox(

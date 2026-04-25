@@ -27,9 +27,9 @@ class AiLsTool extends AiTool {
     }
     final ignorePatterns = args['ignore'] is List
         ? (args['ignore'] as List)
-            .map((item) => '$item'.trim())
-            .where((item) => item.isNotEmpty)
-            .toList(growable: false)
+              .map((item) => '$item'.trim())
+              .where((item) => item.isNotEmpty)
+              .toList(growable: false)
         : const <String>[];
     final entries = await directory.list().toList();
     entries.sort((left, right) => left.path.compareTo(right.path));
@@ -43,8 +43,8 @@ class AiLsTool extends AiTool {
       final type = entry is Directory
           ? 'dir'
           : entry is Link
-              ? 'link'
-              : 'file';
+          ? 'link'
+          : 'file';
       lines.add('$type\t$name');
     }
     final output = lines.isEmpty ? '(empty)' : lines.join('\n');

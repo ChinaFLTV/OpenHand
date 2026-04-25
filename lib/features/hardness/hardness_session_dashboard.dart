@@ -320,8 +320,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
 
     // 2026-04-13: Detect tool call markers: ⚙ 工具调用：{ToolName}
     // These are emitted by HardnessApiPhaseRunner.
-    if (trimmed.startsWith('⚙ 工具调用：') ||
-        trimmed.startsWith('⚙ Tool call: ')) {
+    if (trimmed.startsWith('⚙ 工具调用：') || trimmed.startsWith('⚙ Tool call: ')) {
       flushCurrent();
       inUserInputSection = false;
       final toolName = trimmed.startsWith('⚙ 工具调用：')
@@ -379,7 +378,8 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
     }
     // If we were in a handoff segment and hit a non-handoff, non-empty line,
     // close the handoff segment.
-    if (current?.kind == _HeSegmentKind.handoff && trimmed.isNotEmpty &&
+    if (current?.kind == _HeSegmentKind.handoff &&
+        trimmed.isNotEmpty &&
         !trimmed.startsWith('📋 ')) {
       flushCurrent();
     }
@@ -447,10 +447,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       final joined = seg.lines.join('\n');
       if (joined.contains('<tool_calls>')) {
         final stripped = joined
-            .replaceAll(
-              _heInlineToolCallsXmlPattern,
-              '',
-            )
+            .replaceAll(_heInlineToolCallsXmlPattern, '')
             .replaceAll(RegExp(r'\n{3,}'), '\n\n')
             .trim();
         if (stripped.isEmpty) {
@@ -601,7 +598,8 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
   final bubbleIsDark =
       ThemeData.estimateBrightnessForColor(cardBg) == Brightness.dark;
   final overlayBase = bubbleIsDark ? Colors.white : Colors.black;
-  final textColor = explicitTextColor ??
+  final textColor =
+      explicitTextColor ??
       (bubbleIsDark ? Colors.white : colorScheme.onSurface);
   final subtleSurface = Color.alphaBlend(
     overlayBase.withValues(alpha: bubbleIsDark ? 0.06 : 0.035),
@@ -3869,7 +3867,9 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
               return card;
             }
             return _HeAnimatedSegmentEntry(
-              key: ValueKey<String>('he-sub-entry-$_contentRevision-$segmentKey'),
+              key: ValueKey<String>(
+                'he-sub-entry-$_contentRevision-$segmentKey',
+              ),
               child: card,
             );
           }(),
@@ -4379,10 +4379,9 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         const SizedBox(width: 8),
                         Text(
                           label,
-                          style:
-                              widget.theme.textTheme.labelLarge?.copyWith(
-                                color: cardText.withValues(alpha: 0.88),
-                              ),
+                          style: widget.theme.textTheme.labelLarge?.copyWith(
+                            color: cardText.withValues(alpha: 0.88),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         AnimatedRotation(
@@ -4407,8 +4406,10 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                     : null,
                 borderRadius: _br999,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -4467,7 +4468,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                   filePathRoots: widget.filePathRoots,
                   onExpand: () => setState(() => _expanded = true),
                   cardBackground: isThinking ? cardBg : null,
-                )
+                ),
             ] else
               Text(
                 widget.isZh ? '（无内容）' : '(empty)',
@@ -4643,9 +4644,7 @@ class _HeApiToolCallMeta {
           final digits = part.replaceAll(RegExp(r'[^0-9]'), '');
           durationMs = int.tryParse(digits) ?? 0;
         } else if (part.startsWith('exit:')) {
-          exitCode = int.tryParse(
-            part.substring('exit:'.length).trim(),
-          );
+          exitCode = int.tryParse(part.substring('exit:'.length).trim());
         } else if (part.startsWith('cmd:')) {
           command = part.substring('cmd:'.length).trim();
         } else if (part.startsWith('cwd:')) {
@@ -4813,15 +4812,14 @@ class _HeStructuredToolTrace {
     }
 
     final outputText = _heNormalizeToolText(outputLines.join('\n'));
-    final exitCode = apiMeta?.exitCode ??
-        _heExtractToolExitCode(outputLines);
+    final exitCode = apiMeta?.exitCode ?? _heExtractToolExitCode(outputLines);
     var status = apiMeta?.status ?? parsedHeader?.status ?? '';
-    
+
     // If no status from header, try to extract from output lines.
     if (status.isEmpty) {
       status = _heExtractStatusFromLines(outputLines);
     }
-    
+
     if (status.isEmpty && isStreaming) {
       status = 'running';
     }
@@ -4851,11 +4849,12 @@ class _HeStructuredToolTrace {
         ? outputText
         : '';
 
-    final argumentsText = apiMeta?.argumentsJson ??
+    final argumentsText =
+        apiMeta?.argumentsJson ??
         _heBuildStructuredToolArguments(segment, parsedHeader);
     final command = apiMeta?.command ?? parsedHeader?.command ?? '';
-    final workingDirectory = apiMeta?.workingDirectory ??
-        parsedHeader?.workingDirectory ?? '';
+    final workingDirectory =
+        apiMeta?.workingDirectory ?? parsedHeader?.workingDirectory ?? '';
     final durationMs = apiMeta?.durationMs ?? parsedHeader?.durationMs ?? 0;
     final actionLabel = _heToolActionLabel(
       isZh: isZh,
@@ -5400,7 +5399,7 @@ _HeToolPresentation _heToolPresentationForSegment(
 }) {
   final role = (segment.roleLabel ?? '').trim().toLowerCase();
   final command = (parsedHeader?.command ?? '').toLowerCase();
-  
+
   // 2026-04-13: Match roleLabel set by _heParseOutputSegments for
   // tool calls detected via '⚙ 工具调用：{ToolName}' format.
   if (role == 'bash' ||
@@ -5450,7 +5449,9 @@ _HeToolPresentation _heToolPresentationForSegment(
       isCommandLike: false,
     );
   }
-  if (role == 'semantic' || role == 'semanticsearch' || role == 'semantic_search') {
+  if (role == 'semantic' ||
+      role == 'semanticsearch' ||
+      role == 'semantic_search') {
     return _HeToolPresentation(
       label: isZh ? '语义搜索' : 'Semantic Search',
       icon: Icons.travel_explore_rounded,
@@ -6037,44 +6038,47 @@ class _HeSegmentBody extends StatelessWidget {
           const SizedBox(height: 4),
           GestureDetector(
             onTap: onExpand,
-            child: Builder(builder: (context) {
-              final onDark = cardBackground != null &&
-                  ThemeData.estimateBrightnessForColor(cardBackground!) ==
-                      Brightness.dark;
-              final expandBg = onDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : colorScheme.surfaceContainerHighest;
-              final expandFg = onDark
-                  ? Colors.white.withValues(alpha: 0.88)
-                  : colorScheme.primary;
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                decoration: BoxDecoration(
-                  color: expandBg,
-                  borderRadius: _br16,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.expand_more_rounded,
-                      size: 14,
-                      color: expandFg,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isZh ? '展开全部' : 'Show full content',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
+            child: Builder(
+              builder: (context) {
+                final onDark =
+                    cardBackground != null &&
+                    ThemeData.estimateBrightnessForColor(cardBackground!) ==
+                        Brightness.dark;
+                final expandBg = onDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : colorScheme.surfaceContainerHighest;
+                final expandFg = onDark
+                    ? Colors.white.withValues(alpha: 0.88)
+                    : colorScheme.primary;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 7),
+                  decoration: BoxDecoration(
+                    color: expandBg,
+                    borderRadius: _br16,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.expand_more_rounded,
+                        size: 14,
                         color: expandFg,
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      const SizedBox(width: 4),
+                      Text(
+                        isZh ? '展开全部' : 'Show full content',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: expandFg,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ],
@@ -6584,14 +6588,14 @@ class _HeSafeMarkdownBodyState extends State<_HeSafeMarkdownBody>
         bg != null &&
         ThemeData.estimateBrightnessForColor(bg) == Brightness.dark;
     if (bg != null) {
-      effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
-        widget.theme,
-      ).merge(_heBuildDarkAwareMarkdownStyleSheet(
-        widget.theme,
-        widget.colorScheme,
-        bg,
-        widget.textColor,
-      ));
+      effectiveStyleSheet = MarkdownStyleSheet.fromTheme(widget.theme).merge(
+        _heBuildDarkAwareMarkdownStyleSheet(
+          widget.theme,
+          widget.colorScheme,
+          bg,
+          widget.textColor,
+        ),
+      );
     } else {
       effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
         widget.theme,
@@ -7636,12 +7640,10 @@ class _HeComposer extends StatelessWidget {
         builder: (btnContext) {
           return OutlinedButton(
             onPressed: () {
-              final button =
-                  btnContext.findRenderObject()! as RenderBox;
-              final overlay = Navigator.of(btnContext)
-                  .overlay!
-                  .context
-                  .findRenderObject()! as RenderBox;
+              final button = btnContext.findRenderObject()! as RenderBox;
+              final overlay =
+                  Navigator.of(btnContext).overlay!.context.findRenderObject()!
+                      as RenderBox;
               final position = RelativeRect.fromRect(
                 Rect.fromPoints(
                   button.localToGlobal(Offset.zero, ancestor: overlay),
@@ -7665,11 +7667,7 @@ class _HeComposer extends StatelessWidget {
                           size: 20,
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            isZh ? '默认权限' : 'Default Access',
-                          ),
-                        ),
+                        Expanded(child: Text(isZh ? '默认权限' : 'Default Access')),
                         if (!fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
                         else
@@ -7681,16 +7679,9 @@ class _HeComposer extends StatelessWidget {
                     value: true,
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.gpp_maybe_outlined,
-                          size: 20,
-                        ),
+                        const Icon(Icons.gpp_maybe_outlined, size: 20),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            isZh ? '完全访问权限' : 'Full Access',
-                          ),
-                        ),
+                        Expanded(child: Text(isZh ? '完全访问权限' : 'Full Access')),
                         if (fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
                         else
@@ -8620,10 +8611,12 @@ class _HeUrlModelField extends StatelessWidget {
                   result.$1,
                   result.$2,
                 );
-                onChanged(roleConfig.copyWith(
-                  aiModelConfigId: result.$1,
-                  urlModeModelId: result.$2,
-                ));
+                onChanged(
+                  roleConfig.copyWith(
+                    aiModelConfigId: result.$1,
+                    urlModeModelId: result.$2,
+                  ),
+                );
               }
             },
       child: InputDecorator(

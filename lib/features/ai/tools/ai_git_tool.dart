@@ -28,11 +28,16 @@ class AiGitTool extends AiTool {
       return AiToolUtils.invalidResult('Git', 'operation is required.');
     }
 
-    final workingDirectory =
-        AiToolUtils.resolvePath('${args['working_directory'] ?? ''}'.trim());
+    final workingDirectory = AiToolUtils.resolvePath(
+      '${args['working_directory'] ?? ''}'.trim(),
+    );
 
     try {
-      final output = await _executeGitOperation(operation, args, workingDirectory);
+      final output = await _executeGitOperation(
+        operation,
+        args,
+        workingDirectory,
+      );
       return AiToolUtils.simpleSuccessResult(
         command: 'Git $operation',
         output: output,
@@ -47,7 +52,8 @@ class AiGitTool extends AiTool {
         stdout: '',
         stderr: '$error',
         durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: Git operation "$operation" failed: $error',
+        resultText:
+            'status: failed\nerror: Git operation "$operation" failed: $error',
       );
     }
   }
@@ -138,17 +144,10 @@ class AiGitTool extends AiTool {
         ]);
 
       case 'branch':
-        return _run(workingDirectory, <String>[
-          'branch',
-          '-vv',
-          '--list',
-        ]);
+        return _run(workingDirectory, <String>['branch', '-vv', '--list']);
 
       case 'stash_list':
-        return _run(workingDirectory, <String>[
-          'stash',
-          'list',
-        ]);
+        return _run(workingDirectory, <String>['stash', 'list']);
 
       default:
         return 'Unknown Git operation: $operation. Supported: status, diff, log, blame, show, branch, stash_list.';

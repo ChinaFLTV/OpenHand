@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 
-Color resolveAnimatedDialogBarrierColor(BuildContext context, {Color? override}) {
+Color resolveAnimatedDialogBarrierColor(
+  BuildContext context, {
+  Color? override,
+}) {
   if (override != null) {
     return override;
   }
@@ -27,7 +30,8 @@ Future<T?> showAnimatedDialog<T>({
   RouteSettings? routeSettings,
 }) {
   final themedBuilder = _wrapDialogBuilderWithTheme(builder);
-  final effectiveSettings = settings ?? _resolveDialogAnimationSettings(context);
+  final effectiveSettings =
+      settings ?? _resolveDialogAnimationSettings(context);
   if (effectiveSettings.entranceStyle == DialogAnimationStyle.none &&
       effectiveSettings.exitStyle == DialogAnimationStyle.none) {
     return showDialog<T>(
@@ -47,7 +51,8 @@ Future<T?> showAnimatedDialog<T>({
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
-    barrierLabel: barrierLabel ??
+    barrierLabel:
+        barrierLabel ??
         MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: resolveAnimatedDialogBarrierColor(
       context,
@@ -127,7 +132,8 @@ Widget _buildTransition({
   required DialogAnimationSettings settings,
   required Widget child,
 }) {
-  final forward = animation.status == AnimationStatus.forward ||
+  final forward =
+      animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
   final style = forward ? settings.entranceStyle : settings.exitStyle;
   final curveData = settings.curve;
@@ -139,36 +145,37 @@ Widget _buildTransition({
 
   return switch (style) {
     DialogAnimationStyle.none => FadeTransition(
-        opacity: animation,
-        child: child,
-      ),
+      opacity: animation,
+      child: child,
+    ),
+    DialogAnimationStyle.fade => FadeTransition(opacity: curved, child: child),
     DialogAnimationStyle.fadeScale => _FadeScaleTransition(
-        animation: curved,
-        child: child,
-      ),
+      animation: curved,
+      child: child,
+    ),
     DialogAnimationStyle.slideUp => _SlideTransition(
-        animation: curved,
-        beginOffset: const Offset(0, 0.15),
-        child: child,
-      ),
+      animation: curved,
+      beginOffset: const Offset(0, 0.15),
+      child: child,
+    ),
     DialogAnimationStyle.slideDown => _SlideTransition(
-        animation: curved,
-        beginOffset: const Offset(0, -0.15),
-        child: child,
-      ),
+      animation: curved,
+      beginOffset: const Offset(0, -0.15),
+      child: child,
+    ),
     DialogAnimationStyle.expand => _ExpandTransition(
-        animation: curved,
-        child: child,
-      ),
+      animation: curved,
+      child: child,
+    ),
     DialogAnimationStyle.rotateScale => _RotateScaleTransition(
-        animation: curved,
-        child: child,
-      ),
+      animation: curved,
+      child: child,
+    ),
     DialogAnimationStyle.elastic => _ElasticTransition(
-        animation: animation,
-        curve: curveData,
-        child: child,
-      ),
+      animation: animation,
+      curve: curveData,
+      child: child,
+    ),
   };
 }
 
@@ -208,8 +215,10 @@ class _SlideTransition extends StatelessWidget {
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
-        position: Tween<Offset>(begin: beginOffset, end: Offset.zero)
-            .animate(animation),
+        position: Tween<Offset>(
+          begin: beginOffset,
+          end: Offset.zero,
+        ).animate(animation),
         child: child,
       ),
     );
@@ -286,10 +295,7 @@ class _ElasticTransition extends StatelessWidget {
     );
     return FadeTransition(
       opacity: opacity,
-      child: ScaleTransition(
-        scale: scale,
-        child: child,
-      ),
+      child: ScaleTransition(scale: scale, child: child),
     );
   }
 }

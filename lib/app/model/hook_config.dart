@@ -43,7 +43,8 @@ class HookEntry {
   factory HookEntry.fromJson(Map<String, Object?> json) {
     return HookEntry(
       id: '${json['id'] ?? ''}'.trim(),
-      event: HookEvent.fromStorage('${json['event'] ?? ''}') ??
+      event:
+          HookEvent.fromStorage('${json['event'] ?? ''}') ??
           HookEvent.sessionStart,
       label: '${json['label'] ?? ''}'.trim(),
       scriptPath: _nullIfEmpty('${json['script_path'] ?? ''}'),
@@ -82,8 +83,9 @@ class HookEntry {
       event: event ?? this.event,
       label: label ?? this.label,
       scriptPath: clearScriptPath ? null : (scriptPath ?? this.scriptPath),
-      scriptContent:
-          clearScriptContent ? null : (scriptContent ?? this.scriptContent),
+      scriptContent: clearScriptContent
+          ? null
+          : (scriptContent ?? this.scriptContent),
       enabled: enabled ?? this.enabled,
       timeoutSeconds: timeoutSeconds ?? this.timeoutSeconds,
     );

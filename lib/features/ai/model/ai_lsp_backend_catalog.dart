@@ -660,7 +660,14 @@ kAiLspBackendCatalog = <AiLspBackendDescriptor>[
   AiLspBackendDescriptor(
     id: 'tailwindcss-language-server',
     displayName: 'Tailwind CSS IntelliSense',
-    languages: <String>{'css', 'html', 'javascript', 'typescript', 'vue', 'svelte'},
+    languages: <String>{
+      'css',
+      'html',
+      'javascript',
+      'typescript',
+      'vue',
+      'svelte',
+    },
     executable: 'tailwindcss-language-server',
     arguments: <String>['--stdio'],
     install: AiLspManagedInstallRecipe.npmLocal(

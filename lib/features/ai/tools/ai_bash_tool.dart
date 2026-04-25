@@ -9,8 +9,8 @@ class AiBashTool extends AiTool {
   AiBashTool({
     required AiBashToolService bashToolService,
     required AiClaudeHookService hookService,
-  })  : _bashToolService = bashToolService,
-        _hookService = hookService;
+  }) : _bashToolService = bashToolService,
+       _hookService = hookService;
 
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;
@@ -28,7 +28,8 @@ class AiBashTool extends AiTool {
 
   /// 用户发送新消息时取消正在运行的 Bash 命令（避免并发写冲突）。
   @override
-  AiToolInterruptBehavior get interruptBehavior => AiToolInterruptBehavior.cancel;
+  AiToolInterruptBehavior get interruptBehavior =>
+      AiToolInterruptBehavior.cancel;
 
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
@@ -56,7 +57,9 @@ class AiBashTool extends AiTool {
                 'is_write_command': request.isWriteCommand,
               },
             );
-            permissionHookReminders.addAll(permissionHookResult.systemReminders);
+            permissionHookReminders.addAll(
+              permissionHookResult.systemReminders,
+            );
             if (permissionHookResult.blocked) {
               final notificationHookResult = await _runAuxiliaryHook(
                 eventName: 'Notification',
@@ -70,7 +73,9 @@ class AiBashTool extends AiTool {
                   'status': 'blocked',
                 },
               );
-              permissionHookReminders.addAll(notificationHookResult.systemReminders);
+              permissionHookReminders.addAll(
+                notificationHookResult.systemReminders,
+              );
               return false;
             }
             final approved = await confirmWriteCommand(request);
@@ -86,22 +91,26 @@ class AiBashTool extends AiTool {
                 'status': approved ? 'approved' : 'rejected',
               },
             );
-            permissionHookReminders.addAll(notificationHookResult.systemReminders);
+            permissionHookReminders.addAll(
+              notificationHookResult.systemReminders,
+            );
             return approved;
           };
 
-    final timeoutMs = AiToolUtils.readInt(args['timeout']) ??
+    final timeoutMs =
+        AiToolUtils.readInt(args['timeout']) ??
         AiToolUtils.readInt(args['timeout_ms']) ??
         AiBashToolService.defaultTimeoutMs;
     if (timeoutMs <= 0 || timeoutMs > 600000) {
-      throw ArgumentError('Bash timeout must be between 1 and 600000 milliseconds.');
+      throw ArgumentError(
+        'Bash timeout must be between 1 and 600000 milliseconds.',
+      );
     }
     final bashResult = await _bashToolService.execute(
-      command:
-          '${args['cmd'] ?? args['command'] ?? ''}'.trim(),
+      command: '${args['cmd'] ?? args['command'] ?? ''}'.trim(),
       sessionId: sessionId,
-      workingDirectory:
-          '${args['working_directory'] ?? args['cwd'] ?? ''}'.trim(),
+      workingDirectory: '${args['working_directory'] ?? args['cwd'] ?? ''}'
+          .trim(),
       denyRules: context.denyCommandRules,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: wrappedConfirmWriteCommand,
@@ -118,11 +127,14 @@ class AiBashTool extends AiTool {
       if (bashResult.isWriteCommand)
         'file_mutation_write_reason': bashResult.writeAnalysisReason,
     };
-    return AiToolExecutionResult.fromBash(bashResult, metadata: <String, Object?>{
-      ...bashMetadata,
-      if (permissionHookReminders.isNotEmpty)
-        aiHookSystemRemindersMetadataKey: permissionHookReminders,
-    });
+    return AiToolExecutionResult.fromBash(
+      bashResult,
+      metadata: <String, Object?>{
+        ...bashMetadata,
+        if (permissionHookReminders.isNotEmpty)
+          aiHookSystemRemindersMetadataKey: permissionHookReminders,
+      },
+    );
   }
 
   Future<AiClaudeHookInvocationResult> _runAuxiliaryHook({

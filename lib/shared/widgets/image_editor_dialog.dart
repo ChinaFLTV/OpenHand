@@ -196,68 +196,68 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             child: Scaffold(
               backgroundColor: colorScheme.surfaceContainerHigh,
               body: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.imageEditorTitle,
-                    style: theme.textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.imageEditorCropHint,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.imageEditorTitle,
+                      style: theme.textTheme.headlineSmall,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildPreviewPanel(context),
-                          const SizedBox(height: 18),
-                          _buildAspectChips(context),
-                          const SizedBox(height: 12),
-                          _buildTransformActions(context),
-                          const SizedBox(height: 16),
-                          _buildAdjustmentSliders(context),
-                          const SizedBox(height: 8),
-                          _buildAdvancedPanels(context),
-                          if (_statusMessage != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _statusMessage!,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              _errorMessage!,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.error,
-                              ),
-                            ),
-                          ],
-                        ],
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.imageEditorCropHint,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ),
-                  if (_isSaving || _isProcessing) ...[
                     const SizedBox(height: 16),
-                    const LinearProgressIndicator(),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildPreviewPanel(context),
+                            const SizedBox(height: 18),
+                            _buildAspectChips(context),
+                            const SizedBox(height: 12),
+                            _buildTransformActions(context),
+                            const SizedBox(height: 16),
+                            _buildAdjustmentSliders(context),
+                            const SizedBox(height: 8),
+                            _buildAdvancedPanels(context),
+                            if (_statusMessage != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                _statusMessage!,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                _errorMessage!,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colorScheme.error,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_isSaving || _isProcessing) ...[
+                      const SizedBox(height: 16),
+                      const LinearProgressIndicator(),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildActionBar(context),
                   ],
-                  const SizedBox(height: 16),
-                  _buildActionBar(context),
-                ],
+                ),
               ),
             ),
-          ),
           ),
         ),
       ),
@@ -672,8 +672,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                               ),
                             ),
                             onPressed: _canEdit
-                                ? () =>
-                                      setState(() => _watermarkPosition = pos)
+                                ? () => setState(() => _watermarkPosition = pos)
                                 : null,
                             child: Icon(
                               Icons.circle,
@@ -717,9 +716,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           value: _watermarkHue,
           min: 0,
           max: 360,
-          onChanged: _canEdit
-              ? (v) => setState(() => _watermarkHue = v)
-              : null,
+          onChanged: _canEdit ? (v) => setState(() => _watermarkHue = v) : null,
         ),
         _EditorSlider(
           label: l10n.imageEditorWatermarkColorSaturation,
@@ -817,9 +814,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           width: 132,
           height: barHeight,
           child: OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              shape: const StadiumBorder(),
-            ),
+            style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
             onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
             child: Text(l10n.commonCancel),
           ),
@@ -829,9 +824,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           width: 132,
           height: barHeight,
           child: FilledButton(
-            style: FilledButton.styleFrom(
-              shape: const StadiumBorder(),
-            ),
+            style: FilledButton.styleFrom(shape: const StadiumBorder()),
             onPressed: _canEdit && !_isSaving ? _handleConfirmSave : null,
             child: Text(l10n.commonSave),
           ),
@@ -852,7 +845,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _originalImageHeight > 0;
     final previewBytes = showOriginal ? _originalPreviewBytes : _previewBytes;
     final previewImageWidth = showOriginal ? _originalImageWidth : _imageWidth;
-    final previewImageHeight = showOriginal ? _originalImageHeight : _imageHeight;
+    final previewImageHeight = showOriginal
+        ? _originalImageHeight
+        : _imageHeight;
     final compareEnabled =
         _canEdit && _originalPreviewBytes != null && _originalImageWidth > 0;
 
@@ -863,8 +858,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             constraints.maxWidth - 116,
             _previewMaxWidth,
           );
-          final previewWidth =
-              rawPreviewWidth.clamp(220.0, _previewMaxWidth).toDouble();
+          final previewWidth = rawPreviewWidth
+              .clamp(220.0, _previewMaxWidth)
+              .toDouble();
           final previewSize = Size(previewWidth, _previewHeight);
           _previewSize = previewSize;
 
@@ -1173,9 +1169,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       if (!mounted) return;
       if (result == null) {
         setState(() {
-          _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
+          _errorMessage = AppLocalizations.of(
+            context,
+          )!.imageEditorProcessFailed;
         });
-        _showSnackBar(AppLocalizations.of(context)!.imageEditorProcessFailed, isError: true);
+        _showSnackBar(
+          AppLocalizations.of(context)!.imageEditorProcessFailed,
+          isError: true,
+        );
         return;
       }
       setState(() {
@@ -1192,9 +1193,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       debugPrint('[ImageEditor] rotate failed: $error\n$stack');
       if (mounted) {
         setState(() {
-          _errorMessage = AppLocalizations.of(context)!.imageEditorProcessFailed;
+          _errorMessage = AppLocalizations.of(
+            context,
+          )!.imageEditorProcessFailed;
         });
-        _showSnackBar(AppLocalizations.of(context)!.imageEditorProcessFailed, isError: true);
+        _showSnackBar(
+          AppLocalizations.of(context)!.imageEditorProcessFailed,
+          isError: true,
+        );
       }
     } finally {
       _dismissProcessingOverlay();
@@ -1363,10 +1369,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final watermarkPosition = _watermarkPosition;
     final watermarkColor = _currentWatermarkColor;
     final watermarkTextDirection =
-      Directionality.maybeOf(context) ?? TextDirection.ltr;
+        Directionality.maybeOf(context) ?? TextDirection.ltr;
 
     final effectivePreviewSize = _previewSize == Size.zero
-      ? const Size(_previewMaxWidth, _previewHeight)
+        ? const Size(_previewMaxWidth, _previewHeight)
         : _previewSize;
 
     setState(() => _isProcessing = true);
@@ -1639,8 +1645,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                                   color: color,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color:
-                                        Theme.of(context).colorScheme.outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
                                   ),
                                 ),
                               ),
@@ -1660,16 +1667,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                         value: saturation,
                         min: 0,
                         max: 1,
-                        onChanged:
-                            (value) => setDialogState(() => saturation = value),
+                        onChanged: (value) =>
+                            setDialogState(() => saturation = value),
                       ),
                       _EditorSlider(
                         label: l10n.imageEditorWatermarkColorLightness,
                         value: lightness,
                         min: 0,
                         max: 1,
-                        onChanged:
-                            (value) => setDialogState(() => lightness = value),
+                        onChanged: (value) =>
+                            setDialogState(() => lightness = value),
                       ),
                     ],
                   ),
@@ -1682,9 +1689,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                 ),
                 OpenHandDialogActionButton.primary(
                   onPressed: () {
-                    Navigator.of(dialogContext).pop(
-                      HSLColor.fromAHSL(1, hue, saturation, lightness),
-                    );
+                    Navigator.of(
+                      dialogContext,
+                    ).pop(HSLColor.fromAHSL(1, hue, saturation, lightness));
                   },
                   label: l10n.commonSave,
                 ),
@@ -1835,8 +1842,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         y = imageSize.height - textSize.height - margin;
     }
 
-    final clampedX = x.clamp(0.0, math.max(0.0, imageSize.width - textSize.width));
-    final clampedY = y.clamp(0.0, math.max(0.0, imageSize.height - textSize.height));
+    final clampedX = x.clamp(
+      0.0,
+      math.max(0.0, imageSize.width - textSize.width),
+    );
+    final clampedY = y.clamp(
+      0.0,
+      math.max(0.0, imageSize.height - textSize.height),
+    );
     return Offset(clampedX.toDouble(), clampedY.toDouble());
   }
 
@@ -1861,10 +1874,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     while (encoded.length > limit &&
         working.width > 320 &&
         working.height > 320) {
-      working = img.copyResize(
-        working,
-        width: (working.width * 0.8).round(),
-      );
+      working = img.copyResize(working, width: (working.width * 0.8).round());
       encoded = Uint8List.fromList(img.encodeJpg(working, quality: 82));
     }
     return encoded;
@@ -1968,10 +1978,26 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     g2 = hg2;
 
     return <double>[
-      r1, r2, r3, 0, translate,
-      g1, g2, g3, 0, translate,
-      b1, b2, b3, 0, translate,
-      0, 0, 0, 1, 0,
+      r1,
+      r2,
+      r3,
+      0,
+      translate,
+      g1,
+      g2,
+      g3,
+      0,
+      translate,
+      b1,
+      b2,
+      b3,
+      0,
+      translate,
+      0,
+      0,
+      0,
+      1,
+      0,
     ];
   }
 
@@ -1999,7 +2025,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final isPng = _aspect == _CropAspect.circle;
     try {
       final location = await getSaveLocation(
-        suggestedName: 'image-${DateTime.now().millisecondsSinceEpoch}.${isPng ? 'png' : 'jpg'}',
+        suggestedName:
+            'image-${DateTime.now().millisecondsSinceEpoch}.${isPng ? 'png' : 'jpg'}',
         acceptedTypeGroups: <XTypeGroup>[
           XTypeGroup(
             label: isPng ? 'PNG' : 'JPEG',
@@ -2026,7 +2053,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorSaveFailed(error.toString());
       });
-      _showSnackBar(l10n.imageEditorSaveFailed(error.toString()), isError: true);
+      _showSnackBar(
+        l10n.imageEditorSaveFailed(error.toString()),
+        isError: true,
+      );
     }
   }
 
@@ -2080,7 +2110,10 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
       setState(() {
         _errorMessage = l10n.imageEditorClipboardFailed(error.toString());
       });
-      _showSnackBar(l10n.imageEditorClipboardFailed(error.toString()), isError: true);
+      _showSnackBar(
+        l10n.imageEditorClipboardFailed(error.toString()),
+        isError: true,
+      );
     }
   }
 
@@ -2098,7 +2131,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     }
 
     final effectivePreviewSize = _previewSize == Size.zero
-      ? const Size(_previewMaxWidth, _previewHeight)
+        ? const Size(_previewMaxWidth, _previewHeight)
         : _previewSize;
     final watermarkText = _watermarkController.text.trim();
     final watermarkSize = _watermarkSize;
@@ -2106,7 +2139,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final watermarkPosition = _watermarkPosition;
     final watermarkColor = _currentWatermarkColor;
     final watermarkTextDirection =
-      Directionality.maybeOf(context) ?? TextDirection.ltr;
+        Directionality.maybeOf(context) ?? TextDirection.ltr;
     final hasWatermark = watermarkText.isNotEmpty;
 
     setState(() {
@@ -2369,10 +2402,7 @@ Future<(Uint8List, int, int)?> _runRotateInIsolate({
   required Uint8List sourceBytes,
   required int angle,
 }) {
-  final message = <String, Object>{
-    'sourceBytes': sourceBytes,
-    'angle': angle,
-  };
+  final message = <String, Object>{'sourceBytes': sourceBytes, 'angle': angle};
   return Isolate.run<(Uint8List, int, int)?>(
     () => _rotatePngFromMessage(message),
   );
@@ -2385,7 +2415,9 @@ Future<(Uint8List, int, int)?> _runRotateInIsolate({
 }
 
 /// Runs the full render pipeline in a background isolate from a map payload.
-Future<(Uint8List, int, int)?> _runRenderInIsolate(_IsolateRenderParams params) {
+Future<(Uint8List, int, int)?> _runRenderInIsolate(
+  _IsolateRenderParams params,
+) {
   final message = params.toMessage();
   return Isolate.run<(Uint8List, int, int)?>(
     () => _renderInIsolateFromMessage(message),
@@ -2588,18 +2620,22 @@ class _IsolateRenderParams {
 
   final scaleX = orientedImage.width / imageRect.width;
   final scaleY = orientedImage.height / imageRect.height;
-  final cropX = ((cropRect.left - imageRect.left) * scaleX)
-      .round()
-      .clamp(0, orientedImage.width - 1);
-  final cropY = ((cropRect.top - imageRect.top) * scaleY)
-      .round()
-      .clamp(0, orientedImage.height - 1);
-  final cropW = (cropRect.width * scaleX)
-      .round()
-      .clamp(1, orientedImage.width - cropX);
-  final cropH = (cropRect.height * scaleY)
-      .round()
-      .clamp(1, orientedImage.height - cropY);
+  final cropX = ((cropRect.left - imageRect.left) * scaleX).round().clamp(
+    0,
+    orientedImage.width - 1,
+  );
+  final cropY = ((cropRect.top - imageRect.top) * scaleY).round().clamp(
+    0,
+    orientedImage.height - 1,
+  );
+  final cropW = (cropRect.width * scaleX).round().clamp(
+    1,
+    orientedImage.width - cropX,
+  );
+  final cropH = (cropRect.height * scaleY).round().clamp(
+    1,
+    orientedImage.height - cropY,
+  );
 
   // 2) Apply free rotation first (if any), then flips, then crop.
   img.Image working = orientedImage;
@@ -2661,11 +2697,31 @@ class _IsolateRenderParams {
     working = img.convolution(
       working,
       filter: const <num>[
-        0, -1, -1, -1, 0,
-        -1,  2,  2,  2, -1,
-        -1,  2, 12,  2, -1,
-        -1,  2,  2,  2, -1,
-        0, -1, -1, -1, 0,
+        0,
+        -1,
+        -1,
+        -1,
+        0,
+        -1,
+        2,
+        2,
+        2,
+        -1,
+        -1,
+        2,
+        12,
+        2,
+        -1,
+        -1,
+        2,
+        2,
+        2,
+        -1,
+        0,
+        -1,
+        -1,
+        -1,
+        0,
       ],
       div: 12,
       amount: amount,
@@ -2745,10 +2801,7 @@ class _IsolateRenderParams {
       while (outputBytes.length > limit &&
           working.width > 320 &&
           working.height > 320) {
-        working = img.copyResize(
-          working,
-          width: (working.width * 0.8).round(),
-        );
+        working = img.copyResize(working, width: (working.width * 0.8).round());
         outputBytes = Uint8List.fromList(img.encodeJpg(working, quality: 82));
       }
     }
@@ -2847,14 +2900,9 @@ class _ProcessingDialog extends StatelessWidget {
       elevation: 0,
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 32,
-          vertical: 24,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

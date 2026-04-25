@@ -1548,4 +1548,3 @@ String _composerModeTooltip(
     en: 'Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.',
   );
 }
-

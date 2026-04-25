@@ -14,8 +14,8 @@ class AiTaskTool extends AiTool {
   AiTaskTool({
     required AiChatClient backgroundChatClient,
     required AiClaudeHookService hookService,
-  })  : _backgroundChatClient = backgroundChatClient,
-        _hookService = hookService;
+  }) : _backgroundChatClient = backgroundChatClient,
+       _hookService = hookService;
 
   final AiChatClient _backgroundChatClient;
   final AiClaudeHookService _hookService;
@@ -37,24 +37,32 @@ class AiTaskTool extends AiTool {
     final subagentType = '${args['subagent_type'] ?? ''}'.trim();
     if (description.isEmpty || prompt.isEmpty || subagentType.isEmpty) {
       return AiToolUtils.invalidResult(
-          'Task', 'Task requires description, prompt, and subagent_type.');
+        'Task',
+        'Task requires description, prompt, and subagent_type.',
+      );
     }
     final canonicalSubagentType = _canonical(subagentType);
     if (canonicalSubagentType == null) {
-      return AiToolUtils.invalidResult('Task',
-          'Unsupported subagent_type "$subagentType". Available types: ${_subagentDescriptions.keys.join(', ')}');
+      return AiToolUtils.invalidResult(
+        'Task',
+        'Unsupported subagent_type "$subagentType". Available types: ${_subagentDescriptions.keys.join(', ')}',
+      );
     }
     final subagentProfile =
-        _subagentDescriptions[canonicalSubagentType] ?? 'Focused background agent.';
+        _subagentDescriptions[canonicalSubagentType] ??
+        'Focused background agent.';
     final subagentToolEntries = context.catalog.toolsByName.entries
-        .where((entry) =>
-            entry.key != 'Task' &&
-            entry.key != 'ExitPlanMode' &&
-            entry.key != 'bash')
+        .where(
+          (entry) =>
+              entry.key != 'Task' &&
+              entry.key != 'ExitPlanMode' &&
+              entry.key != 'bash',
+        )
         .toList(growable: false);
     final subagentCatalog = AiResolvedToolCatalog(
-      definitions:
-          subagentToolEntries.map((entry) => entry.value.definition).toList(growable: false),
+      definitions: subagentToolEntries
+          .map((entry) => entry.value.definition)
+          .toList(growable: false),
       toolsByName: Map<String, AiResolvedTool>.fromEntries(subagentToolEntries),
     );
     final turns = <AiChatTurn>[
@@ -99,7 +107,8 @@ class AiTaskTool extends AiTool {
         command: 'Task $description',
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: subagentStartHookResult.blockReason ?? 'Blocked by subagent hook.',
+        stderr:
+            subagentStartHookResult.blockReason ?? 'Blocked by subagent hook.',
         durationMs: startedAt.elapsedMilliseconds,
         resultText:
             'status: failed\nerror: ${subagentStartHookResult.blockReason ?? 'Blocked by subagent hook.'}',
@@ -109,19 +118,21 @@ class AiTaskTool extends AiTool {
           'hook_blocked': true,
           'hook_event_name': 'SubagentStart',
           if (subagentStartHookResult.systemReminders.isNotEmpty)
-            aiHookSystemRemindersMetadataKey: subagentStartHookResult.systemReminders,
+            aiHookSystemRemindersMetadataKey:
+                subagentStartHookResult.systemReminders,
         },
       );
     }
     for (var round = 0; round < 6; round++) {
-      final completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
-        _backgroundChatClient.sendMessage(
-          model: context.model,
-          messages: turns,
-          tools: subagentCatalog.definitions,
-        ),
-        cancelSignal: context.cancelSignal,
-      );
+      final completion =
+          await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
+            _backgroundChatClient.sendMessage(
+              model: context.model,
+              messages: turns,
+              tools: subagentCatalog.definitions,
+            ),
+            cancelSignal: context.cancelSignal,
+          );
       if (completion == null) {
         return AiToolUtils.cancelledResult(
           command: 'Task $description',
@@ -167,8 +178,13 @@ class AiTaskTool extends AiTool {
           },
         );
       }
-      turns.add(AiChatTurn(
-          role: AiChatRole.assistant, content: reply, toolCalls: completion.toolCalls));
+      turns.add(
+        AiChatTurn(
+          role: AiChatRole.assistant,
+          content: reply,
+          toolCalls: completion.toolCalls,
+        ),
+      );
       // Delegate sub-tool calls via a re-assembled context
       for (var index = 0; index < completion.toolCalls.length; index++) {
         // Honor cancellation between sub-tool calls so that a user cancel
@@ -193,7 +209,8 @@ class AiTaskTool extends AiTool {
           model: context.model,
           previouslyReadFiles: readFiles,
           denyCommandRules: context.denyCommandRules,
-          requireWriteCommandConfirmation: context.requireWriteCommandConfirmation,
+          requireWriteCommandConfirmation:
+              context.requireWriteCommandConfirmation,
           confirmWriteCommand: context.confirmWriteCommand,
           cancelSignal: context.cancelSignal,
         );
@@ -201,13 +218,16 @@ class AiTaskTool extends AiTool {
         // via a provided callback to avoid circular dependency. The callback is injected
         // at registration time by AiToolRegistry.withServiceDependencies().
         final toolResult = await _executeSubTool(context, subContext);
-        final readFilePath = '${toolResult.metadata['read_file_path'] ?? ''}'.trim();
+        final readFilePath = '${toolResult.metadata['read_file_path'] ?? ''}'
+            .trim();
         if (readFilePath.isNotEmpty) readFiles.add(readFilePath);
-        turns.add(AiChatTurn(
-          role: AiChatRole.tool,
-          toolCallId: toolCall.id,
-          content: toolResult.toToolOutput(),
-        ));
+        turns.add(
+          AiChatTurn(
+            role: AiChatRole.tool,
+            toolCallId: toolCall.id,
+            content: toolResult.toToolOutput(),
+          ),
+        );
       }
     }
     return AiToolExecutionResult(
@@ -217,12 +237,14 @@ class AiTaskTool extends AiTool {
       stdout: '',
       stderr: 'The background task exceeded the maximum tool rounds.',
       durationMs: startedAt.elapsedMilliseconds,
-      resultText: 'status: failed\nerror: The background task exceeded the maximum tool rounds.',
+      resultText:
+          'status: failed\nerror: The background task exceeded the maximum tool rounds.',
       metadata: <String, Object?>{
         'subagent_type': canonicalSubagentType,
         'subagent_session_isolated': true,
         if (subagentStartHookResult.systemReminders.isNotEmpty)
-          aiHookSystemRemindersMetadataKey: subagentStartHookResult.systemReminders,
+          aiHookSystemRemindersMetadataKey:
+              subagentStartHookResult.systemReminders,
       },
     );
   }
@@ -237,7 +259,9 @@ class AiTaskTool extends AiTool {
     if (executor != null) return executor(parentContext, subContext);
     // Fallback: only works for non-recursive tools; Task subtasks are rare edge case.
     return AiToolUtils.invalidResult(
-        subContext.toolCall.name, 'Sub-tool executor not configured for Task tool.');
+      subContext.toolCall.name,
+      'Sub-tool executor not configured for Task tool.',
+    );
   }
 
   AiSubToolExecutor? _subToolExecutor;
@@ -294,7 +318,8 @@ class AiTaskTool extends AiTool {
   }
 }
 
-typedef AiSubToolExecutor = Future<AiToolExecutionResult> Function(
-  AiToolExecutionContext parentContext,
-  AiToolExecutionContext subContext,
-);
+typedef AiSubToolExecutor =
+    Future<AiToolExecutionResult> Function(
+      AiToolExecutionContext parentContext,
+      AiToolExecutionContext subContext,
+    );

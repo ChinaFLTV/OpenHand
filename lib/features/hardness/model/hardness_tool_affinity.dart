@@ -50,18 +50,17 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.edit ||
     AiBuiltinToolKind.multiEdit ||
     AiBuiltinToolKind.notebookEdit ||
-    AiBuiltinToolKind.deleteFile =>
-      HardnessToolCategory.filesystem,
-    AiBuiltinToolKind.grep || AiBuiltinToolKind.codebaseSearch =>
-      HardnessToolCategory.search,
+    AiBuiltinToolKind.deleteFile => HardnessToolCategory.filesystem,
+    AiBuiltinToolKind.grep ||
+    AiBuiltinToolKind.codebaseSearch => HardnessToolCategory.search,
     AiBuiltinToolKind.bash => HardnessToolCategory.shell,
     AiBuiltinToolKind.git => HardnessToolCategory.vcs,
-    AiBuiltinToolKind.webFetch || AiBuiltinToolKind.webSearch =>
-      HardnessToolCategory.web,
-    AiBuiltinToolKind.lsp || AiBuiltinToolKind.readLints =>
-      HardnessToolCategory.lsp,
-    AiBuiltinToolKind.todoWrite || AiBuiltinToolKind.exitPlanMode =>
-      HardnessToolCategory.planning,
+    AiBuiltinToolKind.webFetch ||
+    AiBuiltinToolKind.webSearch => HardnessToolCategory.web,
+    AiBuiltinToolKind.lsp ||
+    AiBuiltinToolKind.readLints => HardnessToolCategory.lsp,
+    AiBuiltinToolKind.todoWrite ||
+    AiBuiltinToolKind.exitPlanMode => HardnessToolCategory.planning,
     AiBuiltinToolKind.task => HardnessToolCategory.agent,
     // Interactive user-facing tool; not tied to any phase category so it stays
     // available across all phases without affinity filtering.

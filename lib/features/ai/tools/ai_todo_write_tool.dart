@@ -15,14 +15,19 @@ class AiTodoWriteTool extends AiTool {
     final todos = args['todos'];
     if (todos is! List) {
       return AiToolUtils.invalidResult(
-          'TodoWrite', 'TodoWrite requires a todos array.');
+        'TodoWrite',
+        'TodoWrite requires a todos array.',
+      );
     }
     final normalizedTodos = <Map<String, Object?>>[];
     final seenIds = <String>{};
     var inProgressCount = 0;
     for (final rawTodo in todos) {
       if (rawTodo is! Map) {
-        return AiToolUtils.invalidResult('TodoWrite', 'Each todo must be an object.');
+        return AiToolUtils.invalidResult(
+          'TodoWrite',
+          'Each todo must be an object.',
+        );
       }
       final todo = Map<String, Object?>.from(rawTodo);
       final id = '${todo['id'] ?? ''}'.trim();
@@ -30,18 +35,24 @@ class AiTodoWriteTool extends AiTool {
       final status = '${todo['status'] ?? ''}'.trim();
       if (id.isEmpty || content.isEmpty) {
         return AiToolUtils.invalidResult(
-            'TodoWrite', 'Each todo must include id and content.');
+          'TodoWrite',
+          'Each todo must include id and content.',
+        );
       }
       if (!seenIds.add(id)) {
         return AiToolUtils.invalidResult(
-            'TodoWrite', 'Todo ids must be unique within a single TodoWrite call.');
+          'TodoWrite',
+          'Todo ids must be unique within a single TodoWrite call.',
+        );
       }
       if (status != 'pending' &&
           status != 'in_progress' &&
           status != 'completed' &&
           status != 'failed') {
-        return AiToolUtils.invalidResult('TodoWrite',
-            'Todo status must be pending, in_progress, completed, or failed.');
+        return AiToolUtils.invalidResult(
+          'TodoWrite',
+          'Todo status must be pending, in_progress, completed, or failed.',
+        );
       }
       if (status == 'in_progress') inProgressCount += 1;
       normalizedTodos.add(<String, Object?>{
@@ -52,22 +63,24 @@ class AiTodoWriteTool extends AiTool {
     }
     if (inProgressCount > 1) {
       return AiToolUtils.invalidResult(
-          'TodoWrite', 'Only one todo may be in_progress at a time.');
+        'TodoWrite',
+        'Only one todo may be in_progress at a time.',
+      );
     }
     final lines = normalizedTodos.isEmpty
         ? '(todo list cleared)'
         : normalizedTodos
-            .map((todo) {
-              final status = '${todo['status']}';
-              final marker = switch (status) {
-                'completed' => '[x]',
-                'in_progress' => '[-]',
-                'failed' => '[!]',
-                _ => '[ ]',
-              };
-              return '$marker ${todo['id']}: ${todo['content']}';
-            })
-            .join('\n');
+              .map((todo) {
+                final status = '${todo['status']}';
+                final marker = switch (status) {
+                  'completed' => '[x]',
+                  'in_progress' => '[-]',
+                  'failed' => '[!]',
+                  _ => '[ ]',
+                };
+                return '$marker ${todo['id']}: ${todo['content']}';
+              })
+              .join('\n');
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: 'TodoWrite',

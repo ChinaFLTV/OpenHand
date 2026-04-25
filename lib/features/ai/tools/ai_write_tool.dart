@@ -19,7 +19,10 @@ class AiWriteTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final rawFilePath = '${args['file_path'] ?? ''}'.trim();
     if (rawFilePath.isEmpty) {
-      return AiToolUtils.invalidResult('Write', 'Write requires a non-empty file_path.');
+      return AiToolUtils.invalidResult(
+        'Write',
+        'Write requires a non-empty file_path.',
+      );
     }
     // Resolve relative paths to absolute using the working directory rather
     // than hard-rejecting them — models sometimes omit the leading '/'.
@@ -34,18 +37,18 @@ class AiWriteTool extends AiTool {
       return AiToolUtils.invalidResult(
         'Write',
         'Content exceeds the maximum allowed size '
-        '(${content.length} chars, limit $maxContentBytes). '
-        'Split the output into smaller files.',
+            '(${content.length} chars, limit $maxContentBytes). '
+            'Split the output into smaller files.',
       );
     }
 
     final file = File(filePath);
     final fileExists = await file.exists();
-    
+
     // 2026-04-13: 写操作权限确认检查
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'Write',
-      operationDescription: fileExists 
+      operationDescription: fileExists
           ? 'Overwrite file with ${content.length} characters'
           : 'Create new file with ${content.length} characters',
       targetPath: filePath,
@@ -56,11 +59,13 @@ class AiWriteTool extends AiTool {
     if (confirmationResult != null) {
       return confirmationResult;
     }
-    
+
     // 2026-04-12: 从 metadata 获取追踪服务（遵循 AiToolExecutionContext 冻结约束）
-    final fileTracker = context.metadata['file_tracker'] as AiFileTrackerService?;
-    final fileHistory = context.metadata['file_history'] as AiFileHistoryService?;
-    
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory =
+        context.metadata['file_history'] as AiFileHistoryService?;
+
     final readValidation = await AiToolUtils.validateReadBeforeMutation(
       toolName: 'Write',
       filePath: filePath,
@@ -69,7 +74,7 @@ class AiWriteTool extends AiTool {
       fileTracker: fileTracker,
     );
     if (readValidation != null) return readValidation;
-    
+
     // 2026-04-12: 保存历史版本（仅对已存在的文件）
     String? versionId;
     if (fileExists) {
@@ -80,33 +85,36 @@ class AiWriteTool extends AiTool {
         fileHistory: fileHistory,
       );
     }
-    
+
     await AiToolUtils.writeTextFileSafely(file, content);
-    
+
     // 2026-04-12: 更新追踪器（写入成功后更新 lastReadTime）
     await AiToolUtils.updateTrackerAfterMutation(
       filePath: filePath,
       fileTracker: fileTracker,
     );
-    
+
     // 2026-04-12: 添加写入验证 - 读回文件确认修改已生效
     final String verificationContent;
     try {
       verificationContent = await file.readAsString();
     } catch (e) {
-      return AiToolUtils.invalidResult('Write', 'File was written but verification read failed: $e');
+      return AiToolUtils.invalidResult(
+        'Write',
+        'File was written but verification read failed: $e',
+      );
     }
     final verificationPassed = verificationContent == content;
     // 2026-04-14: 修复验证逻辑 - 只要内容不匹配就报错（之前错误地要求同时满足字符数不匹配）
     if (!verificationPassed) {
       return AiToolUtils.invalidResult(
-        'Write', 
+        'Write',
         'File was written but verification failed: content mismatch. '
-        'Expected ${content.length} chars, got ${verificationContent.length} chars. '
-        'This may indicate a write permission issue or concurrent modification.',
+            'Expected ${content.length} chars, got ${verificationContent.length} chars. '
+            'This may indicate a write permission issue or concurrent modification.',
       );
     }
-    
+
     return AiToolUtils.simpleSuccessResult(
       command: 'Write $filePath',
       output: 'Wrote ${content.length} characters to $filePath (verified)',

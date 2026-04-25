@@ -28,31 +28,39 @@ class AiModelCatalog {
 
     // Protocol-specific lookup.
     final result = switch (protocolType) {
-      AiProtocolType.openai   => _openai(id),
-      AiProtocolType.claude   => _claude(id),
-      AiProtocolType.gemini   => _gemini(id),
+      AiProtocolType.openai => _openai(id),
+      AiProtocolType.claude => _claude(id),
+      AiProtocolType.gemini => _gemini(id),
       AiProtocolType.deepseek => _deepseek(id),
-      AiProtocolType.qwen     => _qwen(id),
-      AiProtocolType.glm      => _glm(id),
-      AiProtocolType.kimi     => _kimi(id),
-      AiProtocolType.seed     => _seed(id),
-      AiProtocolType.stepfun  => _stepfun(id),
-      AiProtocolType.grok     => _grok(id),
-      AiProtocolType.hunyuan  => _hunyuan(id),
-      AiProtocolType.mimo     => _mimo(id),
+      AiProtocolType.qwen => _qwen(id),
+      AiProtocolType.glm => _glm(id),
+      AiProtocolType.kimi => _kimi(id),
+      AiProtocolType.seed => _seed(id),
+      AiProtocolType.stepfun => _stepfun(id),
+      AiProtocolType.grok => _grok(id),
+      AiProtocolType.hunyuan => _hunyuan(id),
+      AiProtocolType.mimo => _mimo(id),
       // Local inference frameworks serve arbitrary open-source models.
       AiProtocolType.ollama ||
       AiProtocolType.vllm ||
-      AiProtocolType.sglang   => null,
+      AiProtocolType.sglang => null,
     };
     if (result != null) return result;
 
     // Cross-protocol fallback: try all providers for well-known model-ID
     // patterns.  Handles cases like DeepSeek models served via Aliyun/Qwen,
     // or GLM models accessed through OpenAI-compatible endpoints.
-    return _openai(id) ?? _claude(id) ?? _gemini(id) ?? _deepseek(id) ??
-        _qwen(id) ?? _glm(id) ?? _kimi(id) ?? _seed(id) ??
-        _stepfun(id) ?? _grok(id) ?? _hunyuan(id);
+    return _openai(id) ??
+        _claude(id) ??
+        _gemini(id) ??
+        _deepseek(id) ??
+        _qwen(id) ??
+        _glm(id) ??
+        _kimi(id) ??
+        _seed(id) ??
+        _stepfun(id) ??
+        _grok(id) ??
+        _hunyuan(id);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -680,7 +688,10 @@ class AiModelCatalog {
         name: 'Qwen Audio',
         desc: 'Audio understanding model',
         multimodal: true,
-        modalities: <AiModelModality>{AiModelModality.text, AiModelModality.audio},
+        modalities: <AiModelModality>{
+          AiModelModality.text,
+          AiModelModality.audio,
+        },
         context: 8192,
         output: 2048,
       );
@@ -819,8 +830,10 @@ class AiModelCatalog {
         thinking: 38912,
       );
     }
-    if (id.startsWith('qwen3-32b') || id.startsWith('qwen3-30b') ||
-        id.startsWith('qwen3-14b') || id.startsWith('qwen3-8b') ||
+    if (id.startsWith('qwen3-32b') ||
+        id.startsWith('qwen3-30b') ||
+        id.startsWith('qwen3-14b') ||
+        id.startsWith('qwen3-8b') ||
         id.startsWith('qwen3-4b')) {
       return _p(
         name: 'Qwen3',
@@ -870,10 +883,18 @@ class AiModelCatalog {
   static AiModelProfile? _glm(String id) {
     // ── Image / Video generation ─────────────────────────────────────────
     if (id.startsWith('cogview')) {
-      return _p(name: 'CogView', desc: 'Image generation', capabilities: _imageGen);
+      return _p(
+        name: 'CogView',
+        desc: 'Image generation',
+        capabilities: _imageGen,
+      );
     }
     if (id.startsWith('cogvideo')) {
-      return _p(name: 'CogVideoX', desc: 'Video generation', capabilities: _videoGen);
+      return _p(
+        name: 'CogVideoX',
+        desc: 'Video generation',
+        capabilities: _videoGen,
+      );
     }
 
     // ── Vision models ────────────────────────────────────────────────────
@@ -1080,12 +1101,20 @@ class AiModelCatalog {
   static AiModelProfile? _seed(String id) {
     // ── Image generation ─────────────────────────────────────────────────
     if (id.contains('seedream')) {
-      return _p(name: 'Seedream', desc: 'Image generation', capabilities: _imageGen);
+      return _p(
+        name: 'Seedream',
+        desc: 'Image generation',
+        capabilities: _imageGen,
+      );
     }
 
     // ── Video generation ─────────────────────────────────────────────────
     if (id.contains('seedance')) {
-      return _p(name: 'Seedance', desc: 'Video generation', capabilities: _videoGen);
+      return _p(
+        name: 'Seedance',
+        desc: 'Video generation',
+        capabilities: _videoGen,
+      );
     }
 
     // ── Seed 2.0 (latest flagship) ───────────────────────────────────────

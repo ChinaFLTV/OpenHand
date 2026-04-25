@@ -19,6 +19,9 @@ import 'service/mcp_tool_discovery_service.dart';
 
 enum _McpCardAction { edit, delete }
 
+const int _mcpToolPreviewCollapsedLimit = 8;
+const int _mcpToolPreviewExpandedLimit = 48;
+
 class McpView extends StatefulWidget {
   const McpView({super.key});
 
@@ -90,8 +93,27 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final mcpController = context.watch<McpController>();
-    final settingsController = context.watch<SettingsController>();
+    final mcpSnapshot = context
+        .select<
+          McpController,
+          ({
+            bool isLoading,
+            String? errorMessage,
+            List<McpServer> servers,
+            McpPersistenceIssue? persistenceIssue,
+          })
+        >((controller) {
+          return (
+            isLoading: controller.isLoading,
+            errorMessage: controller.errorMessage,
+            servers: controller.servers,
+            persistenceIssue: controller.persistenceIssue,
+          );
+        });
+    final mcpController = context.read<McpController>();
+    final mcpEnabled = context.select<SettingsController, bool>(
+      (controller) => controller.mcpEnabled,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +126,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
               runSpacing: 12,
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: mcpController.isLoading
+                  onPressed: mcpSnapshot.isLoading
                       ? null
                       : () => mcpController.refresh(),
                   icon: const Icon(Icons.refresh_rounded),
@@ -153,7 +175,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           },
         ),
         const SizedBox(height: 20),
-        if (!settingsController.mcpEnabled) ...[
+        if (!mcpEnabled) ...[
           _McpInfoCard(
             icon: Icons.toggle_off_rounded,
             title: l10n.mcpDisabledTitle,
@@ -161,9 +183,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 16),
         ],
-        if (mcpController.persistenceIssue != null) ...[
+        if (mcpSnapshot.persistenceIssue != null) ...[
           _McpPersistenceIssueCard(
-            issue: mcpController.persistenceIssue!,
+            issue: mcpSnapshot.persistenceIssue!,
             onDismiss: mcpController.clearPersistenceIssue,
           ),
           const SizedBox(height: 16),
@@ -171,29 +193,39 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         Expanded(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
-            child: _buildBody(context, mcpController),
+            child: _buildBody(
+              context,
+              isLoading: mcpSnapshot.isLoading,
+              errorMessage: mcpSnapshot.errorMessage,
+              servers: mcpSnapshot.servers,
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildBody(BuildContext context, McpController mcpController) {
+  Widget _buildBody(
+    BuildContext context, {
+    required bool isLoading,
+    required String? errorMessage,
+    required List<McpServer> servers,
+  }) {
     final l10n = AppLocalizations.of(context)!;
-    if (mcpController.isLoading) {
+    if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (mcpController.errorMessage != null) {
+    if (errorMessage != null) {
       return _McpStateCard(
         key: const ValueKey<String>('mcp-error'),
         icon: Icons.error_outline_rounded,
         title: l10n.mcpLoadFailedTitle,
-        body: mcpController.errorMessage!,
+        body: errorMessage,
         primaryActionLabel: l10n.mcpRefresh,
-        onPrimaryAction: () => mcpController.refresh(),
+        onPrimaryAction: () => context.read<McpController>().refresh(),
       );
     }
-    if (mcpController.servers.isEmpty) {
+    if (servers.isEmpty) {
       return _McpStateCard(
         key: const ValueKey<String>('mcp-empty'),
         icon: Icons.hub_outlined,
@@ -205,26 +237,40 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     return ListView.separated(
       key: const ValueKey<String>('mcp-list'),
       padding: const EdgeInsets.only(bottom: 12),
-      itemCount: mcpController.servers.length,
+      itemCount: servers.length,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
-        final server = mcpController.servers[index];
-        return _McpServerCard(
-          server: server,
-          healthStatus: mcpController.healthStatusFor(server.name),
-          toolCatalog: mcpController.toolCatalogFor(server.name),
-          onTap: () => _showServerDialog(context, initialServer: server),
-          onToggleEnabled: (enabled) =>
-              _updateServerEnabled(context, server.name, enabled),
-          onCheckHealth: () => mcpController.checkServerHealth(server.name),
-          onRefreshTools: () => mcpController.refreshServerTools(server.name),
-          onActionSelected: (action) {
-            switch (action) {
-              case _McpCardAction.edit:
-                _showServerDialog(context, initialServer: server);
-              case _McpCardAction.delete:
-                _confirmDeleteServer(context, server);
-            }
+        final server = servers[index];
+        return Selector<
+          McpController,
+          ({McpServerHealth healthStatus, McpToolCatalog toolCatalog})
+        >(
+          key: ValueKey<String>('mcp-server-${server.name}'),
+          selector: (context, controller) => (
+            healthStatus: controller.healthStatusFor(server.name),
+            toolCatalog: controller.toolCatalogFor(server.name),
+          ),
+          builder: (context, cardState, child) {
+            final controller = context.read<McpController>();
+            return _McpServerCard(
+              key: ValueKey<String>('mcp-server-card-${server.name}'),
+              server: server,
+              healthStatus: cardState.healthStatus,
+              toolCatalog: cardState.toolCatalog,
+              onTap: () => _showServerDialog(context, initialServer: server),
+              onToggleEnabled: (enabled) =>
+                  _updateServerEnabled(context, server.name, enabled),
+              onCheckHealth: () => controller.checkServerHealth(server.name),
+              onRefreshTools: () => controller.refreshServerTools(server.name),
+              onActionSelected: (action) {
+                switch (action) {
+                  case _McpCardAction.edit:
+                    _showServerDialog(context, initialServer: server);
+                  case _McpCardAction.delete:
+                    _confirmDeleteServer(context, server);
+                }
+              },
+            );
           },
         );
       },
@@ -939,6 +985,7 @@ class _McpPageHeader extends StatelessWidget {
 
 class _McpServerCard extends StatelessWidget {
   const _McpServerCard({
+    super.key,
     required this.server,
     required this.healthStatus,
     required this.toolCatalog,
@@ -1186,47 +1233,7 @@ class _McpServerCard extends StatelessWidget {
               ],
               if (toolCatalog.tools.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _localizedText(
-                      context,
-                      zh: '可用 Tools',
-                      en: 'Available Tools',
-                    ),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: toolCatalog.tools
-                        .map(
-                          (tool) => ActionChip(
-                            avatar: Icon(
-                              tool.hasMetadataWarning
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.build_circle_outlined,
-                              size: 18,
-                            ),
-                            label: Text(tool.name),
-                            onPressed: () {
-                              _showToolDetailsDialog(
-                                context,
-                                mcpController: context.read<McpController>(),
-                                server: server,
-                                toolCatalog: toolCatalog,
-                                tool: tool,
-                              );
-                            },
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ),
+                _McpToolPreview(server: server, toolCatalog: toolCatalog),
               ] else if (!toolCatalog.isLoading && !toolCatalog.hasError) ...[
                 const SizedBox(height: 14),
                 Align(
@@ -1359,6 +1366,102 @@ class _McpHealthStatusDot extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _McpToolPreview extends StatefulWidget {
+  const _McpToolPreview({required this.server, required this.toolCatalog});
+
+  final McpServer server;
+  final McpToolCatalog toolCatalog;
+
+  @override
+  State<_McpToolPreview> createState() => _McpToolPreviewState();
+}
+
+class _McpToolPreviewState extends State<_McpToolPreview> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tools = widget.toolCatalog.tools;
+    final previewLimit = _expanded
+        ? _mcpToolPreviewExpandedLimit
+        : _mcpToolPreviewCollapsedLimit;
+    final previewTools = tools.take(previewLimit).toList(growable: false);
+    final hiddenToolCount = tools.length - previewTools.length;
+    final canExpand = tools.length > _mcpToolPreviewCollapsedLimit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _localizedText(context, zh: '可用 Tools', en: 'Available Tools'),
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+            if (canExpand)
+              TextButton.icon(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                icon: Icon(
+                  _expanded
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                ),
+                label: Text(
+                  _expanded
+                      ? _localizedText(context, zh: '收起', en: 'Collapse')
+                      : _localizedText(context, zh: '展开', en: 'Expand'),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final tool in previewTools)
+                ActionChip(
+                  avatar: Icon(
+                    tool.hasMetadataWarning
+                        ? Icons.warning_amber_rounded
+                        : Icons.build_circle_outlined,
+                    size: 18,
+                  ),
+                  label: Text(tool.name),
+                  onPressed: () {
+                    _showToolDetailsDialog(
+                      context,
+                      mcpController: context.read<McpController>(),
+                      server: widget.server,
+                      toolCatalog: widget.toolCatalog,
+                      tool: tool,
+                    );
+                  },
+                ),
+              if (hiddenToolCount > 0)
+                Chip(
+                  avatar: const Icon(Icons.more_horiz_rounded),
+                  label: Text(
+                    _localizedText(
+                      context,
+                      zh: '还有 $hiddenToolCount 个',
+                      en: '+$hiddenToolCount more',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

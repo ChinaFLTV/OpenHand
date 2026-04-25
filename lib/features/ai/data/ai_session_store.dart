@@ -46,7 +46,6 @@ class AiSessionMessagePage {
 }
 
 class AiSessionStore {
-
   AiSessionStore({String? sessionsDirectoryPath})
     : _sessionsDirectoryPath =
           sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
@@ -113,10 +112,7 @@ class AiSessionStore {
   /// Loads all sessions **with their messages** (backward-compatible API).
   Future<AiSessionLoadResult> loadAll() async {
     final issues = <AiSessionPersistenceIssue>[];
-    final sessionRows = await _db.query(
-      'sessions',
-      orderBy: 'updated_at DESC',
-    );
+    final sessionRows = await _db.query('sessions', orderBy: 'updated_at DESC');
 
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
@@ -147,10 +143,7 @@ class AiSessionStore {
   /// the sidebar session list.
   Future<AiSessionLoadResult> loadAllHeaders() async {
     final issues = <AiSessionPersistenceIssue>[];
-    final sessionRows = await _db.query(
-      'sessions',
-      orderBy: 'updated_at DESC',
-    );
+    final sessionRows = await _db.query('sessions', orderBy: 'updated_at DESC');
 
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
@@ -203,10 +196,7 @@ class AiSessionStore {
     final rows = await _db.query(
       'sessions',
       where: 'template_id = ? AND created_at >= ?',
-      whereArgs: <Object?>[
-        templateId,
-        minCreatedAt.toUtc().toIso8601String(),
-      ],
+      whereArgs: <Object?>[templateId, minCreatedAt.toUtc().toIso8601String()],
       orderBy: 'updated_at DESC',
     );
     final sessions = <AiSession>[];
@@ -323,9 +313,7 @@ class AiSessionStore {
     Map<String, Object?> row,
     List<Map<String, Object?>> messageRows,
   ) {
-    final messages = messageRows
-        .map(_messageFromRow)
-        .toList(growable: false);
+    final messages = messageRows.map(_messageFromRow).toList(growable: false);
 
     final now = DateTime.now().toUtc();
 
@@ -367,16 +355,13 @@ class AiSessionStore {
       autoTitleGeneratedAt: _parseNullableDateTime(
         row['auto_title_generated_at'] as String?,
       ),
-      autoTitleSourceMessageId:
-          row['auto_title_source_message_id'] as String?,
+      autoTitleSourceMessageId: row['auto_title_source_message_id'] as String?,
       latestCompressionCheckpointMessageId:
           row['latest_compression_checkpoint_message_id'] as String?,
       latestCompressionAt: _parseNullableDateTime(
         row['latest_compression_at'] as String?,
       ),
-      mode: AiSessionMode.fromStorage(
-        (row['mode'] as String?) ?? 'chat',
-      ),
+      mode: AiSessionMode.fromStorage((row['mode'] as String?) ?? 'chat'),
       awaitingPlanApproval: (row['awaiting_plan_approval'] as int?) == 1,
       pendingPlan: row['pending_plan'] as String?,
       fullAccessPermission: (row['full_access_permission'] as int?) == 1,
@@ -420,13 +405,15 @@ class AiSessionStore {
       'last_used_model_id': session.lastUsedModelId,
       'last_used_model_label': session.lastUsedModelLabel,
       'is_title_manually_edited': session.isTitleManuallyEdited ? 1 : 0,
-      'auto_title_generated_at':
-          session.autoTitleGeneratedAt?.toUtc().toIso8601String(),
+      'auto_title_generated_at': session.autoTitleGeneratedAt
+          ?.toUtc()
+          .toIso8601String(),
       'auto_title_source_message_id': session.autoTitleSourceMessageId,
       'latest_compression_checkpoint_message_id':
           session.latestCompressionCheckpointMessageId,
-      'latest_compression_at':
-          session.latestCompressionAt?.toUtc().toIso8601String(),
+      'latest_compression_at': session.latestCompressionAt
+          ?.toUtc()
+          .toIso8601String(),
       'mode': session.mode.storageValue,
       'awaiting_plan_approval': session.awaitingPlanApproval ? 1 : 0,
       'pending_plan': session.pendingPlan,
@@ -441,9 +428,7 @@ class AiSessionStore {
             .toList(growable: false),
       ),
       'todo_items_json': jsonEncode(
-        session.todoItems
-            .map((item) => item.toJson())
-            .toList(growable: false),
+        session.todoItems.map((item) => item.toJson()).toList(growable: false),
       ),
       'plan_history_json': jsonEncode(
         session.planHistory
@@ -467,15 +452,11 @@ class AiSessionStore {
 
     return AiSessionMessage(
       id: (row['id'] as String?) ?? '',
-      kind: AiSessionMessageKind.fromStorage(
-        (row['kind'] as String?) ?? '',
-      ),
-      role: AiSessionMessageRole.fromStorage(
-        (row['role'] as String?) ?? '',
-      ),
+      kind: AiSessionMessageKind.fromStorage((row['kind'] as String?) ?? ''),
+      role: AiSessionMessageRole.fromStorage((row['role'] as String?) ?? ''),
       content: (row['content'] as String?) ?? '',
-      createdAt: DateTime.tryParse((row['created_at'] as String?) ?? '')
-              ?.toUtc() ??
+      createdAt:
+          DateTime.tryParse((row['created_at'] as String?) ?? '')?.toUtc() ??
           DateTime.now().toUtc(),
       characterCount: (row['character_count'] as int?) ?? 0,
       isDeleted: (row['is_deleted'] as int?) == 1,

@@ -62,7 +62,11 @@ void main() {
         name: 'my-skill',
         content: _goodSkill,
       );
-      expect(result.status, BashToolExecutionStatus.success, reason: result.stderr);
+      expect(
+        result.status,
+        BashToolExecutionStatus.success,
+        reason: result.stderr,
+      );
       final file = File(p.join(tmp.path, 'my-skill', 'SKILL.md'));
       expect(file.existsSync(), isTrue);
       expect(file.readAsStringSync(), _goodSkill);
@@ -131,7 +135,8 @@ Body.''';
     });
 
     test('create content > 100_000 chars fails', () async {
-      final big = '---\nname: my-skill\ndescription: x\n---\n\n${'a' * 100_001}';
+      final big =
+          '---\nname: my-skill\ndescription: x\n---\n\n${'a' * 100_001}';
       final result = await _execute(
         tool,
         action: 'create',
@@ -143,7 +148,12 @@ Body.''';
     });
 
     test('edit rewrites SKILL.md of existing skill', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       const updated = '''---
 name: my-skill
 description: Updated desc
@@ -159,8 +169,10 @@ New body.''';
         content: updated,
       );
       expect(edit.status, BashToolExecutionStatus.success, reason: edit.stderr);
-      expect(File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync(),
-          updated);
+      expect(
+        File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync(),
+        updated,
+      );
     });
 
     test('edit of missing skill fails', () async {
@@ -198,7 +210,12 @@ New body.''';
     });
 
     test('patch with unique match replaces once', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final patch = await _execute(
         tool,
         action: 'patch',
@@ -206,9 +223,14 @@ New body.''';
         oldString: 'Body.',
         newString: 'New body line.',
       );
-      expect(patch.status, BashToolExecutionStatus.success, reason: patch.stderr);
-      final text =
-          File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync();
+      expect(
+        patch.status,
+        BashToolExecutionStatus.success,
+        reason: patch.stderr,
+      );
+      final text = File(
+        p.join(tmp.path, 'my-skill', 'SKILL.md'),
+      ).readAsStringSync();
       expect(text, contains('New body line.'));
       expect(text, isNot(contains('Body.')));
     });
@@ -248,16 +270,27 @@ alpha alpha alpha''';
         newString: 'beta',
         replaceAll: true,
       );
-      expect(patch.status, BashToolExecutionStatus.success, reason: patch.stderr);
-      final text =
-          File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync();
+      expect(
+        patch.status,
+        BashToolExecutionStatus.success,
+        reason: patch.stderr,
+      );
+      final text = File(
+        p.join(tmp.path, 'my-skill', 'SKILL.md'),
+      ).readAsStringSync();
       expect(text, contains('beta beta beta'));
     });
 
     test('patch that breaks frontmatter is rejected without writing', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
-      final before =
-          File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync();
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
+      final before = File(
+        p.join(tmp.path, 'my-skill', 'SKILL.md'),
+      ).readAsStringSync();
       final patch = await _execute(
         tool,
         action: 'patch',
@@ -267,13 +300,23 @@ alpha alpha alpha''';
       );
       expect(patch.status, BashToolExecutionStatus.invalidArguments);
       expect(patch.stderr, contains('frontmatter'));
-      final after =
-          File(p.join(tmp.path, 'my-skill', 'SKILL.md')).readAsStringSync();
-      expect(after, before, reason: 'file must not be written on validation failure');
+      final after = File(
+        p.join(tmp.path, 'my-skill', 'SKILL.md'),
+      ).readAsStringSync();
+      expect(
+        after,
+        before,
+        reason: 'file must not be written on validation failure',
+      );
     });
 
     test('write_file into allowed subdir succeeds', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final write = await _execute(
         tool,
         action: 'write_file',
@@ -281,15 +324,24 @@ alpha alpha alpha''';
         filePath: 'scripts/run.sh',
         content: '#!/bin/bash\necho hi\n',
       );
-      expect(write.status, BashToolExecutionStatus.success, reason: write.stderr);
       expect(
-          File(p.join(tmp.path, 'my-skill', 'scripts', 'run.sh'))
-              .existsSync(),
-          isTrue);
+        write.status,
+        BashToolExecutionStatus.success,
+        reason: write.stderr,
+      );
+      expect(
+        File(p.join(tmp.path, 'my-skill', 'scripts', 'run.sh')).existsSync(),
+        isTrue,
+      );
     });
 
     test('write_file to disallowed subdir fails', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final write = await _execute(
         tool,
         action: 'write_file',
@@ -301,7 +353,12 @@ alpha alpha alpha''';
     });
 
     test('write_file rejects path traversal', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final write = await _execute(
         tool,
         action: 'write_file',
@@ -313,7 +370,12 @@ alpha alpha alpha''';
     });
 
     test('write_file refuses to target SKILL.md', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final write = await _execute(
         tool,
         action: 'write_file',
@@ -325,7 +387,12 @@ alpha alpha alpha''';
     });
 
     test('remove_file removes nested file and cleans empty parents', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       await _execute(
         tool,
         action: 'write_file',
@@ -341,17 +408,24 @@ alpha alpha alpha''';
       );
       expect(rm.status, BashToolExecutionStatus.success, reason: rm.stderr);
       expect(
-          Directory(p.join(tmp.path, 'my-skill', 'references')).existsSync(),
-          isFalse,
-          reason: 'empty references/ should be cleaned up');
+        Directory(p.join(tmp.path, 'my-skill', 'references')).existsSync(),
+        isFalse,
+        reason: 'empty references/ should be cleaned up',
+      );
       expect(
-          Directory(p.join(tmp.path, 'my-skill')).existsSync(),
-          isTrue,
-          reason: 'skill dir itself must not be removed');
+        Directory(p.join(tmp.path, 'my-skill')).existsSync(),
+        isTrue,
+        reason: 'skill dir itself must not be removed',
+      );
     });
 
     test('remove_file of missing file fails', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final rm = await _execute(
         tool,
         action: 'remove_file',
@@ -362,7 +436,12 @@ alpha alpha alpha''';
     });
 
     test('remove_file refuses to target SKILL.md', () async {
-      await _execute(tool, action: 'create', name: 'my-skill', content: _goodSkill);
+      await _execute(
+        tool,
+        action: 'create',
+        name: 'my-skill',
+        content: _goodSkill,
+      );
       final rm = await _execute(
         tool,
         action: 'remove_file',

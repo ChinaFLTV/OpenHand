@@ -67,9 +67,9 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     }
 
     // ---------- Tool catalog (restricted to memory + skill_manager) ----------
-    final memoryDef =
-        AiToolRuntimeService.builtinToolDefault(AiBuiltinToolKind.memory)
-            ?.definition;
+    final memoryDef = AiToolRuntimeService.builtinToolDefault(
+      AiBuiltinToolKind.memory,
+    )?.definition;
     final skillManagerDef = AiToolRuntimeService.builtinToolDefault(
       AiBuiltinToolKind.skillManager,
     )?.definition;
@@ -80,13 +80,11 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
     // ---------- Loop state ----------
     final turns = <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: context.prompt,
-      ),
+      AiChatTurn(role: AiChatRole.system, content: context.prompt),
       const AiChatTurn(
         role: AiChatRole.user,
-        content: '请按系统提示执行本轮自我学习，直接调用 memory / skill_manager '
+        content:
+            '请按系统提示执行本轮自我学习，直接调用 memory / skill_manager '
             '工具完成记忆/画像/技能的持久化。完成后用一段中文简要总结本轮学到的要点。',
       ),
     ];
@@ -195,7 +193,8 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
               skillCallsError += 1;
             }
           } else {
-            resultText = 'status: failure\nerror: unknown tool '
+            resultText =
+                'status: failure\nerror: unknown tool '
                 '"${toolCall.name}" — only memory / skill_manager are allowed '
                 'in the self-learning sub-agent.';
           }
@@ -241,11 +240,11 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     final finalReply = lastReply;
     final summary = finalReply.isEmpty
         ? (memoryCallsOk + skillCallsOk > 0
-            ? '本轮已记录 $memoryCallsOk 条记忆变更、$skillCallsOk 条技能变更。'
-            : '模型本轮未调用任何工具，也未产生文本结论。')
+              ? '本轮已记录 $memoryCallsOk 条记忆变更、$skillCallsOk 条技能变更。'
+              : '模型本轮未调用任何工具，也未产生文本结论。')
         : (finalReply.length <= 160
-            ? finalReply
-            : '${finalReply.substring(0, 157)}…');
+              ? finalReply
+              : '${finalReply.substring(0, 157)}…');
 
     return SelfLearningOutcome(
       summary: summary,

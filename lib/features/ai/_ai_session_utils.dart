@@ -77,10 +77,7 @@ bool _isRetryableAutoTitleError(Object error) {
       message.contains('Network error');
 }
 
-bool _environmentEquals(
-  AiSessionEnvironment left,
-  AiSessionEnvironment right,
-) {
+bool _environmentEquals(AiSessionEnvironment left, AiSessionEnvironment right) {
   return left.localeTag == right.localeTag &&
       left.platform == right.platform &&
       left.appVersion == right.appVersion &&
@@ -172,13 +169,16 @@ bool _isMeaningfulAutoTitle(String value) {
   final normalized = _normalizeAutoTitleForComparison(trimmed);
   if (normalized.isEmpty ||
       normalized ==
-          _normalizeAutoTitleForComparison(AiSessionController._defaultNewSessionTitle) ||
+          _normalizeAutoTitleForComparison(
+            AiSessionController._defaultNewSessionTitle,
+          ) ||
       AiSessionController._genericAutoTitleCandidates.contains(normalized)) {
     return false;
   }
   final hasCjk = RegExp(r'[\u4E00-\u9FFF]').hasMatch(trimmed);
   if (hasCjk) {
-    return normalized.characters.length >= AiSessionController._minimumMeaningfulTitleCharacters;
+    return normalized.characters.length >=
+        AiSessionController._minimumMeaningfulTitleCharacters;
   }
   final words = trimmed
       .split(RegExp(r'\s+'))
@@ -326,12 +326,15 @@ String _sanitizeVisibleModelContent(String value) {
     cursor += 1;
   }
   if (cursor >= lines.length ||
-      !AiSessionController._internalPromptLeakHeaders.contains(lines[cursor].trim())) {
+      !AiSessionController._internalPromptLeakHeaders.contains(
+        lines[cursor].trim(),
+      )) {
     return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(normalized));
   }
   while (cursor < lines.length) {
     final trimmed = lines[cursor].trim();
-    if (trimmed.isEmpty || AiSessionController._internalPromptLeakHeaders.contains(trimmed)) {
+    if (trimmed.isEmpty ||
+        AiSessionController._internalPromptLeakHeaders.contains(trimmed)) {
       cursor += 1;
       continue;
     }
@@ -354,7 +357,7 @@ String _sanitizeVisibleModelContent(String value) {
 /// and should not appear in user-facing content.
 String _stripRawToolCallMarkup(String value) {
   var stripped = value;
-  
+
   // 1. Strip XML-style tool_call / tool_calls / tool_result / tool_use blocks.
   if (_rawToolCallPresencePattern.hasMatch(stripped)) {
     stripped = stripped
