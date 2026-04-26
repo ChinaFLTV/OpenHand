@@ -1303,6 +1303,12 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _pageLoaded = false;
   bool _mediaReady = false;
   String? _loadError;
+  // Reentrancy guards: rapid double-taps on the system-player / save buttons
+  // were spawning duplicate downloads to the same destination, corrupting
+  // the output file and pinning the WebView event loop.
+  bool _isSaving = false;
+  bool _isOpeningExternal = false;
+  bool _disposed = false;
 
   @override
   void initState() {
@@ -1343,6 +1349,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
 
   @override
   void dispose() {
+    _disposed = true;
     _loadTimeoutTimer?.cancel();
     super.dispose();
   }
@@ -1526,15 +1533,23 @@ $mediaTag
   }
 
   Future<void> _openInSystemPlayer(BuildContext context) async {
-    final filePath = widget.source.filePath;
-    if (filePath != null) {
-      await _openLocalPathWithSystemApp(context, filePath);
-      return;
+    if (_isOpeningExternal) return;
+    _isOpeningExternal = true;
+    try {
+      final filePath = widget.source.filePath;
+      if (filePath != null) {
+        await _openLocalPathWithSystemApp(context, filePath);
+        return;
+      }
+      await _openMessageLinkUri(context, widget.source.uri);
+    } finally {
+      if (!_disposed) _isOpeningExternal = false;
     }
-    await _openMessageLinkUri(context, widget.source.uri);
   }
 
   Future<void> _saveMediaAs(BuildContext context) async {
+    if (_isSaving) return;
+    _isSaving = true;
     try {
       final basename = _suggestedSaveName();
       final ext = _normalizeMediaSaveExtension(
@@ -1577,6 +1592,8 @@ $mediaTag
           ),
         ),
       );
+    } finally {
+      if (!_disposed) _isSaving = false;
     }
   }
 
