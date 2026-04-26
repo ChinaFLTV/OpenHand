@@ -2163,6 +2163,22 @@ Future<void> _openResolvedMessagePath(
 }
 
 Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {
+  // Restrict the schemes we will hand to the OS launcher. Without this an
+  // adversarial markdown link such as `file:///etc/passwd` or
+  // `vbscript:msgbox(...)` could be opened verbatim with the user's
+  // default handler. Only the schemes that have a sensible “open this”
+  // semantic in this product are allowed.
+  const allowedSchemes = <String>{'http', 'https', 'mailto', 'file'};
+  final scheme = uri.scheme.toLowerCase();
+  if (!allowedSchemes.contains(scheme)) {
+    if (context.mounted) {
+      _showMessageLinkOpenError(
+        context,
+        FormatException('Unsupported link scheme: $scheme'),
+      );
+    }
+    return;
+  }
   try {
     late final ProcessResult result;
     final target = uri.toString();
@@ -2993,10 +3009,8 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _reasoningExpanded = !_reasoningExpanded;
               });
             },
-            expandedBuilder: (context) => _SelfLearningMarkdown(
-              data: aiReasoning,
-              muted: true,
-            ),
+            expandedBuilder: (context) =>
+                _SelfLearningMarkdown(data: aiReasoning, muted: true),
           ),
         ],
         if (aiResponse.isNotEmpty) ...[
@@ -3014,10 +3028,8 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                 _responseExpanded = !_responseExpanded;
               });
             },
-            expandedBuilder: (context) => _SelfLearningMarkdown(
-              data: aiResponse,
-              muted: false,
-            ),
+            expandedBuilder: (context) =>
+                _SelfLearningMarkdown(data: aiResponse, muted: false),
           ),
         ],
         if (status == 'error' && aiResponse.isEmpty) ...[
@@ -3101,9 +3113,7 @@ class _SelfLearningMarkdown extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           )
-        : base.copyWith(
-            p: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
-          );
+        : base.copyWith(p: theme.textTheme.bodyMedium?.copyWith(height: 1.5));
     return ClipRect(
       child: AnimatedSize(
         duration: const Duration(milliseconds: 220),

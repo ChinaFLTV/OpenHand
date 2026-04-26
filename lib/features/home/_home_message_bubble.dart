@@ -633,6 +633,30 @@ Future<void> _openLocalPathWithSystemApp(
   if (normalizedPath.isEmpty) {
     return;
   }
+  // Refuse anything that doesn't look like a local file path. Without this
+  // a string such as `https://evil.invalid` or a leading `-flag` could be
+  // forwarded directly to `open` / `xdg-open`, which both happily treat
+  // those inputs as URLs / option flags.
+  final looksLikeUri = RegExp(
+    r'^[A-Za-z][A-Za-z0-9+.-]*:',
+  ).hasMatch(normalizedPath);
+  final hasLeadingDash = normalizedPath.startsWith('-');
+  if (looksLikeUri || hasLeadingDash) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '拒绝打开不安全的路径：$normalizedPath',
+              en: 'Refused unsafe path: $normalizedPath',
+            ),
+          ),
+        ),
+      );
+    }
+    return;
+  }
   try {
     late final ProcessResult result;
     if (Platform.isMacOS) {
