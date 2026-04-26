@@ -1322,6 +1322,70 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiEstimatedCharactersPerTokenInvalid => '请输入 1~32 之间的整数。';
 
   @override
+  String get aiMaxToolOutputCharsLabel => '工具单次输出字符上限';
+
+  @override
+  String get aiMaxToolOutputCharsBody =>
+      '默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
+
+  @override
+  String get aiMaxToolOutputCharsSave => '保存上限';
+
+  @override
+  String get aiMaxToolOutputCharsSaved => '工具输出字符上限已保存。';
+
+  @override
+  String get aiMaxToolOutputCharsInvalid => '请输入 1000~10000000 之间的整数。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsLabel => '写命令确认超时（毫秒）';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsBody =>
+      '默认 300000（5 分钟）。等待用户审批写命令的最长时间。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSave => '保存超时';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSaved => '写命令确认超时已保存。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsInvalid => '请输入 1000~3600000 之间的整数。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdLabel => 'Fast-path 写命令分析阈值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdBody =>
+      '默认 512 字符。命令长度超过此值会走快速路径粗判，避免昂贵的语法分析。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSave => '保存阈值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSaved => 'Fast-path 阈值已保存。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdInvalid => '请输入 0~100000 之间的整数。';
+
+  @override
+  String get aiMaxHookTextCharactersLabel => 'Hook 文本输出上限';
+
+  @override
+  String get aiMaxHookTextCharactersBody =>
+      '默认 4000。Claude Hook 在合并 stdout/stderr 文本时的总字符上限。';
+
+  @override
+  String get aiMaxHookTextCharactersSave => '保存上限';
+
+  @override
+  String get aiMaxHookTextCharactersSaved => 'Hook 文本上限已保存。';
+
+  @override
+  String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -2769,6 +2833,70 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiEstimatedCharactersPerTokenInvalid => '请输入 1~32 之间的整数。';
 
   @override
+  String get aiMaxToolOutputCharsLabel => '工具单次输出字符上限';
+
+  @override
+  String get aiMaxToolOutputCharsBody =>
+      '默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
+
+  @override
+  String get aiMaxToolOutputCharsSave => '保存上限';
+
+  @override
+  String get aiMaxToolOutputCharsSaved => '工具输出字符上限已保存。';
+
+  @override
+  String get aiMaxToolOutputCharsInvalid => '请输入 1000~10000000 之间的整数。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsLabel => '写命令确认超时（毫秒）';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsBody =>
+      '默认 300000（5 分钟）。等待用户审批写命令的最长时间。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSave => '保存超时';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSaved => '写命令确认超时已保存。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsInvalid => '请输入 1000~3600000 之间的整数。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdLabel => 'Fast-path 写命令分析阈值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdBody =>
+      '默认 512 字符。命令长度超过此值会走快速路径粗判，避免昂贵的语法分析。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSave => '保存阈值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSaved => 'Fast-path 阈值已保存。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdInvalid => '请输入 0~100000 之间的整数。';
+
+  @override
+  String get aiMaxHookTextCharactersLabel => 'Hook 文本输出上限';
+
+  @override
+  String get aiMaxHookTextCharactersBody =>
+      '默认 4000。Claude Hook 在合并 stdout/stderr 文本时的总字符上限。';
+
+  @override
+  String get aiMaxHookTextCharactersSave => '保存上限';
+
+  @override
+  String get aiMaxHookTextCharactersSaved => 'Hook 文本上限已保存。';
+
+  @override
+  String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -4213,6 +4341,70 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiEstimatedCharactersPerTokenInvalid => '請輸入 1~32 之間的整數。';
+
+  @override
+  String get aiMaxToolOutputCharsLabel => '工具單次輸出字元上限';
+
+  @override
+  String get aiMaxToolOutputCharsBody =>
+      '預設 200000。單次工具呼叫結果若超過此字元數會截斷，避免 Context 溢出。';
+
+  @override
+  String get aiMaxToolOutputCharsSave => '儲存上限';
+
+  @override
+  String get aiMaxToolOutputCharsSaved => '工具輸出字元上限已儲存。';
+
+  @override
+  String get aiMaxToolOutputCharsInvalid => '請輸入 1000~10000000 之間的整數。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsLabel => '寫命令確認逾時（毫秒）';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsBody =>
+      '預設 300000（5 分鐘）。等待使用者審核寫命令的最長時間。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSave => '儲存逾時';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSaved => '寫命令確認逾時已儲存。';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsInvalid => '請輸入 1000~3600000 之間的整數。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdLabel => 'Fast-path 寫命令分析閾值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdBody =>
+      '預設 512 字元。命令長度超過此值會走快速路徑粗判，避免昂貴的語法分析。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSave => '儲存閾值';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSaved => 'Fast-path 閾值已儲存。';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdInvalid => '請輸入 0~100000 之間的整數。';
+
+  @override
+  String get aiMaxHookTextCharactersLabel => 'Hook 文字輸出上限';
+
+  @override
+  String get aiMaxHookTextCharactersBody =>
+      '預設 4000。Claude Hook 在合併 stdout/stderr 文字時的總字元上限。';
+
+  @override
+  String get aiMaxHookTextCharactersSave => '儲存上限';
+
+  @override
+  String get aiMaxHookTextCharactersSaved => 'Hook 文字上限已儲存。';
+
+  @override
+  String get aiMaxHookTextCharactersInvalid => '請輸入 100~1000000 之間的整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

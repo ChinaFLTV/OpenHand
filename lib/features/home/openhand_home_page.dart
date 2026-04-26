@@ -2590,6 +2590,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       maxPlanHistoryEntries: settingsController.aiMaxPlanHistoryEntries,
       maxTruncationContinuations: settingsController.aiMaxTruncationContinuations,
       estimatedCharactersPerToken: settingsController.aiEstimatedCharactersPerToken,
+      maxToolOutputChars: settingsController.aiMaxToolOutputChars,
+      writeConfirmationTimeoutMs: settingsController.aiWriteConfirmationTimeoutMs,
+      fastPathWriteAnalysisThreshold:
+          settingsController.aiFastPathWriteAnalysisThreshold,
+      maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
@@ -2693,6 +2698,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.aiMaxPlanHistoryEntries,
       settingsController.aiMaxTruncationContinuations,
       settingsController.aiEstimatedCharactersPerToken,
+      settingsController.aiMaxToolOutputChars,
+      settingsController.aiWriteConfirmationTimeoutMs,
+      settingsController.aiFastPathWriteAnalysisThreshold,
+      settingsController.aiMaxHookTextCharacters,
       settingsController.aiImageSizeLimitBytes,
       settingsController.memoryEnabled,
       settingsController.aiWriteCommandConfirmationEnabled,
@@ -2789,6 +2798,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       maxPlanHistoryEntries: settingsController.aiMaxPlanHistoryEntries,
       maxTruncationContinuations: settingsController.aiMaxTruncationContinuations,
       estimatedCharactersPerToken: settingsController.aiEstimatedCharactersPerToken,
+      maxToolOutputChars: settingsController.aiMaxToolOutputChars,
+      writeConfirmationTimeoutMs: settingsController.aiWriteConfirmationTimeoutMs,
+      fastPathWriteAnalysisThreshold:
+          settingsController.aiFastPathWriteAnalysisThreshold,
+      maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:

@@ -257,6 +257,13 @@ class AiSessionController extends ChangeNotifier {
 
   void _captureLatestRuntimeContext(AiSessionRuntimeContext runtimeContext) {
     _latestRuntimeContext = runtimeContext;
+    // Group B: 把工具调用类参数下放到底层服务实例。
+    _toolRuntimeService.maxToolOutputChars = runtimeContext.maxToolOutputChars;
+    _bashToolService.writeConfirmationTimeoutMs =
+        runtimeContext.writeConfirmationTimeoutMs;
+    _bashToolService.fastPathWriteAnalysisThreshold =
+        runtimeContext.fastPathWriteAnalysisThreshold;
+    _hookService.maxHookTextCharacters = runtimeContext.maxHookTextCharacters;
   }
 
   int get _effectiveMaxRecentErrors =>

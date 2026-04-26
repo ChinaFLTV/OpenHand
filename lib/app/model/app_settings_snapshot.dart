@@ -46,6 +46,10 @@ class AppSettingsSnapshot {
       aiMaxPlanHistoryEntries: defaultAiMaxPlanHistoryEntries,
       aiMaxTruncationContinuations: defaultAiMaxTruncationContinuations,
       aiEstimatedCharactersPerToken: defaultAiEstimatedCharactersPerToken,
+      aiMaxToolOutputChars: defaultAiMaxToolOutputChars,
+      aiWriteConfirmationTimeoutMs: defaultAiWriteConfirmationTimeoutMs,
+      aiFastPathWriteAnalysisThreshold: defaultAiFastPathWriteAnalysisThreshold,
+      aiMaxHookTextCharacters: defaultAiMaxHookTextCharacters,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -107,6 +111,10 @@ class AppSettingsSnapshot {
     required this.aiMaxPlanHistoryEntries,
     required this.aiMaxTruncationContinuations,
     required this.aiEstimatedCharactersPerToken,
+    required this.aiMaxToolOutputChars,
+    required this.aiWriteConfirmationTimeoutMs,
+    required this.aiFastPathWriteAnalysisThreshold,
+    required this.aiMaxHookTextCharacters,
     required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -198,6 +206,23 @@ class AppSettingsSnapshot {
   static const int minAiEstimatedCharactersPerToken = 1;
   static const int maxAiEstimatedCharactersPerToken = 32;
 
+  /// 2026-04-29 — Group B: 工具调用与确认参数。
+  static const int defaultAiMaxToolOutputChars = 200000;
+  static const int minAiMaxToolOutputChars = 1000;
+  static const int maxAiMaxToolOutputChars = 10000000;
+
+  static const int defaultAiWriteConfirmationTimeoutMs = 300000;
+  static const int minAiWriteConfirmationTimeoutMs = 1000;
+  static const int maxAiWriteConfirmationTimeoutMs = 3600000;
+
+  static const int defaultAiFastPathWriteAnalysisThreshold = 512;
+  static const int minAiFastPathWriteAnalysisThreshold = 0;
+  static const int maxAiFastPathWriteAnalysisThreshold = 100000;
+
+  static const int defaultAiMaxHookTextCharacters = 4000;
+  static const int minAiMaxHookTextCharacters = 100;
+  static const int maxAiMaxHookTextCharacters = 1000000;
+
   /// Default per-image attachment size cap (1 MiB).
   ///
   /// When a user attaches an image larger than this threshold, the attachment
@@ -273,6 +298,10 @@ class AppSettingsSnapshot {
 
   /// Group A: token 估算系数（每个 token 平均多少字符）。
   final int aiEstimatedCharactersPerToken;
+  final int aiMaxToolOutputChars;
+  final int aiWriteConfirmationTimeoutMs;
+  final int aiFastPathWriteAnalysisThreshold;
+  final int aiMaxHookTextCharacters;
   final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -351,6 +380,10 @@ class AppSettingsSnapshot {
     int? aiMaxPlanHistoryEntries,
     int? aiMaxTruncationContinuations,
     int? aiEstimatedCharactersPerToken,
+    int? aiMaxToolOutputChars,
+    int? aiWriteConfirmationTimeoutMs,
+    int? aiFastPathWriteAnalysisThreshold,
+    int? aiMaxHookTextCharacters,
     int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -423,6 +456,13 @@ class AppSettingsSnapshot {
           aiMaxTruncationContinuations ?? this.aiMaxTruncationContinuations,
       aiEstimatedCharactersPerToken:
           aiEstimatedCharactersPerToken ?? this.aiEstimatedCharactersPerToken,
+      aiMaxToolOutputChars: aiMaxToolOutputChars ?? this.aiMaxToolOutputChars,
+      aiWriteConfirmationTimeoutMs:
+          aiWriteConfirmationTimeoutMs ?? this.aiWriteConfirmationTimeoutMs,
+      aiFastPathWriteAnalysisThreshold: aiFastPathWriteAnalysisThreshold ??
+          this.aiFastPathWriteAnalysisThreshold,
+      aiMaxHookTextCharacters:
+          aiMaxHookTextCharacters ?? this.aiMaxHookTextCharacters,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:

@@ -871,7 +871,8 @@ class AiToolUtils {
   // 2026-04-13 写操作权限确认支持
   // ══════════════════════════════════════════════════════════════════════════
 
-  /// 写操作权限确认超时时间（5分钟）。
+  /// 写操作权限确认默认超时时间（5分钟）。
+  /// 2026-04-29 — Group B: 调用方可传 [timeoutMs] 覆盖默认值。
   static const int _writeConfirmationTimeoutMs = 300000;
 
   /// 请求用户确认写操作。
@@ -889,6 +890,7 @@ class AiToolUtils {
     required Future<bool> Function(BashCommandApprovalRequest request)?
     confirmWriteCommand,
     Future<void>? cancelSignal,
+    int? timeoutMs,
   }) async {
     // 如果不需要写确认，直接通过
     if (!requireWriteConfirmation) {
@@ -914,7 +916,9 @@ class AiToolUtils {
     late final _WriteConfirmationOutcome outcome;
     try {
       final approvalFuture = confirmWriteCommand(request)
-          .timeout(const Duration(milliseconds: _writeConfirmationTimeoutMs))
+          .timeout(
+            Duration(milliseconds: timeoutMs ?? _writeConfirmationTimeoutMs),
+          )
           .then<_WriteConfirmationOutcome>(
             (approved) => approved
                 ? const _WriteConfirmationOutcome.approved()

@@ -103,6 +103,10 @@ class AiSessionRuntimeContext {
     this.maxPlanHistoryEntries = 20,
     this.maxTruncationContinuations = 5,
     this.estimatedCharactersPerToken = 4,
+    this.maxToolOutputChars = 200000,
+    this.writeConfirmationTimeoutMs = 300000,
+    this.fastPathWriteAnalysisThreshold = 512,
+    this.maxHookTextCharacters = 4000,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
@@ -173,6 +177,18 @@ class AiSessionRuntimeContext {
 
   /// Group A — token 估算系数（每个 token 平均多少字符）。
   final int estimatedCharactersPerToken;
+
+  /// Group B — 工具输出字符上限（超出截断）。
+  final int maxToolOutputChars;
+
+  /// Group B — 写命令确认超时（毫秒）。
+  final int writeConfirmationTimeoutMs;
+
+  /// Group B — Fast-path 写命令静态分析阈值（命令字符数）。
+  final int fastPathWriteAnalysisThreshold;
+
+  /// Group B — Hook 文本输出字符上限。
+  final int maxHookTextCharacters;
 
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
@@ -252,6 +268,10 @@ class AiSessionRuntimeContext {
       'max_plan_history_entries': maxPlanHistoryEntries,
       'max_truncation_continuations': maxTruncationContinuations,
       'estimated_characters_per_token': estimatedCharactersPerToken,
+      'max_tool_output_chars': maxToolOutputChars,
+      'write_confirmation_timeout_ms': writeConfirmationTimeoutMs,
+      'fast_path_write_analysis_threshold': fastPathWriteAnalysisThreshold,
+      'max_hook_text_characters': maxHookTextCharacters,
       'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,

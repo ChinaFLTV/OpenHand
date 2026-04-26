@@ -1388,6 +1388,78 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter an integer between 1 and 32.';
 
   @override
+  String get aiMaxToolOutputCharsLabel => 'Max Tool Output Chars';
+
+  @override
+  String get aiMaxToolOutputCharsBody =>
+      'Defaults to 200000. Truncates tool results above this length so the API context never overflows.';
+
+  @override
+  String get aiMaxToolOutputCharsSave => 'Save Limit';
+
+  @override
+  String get aiMaxToolOutputCharsSaved => 'Tool output character limit saved.';
+
+  @override
+  String get aiMaxToolOutputCharsInvalid =>
+      'Enter an integer between 1000 and 10000000.';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsLabel =>
+      'Write Confirmation Timeout (ms)';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsBody =>
+      'Defaults to 300000 (5 min). Maximum time spent waiting for the user to approve a write command.';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSave => 'Save Timeout';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsSaved =>
+      'Write confirmation timeout saved.';
+
+  @override
+  String get aiWriteConfirmationTimeoutMsInvalid =>
+      'Enter an integer between 1000 and 3600000.';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdLabel =>
+      'Fast-path Write Analysis Threshold';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdBody =>
+      'Defaults to 512 characters. Commands above this length take a coarse fast-path heuristic instead of full grammar analysis.';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSave => 'Save Threshold';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdSaved =>
+      'Fast-path threshold saved.';
+
+  @override
+  String get aiFastPathWriteAnalysisThresholdInvalid =>
+      'Enter an integer between 0 and 100000.';
+
+  @override
+  String get aiMaxHookTextCharactersLabel => 'Hook Text Output Limit';
+
+  @override
+  String get aiMaxHookTextCharactersBody =>
+      'Defaults to 4000. Total character cap when Claude Hook merges stdout/stderr output.';
+
+  @override
+  String get aiMaxHookTextCharactersSave => 'Save Limit';
+
+  @override
+  String get aiMaxHookTextCharactersSaved => 'Hook text limit saved.';
+
+  @override
+  String get aiMaxHookTextCharactersInvalid =>
+      'Enter an integer between 100 and 1000000.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

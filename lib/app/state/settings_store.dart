@@ -168,6 +168,10 @@ class SettingsStore {
       'ai_max_plan_history_entries': snapshot.aiMaxPlanHistoryEntries,
       'ai_max_truncation_continuations': snapshot.aiMaxTruncationContinuations,
       'ai_estimated_characters_per_token': snapshot.aiEstimatedCharactersPerToken,
+      'ai_max_tool_output_chars': snapshot.aiMaxToolOutputChars,
+      'ai_write_confirmation_timeout_ms': snapshot.aiWriteConfirmationTimeoutMs,
+      'ai_fast_path_write_analysis_threshold': snapshot.aiFastPathWriteAnalysisThreshold,
+      'ai_max_hook_text_characters': snapshot.aiMaxHookTextCharacters,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -377,6 +381,32 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
           )
         : AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
+    final aiMaxToolOutputChars = json['ai_max_tool_output_chars'] is int
+        ? (json['ai_max_tool_output_chars'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxToolOutputChars,
+            AppSettingsSnapshot.maxAiMaxToolOutputChars,
+          )
+        : AppSettingsSnapshot.defaultAiMaxToolOutputChars;
+    final aiWriteConfirmationTimeoutMs =
+        json['ai_write_confirmation_timeout_ms'] is int
+        ? (json['ai_write_confirmation_timeout_ms'] as int).clamp(
+            AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
+            AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+          )
+        : AppSettingsSnapshot.defaultAiWriteConfirmationTimeoutMs;
+    final aiFastPathWriteAnalysisThreshold =
+        json['ai_fast_path_write_analysis_threshold'] is int
+        ? (json['ai_fast_path_write_analysis_threshold'] as int).clamp(
+            AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
+            AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
+          )
+        : AppSettingsSnapshot.defaultAiFastPathWriteAnalysisThreshold;
+    final aiMaxHookTextCharacters = json['ai_max_hook_text_characters'] is int
+        ? (json['ai_max_hook_text_characters'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxHookTextCharacters,
+            AppSettingsSnapshot.maxAiMaxHookTextCharacters,
+          )
+        : AppSettingsSnapshot.defaultAiMaxHookTextCharacters;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
     final aiImageSizeLimitBytes =
         (rawImageSizeLimit is int && rawImageSizeLimit > 0)
@@ -740,6 +770,10 @@ class SettingsStore {
       aiMaxPlanHistoryEntries: aiMaxPlanHistoryEntries,
       aiMaxTruncationContinuations: aiMaxTruncationContinuations,
       aiEstimatedCharactersPerToken: aiEstimatedCharactersPerToken,
+      aiMaxToolOutputChars: aiMaxToolOutputChars,
+      aiWriteConfirmationTimeoutMs: aiWriteConfirmationTimeoutMs,
+      aiFastPathWriteAnalysisThreshold: aiFastPathWriteAnalysisThreshold,
+      aiMaxHookTextCharacters: aiMaxHookTextCharacters,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,

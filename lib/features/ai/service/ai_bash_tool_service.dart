@@ -319,8 +319,8 @@ class _CancelledPersistentBashExecution implements Exception {
 class AiBashToolService {
   static const int defaultTimeoutMs = 120000;
   static const int maxCapturedCharacters = 32000;
-  static const int _writeConfirmationTimeoutMs = 300000;
-  static const int _fastPathWriteAnalysisThreshold = 512;
+  int writeConfirmationTimeoutMs = 300000;
+  int fastPathWriteAnalysisThreshold = 512;
   final Map<String, _PersistentBashSession> _persistentSessions =
       <String, _PersistentBashSession>{};
   int _persistentMarkerCounter = 0;
@@ -398,8 +398,8 @@ class AiBashToolService {
                           ),
                         )
                         .timeout(
-                          const Duration(
-                            milliseconds: _writeConfirmationTimeoutMs,
+                          Duration(
+                            milliseconds: writeConfirmationTimeoutMs,
                           ),
                         ) ??
                     Future<bool>.value(false))
@@ -1144,7 +1144,7 @@ class AiBashToolService {
   }
 
   BashWriteAnalysis? _fastPathWriteAnalysis(String command) {
-    if (command.length < _fastPathWriteAnalysisThreshold) {
+    if (command.length < fastPathWriteAnalysisThreshold) {
       return null;
     }
     if (command.contains('<<')) {

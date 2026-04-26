@@ -62,6 +62,11 @@ class SettingsController extends ChangeNotifier {
        _aiMaxPlanHistoryEntries = snapshot.aiMaxPlanHistoryEntries,
        _aiMaxTruncationContinuations = snapshot.aiMaxTruncationContinuations,
        _aiEstimatedCharactersPerToken = snapshot.aiEstimatedCharactersPerToken,
+       _aiMaxToolOutputChars = snapshot.aiMaxToolOutputChars,
+       _aiWriteConfirmationTimeoutMs = snapshot.aiWriteConfirmationTimeoutMs,
+       _aiFastPathWriteAnalysisThreshold =
+           snapshot.aiFastPathWriteAnalysisThreshold,
+       _aiMaxHookTextCharacters = snapshot.aiMaxHookTextCharacters,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -140,6 +145,10 @@ class SettingsController extends ChangeNotifier {
   int _aiMaxPlanHistoryEntries;
   int _aiMaxTruncationContinuations;
   int _aiEstimatedCharactersPerToken;
+  int _aiMaxToolOutputChars;
+  int _aiWriteConfirmationTimeoutMs;
+  int _aiFastPathWriteAnalysisThreshold;
+  int _aiMaxHookTextCharacters;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
@@ -233,6 +242,10 @@ class SettingsController extends ChangeNotifier {
   int get aiMaxPlanHistoryEntries => _aiMaxPlanHistoryEntries;
   int get aiMaxTruncationContinuations => _aiMaxTruncationContinuations;
   int get aiEstimatedCharactersPerToken => _aiEstimatedCharactersPerToken;
+  int get aiMaxToolOutputChars => _aiMaxToolOutputChars;
+  int get aiWriteConfirmationTimeoutMs => _aiWriteConfirmationTimeoutMs;
+  int get aiFastPathWriteAnalysisThreshold => _aiFastPathWriteAnalysisThreshold;
+  int get aiMaxHookTextCharacters => _aiMaxHookTextCharacters;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
@@ -637,6 +650,62 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiEstimatedCharactersPerToken = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxToolOutputChars(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxToolOutputChars,
+      AppSettingsSnapshot.maxAiMaxToolOutputChars,
+    );
+    return _commitMutation(() {
+      if (_aiMaxToolOutputChars == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxToolOutputChars = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWriteConfirmationTimeoutMs(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiWriteConfirmationTimeoutMs,
+      AppSettingsSnapshot.maxAiWriteConfirmationTimeoutMs,
+    );
+    return _commitMutation(() {
+      if (_aiWriteConfirmationTimeoutMs == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWriteConfirmationTimeoutMs = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiFastPathWriteAnalysisThreshold(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiFastPathWriteAnalysisThreshold,
+      AppSettingsSnapshot.maxAiFastPathWriteAnalysisThreshold,
+    );
+    return _commitMutation(() {
+      if (_aiFastPathWriteAnalysisThreshold == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiFastPathWriteAnalysisThreshold = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxHookTextCharacters(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxHookTextCharacters,
+      AppSettingsSnapshot.maxAiMaxHookTextCharacters,
+    );
+    return _commitMutation(() {
+      if (_aiMaxHookTextCharacters == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxHookTextCharacters = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1352,6 +1421,10 @@ class SettingsController extends ChangeNotifier {
       aiMaxPlanHistoryEntries: _aiMaxPlanHistoryEntries,
       aiMaxTruncationContinuations: _aiMaxTruncationContinuations,
       aiEstimatedCharactersPerToken: _aiEstimatedCharactersPerToken,
+      aiMaxToolOutputChars: _aiMaxToolOutputChars,
+      aiWriteConfirmationTimeoutMs: _aiWriteConfirmationTimeoutMs,
+      aiFastPathWriteAnalysisThreshold: _aiFastPathWriteAnalysisThreshold,
+      aiMaxHookTextCharacters: _aiMaxHookTextCharacters,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
@@ -1417,6 +1490,10 @@ class SettingsController extends ChangeNotifier {
     _aiMaxPlanHistoryEntries = snapshot.aiMaxPlanHistoryEntries;
     _aiMaxTruncationContinuations = snapshot.aiMaxTruncationContinuations;
     _aiEstimatedCharactersPerToken = snapshot.aiEstimatedCharactersPerToken;
+    _aiMaxToolOutputChars = snapshot.aiMaxToolOutputChars;
+    _aiWriteConfirmationTimeoutMs = snapshot.aiWriteConfirmationTimeoutMs;
+    _aiFastPathWriteAnalysisThreshold = snapshot.aiFastPathWriteAnalysisThreshold;
+    _aiMaxHookTextCharacters = snapshot.aiMaxHookTextCharacters;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

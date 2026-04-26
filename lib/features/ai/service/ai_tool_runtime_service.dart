@@ -221,7 +221,8 @@ class AiToolRuntimeService {
 
   /// 2026-04-01 工具输出单轮最大字符数限制。
   /// 超过此限制时截断并附刚抽提提示，防止 Context 溢出和 API token 超限。
-  static const int _maxToolOutputChars = 200000;
+  /// 2026-04-29 — Group B: 由用户设置注入，可运行时调整。
+  int maxToolOutputChars = 200000;
 
   /// Template ID for which `skill_manager` is exposed as a builtin. All other
   /// templates never see `skill_manager` in their tool catalog regardless of
@@ -605,21 +606,21 @@ class AiToolRuntimeService {
   // FIX: stdout/stderr 截断边界与 resultText 保持一致，避免上下文看到不同片段。
   AiToolExecutionResult _applyOutputBudget(AiToolExecutionResult result) {
     final rawResult = result.resultText;
-    if (rawResult.length <= _maxToolOutputChars) {
+    if (rawResult.length <= maxToolOutputChars) {
       return result;
     }
-    final truncated = rawResult.substring(0, _maxToolOutputChars);
-    const notice =
-        '\n\n[Output truncated: result exceeded the 200,000-character tool output budget. '
-        'Only the first 200,000 characters are included. '
+    final truncated = rawResult.substring(0, maxToolOutputChars);
+    final notice =
+        '\n\n[Output truncated: result exceeded the $maxToolOutputChars-character tool output budget. '
+        'Only the first $maxToolOutputChars characters are included. '
         'Use more targeted commands or file offsets to read the remaining content.]';
     final truncatedResult = '$truncated$notice';
-    // Keep stdout and stderr consistent with resultText: all are capped at _maxToolOutputChars.
-    final truncatedStdout = result.stdout.length > _maxToolOutputChars
-        ? '${result.stdout.substring(0, _maxToolOutputChars)}$notice'
+    // Keep stdout and stderr consistent with resultText: all are capped at maxToolOutputChars.
+    final truncatedStdout = result.stdout.length > maxToolOutputChars
+        ? '${result.stdout.substring(0, maxToolOutputChars)}$notice'
         : result.stdout;
-    final truncatedStderr = result.stderr.length > _maxToolOutputChars
-        ? '${result.stderr.substring(0, _maxToolOutputChars)}$notice'
+    final truncatedStderr = result.stderr.length > maxToolOutputChars
+        ? '${result.stderr.substring(0, maxToolOutputChars)}$notice'
         : result.stderr;
     return AiToolExecutionResult(
       status: result.status,
@@ -638,7 +639,7 @@ class AiToolRuntimeService {
         ...result.metadata,
         'tool_output_truncated': true,
         'tool_output_original_length': rawResult.length,
-        'tool_output_budget_chars': _maxToolOutputChars,
+        'tool_output_budget_chars': maxToolOutputChars,
       },
     );
   }
@@ -682,6 +683,7 @@ class AiToolRuntimeService {
       metadata: <String, Object?>{
         'file_tracker': _fileTracker,
         'file_history': _fileHistory,
+        'write_confirmation_timeout_ms': _bashToolService.writeConfirmationTimeoutMs,
       },
     );
     final registryResult = await _toolRegistry.tryExecute(

@@ -2650,6 +2650,126 @@ abstract class AppLocalizations {
   /// **'请输入 1~32 之间的整数。'**
   String get aiEstimatedCharactersPerTokenInvalid;
 
+  /// No description provided for @aiMaxToolOutputCharsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具单次输出字符上限'**
+  String get aiMaxToolOutputCharsLabel;
+
+  /// No description provided for @aiMaxToolOutputCharsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。'**
+  String get aiMaxToolOutputCharsBody;
+
+  /// No description provided for @aiMaxToolOutputCharsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiMaxToolOutputCharsSave;
+
+  /// No description provided for @aiMaxToolOutputCharsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具输出字符上限已保存。'**
+  String get aiMaxToolOutputCharsSaved;
+
+  /// No description provided for @aiMaxToolOutputCharsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 1000~10000000 之间的整数。'**
+  String get aiMaxToolOutputCharsInvalid;
+
+  /// No description provided for @aiWriteConfirmationTimeoutMsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写命令确认超时（毫秒）'**
+  String get aiWriteConfirmationTimeoutMsLabel;
+
+  /// No description provided for @aiWriteConfirmationTimeoutMsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 300000（5 分钟）。等待用户审批写命令的最长时间。'**
+  String get aiWriteConfirmationTimeoutMsBody;
+
+  /// No description provided for @aiWriteConfirmationTimeoutMsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存超时'**
+  String get aiWriteConfirmationTimeoutMsSave;
+
+  /// No description provided for @aiWriteConfirmationTimeoutMsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写命令确认超时已保存。'**
+  String get aiWriteConfirmationTimeoutMsSaved;
+
+  /// No description provided for @aiWriteConfirmationTimeoutMsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 1000~3600000 之间的整数。'**
+  String get aiWriteConfirmationTimeoutMsInvalid;
+
+  /// No description provided for @aiFastPathWriteAnalysisThresholdLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Fast-path 写命令分析阈值'**
+  String get aiFastPathWriteAnalysisThresholdLabel;
+
+  /// No description provided for @aiFastPathWriteAnalysisThresholdBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 512 字符。命令长度超过此值会走快速路径粗判，避免昂贵的语法分析。'**
+  String get aiFastPathWriteAnalysisThresholdBody;
+
+  /// No description provided for @aiFastPathWriteAnalysisThresholdSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存阈值'**
+  String get aiFastPathWriteAnalysisThresholdSave;
+
+  /// No description provided for @aiFastPathWriteAnalysisThresholdSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Fast-path 阈值已保存。'**
+  String get aiFastPathWriteAnalysisThresholdSaved;
+
+  /// No description provided for @aiFastPathWriteAnalysisThresholdInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~100000 之间的整数。'**
+  String get aiFastPathWriteAnalysisThresholdInvalid;
+
+  /// No description provided for @aiMaxHookTextCharactersLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hook 文本输出上限'**
+  String get aiMaxHookTextCharactersLabel;
+
+  /// No description provided for @aiMaxHookTextCharactersBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 4000。Claude Hook 在合并 stdout/stderr 文本时的总字符上限。'**
+  String get aiMaxHookTextCharactersBody;
+
+  /// No description provided for @aiMaxHookTextCharactersSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiMaxHookTextCharactersSave;
+
+  /// No description provided for @aiMaxHookTextCharactersSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hook 文本上限已保存。'**
+  String get aiMaxHookTextCharactersSaved;
+
+  /// No description provided for @aiMaxHookTextCharactersInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 100~1000000 之间的整数。'**
+  String get aiMaxHookTextCharactersInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:

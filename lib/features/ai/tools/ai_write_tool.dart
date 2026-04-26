@@ -55,6 +55,7 @@ class AiWriteTool extends AiTool {
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
       cancelSignal: context.cancelSignal,
+      timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
     );
     if (confirmationResult != null) {
       return confirmationResult;

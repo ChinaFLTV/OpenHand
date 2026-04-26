@@ -69,7 +69,7 @@ class AiClaudeHookService {
            homeDirectoryPath ?? OpenHandPaths.homeDirectoryPath,
        _commandTimeout = commandTimeout ?? const Duration(seconds: 12);
 
-  static const int _maxHookTextCharacters = 4000;
+  int maxHookTextCharacters = 4000;
 
   final String Function() _applicationDirectoryPath;
   final String Function() _homeDirectoryPath;
@@ -492,7 +492,7 @@ class AiClaudeHookService {
       if (truncated) {
         continue;
       }
-      final remainingCharacters = _maxHookTextCharacters - collectedCharacters;
+      final remainingCharacters = maxHookTextCharacters - collectedCharacters;
       if (remainingCharacters <= 0) {
         truncated = true;
         continue;
