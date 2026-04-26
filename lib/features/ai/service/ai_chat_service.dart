@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
@@ -210,11 +211,14 @@ class AiChatService implements AiChatClient {
   ) {
     return switch (creationRequest.mode) {
       AiCreationMode.image =>
-        AiImageGenerationService.supportsImageGenerationForModel(model),
+        AiImageGenerationService.supportsImageGeneration(model.protocolType) &&
+            AiImageGenerationService.supportsImageGenerationForModel(model),
       AiCreationMode.video =>
-        AiImageGenerationService.supportsVideoGenerationForModel(model),
+        AiImageGenerationService.supportsVideoGeneration(model.protocolType) &&
+            AiImageGenerationService.supportsVideoGenerationForModel(model),
       AiCreationMode.audio =>
-        AiImageGenerationService.supportsAudioGenerationForModel(model),
+        AiImageGenerationService.supportsAudioGeneration(model.protocolType) &&
+            AiImageGenerationService.supportsAudioGenerationForModel(model),
       AiCreationMode.none || AiCreationMode.deepResearch => false,
     };
   }
@@ -536,6 +540,7 @@ class AiChatService implements AiChatClient {
     final reasoningBuffer = StringBuffer();
     final rawResponseBuffer = StringBuffer();
     final toolCalls = <int, _MutableToolCall>{};
+    final emittedMediaUrls = <String>{};
     AiTokenUsage? usage;
     String? finishReason;
     final lineBuffer = StringBuffer();
@@ -581,6 +586,25 @@ class AiChatService implements AiChatClient {
         return;
       }
       eventController.add(event);
+    }
+
+    void emitGeneratedMediaIfPresent(Object? decoded) {
+      final media = _extractStreamingGeneratedMedia(decoded);
+      if (media == null || emittedMediaUrls.contains(media.url)) {
+        return;
+      }
+      emittedMediaUrls.add(media.url);
+      final markdown = media.toMarkdown();
+      final prefix = textBuffer.isEmpty || textBuffer.toString().endsWith('\n')
+          ? ''
+          : '\n\n';
+      final delta = '$prefix$markdown\n';
+      textBuffer.write(delta);
+      markStreamActivity('generated_media');
+      _debugAiStreamLog(
+        'model=${model.modelId} generated_media kind=${media.kind} url=${media.url}',
+      );
+      emitEvent(AiChatStreamEvent.textDelta(delta));
     }
 
     void completeStreamResult(String reason, {bool wasCancelled = false}) {
@@ -672,9 +696,11 @@ class AiChatService implements AiChatClient {
       try {
         decoded = jsonDecode(data);
       } catch (_) {
+        emitGeneratedMediaIfPresent(data);
         return;
       }
       if (decoded is! Map<String, Object?>) {
+        emitGeneratedMediaIfPresent(decoded);
         return;
       }
 
@@ -715,6 +741,8 @@ class AiChatService implements AiChatClient {
           return;
         }
       }
+
+      emitGeneratedMediaIfPresent(decoded);
 
       // Route to protocol-specific stream handler.
       if (isClaudeProtocol) {
@@ -1585,6 +1613,202 @@ String _extractReasoningText(Map<String, Object?> delta) {
     }
   }
   return buffer.toString();
+}
+
+class _StreamingGeneratedMedia {
+  const _StreamingGeneratedMedia({required this.url, required this.kind});
+
+  final String url;
+  final String kind;
+
+  String toMarkdown() {
+    return switch (kind) {
+      'image' => '![AI Generated Image]($url)',
+      'audio' => '[AI Generated Audio]($url)',
+      'video' => '[AI Generated Video]($url)',
+      _ => '[AI Generated Media]($url)',
+    };
+  }
+}
+
+_StreamingGeneratedMedia? _extractStreamingGeneratedMedia(Object? value) {
+  return _visitStreamingMediaNode(value, allowBareStringMedia: true);
+}
+
+const int _maxStreamingMediaUrlChars = 32 * 1024;
+
+_StreamingGeneratedMedia? _visitStreamingMediaNode(
+  Object? node, {
+  String? hintedKind,
+  bool allowBareStringMedia = false,
+}) {
+  if (node == null) return null;
+  if (node is String) {
+    if (!allowBareStringMedia) return null;
+    return _streamingGeneratedMediaFromUrl(node, hintedKind: hintedKind);
+  }
+  if (node is List) {
+    for (final item in node) {
+      final found = _visitStreamingMediaNode(
+        item,
+        hintedKind: hintedKind,
+        allowBareStringMedia: allowBareStringMedia,
+      );
+      if (found != null) return found;
+    }
+    return null;
+  }
+  if (node is Map) {
+    return _visitStreamingMediaMap(node, hintedKind: hintedKind);
+  }
+  return null;
+}
+
+_StreamingGeneratedMedia? _visitStreamingMediaMap(
+  Map<dynamic, dynamic> rawMap, {
+  String? hintedKind,
+}) {
+  final map = <String, Object?>{};
+  for (final entry in rawMap.entries) {
+    final key = entry.key;
+    if (key is String) {
+      map[key] = entry.value;
+    }
+  }
+  if (map.isEmpty) return null;
+
+  final explicitMime = _firstNonEmptyString(map, const <String>[
+    'mime_type',
+    'mimeType',
+    'content_type',
+    'contentType',
+    'media_type',
+    'mediaType',
+  ]);
+  final explicitKind =
+      hintedKind ??
+      _streamingMediaKindFromMime(explicitMime ?? '') ??
+      _streamingMediaKindFromType(
+        _firstNonEmptyString(map, const <String>[
+              'type',
+              'kind',
+              'media_kind',
+              'mediaKind',
+              'object',
+            ]) ??
+            '',
+      );
+
+  for (final key in const <String>[
+    'video_url',
+    'videoUrl',
+    'generated_video',
+    'generatedVideo',
+    'audio_url',
+    'audioUrl',
+    'image_url',
+    'imageUrl',
+    'file_url',
+    'fileUrl',
+    'asset_url',
+    'assetUrl',
+    'download_url',
+    'downloadUrl',
+    'result_url',
+    'resultUrl',
+    'video',
+    'audio',
+    'image',
+    'url',
+    'uri',
+    'data',
+  ]) {
+    if (!map.containsKey(key)) continue;
+    final fieldKind = _streamingMediaKindFromField(key) ?? explicitKind;
+    final found = _visitStreamingMediaNode(
+      map[key],
+      hintedKind: fieldKind,
+      allowBareStringMedia: true,
+    );
+    if (found != null) return found;
+  }
+
+  for (final key in const <String>[
+    'choices',
+    'delta',
+    'message',
+    'output',
+    'result',
+    'results',
+    'content',
+    'media',
+    'file',
+    'files',
+    'artifact',
+    'artifacts',
+  ]) {
+    final found = _visitStreamingMediaNode(map[key], hintedKind: explicitKind);
+    if (found != null) return found;
+  }
+  return null;
+}
+
+String? _firstNonEmptyString(Map<String, Object?> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+  }
+  return null;
+}
+
+_StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
+  String value, {
+  String? hintedKind,
+}) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty || trimmed.length > _maxStreamingMediaUrlChars) {
+    return null;
+  }
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return null;
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' && scheme != 'https' && scheme != 'file') return null;
+  final extension = p.extension(uri.path).toLowerCase();
+  final extensionKind = switch (extension) {
+    '.png' || '.jpg' || '.jpeg' || '.gif' || '.webp' => 'image',
+    '.mp4' || '.webm' || '.mov' || '.m4v' || '.mkv' => 'video',
+    '.mp3' ||
+    '.wav' ||
+    '.m4a' ||
+    '.aac' ||
+    '.ogg' ||
+    '.opus' ||
+    '.flac' => 'audio',
+    _ => null,
+  };
+  final kind = extensionKind ?? hintedKind;
+  if (kind == null) return null;
+  return _StreamingGeneratedMedia(url: trimmed, kind: kind);
+}
+
+String? _streamingMediaKindFromMime(String mimeType) {
+  final normalized = mimeType.trim().toLowerCase();
+  if (normalized.startsWith('image/')) return 'image';
+  if (normalized.startsWith('video/')) return 'video';
+  if (normalized.startsWith('audio/')) return 'audio';
+  return null;
+}
+
+String? _streamingMediaKindFromType(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.contains('image')) return 'image';
+  if (normalized.contains('video')) return 'video';
+  if (normalized.contains('audio')) return 'audio';
+  return null;
+}
+
+String? _streamingMediaKindFromField(String key) {
+  return _streamingMediaKindFromType(key.replaceAll('_', '-'));
 }
 
 int? _readInt(Object? value) {

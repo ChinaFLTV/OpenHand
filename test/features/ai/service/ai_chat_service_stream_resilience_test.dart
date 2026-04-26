@@ -31,7 +31,8 @@ void main() {
       'drops oversized SSE buffer instead of OOM-ing when no \\n\\n delimiter arrives',
       () async {
         // 5 MiB of garbage with no `\n\n` separator — exceeds the 4 MiB cap.
-        final oversize = Uint8List(5 * 1024 * 1024)..fillRange(0, 5 * 1024 * 1024, 0x41); // 'A'
+        final oversize = Uint8List(5 * 1024 * 1024)
+          ..fillRange(0, 5 * 1024 * 1024, 0x41); // 'A'
         final mockClient = MockClient.streaming((request, body) async {
           // Single chunk, then close. No SSE delimiter is ever emitted.
           final stream = Stream<List<int>>.value(oversize);
@@ -45,9 +46,7 @@ void main() {
         final service = AiChatService(client: mockClient);
         final response = await service.sendMessageStream(
           model: model,
-          messages: const [
-            AiChatTurn(role: AiChatRole.user, content: 'hello'),
-          ],
+          messages: const [AiChatTurn(role: AiChatRole.user, content: 'hello')],
         );
 
         // Drain events without crashing; we don't assert on count because the
@@ -79,9 +78,7 @@ void main() {
         final service = AiChatService(client: mockClient);
         final response = await service.sendMessageStream(
           model: model,
-          messages: const [
-            AiChatTurn(role: AiChatRole.user, content: 'hi'),
-          ],
+          messages: const [AiChatTurn(role: AiChatRole.user, content: 'hi')],
         );
 
         // Push a partial heartbeat that does not complete an SSE block.
@@ -127,22 +124,68 @@ void main() {
         final service = AiChatService(client: mockClient);
         final response = await service.sendMessageStream(
           model: model,
-          messages: const [
-            AiChatTurn(role: AiChatRole.user, content: 'hi'),
-          ],
+          messages: const [AiChatTurn(role: AiChatRole.user, content: 'hi')],
         );
         final result = await response.result;
         expect(result, isNotNull);
         expect(
           result.toolCalls.length,
           2,
-          reason: 'must produce two distinct tool calls, not one with merged arguments',
+          reason:
+              'must produce two distinct tool calls, not one with merged arguments',
         );
         expect(result.toolCalls[0].id, 'call_a');
         expect(result.toolCalls[1].id, 'call_b');
         // Each `arguments` must be standalone, decodable JSON.
         expect(result.toolCalls[0].arguments, '{"cwd":"/repo"}');
         expect(result.toolCalls[1].arguments, '{"cmd":"ls"}');
+      },
+      timeout: const Timeout(Duration(seconds: 15)),
+    );
+
+    test(
+      'surfaces generated media URLs from provider-specific SSE payloads',
+      () async {
+        const mediaUrl =
+            'https://assets.grok.com/users/abc/generated_video.mp4';
+        const sse =
+            'data: {"status":"processing","result":{"status_url":"https://api.x.ai/tasks/123"}}\n\n'
+            'data: {"result":{"video_url":"$mediaUrl"}}\n\n'
+            'data: {"result":{"video_url":"$mediaUrl"}}\n\n'
+            'data: [DONE]\n\n';
+
+        final mockClient = MockClient.streaming((request, body) async {
+          return http.StreamedResponse(
+            Stream<List<int>>.value(sse.codeUnits),
+            200,
+            headers: const {'content-type': 'text/event-stream'},
+          );
+        });
+
+        final service = AiChatService(client: mockClient);
+        final response = await service.sendMessageStream(
+          model: model,
+          messages: const [
+            AiChatTurn(role: AiChatRole.user, content: 'make a video'),
+          ],
+        );
+        final deltas = <String>[];
+        final subscription = response.events.listen((event) {
+          if (event.textDelta != null) {
+            deltas.add(event.textDelta!);
+          }
+        });
+
+        final result = await response.result;
+        await subscription.cancel();
+
+        expect(result.reply, contains('[AI Generated Video]($mediaUrl)'));
+        expect(deltas.join(), contains('[AI Generated Video]($mediaUrl)'));
+        expect(
+          result.reply.indexOf(mediaUrl),
+          result.reply.lastIndexOf(mediaUrl),
+        );
+        expect(result.reply, isNot(contains('status_url')));
       },
       timeout: const Timeout(Duration(seconds: 15)),
     );

@@ -1431,6 +1431,22 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
+    if (id.contains('imagine-video') || id.startsWith('grok-video')) {
+      return _p(
+        name: 'Grok Imagine Video',
+        desc: 'Video generation model',
+        capabilities: _videoGen,
+      );
+    }
+    if (id.startsWith('grok-2-image') ||
+        id.startsWith('grok-image') ||
+        id == 'grok-imagine') {
+      return _p(
+        name: 'Grok Image',
+        desc: 'Image generation model',
+        capabilities: _imageGen,
+      );
+    }
     if (id.startsWith('grok-3-mini-fast')) {
       return _p(
         name: 'Grok-3 Mini Fast',

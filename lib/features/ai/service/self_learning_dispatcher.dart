@@ -20,6 +20,7 @@ library;
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/silent_log.dart';
 import '../../memory/memory_controller.dart';
+import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 import '../tools/ai_memory_tool.dart';
@@ -29,6 +30,118 @@ import 'ai_chat_service.dart';
 import 'ai_protocol_adapter.dart';
 import 'ai_tool_runtime_service.dart';
 import 'self_learning_runner.dart';
+
+class SelfLearningModelSelection {
+  const SelfLearningModelSelection({
+    required this.model,
+    required this.source,
+    this.skippedPreferredModelId,
+    this.skippedPreferredProviderId,
+  });
+
+  final AiModelConfig? model;
+  final String source;
+  final String? skippedPreferredModelId;
+  final String? skippedPreferredProviderId;
+}
+
+SelfLearningModelSelection selectSelfLearningModel({
+  required List<AiModelConfig> models,
+  AiModelConfig? selectedModel,
+  String? preferredProviderConfigId,
+}) {
+  final preferredId = preferredProviderConfigId?.trim();
+  AiModelConfig? preferred;
+  if (preferredId != null && preferredId.isNotEmpty) {
+    for (final candidate in models) {
+      if (candidate.id == preferredId) {
+        preferred = candidate;
+        break;
+      }
+    }
+  }
+
+  String? skippedModelId;
+  String? skippedProviderId;
+  if (preferred != null) {
+    if (_isSelfLearningTextModel(preferred)) {
+      return SelfLearningModelSelection(model: preferred, source: 'last_used');
+    }
+    skippedModelId = preferred.modelId;
+    skippedProviderId = preferred.id;
+  }
+
+  if (selectedModel != null && _isSelfLearningTextModel(selectedModel)) {
+    return SelfLearningModelSelection(
+      model: selectedModel,
+      source: 'selected',
+      skippedPreferredModelId: skippedModelId,
+      skippedPreferredProviderId: skippedProviderId,
+    );
+  }
+
+  for (final candidate in models) {
+    if (_isSelfLearningTextModel(candidate)) {
+      return SelfLearningModelSelection(
+        model: candidate,
+        source: 'first_available',
+        skippedPreferredModelId: skippedModelId,
+        skippedPreferredProviderId: skippedProviderId,
+      );
+    }
+  }
+
+  return SelfLearningModelSelection(
+    model: null,
+    source: 'none',
+    skippedPreferredModelId: skippedModelId,
+    skippedPreferredProviderId: skippedProviderId,
+  );
+}
+
+bool _isSelfLearningTextModel(AiModelConfig model) {
+  final modelId = model.modelId.trim();
+  if (modelId.isEmpty) return false;
+
+  final profile = model.profileFor(modelId);
+  if (_hasMediaGenerationCapability(profile.capabilities)) return false;
+
+  final catalog = AiModelCatalog.lookup(modelId, model.protocolType);
+  if (catalog != null) {
+    return !_hasMediaGenerationCapability(catalog.capabilities);
+  }
+
+  return !_looksLikeDedicatedMediaGenerationModel(modelId);
+}
+
+bool _hasMediaGenerationCapability(Set<AiModelCapability> capabilities) {
+  return capabilities.contains(AiModelCapability.imageGeneration) ||
+      capabilities.contains(AiModelCapability.videoGeneration) ||
+      capabilities.contains(AiModelCapability.audioGeneration);
+}
+
+bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
+  final normalized = modelId.toLowerCase().replaceAll(RegExp(r'[\s_]+'), '-');
+  return normalized.startsWith('sora') ||
+      normalized.startsWith('dall-e') ||
+      normalized.startsWith('gpt-image') ||
+      normalized.startsWith('wan') ||
+      normalized.contains('grok-imagine') ||
+      normalized.contains('grok-2-image') ||
+      normalized.contains('image-generation') ||
+      normalized.contains('video-generation') ||
+      normalized.contains('audio-generation') ||
+      normalized.contains('seedance') ||
+      normalized.contains('cogvideo') ||
+      normalized.contains('cogvideox') ||
+      normalized.contains('kling') ||
+      normalized.contains('hailuo') ||
+      normalized.contains('veo') ||
+      normalized.contains('tts') ||
+      normalized.contains('speech') ||
+      normalized.contains('cosyvoice') ||
+      normalized.contains('stable-audio');
+}
 
 /// 构造生产用 Hermes Talker 自主学习 dispatcher。
 SelfLearningLlmDispatcher buildSelfLearningDispatcher({
@@ -48,22 +161,25 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     final session = context.session;
 
     // ---------- Resolve model ----------
-    final providerConfigId = session.lastUsedModelId?.trim();
     final models = settingsController.aiModels;
-    AiModelConfig? selected;
-    if (providerConfigId != null && providerConfigId.isNotEmpty) {
-      for (final candidate in models) {
-        if (candidate.id == providerConfigId) {
-          selected = candidate;
-          break;
-        }
-      }
-    }
-    selected ??= settingsController.selectedAiModel;
+    final selection = selectSelfLearningModel(
+      models: models,
+      selectedModel: settingsController.selectedAiModel,
+      preferredProviderConfigId: session.lastUsedModelId,
+    );
+    final selected = selection.model;
     if (selected == null) {
-      return const SelfLearningOutcome(
-        summary: '未找到可用的 AI 模型配置，无法执行自主学习。',
-        mutations: <String, Object?>{'status_detail': 'no_model'},
+      return SelfLearningOutcome(
+        summary: '未找到可用于自主学习的文本 AI 模型配置，已跳过本轮自主学习。',
+        mutations: <String, Object?>{
+          'status_detail': 'no_text_model',
+          'model_selection': selection.source,
+          if (selection.skippedPreferredModelId != null)
+            'skipped_preferred_model_id': selection.skippedPreferredModelId,
+          if (selection.skippedPreferredProviderId != null)
+            'skipped_preferred_provider_id':
+                selection.skippedPreferredProviderId,
+        },
       );
     }
 
@@ -330,6 +446,11 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
       mutations: <String, Object?>{
         'model_id': selected.modelId,
         'provider_id': selected.id,
+        'model_selection': selection.source,
+        if (selection.skippedPreferredModelId != null)
+          'skipped_preferred_model_id': selection.skippedPreferredModelId,
+        if (selection.skippedPreferredProviderId != null)
+          'skipped_preferred_provider_id': selection.skippedPreferredProviderId,
         'memory_updates': memoryCallsOk,
         'memory_errors': memoryCallsError,
         'skill_updates': skillCallsOk,
