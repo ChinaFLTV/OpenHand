@@ -20,11 +20,13 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/silent_log.dart';
 import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_builtin_tool_config.dart';
 import '../ai/model/ai_deny_command_rule.dart';
@@ -38,10 +40,13 @@ import '../ai/service/ai_lsp_managed_install_service.dart';
 import '../ai/service/ai_model_scanner.dart';
 import '../ai/service/ai_protocol_adapter.dart';
 import '../ai/service/ai_tool_runtime_service.dart';
+import '../crons/crons_controller.dart';
 import '../hardness/hardness_cli_catalog.dart';
 import '../mcp/mcp_controller.dart';
 import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
+import 'data_cleanup/data_cleanup_models.dart';
+import 'data_cleanup/data_cleanup_service.dart';
 
 part '_settings_ai_model_editor.dart';
 part '_settings_editor_lsp.dart';
@@ -51,6 +56,7 @@ part '_settings_animation_sections.dart';
 part '_settings_builtin_tools.dart';
 part '_settings_helper_widgets.dart';
 part '_settings_user_profile.dart';
+part '_settings_data_cleanup.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -68,6 +74,7 @@ enum _SettingsSection {
   crons,
   hermesTalker,
   editor,
+  appData,
   about,
 }
 
@@ -225,6 +232,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.crons,
       _SettingsSection.hermesTalker,
       _SettingsSection.editor,
+      _SettingsSection.appData,
       _SettingsSection.about,
     ];
 
@@ -484,6 +492,20 @@ class _SettingsViewState extends State<SettingsView> {
           en: 'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.',
         ),
         children: [_buildEditorSection(context, settingsController)],
+      ),
+      _SettingsSection.appData => _SettingsGroupCard(
+        title: _localizedText(context, zh: '应用数据', en: 'App Data'),
+        description: _localizedText(
+          context,
+          zh: '管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker '
+              '中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。',
+          en:
+              'Manage the local files and database tables OpenHand owns on '
+              'disk. Every cleanup runs on background workers — the UI '
+              'thread stays responsive — and requires explicit second '
+              'confirmation.',
+        ),
+        children: const [_DataCleanupSection()],
       ),
       _SettingsSection.about => _SettingsGroupCard(
         title: l10n.aboutSectionTitle,
