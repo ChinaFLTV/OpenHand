@@ -230,5 +230,44 @@ void main() {
       },
       timeout: const Timeout(Duration(seconds: 15)),
     );
+
+    test(
+      'ignores local file URLs and typed task URLs in media SSE payloads',
+      () async {
+        const sse =
+            'data: {"type":"video","url":"https://api.example.invalid/tasks/video-123"}\n\n'
+            'data: {"result":{"video_url":"file:///tmp/generated_video.mp4"}}\n\n'
+            'data: [DONE]\n\n';
+
+        final mockClient = MockClient.streaming((request, body) async {
+          return http.StreamedResponse(
+            Stream<List<int>>.value(sse.codeUnits),
+            200,
+            headers: const {'content-type': 'text/event-stream'},
+          );
+        });
+
+        final service = AiChatService(client: mockClient);
+        final response = await service.sendMessageStream(
+          model: model,
+          messages: const [
+            AiChatTurn(role: AiChatRole.user, content: 'make a video'),
+          ],
+        );
+        final deltas = <String>[];
+        final subscription = response.events.listen((event) {
+          if (event.textDelta != null) {
+            deltas.add(event.textDelta!);
+          }
+        });
+
+        final result = await response.result;
+        await subscription.cancel();
+
+        expect(result.reply, isEmpty);
+        expect(deltas, isEmpty);
+      },
+      timeout: const Timeout(Duration(seconds: 15)),
+    );
   });
 }

@@ -1641,11 +1641,16 @@ _StreamingGeneratedMedia? _visitStreamingMediaNode(
   Object? node, {
   String? hintedKind,
   bool allowBareStringMedia = false,
+  bool allowHintedKindWithoutExtension = false,
 }) {
   if (node == null) return null;
   if (node is String) {
     if (!allowBareStringMedia) return null;
-    return _streamingGeneratedMediaFromUrl(node, hintedKind: hintedKind);
+    return _streamingGeneratedMediaFromUrl(
+      node,
+      hintedKind: hintedKind,
+      allowHintedKindWithoutExtension: allowHintedKindWithoutExtension,
+    );
   }
   if (node is List) {
     for (final item in node) {
@@ -1653,13 +1658,18 @@ _StreamingGeneratedMedia? _visitStreamingMediaNode(
         item,
         hintedKind: hintedKind,
         allowBareStringMedia: allowBareStringMedia,
+        allowHintedKindWithoutExtension: allowHintedKindWithoutExtension,
       );
       if (found != null) return found;
     }
     return null;
   }
   if (node is Map) {
-    return _visitStreamingMediaMap(node, hintedKind: hintedKind);
+    return _visitStreamingMediaMap(
+      node,
+      hintedKind: hintedKind,
+      allowHintedKindWithoutExtension: allowHintedKindWithoutExtension,
+    );
   }
   return null;
 }
@@ -1667,6 +1677,7 @@ _StreamingGeneratedMedia? _visitStreamingMediaNode(
 _StreamingGeneratedMedia? _visitStreamingMediaMap(
   Map<dynamic, dynamic> rawMap, {
   String? hintedKind,
+  bool allowHintedKindWithoutExtension = false,
 }) {
   final map = <String, Object?>{};
   for (final entry in rawMap.entries) {
@@ -1685,19 +1696,18 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
     'media_type',
     'mediaType',
   ]);
-  final explicitKind =
-      hintedKind ??
-      _streamingMediaKindFromMime(explicitMime ?? '') ??
-      _streamingMediaKindFromType(
-        _firstNonEmptyString(map, const <String>[
-              'type',
-              'kind',
-              'media_kind',
-              'mediaKind',
-              'object',
-            ]) ??
-            '',
-      );
+  final mimeKind = _streamingMediaKindFromMime(explicitMime ?? '');
+  final typeKind = _streamingMediaKindFromType(
+    _firstNonEmptyString(map, const <String>[
+          'type',
+          'kind',
+          'media_kind',
+          'mediaKind',
+          'object',
+        ]) ??
+        '',
+  );
+  final explicitKind = hintedKind ?? mimeKind ?? typeKind;
 
   for (final key in const <String>[
     'video_url',
@@ -1724,11 +1734,15 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
     'data',
   ]) {
     if (!map.containsKey(key)) continue;
-    final fieldKind = _streamingMediaKindFromField(key) ?? explicitKind;
+    final fieldKind = _streamingMediaKindFromField(key);
     final found = _visitStreamingMediaNode(
       map[key],
-      hintedKind: fieldKind,
+      hintedKind: fieldKind ?? explicitKind,
       allowBareStringMedia: true,
+      allowHintedKindWithoutExtension:
+          fieldKind != null ||
+          mimeKind != null ||
+          allowHintedKindWithoutExtension,
     );
     if (found != null) return found;
   }
@@ -1747,7 +1761,12 @@ _StreamingGeneratedMedia? _visitStreamingMediaMap(
     'artifact',
     'artifacts',
   ]) {
-    final found = _visitStreamingMediaNode(map[key], hintedKind: explicitKind);
+    final found = _visitStreamingMediaNode(
+      map[key],
+      hintedKind: explicitKind,
+      allowHintedKindWithoutExtension:
+          mimeKind != null || allowHintedKindWithoutExtension,
+    );
     if (found != null) return found;
   }
   return null;
@@ -1764,6 +1783,7 @@ String? _firstNonEmptyString(Map<String, Object?> map, List<String> keys) {
 _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
   String value, {
   String? hintedKind,
+  bool allowHintedKindWithoutExtension = false,
 }) {
   final trimmed = value.trim();
   if (trimmed.isEmpty || trimmed.length > _maxStreamingMediaUrlChars) {
@@ -1772,7 +1792,7 @@ _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
   final uri = Uri.tryParse(trimmed);
   if (uri == null) return null;
   final scheme = uri.scheme.toLowerCase();
-  if (scheme != 'http' && scheme != 'https' && scheme != 'file') return null;
+  if (scheme != 'http' && scheme != 'https') return null;
   final extension = p.extension(uri.path).toLowerCase();
   final extensionKind = switch (extension) {
     '.png' || '.jpg' || '.jpeg' || '.gif' || '.webp' => 'image',
@@ -1786,7 +1806,8 @@ _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
     '.flac' => 'audio',
     _ => null,
   };
-  final kind = extensionKind ?? hintedKind;
+  final kind =
+      extensionKind ?? (allowHintedKindWithoutExtension ? hintedKind : null);
   if (kind == null) return null;
   return _StreamingGeneratedMedia(url: trimmed, kind: kind);
 }
