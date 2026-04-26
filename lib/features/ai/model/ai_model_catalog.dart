@@ -1431,13 +1431,11 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
-    if (id.contains('imagine-video') || id.startsWith('grok-video')) {
-      return _p(
-        name: 'Grok Imagine Video',
-        desc: 'Video generation model',
-        capabilities: _videoGen,
-      );
-    }
+    // NOTE: xAI does not currently expose `grok-imagine-video`/`grok-video`
+    // through a public OpenAI-compatible API; advertising them as video
+    // generation models causes the chat path to surface HTTP 405 from
+    // `/v1/chat/completions`. Re-enable only when xAI ships a documented
+    // `/v1/videos/generations` endpoint.
     if (id.startsWith('grok-2-image') ||
         id.startsWith('grok-image') ||
         id == 'grok-imagine') {

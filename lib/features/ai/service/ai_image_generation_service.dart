@@ -122,11 +122,14 @@ class AiImageGenerationService {
       case AiProtocolType.qwen:
       case AiProtocolType.glm:
       case AiProtocolType.seed:
-      case AiProtocolType.stepfun:
       case AiProtocolType.minimax:
-      case AiProtocolType.wenxin:
       case AiProtocolType.hunyuan:
         return true;
+      // Wenxin/StepFun lack a stable OpenAI-compatible video endpoint as of
+      // 2026; routing them through `/v1/videos/generations` only ever yields
+      // HTTP 404/405. Gate them off until a real adapter exists.
+      case AiProtocolType.stepfun:
+      case AiProtocolType.wenxin:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
       case AiProtocolType.deepseek:
@@ -191,9 +194,12 @@ class AiImageGenerationService {
       case AiProtocolType.seed:
       case AiProtocolType.stepfun:
       case AiProtocolType.minimax:
-      case AiProtocolType.wenxin:
       case AiProtocolType.hunyuan:
         return true;
+      // Wenxin TTS is exposed through Baidu's bespoke API rather than an
+      // OpenAI-compatible `/v1/audio/speech` endpoint, so default routing
+      // would only return 404. Disable until a dedicated adapter lands.
+      case AiProtocolType.wenxin:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
       case AiProtocolType.deepseek:

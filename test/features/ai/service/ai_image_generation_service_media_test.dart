@@ -34,9 +34,7 @@ void main() {
         AiProtocolType.qwen,
         AiProtocolType.glm,
         AiProtocolType.seed,
-        AiProtocolType.stepfun,
         AiProtocolType.minimax,
-        AiProtocolType.wenxin,
         AiProtocolType.hunyuan,
       ]) {
         expect(
@@ -45,6 +43,16 @@ void main() {
           reason:
               '${protocol.storageValue} should use media generation endpoints',
         );
+      }
+      for (final protocol in const <AiProtocolType>[
+        AiProtocolType.openai,
+        AiProtocolType.qwen,
+        AiProtocolType.glm,
+        AiProtocolType.seed,
+        AiProtocolType.stepfun,
+        AiProtocolType.minimax,
+        AiProtocolType.hunyuan,
+      ]) {
         expect(
           AiImageGenerationService.supportsAudioGeneration(protocol),
           isTrue,
@@ -66,6 +74,10 @@ void main() {
         AiProtocolType.ollama,
         AiProtocolType.vllm,
         AiProtocolType.sglang,
+        // Wenxin/StepFun lack OpenAI-compatible video endpoints; ensure they
+        // are not silently routed to `/v1/videos/generations`.
+        AiProtocolType.stepfun,
+        AiProtocolType.wenxin,
       ]) {
         expect(
           AiImageGenerationService.supportsVideoGeneration(protocol),
@@ -73,6 +85,22 @@ void main() {
           reason:
               '${protocol.storageValue} should not be diverted to video endpoints',
         );
+      }
+      for (final protocol in const <AiProtocolType>[
+        AiProtocolType.claude,
+        AiProtocolType.gemini,
+        AiProtocolType.deepseek,
+        AiProtocolType.kimi,
+        AiProtocolType.grok,
+        AiProtocolType.longcat,
+        AiProtocolType.joycode,
+        AiProtocolType.meta,
+        AiProtocolType.mimo,
+        AiProtocolType.ollama,
+        AiProtocolType.vllm,
+        AiProtocolType.sglang,
+        AiProtocolType.wenxin,
+      ]) {
         expect(
           AiImageGenerationService.supportsAudioGeneration(protocol),
           isFalse,
