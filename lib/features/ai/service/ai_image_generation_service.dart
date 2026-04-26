@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
@@ -12,16 +11,6 @@ import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 import 'ai_protocol_adapter.dart';
-
-// TEMP_DEBUG_VIDEO: structured tracer for video pipeline diagnosis. Remove
-// these helpers once the Sora/grok2api video flow is verified end-to-end.
-void _videoTrace(String tag, Object? payload) {
-  if (!kDebugMode) return;
-  final body = payload?.toString() ?? '';
-  final clipped = body.length > 1500 ? '${body.substring(0, 1500)}...' : body;
-  // ignore: avoid_print
-  debugPrint('[VIDEO_TRACE] $tag $clipped');
-}
 
 enum _GeneratedMediaKind {
   image('image', 'Image'),
@@ -327,7 +316,7 @@ class AiImageGenerationService {
     required AiModelConfig model,
     required String prompt,
     AiCreationOptions options = AiCreationOptions.empty,
-    Duration timeout = const Duration(minutes: 5),
+    Duration timeout = const Duration(minutes: 15),
   }) {
     return _generateMedia(
       kind: _GeneratedMediaKind.video,
@@ -450,13 +439,6 @@ class AiImageGenerationService {
       throw AiMediaGenerationException('TLS error: ${error.message}');
     }
     final endedAt = DateTime.now().toUtc();
-    if (kind.isVideo) {
-      _videoTrace(
-        'POST_RESP',
-        'status=${response.statusCode} ct=${_responseContentType(response.headers)} '
-            'url=$url body=${response.body}',
-      );
-    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AiMediaGenerationException(
         'HTTP ${response.statusCode}: ${_extractError(response.body)}',
@@ -1380,13 +1362,6 @@ class AiImageGenerationService {
       initialPayload,
       protocol,
     );
-    if (kind.isVideo) {
-      _videoTrace(
-        'POLL_INIT',
-        'protocol=${protocol.storageValue} initialUrl=$initialUrl '
-            'operationUrl=$operationUrl initialPayloadKeys=${initialPayload.keys.toList()}',
-      );
-    }
     if (operationUrl == null) {
       return const _PolledMediaResult.empty();
     }
@@ -1394,13 +1369,24 @@ class AiImageGenerationService {
     var lastBody = jsonEncode(initialPayload);
     var attempt = 0;
     var transientFailures = 0;
-    while (attempt < 90 && DateTime.now().toUtc().isBefore(deadline)) {
+    while (DateTime.now().toUtc().isBefore(deadline)) {
       attempt += 1;
       final remaining = deadline.difference(DateTime.now().toUtc());
       if (remaining <= Duration.zero) break;
       // Add bounded jitter to spread parallel pollers and avoid synchronized
-      // hammering against rate-limited async-task endpoints.
-      final baseMs = attempt < 6 ? 1200 : 2500;
+      // hammering against rate-limited async-task endpoints. Long-running
+      // video tasks (e.g. grok-imagine-video) routinely exceed several
+      // minutes, so cap the per-iteration backoff at 5s after a warm-up
+      // window rather than imposing a hard attempt cap that would expire
+      // well before the deadline.
+      final int baseMs;
+      if (attempt < 6) {
+        baseMs = 1500;
+      } else if (attempt < 16) {
+        baseMs = 3000;
+      } else {
+        baseMs = 5000;
+      }
       final jitterMs = _pollJitter.nextInt(400) - 200;
       final wait = Duration(milliseconds: math.max(250, baseMs + jitterMs));
       if (wait < remaining) {
@@ -1417,13 +1403,6 @@ class AiImageGenerationService {
           .get(Uri.parse(operationUrl), headers: pollingHeaders)
           .timeout(effectiveTimeout);
       lastBody = response.body;
-      if (kind.isVideo) {
-        _videoTrace(
-          'POLL_RESP',
-          'attempt=$attempt status=${response.statusCode} '
-              'url=$operationUrl body=${response.body}',
-        );
-      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (_isTransientPollStatus(response.statusCode) &&
             transientFailures < 4) {
@@ -1495,10 +1474,6 @@ class AiImageGenerationService {
           (protocol == AiProtocolType.openai ||
               protocol == AiProtocolType.grok) &&
           _isTerminalSuccessStatus(status)) {
-        _videoTrace(
-          'POLL_DONE_FETCH_CONTENT',
-          'status=$status url=$operationUrl',
-        );
         final contentMarkdown = await _downloadSoraStyleVideoContent(
           operationUrl: operationUrl,
           requestHeaders: requestHeaders,
@@ -1550,11 +1525,6 @@ class AiImageGenerationService {
     final response = await _client
         .get(contentUri, headers: downloadHeaders)
         .timeout(downloadTimeout);
-    _videoTrace(
-      'CONTENT_RESP',
-      'status=${response.statusCode} ct=${_responseContentType(response.headers)} '
-          'bytes=${response.bodyBytes.length} url=$contentUri',
-    );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw AiMediaGenerationException(
         'HTTP ${response.statusCode} from /content: '
