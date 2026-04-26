@@ -35,6 +35,8 @@ void main() {
         AiProtocolType.glm,
         AiProtocolType.seed,
         AiProtocolType.minimax,
+        // grok2api gateway exposes Sora-style /v1/videos for grok-imagine-video.
+        AiProtocolType.grok,
       ]) {
         expect(
           AiImageGenerationService.supportsVideoGeneration(protocol),
@@ -62,7 +64,6 @@ void main() {
         AiProtocolType.gemini,
         AiProtocolType.deepseek,
         AiProtocolType.kimi,
-        AiProtocolType.grok,
         AiProtocolType.longcat,
         AiProtocolType.joycode,
         AiProtocolType.meta,
@@ -297,6 +298,64 @@ void main() {
         'seconds': '8',
       });
     });
+
+    test(
+      'routes grok2api video to multipart /v1/videos with grok fields',
+      () async {
+        late Uri requestUrl;
+        late String requestContentType;
+        late Map<String, String> requestFields;
+        final service = AiImageGenerationService(
+          client: MockClient((request) async {
+            requestUrl = request.url;
+            requestContentType = request.headers['content-type'] ?? '';
+            requestFields = _parseMultipartFields(
+              request.bodyBytes,
+              requestContentType,
+            );
+            return http.Response(
+              jsonEncode({
+                'data': [
+                  {'url': 'https://cdn.example.invalid/grok/clip.mp4'},
+                ],
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }),
+        );
+        const grokModel = AiModelConfig(
+          id: 'grok2api-video',
+          baseUrl: 'http://localhost:8000/v1/chat/completions',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'grok-imagine-video',
+          protocolType: AiProtocolType.grok,
+        );
+
+        await service.generateVideo(
+          model: grokModel,
+          prompt: 'rainy neon street',
+          options: const AiCreationOptions(
+            aspectRatio: '16:9',
+            durationSeconds: 10,
+            quality: '720p',
+            style: 'normal',
+          ),
+        );
+
+        expect(requestUrl.toString(), 'http://localhost:8000/v1/videos');
+        expect(requestContentType, startsWith('multipart/form-data'));
+        expect(requestFields, <String, String>{
+          'model': 'grok-imagine-video',
+          'prompt': 'rainy neon street',
+          'size': '1280x720',
+          'seconds': '10',
+          'resolution_name': '720p',
+          'preset': 'normal',
+        });
+      },
+    );
 
     test('routes MiniMax video to /v1/video_generation flat body', () async {
       late Uri requestUrl;

@@ -1441,13 +1441,19 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
-    // NOTE: xAI does not currently expose `grok-imagine-video`/`grok-video`
-    // through a public OpenAI-compatible API; advertising them as video
-    // generation models causes the chat path to surface HTTP 405 from
-    // `/v1/chat/completions`. Re-enable only when xAI ships a documented
-    // `/v1/videos/generations` endpoint.
+    // Grok video is only reachable through OpenAI-compatible gateways such
+    // as `chenyme/grok2api`, which exposes `POST /v1/videos` (multipart) for
+    // `grok-imagine-video`. xAI's native API has no public video endpoint.
+    if (id.startsWith('grok-imagine-video') || id == 'grok-video') {
+      return _p(
+        name: 'Grok Imagine Video',
+        desc: 'Async text/image-to-video via grok2api gateway',
+        capabilities: _videoGen,
+      );
+    }
     if (id.startsWith('grok-2-image') ||
         id.startsWith('grok-image') ||
+        id.startsWith('grok-imagine-image') ||
         id == 'grok-imagine') {
       return _p(
         name: 'Grok Image',

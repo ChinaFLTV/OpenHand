@@ -124,6 +124,11 @@ class AiImageGenerationService {
       case AiProtocolType.glm:
       case AiProtocolType.seed:
       case AiProtocolType.minimax:
+      // Grok via chenyme/grok2api gateway exposes `POST /v1/videos`
+      // (multipart) for `grok-imagine-video`. xAI native Grok API has no
+      // public video endpoint, so this branch only activates when users
+      // route through grok2api (they configure baseUrl accordingly).
+      case AiProtocolType.grok:
         return true;
       // Hunyuan video uses Tencent Cloud's TC3-HMAC signed RPC at
       // hunyuan.tencentcloudapi.com — incompatible with OpenAI-shape POST
@@ -136,7 +141,6 @@ class AiImageGenerationService {
       case AiProtocolType.claude:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
-      case AiProtocolType.grok:
       case AiProtocolType.ollama:
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
@@ -639,6 +643,8 @@ class AiImageGenerationService {
         // OpenAI Sora 2 exposes `POST /v1/videos` (returns a job; poll via
         // `/v1/videos/{id}` and download `/v1/videos/{id}/content`).
         AiProtocolType.openai => const <String>['videos'],
+        // grok2api gateway mirrors OpenAI Sora's `/v1/videos` async layout.
+        AiProtocolType.grok => const <String>['videos'],
         // MiniMax uses a flat `POST /v1/video_generation` instead of the
         // OpenAI-style nested `videos/generations` path.
         AiProtocolType.minimax => const <String>['video_generation'],
@@ -709,7 +715,9 @@ class AiImageGenerationService {
     required AiProtocolType protocol,
   }) {
     if (!kind.isVideo) return false;
-    return protocol == AiProtocolType.openai;
+    // Both OpenAI Sora 2 and grok2api expose `POST /v1/videos` as multipart
+    // form-data — JSON body yields `model/prompt missing, input: None`.
+    return protocol == AiProtocolType.openai || protocol == AiProtocolType.grok;
   }
 
   Future<http.Response> _postMultipartMediaRequest({
@@ -838,6 +846,26 @@ class AiImageGenerationService {
           'input': <String, Object?>{'prompt': prompt},
           if (parameters.isNotEmpty) 'parameters': parameters,
         };
+      case AiProtocolType.grok:
+        // grok2api `POST /v1/videos` (multipart):
+        //   `{model, prompt, seconds, size, resolution_name, preset}`.
+        // Reference: https://github.com/chenyme/grok2api/blob/main/README.md
+        final body = <String, Object?>{'model': modelId, 'prompt': prompt};
+        final size =
+            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+        if (size != null) body['size'] = size;
+        if (options.durationSeconds != null) {
+          body['seconds'] = options.durationSeconds;
+        }
+        // grok2api documents resolution_name (480p|720p) and preset
+        // (fun|normal|spicy|custom) — surface via quality/style if set.
+        if (options.quality != null) {
+          body['resolution_name'] = options.quality;
+        }
+        if (options.style != null) {
+          body['preset'] = options.style;
+        }
+        return body;
       case AiProtocolType.glm:
       case AiProtocolType.seed:
       case AiProtocolType.hunyuan:
@@ -847,7 +875,6 @@ class AiImageGenerationService {
       case AiProtocolType.claude:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
-      case AiProtocolType.grok:
       case AiProtocolType.ollama:
       case AiProtocolType.vllm:
       case AiProtocolType.sglang:
