@@ -192,15 +192,15 @@ class AiImageGenerationService {
       case AiProtocolType.openai:
       case AiProtocolType.qwen:
       case AiProtocolType.glm:
+      case AiProtocolType.minimax:
+        return true;
+      // StepFun, Wenxin, Hunyuan, Seed (Volcengine TTS) all use bespoke
+      // signed-RPC APIs rather than `/v1/audio/speech`. Re-enable when a
+      // dedicated adapter lands.
       case AiProtocolType.seed:
       case AiProtocolType.stepfun:
-      case AiProtocolType.minimax:
-      case AiProtocolType.hunyuan:
-        return true;
-      // Wenxin TTS is exposed through Baidu's bespoke API rather than an
-      // OpenAI-compatible `/v1/audio/speech` endpoint, so default routing
-      // would only return 404. Disable until a dedicated adapter lands.
       case AiProtocolType.wenxin:
+      case AiProtocolType.hunyuan:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
       case AiProtocolType.deepseek:
@@ -845,31 +845,77 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     required AiProtocolType protocol,
   }) {
-    if (protocol == AiProtocolType.openai) {
-      return <String, Object?>{
-        'model': modelId,
-        'input': prompt,
-        'voice': options.style?.trim().isNotEmpty == true
-            ? options.style!.trim()
-            : 'alloy',
-        'response_format': 'mp3',
-      };
+    final voice = options.style?.trim().isNotEmpty == true
+        ? options.style!.trim()
+        : null;
+    switch (protocol) {
+      case AiProtocolType.openai:
+      case AiProtocolType.glm:
+        // OpenAI TTS / GLM CogTTS share `/v1/audio/speech` body:
+        //   `{model, input, voice, response_format}`.
+        return <String, Object?>{
+          'model': modelId,
+          'input': prompt,
+          'voice': voice ?? 'alloy',
+          'response_format': 'mp3',
+        };
+      case AiProtocolType.qwen:
+        // Qwen Qwen3-TTS / cosyvoice via DashScope native shape:
+        //   `{model, input:{text}, parameters:{voice, format}}`.
+        return <String, Object?>{
+          'model': modelId,
+          'input': <String, Object?>{'text': prompt},
+          'parameters': <String, Object?>{
+            if (voice != null) 'voice': voice,
+            'format': 'mp3',
+          },
+        };
+      case AiProtocolType.minimax:
+        // MiniMax T2A v2 (`/v1/t2a_v2`):
+        //   `{model, text, voice_setting:{voice_id, speed, vol, pitch},
+        //     audio_setting:{sample_rate, bitrate, format}}`.
+        return <String, Object?>{
+          'model': modelId,
+          'text': prompt,
+          'voice_setting': <String, Object?>{
+            'voice_id': voice ?? 'female-shaonv',
+            'speed': 1.0,
+            'vol': 1.0,
+            'pitch': 0,
+          },
+          'audio_setting': <String, Object?>{
+            'sample_rate': 32000,
+            'bitrate': 128000,
+            'format': 'mp3',
+          },
+        };
+      case AiProtocolType.seed:
+      case AiProtocolType.stepfun:
+      case AiProtocolType.wenxin:
+      case AiProtocolType.hunyuan:
+      case AiProtocolType.gemini:
+      case AiProtocolType.claude:
+      case AiProtocolType.deepseek:
+      case AiProtocolType.kimi:
+      case AiProtocolType.grok:
+      case AiProtocolType.ollama:
+      case AiProtocolType.vllm:
+      case AiProtocolType.sglang:
+      case AiProtocolType.longcat:
+      case AiProtocolType.joycode:
+      case AiProtocolType.meta:
+      case AiProtocolType.mimo:
+        // Generic OpenAI-compatible fallback for custom gateways. Listed
+        // protocols are already gated off in `supportsAudioGeneration` and
+        // will fail-fast at the chat layer; this body is only reached for
+        // user-overridden compatible models.
+        return <String, Object?>{
+          'model': modelId,
+          'input': prompt,
+          'voice': voice ?? 'alloy',
+          'response_format': 'mp3',
+        };
     }
-    final body = <String, Object?>{
-      'model': modelId,
-      'prompt': prompt,
-      'input': prompt,
-      'text': prompt,
-      'n': options.count > 0 ? options.count : 1,
-      'response_format': 'mp3',
-    };
-    if (options.durationSeconds != null) {
-      body['duration'] = options.durationSeconds;
-      body['duration_seconds'] = options.durationSeconds;
-    }
-    if (options.quality != null) body['quality'] = options.quality;
-    if (options.style != null) body['voice'] = options.style;
-    return body;
   }
 
   String? _sizeFromAspectRatio(String? ratio) {

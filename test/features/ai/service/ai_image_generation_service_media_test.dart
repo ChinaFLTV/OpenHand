@@ -47,10 +47,7 @@ void main() {
         AiProtocolType.openai,
         AiProtocolType.qwen,
         AiProtocolType.glm,
-        AiProtocolType.seed,
-        AiProtocolType.stepfun,
         AiProtocolType.minimax,
-        AiProtocolType.hunyuan,
       ]) {
         expect(
           AiImageGenerationService.supportsAudioGeneration(protocol),
@@ -101,6 +98,11 @@ void main() {
         AiProtocolType.vllm,
         AiProtocolType.sglang,
         AiProtocolType.wenxin,
+        // Seed/StepFun/Hunyuan TTS use bespoke signed RPCs, not
+        // `/v1/audio/speech`. Keep them off the default audio matrix.
+        AiProtocolType.seed,
+        AiProtocolType.stepfun,
+        AiProtocolType.hunyuan,
       ]) {
         expect(
           AiImageGenerationService.supportsAudioGeneration(protocol),
@@ -596,6 +598,120 @@ void main() {
         });
       },
     );
+
+    test('uses DashScope native shape for Qwen TTS audio body', () async {
+      late Uri requestUrl;
+      late Map<String, Object?> requestBody;
+      final service = AiImageGenerationService(
+        client: MockClient((request) async {
+          requestUrl = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          return http.Response.bytes(
+            const <int>[1, 2, 3],
+            200,
+            headers: const {'content-type': 'audio/mpeg'},
+          );
+        }),
+      );
+      const qwenTts = AiModelConfig(
+        id: 'qwen-tts',
+        baseUrl:
+            'https://dashscope.invalid/compatible-mode/v1/chat/completions',
+        authScheme: AiAuthScheme.bearer,
+        token: 'mock-token',
+        modelId: 'cosyvoice-v2',
+        protocolType: AiProtocolType.qwen,
+        modelProfiles: <String, AiModelProfile>{
+          'cosyvoice-v2': AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.audioGeneration,
+            },
+          ),
+        },
+      );
+
+      final result = await service.generateAudio(
+        model: qwenTts,
+        prompt: '你好世界',
+        options: const AiCreationOptions(style: 'longxiaochun'),
+      );
+
+      expect(
+        requestUrl.toString(),
+        'https://dashscope.invalid/compatible-mode/v1/audio/speech',
+      );
+      expect(requestBody['model'], 'cosyvoice-v2');
+      expect(requestBody['input'], <String, Object?>{'text': '你好世界'});
+      expect(requestBody['parameters'], <String, Object?>{
+        'voice': 'longxiaochun',
+        'format': 'mp3',
+      });
+      expect(requestBody.containsKey('voice'), isFalse);
+      expect(result.markdown, contains('.mp3)'));
+
+      final match = RegExp(r'\(([^)]+\.mp3)\)').firstMatch(result.markdown);
+      expect(match, isNotNull);
+      final file = File(match!.group(1)!);
+      addTearDown(() {
+        if (file.existsSync()) file.deleteSync();
+      });
+    });
+
+    test('uses MiniMax T2A v2 nested body for audio generation', () async {
+      late Uri requestUrl;
+      late Map<String, Object?> requestBody;
+      final service = AiImageGenerationService(
+        client: MockClient((request) async {
+          requestUrl = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          return http.Response.bytes(
+            const <int>[1, 2, 3],
+            200,
+            headers: const {'content-type': 'audio/mpeg'},
+          );
+        }),
+      );
+      const miniMaxTts = AiModelConfig(
+        id: 'minimax-tts',
+        baseUrl: 'https://api.minimax.invalid/v1/chat/completions',
+        authScheme: AiAuthScheme.bearer,
+        token: 'mock-token',
+        modelId: 'speech-02-hd',
+        protocolType: AiProtocolType.minimax,
+        modelProfiles: <String, AiModelProfile>{
+          'speech-02-hd': AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.audioGeneration,
+            },
+          ),
+        },
+      );
+
+      final result = await service.generateAudio(
+        model: miniMaxTts,
+        prompt: 'hello world',
+        options: const AiCreationOptions(style: 'male-qn-jingying'),
+      );
+
+      expect(requestUrl.toString(), 'https://api.minimax.invalid/v1/t2a_v2');
+      expect(requestBody['model'], 'speech-02-hd');
+      expect(requestBody['text'], 'hello world');
+      final voiceSetting = requestBody['voice_setting'] as Map<String, Object?>;
+      expect(voiceSetting['voice_id'], 'male-qn-jingying');
+      expect(voiceSetting['speed'], 1.0);
+      final audioSetting = requestBody['audio_setting'] as Map<String, Object?>;
+      expect(audioSetting['format'], 'mp3');
+      expect(requestBody.containsKey('input'), isFalse);
+      expect(requestBody.containsKey('voice'), isFalse);
+      expect(result.markdown, contains('.mp3)'));
+
+      final match = RegExp(r'\(([^)]+\.mp3)\)').firstMatch(result.markdown);
+      expect(match, isNotNull);
+      final file = File(match!.group(1)!);
+      addTearDown(() {
+        if (file.existsSync()) file.deleteSync();
+      });
+    });
 
     test(
       'rejects unsupported video protocols before opening the network',
