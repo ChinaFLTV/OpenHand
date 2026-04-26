@@ -1563,6 +1563,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     final focusContext = FocusManager.instance.primaryFocus?.context;
+    // 2026-04-26: Debug breadcrumb for the Ctrl+P / Ctrl+Enter regression.
+    // Logged only in debug builds so we can diagnose why the shortcut goes
+    // unhandled when the composer text field has focus.
+    assert(() {
+      final pressed = HardwareKeyboard.instance.logicalKeysPressed
+          .map((k) => k.debugName)
+          .toList();
+      debugPrint(
+        '[shortcut.hw] key=${event.logicalKey.debugName} pressed=$pressed '
+        'section=$_selectedSection composerHasFocus='
+        '${_composerFocusNode.hasFocus}',
+      );
+      return true;
+    }());
     // 2026-04-26: Removed the previous `currentRoute != focusedRoute` check.
     // It silently swallowed shortcuts whenever the focused widget lived in
     // an overlay (e.g. @-mention, skill picker) or a child Navigator, which
@@ -1644,6 +1658,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
+    assert(() {
+      debugPrint(
+        '[shortcut.node] key=${event.logicalKey.debugName} composerFocus=true',
+      );
+      return true;
+    }());
     // Escape dismisses the @ mention overlay if it is showing.
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       final composerState = _composerPanelKey.currentState;
