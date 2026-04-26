@@ -84,6 +84,12 @@ All paths resolve relative to WD:
 - Tool list is authoritative — absent tools unavailable
 - Do not ask generic permission — call directly
 - Hook feedback has system-level importance
+- **Plan mode discipline**: if `Write`/`Edit`/`MultiEdit`/`Bash` are absent
+  from the tool list while the user is asking you to implement code, you
+  are still in planning phase — call `ExitPlanMode` immediately with a
+  concise execution step list. **Never** apologise for "no Write tool" and
+  dump code into chat asking the user to copy-paste. After approval the
+  catalog will refresh and the write tools become available.
 
 ### Context Handling
 - Preserve paths, IDs, versions, commands from session

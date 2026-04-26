@@ -1791,9 +1791,9 @@ class AiPromptBuilder {
       return 'The previous plan run stopped after a failed, timed-out, otherwise interrupted step, or a stale todo state. Before retrying, first review the current todo list and inspect the workspace, generated artifacts, and recent tool results to see what already succeeded.$completedTodoSummary Then decide whether to fully retry the failed step or only retry the unfinished portion. Use TodoWrite to refresh the relevant todo entries before resuming heavy execution. If a failed or stale-completed step should be retried now, set that step back to in_progress so the timeline reflects the retry, and keep the todo list current as the retry progresses.$failedStepSummary';
     }
     if (_looksLikePlanApproval(latestUserMessage.content)) {
-      return 'The user is approving the existing plan. Do not call ExitPlanMode again or restate the plan. Start executing it now, use TodoWrite to track concrete implementation steps, and keep the todo list current as work progresses.';
+      return 'The user is approving the existing plan. Do not call ExitPlanMode again or restate the plan. Start executing it now, use TodoWrite to track concrete implementation steps, and keep the todo list current as work progresses. Your tool catalog now includes Write/Edit/MultiEdit/Bash — use them directly. Never apologise for missing tools or ask the user to copy-paste code: re-check the tool list, and if a write tool is genuinely absent (e.g. you are still in planning phase), call ExitPlanMode first instead of giving up.';
     }
-    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable numbered or bulleted execution step list and wait for explicit user approval before making changes.';
+    return 'This session is in Plan mode. When the request needs more than one concrete step, first inspect the problem, use TodoWrite to create or refresh a structured todo list, and complete planning before implementation. Do not call editing, write-oriented, or execution-heavy tools until the plan is approved. Once the plan is ready, call ExitPlanMode with a concise actionable numbered or bulleted execution step list and wait for explicit user approval before making changes. IMPORTANT: if the user has already endorsed the plan in any phrasing (English or Chinese, e.g. "去写吧", "去做吧", "do it", "ship it"), treat that turn as approval and call ExitPlanMode at once — never claim Write/Edit are unavailable as an excuse to dump code into chat.';
   }
 
   bool _shouldUsePlanRecoveryReminder({
@@ -1870,11 +1870,19 @@ class AiPromptBuilder {
       'approve',
       'approved',
       'go ahead',
+      'go for it',
       'proceed',
       'start implementing',
       'begin implementation',
       'continue implementation',
       'confirm execution',
+      "let's go",
+      "let's do it",
+      "let's start",
+      'do it',
+      'ship it',
+      'start now',
+      'make it so',
       '确认执行',
       '确认开始',
       '开始执行',
@@ -1884,6 +1892,20 @@ class AiPromptBuilder {
       '执行吧',
       '可以执行',
       '可以开始',
+      '去写吧',
+      '去做吧',
+      '去搞吧',
+      '去实现',
+      '去实现吧',
+      '去干吧',
+      '动手吧',
+      '写吧',
+      '做吧',
+      '搞吧',
+      '干吧',
+      '上吧',
+      '撸起来',
+      '动手',
     ];
     return approvalPhrases.any((phrase) => normalized.contains(phrase));
   }

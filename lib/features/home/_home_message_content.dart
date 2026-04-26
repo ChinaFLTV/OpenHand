@@ -538,15 +538,17 @@ class _MarkdownPreviewBodyState extends State<_MarkdownPreviewBody> {
                           _contentHeight = nextHeight;
                         });
                       },
-                      child: IgnorePointer(
-                        child: _SafeMarkdownBody(
-                          data: _effectiveData,
-                          builders: widget.builders,
-                          styleSheet: widget.styleSheet,
-                          inlineSyntaxes: widget.inlineSyntaxes,
-                          pathRoots: widget.pathRoots,
-                          parseKey: widget.parseKey,
-                        ),
+                      // 2026-04-27: 不再用 IgnorePointer 包裹预览体，让代码块
+                      // 内部的复制 / 下载 / 运行按钮在折叠状态也能响应点击。
+                      // 外层的展开按钮位于同一个 Column 中的独立 InkWell，
+                      // 互不干扰；渐变 fade 遮罩依然保留 IgnorePointer 以免拦截点击。
+                      child: _SafeMarkdownBody(
+                        data: _effectiveData,
+                        builders: widget.builders,
+                        styleSheet: widget.styleSheet,
+                        inlineSyntaxes: widget.inlineSyntaxes,
+                        pathRoots: widget.pathRoots,
+                        parseKey: widget.parseKey,
                       ),
                     ),
                   ),

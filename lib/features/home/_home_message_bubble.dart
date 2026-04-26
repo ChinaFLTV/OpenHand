@@ -166,7 +166,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
           theme: theme,
           baseColor: textColor,
           darkSurface: useDarkCodeSurface,
-          selectable: widget.isSelected,
+          // 2026-04-27: 始终允许文本选择/复制，便于用户随时复制响应内容。
+          // “选中模式”依然控制 action buttons 的可见性，
+          // 但选择/复制不再需要预先点击进入选中态。
+          selectable: true,
         ),
         'openhand-file-resolved': _FilePathMarkdownBuilder(
           textColor: textColor,
@@ -308,7 +311,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         _compressionExpanded = !_compressionExpanded;
                       });
                     },
-                    selectable: widget.isSelected,
+                    selectable: true,
                     textColor: textColor,
                     fadeColor: backgroundColor,
                     styleSheet: markdownStyleSheet.styleSheet,
@@ -322,7 +325,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     content: message.content,
                     expanded: reasoningExpanded,
                     streaming: isStreamingReasoning,
-                    selectable: widget.isSelected,
+                    selectable: true,
                     textColor: textColor,
                     fadeColor: backgroundColor,
                     styleSheet: markdownStyleSheet.styleSheet,
@@ -332,7 +335,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     parseKey: filePathParseKey,
                   )
                 else if (isToolCall)
-                  _ToolCallBody(message: message, selectable: widget.isSelected)
+                  _ToolCallBody(message: message, selectable: true)
                 else if (isSelfLearning)
                   // Wrap the self-learning card in an AnimatedSize so as the
                   // dispatcher streams in tokens (and metadata grows), the
@@ -362,7 +365,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ],
                       _CollapsibleMessageMarkdownBody(
                         data: effectiveContent.isEmpty ? ' ' : effectiveContent,
-                        selectable: widget.isSelected,
+                        selectable: true,
                         builders: markdownBuilders,
                         styleSheet: markdownStyleSheet.styleSheet,
                         inlineSyntaxes: inlineSyntaxes,
