@@ -123,11 +123,12 @@ class AiImageGenerationService {
       case AiProtocolType.glm:
       case AiProtocolType.seed:
       case AiProtocolType.minimax:
-      case AiProtocolType.hunyuan:
         return true;
-      // Wenxin/StepFun lack a stable OpenAI-compatible video endpoint as of
-      // 2026; routing them through `/v1/videos/generations` only ever yields
-      // HTTP 404/405. Gate them off until a real adapter exists.
+      // Hunyuan video uses Tencent Cloud's TC3-HMAC signed RPC at
+      // hunyuan.tencentcloudapi.com — incompatible with OpenAI-shape POST
+      // and bearer auth. Wenxin/StepFun likewise lack public OpenAI-compat
+      // video endpoints. Re-enable when dedicated adapters land.
+      case AiProtocolType.hunyuan:
       case AiProtocolType.stepfun:
       case AiProtocolType.wenxin:
       case AiProtocolType.gemini:
@@ -379,6 +380,18 @@ class AiImageGenerationService {
     )) {
       headers['accept'] = _acceptHeaderFor(kind);
     }
+    // DashScope (Qwen) video generation is async-by-design: the request must
+    // carry `X-DashScope-Async: enable` to be queued, otherwise it 400s
+    // with `InvalidParameter`. Inject only when the user has not already
+    // overridden the header.
+    if (kind.isVideo && model.protocolType == AiProtocolType.qwen) {
+      final hasOverride = model.customHeaders.keys.any(
+        (key) => key.trim().toLowerCase() == 'x-dashscope-async',
+      );
+      if (!hasOverride) {
+        headers['x-dashscope-async'] = 'enable';
+      }
+    }
     final body = _buildMediaBody(
       kind: kind,
       modelId: modelId,
@@ -604,13 +617,22 @@ class AiImageGenerationService {
   ) {
     if (kind.isVideo) {
       return switch (protocol) {
-        AiProtocolType.minimax => const <String>['videos', 'generations'],
+        // OpenAI Sora 2 exposes `POST /v1/videos` (returns a job; poll via
+        // `/v1/videos/{id}` and download `/v1/videos/{id}/content`).
+        AiProtocolType.openai => const <String>['videos'],
+        // MiniMax uses a flat `POST /v1/video_generation` instead of the
+        // OpenAI-style nested `videos/generations` path.
+        AiProtocolType.minimax => const <String>['video_generation'],
+        // GLM/Zhipu BigModel: `POST /api/paas/v4/videos/generations`.
+        // Qwen DashScope compatible-mode also accepts `/videos/generations`
+        // as a passthrough to the native video-synthesis service.
         _ => const <String>['videos', 'generations'],
       };
     }
     if (kind.isAudio) {
       return switch (protocol) {
-        AiProtocolType.minimax => const <String>['audio', 'speech'],
+        // MiniMax T2A v2 endpoint.
+        AiProtocolType.minimax => const <String>['t2a_v2'],
         _ => const <String>['audio', 'speech'],
       };
     }
@@ -674,6 +696,7 @@ class AiImageGenerationService {
         modelId: modelId,
         prompt: prompt,
         options: options,
+        protocol: protocol,
       ),
       _GeneratedMediaKind.audio => _buildAudioBody(
         modelId: modelId,
@@ -714,24 +737,105 @@ class AiImageGenerationService {
     required String modelId,
     required String prompt,
     required AiCreationOptions options,
+    required AiProtocolType protocol,
   }) {
-    final body = <String, Object?>{
-      'model': modelId,
-      'prompt': prompt,
-      'n': options.count > 0 ? options.count : 1,
-      'response_format': 'url',
-    };
-    if (options.aspectRatio != null) {
-      body['aspect_ratio'] = options.aspectRatio;
+    // Per-provider body shapes — many vendors deliberately do NOT speak the
+    // OpenAI `prompt + n + response_format` schema. Sending the canonical
+    // shape to providers like Sora 2 / MiniMax / DashScope yields silent
+    // 400/422 errors that surface as “视频生成失败” in the UI.
+    switch (protocol) {
+      case AiProtocolType.openai:
+        // OpenAI Sora 2: `{model, prompt, seconds, size}` (no `n`).
+        final body = <String, Object?>{'model': modelId, 'prompt': prompt};
+        final size =
+            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+        if (size != null) body['size'] = size;
+        if (options.durationSeconds != null) {
+          body['seconds'] = options.durationSeconds;
+        }
+        return body;
+      case AiProtocolType.minimax:
+        // MiniMax `/v1/video_generation`:
+        //   `{model, prompt, prompt_optimizer}` — no `n`/`response_format`.
+        return <String, Object?>{
+          'model': modelId,
+          'prompt': prompt,
+          'prompt_optimizer': true,
+        };
+      case AiProtocolType.qwen:
+        // DashScope native shape (works through compatible-mode passthrough):
+        //   `{model, input:{prompt}, parameters:{size, duration}}`.
+        final parameters = <String, Object?>{};
+        final size =
+            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+        if (size != null) parameters['size'] = size;
+        if (options.durationSeconds != null) {
+          parameters['duration'] = options.durationSeconds;
+        }
+        return <String, Object?>{
+          'model': modelId,
+          'input': <String, Object?>{'prompt': prompt},
+          if (parameters.isNotEmpty) 'parameters': parameters,
+        };
+      case AiProtocolType.glm:
+      case AiProtocolType.seed:
+      case AiProtocolType.hunyuan:
+      case AiProtocolType.stepfun:
+      case AiProtocolType.wenxin:
+      case AiProtocolType.gemini:
+      case AiProtocolType.claude:
+      case AiProtocolType.deepseek:
+      case AiProtocolType.kimi:
+      case AiProtocolType.grok:
+      case AiProtocolType.ollama:
+      case AiProtocolType.vllm:
+      case AiProtocolType.sglang:
+      case AiProtocolType.longcat:
+      case AiProtocolType.joycode:
+      case AiProtocolType.meta:
+      case AiProtocolType.mimo:
+        // GLM CogVideoX-style: `{model, prompt, quality, size, duration,
+        // fps, with_audio}` — extra fields are tolerated by other providers
+        // that ignore unknown keys (Seed/Doubao Seedance, custom OpenAI-
+        // compat gateways).
+        final body = <String, Object?>{
+          'model': modelId,
+          'prompt': prompt,
+          'response_format': 'url',
+        };
+        if (options.aspectRatio != null) {
+          body['aspect_ratio'] = options.aspectRatio;
+        }
+        final size =
+            options.size ?? _videoSizeFromAspectRatio(options.aspectRatio);
+        if (size != null) body['size'] = size;
+        if (options.durationSeconds != null) {
+          body['duration'] = options.durationSeconds;
+          body['duration_seconds'] = options.durationSeconds;
+        }
+        if (options.quality != null) body['quality'] = options.quality;
+        if (options.style != null) body['style'] = options.style;
+        return body;
     }
-    if (options.size != null) body['size'] = options.size;
-    if (options.durationSeconds != null) {
-      body['duration'] = options.durationSeconds;
-      body['duration_seconds'] = options.durationSeconds;
+  }
+
+  /// Maps an aspect ratio to a concrete `WxH` video size for providers that
+  /// only accept absolute resolutions (OpenAI Sora, DashScope wan).
+  String? _videoSizeFromAspectRatio(String? ratio) {
+    if (ratio == null) return null;
+    switch (ratio.trim()) {
+      case '1:1':
+        return '1024x1024';
+      case '16:9':
+        return '1280x720';
+      case '9:16':
+        return '720x1280';
+      case '4:3':
+        return '1024x768';
+      case '3:4':
+        return '768x1024';
     }
-    if (options.quality != null) body['quality'] = options.quality;
-    if (options.style != null) body['style'] = options.style;
-    return body;
+    return null;
   }
 
   Map<String, Object?> _buildAudioBody({

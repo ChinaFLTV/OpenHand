@@ -35,7 +35,6 @@ void main() {
         AiProtocolType.glm,
         AiProtocolType.seed,
         AiProtocolType.minimax,
-        AiProtocolType.hunyuan,
       ]) {
         expect(
           AiImageGenerationService.supportsVideoGeneration(protocol),
@@ -78,6 +77,8 @@ void main() {
         // are not silently routed to `/v1/videos/generations`.
         AiProtocolType.stepfun,
         AiProtocolType.wenxin,
+        // Hunyuan video uses TC3-HMAC signed RPC, not OpenAI-compat.
+        AiProtocolType.hunyuan,
       ]) {
         expect(
           AiImageGenerationService.supportsVideoGeneration(protocol),
@@ -180,13 +181,15 @@ void main() {
       },
     );
 
-    test('routes video creation to a bounded media endpoint request', () async {
+    test('routes Qwen video creation through DashScope-shaped body', () async {
       late Uri requestUrl;
       late Map<String, Object?> requestBody;
+      late Map<String, String> requestHeaders;
       final service = AiImageGenerationService(
         client: MockClient((request) async {
           requestUrl = request.url;
           requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          requestHeaders = request.headers;
           expect(request.headers['authorization'], 'Bearer mock-token');
           expect(request.headers['accept'], contains('video/*'));
           return http.Response(
@@ -220,13 +223,120 @@ void main() {
         'https://dashscope.invalid/compatible-mode/v1/videos/generations',
       );
       expect(requestBody['model'], 'wan2.2-t2v-plus');
-      expect(requestBody['prompt'], 'city sunrise');
-      expect(requestBody['aspect_ratio'], '16:9');
-      expect(requestBody['duration'], 6);
-      expect(requestBody['duration_seconds'], 6);
-      expect(requestBody['n'], 2);
+      // DashScope native shape: prompt is nested under `input`.
+      expect(requestBody['input'], <String, Object?>{'prompt': 'city sunrise'});
+      final parameters = requestBody['parameters'] as Map<String, Object?>;
+      expect(parameters['size'], '1280x720');
+      expect(parameters['duration'], 6);
+      // Async header is required for DashScope to queue the job.
+      expect(requestHeaders['x-dashscope-async'], 'enable');
+      // No legacy OpenAI fields leak into the DashScope body.
+      expect(requestBody.containsKey('n'), isFalse);
+      expect(requestBody.containsKey('response_format'), isFalse);
       expect(result.markdown, contains('[city sunrise clip]'));
       expect(result.markdown, contains('clip.mp4'));
+    });
+
+    test('routes OpenAI Sora video to /v1/videos with seconds+size', () async {
+      late Uri requestUrl;
+      late Map<String, Object?> requestBody;
+      final service = AiImageGenerationService(
+        client: MockClient((request) async {
+          requestUrl = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {'url': 'https://cdn.example.invalid/sora/out.mp4'},
+              ],
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }),
+      );
+      const soraModel = AiModelConfig(
+        id: 'openai-sora',
+        baseUrl: 'https://api.openai.invalid/v1/chat/completions',
+        authScheme: AiAuthScheme.bearer,
+        token: 'mock-token',
+        modelId: 'sora-2',
+        protocolType: AiProtocolType.openai,
+        modelProfiles: <String, AiModelProfile>{
+          'sora-2': AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.videoGeneration,
+            },
+          ),
+        },
+      );
+
+      await service.generateVideo(
+        model: soraModel,
+        prompt: 'a robot dancing',
+        options: const AiCreationOptions(
+          aspectRatio: '9:16',
+          durationSeconds: 8,
+        ),
+      );
+
+      expect(requestUrl.toString(), 'https://api.openai.invalid/v1/videos');
+      expect(requestBody, <String, Object?>{
+        'model': 'sora-2',
+        'prompt': 'a robot dancing',
+        'size': '720x1280',
+        'seconds': 8,
+      });
+    });
+
+    test('routes MiniMax video to /v1/video_generation flat body', () async {
+      late Uri requestUrl;
+      late Map<String, Object?> requestBody;
+      final service = AiImageGenerationService(
+        client: MockClient((request) async {
+          requestUrl = request.url;
+          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {'url': 'https://cdn.example.invalid/mm/out.mp4'},
+              ],
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }),
+      );
+      const miniMaxModel = AiModelConfig(
+        id: 'minimax-video',
+        baseUrl: 'https://api.minimax.invalid/v1/chat/completions',
+        authScheme: AiAuthScheme.bearer,
+        token: 'mock-token',
+        modelId: 'video-01',
+        protocolType: AiProtocolType.minimax,
+        modelProfiles: <String, AiModelProfile>{
+          'video-01': AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.videoGeneration,
+            },
+          ),
+        },
+      );
+
+      await service.generateVideo(
+        model: miniMaxModel,
+        prompt: 'sunset over the sea',
+      );
+
+      expect(
+        requestUrl.toString(),
+        'https://api.minimax.invalid/v1/video_generation',
+      );
+      expect(requestBody, <String, Object?>{
+        'model': 'video-01',
+        'prompt': 'sunset over the sea',
+        'prompt_optimizer': true,
+      });
     });
 
     test('polls relative video task URLs with provider auth headers', () async {
