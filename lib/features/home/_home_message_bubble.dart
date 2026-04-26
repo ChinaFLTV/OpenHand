@@ -1184,7 +1184,7 @@ class _GeneratedMediaLinkMarkdownBuilder extends MarkdownElementBuilder {
   }
 }
 
-class _GeneratedMediaLinkCard extends StatelessWidget {
+class _GeneratedMediaLinkCard extends StatefulWidget {
   const _GeneratedMediaLinkCard({
     required this.source,
     required this.title,
@@ -1198,8 +1198,37 @@ class _GeneratedMediaLinkCard extends StatelessWidget {
   final Color backgroundColor;
 
   @override
+  State<_GeneratedMediaLinkCard> createState() =>
+      _GeneratedMediaLinkCardState();
+}
+
+class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
+  // Without this guard, rapid double-clicks on the inline card stacked two
+  // identical preview dialogs (each spinning up its own WebView), which
+  // pinned the UI thread and leaked event handlers.
+  bool _dialogOpen = false;
+
+  Future<void> _openPreview() async {
+    if (_dialogOpen) return;
+    _dialogOpen = true;
+    try {
+      await showAnimatedDialog<void>(
+        context: context,
+        builder: (dialogContext) =>
+            _MediaPreviewDialog(source: widget.source, title: widget.title),
+      );
+    } finally {
+      if (mounted) _dialogOpen = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final source = widget.source;
+    final title = widget.title;
+    final textColor = widget.textColor;
+    final backgroundColor = widget.backgroundColor;
     final isVideo = source.kind == _GeneratedMessageMediaKind.video;
     final icon = isVideo ? Icons.play_circle_outline : Icons.graphic_eq;
     final label = isVideo
@@ -1223,13 +1252,7 @@ class _GeneratedMediaLinkCard extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () {
-              showAnimatedDialog<void>(
-                context: context,
-                builder: (dialogContext) =>
-                    _MediaPreviewDialog(source: source, title: title),
-              );
-            },
+            onTap: _openPreview,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
               padding: const EdgeInsets.all(12),
@@ -1309,6 +1332,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   bool _isSaving = false;
   bool _isOpeningExternal = false;
   bool _disposed = false;
+  // Cancel signal for the in-flight save. Completed when the user dismisses
+  // the dialog mid-download so we stop pulling bytes and clean up the
+  // partial file instead of writing into a destination the user is no
+  // longer watching.
+  Completer<void>? _saveCancel;
 
   @override
   void initState() {
@@ -1351,6 +1379,11 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   void dispose() {
     _disposed = true;
     _loadTimeoutTimer?.cancel();
+    final pending = _saveCancel;
+    if (pending != null && !pending.isCompleted) {
+      pending.complete();
+    }
+    _saveCancel = null;
     super.dispose();
   }
 
@@ -1578,7 +1611,19 @@ $mediaTag
         await source.copy(location.path);
         return;
       }
-      await _downloadRemoteMedia(widget.source, location.path);
+      final cancel = Completer<void>();
+      _saveCancel = cancel;
+      try {
+        await _downloadRemoteMedia(
+          widget.source,
+          location.path,
+          cancelSignal: cancel.future,
+        );
+      } finally {
+        if (identical(_saveCancel, cancel)) _saveCancel = null;
+      }
+    } on _MediaDownloadCancelled {
+      // User dismissed the dialog mid-download; treat as a no-op.
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1822,8 +1867,9 @@ String _replaceExtensionIfNeeded(String basename, String extension) {
 
 Future<void> _downloadRemoteMedia(
   _GeneratedMediaSource source,
-  String destination,
-) async {
+  String destination, {
+  Future<void>? cancelSignal,
+}) async {
   final scheme = source.uri.scheme.toLowerCase();
   if (scheme != 'http' && scheme != 'https') {
     throw FileSystemException(
@@ -1832,6 +1878,11 @@ Future<void> _downloadRemoteMedia(
     );
   }
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
+  var cancelled = false;
+  cancelSignal?.whenComplete(() {
+    cancelled = true;
+    client.close(force: true);
+  });
   try {
     final request = await client
         .getUrl(source.uri)
@@ -1876,6 +1927,9 @@ Future<void> _downloadRemoteMedia(
 
     try {
       await for (final chunk in response.timeout(const Duration(seconds: 30))) {
+        if (cancelled) {
+          throw const _MediaDownloadCancelled();
+        }
         if (DateTime.now().isAfter(downloadDeadline)) {
           throw TimeoutException('Media download exceeded time limit.');
         }
@@ -1930,6 +1984,12 @@ const Set<String> _videoMediaExtensions = <String>{
   '.m4v',
   '.mkv',
 };
+
+class _MediaDownloadCancelled implements Exception {
+  const _MediaDownloadCancelled();
+  @override
+  String toString() => 'Media download cancelled by caller.';
+}
 
 const Set<String> _audioMediaExtensions = <String>{
   '.mp3',
