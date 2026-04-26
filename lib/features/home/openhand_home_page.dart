@@ -528,6 +528,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   AppSection _selectedSection = AppSection.workspace;
   _CreationMode _creationMode = _CreationMode.none;
+  // macOS native menu bridge — see [_initNativeMenuChannel]. Only initialised
+  // on macOS, where the system menu bar's "Settings…" item should drive the
+  // in-app navigation to the Settings pane.
+  MethodChannel? _macosMenuChannel;
   // 2026-04-25 — 当前会话窗口下，本轮临时取消的【指令】ID 集合。
   // 切换会话或发送完成后通常重置；UI 上用胶囊条配合 X / + 切换。
   final Set<String> _skippedInstructionIds = <String>{};
@@ -908,6 +912,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _presentAskUserChoiceDialog,
     );
     _loadPersistedHardnessSession();
+    _initNativeMenuChannel();
   }
 
   @override
@@ -975,6 +980,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     HardwareKeyboard.instance.removeHandler(_handleGlobalShortcutKeyEvent);
     _disposeAskUserChoicePresenter?.call();
     _disposeAskUserChoicePresenter = null;
+    _macosMenuChannel?.setMethodCallHandler(null);
+    _macosMenuChannel = null;
     _globalShortcutFocusNode.dispose();
     _composerFocusNode.dispose();
     _composerController.dispose();
@@ -1491,6 +1498,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _selectSection(AppSection section) {
     setState(() {
       _selectedSection = section;
+    });
+  }
+
+  /// Wires the macOS application menu's "Settings…" item to the in-app
+  /// navigation. On non-macOS platforms this is a no-op.
+  ///
+  /// The Swift side (`AppDelegate.openSettings:`) invokes a single method
+  /// `openSettings` on this channel. We respond by selecting the Settings
+  /// pane, which also updates the left navigation rail because the rail is
+  /// driven by `_selectedSection`.
+  void _initNativeMenuChannel() {
+    if (!Platform.isMacOS) return;
+    const channel = MethodChannel('openhand/menu');
+    _macosMenuChannel = channel;
+    channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'openSettings':
+          if (mounted) {
+            _selectSection(AppSection.settings);
+          }
+          return null;
+        default:
+          return null;
+      }
     });
   }
 
