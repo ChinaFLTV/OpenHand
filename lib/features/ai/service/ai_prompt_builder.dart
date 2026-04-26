@@ -231,7 +231,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id)}',
+            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval)}',
       ),
       // For compact templates, reminders are folded into the metadata JSON
       // to reduce system message count and API overhead.
@@ -525,11 +525,18 @@ class AiPromptBuilder {
     List<AiToolDefinition> availableTools, {
     bool compact = false,
     String? templateId,
+    bool awaitingPlanApproval = false,
   }) {
     final visibleTools = availableTools
         .where((tool) => tool.name.trim().isNotEmpty)
         .toList(growable: false);
     if (visibleTools.isEmpty) {
+      // 2026-04-27: 在计划模式待批准的轮次，工具目录被主动清空。
+      // 原状下模型容易以为“什么工具都没有”而拒绝实现。
+      // 为该场景提供明确提示，避免模型谎称工具缺失。
+      if (awaitingPlanApproval) {
+        return 'Tool catalog is intentionally empty for this turn because the system is waiting for the user to approve your plan. Present the captured plan and ask for confirmation. As soon as the user endorses it (English or Chinese, e.g. "do it", "ship it", "去写吧", "去做吧"), the next turn will restore the full execution toolkit (Write, Edit, MultiEdit, Bash, etc.) automatically. Never tell the user that Write/Edit do not exist — the tools simply have not been re-enabled yet.';
+      }
       return 'No runtime tools are available in this response. Do not invent tool names or assume a tool exists because it existed in an earlier turn.';
     }
     // 2026-04-08 工具目录按能力优先级分组呈现：Skill > MCP > Builtin
