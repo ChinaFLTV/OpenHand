@@ -312,6 +312,26 @@ class AiSessionStore {
     return openDirectoryInFileManager(Directory(_sessionsDirectoryPath));
   }
 
+  /// Wipes every session row from the database (messages cascade) and
+  /// removes the on-disk sessions directory tree (including all attachment
+  /// subfolders and any legacy `session-*.json` files).
+  ///
+  /// Safe to call when the controller has no active streams. Callers should
+  /// invoke `AiSessionController.refresh()` afterwards so in-memory state is
+  /// rebuilt from the now-empty store.
+  Future<void> clearAll() async {
+    await _db.delete('sessions');
+    final root = Directory(_sessionsDirectoryPath);
+    if (await root.exists()) {
+      // Re-create the empty directory so subsequent writes do not race on a
+      // missing parent (the per-session writers `mkdir` on first use, but
+      // some callers — e.g. `openStorageDirectory()` — still need a real
+      // directory to open).
+      await root.delete(recursive: true);
+      await root.create(recursive: true);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Row ↔ Model conversion
   // ---------------------------------------------------------------------------

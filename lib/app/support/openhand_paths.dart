@@ -11,6 +11,9 @@ abstract final class OpenHandPaths {
   static const String defaultSessionsDirectoryLabel = '~/.openhand/sessions';
   static const String defaultSessionAttachmentsDirectoryLabel =
       '~/.openhand/sessions/attachments';
+  static const String defaultCacheDirectoryLabel = '~/.openhand/cache';
+  static const String defaultLogsDirectoryLabel = '~/.openhand/logs';
+  static const String defaultRootDirectoryLabel = '~/.openhand';
 
   static String homeDirectoryPath() {
     final home = Platform.environment['HOME'];
@@ -69,6 +72,27 @@ abstract final class OpenHandPaths {
 
   static String defaultSessionAttachmentsDirectoryPath() {
     return p.join(defaultSessionsDirectoryPath(), 'attachments');
+  }
+
+  /// Root directory used for all OpenHand on-disk artifacts (`~/.openhand`).
+  /// Centralising this path keeps the data-cleanup module aligned with the
+  /// rest of the storage layout and avoids ad-hoc `p.join(home, '.openhand')`
+  /// duplication across features.
+  static String defaultRootDirectoryPath() {
+    return p.join(homeDirectoryPath(), '.openhand');
+  }
+
+  /// Filesystem cache directory used by background workers and best-effort
+  /// scratch space. The directory is created lazily by callers and may be
+  /// absent on a fresh install.
+  static String defaultCacheDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'cache');
+  }
+
+  /// Logs directory used by background workers for opt-in disk logging.
+  /// May be absent on a fresh install.
+  static String defaultLogsDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'logs');
   }
 
   static String applicationDirectoryPath() {

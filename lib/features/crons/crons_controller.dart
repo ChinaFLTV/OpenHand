@@ -168,6 +168,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   List<String> _systemUsers = const <String>['root'];
 
   List<CronEntry> get entries => _entriesView;
+
+  /// 暴露内部 store 句柄以便"应用数据 → 数据清理"模块在不增设额外
+  /// 控制器方法的前提下查询执行历史的体积估算。**只读**用法；写入仍走
+  /// controller 的高层 API（例如 [clearAllHistory]）以保证内存缓存与
+  /// notifyListeners 时序一致。
+  CronsStore get store => _store;
   bool get isLoading => _isLoading;
   List<String> get systemUsers => _systemUsers;
 
@@ -448,6 +454,24 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       _historyCache[cronId] = cached
           .where((r) => r.startedAt.isAfter(cutoffKey))
           .toList(growable: false);
+    }
+    notifyListeners();
+    return affected;
+  }
+
+  /// 2026-04-26 — 清空全部 cron 执行历史。返回受影响行数；失败返回 0
+  /// 并 silentLog，不抛异常。仅由全局设置中的"日志清理 / 全部数据清空"
+  /// 触发，调用方负责弹窗二次确认。
+  Future<int> clearAllHistory() async {
+    int affected = 0;
+    try {
+      affected = await _store.deleteAllHistory();
+    } catch (error, stack) {
+      silentLog('crons_controller', 'clearAllHistory', error, stack);
+      return 0;
+    }
+    if (_historyCache.isNotEmpty) {
+      _historyCache.clear();
     }
     notifyListeners();
     return affected;

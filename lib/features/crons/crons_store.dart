@@ -489,6 +489,34 @@ class CronsStore {
     );
   }
 
+  /// 2026-04-26 — 清空全部 cron 执行历史记录。返回受影响行数。
+  /// 仅由全局设置中的"日志清理 / 全部数据清空"使用；调用方负责同步刷新
+  /// 内存缓存。
+  Future<int> deleteAllHistory() async {
+    return _db.delete(_historyTable);
+  }
+
+  /// 2026-04-26 — 估算 cron 执行历史在数据库中占用的近似字节数。
+  /// 仅汇总主要 TEXT 列（stdout/stderr/cron_id/started_at），用于"日志清理"
+  /// 设置面板的人类友好大小展示。
+  Future<({int rowCount, int approxBytes})> historyApproxSize() async {
+    final rows = await _db.rawQuery(
+      'SELECT COUNT(*) AS cnt, '
+      'COALESCE(SUM(LENGTH(IFNULL(stdout, \'\')) '
+      '+ LENGTH(IFNULL(stderr, \'\')) '
+      '+ LENGTH(IFNULL(cron_id, \'\')) '
+      '+ LENGTH(IFNULL(started_at, \'\'))), 0) AS bytes '
+      'FROM $_historyTable',
+    );
+    if (rows.isEmpty) {
+      return (rowCount: 0, approxBytes: 0);
+    }
+    final row = rows.first;
+    final cnt = (row['cnt'] as int?) ?? 0;
+    final bytes = (row['bytes'] as int?) ?? 0;
+    return (rowCount: cnt, approxBytes: bytes);
+  }
+
   Future<void> pruneHistory(String cronId, {int keep = 100}) async {
     final rows = await _db.query(
       _historyTable,
