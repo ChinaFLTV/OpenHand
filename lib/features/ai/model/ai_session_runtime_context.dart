@@ -107,6 +107,14 @@ class AiSessionRuntimeContext {
     this.writeConfirmationTimeoutMs = 300000,
     this.fastPathWriteAnalysisThreshold = 512,
     this.maxHookTextCharacters = 4000,
+    this.webFetchMaxResponseBytes = 1024 * 1024,
+    this.webFetchMaxRedirects = 5,
+    this.webFetchMaxCacheEntries = 64,
+    this.attachmentMaxInlineImageDimension = 1568,
+    this.attachmentMaxTextRawBytes = 2 * 1024 * 1024,
+    this.attachmentMaxPdfRawBytes = 2 * 1024 * 1024,
+    this.attachmentMaxImageRawBytes = 50 * 1024 * 1024,
+    this.chatMaxStreamLineBufferBytes = 4 * 1024 * 1024,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
@@ -190,6 +198,30 @@ class AiSessionRuntimeContext {
   /// Group B — Hook 文本输出字符上限。
   final int maxHookTextCharacters;
 
+  /// Group C — WebFetch 单次响应字节上限。
+  final int webFetchMaxResponseBytes;
+
+  /// Group C — WebFetch 最大重定向次数。
+  final int webFetchMaxRedirects;
+
+  /// Group C — WebFetch 内存缓存条目上限。
+  final int webFetchMaxCacheEntries;
+
+  /// Group C — 附件图片解码最大边长（像素）。
+  final int attachmentMaxInlineImageDimension;
+
+  /// Group C — 附件文本原始字节读取上限。
+  final int attachmentMaxTextRawBytes;
+
+  /// Group C — 附件 PDF 原始字节读取上限。
+  final int attachmentMaxPdfRawBytes;
+
+  /// Group C — 附件图片原始字节读取上限。
+  final int attachmentMaxImageRawBytes;
+
+  /// Group C — Chat 流式行缓冲字节上限。
+  final int chatMaxStreamLineBufferBytes;
+
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
   /// before persisting and before the editor opens.
@@ -272,6 +304,14 @@ class AiSessionRuntimeContext {
       'write_confirmation_timeout_ms': writeConfirmationTimeoutMs,
       'fast_path_write_analysis_threshold': fastPathWriteAnalysisThreshold,
       'max_hook_text_characters': maxHookTextCharacters,
+      'web_fetch_max_response_bytes': webFetchMaxResponseBytes,
+      'web_fetch_max_redirects': webFetchMaxRedirects,
+      'web_fetch_max_cache_entries': webFetchMaxCacheEntries,
+      'attachment_max_inline_image_dimension': attachmentMaxInlineImageDimension,
+      'attachment_max_text_raw_bytes': attachmentMaxTextRawBytes,
+      'attachment_max_pdf_raw_bytes': attachmentMaxPdfRawBytes,
+      'attachment_max_image_raw_bytes': attachmentMaxImageRawBytes,
+      'chat_max_stream_line_buffer_bytes': chatMaxStreamLineBufferBytes,
       'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,

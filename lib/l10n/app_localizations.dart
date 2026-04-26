@@ -2770,6 +2770,246 @@ abstract class AppLocalizations {
   /// **'请输入 100~1000000 之间的整数。'**
   String get aiMaxHookTextCharactersInvalid;
 
+  /// No description provided for @aiWebFetchMaxResponseBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 单次响应字节上限'**
+  String get aiWebFetchMaxResponseBytesLabel;
+
+  /// No description provided for @aiWebFetchMaxResponseBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 1048576（1MB）。调整以适配你的网络与附件需求。'**
+  String get aiWebFetchMaxResponseBytesBody;
+
+  /// No description provided for @aiWebFetchMaxResponseBytesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiWebFetchMaxResponseBytesSave;
+
+  /// No description provided for @aiWebFetchMaxResponseBytesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 单次响应字节上限已保存。'**
+  String get aiWebFetchMaxResponseBytesSaved;
+
+  /// No description provided for @aiWebFetchMaxResponseBytesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiWebFetchMaxResponseBytesInvalid;
+
+  /// No description provided for @aiWebFetchMaxRedirectsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 最大重定向次数'**
+  String get aiWebFetchMaxRedirectsLabel;
+
+  /// No description provided for @aiWebFetchMaxRedirectsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 5。调整以适配你的网络与附件需求。'**
+  String get aiWebFetchMaxRedirectsBody;
+
+  /// No description provided for @aiWebFetchMaxRedirectsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiWebFetchMaxRedirectsSave;
+
+  /// No description provided for @aiWebFetchMaxRedirectsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 最大重定向次数已保存。'**
+  String get aiWebFetchMaxRedirectsSaved;
+
+  /// No description provided for @aiWebFetchMaxRedirectsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiWebFetchMaxRedirectsInvalid;
+
+  /// No description provided for @aiWebFetchMaxCacheEntriesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 缓存条目上限'**
+  String get aiWebFetchMaxCacheEntriesLabel;
+
+  /// No description provided for @aiWebFetchMaxCacheEntriesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 64。调整以适配你的网络与附件需求。'**
+  String get aiWebFetchMaxCacheEntriesBody;
+
+  /// No description provided for @aiWebFetchMaxCacheEntriesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiWebFetchMaxCacheEntriesSave;
+
+  /// No description provided for @aiWebFetchMaxCacheEntriesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'WebFetch 缓存条目上限已保存。'**
+  String get aiWebFetchMaxCacheEntriesSaved;
+
+  /// No description provided for @aiWebFetchMaxCacheEntriesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiWebFetchMaxCacheEntriesInvalid;
+
+  /// No description provided for @aiAttachmentMaxInlineImageDimensionLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件图片最大边长（像素）'**
+  String get aiAttachmentMaxInlineImageDimensionLabel;
+
+  /// No description provided for @aiAttachmentMaxInlineImageDimensionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 1568。调整以适配你的网络与附件需求。'**
+  String get aiAttachmentMaxInlineImageDimensionBody;
+
+  /// No description provided for @aiAttachmentMaxInlineImageDimensionSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiAttachmentMaxInlineImageDimensionSave;
+
+  /// No description provided for @aiAttachmentMaxInlineImageDimensionSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件图片最大边长（像素）已保存。'**
+  String get aiAttachmentMaxInlineImageDimensionSaved;
+
+  /// No description provided for @aiAttachmentMaxInlineImageDimensionInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiAttachmentMaxInlineImageDimensionInvalid;
+
+  /// No description provided for @aiAttachmentMaxTextRawBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件文本读取上限（字节）'**
+  String get aiAttachmentMaxTextRawBytesLabel;
+
+  /// No description provided for @aiAttachmentMaxTextRawBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 2097152（2MB）。调整以适配你的网络与附件需求。'**
+  String get aiAttachmentMaxTextRawBytesBody;
+
+  /// No description provided for @aiAttachmentMaxTextRawBytesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiAttachmentMaxTextRawBytesSave;
+
+  /// No description provided for @aiAttachmentMaxTextRawBytesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件文本读取上限（字节）已保存。'**
+  String get aiAttachmentMaxTextRawBytesSaved;
+
+  /// No description provided for @aiAttachmentMaxTextRawBytesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiAttachmentMaxTextRawBytesInvalid;
+
+  /// No description provided for @aiAttachmentMaxPdfRawBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件 PDF 读取上限（字节）'**
+  String get aiAttachmentMaxPdfRawBytesLabel;
+
+  /// No description provided for @aiAttachmentMaxPdfRawBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 2097152（2MB）。调整以适配你的网络与附件需求。'**
+  String get aiAttachmentMaxPdfRawBytesBody;
+
+  /// No description provided for @aiAttachmentMaxPdfRawBytesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiAttachmentMaxPdfRawBytesSave;
+
+  /// No description provided for @aiAttachmentMaxPdfRawBytesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件 PDF 读取上限（字节）已保存。'**
+  String get aiAttachmentMaxPdfRawBytesSaved;
+
+  /// No description provided for @aiAttachmentMaxPdfRawBytesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiAttachmentMaxPdfRawBytesInvalid;
+
+  /// No description provided for @aiAttachmentMaxImageRawBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件图片读取上限（字节）'**
+  String get aiAttachmentMaxImageRawBytesLabel;
+
+  /// No description provided for @aiAttachmentMaxImageRawBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 52428800（50MB）。调整以适配你的网络与附件需求。'**
+  String get aiAttachmentMaxImageRawBytesBody;
+
+  /// No description provided for @aiAttachmentMaxImageRawBytesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiAttachmentMaxImageRawBytesSave;
+
+  /// No description provided for @aiAttachmentMaxImageRawBytesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件图片读取上限（字节）已保存。'**
+  String get aiAttachmentMaxImageRawBytesSaved;
+
+  /// No description provided for @aiAttachmentMaxImageRawBytesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiAttachmentMaxImageRawBytesInvalid;
+
+  /// No description provided for @aiChatMaxStreamLineBufferBytesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Chat 流缓冲字节上限'**
+  String get aiChatMaxStreamLineBufferBytesLabel;
+
+  /// No description provided for @aiChatMaxStreamLineBufferBytesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 4194304（4MB）。调整以适配你的网络与附件需求。'**
+  String get aiChatMaxStreamLineBufferBytesBody;
+
+  /// No description provided for @aiChatMaxStreamLineBufferBytesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiChatMaxStreamLineBufferBytesSave;
+
+  /// No description provided for @aiChatMaxStreamLineBufferBytesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Chat 流缓冲字节上限已保存。'**
+  String get aiChatMaxStreamLineBufferBytesSaved;
+
+  /// No description provided for @aiChatMaxStreamLineBufferBytesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiChatMaxStreamLineBufferBytesInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:

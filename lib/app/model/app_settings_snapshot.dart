@@ -50,6 +50,15 @@ class AppSettingsSnapshot {
       aiWriteConfirmationTimeoutMs: defaultAiWriteConfirmationTimeoutMs,
       aiFastPathWriteAnalysisThreshold: defaultAiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters: defaultAiMaxHookTextCharacters,
+      aiWebFetchMaxResponseBytes: defaultAiWebFetchMaxResponseBytes,
+      aiWebFetchMaxRedirects: defaultAiWebFetchMaxRedirects,
+      aiWebFetchMaxCacheEntries: defaultAiWebFetchMaxCacheEntries,
+      aiAttachmentMaxInlineImageDimension:
+          defaultAiAttachmentMaxInlineImageDimension,
+      aiAttachmentMaxTextRawBytes: defaultAiAttachmentMaxTextRawBytes,
+      aiAttachmentMaxPdfRawBytes: defaultAiAttachmentMaxPdfRawBytes,
+      aiAttachmentMaxImageRawBytes: defaultAiAttachmentMaxImageRawBytes,
+      aiChatMaxStreamLineBufferBytes: defaultAiChatMaxStreamLineBufferBytes,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -115,6 +124,14 @@ class AppSettingsSnapshot {
     required this.aiWriteConfirmationTimeoutMs,
     required this.aiFastPathWriteAnalysisThreshold,
     required this.aiMaxHookTextCharacters,
+    required this.aiWebFetchMaxResponseBytes,
+    required this.aiWebFetchMaxRedirects,
+    required this.aiWebFetchMaxCacheEntries,
+    required this.aiAttachmentMaxInlineImageDimension,
+    required this.aiAttachmentMaxTextRawBytes,
+    required this.aiAttachmentMaxPdfRawBytes,
+    required this.aiAttachmentMaxImageRawBytes,
+    required this.aiChatMaxStreamLineBufferBytes,
     required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -223,6 +240,39 @@ class AppSettingsSnapshot {
   static const int minAiMaxHookTextCharacters = 100;
   static const int maxAiMaxHookTextCharacters = 1000000;
 
+  /// 2026-04-29 — Group C: 网络与附件类参数。
+  static const int defaultAiWebFetchMaxResponseBytes = 1024 * 1024;
+  static const int minAiWebFetchMaxResponseBytes = 16 * 1024;
+  static const int maxAiWebFetchMaxResponseBytes = 256 * 1024 * 1024;
+
+  static const int defaultAiWebFetchMaxRedirects = 5;
+  static const int minAiWebFetchMaxRedirects = 0;
+  static const int maxAiWebFetchMaxRedirects = 50;
+
+  static const int defaultAiWebFetchMaxCacheEntries = 64;
+  static const int minAiWebFetchMaxCacheEntries = 0;
+  static const int maxAiWebFetchMaxCacheEntries = 4096;
+
+  static const int defaultAiAttachmentMaxInlineImageDimension = 1568;
+  static const int minAiAttachmentMaxInlineImageDimension = 64;
+  static const int maxAiAttachmentMaxInlineImageDimension = 16384;
+
+  static const int defaultAiAttachmentMaxTextRawBytes = 2 * 1024 * 1024;
+  static const int minAiAttachmentMaxTextRawBytes = 1024;
+  static const int maxAiAttachmentMaxTextRawBytes = 256 * 1024 * 1024;
+
+  static const int defaultAiAttachmentMaxPdfRawBytes = 2 * 1024 * 1024;
+  static const int minAiAttachmentMaxPdfRawBytes = 1024;
+  static const int maxAiAttachmentMaxPdfRawBytes = 256 * 1024 * 1024;
+
+  static const int defaultAiAttachmentMaxImageRawBytes = 50 * 1024 * 1024;
+  static const int minAiAttachmentMaxImageRawBytes = 64 * 1024;
+  static const int maxAiAttachmentMaxImageRawBytes = 1024 * 1024 * 1024;
+
+  static const int defaultAiChatMaxStreamLineBufferBytes = 4 * 1024 * 1024;
+  static const int minAiChatMaxStreamLineBufferBytes = 4 * 1024;
+  static const int maxAiChatMaxStreamLineBufferBytes = 1024 * 1024 * 1024;
+
   /// Default per-image attachment size cap (1 MiB).
   ///
   /// When a user attaches an image larger than this threshold, the attachment
@@ -302,6 +352,14 @@ class AppSettingsSnapshot {
   final int aiWriteConfirmationTimeoutMs;
   final int aiFastPathWriteAnalysisThreshold;
   final int aiMaxHookTextCharacters;
+  final int aiWebFetchMaxResponseBytes;
+  final int aiWebFetchMaxRedirects;
+  final int aiWebFetchMaxCacheEntries;
+  final int aiAttachmentMaxInlineImageDimension;
+  final int aiAttachmentMaxTextRawBytes;
+  final int aiAttachmentMaxPdfRawBytes;
+  final int aiAttachmentMaxImageRawBytes;
+  final int aiChatMaxStreamLineBufferBytes;
   final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -384,6 +442,14 @@ class AppSettingsSnapshot {
     int? aiWriteConfirmationTimeoutMs,
     int? aiFastPathWriteAnalysisThreshold,
     int? aiMaxHookTextCharacters,
+    int? aiWebFetchMaxResponseBytes,
+    int? aiWebFetchMaxRedirects,
+    int? aiWebFetchMaxCacheEntries,
+    int? aiAttachmentMaxInlineImageDimension,
+    int? aiAttachmentMaxTextRawBytes,
+    int? aiAttachmentMaxPdfRawBytes,
+    int? aiAttachmentMaxImageRawBytes,
+    int? aiChatMaxStreamLineBufferBytes,
     int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -463,6 +529,23 @@ class AppSettingsSnapshot {
           this.aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters:
           aiMaxHookTextCharacters ?? this.aiMaxHookTextCharacters,
+      aiWebFetchMaxResponseBytes:
+          aiWebFetchMaxResponseBytes ?? this.aiWebFetchMaxResponseBytes,
+      aiWebFetchMaxRedirects:
+          aiWebFetchMaxRedirects ?? this.aiWebFetchMaxRedirects,
+      aiWebFetchMaxCacheEntries:
+          aiWebFetchMaxCacheEntries ?? this.aiWebFetchMaxCacheEntries,
+      aiAttachmentMaxInlineImageDimension:
+          aiAttachmentMaxInlineImageDimension ??
+          this.aiAttachmentMaxInlineImageDimension,
+      aiAttachmentMaxTextRawBytes:
+          aiAttachmentMaxTextRawBytes ?? this.aiAttachmentMaxTextRawBytes,
+      aiAttachmentMaxPdfRawBytes:
+          aiAttachmentMaxPdfRawBytes ?? this.aiAttachmentMaxPdfRawBytes,
+      aiAttachmentMaxImageRawBytes:
+          aiAttachmentMaxImageRawBytes ?? this.aiAttachmentMaxImageRawBytes,
+      aiChatMaxStreamLineBufferBytes:
+          aiChatMaxStreamLineBufferBytes ?? this.aiChatMaxStreamLineBufferBytes,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:

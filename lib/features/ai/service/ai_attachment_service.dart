@@ -29,13 +29,13 @@ class AiAttachmentService {
   static const int maxAttachmentPromptCharactersPerFile = 8000;
   static const int maxAttachmentPromptCharactersPerMessage = 32000;
   static const int _minAttachmentPromptCharactersPerFile = 512;
-  static const int _maxInlineImageDimension = 1568;
-  static const int _maxTextRawBytes = 2 * 1024 * 1024;
+  int maxInlineImageDimension = 1568;
+  int maxTextRawBytes = 2 * 1024 * 1024;
   static const int _maxSpreadsheetSheets = 3;
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * 1024 * 1024;
   static const int _maxZipEntryBytes = 4 * 1024 * 1024;
-  static const int _maxPdfRawBytes = 2 * 1024 * 1024;
+  int maxPdfRawBytes = 2 * 1024 * 1024;
 
   final String _attachmentsDirectoryPath;
   final String Function(String sessionId)? _perSessionAttachmentsDirectoryPath;
@@ -297,7 +297,7 @@ class AiAttachmentService {
     };
   }
 
-  static const int _maxImageRawBytes = 50 * 1024 * 1024;
+  int maxImageRawBytes = 50 * 1024 * 1024;
 
   Future<AiMessageAttachment> _importImageAttachment({
     required File sourceFile,
@@ -310,10 +310,10 @@ class AiAttachmentService {
     int? imageSizeLimitBytes,
   }) async {
     final fileStat = await sourceFile.stat();
-    if (fileStat.size > _maxImageRawBytes) {
+    if (fileStat.size > maxImageRawBytes) {
       throw AiAttachmentException(
         'Image file is too large (${aiFormatBytes(fileStat.size)}). '
-        'Maximum supported size is ${aiFormatBytes(_maxImageRawBytes)}.',
+        'Maximum supported size is ${aiFormatBytes(maxImageRawBytes)}.',
       );
     }
     final extension = p.extension(sourceName).toLowerCase();
@@ -605,13 +605,13 @@ class AiAttachmentService {
 
   img.Image _resizeImageIfNeeded(img.Image source) {
     final maxSide = math.max(source.width, source.height);
-    if (maxSide <= _maxInlineImageDimension) {
+    if (maxSide <= maxInlineImageDimension) {
       return source;
     }
     if (source.width >= source.height) {
-      return img.copyResize(source, width: _maxInlineImageDimension);
+      return img.copyResize(source, width: maxInlineImageDimension);
     }
-    return img.copyResize(source, height: _maxInlineImageDimension);
+    return img.copyResize(source, height: maxInlineImageDimension);
   }
 
   Future<File> _copyFile({
@@ -665,7 +665,7 @@ class AiAttachmentService {
 
   Future<String> _readTextFile(File file, {required int characterLimit}) async {
     final fileLength = await file.length();
-    final readLength = math.min(fileLength, _maxTextRawBytes);
+    final readLength = math.min(fileLength, maxTextRawBytes);
     final raf = await file.open();
     try {
       final bytes = await raf.read(readLength);
@@ -697,7 +697,7 @@ class AiAttachmentService {
 
   Future<String> _readPdfPreview(File file, int characterLimit) async {
     final fileLength = await file.length();
-    final readLength = math.min(fileLength, _maxPdfRawBytes);
+    final readLength = math.min(fileLength, maxPdfRawBytes);
     final raf = await file.open();
     try {
       final bytes = await raf.read(readLength);

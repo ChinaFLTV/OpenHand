@@ -172,6 +172,14 @@ class SettingsStore {
       'ai_write_confirmation_timeout_ms': snapshot.aiWriteConfirmationTimeoutMs,
       'ai_fast_path_write_analysis_threshold': snapshot.aiFastPathWriteAnalysisThreshold,
       'ai_max_hook_text_characters': snapshot.aiMaxHookTextCharacters,
+      'ai_web_fetch_max_response_bytes': snapshot.aiWebFetchMaxResponseBytes,
+      'ai_web_fetch_max_redirects': snapshot.aiWebFetchMaxRedirects,
+      'ai_web_fetch_max_cache_entries': snapshot.aiWebFetchMaxCacheEntries,
+      'ai_attachment_max_inline_image_dimension': snapshot.aiAttachmentMaxInlineImageDimension,
+      'ai_attachment_max_text_raw_bytes': snapshot.aiAttachmentMaxTextRawBytes,
+      'ai_attachment_max_pdf_raw_bytes': snapshot.aiAttachmentMaxPdfRawBytes,
+      'ai_attachment_max_image_raw_bytes': snapshot.aiAttachmentMaxImageRawBytes,
+      'ai_chat_max_stream_line_buffer_bytes': snapshot.aiChatMaxStreamLineBufferBytes,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -407,6 +415,54 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiMaxHookTextCharacters,
           )
         : AppSettingsSnapshot.defaultAiMaxHookTextCharacters;
+    final aiWebFetchMaxResponseBytes = json['ai_web_fetch_max_response_bytes'] is int
+        ? (json['ai_web_fetch_max_response_bytes'] as int).clamp(
+            AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
+            AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
+          )
+        : AppSettingsSnapshot.defaultAiWebFetchMaxResponseBytes;
+    final aiWebFetchMaxRedirects = json['ai_web_fetch_max_redirects'] is int
+        ? (json['ai_web_fetch_max_redirects'] as int).clamp(
+            AppSettingsSnapshot.minAiWebFetchMaxRedirects,
+            AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
+          )
+        : AppSettingsSnapshot.defaultAiWebFetchMaxRedirects;
+    final aiWebFetchMaxCacheEntries = json['ai_web_fetch_max_cache_entries'] is int
+        ? (json['ai_web_fetch_max_cache_entries'] as int).clamp(
+            AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
+            AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
+          )
+        : AppSettingsSnapshot.defaultAiWebFetchMaxCacheEntries;
+    final aiAttachmentMaxInlineImageDimension = json['ai_attachment_max_inline_image_dimension'] is int
+        ? (json['ai_attachment_max_inline_image_dimension'] as int).clamp(
+            AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
+            AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
+          )
+        : AppSettingsSnapshot.defaultAiAttachmentMaxInlineImageDimension;
+    final aiAttachmentMaxTextRawBytes = json['ai_attachment_max_text_raw_bytes'] is int
+        ? (json['ai_attachment_max_text_raw_bytes'] as int).clamp(
+            AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
+            AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
+          )
+        : AppSettingsSnapshot.defaultAiAttachmentMaxTextRawBytes;
+    final aiAttachmentMaxPdfRawBytes = json['ai_attachment_max_pdf_raw_bytes'] is int
+        ? (json['ai_attachment_max_pdf_raw_bytes'] as int).clamp(
+            AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
+            AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
+          )
+        : AppSettingsSnapshot.defaultAiAttachmentMaxPdfRawBytes;
+    final aiAttachmentMaxImageRawBytes = json['ai_attachment_max_image_raw_bytes'] is int
+        ? (json['ai_attachment_max_image_raw_bytes'] as int).clamp(
+            AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
+            AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
+          )
+        : AppSettingsSnapshot.defaultAiAttachmentMaxImageRawBytes;
+    final aiChatMaxStreamLineBufferBytes = json['ai_chat_max_stream_line_buffer_bytes'] is int
+        ? (json['ai_chat_max_stream_line_buffer_bytes'] as int).clamp(
+            AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
+            AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
+          )
+        : AppSettingsSnapshot.defaultAiChatMaxStreamLineBufferBytes;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
     final aiImageSizeLimitBytes =
         (rawImageSizeLimit is int && rawImageSizeLimit > 0)
@@ -774,6 +830,14 @@ class SettingsStore {
       aiWriteConfirmationTimeoutMs: aiWriteConfirmationTimeoutMs,
       aiFastPathWriteAnalysisThreshold: aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters: aiMaxHookTextCharacters,
+      aiWebFetchMaxResponseBytes: aiWebFetchMaxResponseBytes,
+      aiWebFetchMaxRedirects: aiWebFetchMaxRedirects,
+      aiWebFetchMaxCacheEntries: aiWebFetchMaxCacheEntries,
+      aiAttachmentMaxInlineImageDimension: aiAttachmentMaxInlineImageDimension,
+      aiAttachmentMaxTextRawBytes: aiAttachmentMaxTextRawBytes,
+      aiAttachmentMaxPdfRawBytes: aiAttachmentMaxPdfRawBytes,
+      aiAttachmentMaxImageRawBytes: aiAttachmentMaxImageRawBytes,
+      aiChatMaxStreamLineBufferBytes: aiChatMaxStreamLineBufferBytes,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,

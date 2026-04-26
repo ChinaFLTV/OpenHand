@@ -35,6 +35,7 @@ import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
 import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
+import 'tools/ai_web_fetch_tool.dart';
 
 part '_ai_session_models.dart';
 part '_ai_session_utils.dart';
@@ -264,6 +265,32 @@ class AiSessionController extends ChangeNotifier {
     _bashToolService.fastPathWriteAnalysisThreshold =
         runtimeContext.fastPathWriteAnalysisThreshold;
     _hookService.maxHookTextCharacters = runtimeContext.maxHookTextCharacters;
+    // Group C: 网络与附件类参数。
+    _attachmentService.maxInlineImageDimension =
+        runtimeContext.attachmentMaxInlineImageDimension;
+    _attachmentService.maxTextRawBytes =
+        runtimeContext.attachmentMaxTextRawBytes;
+    _attachmentService.maxPdfRawBytes = runtimeContext.attachmentMaxPdfRawBytes;
+    _attachmentService.maxImageRawBytes =
+        runtimeContext.attachmentMaxImageRawBytes;
+    final chatClient = _chatClient;
+    if (chatClient is AiChatService) {
+      chatClient.maxStreamLineBufferBytes =
+          runtimeContext.chatMaxStreamLineBufferBytes;
+    }
+    final bgChatClient = _backgroundChatClient;
+    if (bgChatClient is AiChatService) {
+      bgChatClient.maxStreamLineBufferBytes =
+          runtimeContext.chatMaxStreamLineBufferBytes;
+    }
+    final webFetch = _toolRuntimeService.toolRegistry.getTool(
+      AiBuiltinToolKind.webFetch,
+    );
+    if (webFetch is AiWebFetchTool) {
+      webFetch.maxResponseBytes = runtimeContext.webFetchMaxResponseBytes;
+      webFetch.maxRedirects = runtimeContext.webFetchMaxRedirects;
+      webFetch.maxCacheEntries = runtimeContext.webFetchMaxCacheEntries;
+    }
   }
 
   int get _effectiveMaxRecentErrors =>

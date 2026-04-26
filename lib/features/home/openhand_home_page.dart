@@ -2595,6 +2595,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
+      webFetchMaxResponseBytes: settingsController.aiWebFetchMaxResponseBytes,
+      webFetchMaxRedirects: settingsController.aiWebFetchMaxRedirects,
+      webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,
+      attachmentMaxInlineImageDimension:
+          settingsController.aiAttachmentMaxInlineImageDimension,
+      attachmentMaxTextRawBytes:
+          settingsController.aiAttachmentMaxTextRawBytes,
+      attachmentMaxPdfRawBytes: settingsController.aiAttachmentMaxPdfRawBytes,
+      attachmentMaxImageRawBytes:
+          settingsController.aiAttachmentMaxImageRawBytes,
+      chatMaxStreamLineBufferBytes:
+          settingsController.aiChatMaxStreamLineBufferBytes,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:
@@ -2702,6 +2714,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.aiWriteConfirmationTimeoutMs,
       settingsController.aiFastPathWriteAnalysisThreshold,
       settingsController.aiMaxHookTextCharacters,
+      settingsController.aiWebFetchMaxResponseBytes,
+      settingsController.aiWebFetchMaxRedirects,
+      settingsController.aiWebFetchMaxCacheEntries,
+      settingsController.aiAttachmentMaxInlineImageDimension,
+      settingsController.aiAttachmentMaxTextRawBytes,
+      settingsController.aiAttachmentMaxPdfRawBytes,
+      settingsController.aiAttachmentMaxImageRawBytes,
+      settingsController.aiChatMaxStreamLineBufferBytes,
       settingsController.aiImageSizeLimitBytes,
       settingsController.memoryEnabled,
       settingsController.aiWriteCommandConfirmationEnabled,
@@ -2803,6 +2823,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       fastPathWriteAnalysisThreshold:
           settingsController.aiFastPathWriteAnalysisThreshold,
       maxHookTextCharacters: settingsController.aiMaxHookTextCharacters,
+      webFetchMaxResponseBytes: settingsController.aiWebFetchMaxResponseBytes,
+      webFetchMaxRedirects: settingsController.aiWebFetchMaxRedirects,
+      webFetchMaxCacheEntries: settingsController.aiWebFetchMaxCacheEntries,
+      attachmentMaxInlineImageDimension:
+          settingsController.aiAttachmentMaxInlineImageDimension,
+      attachmentMaxTextRawBytes:
+          settingsController.aiAttachmentMaxTextRawBytes,
+      attachmentMaxPdfRawBytes: settingsController.aiAttachmentMaxPdfRawBytes,
+      attachmentMaxImageRawBytes:
+          settingsController.aiAttachmentMaxImageRawBytes,
+      chatMaxStreamLineBufferBytes:
+          settingsController.aiChatMaxStreamLineBufferBytes,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
       memoryEnabled: settingsController.memoryEnabled,
       writeCommandConfirmationEnabled:

@@ -1466,6 +1466,146 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enter an integer between 100 and 1000000.';
 
   @override
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch Max Response Bytes';
+
+  @override
+  String get aiWebFetchMaxResponseBytesBody =>
+      'Defaults to 1048576 (1MB). Tune for your network or attachment needs.';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSave => 'Save';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSaved =>
+      'WebFetch Max Response Bytes saved.';
+
+  @override
+  String get aiWebFetchMaxResponseBytesInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch Max Redirects';
+
+  @override
+  String get aiWebFetchMaxRedirectsBody =>
+      'Defaults to 5. Tune for your network or attachment needs.';
+
+  @override
+  String get aiWebFetchMaxRedirectsSave => 'Save';
+
+  @override
+  String get aiWebFetchMaxRedirectsSaved => 'WebFetch Max Redirects saved.';
+
+  @override
+  String get aiWebFetchMaxRedirectsInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch Max Cache Entries';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesBody =>
+      'Defaults to 64. Tune for your network or attachment needs.';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSave => 'Save';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSaved =>
+      'WebFetch Max Cache Entries saved.';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionLabel =>
+      'Attachment Max Inline Image Dimension';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionBody =>
+      'Defaults to 1568. Tune for your network or attachment needs.';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSave => 'Save';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSaved =>
+      'Attachment Max Inline Image Dimension saved.';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionInvalid =>
+      'Enter a valid integer.';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesLabel =>
+      'Attachment Max Text Raw Bytes';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesBody =>
+      'Defaults to 2097152 (2MB). Tune for your network or attachment needs.';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSave => 'Save';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSaved =>
+      'Attachment Max Text Raw Bytes saved.';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesLabel => 'Attachment Max PDF Raw Bytes';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesBody =>
+      'Defaults to 2097152 (2MB). Tune for your network or attachment needs.';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSave => 'Save';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSaved =>
+      'Attachment Max PDF Raw Bytes saved.';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesLabel =>
+      'Attachment Max Image Raw Bytes';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesBody =>
+      'Defaults to 52428800 (50MB). Tune for your network or attachment needs.';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSave => 'Save';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSaved =>
+      'Attachment Max Image Raw Bytes saved.';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesLabel =>
+      'Chat Max Stream Line Buffer Bytes';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesBody =>
+      'Defaults to 4194304 (4MB). Tune for your network or attachment needs.';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSave => 'Save';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSaved =>
+      'Chat Max Stream Line Buffer Bytes saved.';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesInvalid => 'Enter a valid integer.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

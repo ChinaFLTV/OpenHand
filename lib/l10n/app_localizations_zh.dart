@@ -1386,6 +1386,132 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
 
   @override
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 单次响应字节上限';
+
+  @override
+  String get aiWebFetchMaxResponseBytesBody =>
+      '默认 1048576（1MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSave => '保存';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 单次响应字节上限已保存。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重定向次数';
+
+  @override
+  String get aiWebFetchMaxRedirectsBody => '默认 5。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxRedirectsSave => '保存';
+
+  @override
+  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重定向次数已保存。';
+
+  @override
+  String get aiWebFetchMaxRedirectsInvalid => '请输入有效整数。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 缓存条目上限';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesBody => '默认 64。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSave => '保存';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 缓存条目上限已保存。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionLabel => '附件图片最大边长（像素）';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionBody =>
+      '默认 1568。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSave => '保存';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSaved => '附件图片最大边长（像素）已保存。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesLabel => '附件文本读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesBody =>
+      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSaved => '附件文本读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesLabel => '附件 PDF 读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesBody =>
+      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSaved => '附件 PDF 读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesLabel => '附件图片读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesBody =>
+      '默认 52428800（50MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSaved => '附件图片读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesLabel => 'Chat 流缓冲字节上限';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesBody =>
+      '默认 4194304（4MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSave => '保存';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSaved => 'Chat 流缓冲字节上限已保存。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -2897,6 +3023,132 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiMaxHookTextCharactersInvalid => '请输入 100~1000000 之间的整数。';
 
   @override
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 单次响应字节上限';
+
+  @override
+  String get aiWebFetchMaxResponseBytesBody =>
+      '默认 1048576（1MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSave => '保存';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 单次响应字节上限已保存。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重定向次数';
+
+  @override
+  String get aiWebFetchMaxRedirectsBody => '默认 5。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxRedirectsSave => '保存';
+
+  @override
+  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重定向次数已保存。';
+
+  @override
+  String get aiWebFetchMaxRedirectsInvalid => '请输入有效整数。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 缓存条目上限';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesBody => '默认 64。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSave => '保存';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 缓存条目上限已保存。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionLabel => '附件图片最大边长（像素）';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionBody =>
+      '默认 1568。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSave => '保存';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSaved => '附件图片最大边长（像素）已保存。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesLabel => '附件文本读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesBody =>
+      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSaved => '附件文本读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesLabel => '附件 PDF 读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesBody =>
+      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSaved => '附件 PDF 读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesLabel => '附件图片读取上限（字节）';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesBody =>
+      '默认 52428800（50MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSave => '保存';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSaved => '附件图片读取上限（字节）已保存。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesInvalid => '请输入有效整数。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesLabel => 'Chat 流缓冲字节上限';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesBody =>
+      '默认 4194304（4MB）。调整以适配你的网络与附件需求。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSave => '保存';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSaved => 'Chat 流缓冲字节上限已保存。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -4405,6 +4657,132 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiMaxHookTextCharactersInvalid => '請輸入 100~1000000 之間的整數。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 單次回應位元組上限';
+
+  @override
+  String get aiWebFetchMaxResponseBytesBody =>
+      '默认 1048576（1MB）。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSave => '儲存';
+
+  @override
+  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 單次回應位元組上限已儲存。';
+
+  @override
+  String get aiWebFetchMaxResponseBytesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大重新導向次數';
+
+  @override
+  String get aiWebFetchMaxRedirectsBody => '默认 5。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiWebFetchMaxRedirectsSave => '儲存';
+
+  @override
+  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大重新導向次數已儲存。';
+
+  @override
+  String get aiWebFetchMaxRedirectsInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 快取條目上限';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesBody => '默认 64。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSave => '儲存';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 快取條目上限已儲存。';
+
+  @override
+  String get aiWebFetchMaxCacheEntriesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionLabel => '附件圖片最大邊長（像素）';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionBody =>
+      '默认 1568。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSave => '儲存';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionSaved => '附件圖片最大邊長（像素）已儲存。';
+
+  @override
+  String get aiAttachmentMaxInlineImageDimensionInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesLabel => '附件文字讀取上限（位元組）';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesBody =>
+      '默认 2097152（2MB）。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSave => '儲存';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesSaved => '附件文字讀取上限（位元組）已儲存。';
+
+  @override
+  String get aiAttachmentMaxTextRawBytesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesLabel => '附件 PDF 讀取上限（位元組）';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesBody =>
+      '默认 2097152（2MB）。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSave => '儲存';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesSaved => '附件 PDF 讀取上限（位元組）已儲存。';
+
+  @override
+  String get aiAttachmentMaxPdfRawBytesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesLabel => '附件圖片讀取上限（位元組）';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesBody =>
+      '默认 52428800（50MB）。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSave => '儲存';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesSaved => '附件圖片讀取上限（位元組）已儲存。';
+
+  @override
+  String get aiAttachmentMaxImageRawBytesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesLabel => 'Chat 串流緩衝位元組上限';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesBody =>
+      '默认 4194304（4MB）。調整以適配你的網路與附件需求。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSave => '儲存';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesSaved => 'Chat 串流緩衝位元組上限已儲存。';
+
+  @override
+  String get aiChatMaxStreamLineBufferBytesInvalid => '請輸入有效整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

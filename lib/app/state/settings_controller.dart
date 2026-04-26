@@ -67,6 +67,16 @@ class SettingsController extends ChangeNotifier {
        _aiFastPathWriteAnalysisThreshold =
            snapshot.aiFastPathWriteAnalysisThreshold,
        _aiMaxHookTextCharacters = snapshot.aiMaxHookTextCharacters,
+       _aiWebFetchMaxResponseBytes = snapshot.aiWebFetchMaxResponseBytes,
+       _aiWebFetchMaxRedirects = snapshot.aiWebFetchMaxRedirects,
+       _aiWebFetchMaxCacheEntries = snapshot.aiWebFetchMaxCacheEntries,
+       _aiAttachmentMaxInlineImageDimension =
+           snapshot.aiAttachmentMaxInlineImageDimension,
+       _aiAttachmentMaxTextRawBytes = snapshot.aiAttachmentMaxTextRawBytes,
+       _aiAttachmentMaxPdfRawBytes = snapshot.aiAttachmentMaxPdfRawBytes,
+       _aiAttachmentMaxImageRawBytes = snapshot.aiAttachmentMaxImageRawBytes,
+       _aiChatMaxStreamLineBufferBytes =
+           snapshot.aiChatMaxStreamLineBufferBytes,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -149,6 +159,14 @@ class SettingsController extends ChangeNotifier {
   int _aiWriteConfirmationTimeoutMs;
   int _aiFastPathWriteAnalysisThreshold;
   int _aiMaxHookTextCharacters;
+  int _aiWebFetchMaxResponseBytes;
+  int _aiWebFetchMaxRedirects;
+  int _aiWebFetchMaxCacheEntries;
+  int _aiAttachmentMaxInlineImageDimension;
+  int _aiAttachmentMaxTextRawBytes;
+  int _aiAttachmentMaxPdfRawBytes;
+  int _aiAttachmentMaxImageRawBytes;
+  int _aiChatMaxStreamLineBufferBytes;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
@@ -246,6 +264,15 @@ class SettingsController extends ChangeNotifier {
   int get aiWriteConfirmationTimeoutMs => _aiWriteConfirmationTimeoutMs;
   int get aiFastPathWriteAnalysisThreshold => _aiFastPathWriteAnalysisThreshold;
   int get aiMaxHookTextCharacters => _aiMaxHookTextCharacters;
+  int get aiWebFetchMaxResponseBytes => _aiWebFetchMaxResponseBytes;
+  int get aiWebFetchMaxRedirects => _aiWebFetchMaxRedirects;
+  int get aiWebFetchMaxCacheEntries => _aiWebFetchMaxCacheEntries;
+  int get aiAttachmentMaxInlineImageDimension =>
+      _aiAttachmentMaxInlineImageDimension;
+  int get aiAttachmentMaxTextRawBytes => _aiAttachmentMaxTextRawBytes;
+  int get aiAttachmentMaxPdfRawBytes => _aiAttachmentMaxPdfRawBytes;
+  int get aiAttachmentMaxImageRawBytes => _aiAttachmentMaxImageRawBytes;
+  int get aiChatMaxStreamLineBufferBytes => _aiChatMaxStreamLineBufferBytes;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
@@ -706,6 +733,118 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiMaxHookTextCharacters = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWebFetchMaxResponseBytes(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
+      AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
+    );
+    return _commitMutation(() {
+      if (_aiWebFetchMaxResponseBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWebFetchMaxResponseBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWebFetchMaxRedirects(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiWebFetchMaxRedirects,
+      AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
+    );
+    return _commitMutation(() {
+      if (_aiWebFetchMaxRedirects == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWebFetchMaxRedirects = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWebFetchMaxCacheEntries(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
+      AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
+    );
+    return _commitMutation(() {
+      if (_aiWebFetchMaxCacheEntries == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWebFetchMaxCacheEntries = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAttachmentMaxInlineImageDimension(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
+      AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
+    );
+    return _commitMutation(() {
+      if (_aiAttachmentMaxInlineImageDimension == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAttachmentMaxInlineImageDimension = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAttachmentMaxTextRawBytes(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
+      AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
+    );
+    return _commitMutation(() {
+      if (_aiAttachmentMaxTextRawBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAttachmentMaxTextRawBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAttachmentMaxPdfRawBytes(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
+      AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
+    );
+    return _commitMutation(() {
+      if (_aiAttachmentMaxPdfRawBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAttachmentMaxPdfRawBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiAttachmentMaxImageRawBytes(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
+      AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
+    );
+    return _commitMutation(() {
+      if (_aiAttachmentMaxImageRawBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiAttachmentMaxImageRawBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiChatMaxStreamLineBufferBytes(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
+      AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
+    );
+    return _commitMutation(() {
+      if (_aiChatMaxStreamLineBufferBytes == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiChatMaxStreamLineBufferBytes = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1425,6 +1564,15 @@ class SettingsController extends ChangeNotifier {
       aiWriteConfirmationTimeoutMs: _aiWriteConfirmationTimeoutMs,
       aiFastPathWriteAnalysisThreshold: _aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters: _aiMaxHookTextCharacters,
+      aiWebFetchMaxResponseBytes: _aiWebFetchMaxResponseBytes,
+      aiWebFetchMaxRedirects: _aiWebFetchMaxRedirects,
+      aiWebFetchMaxCacheEntries: _aiWebFetchMaxCacheEntries,
+      aiAttachmentMaxInlineImageDimension:
+          _aiAttachmentMaxInlineImageDimension,
+      aiAttachmentMaxTextRawBytes: _aiAttachmentMaxTextRawBytes,
+      aiAttachmentMaxPdfRawBytes: _aiAttachmentMaxPdfRawBytes,
+      aiAttachmentMaxImageRawBytes: _aiAttachmentMaxImageRawBytes,
+      aiChatMaxStreamLineBufferBytes: _aiChatMaxStreamLineBufferBytes,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
@@ -1494,6 +1642,14 @@ class SettingsController extends ChangeNotifier {
     _aiWriteConfirmationTimeoutMs = snapshot.aiWriteConfirmationTimeoutMs;
     _aiFastPathWriteAnalysisThreshold = snapshot.aiFastPathWriteAnalysisThreshold;
     _aiMaxHookTextCharacters = snapshot.aiMaxHookTextCharacters;
+    _aiWebFetchMaxResponseBytes = snapshot.aiWebFetchMaxResponseBytes;
+    _aiWebFetchMaxRedirects = snapshot.aiWebFetchMaxRedirects;
+    _aiWebFetchMaxCacheEntries = snapshot.aiWebFetchMaxCacheEntries;
+    _aiAttachmentMaxInlineImageDimension = snapshot.aiAttachmentMaxInlineImageDimension;
+    _aiAttachmentMaxTextRawBytes = snapshot.aiAttachmentMaxTextRawBytes;
+    _aiAttachmentMaxPdfRawBytes = snapshot.aiAttachmentMaxPdfRawBytes;
+    _aiAttachmentMaxImageRawBytes = snapshot.aiAttachmentMaxImageRawBytes;
+    _aiChatMaxStreamLineBufferBytes = snapshot.aiChatMaxStreamLineBufferBytes;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

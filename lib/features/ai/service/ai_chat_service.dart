@@ -196,7 +196,7 @@ class AiChatService implements AiChatClient {
   /// pending buffer instead of letting it grow without bound and OOM the
   /// process. 4 MiB is far above any realistic single-event size while
   /// remaining cheap to retain.
-  static const int _maxStreamLineBufferBytes = 4 * 1024 * 1024;
+  int maxStreamLineBufferBytes = 4 * 1024 * 1024;
 
   final http.Client _client;
   final AiImageGenerationService _imageService;
@@ -833,7 +833,7 @@ class AiChatService implements AiChatClient {
       // `\n\n` delimiter, the upstream is misbehaving (or sending a single
       // event larger than any practical SSE payload). Drop the pending
       // bytes so we don't keep growing memory while the connection idles.
-      if (lineBuffer.length > _maxStreamLineBufferBytes) {
+      if (lineBuffer.length > maxStreamLineBufferBytes) {
         _debugAiStreamLog(
           'model=${model.modelId} stream_line_buffer_overflow_dropped bytes=${lineBuffer.length}',
         );

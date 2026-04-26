@@ -28,9 +28,9 @@ class AiWebFetchTool extends AiTool {
 
   // Per-instance cache (15-minute TTL)
   static const Duration _cacheTtl = Duration(minutes: 15);
-  static const int _maxRedirects = 5;
-  static const int _maxResponseBytes = 1024 * 1024;
-  static const int _maxCacheEntries = 64;
+  int maxRedirects = 5;
+  int maxResponseBytes = 1024 * 1024;
+  int maxCacheEntries = 64;
   final Map<String, _CachedContent> _cache = {};
 
   @override
@@ -177,7 +177,7 @@ class AiWebFetchTool extends AiTool {
     final visitedUrls = <String>{};
     for (
       var redirectCount = 0;
-      redirectCount <= _maxRedirects;
+      redirectCount <= maxRedirects;
       redirectCount++
     ) {
       final visitKey = currentUri.toString();
@@ -287,12 +287,12 @@ class AiWebFetchTool extends AiTool {
     late final StreamSubscription<List<int>> subscription;
     subscription = response.stream.listen(
       (chunk) {
-        if (buffer.length + chunk.length > _maxResponseBytes) {
+        if (buffer.length + chunk.length > maxResponseBytes) {
           subscription.cancel().ignore();
           complete(
-            const _BodyReadResult(
+            _BodyReadResult(
               errorMessage:
-                  'WebFetch refused to download the response because it exceeded the $_maxResponseBytes-byte safety limit.',
+                  'WebFetch refused to download the response because it exceeded the $maxResponseBytes-byte safety limit.',
             ),
           );
           return;
@@ -340,10 +340,10 @@ class AiWebFetchTool extends AiTool {
   void _pruneCache() {
     _cache.removeWhere((_, v) => _isCacheExpired(v));
     // Evict oldest entries when the cache exceeds the size limit.
-    if (_cache.length > _maxCacheEntries) {
+    if (_cache.length > maxCacheEntries) {
       final sorted = _cache.entries.toList()
         ..sort((a, b) => a.value.fetchedAt.compareTo(b.value.fetchedAt));
-      final excess = sorted.length - _maxCacheEntries;
+      final excess = sorted.length - maxCacheEntries;
       for (var i = 0; i < excess; i++) {
         _cache.remove(sorted[i].key);
       }
