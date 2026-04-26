@@ -1,11 +1,18 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-/// An elegant, Material You inspired animated loading logo for OpenHand.
-/// Features a beautifully proportioned squircle background with pulsing,
-/// intersecting orbital rings and a color-shifting AI spark at its core.
+/// Animated loading badge built around the OpenHand bitmap LOGO.
+///
+/// The bitmap is the visual anchor; subtle motion is layered around it so
+/// the brand mark stays recognisable while still signalling "loading":
+///   * elastic entry scale
+///   * gentle breathing pulse on the LOGO itself
+///   * soft halo glow that breathes in sync with the pulse
+///   * two thin counter-rotating arcs orbiting the LOGO
 class OpenHandLoadingLogo extends StatefulWidget {
-  const OpenHandLoadingLogo({super.key});
+  const OpenHandLoadingLogo({super.key, this.size = 140});
+
+  final double size;
 
   @override
   State<OpenHandLoadingLogo> createState() => _OpenHandLoadingLogoState();
@@ -13,20 +20,20 @@ class OpenHandLoadingLogo extends StatefulWidget {
 
 class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _animController;
+  late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 3200),
     )..repeat();
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -36,78 +43,62 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Elegant Material You theming
-    final containerColor = colorScheme.surfaceContainerHigh;
-    final primaryColor = colorScheme.primary;
-    final tertiaryColor = colorScheme.tertiary;
+    final size = widget.size;
+    final logoSize = size * 0.66;
 
     return Center(
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0.85, end: 1.0),
         duration: const Duration(milliseconds: 1400),
         curve: Curves.elasticOut,
-        builder: (context, scale, child) {
-          return Transform.scale(scale: scale, child: child);
-        },
+        builder: (context, scale, child) =>
+            Transform.scale(scale: scale, child: child),
         child: SizedBox(
-          width: 140,
-          height: 140,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: containerColor,
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: colorScheme.shadow.withValues(
-                    alpha: isDark ? 0.4 : 0.08,
+          width: size,
+          height: size,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              final t = _controller.value;
+              final breath = (math.sin(t * math.pi * 2) + 1) / 2; // 0..1
+              final pulseScale = 0.96 + breath * 0.06;
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Soft breathing halo behind the logo.
+                  CustomPaint(
+                    size: Size(size, size),
+                    painter: _HaloPainter(
+                      breath: breath,
+                      color: colorScheme.primary.withValues(
+                        alpha: isDark ? 0.28 : 0.18,
+                      ),
+                    ),
                   ),
-                  blurRadius: 28,
-                  offset: const Offset(0, 12),
-                ),
-              ],
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Outer orbiting, breathing rings
-                AnimatedBuilder(
-                  animation: _animController,
-                  builder: (context, _) {
-                    final t = _animController.value;
-                    return CustomPaint(
-                      size: const Size(100, 100),
-                      painter: _AiRingsPainter(
-                        progress: t,
-                        color1: primaryColor.withValues(alpha: 0.6),
-                        color2: tertiaryColor.withValues(alpha: 0.6),
+                  // Counter-rotating orbital arcs.
+                  CustomPaint(
+                    size: Size(size * 0.92, size * 0.92),
+                    painter: _OrbitPainter(
+                      progress: t,
+                      color1: colorScheme.primary.withValues(alpha: 0.55),
+                      color2: colorScheme.tertiary.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  // The brand mark.
+                  Transform.scale(
+                    scale: pulseScale,
+                    child: SizedBox(
+                      width: logoSize,
+                      height: logoSize,
+                      child: Image.asset(
+                        'assets/branding/openhand_logo.png',
                       ),
-                    );
-                  },
-                ),
-                // Center AI Spark
-                AnimatedBuilder(
-                  animation: _animController,
-                  builder: (context, _) {
-                    // Smooth rocking rotation
-                    final rotation =
-                        math.sin(_animController.value * math.pi * 2) * 0.2;
-                    return Transform.rotate(
-                      angle: rotation,
-                      child: Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 42,
-                        color: Color.lerp(
-                          primaryColor,
-                          tertiaryColor,
-                          (math.sin(_animController.value * math.pi * 1) + 1) /
-                              2,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -115,8 +106,31 @@ class _OpenHandLoadingLogoState extends State<OpenHandLoadingLogo>
   }
 }
 
-class _AiRingsPainter extends CustomPainter {
-  _AiRingsPainter({
+class _HaloPainter extends CustomPainter {
+  _HaloPainter({required this.breath, required this.color});
+
+  final double breath;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 * (0.72 + breath * 0.10);
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color, color.withValues(alpha: 0)],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _HaloPainter old) =>
+      old.breath != breath || old.color != color;
+}
+
+class _OrbitPainter extends CustomPainter {
+  _OrbitPainter({
     required this.progress,
     required this.color1,
     required this.color2,
@@ -129,46 +143,42 @@ class _AiRingsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-
-    // Smooth breathing sine wave based on progress
     final breath = (math.sin(progress * math.pi * 2) + 1) / 2;
 
     final paint1 = Paint()
       ..color = color1
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
+      ..strokeWidth = 2.6
       ..strokeCap = StrokeCap.round;
 
     final paint2 = Paint()
       ..color = color2
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
+      ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round;
 
-    // Inner orbiting arc
-    final innerR = size.width * 0.28 + (breath * 6);
+    final innerR = size.width * 0.46 + breath * 3;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: innerR),
-      progress * 2 * math.pi, // Rotates clockwise
-      math.pi * 1.2,
+      progress * 2 * math.pi,
+      math.pi * 0.9,
       false,
       paint1,
     );
 
-    // Outer orbiting arc
-    final outerR = size.width * 0.42 - (breath * 6);
+    final outerR = size.width * 0.50 - breath * 2;
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: outerR),
-      -progress * 2 * math.pi, // Rotates counter-clockwise
-      math.pi * 0.9,
+      -progress * 2 * math.pi + math.pi / 3,
+      math.pi * 0.7,
       false,
       paint2,
     );
   }
 
   @override
-  bool shouldRepaint(covariant _AiRingsPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
-      oldDelegate.color1 != color1 ||
-      oldDelegate.color2 != color2;
+  bool shouldRepaint(covariant _OrbitPainter old) =>
+      old.progress != progress ||
+      old.color1 != color1 ||
+      old.color2 != color2;
 }

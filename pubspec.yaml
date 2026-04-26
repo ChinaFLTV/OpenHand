@@ -42,6 +42,7 @@ flutter:
   generate: true
   assets:
     - assets/prompts/
+    - assets/branding/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:
