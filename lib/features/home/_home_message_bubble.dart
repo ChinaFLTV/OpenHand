@@ -1417,6 +1417,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   AspectRatio(
                     aspectRatio: 16 / 9,
@@ -1541,6 +1542,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.start,
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: textColor,
                             fontWeight: FontWeight.w700,
@@ -1551,6 +1553,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                           detail,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.start,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: textColor.withValues(alpha: 0.7),
                           ),
@@ -1605,6 +1608,9 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   // off the resume position when the user enters / exits fullscreen so
   // both views never play simultaneously and the audio never overlaps.
   double _currentTime = 0;
+  // Owns the keyboard focus so spacebar / Esc keystrokes hit the dialog
+  // even before the user clicks into the WebView surface.
+  final FocusNode _dialogFocus = FocusNode(debugLabel: 'media-preview');
 
   @override
   void initState() {
@@ -1648,6 +1654,24 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
         );
       });
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _dialogFocus.requestFocus();
+    });
+  }
+
+  Future<void> _togglePlayPause() async {
+    try {
+      await _controller.runJavaScript(
+        "try{var m=window.media||document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'media preview: toggle play/pause failed',
+        error,
+        stack,
+      );
+    }
   }
 
   // For local `file://` media we must write the HTML wrapper next to the
@@ -1696,6 +1720,14 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       pending.complete();
     }
     _saveCancel = null;
+    // Stop any audio playback so closing the dialog never leaves a
+    // ghost track playing while the WebView tears down.
+    unawaited(
+      _controller.runJavaScript(
+        "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
+      ).catchError((_) {}),
+    );
+    _dialogFocus.dispose();
     final tempPath = _tempHtmlPath;
     if (tempPath != null) {
       // Best-effort cleanup; ignore failures (file may already be gone).
@@ -1819,7 +1851,23 @@ $mediaTag
     final mediaHeight = isVideo
         ? MediaQuery.sizeOf(context).height * 0.68
         : 126.0;
-    return Dialog(
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _MediaPlayPauseIntent: CallbackAction<_MediaPlayPauseIntent>(
+            onInvoke: (_) {
+              _togglePlayPause();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          focusNode: _dialogFocus,
+          autofocus: true,
+          child: Dialog(
       insetPadding: const EdgeInsets.all(24),
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1930,6 +1978,9 @@ $mediaTag
               ),
             ),
           ],
+        ),
+      ),
+          ),
         ),
       ),
     );
@@ -2782,8 +2833,8 @@ class _VideoThumbnailCaptureHostState
     // sure the decoder actually produces frames before drawImage runs;
     // muted preload="auto" alone is not enough on macOS WKWebView.
     return '''
-<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%}video,canvas{position:absolute;left:-99999px;top:-99999px}</style></head><body>
-<video id="v" muted autoplay playsinline preload="auto"><source src="$src" type="$mime"></video>
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{position:fixed;left:0;top:0;width:32px;height:32px;opacity:0.01;pointer-events:none}canvas{display:none}</style></head><body>
+<video id="v" muted autoplay playsinline preload="auto" disableRemotePlayback><source src="$src" type="$mime"></video>
 <canvas id="c"></canvas>
 <script>(function(){
 var v=document.getElementById('v');var c=document.getElementById('c');
@@ -2812,15 +2863,36 @@ function tryCapture(reason){
   }
 }
 function safeSeek(t){try{v.currentTime=t;}catch(_){}}
+function armRVFC(){
+  if(captured)return;
+  if(typeof v.requestVideoFrameCallback==='function'){
+    try{v.requestVideoFrameCallback(function(){tryCapture('rvfc');if(!captured){v.requestVideoFrameCallback(function(){tryCapture('rvfc2');});}});}catch(_){}}
+}
 v.addEventListener('loadedmetadata',function(){
   // Kick off decode; some macOS WKWebView builds do not produce frames
   // until play() is called even with preload=auto.
-  var p=v.play();
-  if(p&&p.then)p.then(function(){setTimeout(function(){try{v.pause();}catch(_){}; safeSeek(Math.min(0.1,(v.duration||0)));},120);}).catch(function(){safeSeek(Math.min(0.1,(v.duration||0)));});
-  else safeSeek(Math.min(0.1,(v.duration||0)));
+  armRVFC();
+  var p;
+  try{v.muted=true;v.volume=0;p=v.play();}catch(_){p=null;}
+  if(p&&p.then){
+    p.then(function(){
+      // Let the decoder produce 1-2 frames, then pause and snap.
+      setTimeout(function(){
+        tryCapture('after_play');
+        try{v.pause();}catch(_){};
+        safeSeek(Math.min(0.05,(v.duration||0)));
+      },180);
+    }).catch(function(){
+      // Autoplay blocked or play() rejected; seek manually and rely on
+      // the seeked / canplay / poll fallbacks.
+      safeSeek(Math.min(0.05,(v.duration||0)));
+    });
+  }else{
+    safeSeek(Math.min(0.05,(v.duration||0)));
+  }
 });
 v.addEventListener('seeked',function(){tryCapture('seeked');});
-v.addEventListener('canplay',function(){tryCapture('canplay');});
+v.addEventListener('canplay',function(){armRVFC();tryCapture('canplay');});
 v.addEventListener('canplaythrough',function(){tryCapture('canplaythrough');});
 // Repeated polling fallback in case neither seeked nor canplay produces a
 // painted frame (rare but seen on some H.265 sources under WKWebView).
@@ -2831,7 +2903,7 @@ var poll=setInterval(function(){
   tryCapture('poll'+attempts);
 },250);
 v.addEventListener('error',function(){post('error:video_load');});
-setTimeout(function(){if(!captured){clearInterval(poll);post('error:timeout');}},12000);
+setTimeout(function(){if(!captured){clearInterval(poll);post('error:timeout');}},14000);
 })();</script>
 </body></html>
 ''';
@@ -2841,13 +2913,21 @@ setTimeout(function(){if(!captured){clearInterval(poll);post('error:timeout');}}
   Widget build(BuildContext context) {
     final ctrl = _controller;
     if (ctrl == null) return const SizedBox.shrink();
-    // Tiny visible footprint so the platform view actually paints (some
-    // platform-view embedders skip 0x0 hosts), but offstage so it never
-    // affects layout or hit-testing.
+    // The host MUST have a non-zero, non-occluded footprint so the
+    // platform view is actually painted by the compositor — without that
+    // WKWebView on macOS will not run the video decoder, and the canvas
+    // capture stays empty (the symptom users see as a permanently black
+    // thumbnail). 32×32 at opacity 0.01 is invisible in practice yet
+    // keeps the platform view "live" until the first frame is grabbed.
     return SizedBox(
-      width: 1,
-      height: 1,
-      child: Opacity(opacity: 0, child: WebViewWidget(controller: ctrl)),
+      width: 32,
+      height: 32,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.01,
+          child: WebViewWidget(controller: ctrl),
+        ),
+      ),
     );
   }
 }
@@ -2989,11 +3069,54 @@ v.addEventListener('seeked',sendTime);
 
   void _exit() {
     if (!mounted) return;
+    // Stop playback synchronously-as-possible so the user does not hear
+    // residual audio while the route pops. We fire the JS pause first,
+    // then pop — the controller is still attached at this point.
+    _stopPlaybackBestEffort();
     Navigator.of(context).maybePop<double>(_currentTime);
+  }
+
+  Future<void> _togglePlayPause() async {
+    try {
+      await _controller.runJavaScript(
+        "try{var m=document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'fullscreen video: toggle play/pause failed',
+        error,
+        stack,
+      );
+    }
+  }
+
+  Future<void> _stopPlaybackBestEffort() async {
+    try {
+      // Pause + clear the source so WKWebView releases the decoder. Just
+      // calling pause() sometimes leaves a pending audio frame queued on
+      // macOS; removing the source forces a full teardown.
+      await _controller.runJavaScript(
+        "try{var m=document.getElementById('media');if(m){try{m.pause();}catch(_){};try{m.muted=true;}catch(_){};try{m.removeAttribute('src');}catch(_){};try{while(m.firstChild)m.removeChild(m.firstChild);}catch(_){};try{m.load();}catch(_){};}}catch(_){}",
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'fullscreen video: stop playback failed',
+        error,
+        stack,
+      );
+    }
   }
 
   @override
   void dispose() {
+    // Last-chance teardown in case the route was popped via a path that
+    // bypassed `_exit` (e.g. a system gesture or programmatic Navigator
+    // call). `runJavaScript` is fire-and-forget here; the controller may
+    // already be in the process of disposal but this still helps with
+    // the WKWebView audio-leak window observed on macOS.
+    unawaited(_stopPlaybackBestEffort());
     _focusNode.dispose();
     final tmp = _tempHtmlPath;
     if (tmp != null) {
@@ -3019,12 +3142,19 @@ v.addEventListener('seeked',sendTime);
     return Shortcuts(
         shortcuts: const <ShortcutActivator, Intent>{
           SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+          SingleActivator(LogicalKeyboardKey.space): _MediaPlayPauseIntent(),
         },
         child: Actions(
           actions: <Type, Action<Intent>>{
             DismissIntent: CallbackAction<DismissIntent>(
               onInvoke: (_) {
                 _exit();
+                return null;
+              },
+            ),
+            _MediaPlayPauseIntent: CallbackAction<_MediaPlayPauseIntent>(
+              onInvoke: (_) {
+                _togglePlayPause();
                 return null;
               },
             ),
@@ -3172,4 +3302,10 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
       ),
     );
   }
+}
+
+/// Intent fired by the spacebar shortcut on the media preview / fullscreen
+/// routes. Toggles play/pause on the embedded `<video>`/`<audio>` element.
+class _MediaPlayPauseIntent extends Intent {
+  const _MediaPlayPauseIntent();
 }
