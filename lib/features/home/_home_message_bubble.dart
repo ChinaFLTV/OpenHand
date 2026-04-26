@@ -1361,6 +1361,10 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   // partial file instead of writing into a destination the user is no
   // longer watching.
   Completer<void>? _saveCancel;
+  // Path to a temp HTML wrapper written next to a local media file so
+  // WKWebView can load `file://` resources (it refuses to do so when the
+  // page itself was loaded via `loadHtmlString`/`about:blank`).
+  String? _tempHtmlPath;
 
   @override
   void initState() {
@@ -1384,8 +1388,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
             });
           },
         ),
-      )
-      ..loadHtmlString(_buildMediaHtml());
+      );
     // `setBackgroundColor` on macOS bridges to `WKWebView.setOpaque`, which
     // is unimplemented in the wkwebview plugin and throws
     // `UnimplementedError: opaque is not implemented on macOS`. Skip the
@@ -1394,6 +1397,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     if (!Platform.isMacOS) {
       _controller.setBackgroundColor(Colors.transparent);
     }
+    _bootstrapMediaPage();
     _loadTimeoutTimer = Timer(_mediaLoadTimeout, () {
       if (!mounted || _mediaReady) return;
       setState(() {
@@ -1406,6 +1410,43 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     });
   }
 
+  // For local `file://` media we must write the HTML wrapper next to the
+  // video so WKWebView can grant `file://` read access to the parent
+  // directory via `loadFileURL:allowingReadAccessToURL:`. Loading the same
+  // HTML via `loadHtmlString` works on Android/iOS Safari but WKWebView on
+  // macOS silently refuses to fetch the `<source src="file://...">` entry,
+  // resulting in the existing 18s timeout fallback.
+  Future<void> _bootstrapMediaPage() async {
+    final localPath = widget.source.filePath;
+    if (localPath != null && File(localPath).existsSync()) {
+      try {
+        final dir = p.dirname(localPath);
+        final tempName =
+            '.openhand_media_player_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
+        final tempFile = File(p.join(dir, tempName));
+        await tempFile.writeAsString(_buildMediaHtml(localOverride: localPath));
+        if (!mounted) {
+          await tempFile.delete().catchError((_) => tempFile);
+          return;
+        }
+        _tempHtmlPath = tempFile.path;
+        await _controller.loadFile(tempFile.path);
+        return;
+      } catch (error, stack) {
+        silentLog(
+          'home_message_bubble',
+          'media preview: loadFile fallback failed',
+          error,
+          stack,
+        );
+        // Fall through to loadHtmlString — worst case the user still sees
+        // the timeout fallback and can use the system player button.
+      }
+    }
+    if (!mounted) return;
+    await _controller.loadHtmlString(_buildMediaHtml());
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -1415,6 +1456,23 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       pending.complete();
     }
     _saveCancel = null;
+    final tempPath = _tempHtmlPath;
+    if (tempPath != null) {
+      // Best-effort cleanup; ignore failures (file may already be gone).
+      Future<void>(() async {
+        try {
+          final f = File(tempPath);
+          if (await f.exists()) await f.delete();
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            'media preview: temp html cleanup failed',
+            error,
+            stack,
+          );
+        }
+      });
+    }
     super.dispose();
   }
 
@@ -1436,10 +1494,13 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     }
   }
 
-  String _buildMediaHtml() {
+  String _buildMediaHtml({String? localOverride}) {
+    final rawSource = localOverride != null
+        ? Uri.file(localOverride).toString()
+        : widget.source.uri.toString();
     final source = const HtmlEscape(
       HtmlEscapeMode.attribute,
-    ).convert(widget.source.uri.toString());
+    ).convert(rawSource);
     final isVideo = widget.source.kind == _GeneratedMessageMediaKind.video;
     final mimeType = _mimeTypeForGeneratedMedia(widget.source);
     final escapedMime = const HtmlEscape(
@@ -1614,6 +1675,15 @@ $mediaTag
   Future<void> _saveMediaAs(BuildContext context) async {
     if (_isSaving) return;
     _isSaving = true;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    void showSnack(String zh, String en) {
+      if (messenger == null) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text(_localizedText(context, zh: zh, en: en))),
+      );
+    }
+
     try {
       final basename = _suggestedSaveName();
       final ext = _normalizeMediaSaveExtension(
@@ -1633,6 +1703,7 @@ $mediaTag
         ],
       );
       if (location == null) return;
+      showSnack('正在保存…', 'Saving…');
       final filePath = widget.source.filePath;
       if (filePath != null) {
         final source = File(filePath);
@@ -1640,6 +1711,7 @@ $mediaTag
           throw FileSystemException('Media source file is missing.', filePath);
         }
         await source.copy(location.path);
+        showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
         return;
       }
       final cancel = Completer<void>();
@@ -1650,24 +1722,17 @@ $mediaTag
           location.path,
           cancelSignal: cancel.future,
         );
+        showSnack('已保存到：${location.path}', 'Saved to: ${location.path}');
       } finally {
         if (identical(_saveCancel, cancel)) _saveCancel = null;
       }
     } on _MediaDownloadCancelled {
-      // User dismissed the dialog mid-download; treat as a no-op.
+      showSnack('已取消保存。', 'Save cancelled.');
+    } on TimeoutException catch (error) {
+      showSnack('保存超时：${error.message ?? ''}',
+          'Save timed out: ${error.message ?? ''}');
     } catch (error) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _localizedText(
-              context,
-              zh: '保存失败：$error',
-              en: 'Save failed: $error',
-            ),
-          ),
-        ),
-      );
+      showSnack('保存失败：$error', 'Save failed: $error');
     } finally {
       if (!_disposed) _isSaving = false;
     }
