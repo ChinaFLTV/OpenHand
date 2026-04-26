@@ -692,7 +692,10 @@ class AiModelCatalog {
         capabilities: _videoGen,
       );
     }
-    if (id.startsWith('qwen-tts') || id.contains('cosyvoice')) {
+    if (id.startsWith('qwen-tts') ||
+        id.startsWith('qwen3-tts') ||
+        id.startsWith('qwen2-tts') ||
+        id.contains('cosyvoice')) {
       return _p(
         name: 'Qwen Audio',
         desc: 'Audio generation',
@@ -1004,6 +1007,13 @@ class AiModelCatalog {
         name: 'CogVideoX',
         desc: 'Video generation',
         capabilities: _videoGen,
+      );
+    }
+    if (id.startsWith('cogtts') || id.startsWith('cogsound')) {
+      return _p(
+        name: 'CogTTS',
+        desc: 'Audio generation',
+        capabilities: _audioGen,
       );
     }
 
@@ -1600,7 +1610,10 @@ class AiModelCatalog {
         capabilities: _videoGen,
       );
     }
-    if (id.contains('speech') || id.contains('audio') || id.contains('music')) {
+    if (id.contains('speech') ||
+        id.contains('audio') ||
+        id.contains('music') ||
+        id.startsWith('t2a')) {
       return _p(
         name: 'MiniMax Audio',
         desc: 'Audio generation model',
