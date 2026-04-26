@@ -408,6 +408,70 @@ void main() {
       },
     );
 
+    test(
+      'downloads Sora-style /v1/videos/{id}/content after polling completes',
+      () async {
+        var pollHits = 0;
+        final calls = <String>[];
+        final service = AiImageGenerationService(
+          client: MockClient((request) async {
+            calls.add('${request.method} ${request.url.path}');
+            if (request.method == 'POST' && request.url.path == '/v1/videos') {
+              return http.Response(
+                jsonEncode({'id': 'video_abc123', 'status': 'queued'}),
+                200,
+                headers: const {'content-type': 'application/json'},
+              );
+            }
+            if (request.method == 'GET' &&
+                request.url.path == '/v1/videos/video_abc123') {
+              pollHits += 1;
+              return http.Response(
+                jsonEncode({
+                  'id': 'video_abc123',
+                  'status': pollHits >= 1 ? 'completed' : 'queued',
+                }),
+                200,
+                headers: const {'content-type': 'application/json'},
+              );
+            }
+            if (request.method == 'GET' &&
+                request.url.path == '/v1/videos/video_abc123/content') {
+              return http.Response.bytes(
+                List<int>.filled(1024, 0x42),
+                200,
+                headers: const {'content-type': 'video/mp4'},
+              );
+            }
+            return http.Response('not found', 404);
+          }),
+        );
+        const grokModel = AiModelConfig(
+          id: 'grok2api-video',
+          baseUrl: 'http://localhost:8000/v1/chat/completions',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'grok-imagine-video',
+          protocolType: AiProtocolType.grok,
+        );
+
+        final result = await service.generateVideo(
+          model: grokModel,
+          prompt: 'fox in a forest',
+          options: const AiCreationOptions(durationSeconds: 6),
+        );
+
+        // POST + at least one poll + content download must all be reached.
+        expect(calls, contains('POST /v1/videos'));
+        expect(calls, contains('GET /v1/videos/video_abc123'));
+        expect(calls, contains('GET /v1/videos/video_abc123/content'));
+        // Markdown should reference a local file:// link produced by
+        // _saveBinaryMediaBytes (suffix .mp4).
+        expect(result.markdown, contains('fox in a forest'));
+        expect(result.markdown, contains('.mp4'));
+      },
+    );
+
     test('routes MiniMax video to /v1/video_generation flat body', () async {
       late Uri requestUrl;
       late Map<String, Object?> requestBody;

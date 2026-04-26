@@ -1455,6 +1455,27 @@ class AiImageGenerationService {
         );
       }
       final status = _operationStatus(decoded);
+      // OpenAI Sora 2 and grok2api expose the finished mp4 only through
+      // `GET /v1/videos/{id}/content` (binary) — the polling JSON has no
+      // url/b64 field. When the task reports completion, fetch the content
+      // with the provider's auth headers and persist it locally.
+      if (kind.isVideo &&
+          (protocol == AiProtocolType.openai ||
+              protocol == AiProtocolType.grok) &&
+          _isTerminalSuccessStatus(status)) {
+        final contentMarkdown = await _downloadSoraStyleVideoContent(
+          operationUrl: operationUrl,
+          requestHeaders: requestHeaders,
+          effectiveTimeout: effectiveTimeout,
+          label: label,
+        );
+        if (contentMarkdown.isNotEmpty) {
+          return _PolledMediaResult(
+            markdown: contentMarkdown,
+            rawResponseBody: response.body,
+          );
+        }
+      }
       if (_isTerminalFailureStatus(status)) {
         throw AiMediaGenerationException(
           '${kind.displayName} generation failed: ${_extractError(response.body)}',
@@ -1463,6 +1484,54 @@ class AiImageGenerationService {
       }
     }
     return _PolledMediaResult(markdown: '', rawResponseBody: lastBody);
+  }
+
+  /// Sora 2 / grok2api expose the rendered mp4 only as a binary stream at
+  /// `{operationUrl}/content`. Fetches it with the provider's auth headers
+  /// and saves it locally so the downstream UI can play it via a `file://`
+  /// link without the user re-authenticating.
+  Future<String> _downloadSoraStyleVideoContent({
+    required String operationUrl,
+    required Map<String, String> requestHeaders,
+    required Duration effectiveTimeout,
+    required String label,
+  }) async {
+    final contentUri = Uri.parse(operationUrl).replace(
+      pathSegments: <String>[
+        ...Uri.parse(
+          operationUrl,
+        ).pathSegments.where((segment) => segment.isNotEmpty),
+        'content',
+      ],
+    );
+    final downloadHeaders = Map<String, String>.from(requestHeaders)
+      ..['accept'] = 'video/*, application/octet-stream;q=0.9';
+    // Allow a slightly larger budget for the binary download since the
+    // polling timeout is intentionally short.
+    final downloadTimeout = effectiveTimeout < const Duration(seconds: 30)
+        ? const Duration(seconds: 30)
+        : effectiveTimeout;
+    final response = await _client
+        .get(contentUri, headers: downloadHeaders)
+        .timeout(downloadTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw AiMediaGenerationException(
+        'HTTP ${response.statusCode} from /content: '
+        '${_extractError(response.body)}',
+        rawResponseBody: response.body,
+      );
+    }
+    if (response.bodyBytes.isEmpty) return '';
+    final mimeType = _responseContentType(response.headers);
+    final effectiveMime = mimeType.startsWith('video/')
+        ? mimeType
+        : 'video/mp4';
+    return _saveBinaryMediaBytes(
+      kind: _GeneratedMediaKind.video,
+      bytes: response.bodyBytes,
+      mimeType: effectiveMime,
+      label: label,
+    );
   }
 
   /// MiniMax video pipeline emits a `file_id` once the task completes; the
@@ -1701,6 +1770,17 @@ class AiImageGenerationService {
         status == 'error' ||
         status == 'cancelled' ||
         status == 'canceled';
+  }
+
+  /// Sora 2 reports `completed`; grok2api may also report `succeeded`/`done`.
+  bool _isTerminalSuccessStatus(String status) {
+    return status == 'completed' ||
+        status == 'complete' ||
+        status == 'succeeded' ||
+        status == 'success' ||
+        status == 'done' ||
+        status == 'finished' ||
+        status == 'ready';
   }
 
   Future<String> _saveBinaryMediaBytes({
