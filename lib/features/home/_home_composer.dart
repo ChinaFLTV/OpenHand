@@ -1123,14 +1123,36 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             height: widget.composerHeight,
             child: CompositedTransformTarget(
               link: _atMentionLayerLink,
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                expands: true,
-                maxLines: null,
-                textInputAction: TextInputAction.newline,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: InputDecoration(hintText: l10n.composerHint),
+              // 2026-04-26: Wrap the editable text in a Shortcuts/Actions
+              // pair driven by the global SettingsController bindings so
+              // that send-message and toggle-composer hotkeys (Ctrl+Enter
+              // and Ctrl+P by default) work *inside* the focused TextField.
+              //
+              // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
+              // to MoveSelectionUpTextIntent at the WidgetsApp level, which
+              // intercepts our HardwareKeyboard handler before it has a
+              // chance to fire (the symptom users reported was a brief
+              // border flash and nothing else).  Because Shortcuts widgets
+              // are walked from the focused node outward, declaring the
+              // bindings *here*, just above the EditableText, beats the
+              // global text-editing shortcuts and forwards the keystroke
+              // to our composer callbacks instead.
+              child: _ComposerShortcutsHost(
+                bindings: context
+                    .watch<SettingsController>()
+                    .shortcutBindings,
+                onSend: () => unawaited(widget.onSend()),
+                onToggleCollapsed: () =>
+                    widget.onCollapsedChanged(!widget.isCollapsed),
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  expands: true,
+                  maxLines: null,
+                  textInputAction: TextInputAction.newline,
+                  textAlignVertical: TextAlignVertical.top,
+                  decoration: InputDecoration(hintText: l10n.composerHint),
+                ),
               ),
             ),
           ),
@@ -3146,5 +3168,117 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─── Composer shortcut interception ────────────────────────────────────────
+//
+// Hosts a Shortcuts/Actions pair just above the composer's TextField.  The
+// activators are derived from the user's global SettingsController bindings
+// (sendMessage / toggleComposer).  Because Shortcuts widgets are walked from
+// the focused EditableText outward, this layer intercepts before the global
+// DefaultTextEditingShortcuts (which would otherwise consume Ctrl+P as
+// MoveSelectionUpTextIntent on macOS).
+
+class _ComposerSendIntent extends Intent {
+  const _ComposerSendIntent();
+}
+
+class _ComposerToggleCollapsedIntent extends Intent {
+  const _ComposerToggleCollapsedIntent();
+}
+
+class _ComposerShortcutsHost extends StatelessWidget {
+  const _ComposerShortcutsHost({
+    required this.bindings,
+    required this.onSend,
+    required this.onToggleCollapsed,
+    required this.child,
+  });
+
+  final Map<OpenHandShortcutAction, List<int>> bindings;
+  final VoidCallback onSend;
+  final VoidCallback onToggleCollapsed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final shortcutMap = <ShortcutActivator, Intent>{};
+    final sendActivators = _activatorsForBinding(
+      bindings[OpenHandShortcutAction.sendMessage],
+    );
+    for (final activator in sendActivators) {
+      shortcutMap[activator] = const _ComposerSendIntent();
+    }
+    final toggleActivators = _activatorsForBinding(
+      bindings[OpenHandShortcutAction.toggleComposer],
+    );
+    for (final activator in toggleActivators) {
+      shortcutMap[activator] = const _ComposerToggleCollapsedIntent();
+    }
+    if (shortcutMap.isEmpty) {
+      return child;
+    }
+    return Shortcuts(
+      shortcuts: shortcutMap,
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _ComposerSendIntent: CallbackAction<_ComposerSendIntent>(
+            onInvoke: (_) {
+              onSend();
+              return null;
+            },
+          ),
+          _ComposerToggleCollapsedIntent:
+              CallbackAction<_ComposerToggleCollapsedIntent>(
+                onInvoke: (_) {
+                  onToggleCollapsed();
+                  return null;
+                },
+              ),
+        },
+        child: child,
+      ),
+    );
+  }
+
+  // Convert the user-configured key binding (a normalised list of logical
+  // key ids that already includes any modifiers) to a SingleActivator.
+  static List<ShortcutActivator> _activatorsForBinding(List<int>? keyIds) {
+    if (keyIds == null || keyIds.isEmpty) {
+      return const <ShortcutActivator>[];
+    }
+    var control = false;
+    var shift = false;
+    var alt = false;
+    var meta = false;
+    LogicalKeyboardKey? trigger;
+    for (final keyId in keyIds) {
+      final key = LogicalKeyboardKey.findKeyByKeyId(keyId);
+      if (key == null) continue;
+      if (key == LogicalKeyboardKey.control) {
+        control = true;
+      } else if (key == LogicalKeyboardKey.shift) {
+        shift = true;
+      } else if (key == LogicalKeyboardKey.alt) {
+        alt = true;
+      } else if (key == LogicalKeyboardKey.meta) {
+        meta = true;
+      } else {
+        trigger ??= key;
+      }
+    }
+    if (trigger == null) {
+      return const <ShortcutActivator>[];
+    }
+    return <ShortcutActivator>[
+      SingleActivator(
+        trigger,
+        control: control,
+        shift: shift,
+        alt: alt,
+        meta: meta,
+      ),
+    ];
   }
 }

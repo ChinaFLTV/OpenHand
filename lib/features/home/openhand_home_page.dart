@@ -1563,15 +1563,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     final focusContext = FocusManager.instance.primaryFocus?.context;
-    final currentRoute = ModalRoute.of(context);
-    final focusedRoute = focusContext == null
-        ? currentRoute
-        : ModalRoute.of(focusContext);
-    if (currentRoute != null &&
-        focusedRoute != null &&
-        !identical(currentRoute, focusedRoute)) {
-      return false;
-    }
+    // 2026-04-26: Removed the previous `currentRoute != focusedRoute` check.
+    // It silently swallowed shortcuts whenever the focused widget lived in
+    // an overlay (e.g. @-mention, skill picker) or a child Navigator, which
+    // surfaced as the composer "border flash and nothing happens" bug. We
+    // now rely solely on section + editable-focus gating, which is enough
+    // because we only act on shortcuts that explicitly target the composer
+    // (sendMessage / toggleComposer) when an editable widget has focus.
     final isEditableFocused = _isEditableTextFocused(focusContext);
     final settingsController = context.read<SettingsController>();
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
@@ -1679,10 +1677,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // Note: send-message and toggle-composer shortcuts are handled by
-    // _handleGlobalShortcutKeyEvent (HardwareKeyboard handler), which fires
-    // before FocusNode.onKeyEvent in Flutter's key dispatch pipeline.
-    // No shortcut matching is needed here.
+    // Defensive fallback: send-message / toggle-composer shortcuts are
+    // primarily handled by _handleGlobalShortcutKeyEvent (HardwareKeyboard
+    // handler) which fires earlier in Flutter's key dispatch pipeline. If
+    // for any reason that handler does not consume the event (e.g. focus
+    // context check fails inside an overlay route), the FocusNode handler
+    // re-runs the shortcut match here so the composer keys never silently
+    // stop working.
+    final settingsController = context.read<SettingsController>();
+    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+    final shortcutAction = _matchShortcutAction(
+      settingsController.shortcutBindings,
+      pressedKeyIds,
+    );
+    if (shortcutAction == OpenHandShortcutAction.sendMessage ||
+        shortcutAction == OpenHandShortcutAction.toggleComposer) {
+      _performComposerShortcutAction(shortcutAction!);
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
   }
 

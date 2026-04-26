@@ -1230,10 +1230,41 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     FocusNode node,
     KeyEvent event,
   ) {
-    // Note: send-message and toggle-composer shortcuts are handled by
-    // _handleGlobalShortcutKeyEvent (HardwareKeyboard handler) in the home
-    // page, which fires before FocusNode.onKeyEvent in Flutter's key dispatch
-    // pipeline.  No shortcut matching is needed here.
+    // Defensive fallback: send-message / toggle-composer shortcuts are
+    // primarily handled by _handleGlobalShortcutKeyEvent (HardwareKeyboard
+    // handler) in the home page, but if that path is bypassed (focus
+    // context check, route mismatch, etc.) we re-run the shortcut match
+    // here so manual-phase composer keys never silently stop working.
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final settingsController = Provider.of<SettingsController?>(
+      context,
+      listen: false,
+    );
+    if (settingsController == null) {
+      return KeyEventResult.ignored;
+    }
+    final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
+      ...HardwareKeyboard.instance.logicalKeysPressed,
+      event.logicalKey,
+    });
+    if (pressedKeyIds.isEmpty) {
+      return KeyEventResult.ignored;
+    }
+    for (final action in <OpenHandShortcutAction>[
+      OpenHandShortcutAction.sendMessage,
+      OpenHandShortcutAction.toggleComposer,
+    ]) {
+      final binding = normalizeShortcutKeyIds(
+        settingsController.shortcutBindings[action] ?? const <int>[],
+      );
+      if (binding.isEmpty || binding.length != pressedKeyIds.length) continue;
+      if (pressedKeyIds.containsAll(binding)) {
+        unawaited(_handleShortcutAction(action));
+        return KeyEventResult.handled;
+      }
+    }
     return KeyEventResult.ignored;
   }
 
