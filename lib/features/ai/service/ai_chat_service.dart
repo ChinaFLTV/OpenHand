@@ -202,25 +202,58 @@ class AiChatService implements AiChatClient {
   final AiImageGenerationService _imageService;
 
   /// Returns true when [creationRequest] asks for media output and the
-  /// provider is known to expose a dedicated media endpoint. Gemini keeps its
-  /// inline `responseModalities` path on the chat endpoint, so it is not
+  /// selected model exposes the matching generation capability. Gemini keeps
+  /// its inline `responseModalities` path on the chat endpoint, so it is not
   /// diverted here.
+  ///
+  /// We trust the model-level capability resolver because it already prefers
+  /// explicit profile flags and the curated catalog before falling back to
+  /// the per-protocol matrix. This keeps user-configured media-only models
+  /// (e.g. `grok-imagine-video`, custom DashScope `wan` aliases) from being
+  /// silently routed to `/v1/chat/completions` and hitting HTTP 405.
   bool _shouldDivertToMediaEndpoint(
     AiModelConfig model,
     AiCreationRequest creationRequest,
   ) {
     return switch (creationRequest.mode) {
       AiCreationMode.image =>
-        AiImageGenerationService.supportsImageGeneration(model.protocolType) &&
-            AiImageGenerationService.supportsImageGenerationForModel(model),
+        AiImageGenerationService.supportsImageGenerationForModel(model),
       AiCreationMode.video =>
-        AiImageGenerationService.supportsVideoGeneration(model.protocolType) &&
-            AiImageGenerationService.supportsVideoGenerationForModel(model),
+        AiImageGenerationService.supportsVideoGenerationForModel(model),
       AiCreationMode.audio =>
-        AiImageGenerationService.supportsAudioGeneration(model.protocolType) &&
-            AiImageGenerationService.supportsAudioGenerationForModel(model),
+        AiImageGenerationService.supportsAudioGenerationForModel(model),
       AiCreationMode.none || AiCreationMode.deepResearch => false,
     };
+  }
+
+  /// Throws an [AiChatException] with a user-friendly message when the caller
+  /// asks for video/audio output but the active model has no generation
+  /// capability. Without this guard the request would fall through to the
+  /// chat completions endpoint and surface as a confusing HTTP 405/404.
+  void _assertCreationModeIsRoutable(
+    AiModelConfig model,
+    AiCreationRequest creationRequest,
+  ) {
+    switch (creationRequest.mode) {
+      case AiCreationMode.video:
+        if (!AiImageGenerationService.supportsVideoGenerationForModel(model)) {
+          throw AiChatException(
+            '当前模型 "${model.modelId}" 不具备视频生成能力，请切换到具备视频生成能力的模型后再试。',
+          );
+        }
+        break;
+      case AiCreationMode.audio:
+        if (!AiImageGenerationService.supportsAudioGenerationForModel(model)) {
+          throw AiChatException(
+            '当前模型 "${model.modelId}" 不具备音频生成能力，请切换到具备音频生成能力的模型后再试。',
+          );
+        }
+        break;
+      case AiCreationMode.image:
+      case AiCreationMode.none:
+      case AiCreationMode.deepResearch:
+        break;
+    }
   }
 
   /// Extracts the latest user text prompt from a turn list. The image
@@ -309,6 +342,7 @@ class AiChatService implements AiChatClient {
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
   }) async {
+    _assertCreationModeIsRoutable(model, creationRequest);
     if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
       try {
         return await _sendMediaGenerationCompletion(
@@ -425,6 +459,7 @@ class AiChatService implements AiChatClient {
     Duration streamIdleTimeout = const Duration(seconds: 120),
     Future<void>? cancelSignal,
   }) async {
+    _assertCreationModeIsRoutable(model, creationRequest);
     // Media generation is a one-shot or bounded-poll protocol on dedicated
     // endpoints, so wrap it in a synthetic stream that emits one textDelta
     // containing the final markdown media reference.

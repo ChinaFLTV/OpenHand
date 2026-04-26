@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/service/ai_chat_service.dart';
 import 'package:openhand/features/ai/service/ai_protocol_adapter.dart';
@@ -268,6 +269,55 @@ void main() {
         expect(deltas, isEmpty);
       },
       timeout: const Timeout(Duration(seconds: 15)),
+    );
+
+    test(
+      'fails fast with a clear message when video mode targets an incapable model',
+      () async {
+        // Reproduces the user-reported HTTP 405 case: a Grok chat model is
+        // selected with creationMode=video. The service must reject the
+        // request before issuing any HTTP call, so the UI can render a
+        // user-friendly hint instead of a stream-abort error.
+        var requestCount = 0;
+        final mockClient = MockClient.streaming((request, body) async {
+          requestCount += 1;
+          return http.StreamedResponse(
+            const Stream<List<int>>.empty(),
+            200,
+            headers: const {'content-type': 'text/event-stream'},
+          );
+        });
+        final service = AiChatService(client: mockClient);
+        const grokChatModel = AiModelConfig(
+          id: 'grok-chat',
+          baseUrl: 'https://api.x.ai/v1',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'grok-3',
+          protocolType: AiProtocolType.grok,
+        );
+
+        await expectLater(
+          () => service.sendMessageStream(
+            model: grokChatModel,
+            messages: const [
+              AiChatTurn(role: AiChatRole.user, content: '生成一段视频'),
+            ],
+            creationRequest: const AiCreationRequest(
+              mode: AiCreationMode.video,
+            ),
+          ),
+          throwsA(
+            isA<AiChatException>().having(
+              (e) => e.message,
+              'message',
+              contains('视频生成'),
+            ),
+          ),
+        );
+        expect(requestCount, 0, reason: 'must not issue any HTTP request');
+      },
+      timeout: const Timeout(Duration(seconds: 10)),
     );
   });
 }
