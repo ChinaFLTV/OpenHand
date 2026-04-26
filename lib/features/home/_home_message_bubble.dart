@@ -1231,6 +1231,52 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
   // identical preview dialogs (each spinning up its own WebView), which
   // pinned the UI thread and leaked event handlers.
   bool _dialogOpen = false;
+  // Cached sidecar PNG path for local video previews. `null` while the
+  // capture is pending or when the source is remote / not a video.
+  String? _videoThumbPath;
+  bool _videoCaptureRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideoThumbnail();
+  }
+
+  @override
+  void didUpdateWidget(covariant _GeneratedMediaLinkCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source.filePath != widget.source.filePath ||
+        oldWidget.source.kind != widget.source.kind) {
+      _videoThumbPath = null;
+      _videoCaptureRequested = false;
+      _initVideoThumbnail();
+    }
+  }
+
+  Future<void> _initVideoThumbnail() async {
+    final source = widget.source;
+    if (source.kind != _GeneratedMessageMediaKind.video) return;
+    final path = source.filePath;
+    if (path == null) return;
+    final cached = _VideoThumbnailManager.thumbnailPathFor(path);
+    try {
+      if (await File(cached).exists()) {
+        if (!mounted) return;
+        setState(() => _videoThumbPath = cached);
+        return;
+      }
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'video thumbnail: cache probe failed',
+        error,
+        stack,
+      );
+    }
+    if (!mounted) return;
+    if (_VideoThumbnailManager.isMarkedFailed(path)) return;
+    setState(() => _videoCaptureRequested = true);
+  }
 
   Future<void> _openPreview() async {
     if (_dialogOpen) return;
@@ -1254,10 +1300,11 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
     final textColor = widget.textColor;
     final backgroundColor = widget.backgroundColor;
     final isVideo = source.kind == _GeneratedMessageMediaKind.video;
-    final icon = isVideo ? Icons.play_circle_outline : Icons.graphic_eq;
-    final label = isVideo
-        ? _localizedText(context, zh: '视频', en: 'Video')
-        : _localizedText(context, zh: '音频', en: 'Audio');
+    if (isVideo) {
+      return _buildVideoCard(theme, source, title, textColor, backgroundColor);
+    }
+    const icon = Icons.graphic_eq;
+    final label = _localizedText(context, zh: '音频', en: 'Audio');
     final detail = source.isLocalFile
         ? p.basename(source.filePath!)
         : source.uri.host.isEmpty
@@ -1321,6 +1368,207 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                     Icons.open_in_full_rounded,
                     size: 18,
                     color: textColor.withValues(alpha: 0.78),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoCard(
+    ThemeData theme,
+    _GeneratedMediaSource source,
+    String title,
+    Color textColor,
+    Color backgroundColor,
+  ) {
+    final detail = source.isLocalFile
+        ? p.basename(source.filePath!)
+        : source.uri.host.isEmpty
+        ? source.uri.toString()
+        : source.uri.host;
+    final cardColor = Color.alphaBlend(
+      textColor.withValues(alpha: 0.08),
+      backgroundColor,
+    );
+    final thumbPath = _videoThumbPath;
+    final showCapture =
+        _videoCaptureRequested && thumbPath == null && source.isLocalFile;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Semantics(
+        button: true,
+        label: title,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: _openPreview,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: textColor.withValues(alpha: 0.16)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (thumbPath != null)
+                          Image.file(
+                            File(thumbPath),
+                            fit: BoxFit.cover,
+                            gaplessPlayback: true,
+                            errorBuilder: (_, _, _) => Container(
+                              color: Colors.black87,
+                            ),
+                          )
+                        else
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.78),
+                                  Colors.black.withValues(alpha: 0.92),
+                                ],
+                              ),
+                            ),
+                          ),
+                        // Subtle scrim so the play icon stays legible on
+                        // bright thumbnails.
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.0),
+                                Colors.black.withValues(alpha: 0.35),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Center(
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                width: 1.4,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 36,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.videocam_outlined,
+                                  size: 13,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'VIDEO',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (showCapture)
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            child: _VideoThumbnailCaptureHost(
+                              videoPath: source.filePath!,
+                              mimeType: _mimeTypeForGeneratedMedia(source),
+                              onResult: (path) {
+                                if (!mounted) return;
+                                setState(() {
+                                  _videoCaptureRequested = false;
+                                  _videoThumbPath = path;
+                                });
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                detail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: textColor.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.open_in_full_rounded,
+                          size: 18,
+                          color: textColor.withValues(alpha: 0.7),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1597,6 +1845,21 @@ $mediaTag
                     onPressed: () => _openInSystemPlayer(context),
                   ),
                   const SizedBox(width: 4),
+                  if (isVideo) ...[
+                    IconButton(
+                      icon: Icon(
+                        Icons.fullscreen_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '全屏沉浸播放',
+                        en: 'Fullscreen playback',
+                      ),
+                      onPressed: () => _enterFullscreen(context),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   IconButton(
                     icon: Icon(
                       Icons.download_rounded,
@@ -1670,6 +1933,21 @@ $mediaTag
     } finally {
       if (!_disposed) _isOpeningExternal = false;
     }
+  }
+
+  Future<void> _enterFullscreen(BuildContext context) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    // Pop the dialog so the existing WebView is torn down before we mount
+    // the fullscreen route. Two simultaneous WKWebView instances pointing
+    // at the same `file://` resource can race on the read-access grant.
+    navigator.pop();
+    await navigator.push(
+      MaterialPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (_) =>
+            _FullscreenVideoPage(source: widget.source, title: widget.title),
+      ),
+    );
   }
 
   Future<void> _saveMediaAs(BuildContext context) async {
@@ -2235,5 +2513,440 @@ class _UserSkillSelectionChip extends StatelessWidget {
       );
     }
     return null;
+  }
+}
+
+/// Coordinates one-shot first-frame capture for local video files.
+///
+/// We render the existing `webview_flutter` stack (no new deps) inside an
+/// `Offstage` host, ask the page to seek to ~0.1s, draw the first frame to
+/// a 480px-wide canvas, and post the dataURL back through a JS channel.
+/// The PNG is persisted next to the source video as `<video>.thumb.png` so
+/// future card mounts simply read the cached file via `Image.file`.
+///
+/// Concurrency is intentionally capped at one capture in flight so the
+/// UI never spawns multiple WKWebView platform views simultaneously,
+/// which has historically caused jank/ANR on macOS. Subsequent requesters
+/// queue and inherit the slot when the previous capture finishes.
+class _VideoThumbnailManager {
+  static final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+  static int _active = 0;
+  static const int _maxActive = 1;
+  // Per-process retry guard: if a capture failed once we don't keep
+  // re-creating WebViews for the same file in the same session.
+  static final Set<String> _failed = <String>{};
+
+  static String thumbnailPathFor(String videoPath) => '$videoPath.thumb.png';
+
+  static bool isMarkedFailed(String videoPath) => _failed.contains(videoPath);
+  static void _markFailed(String videoPath) => _failed.add(videoPath);
+
+  static Future<void> _acquireSlot() {
+    if (_active < _maxActive) {
+      _active += 1;
+      return Future<void>.value();
+    }
+    final completer = Completer<void>();
+    _waiters.add(completer);
+    return completer.future;
+  }
+
+  static void _releaseSlot() {
+    if (_active > 0) _active -= 1;
+    if (_active < _maxActive && _waiters.isNotEmpty) {
+      _active += 1;
+      _waiters.removeFirst().complete();
+    }
+  }
+}
+
+/// Offstage WebView that captures a single first-frame PNG for a local
+/// video file. Removes itself by calling `onResult` (which the parent
+/// uses to swap the card to `Image.file`).
+class _VideoThumbnailCaptureHost extends StatefulWidget {
+  const _VideoThumbnailCaptureHost({
+    required this.videoPath,
+    required this.mimeType,
+    required this.onResult,
+  });
+
+  final String videoPath;
+  final String mimeType;
+  final void Function(String? thumbPath) onResult;
+
+  @override
+  State<_VideoThumbnailCaptureHost> createState() =>
+      _VideoThumbnailCaptureHostState();
+}
+
+class _VideoThumbnailCaptureHostState
+    extends State<_VideoThumbnailCaptureHost> {
+  WebViewController? _controller;
+  String? _tempHtmlPath;
+  bool _slotHeld = false;
+  bool _done = false;
+  Timer? _watchdog;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  Future<void> _start() async {
+    await _VideoThumbnailManager._acquireSlot();
+    _slotHeld = true;
+    if (!mounted) {
+      _finish(null);
+      return;
+    }
+    try {
+      final dir = p.dirname(widget.videoPath);
+      final tempName =
+          '.openhand_thumb_capture_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
+      final tempFile = File(p.join(dir, tempName));
+      await tempFile.writeAsString(_buildCaptureHtml());
+      _tempHtmlPath = tempFile.path;
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..addJavaScriptChannel(
+          'OpenHandThumb',
+          onMessageReceived: _onMessage,
+        );
+      if (!Platform.isMacOS) {
+        controller.setBackgroundColor(Colors.transparent);
+      }
+      _controller = controller;
+      await controller.loadFile(tempFile.path);
+      if (!mounted) {
+        _finish(null);
+        return;
+      }
+      // Watchdog: if no message arrives within the budget, bail out so
+      // the slot is released and the card stops trying for this session.
+      _watchdog = Timer(const Duration(seconds: 14), () {
+        if (!_done) _finish(null);
+      });
+      setState(() {});
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'video thumbnail: setup failed',
+        error,
+        stack,
+      );
+      _finish(null);
+    }
+  }
+
+  void _onMessage(JavaScriptMessage message) {
+    if (_done) return;
+    final value = message.message;
+    if (value.startsWith('error')) {
+      _finish(null);
+      return;
+    }
+    const marker = 'base64,';
+    final idx = value.indexOf(marker);
+    if (idx < 0) {
+      _finish(null);
+      return;
+    }
+    final b64 = value.substring(idx + marker.length);
+    Future<void>(() async {
+      try {
+        final bytes = base64.decode(b64);
+        final outPath = _VideoThumbnailManager.thumbnailPathFor(
+          widget.videoPath,
+        );
+        await File(outPath).writeAsBytes(bytes, flush: true);
+        _finish(outPath);
+      } catch (error, stack) {
+        silentLog(
+          'home_message_bubble',
+          'video thumbnail: write failed',
+          error,
+          stack,
+        );
+        _finish(null);
+      }
+    });
+  }
+
+  void _finish(String? path) {
+    if (_done) return;
+    _done = true;
+    _watchdog?.cancel();
+    if (path == null) _VideoThumbnailManager._markFailed(widget.videoPath);
+    final temp = _tempHtmlPath;
+    if (temp != null) {
+      Future<void>(() async {
+        try {
+          final f = File(temp);
+          if (await f.exists()) await f.delete();
+        } catch (_) {
+          // best effort
+        }
+      });
+    }
+    if (_slotHeld) {
+      _slotHeld = false;
+      _VideoThumbnailManager._releaseSlot();
+    }
+    widget.onResult(path);
+  }
+
+  @override
+  void dispose() {
+    if (!_done) {
+      _done = true;
+      _watchdog?.cancel();
+      final temp = _tempHtmlPath;
+      if (temp != null) {
+        Future<void>(() async {
+          try {
+            final f = File(temp);
+            if (await f.exists()) await f.delete();
+          } catch (_) {
+            // best effort
+          }
+        });
+      }
+      if (_slotHeld) {
+        _slotHeld = false;
+        _VideoThumbnailManager._releaseSlot();
+      }
+    }
+    super.dispose();
+  }
+
+  String _buildCaptureHtml() {
+    final src = const HtmlEscape(
+      HtmlEscapeMode.attribute,
+    ).convert(Uri.file(widget.videoPath).toString());
+    final mime = const HtmlEscape(
+      HtmlEscapeMode.attribute,
+    ).convert(widget.mimeType);
+    return '''
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%}video,canvas{display:none}</style></head><body>
+<video id="v" muted playsinline preload="auto" crossorigin="anonymous"><source src="$src" type="$mime"></video>
+<canvas id="c"></canvas>
+<script>(function(){
+var v=document.getElementById('v');var c=document.getElementById('c');
+function post(m){if(window.OpenHandThumb&&window.OpenHandThumb.postMessage){window.OpenHandThumb.postMessage(m);}}
+var captured=false;
+function capture(){
+  if(captured)return;captured=true;
+  try{
+    var w=v.videoWidth, h=v.videoHeight;
+    if(!w||!h){post('error:no_video_dim');return;}
+    var tw=Math.min(480,w);
+    var th=Math.round(h*(tw/w));
+    c.width=tw;c.height=th;
+    var ctx=c.getContext('2d');
+    ctx.drawImage(v,0,0,tw,th);
+    post(c.toDataURL('image/png'));
+  }catch(e){post('error:'+(e&&e.message||'capture'));}
+}
+v.addEventListener('loadeddata',function(){
+  try{var t=Math.min(0.1,(v.duration||0));v.currentTime=t;}catch(e){capture();}
+});
+v.addEventListener('seeked',capture);
+v.addEventListener('error',function(){post('error:video_load');});
+setTimeout(function(){if(!captured)post('error:timeout');},10000);
+})();</script>
+</body></html>
+''';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = _controller;
+    if (ctrl == null) return const SizedBox.shrink();
+    // Tiny visible footprint so the platform view actually paints (some
+    // platform-view embedders skip 0x0 hosts), but offstage so it never
+    // affects layout or hit-testing.
+    return SizedBox(
+      width: 1,
+      height: 1,
+      child: Opacity(opacity: 0, child: WebViewWidget(controller: ctrl)),
+    );
+  }
+}
+
+/// Black-screen fullscreen route for immersive video playback. Reuses the
+/// `loadFile` trick from `_MediaPreviewDialog` so WKWebView can grant
+/// `file://` read access to the parent directory.
+class _FullscreenVideoPage extends StatefulWidget {
+  const _FullscreenVideoPage({required this.source, required this.title});
+
+  final _GeneratedMediaSource source;
+  final String title;
+
+  @override
+  State<_FullscreenVideoPage> createState() => _FullscreenVideoPageState();
+}
+
+class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
+  late final WebViewController _controller;
+  String? _tempHtmlPath;
+  bool _ready = false;
+  String? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (!mounted) return;
+            setState(() => _ready = true);
+          },
+          onWebResourceError: (error) {
+            if (!mounted) return;
+            setState(() => _loadError = error.description);
+          },
+        ),
+      );
+    if (!Platform.isMacOS) {
+      _controller.setBackgroundColor(Colors.black);
+    }
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final localPath = widget.source.filePath;
+    if (localPath != null && File(localPath).existsSync()) {
+      try {
+        final dir = p.dirname(localPath);
+        final tempName =
+            '.openhand_fullscreen_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
+        final tempFile = File(p.join(dir, tempName));
+        await tempFile.writeAsString(_buildHtml(localOverride: localPath));
+        if (!mounted) {
+          await tempFile.delete().catchError((_) => tempFile);
+          return;
+        }
+        _tempHtmlPath = tempFile.path;
+        await _controller.loadFile(tempFile.path);
+        return;
+      } catch (error, stack) {
+        silentLog(
+          'home_message_bubble',
+          'fullscreen video: loadFile fallback failed',
+          error,
+          stack,
+        );
+      }
+    }
+    if (!mounted) return;
+    await _controller.loadHtmlString(_buildHtml());
+  }
+
+  String _buildHtml({String? localOverride}) {
+    final raw = localOverride != null
+        ? Uri.file(localOverride).toString()
+        : widget.source.uri.toString();
+    final src = const HtmlEscape(HtmlEscapeMode.attribute).convert(raw);
+    final mime = const HtmlEscape(
+      HtmlEscapeMode.attribute,
+    ).convert(_mimeTypeForGeneratedMedia(widget.source));
+    return '''
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{width:100vw;height:100vh;background:#000;object-fit:contain}</style></head><body>
+<video id="media" controls autoplay playsinline preload="auto"><source src="$src" type="$mime"></video>
+</body></html>
+''';
+  }
+
+  @override
+  void dispose() {
+    final tmp = _tempHtmlPath;
+    if (tmp != null) {
+      Future<void>(() async {
+        try {
+          final f = File(tmp);
+          if (await f.exists()) await f.delete();
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            'fullscreen video: temp html cleanup failed',
+            error,
+            stack,
+          );
+        }
+      });
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(child: WebViewWidget(controller: _controller)),
+            if (!_ready && _loadError == null)
+              const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.6,
+                  color: Colors.white70,
+                ),
+              ),
+            if (_loadError != null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    _loadError!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ),
+              ),
+            Positioned(
+              top: 8,
+              left: 8,
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                  ),
+                  tooltip: _localizedText(
+                    context,
+                    zh: '返回',
+                    en: 'Back',
+                  ),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            ),
+            if (widget.title.isNotEmpty)
+              Positioned(
+                top: 16,
+                left: 64,
+                right: 16,
+                child: Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
