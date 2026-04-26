@@ -90,6 +90,10 @@ class AiSessionRuntimeContext {
     required this.userMemoryFilePath,
     required this.compressionThresholdChars,
     this.toolResultCompressionThresholdChars = 1024,
+    this.toolResultCompressionEnabled = true,
+    this.toolResultCompressionHeadTailWindowChars = 256,
+    this.toolResultCompressionMaxPathHits = 12,
+    this.writeToolSummaryMaxChars = 280,
     required this.memoryEnabled,
     required this.memoryEntries,
     this.templateId = '',
@@ -132,6 +136,18 @@ class AiSessionRuntimeContext {
   /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
   /// prompt builder 会依该阈值压缩 raw 过长的工具返回。
   final int toolResultCompressionThresholdChars;
+
+  /// 2026-04-27 — 工具调用输出压缩总开关。关闭后返回原始内容。
+  final bool toolResultCompressionEnabled;
+
+  /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
+  final int toolResultCompressionHeadTailWindowChars;
+
+  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
+  final int toolResultCompressionMaxPathHits;
+
+  /// 2026-04-27 — 写类工具摘要中保留 result_text 的字符上限。
+  final int writeToolSummaryMaxChars;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
 
@@ -208,6 +224,12 @@ class AiSessionRuntimeContext {
       'compression_threshold_chars': compressionThresholdChars,
       'tool_result_compression_threshold_chars':
           toolResultCompressionThresholdChars,
+      'tool_result_compression_enabled': toolResultCompressionEnabled,
+      'tool_result_compression_head_tail_window_chars':
+          toolResultCompressionHeadTailWindowChars,
+      'tool_result_compression_max_path_hits':
+          toolResultCompressionMaxPathHits,
+      'write_tool_summary_max_chars': writeToolSummaryMaxChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
       'image_size_limit_bytes': imageSizeLimitBytes,

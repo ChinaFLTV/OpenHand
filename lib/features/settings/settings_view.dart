@@ -97,6 +97,13 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _compressionThresholdFocusNode;
   late final TextEditingController _toolResultCompressionThresholdController;
   late final FocusNode _toolResultCompressionThresholdFocusNode;
+  late final TextEditingController
+  _toolResultCompressionHeadTailWindowController;
+  late final FocusNode _toolResultCompressionHeadTailWindowFocusNode;
+  late final TextEditingController _toolResultCompressionMaxPathHitsController;
+  late final FocusNode _toolResultCompressionMaxPathHitsFocusNode;
+  late final TextEditingController _writeToolSummaryMaxCharsController;
+  late final FocusNode _writeToolSummaryMaxCharsFocusNode;
   late final TextEditingController _toolCallLimitController;
   late final FocusNode _toolCallLimitFocusNode;
   late final TextEditingController _sequentialToolRoundLimitController;
@@ -125,6 +132,12 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode = FocusNode();
     _toolResultCompressionThresholdController = TextEditingController();
     _toolResultCompressionThresholdFocusNode = FocusNode();
+    _toolResultCompressionHeadTailWindowController = TextEditingController();
+    _toolResultCompressionHeadTailWindowFocusNode = FocusNode();
+    _toolResultCompressionMaxPathHitsController = TextEditingController();
+    _toolResultCompressionMaxPathHitsFocusNode = FocusNode();
+    _writeToolSummaryMaxCharsController = TextEditingController();
+    _writeToolSummaryMaxCharsFocusNode = FocusNode();
     _toolCallLimitController = TextEditingController();
     _toolCallLimitFocusNode = FocusNode();
     _sequentialToolRoundLimitController = TextEditingController();
@@ -152,6 +165,12 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode.dispose();
     _toolResultCompressionThresholdController.dispose();
     _toolResultCompressionThresholdFocusNode.dispose();
+    _toolResultCompressionHeadTailWindowController.dispose();
+    _toolResultCompressionHeadTailWindowFocusNode.dispose();
+    _toolResultCompressionMaxPathHitsController.dispose();
+    _toolResultCompressionMaxPathHitsFocusNode.dispose();
+    _writeToolSummaryMaxCharsController.dispose();
+    _writeToolSummaryMaxCharsFocusNode.dispose();
     _toolCallLimitController.dispose();
     _toolCallLimitFocusNode.dispose();
     _sequentialToolRoundLimitController.dispose();
@@ -193,6 +212,29 @@ class _SettingsViewState extends State<SettingsView> {
             toolResultCompressionThresholdText) {
       _toolResultCompressionThresholdController.text =
           toolResultCompressionThresholdText;
+    }
+    final toolResultCompressionHeadTailWindowText =
+        '${settingsController.aiToolResultCompressionHeadTailWindowChars}';
+    if (!_toolResultCompressionHeadTailWindowFocusNode.hasFocus &&
+        _toolResultCompressionHeadTailWindowController.text !=
+            toolResultCompressionHeadTailWindowText) {
+      _toolResultCompressionHeadTailWindowController.text =
+          toolResultCompressionHeadTailWindowText;
+    }
+    final toolResultCompressionMaxPathHitsText =
+        '${settingsController.aiToolResultCompressionMaxPathHits}';
+    if (!_toolResultCompressionMaxPathHitsFocusNode.hasFocus &&
+        _toolResultCompressionMaxPathHitsController.text !=
+            toolResultCompressionMaxPathHitsText) {
+      _toolResultCompressionMaxPathHitsController.text =
+          toolResultCompressionMaxPathHitsText;
+    }
+    final writeToolSummaryMaxCharsText =
+        '${settingsController.aiWriteToolSummaryMaxChars}';
+    if (!_writeToolSummaryMaxCharsFocusNode.hasFocus &&
+        _writeToolSummaryMaxCharsController.text !=
+            writeToolSummaryMaxCharsText) {
+      _writeToolSummaryMaxCharsController.text = writeToolSummaryMaxCharsText;
     }
     final toolCallLimitText =
         '${settingsController.aiSingleRoundToolCallLimit}';
@@ -624,6 +666,127 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             icon: const Icon(Icons.save_outlined),
             label: Text(l10n.aiToolResultCompressionThresholdSave),
+          ),
+        ),
+      ],
+    );
+    final toolResultCompressionEnabledControl = Align(
+      alignment: Alignment.centerLeft,
+      child: Switch(
+        key: const ValueKey<String>('settingsToolResultCompressionEnabledSwitch'),
+        value: settingsController.aiToolResultCompressionEnabled,
+        onChanged: (value) async {
+          await settingsController.updateAiToolResultCompressionEnabled(value);
+        },
+      ),
+    );
+    final toolResultCompressionHeadTailWindowControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>(
+            'settingsToolResultCompressionHeadTailWindowField',
+          ),
+          controller: _toolResultCompressionHeadTailWindowController,
+          focusNode: _toolResultCompressionHeadTailWindowFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiToolResultCompressionHeadTailWindowLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars}',
+          ),
+          onSubmitted: (value) =>
+              _saveToolResultCompressionHeadTailWindow(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsToolResultCompressionHeadTailWindowSaveButton',
+            ),
+            onPressed: () => _saveToolResultCompressionHeadTailWindow(
+              context,
+              _toolResultCompressionHeadTailWindowController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiToolResultCompressionHeadTailWindowSave),
+          ),
+        ),
+      ],
+    );
+    final toolResultCompressionMaxPathHitsControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>(
+            'settingsToolResultCompressionMaxPathHitsField',
+          ),
+          controller: _toolResultCompressionMaxPathHitsController,
+          focusNode: _toolResultCompressionMaxPathHitsFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiToolResultCompressionMaxPathHitsLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits}',
+          ),
+          onSubmitted: (value) =>
+              _saveToolResultCompressionMaxPathHits(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsToolResultCompressionMaxPathHitsSaveButton',
+            ),
+            onPressed: () => _saveToolResultCompressionMaxPathHits(
+              context,
+              _toolResultCompressionMaxPathHitsController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiToolResultCompressionMaxPathHitsSave),
+          ),
+        ),
+      ],
+    );
+    final writeToolSummaryMaxCharsControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsWriteToolSummaryMaxCharsField'),
+          controller: _writeToolSummaryMaxCharsController,
+          focusNode: _writeToolSummaryMaxCharsFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiWriteToolSummaryMaxCharsLabel,
+            hintText: '${AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars}',
+          ),
+          onSubmitted: (value) =>
+              _saveWriteToolSummaryMaxChars(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsWriteToolSummaryMaxCharsSaveButton',
+            ),
+            onPressed: () => _saveWriteToolSummaryMaxChars(
+              context,
+              _writeToolSummaryMaxCharsController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiWriteToolSummaryMaxCharsSave),
           ),
         ),
       ],
@@ -1130,6 +1293,34 @@ class _SettingsViewState extends State<SettingsView> {
                   en: 'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.',
                 ),
                 control: toolResultCompressionControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiToolResultCompressionEnabledLabel,
+                subtitle: l10n.aiToolResultCompressionEnabledBody,
+                control: toolResultCompressionEnabledControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiToolResultCompressionHeadTailWindowLabel,
+                subtitle: l10n.aiToolResultCompressionHeadTailWindowBody,
+                control: toolResultCompressionHeadTailWindowControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiToolResultCompressionMaxPathHitsLabel,
+                subtitle: l10n.aiToolResultCompressionMaxPathHitsBody,
+                control: toolResultCompressionMaxPathHitsControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiWriteToolSummaryMaxCharsLabel,
+                subtitle: l10n.aiWriteToolSummaryMaxCharsBody,
+                control: writeToolSummaryMaxCharsControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
@@ -2462,6 +2653,90 @@ class _SettingsViewState extends State<SettingsView> {
     _toolResultCompressionThresholdController.text =
         '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
     _showSnackBar(context, l10n.aiToolResultCompressionThresholdSaved);
+  }
+
+  Future<void> _saveToolResultCompressionHeadTailWindow(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
+      _showSnackBar(
+        context,
+        l10n.aiToolResultCompressionHeadTailWindowInvalid,
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiToolResultCompressionHeadTailWindowChars(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _toolResultCompressionHeadTailWindowController.text =
+          '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _toolResultCompressionHeadTailWindowController.text =
+        '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
+    _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowSaved);
+  }
+
+  Future<void> _saveToolResultCompressionMaxPathHits(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue < 0 || parsedValue > 200) {
+      _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiToolResultCompressionMaxPathHits(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _toolResultCompressionMaxPathHitsController.text =
+          '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _toolResultCompressionMaxPathHitsController.text =
+        '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
+    _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsSaved);
+  }
+
+  Future<void> _saveWriteToolSummaryMaxChars(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
+      _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiWriteToolSummaryMaxChars(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _writeToolSummaryMaxCharsController.text =
+          '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _writeToolSummaryMaxCharsController.text =
+        '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
+    _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsSaved);
   }
 
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {

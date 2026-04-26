@@ -156,6 +156,13 @@ class SettingsStore {
           snapshot.aiMessageCompressionThresholdChars,
       'ai_tool_result_compression_threshold_chars':
           snapshot.aiToolResultCompressionThresholdChars,
+      'ai_tool_result_compression_enabled':
+          snapshot.aiToolResultCompressionEnabled,
+      'ai_tool_result_compression_head_tail_window_chars':
+          snapshot.aiToolResultCompressionHeadTailWindowChars,
+      'ai_tool_result_compression_max_path_hits':
+          snapshot.aiToolResultCompressionMaxPathHits,
+      'ai_write_tool_summary_max_chars': snapshot.aiWriteToolSummaryMaxChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
@@ -295,6 +302,41 @@ class SettingsStore {
             (json['ai_tool_result_compression_threshold_chars'] as int) > 0
         ? json['ai_tool_result_compression_threshold_chars'] as int
         : AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars;
+    final aiToolResultCompressionEnabled =
+        json['ai_tool_result_compression_enabled'] is bool
+        ? json['ai_tool_result_compression_enabled'] as bool
+        : true;
+    final aiToolResultCompressionHeadTailWindowChars =
+        json['ai_tool_result_compression_head_tail_window_chars'] is int &&
+            (json['ai_tool_result_compression_head_tail_window_chars'] as int) >=
+                AppSettingsSnapshot
+                    .minAiToolResultCompressionHeadTailWindowChars
+        ? (json['ai_tool_result_compression_head_tail_window_chars'] as int)
+              .clamp(
+                AppSettingsSnapshot
+                    .minAiToolResultCompressionHeadTailWindowChars,
+                AppSettingsSnapshot
+                    .maxAiToolResultCompressionHeadTailWindowChars,
+              )
+        : AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars;
+    final aiToolResultCompressionMaxPathHits =
+        json['ai_tool_result_compression_max_path_hits'] is int &&
+            (json['ai_tool_result_compression_max_path_hits'] as int) >=
+                AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits
+        ? (json['ai_tool_result_compression_max_path_hits'] as int).clamp(
+            AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits,
+            AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
+          )
+        : AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits;
+    final aiWriteToolSummaryMaxChars =
+        json['ai_write_tool_summary_max_chars'] is int &&
+            (json['ai_write_tool_summary_max_chars'] as int) >=
+                AppSettingsSnapshot.minAiWriteToolSummaryMaxChars
+        ? (json['ai_write_tool_summary_max_chars'] as int).clamp(
+            AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
+            AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
+          )
+        : AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars;
     final aiSingleRoundToolCallLimit =
         json['ai_single_round_tool_call_limit'] is int &&
             (json['ai_single_round_tool_call_limit'] as int) > 0
@@ -657,6 +699,11 @@ class SettingsStore {
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
       aiToolResultCompressionThresholdChars:
           aiToolResultCompressionThresholdChars,
+      aiToolResultCompressionEnabled: aiToolResultCompressionEnabled,
+      aiToolResultCompressionHeadTailWindowChars:
+          aiToolResultCompressionHeadTailWindowChars,
+      aiToolResultCompressionMaxPathHits: aiToolResultCompressionMaxPathHits,
+      aiWriteToolSummaryMaxChars: aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,

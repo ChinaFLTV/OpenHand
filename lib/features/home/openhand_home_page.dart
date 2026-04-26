@@ -2577,6 +2577,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiMessageCompressionThresholdChars,
       toolResultCompressionThresholdChars:
           settingsController.aiToolResultCompressionThresholdChars,
+      toolResultCompressionEnabled:
+          settingsController.aiToolResultCompressionEnabled,
+      toolResultCompressionHeadTailWindowChars:
+          settingsController.aiToolResultCompressionHeadTailWindowChars,
+      toolResultCompressionMaxPathHits:
+          settingsController.aiToolResultCompressionMaxPathHits,
+      writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
@@ -2672,6 +2679,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.userMemoryFilePath,
       settingsController.aiMessageCompressionThresholdChars,
       settingsController.aiToolResultCompressionThresholdChars,
+      settingsController.aiToolResultCompressionEnabled,
+      settingsController.aiToolResultCompressionHeadTailWindowChars,
+      settingsController.aiToolResultCompressionMaxPathHits,
+      settingsController.aiWriteToolSummaryMaxChars,
       settingsController.aiSingleRoundToolCallLimit,
       settingsController.aiSequentialToolRoundLimit,
       settingsController.aiImageSizeLimitBytes,
@@ -2757,6 +2768,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           settingsController.aiMessageCompressionThresholdChars,
       toolResultCompressionThresholdChars:
           settingsController.aiToolResultCompressionThresholdChars,
+      toolResultCompressionEnabled:
+          settingsController.aiToolResultCompressionEnabled,
+      toolResultCompressionHeadTailWindowChars:
+          settingsController.aiToolResultCompressionHeadTailWindowChars,
+      toolResultCompressionMaxPathHits:
+          settingsController.aiToolResultCompressionMaxPathHits,
+      writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,

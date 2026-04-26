@@ -34,6 +34,12 @@ class AppSettingsSnapshot {
           defaultAiMessageCompressionThresholdChars,
       aiToolResultCompressionThresholdChars:
           defaultAiToolResultCompressionThresholdChars,
+      aiToolResultCompressionEnabled: true,
+      aiToolResultCompressionHeadTailWindowChars:
+          defaultAiToolResultCompressionHeadTailWindowChars,
+      aiToolResultCompressionMaxPathHits:
+          defaultAiToolResultCompressionMaxPathHits,
+      aiWriteToolSummaryMaxChars: defaultAiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
@@ -87,6 +93,10 @@ class AppSettingsSnapshot {
     required this.editorShortcutBindings,
     required this.aiMessageCompressionThresholdChars,
     required this.aiToolResultCompressionThresholdChars,
+    required this.aiToolResultCompressionEnabled,
+    required this.aiToolResultCompressionHeadTailWindowChars,
+    required this.aiToolResultCompressionMaxPathHits,
+    required this.aiWriteToolSummaryMaxChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
     required this.aiImageSizeLimitBytes,
@@ -138,6 +148,23 @@ class AppSettingsSnapshot {
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
   static const int minAiToolResultCompressionThresholdChars = 256;
   static const int maxAiToolResultCompressionThresholdChars = 65536;
+
+  /// 2026-04-27 — 压缩摘要首尾片段窗口（字符）。越大保留越多 raw
+  /// 上下文，但会占用更多 tokens。0 表示不保留首尾片段。
+  static const int defaultAiToolResultCompressionHeadTailWindowChars = 256;
+  static const int minAiToolResultCompressionHeadTailWindowChars = 0;
+  static const int maxAiToolResultCompressionHeadTailWindowChars = 8192;
+
+  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。0 表示不提取。
+  static const int defaultAiToolResultCompressionMaxPathHits = 12;
+  static const int minAiToolResultCompressionMaxPathHits = 0;
+  static const int maxAiToolResultCompressionMaxPathHits = 200;
+
+  /// 2026-04-27 — 写类工具结果摘要中保留原始 summary 文本的字符上限。
+  /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
+  static const int defaultAiWriteToolSummaryMaxChars = 280;
+  static const int minAiWriteToolSummaryMaxChars = 0;
+  static const int maxAiWriteToolSummaryMaxChars = 8192;
 
   /// Default cap for per-message raw payload capture (characters).
   static const int defaultTelemetryMaxPayloadChars = 200000;
@@ -195,6 +222,18 @@ class AppSettingsSnapshot {
   final Map<EditorShortcutAction, List<int>> editorShortcutBindings;
   final int aiMessageCompressionThresholdChars;
   final int aiToolResultCompressionThresholdChars;
+
+  /// 2026-04-27 — 总开关：关闭后工具调用输出不再进行压缩。
+  final bool aiToolResultCompressionEnabled;
+
+  /// 2026-04-27 — 压缩摘要首尾片段窗口长度（字符）。
+  final int aiToolResultCompressionHeadTailWindowChars;
+
+  /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
+  final int aiToolResultCompressionMaxPathHits;
+
+  /// 2026-04-27 — 写类工具摘要中 result_text 的字符上限。
+  final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
   final int aiImageSizeLimitBytes;
@@ -265,6 +304,10 @@ class AppSettingsSnapshot {
     Map<EditorShortcutAction, List<int>>? editorShortcutBindings,
     int? aiMessageCompressionThresholdChars,
     int? aiToolResultCompressionThresholdChars,
+    bool? aiToolResultCompressionEnabled,
+    int? aiToolResultCompressionHeadTailWindowChars,
+    int? aiToolResultCompressionMaxPathHits,
+    int? aiWriteToolSummaryMaxChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
     int? aiImageSizeLimitBytes,
@@ -318,6 +361,16 @@ class AppSettingsSnapshot {
       aiToolResultCompressionThresholdChars:
           aiToolResultCompressionThresholdChars ??
           this.aiToolResultCompressionThresholdChars,
+      aiToolResultCompressionEnabled:
+          aiToolResultCompressionEnabled ?? this.aiToolResultCompressionEnabled,
+      aiToolResultCompressionHeadTailWindowChars:
+          aiToolResultCompressionHeadTailWindowChars ??
+          this.aiToolResultCompressionHeadTailWindowChars,
+      aiToolResultCompressionMaxPathHits:
+          aiToolResultCompressionMaxPathHits ??
+          this.aiToolResultCompressionMaxPathHits,
+      aiWriteToolSummaryMaxChars:
+          aiWriteToolSummaryMaxChars ?? this.aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit:
           aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit:

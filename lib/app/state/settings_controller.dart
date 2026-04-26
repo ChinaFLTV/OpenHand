@@ -50,6 +50,13 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiMessageCompressionThresholdChars,
        _aiToolResultCompressionThresholdChars =
            snapshot.aiToolResultCompressionThresholdChars,
+       _aiToolResultCompressionEnabled =
+           snapshot.aiToolResultCompressionEnabled,
+       _aiToolResultCompressionHeadTailWindowChars =
+           snapshot.aiToolResultCompressionHeadTailWindowChars,
+       _aiToolResultCompressionMaxPathHits =
+           snapshot.aiToolResultCompressionMaxPathHits,
+       _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
@@ -120,6 +127,10 @@ class SettingsController extends ChangeNotifier {
   Map<EditorShortcutAction, List<int>> _editorShortcutBindings;
   int _aiMessageCompressionThresholdChars;
   int _aiToolResultCompressionThresholdChars;
+  bool _aiToolResultCompressionEnabled;
+  int _aiToolResultCompressionHeadTailWindowChars;
+  int _aiToolResultCompressionMaxPathHits;
+  int _aiWriteToolSummaryMaxChars;
   int _aiSingleRoundToolCallLimit;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
@@ -203,6 +214,12 @@ class SettingsController extends ChangeNotifier {
       _aiMessageCompressionThresholdChars;
   int get aiToolResultCompressionThresholdChars =>
       _aiToolResultCompressionThresholdChars;
+  bool get aiToolResultCompressionEnabled => _aiToolResultCompressionEnabled;
+  int get aiToolResultCompressionHeadTailWindowChars =>
+      _aiToolResultCompressionHeadTailWindowChars;
+  int get aiToolResultCompressionMaxPathHits =>
+      _aiToolResultCompressionMaxPathHits;
+  int get aiWriteToolSummaryMaxChars => _aiWriteToolSummaryMaxChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
@@ -464,6 +481,68 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiToolResultCompressionThresholdChars = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiToolResultCompressionEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_aiToolResultCompressionEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiToolResultCompressionEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiToolResultCompressionHeadTailWindowChars(
+    int value,
+  ) async {
+    final clamped = value < 0
+        ? AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars
+        : value.clamp(
+            AppSettingsSnapshot
+                .minAiToolResultCompressionHeadTailWindowChars,
+            AppSettingsSnapshot
+                .maxAiToolResultCompressionHeadTailWindowChars,
+          );
+    return _commitMutation(() {
+      if (_aiToolResultCompressionHeadTailWindowChars == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiToolResultCompressionHeadTailWindowChars = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiToolResultCompressionMaxPathHits(int value) async {
+    final clamped = value < 0
+        ? AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits
+        : value.clamp(
+            AppSettingsSnapshot.minAiToolResultCompressionMaxPathHits,
+            AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
+          );
+    return _commitMutation(() {
+      if (_aiToolResultCompressionMaxPathHits == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiToolResultCompressionMaxPathHits = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiWriteToolSummaryMaxChars(int value) async {
+    final clamped = value < 0
+        ? AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars
+        : value.clamp(
+            AppSettingsSnapshot.minAiWriteToolSummaryMaxChars,
+            AppSettingsSnapshot.maxAiWriteToolSummaryMaxChars,
+          );
+    return _commitMutation(() {
+      if (_aiWriteToolSummaryMaxChars == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiWriteToolSummaryMaxChars = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1195,6 +1274,11 @@ class SettingsController extends ChangeNotifier {
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
       aiToolResultCompressionThresholdChars:
           _aiToolResultCompressionThresholdChars,
+      aiToolResultCompressionEnabled: _aiToolResultCompressionEnabled,
+      aiToolResultCompressionHeadTailWindowChars:
+          _aiToolResultCompressionHeadTailWindowChars,
+      aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
+      aiWriteToolSummaryMaxChars: _aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
@@ -1250,6 +1334,12 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiMessageCompressionThresholdChars;
     _aiToolResultCompressionThresholdChars =
         snapshot.aiToolResultCompressionThresholdChars;
+    _aiToolResultCompressionEnabled = snapshot.aiToolResultCompressionEnabled;
+    _aiToolResultCompressionHeadTailWindowChars =
+        snapshot.aiToolResultCompressionHeadTailWindowChars;
+    _aiToolResultCompressionMaxPathHits =
+        snapshot.aiToolResultCompressionMaxPathHits;
+    _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;

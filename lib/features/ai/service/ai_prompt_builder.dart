@@ -97,7 +97,7 @@ class AiPromptBuilder {
         historyMessages,
         session,
         model,
-        runtimeContext.toolResultCompressionThresholdChars,
+        _ToolCompressionConfig.fromRuntimeContext(runtimeContext),
       ),
     );
     final latestUserTurns = latestUserMessage == null
@@ -834,7 +834,7 @@ class AiPromptBuilder {
     List<AiSessionMessage> messages,
     AiSession session,
     AiModelConfig model,
-    int toolResultCompressionThresholdChars,
+    _ToolCompressionConfig compressionConfig,
   ) {
     final turns = <AiChatTurn>[];
     var index = 0;
@@ -846,7 +846,7 @@ class AiPromptBuilder {
           index,
           session,
           model,
-          toolResultCompressionThresholdChars,
+          compressionConfig,
         );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(mappedGroup.turns);
@@ -863,7 +863,7 @@ class AiPromptBuilder {
           message,
           session,
           model,
-          toolResultCompressionThresholdChars,
+          compressionConfig,
         ),
       );
       index += 1;
@@ -909,7 +909,7 @@ class AiPromptBuilder {
     int startIndex,
     AiSession session,
     AiModelConfig model,
-    int toolResultCompressionThresholdChars,
+    _ToolCompressionConfig compressionConfig,
   ) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
@@ -927,7 +927,7 @@ class AiPromptBuilder {
               toolCallMessage,
               session,
               model,
-              toolResultCompressionThresholdChars,
+              compressionConfig,
             ),
             nextIndex: cursor + 1,
           );
@@ -954,7 +954,7 @@ class AiPromptBuilder {
           firstMessage,
           session,
           model,
-          toolResultCompressionThresholdChars,
+          compressionConfig,
         ),
         nextIndex: startIndex + 1,
       );
@@ -995,7 +995,7 @@ class AiPromptBuilder {
           toolCallId: toolCall.id,
           content: _promptHistoryToolResultContent(
             toolMessage,
-            toolResultCompressionThresholdChars,
+            compressionConfig,
           ),
         ),
       );
@@ -1007,7 +1007,7 @@ class AiPromptBuilder {
     AiSessionMessage message,
     AiSession session,
     AiModelConfig model,
-    int toolResultCompressionThresholdChars,
+    _ToolCompressionConfig compressionConfig,
   ) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
@@ -1033,7 +1033,7 @@ class AiPromptBuilder {
           role: AiChatRole.assistant,
           content: _promptHistoryToolResultContent(
             message,
-            toolResultCompressionThresholdChars,
+            compressionConfig,
           ),
         );
       case AiSessionMessageKind.mcp:
@@ -1442,8 +1442,12 @@ class AiPromptBuilder {
 
   String _promptHistoryToolResultContent(
     AiSessionMessage message,
-    int toolResultCompressionThresholdChars,
+    _ToolCompressionConfig compressionConfig,
   ) {
+    if (!compressionConfig.enabled) {
+      // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
+      return _promptContentForMessage(message);
+    }
     if (!_isWriteLikeToolHistoryMessage(message)) {
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
@@ -1451,7 +1455,7 @@ class AiPromptBuilder {
       // conversation history 被海量原文淹没。
       return _compressGenericToolResultContent(
         message,
-        toolResultCompressionThresholdChars,
+        compressionConfig,
       );
     }
     final metadata = message.metadata;
@@ -1477,7 +1481,10 @@ class AiPromptBuilder {
       if (targetPath != null) 'target: $targetPath',
       if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
       if (writeReason.isNotEmpty) 'reason: $writeReason',
-      if (resultText.isNotEmpty && resultText.length <= 280)
+      if (resultText.isNotEmpty &&
+          (compressionConfig.writeSummaryMaxChars <= 0
+              ? resultText.length <= 280
+              : resultText.length <= compressionConfig.writeSummaryMaxChars))
         'summary: $resultText',
       'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
     ];
@@ -1659,17 +1666,13 @@ class AiPromptBuilder {
   ///
   /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
   /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
-  static const int _genericToolResultHeadTailWindow = 256;
-  static const int _genericToolResultMaxPathHits = 12;
 
   String _compressGenericToolResultContent(
     AiSessionMessage message,
-    int toolResultCompressionThresholdChars,
+    _ToolCompressionConfig compressionConfig,
   ) {
     final original = _promptContentForMessage(message);
-    final threshold = toolResultCompressionThresholdChars > 0
-        ? toolResultCompressionThresholdChars
-        : 1024;
+    final threshold = compressionConfig.thresholdChars;
     if (original.length <= threshold) {
       return original;
     }
@@ -1679,21 +1682,20 @@ class AiPromptBuilder {
         '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
             .trim();
     final purpose = _extractToolCallPurpose(metadata);
-    final pathHits = _extractFilePathLineHits(
-      original,
-      maxHits: _genericToolResultMaxPathHits,
-    );
-    final head = original
-        .substring(
-          0,
-          math.min(original.length, _genericToolResultHeadTailWindow),
-        )
-        .trim();
-    final tailStart = math.max(
-      0,
-      original.length - _genericToolResultHeadTailWindow,
-    );
-    final tail = original.substring(tailStart).trim();
+    final pathHits = compressionConfig.maxPathHits <= 0
+        ? const <String>[]
+        : _extractFilePathLineHits(
+            original,
+            maxHits: compressionConfig.maxPathHits,
+          );
+    final headTail = compressionConfig.headTailWindowChars;
+    final head = headTail <= 0
+        ? ''
+        : original
+              .substring(0, math.min(original.length, headTail))
+              .trim();
+    final tailStart = math.max(0, original.length - headTail);
+    final tail = headTail <= 0 ? '' : original.substring(tailStart).trim();
     final lines = <String>[
       '[tool_result_summary] ${toolName.isEmpty ? 'Tool' : toolName}',
       'original_chars: ${original.length}',
@@ -1701,8 +1703,8 @@ class AiPromptBuilder {
       if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
       if (pathHits.isNotEmpty)
         'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',
-      'head:\n$head',
-      if (tail != head) 'tail:\n$tail',
+      if (head.isNotEmpty) 'head:\n$head',
+      if (tail.isNotEmpty && tail != head) 'tail:\n$tail',
       'note: Tool result exceeded $threshold'
           ' chars and was condensed for the prompt history. Re-run the tool'
           ' or read the local file directly if exact contents are needed.',
@@ -2245,6 +2247,46 @@ class _MappedToolExchange {
 
   final List<AiChatTurn> turns;
   final int nextIndex;
+}
+
+/// 2026-04-27 — 工具调用结果压缩相关的运行期配置。从 [AiSessionRuntimeContext]
+/// 派生，统一传入历史映射函数链，避免逐层传递 5 个独立参数。
+class _ToolCompressionConfig {
+  const _ToolCompressionConfig({
+    required this.enabled,
+    required this.thresholdChars,
+    required this.headTailWindowChars,
+    required this.maxPathHits,
+    required this.writeSummaryMaxChars,
+  });
+
+  factory _ToolCompressionConfig.fromRuntimeContext(
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    return _ToolCompressionConfig(
+      enabled: runtimeContext.toolResultCompressionEnabled,
+      thresholdChars: runtimeContext.toolResultCompressionThresholdChars > 0
+          ? runtimeContext.toolResultCompressionThresholdChars
+          : 1024,
+      headTailWindowChars: runtimeContext
+          .toolResultCompressionHeadTailWindowChars
+          .clamp(0, 1 << 20),
+      maxPathHits: runtimeContext.toolResultCompressionMaxPathHits.clamp(
+        0,
+        1 << 20,
+      ),
+      writeSummaryMaxChars: runtimeContext.writeToolSummaryMaxChars.clamp(
+        0,
+        1 << 20,
+      ),
+    );
+  }
+
+  final bool enabled;
+  final int thresholdChars;
+  final int headTailWindowChars;
+  final int maxPathHits;
+  final int writeSummaryMaxChars;
 }
 
 class _ExtractedReminderContent {

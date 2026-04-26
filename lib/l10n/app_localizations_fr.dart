@@ -1259,6 +1259,70 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enter a valid positive integer threshold.';
 
   @override
+  String get aiToolResultCompressionEnabledLabel =>
+      'Enable Tool Call Output Compression';
+
+  @override
+  String get aiToolResultCompressionEnabledBody =>
+      'Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowLabel =>
+      'Compression Head/Tail Window';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowBody =>
+      'How many head/tail characters of the raw output to retain in the condensed summary. Default 256; 0 disables head/tail snippets; range 0–8192.';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSave => 'Save Window';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSaved =>
+      'Head/tail window updated.';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowInvalid =>
+      'Enter an integer between 0 and 8192.';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsLabel =>
+      'Compression Path Extraction Cap';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsBody =>
+      'Maximum number of affected file paths extracted into the summary. Default 12; 0 disables extraction; range 0–200.';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSave => 'Save Cap';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSaved =>
+      'Path extraction cap updated.';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsInvalid =>
+      'Enter an integer between 0 and 200.';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsLabel => 'Write Tool Summary Char Cap';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsBody =>
+      'Maximum characters of result_text retained in write-style tool summaries (write/edit/multiedit/notebookedit/write-like bash). Default 280; 0 omits the summary; range 0–8192.';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSave => 'Save Cap';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSaved =>
+      'Write tool summary char cap updated.';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsInvalid =>
+      'Enter an integer between 0 and 8192.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

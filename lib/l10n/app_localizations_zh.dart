@@ -1203,6 +1203,62 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiToolResultCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 
   @override
+  String get aiToolResultCompressionEnabledLabel => '启用工具调用输出压缩';
+
+  @override
+  String get aiToolResultCompressionEnabledBody =>
+      '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowBody =>
+      '压缩后摘要中保留 raw 输出首尾各多少个字符。默认 256；0 表示不保留首尾片段；范围 0~8192。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSave => '保存窗口长度';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSaved => '首尾片段窗口已更新。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowInvalid =>
+      '请输入 0~8192 之间的整数。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsLabel => '压缩摘要提取路径上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsBody =>
+      '压缩后摘要中提取受影响文件路径的最大条数。默认 12；0 表示不提取；范围 0~200。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSave => '保存上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSaved => '路径提取上限已更新。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsInvalid => '请输入 0~200 之间的整数。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsLabel => '写类工具摘要字符上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsBody =>
+      '写类工具（write/edit/multiedit/notebookedit/写型 bash）结果摘要中保留 result_text 原文的最大字符数。默认 280；0 表示不保留；范围 0~8192。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSave => '保存上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSaved => '写类工具摘要字符上限已更新。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsInvalid => '请输入 0~8192 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -2531,6 +2587,62 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiToolResultCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 
   @override
+  String get aiToolResultCompressionEnabledLabel => '启用工具调用输出压缩';
+
+  @override
+  String get aiToolResultCompressionEnabledBody =>
+      '总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowLabel => '压缩摘要首尾片段窗口';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowBody =>
+      '压缩后摘要中保留 raw 输出首尾各多少个字符。默认 256；0 表示不保留首尾片段；范围 0~8192。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSave => '保存窗口长度';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSaved => '首尾片段窗口已更新。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowInvalid =>
+      '请输入 0~8192 之间的整数。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsLabel => '压缩摘要提取路径上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsBody =>
+      '压缩后摘要中提取受影响文件路径的最大条数。默认 12；0 表示不提取；范围 0~200。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSave => '保存上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSaved => '路径提取上限已更新。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsInvalid => '请输入 0~200 之间的整数。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsLabel => '写类工具摘要字符上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsBody =>
+      '写类工具（write/edit/multiedit/notebookedit/写型 bash）结果摘要中保留 result_text 原文的最大字符数。默认 280；0 表示不保留；范围 0~8192。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSave => '保存上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSaved => '写类工具摘要字符上限已更新。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsInvalid => '请输入 0~8192 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -3856,6 +3968,62 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionThresholdInvalid => '請輸入有效的正整數閾值。';
+
+  @override
+  String get aiToolResultCompressionEnabledLabel => '啟用工具呼叫輸出壓縮';
+
+  @override
+  String get aiToolResultCompressionEnabledBody =>
+      '總開關。關閉後不管閾值多大都不壓縮工具輸出原文，適合需要調試完整輸出的場景。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowLabel => '壓縮摘要首尾片段視窗';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowBody =>
+      '壓縮後摘要中保留 raw 輸出首尾各多少個字元。預設 256；0 表示不保留首尾片段；範圍 0~8192。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSave => '儲存視窗長度';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowSaved => '首尾片段視窗已更新。';
+
+  @override
+  String get aiToolResultCompressionHeadTailWindowInvalid =>
+      '請輸入 0~8192 之間的整數。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsLabel => '壓縮摘要擷取路徑上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsBody =>
+      '壓縮後摘要中擷取受影響檔案路徑的最大條數。預設 12；0 表示不擷取；範圍 0~200。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSave => '儲存上限';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsSaved => '路徑擷取上限已更新。';
+
+  @override
+  String get aiToolResultCompressionMaxPathHitsInvalid => '請輸入 0~200 之間的整數。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsLabel => '寫類工具摘要字元上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsBody =>
+      '寫類工具（write/edit/multiedit/notebookedit/寫型 bash）結果摘要中保留 result_text 原文的最大字元數。預設 280；0 表示不保留；範圍 0~8192。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSave => '儲存上限';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsSaved => '寫類工具摘要字元上限已更新。';
+
+  @override
+  String get aiWriteToolSummaryMaxCharsInvalid => '請輸入 0~8192 之間的整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

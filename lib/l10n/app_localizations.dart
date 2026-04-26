@@ -2428,6 +2428,108 @@ abstract class AppLocalizations {
   /// **'请输入有效的正整数阈值。'**
   String get aiToolResultCompressionThresholdInvalid;
 
+  /// No description provided for @aiToolResultCompressionEnabledLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用工具调用输出压缩'**
+  String get aiToolResultCompressionEnabledLabel;
+
+  /// No description provided for @aiToolResultCompressionEnabledBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总开关。关闭后不论阈值多大都不压缩工具输出原文，适合需要调试完整输出的场景。'**
+  String get aiToolResultCompressionEnabledBody;
+
+  /// No description provided for @aiToolResultCompressionHeadTailWindowLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩摘要首尾片段窗口'**
+  String get aiToolResultCompressionHeadTailWindowLabel;
+
+  /// No description provided for @aiToolResultCompressionHeadTailWindowBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩后摘要中保留 raw 输出首尾各多少个字符。默认 256；0 表示不保留首尾片段；范围 0~8192。'**
+  String get aiToolResultCompressionHeadTailWindowBody;
+
+  /// No description provided for @aiToolResultCompressionHeadTailWindowSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存窗口长度'**
+  String get aiToolResultCompressionHeadTailWindowSave;
+
+  /// No description provided for @aiToolResultCompressionHeadTailWindowSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'首尾片段窗口已更新。'**
+  String get aiToolResultCompressionHeadTailWindowSaved;
+
+  /// No description provided for @aiToolResultCompressionHeadTailWindowInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~8192 之间的整数。'**
+  String get aiToolResultCompressionHeadTailWindowInvalid;
+
+  /// No description provided for @aiToolResultCompressionMaxPathHitsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩摘要提取路径上限'**
+  String get aiToolResultCompressionMaxPathHitsLabel;
+
+  /// No description provided for @aiToolResultCompressionMaxPathHitsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩后摘要中提取受影响文件路径的最大条数。默认 12；0 表示不提取；范围 0~200。'**
+  String get aiToolResultCompressionMaxPathHitsBody;
+
+  /// No description provided for @aiToolResultCompressionMaxPathHitsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiToolResultCompressionMaxPathHitsSave;
+
+  /// No description provided for @aiToolResultCompressionMaxPathHitsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'路径提取上限已更新。'**
+  String get aiToolResultCompressionMaxPathHitsSaved;
+
+  /// No description provided for @aiToolResultCompressionMaxPathHitsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~200 之间的整数。'**
+  String get aiToolResultCompressionMaxPathHitsInvalid;
+
+  /// No description provided for @aiWriteToolSummaryMaxCharsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写类工具摘要字符上限'**
+  String get aiWriteToolSummaryMaxCharsLabel;
+
+  /// No description provided for @aiWriteToolSummaryMaxCharsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写类工具（write/edit/multiedit/notebookedit/写型 bash）结果摘要中保留 result_text 原文的最大字符数。默认 280；0 表示不保留；范围 0~8192。'**
+  String get aiWriteToolSummaryMaxCharsBody;
+
+  /// No description provided for @aiWriteToolSummaryMaxCharsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiWriteToolSummaryMaxCharsSave;
+
+  /// No description provided for @aiWriteToolSummaryMaxCharsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写类工具摘要字符上限已更新。'**
+  String get aiWriteToolSummaryMaxCharsSaved;
+
+  /// No description provided for @aiWriteToolSummaryMaxCharsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~8192 之间的整数。'**
+  String get aiWriteToolSummaryMaxCharsInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:
