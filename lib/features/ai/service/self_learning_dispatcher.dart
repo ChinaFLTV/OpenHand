@@ -122,11 +122,31 @@ bool _hasMediaGenerationCapability(Set<AiModelCapability> capabilities) {
 
 bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
   final normalized = modelId.toLowerCase().replaceAll(RegExp(r'[\s_]+'), '-');
-  return normalized.startsWith('sora') ||
-      normalized.startsWith('dall-e') ||
-      normalized.startsWith('gpt-image') ||
-      normalized.startsWith('wan') ||
-      normalized.contains('grok-imagine') ||
+  // ── Image-only generators ────────────────────────────────────────────
+  const imagePrefixes = <String>[
+    'sora',
+    'dall-e',
+    'gpt-image',
+    'wan',
+    'seedream',
+    'cogview',
+    'flux',
+    'imagen',
+    'midjourney',
+    'ideogram',
+    'kandinsky',
+    'qwen-image',
+  ];
+  for (final prefix in imagePrefixes) {
+    if (normalized.startsWith(prefix)) return true;
+  }
+  // ── Audio-only generators ────────────────────────────────────────────
+  const audioPrefixes = <String>['cogtts', 'cogsound', 't2a'];
+  for (final prefix in audioPrefixes) {
+    if (normalized.startsWith(prefix)) return true;
+  }
+  // ── Substring fallbacks ──────────────────────────────────────────────
+  return normalized.contains('grok-imagine') ||
       normalized.contains('grok-2-image') ||
       normalized.contains('image-generation') ||
       normalized.contains('video-generation') ||
@@ -137,10 +157,14 @@ bool _looksLikeDedicatedMediaGenerationModel(String modelId) {
       normalized.contains('kling') ||
       normalized.contains('hailuo') ||
       normalized.contains('veo') ||
+      normalized.contains('vidu') ||
+      normalized.contains('pika-') ||
+      normalized.contains('runway-') ||
       normalized.contains('tts') ||
       normalized.contains('speech') ||
       normalized.contains('cosyvoice') ||
-      normalized.contains('stable-audio');
+      normalized.contains('stable-audio') ||
+      normalized.contains('musicgen');
 }
 
 /// 构造生产用 Hermes Talker 自主学习 dispatcher。
