@@ -1897,16 +1897,51 @@ class AiToolRuntimeService {
     required String description,
     required Map<String, Object?> parameters,
   }) {
+    // 2026-04-27: 统一为所有内建工具注入可选 purpose 字段。
+    // AI 在发起任何工具调用时都可以填写一句话目的/目标/动作概述，
+    // 我们会把它作为 conversation history 压缩后的补充信息保留下来，
+    // 既能让模型有意识地表达意图，也能在长上下文里维持可追溯性。
+    final enrichedParameters = _injectPurposeProperty(parameters);
     return AiResolvedTool(
       name: name,
       definition: AiToolDefinition(
         name: name,
         description: description,
-        parameters: parameters,
+        parameters: enrichedParameters,
       ),
       source: AiRuntimeToolSource.builtin,
       builtinKind: kind,
     );
+  }
+
+  /// Inject an optional `purpose` string property into a JSON-schema-style
+  /// parameters object. Returns a new map; the original is not mutated.
+  /// If [parameters] is not an `object` schema, it is returned unchanged.
+  static Map<String, Object?> _injectPurposeProperty(
+    Map<String, Object?> parameters,
+  ) {
+    if (parameters['type'] != 'object') {
+      return parameters;
+    }
+    final propertiesRaw = parameters['properties'];
+    final properties = propertiesRaw is Map
+        ? Map<String, Object?>.from(propertiesRaw)
+        : <String, Object?>{};
+    if (properties.containsKey('purpose')) {
+      return parameters;
+    }
+    properties['purpose'] = const <String, Object?>{
+      'type': 'string',
+      'description':
+          'Optional one-sentence statement of what you intend to achieve with '
+          'this tool call (intent / goal / brief summary). When the result '
+          'exceeds the prompt-history compression threshold, this purpose '
+          'is preserved alongside the extracted file paths so future turns '
+          'still understand why the call was made.',
+    };
+    final next = Map<String, Object?>.from(parameters);
+    next['properties'] = properties;
+    return next;
   }
 
   /// Returns the default (unmodified) [AiResolvedTool] for the given
