@@ -1,0 +1,393 @@
+/// 2026-04-26 — 数据清理 service。
+///
+/// 设计要点：
+/// 1. **所有耗时的文件系统遍历都在 [compute] 里跑**——通过把任务抛进
+///    后台 isolate，主 isolate 不会被磁盘 IO 阻塞，避免 ANR / 卡顿。
+/// 2. **每个 isolate 任务都有 silentLog 兜底**——单个目录不可读不会让
+///    整个测算失败，结果中只是少计算一些字节。
+/// 3. **数据库访问留在主 isolate**——sqflite_common_ffi 的 Database
+///    句柄不能跨 isolate；所以 DB 体积探测使用主 isolate 上一次很快的
+///    `LENGTH(...)` 聚合查询。
+/// 4. **清理顺序在 [cleanAll] 中固定**：先抹掉派生数据（多媒体/缓存/日志），
+///    最后再删 sessions。这样即便中途崩溃，残留也不会引用已经被删的
+///    附件文件。
+library;
+
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+
+import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
+import '../../../shared/data/database_service.dart';
+import '../../ai/ai_session_controller.dart';
+import '../../crons/crons_controller.dart';
+import 'data_cleanup_models.dart';
+
+/// 数据清理 service：纯实例化（无全局状态），由 UI 层按需创建。
+class DataCleanupService {
+  DataCleanupService({
+    required AiSessionController aiSessionController,
+    required CronsController cronsController,
+  })  : _aiSessionController = aiSessionController,
+        _cronsController = cronsController;
+
+  final AiSessionController _aiSessionController;
+  final CronsController _cronsController;
+
+  // ---------------------------------------------------------------------------
+  // 体积探测
+  // ---------------------------------------------------------------------------
+
+  /// 多媒体附件总大小：扫描每个会话目录下的 `attachments/` 子目录 +
+  /// 旧版 `~/.openhand/sessions/attachments/` 的统一目录。
+  Future<DataCleanupSizeReport> measureMultimedia() {
+    final root = OpenHandPaths.defaultSessionsDirectoryPath();
+    return compute(_isolateMeasureAttachments, root);
+  }
+
+  /// 会话本身（非附件）：sqlite 行体积估算 + 旧版 `session-*.json`。
+  Future<DataCleanupSizeReport> measureSessions() async {
+    final dbReport = await _measureSessionsDb();
+    final fsReport = await compute(
+      _isolateMeasureSessionsExcludingAttachments,
+      OpenHandPaths.defaultSessionsDirectoryPath(),
+    );
+    return dbReport + fsReport;
+  }
+
+  /// 应用缓存目录。
+  Future<DataCleanupSizeReport> measureAppCache() {
+    return compute(
+      _isolateMeasureDirectory,
+      OpenHandPaths.defaultCacheDirectoryPath(),
+    );
+  }
+
+  /// 日志数据：cron 历史行体积 + 日志目录。
+  Future<DataCleanupSizeReport> measureLogs() async {
+    final dbReport = await _measureCronHistoryDb();
+    final fsReport = await compute(
+      _isolateMeasureDirectory,
+      OpenHandPaths.defaultLogsDirectoryPath(),
+    );
+    return dbReport + fsReport;
+  }
+
+  /// 所有分类合计。计算独立分支的并集，**不会**重复加和。
+  Future<DataCleanupSizeReport> measureAll() async {
+    final results = await Future.wait<DataCleanupSizeReport>(<
+        Future<DataCleanupSizeReport>>[
+      measureMultimedia(),
+      measureSessions(),
+      measureAppCache(),
+      measureLogs(),
+    ]);
+    return results.fold<DataCleanupSizeReport>(
+      DataCleanupSizeReport.empty,
+      (acc, item) => acc + item,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 清理动作
+  // ---------------------------------------------------------------------------
+
+  /// 删除所有附件目录里的文件。会话行本身保留——附件引用变成"找不到
+  /// 文件"，UI 层会自动降级展示。
+  Future<void> cleanMultimedia() {
+    return compute(
+      _isolateDeleteAttachments,
+      OpenHandPaths.defaultSessionsDirectoryPath(),
+    );
+  }
+
+  /// 清空所有会话（DB + 磁盘 JSON），并触发 controller 重新加载。
+  Future<void> cleanSessions() async {
+    await _aiSessionController.store.clearAll();
+    await _aiSessionController.refresh();
+  }
+
+  /// 清空应用缓存目录。
+  Future<void> cleanAppCache() {
+    return compute(
+      _isolateDeleteDirectoryContents,
+      OpenHandPaths.defaultCacheDirectoryPath(),
+    );
+  }
+
+  /// 清空 cron 执行历史 + 日志目录。
+  Future<void> cleanLogs() async {
+    await _cronsController.clearAllHistory();
+    await compute(
+      _isolateDeleteDirectoryContents,
+      OpenHandPaths.defaultLogsDirectoryPath(),
+    );
+  }
+
+  /// 顺序执行所有分类的清理。任何分支抛异常都会被 silentLog 吞掉，
+  /// 后续分类继续执行；最终的总错误数通过返回的 `errors` 暴露给 UI。
+  Future<int> cleanAll() async {
+    int errors = 0;
+    Future<void> runStep(String name, Future<void> Function() step) async {
+      try {
+        await step();
+      } catch (error, stack) {
+        errors++;
+        silentLog('data_cleanup', 'cleanAll/$name', error, stack);
+      }
+    }
+
+    await runStep('multimedia', cleanMultimedia);
+    await runStep('appCache', cleanAppCache);
+    await runStep('logs', cleanLogs);
+    // 会话放在最后清理：上面的步骤即便意外失败，残留附件引用也已经
+    // 失效，但 sessions 表仍在；如果反过来先清 sessions，再清附件失败，
+    // 用户看到的是"会话没了，但附件目录还在占空间"。
+    await runStep('sessions', cleanSessions);
+    return errors;
+  }
+
+  // ---------------------------------------------------------------------------
+  // DB 体积估算（主 isolate）
+  // ---------------------------------------------------------------------------
+
+  Future<DataCleanupSizeReport> _measureSessionsDb() async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.rawQuery(
+        'SELECT '
+        '(SELECT COUNT(*) FROM sessions) AS sessions_cnt, '
+        '(SELECT COUNT(*) FROM messages) AS messages_cnt, '
+        '(SELECT COALESCE(SUM('
+        'LENGTH(IFNULL(content, \'\')) '
+        '+ LENGTH(IFNULL(metadata_json, \'\')) '
+        '+ LENGTH(IFNULL(usage_json, \'\'))'
+        '), 0) FROM messages) AS messages_bytes, '
+        '(SELECT COALESCE(SUM('
+        'LENGTH(IFNULL(metadata_json, \'\')) '
+        '+ LENGTH(IFNULL(environment_json, \'\')) '
+        '+ LENGTH(IFNULL(statistics_json, \'\')) '
+        '+ LENGTH(IFNULL(recent_errors_json, \'\')) '
+        '+ LENGTH(IFNULL(todo_items_json, \'\')) '
+        '+ LENGTH(IFNULL(plan_history_json, \'\'))'
+        '), 0) FROM sessions) AS sessions_bytes',
+      );
+      if (rows.isEmpty) {
+        return DataCleanupSizeReport.empty;
+      }
+      final row = rows.first;
+      final sessionsCnt = (row['sessions_cnt'] as int?) ?? 0;
+      final messagesBytes = (row['messages_bytes'] as int?) ?? 0;
+      final sessionsBytes = (row['sessions_bytes'] as int?) ?? 0;
+      return DataCleanupSizeReport(
+        bytes: messagesBytes + sessionsBytes,
+        itemCount: sessionsCnt,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureSessionsDb', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+
+  Future<DataCleanupSizeReport> _measureCronHistoryDb() async {
+    try {
+      final size = await _cronsController.store.historyApproxSize();
+      return DataCleanupSizeReport(
+        bytes: size.approxBytes,
+        itemCount: size.rowCount,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureCronHistoryDb', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Isolate worker functions（必须是顶层或静态以便序列化）
+// ---------------------------------------------------------------------------
+
+/// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
+/// 文件数。
+DataCleanupSizeReport _isolateMeasureAttachments(String sessionsRoot) {
+  final root = Directory(sessionsRoot);
+  if (!root.existsSync()) {
+    return DataCleanupSizeReport.empty;
+  }
+  int totalBytes = 0;
+  int totalFiles = 0;
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      if (entity is! Directory) {
+        continue;
+      }
+      // 该会话子目录里，只算 `attachments/`；旧版顶层 attachments 目录
+      // 自身就是一个匹配项（其名字就是 `attachments`）。
+      final attachmentsName = p.basename(entity.path);
+      if (attachmentsName == 'attachments') {
+        final stats = _walkDirectoryStats(entity);
+        totalBytes += stats.bytes;
+        totalFiles += stats.files;
+        continue;
+      }
+      final perSession = Directory(p.join(entity.path, 'attachments'));
+      if (perSession.existsSync()) {
+        final stats = _walkDirectoryStats(perSession);
+        totalBytes += stats.bytes;
+        totalFiles += stats.files;
+      }
+    }
+  } catch (_) {
+    // 子目录不可读：保留已经累计的部分，避免一棵坏分支吞掉全部统计。
+  }
+  return DataCleanupSizeReport(bytes: totalBytes, itemCount: totalFiles);
+}
+
+/// 在 isolate 内统计 sessions 目录下"非附件"内容（例如旧版 JSON）。
+DataCleanupSizeReport _isolateMeasureSessionsExcludingAttachments(
+  String sessionsRoot,
+) {
+  final root = Directory(sessionsRoot);
+  if (!root.existsSync()) {
+    return const DataCleanupSizeReport(bytes: 0);
+  }
+  int totalBytes = 0;
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      if (entity is File) {
+        // 旧版 `session-*.json`。
+        try {
+          totalBytes += entity.lengthSync();
+        } catch (_) {
+          // 文件被并发删除等：忽略。
+        }
+        continue;
+      }
+      if (entity is Directory) {
+        final name = p.basename(entity.path);
+        if (name == 'attachments') {
+          // 附件由多媒体分类负责。
+          continue;
+        }
+        // per-session 子目录：跳过其下的 `attachments/`，统计其它文件。
+        for (final inner in entity.listSync(
+          recursive: true,
+          followLinks: false,
+        )) {
+          if (inner is! File) {
+            continue;
+          }
+          if (p.split(inner.path).contains('attachments')) {
+            continue;
+          }
+          try {
+            totalBytes += inner.lengthSync();
+          } catch (_) {
+            // ignore
+          }
+        }
+      }
+    }
+  } catch (_) {
+    // 兜底：保留累计。
+  }
+  return DataCleanupSizeReport(bytes: totalBytes);
+}
+
+DataCleanupSizeReport _isolateMeasureDirectory(String dir) {
+  final root = Directory(dir);
+  if (!root.existsSync()) {
+    return DataCleanupSizeReport.empty;
+  }
+  final stats = _walkDirectoryStats(root);
+  return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
+}
+
+void _isolateDeleteAttachments(String sessionsRoot) {
+  final root = Directory(sessionsRoot);
+  if (!root.existsSync()) {
+    return;
+  }
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      if (entity is! Directory) {
+        continue;
+      }
+      final name = p.basename(entity.path);
+      if (name == 'attachments') {
+        _safeDeleteDirectoryAndRecreate(entity);
+        continue;
+      }
+      final perSession = Directory(p.join(entity.path, 'attachments'));
+      if (perSession.existsSync()) {
+        _safeDeleteDirectoryAndRecreate(perSession);
+      }
+    }
+  } catch (_) {
+    // 兜底：保持已删除部分，剩余目录可下次再清。
+  }
+}
+
+void _isolateDeleteDirectoryContents(String dir) {
+  final root = Directory(dir);
+  if (!root.existsSync()) {
+    return;
+  }
+  try {
+    for (final entity in root.listSync(followLinks: false)) {
+      try {
+        if (entity is Directory) {
+          entity.deleteSync(recursive: true);
+        } else {
+          entity.deleteSync();
+        }
+      } catch (_) {
+        // 单个文件删除失败：忽略，继续下一个。
+      }
+    }
+  } catch (_) {
+    // 列表失败：忽略。
+  }
+}
+
+void _safeDeleteDirectoryAndRecreate(Directory dir) {
+  try {
+    dir.deleteSync(recursive: true);
+  } catch (_) {
+    // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
+  }
+  try {
+    dir.createSync(recursive: true);
+  } catch (_) {
+    // recreate 失败也不抛——下游写入时会自行重试。
+  }
+}
+
+class _DirStats {
+  const _DirStats({required this.bytes, required this.files});
+  final int bytes;
+  final int files;
+}
+
+_DirStats _walkDirectoryStats(Directory dir) {
+  int bytes = 0;
+  int files = 0;
+  try {
+    for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+      if (entity is! File) {
+        continue;
+      }
+      try {
+        bytes += entity.lengthSync();
+        files++;
+      } catch (_) {
+        // 文件并发被删 / 权限不足：跳过。
+      }
+    }
+  } catch (_) {
+    // 列表失败：返回已经累计的部分。
+  }
+  return _DirStats(bytes: bytes, files: files);
+}
