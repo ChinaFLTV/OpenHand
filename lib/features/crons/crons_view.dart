@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,6 +12,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_notification_service.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/ansi_text.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'cron_parser.dart';
 import 'crons_controller.dart';
@@ -2456,9 +2458,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 ),
               ),
               child: SingleChildScrollView(
-                child: SelectableText(
+                child: ansiText(
                   record.stdout,
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  colorScheme: colorScheme,
+                  base: theme.textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                     fontSize: 11,
                     color: colorScheme.onSurface,
@@ -2490,9 +2493,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 ),
               ),
               child: SingleChildScrollView(
-                child: SelectableText(
+                child: ansiText(
                   record.stderr,
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  colorScheme: colorScheme,
+                  base: theme.textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
                     fontSize: 11,
                     color: colorScheme.onErrorContainer,
@@ -2968,11 +2972,11 @@ class _HermesTalkerSessionCard extends StatelessWidget {
       if (report.summary.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 4),
-          child: SelectableText(
-            report.summary,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+          child: _hermesInlineMarkdown(
+            data: report.summary,
+            theme: theme,
+            colorScheme: colorScheme,
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
       if (report.modelId != null || report.terminatedReason != null)
@@ -3245,7 +3249,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     ]);
     final id = _firstText(change, const ['id', 'key', 'path', 'target']);
     final details = _detailEntries(change)
-        .map((entry) => '${_labelFor(entry.key, isZh)}: ${entry.value}')
+        .map((entry) => '**${_labelFor(entry.key, isZh)}**: ${entry.value}')
         .toList(growable: false);
     final fallback = _jsonFallback(change);
 
@@ -3285,13 +3289,12 @@ class _HermesTalkerSessionCard extends StatelessWidget {
             ),
             if (heading != null) ...[
               const SizedBox(height: 6),
-              SelectableText(
-                heading,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurface,
-                  height: 1.35,
-                  fontWeight: FontWeight.w600,
-                ),
+              _hermesInlineMarkdown(
+                data: heading,
+                theme: theme,
+                colorScheme: colorScheme,
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w600,
               ),
             ],
             if (details.isNotEmpty) ...[
@@ -3299,12 +3302,12 @@ class _HermesTalkerSessionCard extends StatelessWidget {
               ...details.map(
                 (line) => Padding(
                   padding: const EdgeInsets.only(top: 2),
-                  child: SelectableText(
-                    line,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.32,
-                    ),
+                  child: _hermesInlineMarkdown(
+                    data: line,
+                    theme: theme,
+                    colorScheme: colorScheme,
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.32,
                   ),
                 ),
               ),
@@ -3438,6 +3441,11 @@ class _CollapsibleLongText extends StatefulWidget {
 
   static const int _previewChars = 320;
 
+  /// Bodies larger than this fall back to a plain selectable text view to
+  /// keep the timeline list snappy — markdown parsing is O(n) and would
+  /// otherwise stutter the UI when many history items are expanded.
+  static const int _markdownByteLimit = 120 * 1024;
+
   final String title;
   final IconData icon;
   final String body;
@@ -3460,6 +3468,32 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
         ? body
         : '${body.substring(0, _CollapsibleLongText._previewChars)}…';
     final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+
+    final bodyTextColor = widget.subdued
+        ? colorScheme.onSurfaceVariant
+        : colorScheme.onSurface;
+    final fallbackTextStyle = theme.textTheme.bodySmall?.copyWith(
+      color: bodyTextColor,
+      height: 1.4,
+      fontStyle: widget.subdued ? FontStyle.italic : FontStyle.normal,
+    );
+
+    // Performance guard: oversized bodies skip markdown parsing entirely.
+    final useMarkdown = shown.length <= _CollapsibleLongText._markdownByteLimit;
+
+    final Widget bodyWidget = useMarkdown
+        ? MarkdownBody(
+            data: shown,
+            selectable: true,
+            softLineBreak: true,
+            styleSheet: _buildCollapsibleMarkdownStyleSheet(
+              theme: theme,
+              colorScheme: colorScheme,
+              baseColor: bodyTextColor,
+              subdued: widget.subdued,
+            ),
+          )
+        : SelectableText(shown, style: fallbackTextStyle);
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -3511,19 +3545,179 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
               ],
             ),
             const SizedBox(height: 4),
-            SelectableText(
-              shown,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: widget.subdued
-                    ? colorScheme.onSurfaceVariant
-                    : colorScheme.onSurface,
-                height: 1.4,
-                fontStyle: widget.subdued ? FontStyle.italic : FontStyle.normal,
-              ),
-            ),
+            bodyWidget,
           ],
         ),
       ),
     );
   }
+}
+
+/// Lightweight markdown stylesheet for cron history collapsible bodies.
+/// Tuned for compact, in-card rendering: smaller fonts, dim accents, no
+/// heavy block decorations that would fight the surrounding card.
+MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
+  required ThemeData theme,
+  required ColorScheme colorScheme,
+  required Color baseColor,
+  required bool subdued,
+}) {
+  final base = theme.textTheme.bodySmall?.copyWith(
+    color: baseColor,
+    height: 1.4,
+    fontStyle: subdued ? FontStyle.italic : FontStyle.normal,
+  );
+  final mono = base?.copyWith(
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontStyle: FontStyle.normal,
+  );
+  final codeBg = colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
+  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+    p: base,
+    a: base?.copyWith(
+      color: colorScheme.primary,
+      decoration: TextDecoration.underline,
+    ),
+    code: mono?.copyWith(backgroundColor: codeBg),
+    codeblockPadding: const EdgeInsets.all(8),
+    codeblockDecoration: BoxDecoration(
+      color: codeBg,
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+      ),
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(6),
+      border: Border(
+        left: BorderSide(
+          color: colorScheme.primary.withValues(alpha: 0.55),
+          width: 3,
+        ),
+      ),
+    ),
+    blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+    h1: theme.textTheme.titleMedium?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w700,
+    ),
+    h2: theme.textTheme.titleSmall?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w700,
+    ),
+    h3: theme.textTheme.bodyMedium?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w700,
+    ),
+    h4: theme.textTheme.bodyMedium?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w600,
+    ),
+    h5: theme.textTheme.bodySmall?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w600,
+    ),
+    h6: theme.textTheme.bodySmall?.copyWith(
+      color: baseColor,
+      fontWeight: FontWeight.w600,
+    ),
+    listBullet: base,
+    tableHead: base?.copyWith(fontWeight: FontWeight.w600),
+    tableBody: base,
+    tableBorder: TableBorder.all(
+      color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+      width: 0.6,
+    ),
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(
+        top: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Inline markdown helper used for short Hermes Talker fields (summary,
+/// change row heading, change detail lines). Falls back to a plain selectable
+/// text on oversized payloads to keep the history list snappy.
+Widget _hermesInlineMarkdown({
+  required String data,
+  required ThemeData theme,
+  required ColorScheme colorScheme,
+  required Color color,
+  FontWeight? fontWeight,
+  FontStyle? fontStyle,
+  double height = 1.35,
+}) {
+  // Inline payloads are expected to be short (one line ~ a paragraph). Skip
+  // markdown parsing entirely once they cross a few KB.
+  const inlineByteLimit = 4 * 1024;
+  final base = theme.textTheme.bodySmall?.copyWith(
+    color: color,
+    fontWeight: fontWeight,
+    fontStyle: fontStyle,
+    height: height,
+  );
+  if (data.length > inlineByteLimit) {
+    return SelectableText(data, style: base);
+  }
+  return MarkdownBody(
+    data: data,
+    selectable: true,
+    softLineBreak: true,
+    styleSheet: _buildHermesInlineMarkdownStyleSheet(
+      theme: theme,
+      colorScheme: colorScheme,
+      base: base,
+    ),
+  );
+}
+
+MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
+  required ThemeData theme,
+  required ColorScheme colorScheme,
+  required TextStyle? base,
+}) {
+  final mono = base?.copyWith(fontFamily: 'monospace', fontSize: 11);
+  final codeBg = colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
+  return MarkdownStyleSheet.fromTheme(theme).copyWith(
+    p: base,
+    a: base?.copyWith(
+      color: colorScheme.primary,
+      decoration: TextDecoration.underline,
+    ),
+    code: mono?.copyWith(backgroundColor: codeBg),
+    codeblockPadding: const EdgeInsets.all(6),
+    codeblockDecoration: BoxDecoration(
+      color: codeBg,
+      borderRadius: BorderRadius.circular(6),
+    ),
+    blockquoteDecoration: BoxDecoration(
+      color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(6),
+      border: Border(
+        left: BorderSide(
+          color: colorScheme.primary.withValues(alpha: 0.55),
+          width: 3,
+        ),
+      ),
+    ),
+    blockquotePadding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+    listBullet: base,
+    h1: base?.copyWith(fontWeight: FontWeight.w700),
+    h2: base?.copyWith(fontWeight: FontWeight.w700),
+    h3: base?.copyWith(fontWeight: FontWeight.w700),
+    h4: base?.copyWith(fontWeight: FontWeight.w600),
+    h5: base?.copyWith(fontWeight: FontWeight.w600),
+    h6: base?.copyWith(fontWeight: FontWeight.w600),
+    tableHead: base?.copyWith(fontWeight: FontWeight.w600),
+    tableBody: base,
+    tableBorder: TableBorder.all(
+      color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+      width: 0.6,
+    ),
+  );
 }
