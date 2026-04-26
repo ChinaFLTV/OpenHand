@@ -1367,7 +1367,6 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.transparent)
       ..addJavaScriptChannel(
         'OpenHandMedia',
         onMessageReceived: _handleMediaMessage,
@@ -1387,6 +1386,14 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
         ),
       )
       ..loadHtmlString(_buildMediaHtml());
+    // `setBackgroundColor` on macOS bridges to `WKWebView.setOpaque`, which
+    // is unimplemented in the wkwebview plugin and throws
+    // `UnimplementedError: opaque is not implemented on macOS`. Skip the
+    // call there — the dialog already uses a transparent overlay so the
+    // default WKWebView background is acceptable.
+    if (!Platform.isMacOS) {
+      _controller.setBackgroundColor(Colors.transparent);
+    }
     _loadTimeoutTimer = Timer(_mediaLoadTimeout, () {
       if (!mounted || _mediaReady) return;
       setState(() {
