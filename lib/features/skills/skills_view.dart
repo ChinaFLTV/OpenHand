@@ -12,6 +12,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import 'model/local_skill.dart';
+import 'skill_market_dialog.dart';
 import 'skills_controller.dart';
 
 enum _SkillCardAction { openDirectory, edit, delete }
@@ -155,6 +156,17 @@ class _SkillsViewState extends State<SkillsView> {
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(l10n.skillsRefresh),
                 ),
+                FilledButton.tonalIcon(
+                  onPressed: () => _showSkillMarket(context),
+                  icon: const Icon(Icons.storefront_rounded),
+                  label: Text(
+                    _localizedSkillsText(
+                      context,
+                      zh: '技能市场',
+                      en: 'Skill Market',
+                    ),
+                  ),
+                ),
                 OutlinedButton.icon(
                   onPressed: () => _openSkillsDirectory(context),
                   icon: const Icon(Icons.folder_open_rounded),
@@ -198,10 +210,7 @@ class _SkillsViewState extends State<SkillsView> {
                 ),
                 const SizedBox(width: 20),
                 Flexible(
-                  child: Align(
-                    alignment: Alignment.topRight,
-                    child: actions,
-                  ),
+                  child: Align(alignment: Alignment.topRight, child: actions),
                 ),
               ],
             );
@@ -358,6 +367,10 @@ class _SkillsViewState extends State<SkillsView> {
       return;
     }
     _showSnackBar(context, '${l10n.skillTemplateCreated}: $createdSkillName');
+  }
+
+  Future<void> _showSkillMarket(BuildContext context) async {
+    await showSkillMarketDialog(context);
   }
 
   Future<void> _openSkillsDirectory(BuildContext context) async {
@@ -559,6 +572,16 @@ class _SkillsViewState extends State<SkillsView> {
       messenger?.showSnackBar(SnackBar(content: Text(message)));
     });
   }
+}
+
+String _localizedSkillsText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+}) {
+  return Localizations.localeOf(context).languageCode.toLowerCase() == 'zh'
+      ? zh
+      : en;
 }
 
 class _EditSkillDialog extends StatefulWidget {

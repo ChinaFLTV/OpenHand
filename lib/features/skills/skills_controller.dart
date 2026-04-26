@@ -136,6 +136,21 @@ class SkillsController extends ChangeNotifier {
     });
   }
 
+  Future<LocalSkill> installSkillArchive({
+    required String preferredSlug,
+    required Uint8List archiveBytes,
+  }) async {
+    return _enqueueOperation(() async {
+      final skill = await _repository.installSkillArchive(
+        _storagePath,
+        preferredSlug: preferredSlug,
+        archiveBytes: archiveBytes,
+      );
+      await _refreshLocked();
+      return _findSkillByManifestPath(skill.manifestPath) ?? skill;
+    });
+  }
+
   Future<String> readSkillManifest(LocalSkill skill) {
     return _repository.readSkillManifest(skill);
   }

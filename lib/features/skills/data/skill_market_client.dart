@@ -1,0 +1,397 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+
+import '../../../app/support/silent_log.dart';
+import '../model/skill_market.dart';
+
+class SkillMarketException implements Exception {
+  const SkillMarketException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class SkillMarketClient {
+  SkillMarketClient({http.Client? httpClient})
+    : _client = httpClient ?? http.Client();
+
+  static const String _host = 'api.skillhub.cn';
+  static const int defaultPageSize = 24;
+  static const int _maxDownloadBytes = 48 * 1024 * 1024;
+  static const Duration _requestTimeout = Duration(seconds: 14);
+  static const Duration _downloadIdleTimeout = Duration(seconds: 18);
+
+  final http.Client _client;
+  final Map<String, Future<SkillMarketSearchResult>> _searchCache =
+      <String, Future<SkillMarketSearchResult>>{};
+  final Map<String, Future<SkillMarketDetail>> _detailCache =
+      <String, Future<SkillMarketDetail>>{};
+  final Map<String, Future<SkillMarketVersionsResult>> _versionsCache =
+      <String, Future<SkillMarketVersionsResult>>{};
+  final Map<String, Future<SkillMarketFilesResult>> _filesCache =
+      <String, Future<SkillMarketFilesResult>>{};
+  final Map<String, Future<String>> _fileContentCache =
+      <String, Future<String>>{};
+  final Map<String, Future<SkillMarketBundle>> _bundleCache =
+      <String, Future<SkillMarketBundle>>{};
+
+  void close() {
+    _client.close();
+  }
+
+  void clearSearchCache() {
+    _searchCache.clear();
+  }
+
+  Future<SkillMarketSearchResult> searchSkills({
+    required String keyword,
+    required int page,
+    int pageSize = defaultPageSize,
+  }) {
+    final normalizedKeyword = keyword.trim();
+    final normalizedPage = page < 1 ? 1 : page;
+    final normalizedPageSize = pageSize < 1 ? defaultPageSize : pageSize;
+    final cacheKey = '$normalizedPage|$normalizedPageSize|$normalizedKeyword';
+    final cached = _searchCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    final future =
+        _fetchSearch(
+          keyword: normalizedKeyword,
+          page: normalizedPage,
+          pageSize: normalizedPageSize,
+        ).catchError((Object error, StackTrace stackTrace) {
+          _searchCache.remove(cacheKey);
+          Error.throwWithStackTrace(error, stackTrace);
+        });
+    _searchCache[cacheKey] = future;
+    return future;
+  }
+
+  Future<SkillMarketBundle> loadSkillBundle(String slug, {String? version}) {
+    final normalizedSlug = slug.trim();
+    if (normalizedSlug.isEmpty) {
+      return Future<SkillMarketBundle>.error(
+        const SkillMarketException('Skill slug is empty.'),
+      );
+    }
+    final normalizedVersion = version?.trim() ?? '';
+    final cacheKey = '$normalizedSlug|$normalizedVersion';
+    final cached = _bundleCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    final future =
+        _fetchSkillBundle(
+          normalizedSlug,
+          requestedVersion: normalizedVersion,
+        ).catchError((Object error, StackTrace stackTrace) {
+          _bundleCache.remove(cacheKey);
+          Error.throwWithStackTrace(error, stackTrace);
+        });
+    _bundleCache[cacheKey] = future;
+    return future;
+  }
+
+  Future<Uint8List> downloadSkillArchive(String slug) async {
+    final normalizedSlug = slug.trim();
+    if (normalizedSlug.isEmpty) {
+      throw const SkillMarketException('Skill slug is empty.');
+    }
+
+    final request = http.Request(
+      'GET',
+      Uri.https(_host, '/api/v1/download', <String, String>{
+        'slug': normalizedSlug,
+      }),
+    );
+    request.headers[HttpHeaders.acceptHeader] =
+        'application/zip, application/octet-stream, */*';
+
+    final response = await _client.send(request).timeout(_requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SkillMarketException(
+        'HTTP ${response.statusCode} while downloading skill.',
+      );
+    }
+    final contentLength = response.contentLength;
+    if (contentLength != null && contentLength > _maxDownloadBytes) {
+      throw const SkillMarketException('Skill archive is too large.');
+    }
+
+    final builder = BytesBuilder(copy: false);
+    var downloadedBytes = 0;
+    await for (final chunk in response.stream.timeout(_downloadIdleTimeout)) {
+      downloadedBytes += chunk.length;
+      if (downloadedBytes > _maxDownloadBytes) {
+        throw const SkillMarketException('Skill archive is too large.');
+      }
+      builder.add(chunk);
+    }
+    final bytes = builder.takeBytes();
+    if (bytes.isEmpty) {
+      throw const SkillMarketException('Downloaded skill archive is empty.');
+    }
+    return bytes;
+  }
+
+  Future<SkillMarketSearchResult> _fetchSearch({
+    required String keyword,
+    required int page,
+    required int pageSize,
+  }) async {
+    final queryParameters = <String, String>{
+      'page': '$page',
+      'pageSize': '$pageSize',
+      'sortBy': 'score',
+      'order': 'desc',
+      if (keyword.isNotEmpty) 'keyword': keyword,
+    };
+    final json = await _getJson(
+      Uri.https(_host, '/api/skills', queryParameters),
+    );
+    _ensureEnvelopeSucceeded(json);
+    return SkillMarketSearchResult.fromJson(
+      json,
+      page: page,
+      pageSize: pageSize,
+    );
+  }
+
+  Future<SkillMarketBundle> _fetchSkillBundle(
+    String slug, {
+    required String requestedVersion,
+  }) async {
+    final detail = await fetchSkillDetail(slug);
+    final resolvedVersion = _resolveVersion(detail, requestedVersion);
+    final versionsFuture = fetchSkillVersions(slug).then(
+      (result) => result.versions,
+      onError: (Object error, StackTrace stackTrace) {
+        silentLog(
+          'skill_market_client',
+          'fetch versions $slug',
+          error,
+          stackTrace,
+        );
+        return const <SkillMarketVersion>[];
+      },
+    );
+    final filesFuture = resolvedVersion.isEmpty
+        ? Future<SkillMarketFilesResult?>.value()
+        : fetchSkillFiles(slug, resolvedVersion).then<SkillMarketFilesResult?>(
+            (result) => result,
+            onError: (Object error, StackTrace stackTrace) {
+              silentLog(
+                'skill_market_client',
+                'fetch files $slug',
+                error,
+                stackTrace,
+              );
+              return null;
+            },
+          );
+
+    final versions = await versionsFuture;
+    final files = await filesFuture;
+    final skillMarkdown = await _bestEffortReadSkillMarkdown(
+      slug: slug,
+      version: resolvedVersion,
+      files: files,
+    );
+
+    return SkillMarketBundle(
+      detail: detail,
+      files: files,
+      versions: versions,
+      skillMarkdown: skillMarkdown,
+      resolvedVersion: resolvedVersion,
+    );
+  }
+
+  Future<SkillMarketDetail> fetchSkillDetail(String slug) async {
+    final normalizedSlug = slug.trim();
+    return _cached(_detailCache, normalizedSlug, () async {
+      final json = await _getJson(
+        Uri.https(_host, '/api/v1/skills/$normalizedSlug'),
+      );
+      return SkillMarketDetail.fromJson(json);
+    });
+  }
+
+  Future<SkillMarketFilesResult> fetchSkillFiles(
+    String slug,
+    String version,
+  ) async {
+    final normalizedSlug = slug.trim();
+    final normalizedVersion = version.trim();
+    return _cached(_filesCache, '$normalizedSlug|$normalizedVersion', () async {
+      final json = await _getJson(
+        Uri.https(
+          _host,
+          '/api/v1/skills/$normalizedSlug/files',
+          <String, String>{'version': normalizedVersion},
+        ),
+      );
+      return SkillMarketFilesResult.fromJson(json);
+    });
+  }
+
+  Future<String> fetchSkillFileContent({
+    required String slug,
+    required String path,
+    required String version,
+  }) async {
+    final normalizedSlug = slug.trim();
+    final normalizedPath = path.trim();
+    final normalizedVersion = version.trim();
+    return _cached(
+      _fileContentCache,
+      '$normalizedSlug|$normalizedVersion|$normalizedPath',
+      () async {
+        final response = await _client
+            .get(
+              Uri.https(
+                _host,
+                '/api/v1/skills/$normalizedSlug/file',
+                <String, String>{
+                  'path': normalizedPath,
+                  'version': normalizedVersion,
+                },
+              ),
+              headers: <String, String>{
+                HttpHeaders.acceptHeader: 'text/plain, */*',
+              },
+            )
+            .timeout(_requestTimeout);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw SkillMarketException(
+            'HTTP ${response.statusCode} while fetching skill file.',
+          );
+        }
+        return utf8.decode(response.bodyBytes, allowMalformed: true);
+      },
+    );
+  }
+
+  Future<SkillMarketVersionsResult> fetchSkillVersions(String slug) async {
+    final normalizedSlug = slug.trim();
+    return _cached(_versionsCache, normalizedSlug, () async {
+      final json = await _getJson(
+        Uri.https(_host, '/api/v1/skills/$normalizedSlug/versions'),
+      );
+      return SkillMarketVersionsResult.fromJson(json);
+    });
+  }
+
+  Future<String?> _bestEffortReadSkillMarkdown({
+    required String slug,
+    required String version,
+    required SkillMarketFilesResult? files,
+  }) async {
+    if (version.isEmpty || files == null) {
+      return null;
+    }
+    SkillMarketFileEntry? skillManifest;
+    for (final file in files.files) {
+      if (file.path.trim().toUpperCase() == 'SKILL.MD') {
+        skillManifest = file;
+        break;
+      }
+    }
+    if (skillManifest == null) {
+      return null;
+    }
+
+    try {
+      return await fetchSkillFileContent(
+        slug: slug,
+        path: skillManifest.path,
+        version: version,
+      );
+    } catch (error, stackTrace) {
+      silentLog(
+        'skill_market_client',
+        'fetch SKILL.md $slug',
+        error,
+        stackTrace,
+      );
+      return null;
+    }
+  }
+
+  String _resolveVersion(SkillMarketDetail detail, String requestedVersion) {
+    final normalizedRequestedVersion = requestedVersion.trim();
+    if (normalizedRequestedVersion.isNotEmpty) {
+      return normalizedRequestedVersion;
+    }
+    final latestVersion = detail.latestVersion?.version.trim() ?? '';
+    if (latestVersion.isNotEmpty) {
+      return latestVersion;
+    }
+    final latestTag = detail.skill.latestTag.trim();
+    if (latestTag.isNotEmpty) {
+      return latestTag;
+    }
+    return '';
+  }
+
+  Future<Map<String, Object?>> _getJson(Uri uri) async {
+    final response = await _client
+        .get(
+          uri,
+          headers: <String, String>{
+            HttpHeaders.acceptHeader: 'application/json',
+          },
+        )
+        .timeout(_requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw SkillMarketException('HTTP ${response.statusCode} from $uri.');
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is Map<String, Object?>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map((key, value) => MapEntry('$key', value));
+    }
+    throw const FormatException('Skill market response is not a JSON object.');
+  }
+
+  void _ensureEnvelopeSucceeded(Map<String, Object?> json) {
+    final code = json['code'];
+    final succeeded = code == null || code == 0 || code == '0';
+    if (succeeded) {
+      return;
+    }
+    final message = json['message'];
+    throw SkillMarketException(
+      message == null ? 'Skill market request failed.' : '$message',
+    );
+  }
+
+  Future<T> _cached<T>(
+    Map<String, Future<T>> cache,
+    String key,
+    Future<T> Function() loader,
+  ) {
+    final cached = cache[key];
+    if (cached != null) {
+      return cached;
+    }
+    final future = loader().catchError((Object error, StackTrace stackTrace) {
+      cache.remove(key);
+      Error.throwWithStackTrace(error, stackTrace);
+    });
+    cache[key] = future;
+    return future;
+  }
+}

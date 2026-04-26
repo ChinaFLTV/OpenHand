@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -20,6 +21,8 @@ class SkillsRepository {
   static const String _openAiAssetsRelativePath = 'agents/assets';
   static const String _generatedEmojiIconFileName = 'skill-icon.svg';
   static const String _generatedImageIconFileName = 'skill-icon.png';
+  static const int _maxArchiveEntries = 2000;
+  static const int _maxExtractedArchiveBytes = 160 * 1024 * 1024;
 
   Future<Directory> ensureStorageDirectory(String storagePath) async {
     final directory = Directory(storagePath);
@@ -216,6 +219,36 @@ class SkillsRepository {
       );
     } catch (error, stack) {
       silentLog('skills_repository', 'import skill directory', error, stack);
+      await _deleteDirectoryIfExists(targetDirectory);
+      rethrow;
+    }
+  }
+
+  Future<LocalSkill> installSkillArchive(
+    String storagePath, {
+    required String preferredSlug,
+    required Uint8List archiveBytes,
+  }) async {
+    if (archiveBytes.isEmpty) {
+      throw const FileSystemException('Skill archive is empty.');
+    }
+
+    final storageDirectory = await ensureStorageDirectory(storagePath);
+    final targetDirectory = await _createUniqueSkillDirectory(
+      storageDirectory,
+      preferredSlug: _slugify(preferredSlug),
+    );
+
+    try {
+      final archive = ZipDecoder().decodeBytes(archiveBytes, verify: true);
+      await _extractSkillArchive(archive, targetDirectory);
+      final manifestFile = await _findFirstSkillManifest(targetDirectory);
+      if (manifestFile == null) {
+        throw const FileSystemException('Skill archive has no SKILL.md.');
+      }
+      return _parseSkill(manifestFile, storagePath);
+    } catch (error, stack) {
+      silentLog('skills_repository', 'install skill archive', error, stack);
       await _deleteDirectoryIfExists(targetDirectory);
       rethrow;
     }
@@ -955,6 +988,145 @@ class SkillsRepository {
     }
   }
 
+  Future<void> _extractSkillArchive(
+    Archive archive,
+    Directory targetDirectory,
+  ) async {
+    if (archive.files.length > _maxArchiveEntries) {
+      throw const FileSystemException('Skill archive has too many entries.');
+    }
+
+    final entries = <_ArchiveEntryPlan>[];
+    var extractedBytes = 0;
+    for (final file in archive.files) {
+      final pathParts = _sanitizeArchiveEntryPath(file.name);
+      if (pathParts.isEmpty || _shouldSkipArchiveEntry(pathParts)) {
+        continue;
+      }
+      if (file.isFile) {
+        extractedBytes += file.size;
+        if (extractedBytes > _maxExtractedArchiveBytes) {
+          throw const FileSystemException('Skill archive is too large.');
+        }
+      }
+      entries.add(_ArchiveEntryPlan(file: file, pathParts: pathParts));
+    }
+
+    if (entries.isEmpty) {
+      throw const FileSystemException('Skill archive has no files.');
+    }
+
+    final commonRoot = _singleArchiveRootDirectory(entries);
+    for (final entry in entries) {
+      final relativeParts = commonRoot == null
+          ? entry.pathParts
+          : entry.pathParts.skip(1).toList(growable: false);
+      if (relativeParts.isEmpty) {
+        continue;
+      }
+
+      final destinationPath = p.normalize(
+        p.joinAll(<String>[targetDirectory.path, ...relativeParts]),
+      );
+      if (!_isPathWithinDirectory(destinationPath, targetDirectory.path)) {
+        throw const FileSystemException('Skill archive path is unsafe.');
+      }
+
+      if (entry.file.isDirectory) {
+        await Directory(destinationPath).create(recursive: true);
+        continue;
+      }
+
+      final content = entry.file.readBytes();
+      if (content == null) {
+        throw const FileSystemException('Unable to read archive entry.');
+      }
+      final outputFile = File(destinationPath);
+      if (!await outputFile.parent.exists()) {
+        await outputFile.parent.create(recursive: true);
+      }
+      await outputFile.writeAsBytes(content, flush: true);
+    }
+  }
+
+  List<String> _sanitizeArchiveEntryPath(String rawPath) {
+    if (rawPath.contains('\u0000')) {
+      throw const FileSystemException('Skill archive path is unsafe.');
+    }
+    final normalizedPath = p.posix.normalize(rawPath.replaceAll(r'\', '/'));
+    if (normalizedPath == '.' || normalizedPath.trim().isEmpty) {
+      return const <String>[];
+    }
+    if (p.posix.isAbsolute(normalizedPath) ||
+        normalizedPath.startsWith('../') ||
+        normalizedPath == '..' ||
+        RegExp(r'^[a-zA-Z]:').hasMatch(normalizedPath)) {
+      throw const FileSystemException('Skill archive path is unsafe.');
+    }
+
+    final parts = p.posix
+        .split(normalizedPath)
+        .where((part) => part.isNotEmpty && part != '.')
+        .toList(growable: false);
+    if (parts.any((part) => part == '..')) {
+      throw const FileSystemException('Skill archive path is unsafe.');
+    }
+    return parts;
+  }
+
+  bool _shouldSkipArchiveEntry(List<String> pathParts) {
+    if (pathParts.isEmpty) {
+      return true;
+    }
+    final firstPart = pathParts.first;
+    final lastPart = pathParts.last;
+    return firstPart == '__MACOSX' || lastPart == '.DS_Store';
+  }
+
+  String? _singleArchiveRootDirectory(List<_ArchiveEntryPlan> entries) {
+    String? root;
+    for (final entry in entries) {
+      if (entry.pathParts.isEmpty) {
+        continue;
+      }
+      root ??= entry.pathParts.first;
+      if (entry.pathParts.first != root) {
+        return null;
+      }
+      if (entry.file.isFile && entry.pathParts.length == 1) {
+        return null;
+      }
+    }
+    return root;
+  }
+
+  Future<File?> _findFirstSkillManifest(Directory directory) async {
+    final manifests = await directory
+        .list(recursive: true, followLinks: false)
+        .where(
+          (entity) =>
+              entity is File && p.basename(entity.path) == _manifestFileName,
+        )
+        .cast<File>()
+        .toList();
+    if (manifests.isEmpty) {
+      return null;
+    }
+    manifests.sort((left, right) {
+      final leftDirectory = p.normalize(left.parent.path);
+      final rightDirectory = p.normalize(right.parent.path);
+      final depthComparison = p
+          .split(leftDirectory)
+          .length
+          .compareTo(p.split(rightDirectory).length);
+      if (depthComparison != 0) {
+        return depthComparison;
+      }
+      return leftDirectory.compareTo(rightDirectory);
+    });
+    return manifests.first;
+  }
+
   Future<void> _deleteDirectoryIfExists(Directory directory) async {
     if (await directory.exists()) {
       await directory.delete(recursive: true);
@@ -1122,4 +1294,11 @@ class _SkillManifestDocument {
 
   final Map<String, String> metadata;
   final String body;
+}
+
+class _ArchiveEntryPlan {
+  const _ArchiveEntryPlan({required this.file, required this.pathParts});
+
+  final ArchiveFile file;
+  final List<String> pathParts;
 }
