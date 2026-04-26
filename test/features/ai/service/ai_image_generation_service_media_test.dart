@@ -300,6 +300,57 @@ void main() {
     });
 
     test(
+      'routes grok2api image generation to JSON /v1/images/generations',
+      () async {
+        late Uri requestUrl;
+        late String requestContentType;
+        late Map<String, Object?> requestBody;
+        final service = AiImageGenerationService(
+          client: MockClient((request) async {
+            requestUrl = request.url;
+            requestContentType = request.headers['content-type'] ?? '';
+            requestBody = jsonDecode(request.body) as Map<String, Object?>;
+            return http.Response(
+              jsonEncode({
+                'data': [
+                  {
+                    'b64_json':
+                        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                  },
+                ],
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }),
+        );
+        const grokImageModel = AiModelConfig(
+          id: 'grok2api-image',
+          baseUrl: 'http://localhost:8000/v1/chat/completions',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'grok-imagine-image',
+          protocolType: AiProtocolType.grok,
+        );
+
+        await service.generateImage(
+          model: grokImageModel,
+          prompt: 'a paper crane',
+          options: const AiCreationOptions(size: '1024x1024'),
+        );
+
+        expect(
+          requestUrl.toString(),
+          'http://localhost:8000/v1/images/generations',
+        );
+        expect(requestContentType, contains('application/json'));
+        expect(requestBody['model'], 'grok-imagine-image');
+        expect(requestBody['prompt'], 'a paper crane');
+        expect(requestBody['size'], '1024x1024');
+      },
+    );
+
+    test(
       'routes grok2api video to multipart /v1/videos with grok fields',
       () async {
         late Uri requestUrl;
