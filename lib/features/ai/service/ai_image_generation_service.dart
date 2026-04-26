@@ -400,12 +400,29 @@ class AiImageGenerationService {
       options: options,
       protocol: model.protocolType,
     );
+    final useMultipart = _videoEndpointWantsMultipart(
+      kind: kind,
+      protocol: model.protocolType,
+    );
     final startedAt = DateTime.now().toUtc();
     final http.Response response;
     try {
-      response = await _client
-          .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
-          .timeout(timeout);
+      if (useMultipart) {
+        // OpenAI Sora 2 (and OpenAI-compatible gateways such as grok2api)
+        // require multipart/form-data for `POST /v1/videos`. Sending a
+        // JSON body causes the server to see all fields as missing because
+        // the FastAPI form parser cannot decode JSON.
+        response = await _postMultipartMediaRequest(
+          uri: Uri.parse(url),
+          headers: headers,
+          body: body,
+          timeout: timeout,
+        );
+      } else {
+        response = await _client
+            .post(Uri.parse(url), headers: headers, body: jsonEncode(body))
+            .timeout(timeout);
+      }
     } on TimeoutException {
       throw AiMediaGenerationException(
         '${kind.displayName} request timed out.',
@@ -678,6 +695,48 @@ class AiImageGenerationService {
       _GeneratedMediaKind.video => 'application/json, video/*;q=0.9',
       _GeneratedMediaKind.audio => 'application/json, audio/*;q=0.9',
     };
+  }
+
+  /// Returns `true` when the destination video endpoint expects
+  /// `multipart/form-data` instead of `application/json`.
+  ///
+  /// OpenAI Sora 2's `POST /v1/videos` is documented as multipart, and
+  /// OpenAI-compatible gateways (notably `chenyme/grok2api`) only parse
+  /// the request via FastAPI's `Form()` extractor — sending JSON yields
+  /// `model: missing, prompt: missing, input: None`.
+  bool _videoEndpointWantsMultipart({
+    required _GeneratedMediaKind kind,
+    required AiProtocolType protocol,
+  }) {
+    if (!kind.isVideo) return false;
+    return protocol == AiProtocolType.openai;
+  }
+
+  Future<http.Response> _postMultipartMediaRequest({
+    required Uri uri,
+    required Map<String, String> headers,
+    required Map<String, Object?> body,
+    required Duration timeout,
+  }) async {
+    final request = http.MultipartRequest('POST', uri);
+    headers.forEach((key, value) {
+      // Let MultipartRequest set its own boundary-aware Content-Type;
+      // forward auth/accept/custom headers verbatim.
+      if (key.trim().toLowerCase() == 'content-type') return;
+      request.headers[key] = value;
+    });
+    body.forEach((key, value) {
+      if (value == null) return;
+      // Multipart fields are strings only; arrays/maps must be serialized.
+      final fieldValue = value is String
+          ? value
+          : (value is num || value is bool
+                ? value.toString()
+                : jsonEncode(value));
+      request.fields[key] = fieldValue;
+    });
+    final streamed = await _client.send(request).timeout(timeout);
+    return http.Response.fromStream(streamed).timeout(timeout);
   }
 
   Map<String, Object?> _buildMediaBody({

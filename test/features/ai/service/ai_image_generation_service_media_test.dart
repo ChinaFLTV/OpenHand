@@ -241,11 +241,17 @@ void main() {
 
     test('routes OpenAI Sora video to /v1/videos with seconds+size', () async {
       late Uri requestUrl;
-      late Map<String, Object?> requestBody;
+      late String requestContentType;
+      late Map<String, String> requestFields;
       final service = AiImageGenerationService(
         client: MockClient((request) async {
           requestUrl = request.url;
-          requestBody = jsonDecode(request.body) as Map<String, Object?>;
+          requestContentType = request.headers['content-type'] ?? '';
+          // Sora 2 / grok2api expect multipart/form-data — parse it.
+          requestFields = _parseMultipartFields(
+            request.bodyBytes,
+            requestContentType,
+          );
           return http.Response(
             jsonEncode({
               'data': [
@@ -283,11 +289,12 @@ void main() {
       );
 
       expect(requestUrl.toString(), 'https://api.openai.invalid/v1/videos');
-      expect(requestBody, <String, Object?>{
+      expect(requestContentType, startsWith('multipart/form-data'));
+      expect(requestFields, <String, String>{
         'model': 'sora-2',
         'prompt': 'a robot dancing',
         'size': '720x1280',
-        'seconds': 8,
+        'seconds': '8',
       });
     });
 
@@ -815,4 +822,36 @@ void main() {
       },
     );
   });
+}
+
+/// Minimal multipart/form-data parser for tests. Extracts string fields keyed
+/// by `name` from a `multipart/form-data; boundary=...` request payload.
+Map<String, String> _parseMultipartFields(
+  List<int> bodyBytes,
+  String contentType,
+) {
+  final boundaryMatch = RegExp(
+    r'boundary=(?:"([^"]+)"|([^;]+))',
+  ).firstMatch(contentType);
+  if (boundaryMatch == null) {
+    throw FormatException('Missing multipart boundary in $contentType');
+  }
+  final boundary = (boundaryMatch.group(1) ?? boundaryMatch.group(2)!).trim();
+  final body = utf8.decode(bodyBytes);
+  final parts = body.split('--$boundary');
+  final fields = <String, String>{};
+  for (final part in parts) {
+    final trimmed = part.trim();
+    if (trimmed.isEmpty || trimmed == '--') continue;
+    final headerEnd = part.indexOf('\r\n\r\n');
+    if (headerEnd < 0) continue;
+    final rawHeaders = part.substring(0, headerEnd);
+    final value = part
+        .substring(headerEnd + 4)
+        .replaceAll(RegExp(r'\r\n--?$'), '');
+    final nameMatch = RegExp(r'name="([^"]+)"').firstMatch(rawHeaders);
+    if (nameMatch == null) continue;
+    fields[nameMatch.group(1)!] = value.replaceAll(RegExp(r'\r\n$'), '');
+  }
+  return fields;
 }
