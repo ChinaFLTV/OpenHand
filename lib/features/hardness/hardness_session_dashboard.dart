@@ -1230,11 +1230,16 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
     FocusNode node,
     KeyEvent event,
   ) {
-    // Defensive fallback: send-message / toggle-composer shortcuts are
-    // primarily handled by _handleGlobalShortcutKeyEvent (HardwareKeyboard
-    // handler) in the home page, but if that path is bypassed (focus
-    // context check, route mismatch, etc.) we re-run the shortcut match
-    // here so manual-phase composer keys never silently stop working.
+    // 2026-04-28: Composer shortcut consumption (no action).
+    //
+    // _handleGlobalShortcutKeyEvent (HardwareKeyboard) in the home page
+    // is the sole executor of send-message / toggle-composer.  Previously
+    // this FocusNode handler ALSO performed the action, so the composer
+    // toggle ran twice and visually cancelled out (the recurring
+    // "Ctrl+P border flash, nothing happens" bug also manifested here).
+    // We now only consume the matching keystroke in the focus tree so
+    // that DefaultTextEditingShortcuts cannot fire, without invoking the
+    // action a second time.
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -1261,7 +1266,6 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
       );
       if (binding.isEmpty || binding.length != pressedKeyIds.length) continue;
       if (pressedKeyIds.containsAll(binding)) {
-        unawaited(_handleShortcutAction(action));
         return KeyEventResult.handled;
       }
     }

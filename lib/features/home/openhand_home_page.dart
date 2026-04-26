@@ -1596,48 +1596,27 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
         return false;
       }
-      // 2026-04-26: Returning true from a HardwareKeyboard handler does
-      // NOT skip the focus-tree dispatch in the current Flutter pipeline.
-      // Empirically (debug logs) BOTH this HW handler AND the focused
-      // FocusNode.onKeyEvent fire for the same key press, causing the
-      // composer toggle to run twice and visually cancel out (the user-
-      // reported "press Ctrl+P, nothing happens" bug).  When the
-      // *workspace* composer's text field is focused we therefore defer
-      // entirely to `_handleComposerFocusNodeKeyEvent` and stay silent
-      // here.  The hardness session keeps its existing HW-driven path
-      // because its dashboard does not register a focus-node handler.
-      if (composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
-        return false;
-      }
+      // 2026-04-28: Single-source-of-truth dispatch.
+      //
+      // Returning true from a HardwareKeyboard handler does NOT skip the
+      // focus-tree dispatch in the current Flutter pipeline – BOTH this
+      // HW handler AND the focused FocusNode.onKeyEvent fire for the
+      // same key press.  Previously each path *also* performed the
+      // action, so the composer toggle ran twice and visually cancelled
+      // out (the recurring "press Ctrl+P, border flashes, nothing
+      // happens" bug).  The fix:
+      //
+      //   * This HW handler always performs the action exactly once and
+      //     returns true (which is enough to suppress macOS'
+      //     DefaultTextEditingShortcuts at the platform layer).
+      //   * The composer FocusNode.onKeyEvent merely returns
+      //     KeyEventResult.handled to swallow the event in the focus
+      //     tree without re-running the action.
       unawaited(_performShortcutAction(shortcutAction));
       return true;
     }
     unawaited(_performShortcutAction(shortcutAction));
     return true;
-  }
-
-  /// Performs a send-message or toggle-composer shortcut that was triggered
-  /// while the workspace composer's editable text has focus.
-  void _performComposerShortcutAction(OpenHandShortcutAction action) {
-    switch (action) {
-      case OpenHandShortcutAction.sendMessage:
-        final sessionController = context.read<AiSessionController>();
-        if (_canStopCurrentSessionResponse(sessionController) &&
-            _composerController.text.trim().isEmpty &&
-            _pendingAttachments.isEmpty) {
-          unawaited(_stopResponding());
-        } else {
-          _composerPanelKey.currentState?._injectReferencesIntoText();
-          unawaited(_sendMessage());
-        }
-      case OpenHandShortcutAction.toggleComposer:
-        _setComposerCollapsedState(
-          !_composerCollapsed,
-          requestFocusWhenExpanded: _composerCollapsed,
-        );
-      default:
-        break;
-    }
   }
 
   KeyEventResult _handleComposerFocusNodeKeyEvent(
@@ -1682,13 +1661,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // Defensive fallback: send-message / toggle-composer shortcuts are
-    // primarily handled by _handleGlobalShortcutKeyEvent (HardwareKeyboard
-    // handler) which fires earlier in Flutter's key dispatch pipeline. If
-    // for any reason that handler does not consume the event (e.g. focus
-    // context check fails inside an overlay route), the FocusNode handler
-    // re-runs the shortcut match here so the composer keys never silently
-    // stop working.
+    // 2026-04-28: Composer shortcut consumption (no action).
+    //
+    // _handleGlobalShortcutKeyEvent (HardwareKeyboard) is the sole
+    // executor of send-message / toggle-composer.  Here we only need to
+    // CONSUME the matching keystroke in the focus tree so that
+    // DefaultTextEditingShortcuts (which maps Ctrl+P to MoveSelectionUp
+    // on macOS and was the cause of the visible "border flash") cannot
+    // fire.  Returning KeyEventResult.handled stops focus-tree dispatch
+    // without invoking the action a second time.
     final settingsController = context.read<SettingsController>();
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
       ...HardwareKeyboard.instance.logicalKeysPressed,
@@ -1700,7 +1681,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     if (shortcutAction == OpenHandShortcutAction.sendMessage ||
         shortcutAction == OpenHandShortcutAction.toggleComposer) {
-      _performComposerShortcutAction(shortcutAction!);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
