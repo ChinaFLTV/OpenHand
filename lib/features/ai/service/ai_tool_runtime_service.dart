@@ -40,13 +40,31 @@ class AiResolvedToolCatalog {
     if (direct != null) {
       return direct;
     }
-    final normalizedName = name.trim().toLowerCase();
+    final normalizedName = _normalizeToolLookupKey(name);
+    if (normalizedName.isEmpty) {
+      return null;
+    }
     for (final entry in toolsByName.entries) {
-      if (entry.key.trim().toLowerCase() == normalizedName) {
+      if (_normalizeToolLookupKey(entry.key) == normalizedName) {
         return entry.value;
       }
     }
     return null;
+  }
+
+  /// Aggressive normalization for tool-name lookup so that PascalCase,
+  /// camelCase, snake_case, kebab-case and even slightly garbled names
+  /// (extra spaces / underscores / dashes) all resolve to the same tool.
+  static String _normalizeToolLookupKey(String value) {
+    final buffer = StringBuffer();
+    for (final code in value.codeUnits) {
+      if ((code >= 0x30 && code <= 0x39) ||
+          (code >= 0x41 && code <= 0x5A) ||
+          (code >= 0x61 && code <= 0x7A)) {
+        buffer.writeCharCode(code | 0x20); // lowercase ASCII
+      }
+    }
+    return buffer.toString();
   }
 }
 
@@ -1415,7 +1433,9 @@ class AiToolRuntimeService {
       name: 'Write',
       description:
           'Create or overwrite a file on disk. The file_path MUST be an absolute path (starting with /). '
-          'Parent directories are created automatically if they do not exist.',
+          'Parent directories are created automatically if they do not exist. '
+          'Arguments must be a flat JSON object with exactly two string keys. '
+          'Example: {"file_path":"/tmp/hello.txt","content":"hello world"}',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1472,7 +1492,11 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.todoWrite,
       name: 'TodoWrite',
       description:
-          'Create or update the structured todo list for the current task.',
+          'Create or update the structured todo list for the current task. '
+          'The "todos" parameter MUST be a JSON array of objects — NOT an XML-style wrapper like {"item":[...]}. '
+          'Each object needs id (string), content (string) and status '
+          '("pending"|"in_progress"|"completed"|"failed"). At most one in_progress at a time. '
+          'Example: {"todos":[{"id":"1","content":"Step A","status":"in_progress"},{"id":"2","content":"Step B","status":"pending"}]}',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1505,7 +1529,10 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.webSearch,
       name: 'WebSearch',
-      description: 'Search the web for current information.',
+      description:
+          'Search the web for current information. The "query" parameter MUST be a plain string '
+          '(no XML, no CDATA, no nested objects). Minimum 2 characters. '
+          'Example: {"query":"Three.js voxel minecraft tutorial 2025"}',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

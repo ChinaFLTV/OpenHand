@@ -610,14 +610,16 @@ class AiPromptBuilder {
         ..writeln()
         ..writeln(compact ? '## Builtin' : '## Builtin Tools (baseline)');
       for (final tool in builtinTools) {
-        // For programming_expert compact mode, builtin tools use ultra-compact
-        // entries: 80-char descriptions, no args listing.  Full parameter
-        // schemas are already sent via the API tools array.
+        // 2026-04-26: Render builtin tools with their full description and
+        // required-args list even in compact mode. Some reasoner models
+        // (e.g. deepseek-expert-reasoner) ignore the API-level tools array
+        // and rely solely on the system-prompt catalog; the previous
+        // ultra-compact 80-char form caused the model to deny the existence
+        // of tools like Write/Edit on the very first turn.
         _renderToolEntry(
           buffer,
           tool,
           compact: compact,
-          builtinCompact: compact,
         );
       }
     }

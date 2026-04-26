@@ -36,12 +36,108 @@ class AiToolUtils {
   static Map<String, Object?> decodeArguments(String rawArguments) {
     try {
       final decoded = jsonDecode(rawArguments);
-      if (decoded is Map<String, Object?>) return decoded;
-      if (decoded is Map) return Map<String, Object?>.from(decoded);
+      if (decoded is Map<String, Object?>) {
+        return _coerceArgumentMap(decoded);
+      }
+      if (decoded is Map) {
+        return _coerceArgumentMap(Map<String, Object?>.from(decoded));
+      }
     } catch (error, stack) {
       silentLog('ai_tool_utils', 'decode tool arguments JSON', error, stack);
     }
     return const <String, Object?>{};
+  }
+
+  /// Heuristic post-processor that "unwraps" common malformed argument
+  /// shapes produced by less-capable models, so downstream tools see a
+  /// schema-compliant payload on first call:
+  ///
+  ///   1. `{"_raw": "<query>foo</query>"}`
+  ///         → parses inline XML/CDATA tags and lifts each into top-level
+  ///           keys (e.g. `{query: "foo"}`).
+  ///   2. `{"todos": {"item": [...]}}`
+  ///         → flattens single-key XML-style array wrappers
+  ///           (`item` / `items` / `entry` / `entries` / `value` / `values`)
+  ///           into a plain list (e.g. `{todos: [...]}`).
+  ///   3. `{"query": "<![CDATA[foo]]>"}`
+  ///         → strips CDATA wrappers from string values.
+  static Map<String, Object?> _coerceArgumentMap(Map<String, Object?> input) {
+    final result = <String, Object?>{};
+    Map<String, Object?> rawExtracted = const <String, Object?>{};
+    for (final entry in input.entries) {
+      if (entry.key == '_raw' && entry.value is String) {
+        rawExtracted = _extractFromXmlBlob('${entry.value}');
+        continue;
+      }
+      result[entry.key] = _coerceArgumentValue(entry.value);
+    }
+    // Merge _raw-extracted keys without overwriting explicit keys.
+    for (final entry in rawExtracted.entries) {
+      result.putIfAbsent(entry.key, () => entry.value);
+    }
+    return result;
+  }
+
+  static Object? _coerceArgumentValue(Object? value) {
+    if (value is String) {
+      return _stripCdata(value);
+    }
+    if (value is Map) {
+      final asMap = Map<String, Object?>.from(value);
+      // Single-key XML-style array wrappers: {item:[...]} → [...]
+      if (asMap.length == 1) {
+        final onlyKey = asMap.keys.first.toLowerCase();
+        const arrayWrapperKeys = <String>{
+          'item',
+          'items',
+          'entry',
+          'entries',
+          'value',
+          'values',
+          'element',
+          'elements',
+        };
+        if (arrayWrapperKeys.contains(onlyKey) && asMap.values.first is List) {
+          return (asMap.values.first as List)
+              .map(_coerceArgumentValue)
+              .toList(growable: false);
+        }
+      }
+      return asMap.map(
+        (k, v) => MapEntry(k.toString(), _coerceArgumentValue(v)),
+      );
+    }
+    if (value is List) {
+      return value.map(_coerceArgumentValue).toList(growable: false);
+    }
+    return value;
+  }
+
+  static String _stripCdata(String value) {
+    final cdataPattern = RegExp(
+      r'<!\[CDATA\[([\s\S]*?)\]\]>',
+      caseSensitive: false,
+    );
+    if (!cdataPattern.hasMatch(value)) return value;
+    return value.replaceAllMapped(cdataPattern, (m) => m.group(1) ?? '');
+  }
+
+  /// Best-effort extraction of `<key>value</key>` (and `<key/>`) pairs from
+  /// a free-form XML blob. CDATA wrappers are stripped. Mismatched closing
+  /// tags are tolerated by collecting the inner text up to the next
+  /// `</something>` token.
+  static Map<String, Object?> _extractFromXmlBlob(String blob) {
+    final out = <String, Object?>{};
+    final tagPattern = RegExp(
+      r'<\s*([A-Za-z_][\w-]*)\s*>([\s\S]*?)</\s*[A-Za-z_][\w-]*\s*>',
+    );
+    for (final match in tagPattern.allMatches(blob)) {
+      final key = (match.group(1) ?? '').trim();
+      if (key.isEmpty || key.startsWith('!') || key.startsWith('?')) continue;
+      final raw = (match.group(2) ?? '').trim();
+      out[key] = _stripCdata(raw);
+    }
+    return out;
   }
 
   static String? requireAbsoluteFilePath(String rawPath) {

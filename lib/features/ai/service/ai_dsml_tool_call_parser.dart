@@ -57,6 +57,25 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
         treatAsString: treatAsString,
       );
     }
+    // 2026-04-26: Fallback — when the model produced `<DSML:invoke ...>`
+    // wrappers but populated parameters with raw `<key>value</whatever>`
+    // tags (mismatched closing tags), salvage them by scanning the invoke
+    // body for any open-tag/close-tag pair and treating the open-tag name
+    // as the parameter key. This avoids surfacing useless `_raw` blobs
+    // to downstream tools.
+    if (arguments.isEmpty) {
+      for (final loose in _looseInvokeBodyTagPattern.allMatches(body)) {
+        final paramKey = (loose.group(1) ?? '').trim();
+        if (paramKey.isEmpty ||
+            paramKey.toLowerCase() == 'dsml:parameter') {
+          continue;
+        }
+        final paramValue = _stripCdataWrappers(
+          (loose.group(2) ?? '').trim(),
+        );
+        arguments.putIfAbsent(paramKey, () => paramValue);
+      }
+    }
     toolCalls.add(
       AiToolCall(
         id: '$toolCallIdPrefix-${index + 1}',
@@ -125,6 +144,13 @@ final RegExp _dsmlInvokePattern = RegExp(
 final RegExp _dsmlParameterPattern = RegExp(
   r'<DSML:parameter\b([^>]*)>([\s\S]*?)</DSML:parameter>',
   caseSensitive: false,
+);
+// 2026-04-26: Tolerant pattern for salvaging parameters whose closing
+// tag does not match the opening tag (e.g. `<query>foo</path>`). Only
+// used as a fallback inside an invoke body when the strict parameter
+// extraction yielded nothing.
+final RegExp _looseInvokeBodyTagPattern = RegExp(
+  r'<\s*([A-Za-z_][\w:-]*)\s*>([\s\S]*?)</\s*[A-Za-z_][\w:-]*\s*>',
 );
 final RegExp _dsmlLooseTagPattern = RegExp(
   r'</?DSML:[^>]+>',
@@ -234,7 +260,11 @@ Object? _decodeDsmlParameterValue(
   String rawValue, {
   required bool treatAsString,
 }) {
-  final trimmed = rawValue.trim();
+  // 2026-04-26: strip <![CDATA[ ... ]]> wrappers up front. Some weaker
+  // models emit CDATA inside DSML parameters which would otherwise be
+  // treated as opaque text and confuse downstream tools.
+  final unwrapped = _stripCdataWrappers(rawValue);
+  final trimmed = unwrapped.trim();
   if (treatAsString) {
     return trimmed;
   }
@@ -254,4 +284,16 @@ Object? _decodeDsmlParameterValue(
     }
     return trimmed;
   }
+}
+
+final RegExp _cdataPattern = RegExp(
+  r'<!\[CDATA\[([\s\S]*?)\]\]>',
+  caseSensitive: false,
+);
+
+String _stripCdataWrappers(String value) {
+  if (!value.contains('<![CDATA[') && !value.contains('<![cdata[')) {
+    return value;
+  }
+  return value.replaceAllMapped(_cdataPattern, (m) => m.group(1) ?? '');
 }
