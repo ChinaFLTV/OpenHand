@@ -115,6 +115,10 @@ class AiSessionRuntimeContext {
     this.attachmentMaxPdfRawBytes = 2 * 1024 * 1024,
     this.attachmentMaxImageRawBytes = 50 * 1024 * 1024,
     this.chatMaxStreamLineBufferBytes = 4 * 1024 * 1024,
+    this.fallbackTitleMaxCharacters = 20,
+    this.generatedTitleMaxCharacters = 20,
+    this.minimumMeaningfulTitleCharacters = 4,
+    this.minimumMeaningfulLatinTitleWords = 2,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
@@ -222,6 +226,18 @@ class AiSessionRuntimeContext {
   /// Group C — Chat 流式行缓冲字节上限。
   final int chatMaxStreamLineBufferBytes;
 
+  /// Group D — FallbackTitleMaxCharacters.
+  final int fallbackTitleMaxCharacters;
+
+  /// Group D — GeneratedTitleMaxCharacters.
+  final int generatedTitleMaxCharacters;
+
+  /// Group D — MinimumMeaningfulTitleCharacters.
+  final int minimumMeaningfulTitleCharacters;
+
+  /// Group D — MinimumMeaningfulLatinTitleWords.
+  final int minimumMeaningfulLatinTitleWords;
+
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
   /// before persisting and before the editor opens.
@@ -312,6 +328,10 @@ class AiSessionRuntimeContext {
       'attachment_max_pdf_raw_bytes': attachmentMaxPdfRawBytes,
       'attachment_max_image_raw_bytes': attachmentMaxImageRawBytes,
       'chat_max_stream_line_buffer_bytes': chatMaxStreamLineBufferBytes,
+      'fallback_title_max_characters': fallbackTitleMaxCharacters,
+      'generated_title_max_characters': generatedTitleMaxCharacters,
+      'minimum_meaningful_title_characters': minimumMeaningfulTitleCharacters,
+      'minimum_meaningful_latin_title_words': minimumMeaningfulLatinTitleWords,
       'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,

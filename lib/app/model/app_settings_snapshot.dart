@@ -59,6 +59,10 @@ class AppSettingsSnapshot {
       aiAttachmentMaxPdfRawBytes: defaultAiAttachmentMaxPdfRawBytes,
       aiAttachmentMaxImageRawBytes: defaultAiAttachmentMaxImageRawBytes,
       aiChatMaxStreamLineBufferBytes: defaultAiChatMaxStreamLineBufferBytes,
+      aiFallbackTitleMaxCharacters: defaultAiFallbackTitleMaxCharacters,
+      aiGeneratedTitleMaxCharacters: defaultAiGeneratedTitleMaxCharacters,
+      aiMinimumMeaningfulTitleCharacters: defaultAiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords: defaultAiMinimumMeaningfulLatinTitleWords,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -132,6 +136,10 @@ class AppSettingsSnapshot {
     required this.aiAttachmentMaxPdfRawBytes,
     required this.aiAttachmentMaxImageRawBytes,
     required this.aiChatMaxStreamLineBufferBytes,
+    required this.aiFallbackTitleMaxCharacters,
+    required this.aiGeneratedTitleMaxCharacters,
+    required this.aiMinimumMeaningfulTitleCharacters,
+    required this.aiMinimumMeaningfulLatinTitleWords,
     required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -272,6 +280,18 @@ class AppSettingsSnapshot {
   static const int defaultAiChatMaxStreamLineBufferBytes = 4 * 1024 * 1024;
   static const int minAiChatMaxStreamLineBufferBytes = 4 * 1024;
   static const int maxAiChatMaxStreamLineBufferBytes = 1024 * 1024 * 1024;
+  static const int defaultAiFallbackTitleMaxCharacters = 20;
+  static const int minAiFallbackTitleMaxCharacters = 4;
+  static const int maxAiFallbackTitleMaxCharacters = 200;
+  static const int defaultAiGeneratedTitleMaxCharacters = 20;
+  static const int minAiGeneratedTitleMaxCharacters = 4;
+  static const int maxAiGeneratedTitleMaxCharacters = 200;
+  static const int defaultAiMinimumMeaningfulTitleCharacters = 4;
+  static const int minAiMinimumMeaningfulTitleCharacters = 1;
+  static const int maxAiMinimumMeaningfulTitleCharacters = 50;
+  static const int defaultAiMinimumMeaningfulLatinTitleWords = 2;
+  static const int minAiMinimumMeaningfulLatinTitleWords = 1;
+  static const int maxAiMinimumMeaningfulLatinTitleWords = 20;
 
   /// Default per-image attachment size cap (1 MiB).
   ///
@@ -360,6 +380,18 @@ class AppSettingsSnapshot {
   final int aiAttachmentMaxPdfRawBytes;
   final int aiAttachmentMaxImageRawBytes;
   final int aiChatMaxStreamLineBufferBytes;
+
+  /// Group D — 回退标题最大字符数。
+  final int aiFallbackTitleMaxCharacters;
+
+  /// Group D — 自动生成标题最大字符数。
+  final int aiGeneratedTitleMaxCharacters;
+
+  /// Group D — 有效中文标题最小字符数。
+  final int aiMinimumMeaningfulTitleCharacters;
+
+  /// Group D — 有效拉丁标题最小词数。
+  final int aiMinimumMeaningfulLatinTitleWords;
   final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -450,6 +482,10 @@ class AppSettingsSnapshot {
     int? aiAttachmentMaxPdfRawBytes,
     int? aiAttachmentMaxImageRawBytes,
     int? aiChatMaxStreamLineBufferBytes,
+    int? aiFallbackTitleMaxCharacters,
+    int? aiGeneratedTitleMaxCharacters,
+    int? aiMinimumMeaningfulTitleCharacters,
+    int? aiMinimumMeaningfulLatinTitleWords,
     int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -546,6 +582,10 @@ class AppSettingsSnapshot {
           aiAttachmentMaxImageRawBytes ?? this.aiAttachmentMaxImageRawBytes,
       aiChatMaxStreamLineBufferBytes:
           aiChatMaxStreamLineBufferBytes ?? this.aiChatMaxStreamLineBufferBytes,
+      aiFallbackTitleMaxCharacters: aiFallbackTitleMaxCharacters ?? this.aiFallbackTitleMaxCharacters,
+      aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
+      aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters ?? this.aiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords ?? this.aiMinimumMeaningfulLatinTitleWords,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:

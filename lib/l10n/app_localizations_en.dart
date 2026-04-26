@@ -1600,6 +1600,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiChatMaxStreamLineBufferBytesInvalid => 'Enter a valid integer.';
 
   @override
+  String get aiFallbackTitleMaxCharactersLabel =>
+      'Fallback Title Max Characters';
+
+  @override
+  String get aiFallbackTitleMaxCharactersBody =>
+      'Defaults to 20. Tune session title derivation.';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSave => 'Save';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSaved =>
+      'Fallback Title Max Characters saved.';
+
+  @override
+  String get aiFallbackTitleMaxCharactersInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersLabel =>
+      'Generated Title Max Characters';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersBody =>
+      'Defaults to 20. Tune session title derivation.';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSave => 'Save';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSaved =>
+      'Generated Title Max Characters saved.';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersLabel =>
+      'Minimum Meaningful Title Characters';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersBody =>
+      'Defaults to 4. Tune session title derivation.';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSave => 'Save';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSaved =>
+      'Minimum Meaningful Title Characters saved.';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersInvalid =>
+      'Enter a valid integer.';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsLabel =>
+      'Minimum Meaningful Latin Title Words';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsBody =>
+      'Defaults to 2. Tune session title derivation.';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSave => 'Save';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSaved =>
+      'Minimum Meaningful Latin Title Words saved.';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid =>
+      'Enter a valid integer.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

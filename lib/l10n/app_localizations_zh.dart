@@ -1512,6 +1512,66 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiChatMaxStreamLineBufferBytesInvalid => '请输入有效整数。';
 
   @override
+  String get aiFallbackTitleMaxCharactersLabel => '回退标题最大字符数';
+
+  @override
+  String get aiFallbackTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSave => '保存';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSaved => '回退标题最大字符数已保存。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersLabel => '自动标题最大字符数';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSave => '保存';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSaved => '自动标题最大字符数已保存。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersLabel => '中文有效标题最小字符数';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersBody => '默认 4。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSave => '保存';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSaved => '中文有效标题最小字符数已保存。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsLabel => '拉丁有效标题最小词数';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsBody => '默认 2。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSave => '保存';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSaved => '拉丁有效标题最小词数已保存。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -3149,6 +3209,66 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiChatMaxStreamLineBufferBytesInvalid => '请输入有效整数。';
 
   @override
+  String get aiFallbackTitleMaxCharactersLabel => '回退标题最大字符数';
+
+  @override
+  String get aiFallbackTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSave => '保存';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSaved => '回退标题最大字符数已保存。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersLabel => '自动标题最大字符数';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSave => '保存';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSaved => '自动标题最大字符数已保存。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersLabel => '中文有效标题最小字符数';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersBody => '默认 4。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSave => '保存';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSaved => '中文有效标题最小字符数已保存。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsLabel => '拉丁有效标题最小词数';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsBody => '默认 2。调整以匹配会话标题派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSave => '保存';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSaved => '拉丁有效标题最小词数已保存。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -4783,6 +4903,66 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiChatMaxStreamLineBufferBytesInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersLabel => '回退標題最大字元數';
+
+  @override
+  String get aiFallbackTitleMaxCharactersBody => '默认 20。調整以符合會話標題派生策略。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSave => '儲存';
+
+  @override
+  String get aiFallbackTitleMaxCharactersSaved => '回退標題最大字元數已儲存。';
+
+  @override
+  String get aiFallbackTitleMaxCharactersInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersLabel => '自動標題最大字元數';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersBody => '默认 20。調整以符合會話標題派生策略。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSave => '儲存';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersSaved => '自動標題最大字元數已儲存。';
+
+  @override
+  String get aiGeneratedTitleMaxCharactersInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersLabel => '中文有效標題最小字元數';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersBody => '默认 4。調整以符合會話標題派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSave => '儲存';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersSaved => '中文有效標題最小字元數已儲存。';
+
+  @override
+  String get aiMinimumMeaningfulTitleCharactersInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsLabel => '拉丁有效標題最小詞數';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsBody => '默认 2。調整以符合會話標題派生策略。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSave => '儲存';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsSaved => '拉丁有效標題最小詞數已儲存。';
+
+  @override
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '請輸入有效整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

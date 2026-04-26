@@ -180,6 +180,10 @@ class SettingsStore {
       'ai_attachment_max_pdf_raw_bytes': snapshot.aiAttachmentMaxPdfRawBytes,
       'ai_attachment_max_image_raw_bytes': snapshot.aiAttachmentMaxImageRawBytes,
       'ai_chat_max_stream_line_buffer_bytes': snapshot.aiChatMaxStreamLineBufferBytes,
+      'ai_fallback_title_max_characters': snapshot.aiFallbackTitleMaxCharacters,
+      'ai_generated_title_max_characters': snapshot.aiGeneratedTitleMaxCharacters,
+      'ai_minimum_meaningful_title_characters': snapshot.aiMinimumMeaningfulTitleCharacters,
+      'ai_minimum_meaningful_latin_title_words': snapshot.aiMinimumMeaningfulLatinTitleWords,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -463,6 +467,30 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
           )
         : AppSettingsSnapshot.defaultAiChatMaxStreamLineBufferBytes;
+    final aiFallbackTitleMaxCharacters = json['ai_fallback_title_max_characters'] is int
+        ? (json['ai_fallback_title_max_characters'] as int).clamp(
+            AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
+            AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
+          )
+        : AppSettingsSnapshot.defaultAiFallbackTitleMaxCharacters;
+    final aiGeneratedTitleMaxCharacters = json['ai_generated_title_max_characters'] is int
+        ? (json['ai_generated_title_max_characters'] as int).clamp(
+            AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
+            AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
+          )
+        : AppSettingsSnapshot.defaultAiGeneratedTitleMaxCharacters;
+    final aiMinimumMeaningfulTitleCharacters = json['ai_minimum_meaningful_title_characters'] is int
+        ? (json['ai_minimum_meaningful_title_characters'] as int).clamp(
+            AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
+            AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
+          )
+        : AppSettingsSnapshot.defaultAiMinimumMeaningfulTitleCharacters;
+    final aiMinimumMeaningfulLatinTitleWords = json['ai_minimum_meaningful_latin_title_words'] is int
+        ? (json['ai_minimum_meaningful_latin_title_words'] as int).clamp(
+            AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
+            AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
+          )
+        : AppSettingsSnapshot.defaultAiMinimumMeaningfulLatinTitleWords;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
     final aiImageSizeLimitBytes =
         (rawImageSizeLimit is int && rawImageSizeLimit > 0)
@@ -838,6 +866,10 @@ class SettingsStore {
       aiAttachmentMaxPdfRawBytes: aiAttachmentMaxPdfRawBytes,
       aiAttachmentMaxImageRawBytes: aiAttachmentMaxImageRawBytes,
       aiChatMaxStreamLineBufferBytes: aiChatMaxStreamLineBufferBytes,
+      aiFallbackTitleMaxCharacters: aiFallbackTitleMaxCharacters,
+      aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters,
+      aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,

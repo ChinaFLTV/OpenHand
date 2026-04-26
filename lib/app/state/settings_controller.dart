@@ -77,6 +77,10 @@ class SettingsController extends ChangeNotifier {
        _aiAttachmentMaxImageRawBytes = snapshot.aiAttachmentMaxImageRawBytes,
        _aiChatMaxStreamLineBufferBytes =
            snapshot.aiChatMaxStreamLineBufferBytes,
+       _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters,
+       _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters,
+       _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters,
+       _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -167,6 +171,10 @@ class SettingsController extends ChangeNotifier {
   int _aiAttachmentMaxPdfRawBytes;
   int _aiAttachmentMaxImageRawBytes;
   int _aiChatMaxStreamLineBufferBytes;
+  int _aiFallbackTitleMaxCharacters;
+  int _aiGeneratedTitleMaxCharacters;
+  int _aiMinimumMeaningfulTitleCharacters;
+  int _aiMinimumMeaningfulLatinTitleWords;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
@@ -273,6 +281,10 @@ class SettingsController extends ChangeNotifier {
   int get aiAttachmentMaxPdfRawBytes => _aiAttachmentMaxPdfRawBytes;
   int get aiAttachmentMaxImageRawBytes => _aiAttachmentMaxImageRawBytes;
   int get aiChatMaxStreamLineBufferBytes => _aiChatMaxStreamLineBufferBytes;
+  int get aiFallbackTitleMaxCharacters => _aiFallbackTitleMaxCharacters;
+  int get aiGeneratedTitleMaxCharacters => _aiGeneratedTitleMaxCharacters;
+  int get aiMinimumMeaningfulTitleCharacters => _aiMinimumMeaningfulTitleCharacters;
+  int get aiMinimumMeaningfulLatinTitleWords => _aiMinimumMeaningfulLatinTitleWords;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
@@ -845,6 +857,62 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiChatMaxStreamLineBufferBytes = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiFallbackTitleMaxCharacters(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
+      AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
+    );
+    return _commitMutation(() {
+      if (_aiFallbackTitleMaxCharacters == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiFallbackTitleMaxCharacters = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiGeneratedTitleMaxCharacters(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
+      AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
+    );
+    return _commitMutation(() {
+      if (_aiGeneratedTitleMaxCharacters == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiGeneratedTitleMaxCharacters = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMinimumMeaningfulTitleCharacters(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
+      AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
+    );
+    return _commitMutation(() {
+      if (_aiMinimumMeaningfulTitleCharacters == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMinimumMeaningfulTitleCharacters = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMinimumMeaningfulLatinTitleWords(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
+      AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
+    );
+    return _commitMutation(() {
+      if (_aiMinimumMeaningfulLatinTitleWords == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMinimumMeaningfulLatinTitleWords = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1573,6 +1641,10 @@ class SettingsController extends ChangeNotifier {
       aiAttachmentMaxPdfRawBytes: _aiAttachmentMaxPdfRawBytes,
       aiAttachmentMaxImageRawBytes: _aiAttachmentMaxImageRawBytes,
       aiChatMaxStreamLineBufferBytes: _aiChatMaxStreamLineBufferBytes,
+      aiFallbackTitleMaxCharacters: _aiFallbackTitleMaxCharacters,
+      aiGeneratedTitleMaxCharacters: _aiGeneratedTitleMaxCharacters,
+      aiMinimumMeaningfulTitleCharacters: _aiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords: _aiMinimumMeaningfulLatinTitleWords,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
@@ -1650,6 +1722,10 @@ class SettingsController extends ChangeNotifier {
     _aiAttachmentMaxPdfRawBytes = snapshot.aiAttachmentMaxPdfRawBytes;
     _aiAttachmentMaxImageRawBytes = snapshot.aiAttachmentMaxImageRawBytes;
     _aiChatMaxStreamLineBufferBytes = snapshot.aiChatMaxStreamLineBufferBytes;
+    _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters;
+    _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters;
+    _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters;
+    _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

@@ -3010,6 +3010,126 @@ abstract class AppLocalizations {
   /// **'请输入有效整数。'**
   String get aiChatMaxStreamLineBufferBytesInvalid;
 
+  /// No description provided for @aiFallbackTitleMaxCharactersLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'回退标题最大字符数'**
+  String get aiFallbackTitleMaxCharactersLabel;
+
+  /// No description provided for @aiFallbackTitleMaxCharactersBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 20。调整以匹配会话标题派生策略。'**
+  String get aiFallbackTitleMaxCharactersBody;
+
+  /// No description provided for @aiFallbackTitleMaxCharactersSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiFallbackTitleMaxCharactersSave;
+
+  /// No description provided for @aiFallbackTitleMaxCharactersSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'回退标题最大字符数已保存。'**
+  String get aiFallbackTitleMaxCharactersSaved;
+
+  /// No description provided for @aiFallbackTitleMaxCharactersInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiFallbackTitleMaxCharactersInvalid;
+
+  /// No description provided for @aiGeneratedTitleMaxCharactersLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动标题最大字符数'**
+  String get aiGeneratedTitleMaxCharactersLabel;
+
+  /// No description provided for @aiGeneratedTitleMaxCharactersBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 20。调整以匹配会话标题派生策略。'**
+  String get aiGeneratedTitleMaxCharactersBody;
+
+  /// No description provided for @aiGeneratedTitleMaxCharactersSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiGeneratedTitleMaxCharactersSave;
+
+  /// No description provided for @aiGeneratedTitleMaxCharactersSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动标题最大字符数已保存。'**
+  String get aiGeneratedTitleMaxCharactersSaved;
+
+  /// No description provided for @aiGeneratedTitleMaxCharactersInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiGeneratedTitleMaxCharactersInvalid;
+
+  /// No description provided for @aiMinimumMeaningfulTitleCharactersLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'中文有效标题最小字符数'**
+  String get aiMinimumMeaningfulTitleCharactersLabel;
+
+  /// No description provided for @aiMinimumMeaningfulTitleCharactersBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 4。调整以匹配会话标题派生策略。'**
+  String get aiMinimumMeaningfulTitleCharactersBody;
+
+  /// No description provided for @aiMinimumMeaningfulTitleCharactersSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiMinimumMeaningfulTitleCharactersSave;
+
+  /// No description provided for @aiMinimumMeaningfulTitleCharactersSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'中文有效标题最小字符数已保存。'**
+  String get aiMinimumMeaningfulTitleCharactersSaved;
+
+  /// No description provided for @aiMinimumMeaningfulTitleCharactersInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiMinimumMeaningfulTitleCharactersInvalid;
+
+  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拉丁有效标题最小词数'**
+  String get aiMinimumMeaningfulLatinTitleWordsLabel;
+
+  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 2。调整以匹配会话标题派生策略。'**
+  String get aiMinimumMeaningfulLatinTitleWordsBody;
+
+  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiMinimumMeaningfulLatinTitleWordsSave;
+
+  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拉丁有效标题最小词数已保存。'**
+  String get aiMinimumMeaningfulLatinTitleWordsSaved;
+
+  /// No description provided for @aiMinimumMeaningfulLatinTitleWordsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:
