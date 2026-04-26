@@ -1187,6 +1187,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 
   @override
+  String get aiToolResultCompressionThresholdLabel => '工具调用输出压缩阈值';
+
+  @override
+  String get aiToolResultCompressionThresholdBody =>
+      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。';
+
+  @override
+  String get aiToolResultCompressionThresholdSave => '保存阈值';
+
+  @override
+  String get aiToolResultCompressionThresholdSaved => '工具调用输出压缩阈值已更新。';
+
+  @override
+  String get aiToolResultCompressionThresholdInvalid => '请输入有效的正整数阈值。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -2499,6 +2515,22 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiCompressionThresholdInvalid => '请输入有效的正整数阈值。';
 
   @override
+  String get aiToolResultCompressionThresholdLabel => '工具调用输出压缩阈值';
+
+  @override
+  String get aiToolResultCompressionThresholdBody =>
+      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。';
+
+  @override
+  String get aiToolResultCompressionThresholdSave => '保存阈值';
+
+  @override
+  String get aiToolResultCompressionThresholdSaved => '工具调用输出压缩阈值已更新。';
+
+  @override
+  String get aiToolResultCompressionThresholdInvalid => '请输入有效的正整数阈值。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -3808,6 +3840,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiCompressionThresholdInvalid => '請輸入有效的正整數閾值。';
+
+  @override
+  String get aiToolResultCompressionThresholdLabel => '工具呼叫輸出壓縮閾值';
+
+  @override
+  String get aiToolResultCompressionThresholdBody =>
+      '當某個工具呼叫返回的 raw 內容字元數超過該閾值時，OpenHand 會在組裝 conversation history 前將其壓縮為「受影響路徑+目的+首尾片段」的結構化摘要，釋放 tokens。預設 1024。';
+
+  @override
+  String get aiToolResultCompressionThresholdSave => '儲存閾值';
+
+  @override
+  String get aiToolResultCompressionThresholdSaved => '工具呼叫輸出壓縮閾值已更新。';
+
+  @override
+  String get aiToolResultCompressionThresholdInvalid => '請輸入有效的正整數閾值。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

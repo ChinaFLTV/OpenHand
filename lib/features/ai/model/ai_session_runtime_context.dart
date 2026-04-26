@@ -89,6 +89,7 @@ class AiSessionRuntimeContext {
     required this.mcpServersFilePath,
     required this.userMemoryFilePath,
     required this.compressionThresholdChars,
+    this.toolResultCompressionThresholdChars = 1024,
     required this.memoryEnabled,
     required this.memoryEntries,
     this.templateId = '',
@@ -127,6 +128,10 @@ class AiSessionRuntimeContext {
   final String mcpServersFilePath;
   final String userMemoryFilePath;
   final int compressionThresholdChars;
+
+  /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
+  /// prompt builder 会依该阈值压缩 raw 过长的工具返回。
+  final int toolResultCompressionThresholdChars;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
 
@@ -201,6 +206,8 @@ class AiSessionRuntimeContext {
       'user_memory_file_path': userMemoryFilePath,
       'sessions_directory_path': OpenHandPaths.defaultSessionsDirectoryPath(),
       'compression_threshold_chars': compressionThresholdChars,
+      'tool_result_compression_threshold_chars':
+          toolResultCompressionThresholdChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
       'image_size_limit_bytes': imageSizeLimitBytes,

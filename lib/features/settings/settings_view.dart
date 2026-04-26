@@ -95,6 +95,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final ScrollController _editorShortcutListScrollController;
   late final TextEditingController _compressionThresholdController;
   late final FocusNode _compressionThresholdFocusNode;
+  late final TextEditingController _toolResultCompressionThresholdController;
+  late final FocusNode _toolResultCompressionThresholdFocusNode;
   late final TextEditingController _toolCallLimitController;
   late final FocusNode _toolCallLimitFocusNode;
   late final TextEditingController _sequentialToolRoundLimitController;
@@ -121,6 +123,8 @@ class _SettingsViewState extends State<SettingsView> {
     _editorShortcutListScrollController = ScrollController();
     _compressionThresholdController = TextEditingController();
     _compressionThresholdFocusNode = FocusNode();
+    _toolResultCompressionThresholdController = TextEditingController();
+    _toolResultCompressionThresholdFocusNode = FocusNode();
     _toolCallLimitController = TextEditingController();
     _toolCallLimitFocusNode = FocusNode();
     _sequentialToolRoundLimitController = TextEditingController();
@@ -146,6 +150,8 @@ class _SettingsViewState extends State<SettingsView> {
     _editorShortcutListScrollController.dispose();
     _compressionThresholdController.dispose();
     _compressionThresholdFocusNode.dispose();
+    _toolResultCompressionThresholdController.dispose();
+    _toolResultCompressionThresholdFocusNode.dispose();
     _toolCallLimitController.dispose();
     _toolCallLimitFocusNode.dispose();
     _sequentialToolRoundLimitController.dispose();
@@ -179,6 +185,14 @@ class _SettingsViewState extends State<SettingsView> {
     if (!_compressionThresholdFocusNode.hasFocus &&
         _compressionThresholdController.text != compressionThresholdText) {
       _compressionThresholdController.text = compressionThresholdText;
+    }
+    final toolResultCompressionThresholdText =
+        '${settingsController.aiToolResultCompressionThresholdChars}';
+    if (!_toolResultCompressionThresholdFocusNode.hasFocus &&
+        _toolResultCompressionThresholdController.text !=
+            toolResultCompressionThresholdText) {
+      _toolResultCompressionThresholdController.text =
+          toolResultCompressionThresholdText;
     }
     final toolCallLimitText =
         '${settingsController.aiSingleRoundToolCallLimit}';
@@ -572,6 +586,44 @@ class _SettingsViewState extends State<SettingsView> {
             ),
             icon: const Icon(Icons.save_outlined),
             label: Text(l10n.aiCompressionThresholdSave),
+          ),
+        ),
+      ],
+    );
+    final toolResultCompressionControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>(
+            'settingsToolResultCompressionThresholdField',
+          ),
+          controller: _toolResultCompressionThresholdController,
+          focusNode: _toolResultCompressionThresholdFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiToolResultCompressionThresholdLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars}',
+          ),
+          onSubmitted: (value) =>
+              _saveToolResultCompressionThreshold(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsToolResultCompressionThresholdSaveButton',
+            ),
+            onPressed: () => _saveToolResultCompressionThreshold(
+              context,
+              _toolResultCompressionThresholdController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiToolResultCompressionThresholdSave),
           ),
         ),
       ],
@@ -1063,6 +1115,21 @@ class _SettingsViewState extends State<SettingsView> {
                   en: 'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.',
                 ),
                 control: compressionControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '工具调用输出压缩阈值',
+                  en: 'Tool Call Output Compression Threshold',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。',
+                  en: 'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.',
+                ),
+                control: toolResultCompressionControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
@@ -2368,6 +2435,33 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _compressionThresholdController.text = '$parsedValue';
     _showSnackBar(context, l10n.aiCompressionThresholdSaved);
+  }
+
+  Future<void> _saveToolResultCompressionThreshold(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null || parsedValue <= 0) {
+      _showSnackBar(context, l10n.aiToolResultCompressionThresholdInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiToolResultCompressionThresholdChars(parsedValue);
+    if (!context.mounted) {
+      return;
+    }
+    if (!saved) {
+      _toolResultCompressionThresholdController.text =
+          '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _toolResultCompressionThresholdController.text =
+        '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
+    _showSnackBar(context, l10n.aiToolResultCompressionThresholdSaved);
   }
 
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {

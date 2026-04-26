@@ -154,6 +154,8 @@ class SettingsStore {
       },
       'ai_message_compression_threshold_chars':
           snapshot.aiMessageCompressionThresholdChars,
+      'ai_tool_result_compression_threshold_chars':
+          snapshot.aiToolResultCompressionThresholdChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
@@ -288,6 +290,11 @@ class SettingsStore {
             (json['ai_message_compression_threshold_chars'] as int) > 0
         ? json['ai_message_compression_threshold_chars'] as int
         : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
+    final aiToolResultCompressionThresholdChars =
+        json['ai_tool_result_compression_threshold_chars'] is int &&
+            (json['ai_tool_result_compression_threshold_chars'] as int) > 0
+        ? json['ai_tool_result_compression_threshold_chars'] as int
+        : AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars;
     final aiSingleRoundToolCallLimit =
         json['ai_single_round_tool_call_limit'] is int &&
             (json['ai_single_round_tool_call_limit'] as int) > 0
@@ -648,6 +655,8 @@ class SettingsStore {
       editorLspSettings: editorLspSettings,
       editorShortcutBindings: editorShortcutBindings,
       aiMessageCompressionThresholdChars: aiMessageCompressionThresholdChars,
+      aiToolResultCompressionThresholdChars:
+          aiToolResultCompressionThresholdChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,

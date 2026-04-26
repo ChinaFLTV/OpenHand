@@ -93,7 +93,12 @@ class AiPromptBuilder {
       historyMessages.add(message);
     }
     final historyTurns = _sanitizeToolSequence(
-      _mapHistoryMessages(historyMessages, session, model),
+      _mapHistoryMessages(
+        historyMessages,
+        session,
+        model,
+        runtimeContext.toolResultCompressionThresholdChars,
+      ),
     );
     final latestUserTurns = latestUserMessage == null
         ? const <AiChatTurn>[]
@@ -829,13 +834,20 @@ class AiPromptBuilder {
     List<AiSessionMessage> messages,
     AiSession session,
     AiModelConfig model,
+    int toolResultCompressionThresholdChars,
   ) {
     final turns = <AiChatTurn>[];
     var index = 0;
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.toolCall) {
-        final mappedGroup = _mapToolExchange(messages, index, session, model);
+        final mappedGroup = _mapToolExchange(
+          messages,
+          index,
+          session,
+          model,
+          toolResultCompressionThresholdChars,
+        );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(mappedGroup.turns);
         }
@@ -846,7 +858,14 @@ class AiPromptBuilder {
         index += 1;
         continue;
       }
-      turns.addAll(_mapNonToolHistoryMessage(message, session, model));
+      turns.addAll(
+        _mapNonToolHistoryMessage(
+          message,
+          session,
+          model,
+          toolResultCompressionThresholdChars,
+        ),
+      );
       index += 1;
     }
     return turns;
@@ -890,6 +909,7 @@ class AiPromptBuilder {
     int startIndex,
     AiSession session,
     AiModelConfig model,
+    int toolResultCompressionThresholdChars,
   ) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
@@ -903,7 +923,12 @@ class AiPromptBuilder {
       if (toolCalls.isEmpty) {
         if (groupedToolCallMessages.isEmpty) {
           return _MappedToolExchange(
-            turns: _mapNonToolHistoryMessage(toolCallMessage, session, model),
+            turns: _mapNonToolHistoryMessage(
+              toolCallMessage,
+              session,
+              model,
+              toolResultCompressionThresholdChars,
+            ),
             nextIndex: cursor + 1,
           );
         }
@@ -925,7 +950,12 @@ class AiPromptBuilder {
     }
     if (groupedToolCalls.isEmpty) {
       return _MappedToolExchange(
-        turns: _mapNonToolHistoryMessage(firstMessage, session, model),
+        turns: _mapNonToolHistoryMessage(
+          firstMessage,
+          session,
+          model,
+          toolResultCompressionThresholdChars,
+        ),
         nextIndex: startIndex + 1,
       );
     }
@@ -963,7 +993,10 @@ class AiPromptBuilder {
         _mapMessageContent(
           role: AiChatRole.tool,
           toolCallId: toolCall.id,
-          content: _promptHistoryToolResultContent(toolMessage),
+          content: _promptHistoryToolResultContent(
+            toolMessage,
+            toolResultCompressionThresholdChars,
+          ),
         ),
       );
     }
@@ -974,6 +1007,7 @@ class AiPromptBuilder {
     AiSessionMessage message,
     AiSession session,
     AiModelConfig model,
+    int toolResultCompressionThresholdChars,
   ) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
@@ -997,7 +1031,10 @@ class AiPromptBuilder {
       case AiSessionMessageKind.tool:
         return _mapMessageContent(
           role: AiChatRole.assistant,
-          content: _promptHistoryToolResultContent(message),
+          content: _promptHistoryToolResultContent(
+            message,
+            toolResultCompressionThresholdChars,
+          ),
         );
       case AiSessionMessageKind.mcp:
       case AiSessionMessageKind.skill:
@@ -1403,13 +1440,19 @@ class AiPromptBuilder {
         : 'Tool call: $normalizedName';
   }
 
-  String _promptHistoryToolResultContent(AiSessionMessage message) {
+  String _promptHistoryToolResultContent(
+    AiSessionMessage message,
+    int toolResultCompressionThresholdChars,
+  ) {
     if (!_isWriteLikeToolHistoryMessage(message)) {
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
       // conversation history 被海量原文淹没。
-      return _compressGenericToolResultContent(message);
+      return _compressGenericToolResultContent(
+        message,
+        toolResultCompressionThresholdChars,
+      );
     }
     final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
@@ -1616,13 +1659,18 @@ class AiPromptBuilder {
   ///
   /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
   /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
-  static const int _genericToolResultCompressionThreshold = 1024;
   static const int _genericToolResultHeadTailWindow = 256;
   static const int _genericToolResultMaxPathHits = 12;
 
-  String _compressGenericToolResultContent(AiSessionMessage message) {
+  String _compressGenericToolResultContent(
+    AiSessionMessage message,
+    int toolResultCompressionThresholdChars,
+  ) {
     final original = _promptContentForMessage(message);
-    if (original.length <= _genericToolResultCompressionThreshold) {
+    final threshold = toolResultCompressionThresholdChars > 0
+        ? toolResultCompressionThresholdChars
+        : 1024;
+    if (original.length <= threshold) {
       return original;
     }
     final metadata = message.metadata;
@@ -1655,7 +1703,7 @@ class AiPromptBuilder {
         'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',
       'head:\n$head',
       if (tail != head) 'tail:\n$tail',
-      'note: Tool result exceeded $_genericToolResultCompressionThreshold'
+      'note: Tool result exceeded $threshold'
           ' chars and was condensed for the prompt history. Re-run the tool'
           ' or read the local file directly if exact contents are needed.',
     ];

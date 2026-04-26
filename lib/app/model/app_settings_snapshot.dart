@@ -32,6 +32,8 @@ class AppSettingsSnapshot {
       editorShortcutBindings: defaultEditorShortcutBindings(),
       aiMessageCompressionThresholdChars:
           defaultAiMessageCompressionThresholdChars,
+      aiToolResultCompressionThresholdChars:
+          defaultAiToolResultCompressionThresholdChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
@@ -84,6 +86,7 @@ class AppSettingsSnapshot {
     required this.editorLspSettings,
     required this.editorShortcutBindings,
     required this.aiMessageCompressionThresholdChars,
+    required this.aiToolResultCompressionThresholdChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
     required this.aiImageSizeLimitBytes,
@@ -127,6 +130,14 @@ class AppSettingsSnapshot {
   static const int maxCronAutoCleanupRetentionDays = 365;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
+
+  /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
+  /// 超过该上限的工具返回会被压缩为结构化摘要（受影响文件路径
+  /// + 行号 + AI 自述 purpose + 首尾片段），避免长篇 raw 输出吞噁
+  /// 上下文 token。默认 1024 字符。
+  static const int defaultAiToolResultCompressionThresholdChars = 1024;
+  static const int minAiToolResultCompressionThresholdChars = 256;
+  static const int maxAiToolResultCompressionThresholdChars = 65536;
 
   /// Default cap for per-message raw payload capture (characters).
   static const int defaultTelemetryMaxPayloadChars = 200000;
@@ -183,6 +194,7 @@ class AppSettingsSnapshot {
   final Map<String, AiLspLanguageSettings> editorLspSettings;
   final Map<EditorShortcutAction, List<int>> editorShortcutBindings;
   final int aiMessageCompressionThresholdChars;
+  final int aiToolResultCompressionThresholdChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
   final int aiImageSizeLimitBytes;
@@ -252,6 +264,7 @@ class AppSettingsSnapshot {
     Map<String, AiLspLanguageSettings>? editorLspSettings,
     Map<EditorShortcutAction, List<int>>? editorShortcutBindings,
     int? aiMessageCompressionThresholdChars,
+    int? aiToolResultCompressionThresholdChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
     int? aiImageSizeLimitBytes,
@@ -302,6 +315,9 @@ class AppSettingsSnapshot {
       aiMessageCompressionThresholdChars:
           aiMessageCompressionThresholdChars ??
           this.aiMessageCompressionThresholdChars,
+      aiToolResultCompressionThresholdChars:
+          aiToolResultCompressionThresholdChars ??
+          this.aiToolResultCompressionThresholdChars,
       aiSingleRoundToolCallLimit:
           aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit:

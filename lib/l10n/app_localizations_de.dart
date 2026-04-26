@@ -1238,6 +1238,25 @@ class AppLocalizationsDe extends AppLocalizations {
       'Enter a valid positive integer threshold.';
 
   @override
+  String get aiToolResultCompressionThresholdLabel =>
+      'Tool Call Output Compression Threshold';
+
+  @override
+  String get aiToolResultCompressionThresholdBody =>
+      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+
+  @override
+  String get aiToolResultCompressionThresholdSave => 'Save Threshold';
+
+  @override
+  String get aiToolResultCompressionThresholdSaved =>
+      'The tool call output compression threshold has been updated.';
+
+  @override
+  String get aiToolResultCompressionThresholdInvalid =>
+      'Enter a valid positive integer threshold.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

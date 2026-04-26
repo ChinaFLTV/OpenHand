@@ -2398,6 +2398,36 @@ abstract class AppLocalizations {
   /// **'请输入有效的正整数阈值。'**
   String get aiCompressionThresholdInvalid;
 
+  /// No description provided for @aiToolResultCompressionThresholdLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用输出压缩阈值'**
+  String get aiToolResultCompressionThresholdLabel;
+
+  /// No description provided for @aiToolResultCompressionThresholdBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为“受影响路径+目的+首尾片段”的结构化摘要，释放 tokens。默认 1024。'**
+  String get aiToolResultCompressionThresholdBody;
+
+  /// No description provided for @aiToolResultCompressionThresholdSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存阈值'**
+  String get aiToolResultCompressionThresholdSave;
+
+  /// No description provided for @aiToolResultCompressionThresholdSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用输出压缩阈值已更新。'**
+  String get aiToolResultCompressionThresholdSaved;
+
+  /// No description provided for @aiToolResultCompressionThresholdInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效的正整数阈值。'**
+  String get aiToolResultCompressionThresholdInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:

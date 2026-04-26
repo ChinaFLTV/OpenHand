@@ -2575,6 +2575,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       userMemoryFilePath: settingsController.userMemoryFilePath,
       compressionThresholdChars:
           settingsController.aiMessageCompressionThresholdChars,
+      toolResultCompressionThresholdChars:
+          settingsController.aiToolResultCompressionThresholdChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,
@@ -2669,6 +2671,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.mcpServersFilePath,
       settingsController.userMemoryFilePath,
       settingsController.aiMessageCompressionThresholdChars,
+      settingsController.aiToolResultCompressionThresholdChars,
       settingsController.aiSingleRoundToolCallLimit,
       settingsController.aiSequentialToolRoundLimit,
       settingsController.aiImageSizeLimitBytes,
@@ -2752,6 +2755,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       userMemoryFilePath: settingsController.userMemoryFilePath,
       compressionThresholdChars:
           settingsController.aiMessageCompressionThresholdChars,
+      toolResultCompressionThresholdChars:
+          settingsController.aiToolResultCompressionThresholdChars,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       imageSizeLimitBytes: settingsController.aiImageSizeLimitBytes,

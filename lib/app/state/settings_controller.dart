@@ -48,6 +48,8 @@ class SettingsController extends ChangeNotifier {
        ),
        _aiMessageCompressionThresholdChars =
            snapshot.aiMessageCompressionThresholdChars,
+       _aiToolResultCompressionThresholdChars =
+           snapshot.aiToolResultCompressionThresholdChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
@@ -117,6 +119,7 @@ class SettingsController extends ChangeNotifier {
   Map<String, AiLspLanguageSettings> _editorLspSettings;
   Map<EditorShortcutAction, List<int>> _editorShortcutBindings;
   int _aiMessageCompressionThresholdChars;
+  int _aiToolResultCompressionThresholdChars;
   int _aiSingleRoundToolCallLimit;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
@@ -198,6 +201,8 @@ class SettingsController extends ChangeNotifier {
 
   int get aiMessageCompressionThresholdChars =>
       _aiMessageCompressionThresholdChars;
+  int get aiToolResultCompressionThresholdChars =>
+      _aiToolResultCompressionThresholdChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
@@ -443,6 +448,22 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiMessageCompressionThresholdChars = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiToolResultCompressionThresholdChars(int value) async {
+    final clamped = value <= 0
+        ? AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars
+        : value.clamp(
+            AppSettingsSnapshot.minAiToolResultCompressionThresholdChars,
+            AppSettingsSnapshot.maxAiToolResultCompressionThresholdChars,
+          );
+    return _commitMutation(() {
+      if (_aiToolResultCompressionThresholdChars == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiToolResultCompressionThresholdChars = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1172,6 +1193,8 @@ class SettingsController extends ChangeNotifier {
         _editorShortcutBindings,
       ),
       aiMessageCompressionThresholdChars: _aiMessageCompressionThresholdChars,
+      aiToolResultCompressionThresholdChars:
+          _aiToolResultCompressionThresholdChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
@@ -1225,6 +1248,8 @@ class SettingsController extends ChangeNotifier {
     );
     _aiMessageCompressionThresholdChars =
         snapshot.aiMessageCompressionThresholdChars;
+    _aiToolResultCompressionThresholdChars =
+        snapshot.aiToolResultCompressionThresholdChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
