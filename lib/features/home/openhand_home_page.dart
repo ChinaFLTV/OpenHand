@@ -2633,10 +2633,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       availableSkills: skillsController.skills,
       availableMcpServers: mcpController.servers,
       builtinToolConfigs: settingsController.builtinToolConfigs,
-      workspaceInstructionDocuments: _workspaceInstructionService.loadDocuments(
-        startDirectory: OpenHandPaths.applicationDirectoryPath(),
-        homeDirectory: OpenHandPaths.homeDirectoryPath(),
-      ),
+      workspaceInstructionDocuments: (() {
+        // Group E: 同步工作区指令文档字符上限。
+        _workspaceInstructionService.maxDocumentCharacters =
+            settingsController.aiMaxWorkspaceDocumentCharacters;
+        return _workspaceInstructionService.loadDocuments(
+          startDirectory: OpenHandPaths.applicationDirectoryPath(),
+          homeDirectory: OpenHandPaths.homeDirectoryPath(),
+        );
+      })(),
       userInstructions: instructionsController.entries,
       skippedInstructionIds: skippedInstructionIds,
     );

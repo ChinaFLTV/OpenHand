@@ -35,6 +35,7 @@ import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
 import 'service/ai_tool_runtime_service.dart';
 import 'tools/ai_memory_tool.dart' show MemoryControllerProvider;
+import 'tools/ai_skill_manager_tool.dart';
 import 'tools/ai_web_fetch_tool.dart';
 
 part '_ai_session_models.dart';
@@ -203,10 +204,12 @@ class AiSessionController extends ChangeNotifier {
     return controller;
   }
 
-  static const int _fallbackTitleMaxCharacters = 20;
-  static const int _generatedTitleMaxCharacters = 20;
-  static const int _minimumMeaningfulTitleCharacters = 4;
-  static const int _minimumMeaningfulLatinTitleWords = 2;
+  // Group D — 标题相关字段已改为 mutable static 以便由 runtime context 在
+  // 启动 / 设置变更时下放。在单进程内仅由 _captureLatestRuntimeContext 写入。
+  static int _fallbackTitleMaxCharacters = 20;
+  static int _generatedTitleMaxCharacters = 20;
+  static int _minimumMeaningfulTitleCharacters = 4;
+  static int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
   // Sora-style media generation endpoints poll until the task finishes.
@@ -290,6 +293,20 @@ class AiSessionController extends ChangeNotifier {
       webFetch.maxResponseBytes = runtimeContext.webFetchMaxResponseBytes;
       webFetch.maxRedirects = runtimeContext.webFetchMaxRedirects;
       webFetch.maxCacheEntries = runtimeContext.webFetchMaxCacheEntries;
+    }
+    // Group D: 标题派生相关阈值（mutable static, 同一进程共享）。
+    _fallbackTitleMaxCharacters = runtimeContext.fallbackTitleMaxCharacters;
+    _generatedTitleMaxCharacters = runtimeContext.generatedTitleMaxCharacters;
+    _minimumMeaningfulTitleCharacters =
+        runtimeContext.minimumMeaningfulTitleCharacters;
+    _minimumMeaningfulLatinTitleWords =
+        runtimeContext.minimumMeaningfulLatinTitleWords;
+    // Group E: 技能与工作区指令阈值。
+    final skillTool = _toolRuntimeService.toolRegistry.getTool(
+      AiBuiltinToolKind.skillManager,
+    );
+    if (skillTool is AiSkillManagerTool) {
+      skillTool.maxSkillContentLength = runtimeContext.maxSkillContentLength;
     }
   }
 

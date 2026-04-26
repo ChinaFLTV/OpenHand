@@ -1680,6 +1680,42 @@ class AppLocalizationsFr extends AppLocalizations {
       'Enter a valid integer.';
 
   @override
+  String get aiMaxSkillContentLengthLabel => 'Skill File Max Content Length';
+
+  @override
+  String get aiMaxSkillContentLengthBody =>
+      'Defaults to 100000. Tune skill / workspace document size.';
+
+  @override
+  String get aiMaxSkillContentLengthSave => 'Save';
+
+  @override
+  String get aiMaxSkillContentLengthSaved =>
+      'Skill File Max Content Length saved.';
+
+  @override
+  String get aiMaxSkillContentLengthInvalid => 'Enter a valid integer.';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersLabel =>
+      'Workspace Document Max Characters';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersBody =>
+      'Defaults to 16000. Tune skill / workspace document size.';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSave => 'Save';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSaved =>
+      'Workspace Document Max Characters saved.';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersInvalid =>
+      'Enter a valid integer.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

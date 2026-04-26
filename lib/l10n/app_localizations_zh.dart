@@ -1572,6 +1572,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiMinimumMeaningfulLatinTitleWordsInvalid => '请输入有效整数。';
 
   @override
+  String get aiMaxSkillContentLengthLabel => '技能文件内容字符上限';
+
+  @override
+  String get aiMaxSkillContentLengthBody => '默认 100000。调整以适配技能与工作区文档大小。';
+
+  @override
+  String get aiMaxSkillContentLengthSave => '保存';
+
+  @override
+  String get aiMaxSkillContentLengthSaved => '技能文件内容字符上限已保存。';
+
+  @override
+  String get aiMaxSkillContentLengthInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersLabel => '工作区指令文档字符上限';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersBody =>
+      '默认 16000。调整以适配技能与工作区文档大小。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSave => '保存';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSaved => '工作区指令文档字符上限已保存。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -3269,6 +3300,37 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiMinimumMeaningfulLatinTitleWordsInvalid => '请输入有效整数。';
 
   @override
+  String get aiMaxSkillContentLengthLabel => '技能文件内容字符上限';
+
+  @override
+  String get aiMaxSkillContentLengthBody => '默认 100000。调整以适配技能与工作区文档大小。';
+
+  @override
+  String get aiMaxSkillContentLengthSave => '保存';
+
+  @override
+  String get aiMaxSkillContentLengthSaved => '技能文件内容字符上限已保存。';
+
+  @override
+  String get aiMaxSkillContentLengthInvalid => '请输入有效整数。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersLabel => '工作区指令文档字符上限';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersBody =>
+      '默认 16000。调整以适配技能与工作区文档大小。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSave => '保存';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSaved => '工作区指令文档字符上限已保存。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersInvalid => '请输入有效整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -4963,6 +5025,37 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiMaxSkillContentLengthLabel => '技能檔案內容字元上限';
+
+  @override
+  String get aiMaxSkillContentLengthBody => '默认 100000。調整以符合技能與工作區文件大小。';
+
+  @override
+  String get aiMaxSkillContentLengthSave => '儲存';
+
+  @override
+  String get aiMaxSkillContentLengthSaved => '技能檔案內容字元上限已儲存。';
+
+  @override
+  String get aiMaxSkillContentLengthInvalid => '請輸入有效整數。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersLabel => '工作區指令文件字元上限';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersBody =>
+      '默认 16000。調整以符合技能與工作區文件大小。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSave => '儲存';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersSaved => '工作區指令文件字元上限已儲存。';
+
+  @override
+  String get aiMaxWorkspaceDocumentCharactersInvalid => '請輸入有效整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

@@ -63,6 +63,8 @@ class AppSettingsSnapshot {
       aiGeneratedTitleMaxCharacters: defaultAiGeneratedTitleMaxCharacters,
       aiMinimumMeaningfulTitleCharacters: defaultAiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: defaultAiMinimumMeaningfulLatinTitleWords,
+      aiMaxSkillContentLength: defaultAiMaxSkillContentLength,
+      aiMaxWorkspaceDocumentCharacters: defaultAiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -140,6 +142,8 @@ class AppSettingsSnapshot {
     required this.aiGeneratedTitleMaxCharacters,
     required this.aiMinimumMeaningfulTitleCharacters,
     required this.aiMinimumMeaningfulLatinTitleWords,
+    required this.aiMaxSkillContentLength,
+    required this.aiMaxWorkspaceDocumentCharacters,
     required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -292,6 +296,12 @@ class AppSettingsSnapshot {
   static const int defaultAiMinimumMeaningfulLatinTitleWords = 2;
   static const int minAiMinimumMeaningfulLatinTitleWords = 1;
   static const int maxAiMinimumMeaningfulLatinTitleWords = 20;
+  static const int defaultAiMaxSkillContentLength = 100000;
+  static const int minAiMaxSkillContentLength = 1000;
+  static const int maxAiMaxSkillContentLength = 10000000;
+  static const int defaultAiMaxWorkspaceDocumentCharacters = 16000;
+  static const int minAiMaxWorkspaceDocumentCharacters = 1000;
+  static const int maxAiMaxWorkspaceDocumentCharacters = 1000000;
 
   /// Default per-image attachment size cap (1 MiB).
   ///
@@ -392,6 +402,12 @@ class AppSettingsSnapshot {
 
   /// Group D — 有效拉丁标题最小词数。
   final int aiMinimumMeaningfulLatinTitleWords;
+
+  /// Group E — Skill 内容字符上限。
+  final int aiMaxSkillContentLength;
+
+  /// Group E — 工作区指令文档字符上限。
+  final int aiMaxWorkspaceDocumentCharacters;
   final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -486,6 +502,8 @@ class AppSettingsSnapshot {
     int? aiGeneratedTitleMaxCharacters,
     int? aiMinimumMeaningfulTitleCharacters,
     int? aiMinimumMeaningfulLatinTitleWords,
+    int? aiMaxSkillContentLength,
+    int? aiMaxWorkspaceDocumentCharacters,
     int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -586,6 +604,8 @@ class AppSettingsSnapshot {
       aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
       aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters ?? this.aiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords ?? this.aiMinimumMeaningfulLatinTitleWords,
+      aiMaxSkillContentLength: aiMaxSkillContentLength ?? this.aiMaxSkillContentLength,
+      aiMaxWorkspaceDocumentCharacters: aiMaxWorkspaceDocumentCharacters ?? this.aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:

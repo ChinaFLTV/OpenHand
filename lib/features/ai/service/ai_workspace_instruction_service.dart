@@ -11,7 +11,7 @@ class AiWorkspaceInstructionService {
   }) : _clock = clock ?? DateTime.now,
        _cacheTtl = cacheTtl;
 
-  static const int _maxDocumentCharacters = 16000;
+  int maxDocumentCharacters = 16000;
   static const List<String> _workspaceInstructionFiles = <String>[
     'AGENTS.md',
     'CLAUDE.md',
@@ -147,10 +147,10 @@ class AiWorkspaceInstructionService {
   }
 
   String _truncate(String content) {
-    if (content.length <= _maxDocumentCharacters) {
+    if (content.length <= maxDocumentCharacters) {
       return content;
     }
-    return '${content.substring(0, _maxDocumentCharacters)}\n\n...[truncated]';
+    return '${content.substring(0, maxDocumentCharacters)}\n\n...[truncated]';
   }
 }
 

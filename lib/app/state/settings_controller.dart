@@ -81,6 +81,8 @@ class SettingsController extends ChangeNotifier {
        _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters,
        _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters,
        _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords,
+       _aiMaxSkillContentLength = snapshot.aiMaxSkillContentLength,
+       _aiMaxWorkspaceDocumentCharacters = snapshot.aiMaxWorkspaceDocumentCharacters,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -175,6 +177,8 @@ class SettingsController extends ChangeNotifier {
   int _aiGeneratedTitleMaxCharacters;
   int _aiMinimumMeaningfulTitleCharacters;
   int _aiMinimumMeaningfulLatinTitleWords;
+  int _aiMaxSkillContentLength;
+  int _aiMaxWorkspaceDocumentCharacters;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
@@ -285,6 +289,8 @@ class SettingsController extends ChangeNotifier {
   int get aiGeneratedTitleMaxCharacters => _aiGeneratedTitleMaxCharacters;
   int get aiMinimumMeaningfulTitleCharacters => _aiMinimumMeaningfulTitleCharacters;
   int get aiMinimumMeaningfulLatinTitleWords => _aiMinimumMeaningfulLatinTitleWords;
+  int get aiMaxSkillContentLength => _aiMaxSkillContentLength;
+  int get aiMaxWorkspaceDocumentCharacters => _aiMaxWorkspaceDocumentCharacters;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
@@ -913,6 +919,34 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiMinimumMeaningfulLatinTitleWords = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxSkillContentLength(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxSkillContentLength,
+      AppSettingsSnapshot.maxAiMaxSkillContentLength,
+    );
+    return _commitMutation(() {
+      if (_aiMaxSkillContentLength == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxSkillContentLength = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxWorkspaceDocumentCharacters(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
+      AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
+    );
+    return _commitMutation(() {
+      if (_aiMaxWorkspaceDocumentCharacters == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxWorkspaceDocumentCharacters = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1645,6 +1679,8 @@ class SettingsController extends ChangeNotifier {
       aiGeneratedTitleMaxCharacters: _aiGeneratedTitleMaxCharacters,
       aiMinimumMeaningfulTitleCharacters: _aiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: _aiMinimumMeaningfulLatinTitleWords,
+      aiMaxSkillContentLength: _aiMaxSkillContentLength,
+      aiMaxWorkspaceDocumentCharacters: _aiMaxWorkspaceDocumentCharacters,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
@@ -1726,6 +1762,8 @@ class SettingsController extends ChangeNotifier {
     _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters;
     _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters;
     _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords;
+    _aiMaxSkillContentLength = snapshot.aiMaxSkillContentLength;
+    _aiMaxWorkspaceDocumentCharacters = snapshot.aiMaxWorkspaceDocumentCharacters;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

@@ -3130,6 +3130,66 @@ abstract class AppLocalizations {
   /// **'请输入有效整数。'**
   String get aiMinimumMeaningfulLatinTitleWordsInvalid;
 
+  /// No description provided for @aiMaxSkillContentLengthLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能文件内容字符上限'**
+  String get aiMaxSkillContentLengthLabel;
+
+  /// No description provided for @aiMaxSkillContentLengthBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 100000。调整以适配技能与工作区文档大小。'**
+  String get aiMaxSkillContentLengthBody;
+
+  /// No description provided for @aiMaxSkillContentLengthSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiMaxSkillContentLengthSave;
+
+  /// No description provided for @aiMaxSkillContentLengthSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能文件内容字符上限已保存。'**
+  String get aiMaxSkillContentLengthSaved;
+
+  /// No description provided for @aiMaxSkillContentLengthInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiMaxSkillContentLengthInvalid;
+
+  /// No description provided for @aiMaxWorkspaceDocumentCharactersLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作区指令文档字符上限'**
+  String get aiMaxWorkspaceDocumentCharactersLabel;
+
+  /// No description provided for @aiMaxWorkspaceDocumentCharactersBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 16000。调整以适配技能与工作区文档大小。'**
+  String get aiMaxWorkspaceDocumentCharactersBody;
+
+  /// No description provided for @aiMaxWorkspaceDocumentCharactersSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get aiMaxWorkspaceDocumentCharactersSave;
+
+  /// No description provided for @aiMaxWorkspaceDocumentCharactersSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作区指令文档字符上限已保存。'**
+  String get aiMaxWorkspaceDocumentCharactersSaved;
+
+  /// No description provided for @aiMaxWorkspaceDocumentCharactersInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入有效整数。'**
+  String get aiMaxWorkspaceDocumentCharactersInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:

@@ -32,7 +32,7 @@ class AiSkillManagerTool extends AiTool {
   static const String _toolName = 'SkillManager';
   static const int _maxNameLength = 64;
   static const int _maxDescriptionLength = 1024;
-  static const int _maxSkillContentLength = 100000;
+  int maxSkillContentLength = 100000;
   static final RegExp _nameRegex = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
   static const Set<String> _allowedWriteSubdirs = <String>{
     'references',
@@ -657,9 +657,9 @@ class AiSkillManagerTool extends AiTool {
   }
 
   String? _validateContentSize(String content) {
-    if (content.length > _maxSkillContentLength) {
+    if (content.length > maxSkillContentLength) {
       return 'SKILL.md content exceeds the maximum allowed size '
-          '(${content.length} chars, limit $_maxSkillContentLength).';
+          '(${content.length} chars, limit $maxSkillContentLength).';
     }
     return null;
   }

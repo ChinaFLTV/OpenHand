@@ -119,6 +119,8 @@ class AiSessionRuntimeContext {
     this.generatedTitleMaxCharacters = 20,
     this.minimumMeaningfulTitleCharacters = 4,
     this.minimumMeaningfulLatinTitleWords = 2,
+    this.maxSkillContentLength = 100000,
+    this.maxWorkspaceDocumentCharacters = 16000,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
@@ -238,6 +240,12 @@ class AiSessionRuntimeContext {
   /// Group D — MinimumMeaningfulLatinTitleWords.
   final int minimumMeaningfulLatinTitleWords;
 
+  /// Group E — Skill 内容字符上限。
+  final int maxSkillContentLength;
+
+  /// Group E — 工作区指令文档字符上限。
+  final int maxWorkspaceDocumentCharacters;
+
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
   /// before persisting and before the editor opens.
@@ -332,6 +340,8 @@ class AiSessionRuntimeContext {
       'generated_title_max_characters': generatedTitleMaxCharacters,
       'minimum_meaningful_title_characters': minimumMeaningfulTitleCharacters,
       'minimum_meaningful_latin_title_words': minimumMeaningfulLatinTitleWords,
+      'max_skill_content_length': maxSkillContentLength,
+      'max_workspace_document_characters': maxWorkspaceDocumentCharacters,
       'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,

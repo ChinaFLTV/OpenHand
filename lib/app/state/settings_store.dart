@@ -184,6 +184,8 @@ class SettingsStore {
       'ai_generated_title_max_characters': snapshot.aiGeneratedTitleMaxCharacters,
       'ai_minimum_meaningful_title_characters': snapshot.aiMinimumMeaningfulTitleCharacters,
       'ai_minimum_meaningful_latin_title_words': snapshot.aiMinimumMeaningfulLatinTitleWords,
+      'ai_max_skill_content_length': snapshot.aiMaxSkillContentLength,
+      'ai_max_workspace_document_characters': snapshot.aiMaxWorkspaceDocumentCharacters,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -491,6 +493,18 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
           )
         : AppSettingsSnapshot.defaultAiMinimumMeaningfulLatinTitleWords;
+    final aiMaxSkillContentLength = json['ai_max_skill_content_length'] is int
+        ? (json['ai_max_skill_content_length'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxSkillContentLength,
+            AppSettingsSnapshot.maxAiMaxSkillContentLength,
+          )
+        : AppSettingsSnapshot.defaultAiMaxSkillContentLength;
+    final aiMaxWorkspaceDocumentCharacters = json['ai_max_workspace_document_characters'] is int
+        ? (json['ai_max_workspace_document_characters'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
+            AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
+          )
+        : AppSettingsSnapshot.defaultAiMaxWorkspaceDocumentCharacters;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
     final aiImageSizeLimitBytes =
         (rawImageSizeLimit is int && rawImageSizeLimit > 0)
@@ -870,6 +884,8 @@ class SettingsStore {
       aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters,
       aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters,
       aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords,
+      aiMaxSkillContentLength: aiMaxSkillContentLength,
+      aiMaxWorkspaceDocumentCharacters: aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,
