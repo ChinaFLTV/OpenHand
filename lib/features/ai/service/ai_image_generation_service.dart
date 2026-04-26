@@ -472,6 +472,7 @@ class AiImageGenerationService {
       initialPayload: decoded,
       kind: kind,
       label: trimmedPrompt,
+      protocol: model.protocolType,
       requestHeaders: headers,
       timeout: timeout,
       startedAt: startedAt,
@@ -1106,6 +1107,13 @@ class AiImageGenerationService {
         'media',
         'file',
         'files',
+        // GLM CogVideoX returns the playable URL inside a `video_result` array.
+        'video_result',
+        'videoResult',
+        'audio_result',
+        'audioResult',
+        'image_result',
+        'imageResult',
       ]) {
         final nested = map[key];
         if (nested == null || identical(nested, value)) continue;
@@ -1211,11 +1219,16 @@ class AiImageGenerationService {
     required Map<String, Object?> initialPayload,
     required _GeneratedMediaKind kind,
     required String label,
+    required AiProtocolType protocol,
     required Map<String, String> requestHeaders,
     required Duration timeout,
     required DateTime startedAt,
   }) async {
-    final operationUrl = _resolveOperationUrl(initialUrl, initialPayload);
+    final operationUrl = _resolveOperationUrl(
+      initialUrl,
+      initialPayload,
+      protocol,
+    );
     if (operationUrl == null) {
       return const _PolledMediaResult.empty();
     }
@@ -1248,6 +1261,32 @@ class AiImageGenerationService {
         );
       }
       final decoded = _decodeJsonForKind(response.body, kind);
+      // MiniMax video task: status==Success carries `file_id` instead of a
+      // direct URL. Resolve via /files/retrieve before returning.
+      if (protocol == AiProtocolType.minimax && kind.isVideo) {
+        final status = _operationStatus(decoded);
+        if (status == 'success') {
+          final fileId = _findFirstString(decoded, const <String>[
+            'file_id',
+            'fileId',
+          ])?.trim();
+          if (fileId != null && fileId.isNotEmpty) {
+            final downloadUrl = await _resolveMiniMaxFileUrl(
+              initialUrl: initialUrl,
+              fileId: fileId,
+              requestHeaders: requestHeaders,
+              effectiveTimeout: effectiveTimeout,
+            );
+            if (downloadUrl != null && downloadUrl.isNotEmpty) {
+              final safeLabel = sanitizeMarkdownAltText(label);
+              return _PolledMediaResult(
+                markdown: '[$safeLabel]($downloadUrl)',
+                rawResponseBody: response.body,
+              );
+            }
+          }
+        }
+      }
       final markdown = await _buildMarkdownFromMediaResponse(
         decoded: decoded,
         kind: kind,
@@ -1270,9 +1309,64 @@ class AiImageGenerationService {
     return _PolledMediaResult(markdown: '', rawResponseBody: lastBody);
   }
 
+  /// MiniMax video pipeline emits a `file_id` once the task completes; the
+  /// playable mp4 lives behind a separate `/v1/files/retrieve` lookup.
+  Future<String?> _resolveMiniMaxFileUrl({
+    required String initialUrl,
+    required String fileId,
+    required Map<String, String> requestHeaders,
+    required Duration effectiveTimeout,
+  }) async {
+    final base = Uri.parse(initialUrl);
+    final segments = base.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: true);
+    while (segments.isNotEmpty &&
+        segments.last.toLowerCase() != 'video_generation') {
+      segments.removeLast();
+    }
+    if (segments.isNotEmpty) segments.removeLast();
+    segments.addAll(const <String>['files', 'retrieve']);
+    final retrieveUri = base.replace(
+      pathSegments: segments,
+      queryParameters: <String, String>{'file_id': fileId},
+    );
+    final pollingHeaders = Map<String, String>.from(requestHeaders)
+      ..['accept'] = 'application/json';
+    final response = await _client
+        .get(retrieveUri, headers: pollingHeaders)
+        .timeout(effectiveTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, Object?>) {
+        final url = _findFirstString(decoded, const <String>[
+          'download_url',
+          'downloadUrl',
+          'backup_download_url',
+          'file_url',
+          'fileUrl',
+          'url',
+        ]);
+        return url?.trim();
+      }
+    } catch (error, stack) {
+      silentLog(
+        'ai_image_generation_service',
+        'parse minimax /files/retrieve',
+        error,
+        stack,
+      );
+    }
+    return null;
+  }
+
   String? _resolveOperationUrl(
     String initialUrl,
     Map<String, Object?> payload,
+    AiProtocolType protocol,
   ) {
     final explicitUrl = _findFirstString(payload, const <String>[
       'status_url',
@@ -1303,12 +1397,59 @@ class AiImageGenerationService {
     ])?.trim();
     if (id == null || id.isEmpty) return null;
     final uri = Uri.parse(initialUrl);
-    final segments =
-        uri.pathSegments
+    return switch (protocol) {
+      // GLM CogVideoX: status lives under `/api/paas/v4/async-result/{id}`.
+      AiProtocolType.glm => () {
+        final segments = uri.pathSegments
             .where((segment) => segment.isNotEmpty)
-            .toList(growable: true)
+            .toList(growable: true);
+        // Strip trailing `videos/generations` (or any sibling kind) and
+        // append `async-result/{id}`.
+        while (segments.isNotEmpty) {
+          final last = segments.last.toLowerCase();
+          if (last == 'generations' ||
+              last == 'videos' ||
+              last == 'images' ||
+              last == 'speech') {
+            segments.removeLast();
+            continue;
+          }
+          break;
+        }
+        segments
+          ..add('async-result')
           ..add(id);
-    return uri.replace(pathSegments: segments).toString();
+        return uri.replace(pathSegments: segments).toString();
+      }(),
+      // MiniMax: GET /v1/query/video_generation?task_id={id}.
+      AiProtocolType.minimax => () {
+        final segments = uri.pathSegments
+            .where((segment) => segment.isNotEmpty)
+            .toList(growable: true);
+        if (segments.isNotEmpty) segments.removeLast();
+        segments
+          ..add('query')
+          ..add('video_generation');
+        return uri
+            .replace(
+              pathSegments: segments,
+              queryParameters: <String, String>{'task_id': id},
+            )
+            .toString();
+      }(),
+      // Qwen DashScope native task lookup: GET /api/v1/tasks/{id}.
+      // We can't always rebuild that path from a `/compatible-mode/...` URL
+      // safely, so fall back to default path-append behaviour and let the
+      // gateway redirect when needed.
+      _ => () {
+        final segments =
+            uri.pathSegments
+                .where((segment) => segment.isNotEmpty)
+                .toList(growable: true)
+              ..add(id);
+        return uri.replace(pathSegments: segments).toString();
+      }(),
+    };
   }
 
   String? _findFirstString(Map<String, Object?> map, List<String> keys) {

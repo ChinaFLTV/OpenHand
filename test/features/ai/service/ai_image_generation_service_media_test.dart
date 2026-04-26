@@ -339,6 +339,175 @@ void main() {
       });
     });
 
+    test(
+      'polls GLM CogVideoX async-result endpoint until video URL is ready',
+      () async {
+        final calls = <String>[];
+        var pollCount = 0;
+        final service = AiImageGenerationService(
+          client: MockClient((request) async {
+            calls.add('${request.method} ${request.url}');
+            if (request.method == 'POST') {
+              return http.Response(
+                jsonEncode({
+                  'id': 'cogvideo-task-1',
+                  'request_id': 'req-1',
+                  'task_status': 'PROCESSING',
+                }),
+                200,
+                headers: const {'content-type': 'application/json'},
+              );
+            }
+            pollCount += 1;
+            if (pollCount == 1) {
+              return http.Response(
+                jsonEncode({
+                  'id': 'cogvideo-task-1',
+                  'task_status': 'PROCESSING',
+                }),
+                200,
+                headers: const {'content-type': 'application/json'},
+              );
+            }
+            return http.Response(
+              jsonEncode({
+                'id': 'cogvideo-task-1',
+                'task_status': 'SUCCESS',
+                'video_result': [
+                  {
+                    'url': 'https://cdn.bigmodel.invalid/cogvideo/out.mp4',
+                    'cover_image_url':
+                        'https://cdn.bigmodel.invalid/cogvideo/cover.png',
+                  },
+                ],
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }),
+        );
+        const glmVideoModel = AiModelConfig(
+          id: 'glm-video',
+          baseUrl: 'https://open.bigmodel.invalid/api/paas/v4/chat/completions',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'cogvideox-2',
+          protocolType: AiProtocolType.glm,
+          modelProfiles: <String, AiModelProfile>{
+            'cogvideox-2': AiModelProfile(
+              capabilities: <AiModelCapability>{
+                AiModelCapability.videoGeneration,
+              },
+            ),
+          },
+        );
+
+        final result = await service.generateVideo(
+          model: glmVideoModel,
+          prompt: 'rain on rooftops',
+          timeout: const Duration(seconds: 30),
+        );
+
+        // First call: POST to /videos/generations.
+        expect(
+          calls.first,
+          'POST https://open.bigmodel.invalid/api/paas/v4/videos/generations',
+        );
+        // Polling calls go to /async-result/{id}, not /videos/generations/{id}.
+        expect(
+          calls
+              .skip(1)
+              .every(
+                (call) =>
+                    call.contains('/api/paas/v4/async-result/cogvideo-task-1'),
+              ),
+          isTrue,
+          reason: 'GLM polling must rewrite the path to async-result',
+        );
+        expect(result.markdown, contains('cogvideo/out.mp4'));
+      },
+    );
+
+    test('chains MiniMax video task → query → /files/retrieve', () async {
+      final calls = <String>[];
+      final service = AiImageGenerationService(
+        client: MockClient((request) async {
+          calls.add('${request.method} ${request.url}');
+          if (request.method == 'POST') {
+            return http.Response(
+              jsonEncode({
+                'task_id': 'mm-task-9',
+                'base_resp': {'status_code': 0, 'status_msg': 'success'},
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }
+          if (request.url.path.endsWith('/query/video_generation')) {
+            // Surface task_id through query string and respond with success.
+            expect(request.url.queryParameters['task_id'], 'mm-task-9');
+            return http.Response(
+              jsonEncode({
+                'task_id': 'mm-task-9',
+                'status': 'Success',
+                'file_id': 'file-42',
+                'base_resp': {'status_code': 0, 'status_msg': 'success'},
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }
+          // /files/retrieve?file_id=file-42
+          expect(request.url.path.endsWith('/files/retrieve'), isTrue);
+          expect(request.url.queryParameters['file_id'], 'file-42');
+          return http.Response(
+            jsonEncode({
+              'file': {
+                'file_id': 'file-42',
+                'download_url': 'https://cdn.minimax.invalid/files/file-42.mp4',
+              },
+              'base_resp': {'status_code': 0, 'status_msg': 'success'},
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }),
+      );
+      const miniMaxModel = AiModelConfig(
+        id: 'minimax-video-async',
+        baseUrl: 'https://api.minimax.invalid/v1/chat/completions',
+        authScheme: AiAuthScheme.bearer,
+        token: 'mock-token',
+        modelId: 'video-01',
+        protocolType: AiProtocolType.minimax,
+        modelProfiles: <String, AiModelProfile>{
+          'video-01': AiModelProfile(
+            capabilities: <AiModelCapability>{
+              AiModelCapability.videoGeneration,
+            },
+          ),
+        },
+      );
+
+      final result = await service.generateVideo(
+        model: miniMaxModel,
+        prompt: 'flying koi',
+        timeout: const Duration(seconds: 30),
+      );
+
+      expect(calls.length, 3);
+      expect(calls[0], 'POST https://api.minimax.invalid/v1/video_generation');
+      expect(
+        calls[1],
+        'GET https://api.minimax.invalid/v1/query/video_generation?task_id=mm-task-9',
+      );
+      expect(
+        calls[2],
+        'GET https://api.minimax.invalid/v1/files/retrieve?file_id=file-42',
+      );
+      expect(result.markdown, contains('files/file-42.mp4'));
+    });
+
     test('polls relative video task URLs with provider auth headers', () async {
       final requestedUrls = <String>[];
       final service = AiImageGenerationService(
