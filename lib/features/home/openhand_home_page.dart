@@ -1610,15 +1610,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
         return false;
       }
-      // HardwareKeyboard handlers fire before FocusNode.onKeyEvent in the
-      // Flutter key dispatch pipeline.  Returning true here consumes the
-      // event so it never reaches the focus tree.  We therefore must
-      // perform the action here rather than relying on the FocusNode handler.
-      if (composerShortcutAllowed) {
-        _performComposerShortcutAction(shortcutAction);
-      } else {
-        unawaited(_performShortcutAction(shortcutAction));
+      // 2026-04-26: Returning true from a HardwareKeyboard handler does
+      // NOT skip the focus-tree dispatch in the current Flutter pipeline.
+      // Empirically (debug logs) BOTH this HW handler AND the focused
+      // FocusNode.onKeyEvent fire for the same key press, causing the
+      // composer toggle to run twice and visually cancel out (the user-
+      // reported "press Ctrl+P, nothing happens" bug).  When the
+      // *workspace* composer's text field is focused we therefore defer
+      // entirely to `_handleComposerFocusNodeKeyEvent` and stay silent
+      // here.  The hardness session keeps its existing HW-driven path
+      // because its dashboard does not register a focus-node handler.
+      if (composerShortcutAllowed && !hardnessComposerShortcutAllowed) {
+        return false;
       }
+      unawaited(_performShortcutAction(shortcutAction));
       return true;
     }
     unawaited(_performShortcutAction(shortcutAction));
