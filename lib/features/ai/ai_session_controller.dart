@@ -210,6 +210,28 @@ class AiSessionController extends ChangeNotifier {
   static const int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
+  // Sora-style media generation endpoints poll until the task finishes.
+  // Real-world durations: image ~30s-2min, video ~3-15min, audio ~1-3min.
+  // These timeouts must dwarf `connectTimeoutSeconds` so the polling loop
+  // gets a realistic budget; otherwise `.timeout(remaining)` in the poller
+  // collapses to microseconds and instantly fires TimeoutException.
+  static const Duration _imageGenerationTimeout = Duration(minutes: 5);
+  static const Duration _videoGenerationTimeout = Duration(minutes: 15);
+  static const Duration _audioGenerationTimeout = Duration(minutes: 5);
+
+  static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
+    switch (request.mode) {
+      case AiCreationMode.video:
+        return _videoGenerationTimeout;
+      case AiCreationMode.audio:
+        return _audioGenerationTimeout;
+      case AiCreationMode.image:
+        return _imageGenerationTimeout;
+      case AiCreationMode.none:
+      case AiCreationMode.deepResearch:
+        return _imageGenerationTimeout;
+    }
+  }
   static const Duration _autoTitleRetryWaitTimeout = Duration(seconds: 45);
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
@@ -1903,13 +1925,21 @@ class AiSessionController extends ChangeNotifier {
       );
       late final AiChatStreamingResponse streamResponse;
       try {
+        // Media generation (image/video/audio) intentionally bypasses
+        // `connectTimeoutSeconds` because Sora-style endpoints poll for
+        // minutes (grok-imagine-video can run 10+ min). The chat client
+        // forwards this `timeout` straight into the media-gen pipeline,
+        // and a 60s budget would expire mid-poll → TimeoutException.
+        final Duration effectiveRequestTimeout = creationRequest.isActive
+            ? _mediaGenerationTimeoutFor(creationRequest)
+            : Duration(seconds: runtimeContext.connectTimeoutSeconds);
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
           messages: promptResult.messages,
           tools: toolsForRound,
           responseModalities: responseModalities,
           creationRequest: creationRequest,
-          timeout: Duration(seconds: runtimeContext.connectTimeoutSeconds),
+          timeout: effectiveRequestTimeout,
           streamIdleTimeout: Duration(
             seconds: runtimeContext.streamIdleTimeoutSeconds,
           ),

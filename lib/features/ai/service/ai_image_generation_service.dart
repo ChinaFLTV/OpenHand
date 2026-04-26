@@ -1393,7 +1393,11 @@ class AiImageGenerationService {
         await Future<void>.delayed(wait);
       }
       final requestRemaining = deadline.difference(DateTime.now().toUtc());
-      if (requestRemaining <= Duration.zero) break;
+      // Guard against `.timeout(near-zero)` which would instantly throw
+      // TimeoutException after sub-millisecond delays. If we have less
+      // than a second of budget left there is no point firing another
+      // request — exit and let the caller surface the deadline.
+      if (requestRemaining < const Duration(seconds: 1)) break;
       final effectiveTimeout = requestRemaining < const Duration(seconds: 15)
           ? requestRemaining
           : const Duration(seconds: 15);
