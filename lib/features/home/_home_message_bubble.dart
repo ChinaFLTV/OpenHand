@@ -1533,39 +1533,27 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                    child: Row(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: textColor,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                detail,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: textColor.withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ],
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.open_in_full_rounded,
-                          size: 18,
-                          color: textColor.withValues(alpha: 0.7),
+                        const SizedBox(height: 2),
+                        Text(
+                          detail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: textColor.withValues(alpha: 0.7),
+                          ),
                         ),
                       ],
                     ),
@@ -1613,6 +1601,10 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
   // WKWebView can load `file://` resources (it refuses to do so when the
   // page itself was loaded via `loadHtmlString`/`about:blank`).
   String? _tempHtmlPath;
+  // Last reported playback time from the embedded video. Used to hand
+  // off the resume position when the user enters / exits fullscreen so
+  // both views never play simultaneously and the audio never overlaps.
+  double _currentTime = 0;
 
   @override
   void initState() {
@@ -1739,6 +1731,15 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog> {
       setState(() {
         _loadError = value.length > 6 ? value.substring(6) : value;
       });
+      return;
+    }
+    if (value.startsWith('time:')) {
+      final raw = value.substring(5);
+      final parsed = double.tryParse(raw);
+      if (parsed != null && parsed >= 0) {
+        _currentTime = parsed;
+      }
+      return;
     }
   }
 
@@ -1774,6 +1775,7 @@ $mediaTag
 <script>
 (function() {
   const media = document.getElementById('media');
+  window.media = media;
   const post = (value) => {
     if (window.OpenHandMedia && window.OpenHandMedia.postMessage) {
       window.OpenHandMedia.postMessage(value);
@@ -1786,6 +1788,19 @@ $mediaTag
     const err = media.error ? String(media.error.code) : 'unknown';
     post('error:' + err);
   });
+  // Throttled time reporting so Dart can hand the resume timestamp to
+  // the fullscreen route without flooding the JS bridge.
+  let lastSent = -1;
+  function sendTime() {
+    const t = media.currentTime || 0;
+    if (Math.abs(t - lastSent) >= 0.2) {
+      lastSent = t;
+      post('time:' + t.toFixed(3));
+    }
+  }
+  media.addEventListener('timeupdate', sendTime);
+  media.addEventListener('pause', sendTime);
+  media.addEventListener('seeked', sendTime);
   setTimeout(() => {
     if (!media || media.readyState === 0) post('error:timeout');
   }, ${_mediaLoadTimeout.inMilliseconds});
@@ -1936,18 +1951,52 @@ $mediaTag
   }
 
   Future<void> _enterFullscreen(BuildContext context) async {
+    // Capture the navigator before the async pause so we don't reference
+    // a possibly-stale BuildContext after the await.
     final navigator = Navigator.of(context, rootNavigator: true);
-    // Pop the dialog so the existing WebView is torn down before we mount
-    // the fullscreen route. Two simultaneous WKWebView instances pointing
-    // at the same `file://` resource can race on the read-access grant.
-    navigator.pop();
-    await navigator.push(
-      MaterialPageRoute<void>(
+    // Pause the underlying preview before we hand control to the
+    // fullscreen route so the user never hears two audio tracks at once.
+    try {
+      await _controller.runJavaScript(
+        'try{if(window.media){window.media.pause();}}catch(_){}',
+      );
+    } catch (error, stack) {
+      silentLog(
+        'home_message_bubble',
+        'media preview: pause-on-fullscreen failed',
+        error,
+        stack,
+      );
+    }
+    if (!mounted) return;
+    final returnedTime = await navigator.push<double>(
+      MaterialPageRoute<double>(
         fullscreenDialog: true,
-        builder: (_) =>
-            _FullscreenVideoPage(source: widget.source, title: widget.title),
+        builder: (_) => _FullscreenVideoPage(
+          source: widget.source,
+          title: widget.title,
+          initialTime: _currentTime,
+        ),
       ),
     );
+    if (!mounted) return;
+    if (returnedTime != null && returnedTime >= 0) {
+      _currentTime = returnedTime;
+      try {
+        // Seek the preview to the same point the user left fullscreen at;
+        // we deliberately do NOT auto-resume — the user can press play.
+        await _controller.runJavaScript(
+          'try{if(window.media){window.media.currentTime=${returnedTime.toStringAsFixed(3)};}}catch(_){}',
+        );
+      } catch (error, stack) {
+        silentLog(
+          'home_message_bubble',
+          'media preview: resume-from-fullscreen seek failed',
+          error,
+          stack,
+        );
+      }
+    }
   }
 
   Future<void> _saveMediaAs(BuildContext context) async {
@@ -2624,7 +2673,7 @@ class _VideoThumbnailCaptureHostState
       }
       // Watchdog: if no message arrives within the budget, bail out so
       // the slot is released and the card stops trying for this session.
-      _watchdog = Timer(const Duration(seconds: 14), () {
+      _watchdog = Timer(const Duration(seconds: 18), () {
         if (!_done) _finish(null);
       });
       setState(() {});
@@ -2727,33 +2776,62 @@ class _VideoThumbnailCaptureHostState
     final mime = const HtmlEscape(
       HtmlEscapeMode.attribute,
     ).convert(widget.mimeType);
+    // We deliberately omit `crossorigin="anonymous"` — file:// requests in
+    // WKWebView cannot honour it and the canvas would taint, making
+    // toDataURL throw SecurityError. We also force play()→pause() to make
+    // sure the decoder actually produces frames before drawImage runs;
+    // muted preload="auto" alone is not enough on macOS WKWebView.
     return '''
-<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%}video,canvas{display:none}</style></head><body>
-<video id="v" muted playsinline preload="auto" crossorigin="anonymous"><source src="$src" type="$mime"></video>
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000;width:100%;height:100%}video,canvas{position:absolute;left:-99999px;top:-99999px}</style></head><body>
+<video id="v" muted autoplay playsinline preload="auto"><source src="$src" type="$mime"></video>
 <canvas id="c"></canvas>
 <script>(function(){
 var v=document.getElementById('v');var c=document.getElementById('c');
-function post(m){if(window.OpenHandThumb&&window.OpenHandThumb.postMessage){window.OpenHandThumb.postMessage(m);}}
 var captured=false;
-function capture(){
-  if(captured)return;captured=true;
+function post(m){try{if(window.OpenHandThumb&&window.OpenHandThumb.postMessage){window.OpenHandThumb.postMessage(String(m));}}catch(_){}}
+function tryCapture(reason){
+  if(captured)return false;
+  var w=v.videoWidth, h=v.videoHeight;
+  if(!w||!h)return false;
   try{
-    var w=v.videoWidth, h=v.videoHeight;
-    if(!w||!h){post('error:no_video_dim');return;}
     var tw=Math.min(480,w);
-    var th=Math.round(h*(tw/w));
+    var th=Math.max(1,Math.round(h*(tw/w)));
     c.width=tw;c.height=th;
     var ctx=c.getContext('2d');
     ctx.drawImage(v,0,0,tw,th);
-    post(c.toDataURL('image/png'));
-  }catch(e){post('error:'+(e&&e.message||'capture'));}
+    var url=c.toDataURL('image/png');
+    if(!url||url.length<64)return false;
+    captured=true;
+    post(url);
+    return true;
+  }catch(e){
+    // Swallow transient drawImage failures so the polling loop or a
+    // later seek event can still succeed without prematurely failing
+    // the capture on the Dart side.
+    return false;
+  }
 }
-v.addEventListener('loadeddata',function(){
-  try{var t=Math.min(0.1,(v.duration||0));v.currentTime=t;}catch(e){capture();}
+function safeSeek(t){try{v.currentTime=t;}catch(_){}}
+v.addEventListener('loadedmetadata',function(){
+  // Kick off decode; some macOS WKWebView builds do not produce frames
+  // until play() is called even with preload=auto.
+  var p=v.play();
+  if(p&&p.then)p.then(function(){setTimeout(function(){try{v.pause();}catch(_){}; safeSeek(Math.min(0.1,(v.duration||0)));},120);}).catch(function(){safeSeek(Math.min(0.1,(v.duration||0)));});
+  else safeSeek(Math.min(0.1,(v.duration||0)));
 });
-v.addEventListener('seeked',capture);
+v.addEventListener('seeked',function(){tryCapture('seeked');});
+v.addEventListener('canplay',function(){tryCapture('canplay');});
+v.addEventListener('canplaythrough',function(){tryCapture('canplaythrough');});
+// Repeated polling fallback in case neither seeked nor canplay produces a
+// painted frame (rare but seen on some H.265 sources under WKWebView).
+var attempts=0;
+var poll=setInterval(function(){
+  attempts++;
+  if(captured||attempts>40){clearInterval(poll);return;}
+  tryCapture('poll'+attempts);
+},250);
 v.addEventListener('error',function(){post('error:video_load');});
-setTimeout(function(){if(!captured)post('error:timeout');},10000);
+setTimeout(function(){if(!captured){clearInterval(poll);post('error:timeout');}},12000);
 })();</script>
 </body></html>
 ''';
@@ -2777,11 +2855,19 @@ setTimeout(function(){if(!captured)post('error:timeout');},10000);
 /// Black-screen fullscreen route for immersive video playback. Reuses the
 /// `loadFile` trick from `_MediaPreviewDialog` so WKWebView can grant
 /// `file://` read access to the parent directory.
+///
+/// Pops with the most recent `currentTime` (in seconds) so the calling
+/// preview dialog can resync its scrub position when the user returns.
 class _FullscreenVideoPage extends StatefulWidget {
-  const _FullscreenVideoPage({required this.source, required this.title});
+  const _FullscreenVideoPage({
+    required this.source,
+    required this.title,
+    this.initialTime = 0,
+  });
 
   final _GeneratedMediaSource source;
   final String title;
+  final double initialTime;
 
   @override
   State<_FullscreenVideoPage> createState() => _FullscreenVideoPageState();
@@ -2792,12 +2878,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   String? _tempHtmlPath;
   bool _ready = false;
   String? _loadError;
+  double _currentTime = 0;
+  // Focus node owns the keyboard route so ESC exits fullscreen without
+  // requiring the user to first click into the WebView surface.
+  final FocusNode _focusNode = FocusNode(debugLabel: 'fullscreen-video');
 
   @override
   void initState() {
     super.initState();
+    _currentTime = widget.initialTime;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel('OpenHandFs', onMessageReceived: _onJsMessage)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
@@ -2814,6 +2906,22 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
       _controller.setBackgroundColor(Colors.black);
     }
     _bootstrap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
+  }
+
+  void _onJsMessage(JavaScriptMessage message) {
+    final value = message.message.trim();
+    if (value.startsWith('time:')) {
+      final parsed = double.tryParse(value.substring(5));
+      if (parsed != null && parsed >= 0) {
+        _currentTime = parsed;
+      }
+    } else if (value.startsWith('error')) {
+      if (!mounted) return;
+      setState(() => _loadError = value.length > 6 ? value.substring(6) : value);
+    }
   }
 
   Future<void> _bootstrap() async {
@@ -2853,15 +2961,40 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     final mime = const HtmlEscape(
       HtmlEscapeMode.attribute,
     ).convert(_mimeTypeForGeneratedMedia(widget.source));
+    final initial = widget.initialTime > 0
+        ? widget.initialTime.toStringAsFixed(3)
+        : '0';
     return '''
 <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1.0"><style>html,body{margin:0;background:#000;width:100%;height:100%;overflow:hidden}video{width:100vw;height:100vh;background:#000;object-fit:contain}</style></head><body>
 <video id="media" controls autoplay playsinline preload="auto"><source src="$src" type="$mime"></video>
+<script>(function(){
+var v=document.getElementById('media');
+function post(m){try{if(window.OpenHandFs&&window.OpenHandFs.postMessage){window.OpenHandFs.postMessage(String(m));}}catch(_){}}
+var resumed=false;
+function resume(){
+  if(resumed)return;resumed=true;
+  try{var t=parseFloat('$initial');if(!isNaN(t)&&t>0&&t<(v.duration||Infinity)){v.currentTime=t;}}catch(_){}}
+v.addEventListener('loadedmetadata',resume);
+v.addEventListener('canplay',resume);
+v.addEventListener('error',function(){post('error:video_load');});
+var lastSent=-1;
+function sendTime(){var t=v.currentTime||0;if(Math.abs(t-lastSent)>=0.2){lastSent=t;post('time:'+t.toFixed(3));}}
+v.addEventListener('timeupdate',sendTime);
+v.addEventListener('pause',sendTime);
+v.addEventListener('seeked',sendTime);
+})();</script>
 </body></html>
 ''';
   }
 
+  void _exit() {
+    if (!mounted) return;
+    Navigator.of(context).maybePop<double>(_currentTime);
+  }
+
   @override
   void dispose() {
+    _focusNode.dispose();
     final tmp = _tempHtmlPath;
     if (tmp != null) {
       Future<void>(() async {
@@ -2883,68 +3016,158 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(child: WebViewWidget(controller: _controller)),
-            if (!_ready && _loadError == null)
-              const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.6,
-                  color: Colors.white70,
-                ),
-              ),
-            if (_loadError != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    _loadError!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ),
-              ),
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: Colors.white,
-                  ),
-                  tooltip: _localizedText(
-                    context,
-                    zh: '返回',
-                    en: 'Back',
-                  ),
-                  onPressed: () => Navigator.of(context).maybePop(),
+    return Shortcuts(
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            DismissIntent: CallbackAction<DismissIntent>(
+              onInvoke: (_) {
+                _exit();
+                return null;
+              },
+            ),
+          },
+          child: Focus(
+            focusNode: _focusNode,
+            autofocus: true,
+            child: Scaffold(
+              backgroundColor: Colors.black,
+              body: SafeArea(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(
+                      child: WebViewWidget(controller: _controller),
+                    ),
+                    if (!_ready && _loadError == null)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    if (_loadError != null)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            _loadError!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: _FullscreenChromeButton(
+                        icon: Icons.arrow_back_rounded,
+                        tooltip: _localizedText(
+                          context,
+                          zh: '返回（Esc）',
+                          en: 'Back (Esc)',
+                        ),
+                        onPressed: _exit,
+                      ),
+                    ),
+                    if (widget.title.isNotEmpty)
+                      Positioned(
+                        top: 18,
+                        left: 64,
+                        right: 64,
+                        child: IgnorePointer(
+                          child: Text(
+                            widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black54,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-            if (widget.title.isNotEmpty)
-              Positioned(
-                top: 16,
-                left: 64,
-                right: 16,
-                child: Text(
-                  widget.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+          ),
+        ),
+      );
+  }
+}
+
+/// Slim, glassy chrome button used for the fullscreen back affordance.
+/// Designed to read as part of the player UI rather than a standalone
+/// material button — soft white fill at low alpha + rounded square with a
+/// thin border, matching the floating control aesthetic of native video
+/// players.
+class _FullscreenChromeButton extends StatefulWidget {
+  const _FullscreenChromeButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  State<_FullscreenChromeButton> createState() =>
+      _FullscreenChromeButtonState();
+}
+
+class _FullscreenChromeButtonState extends State<_FullscreenChromeButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = _hover
+        ? Colors.white.withValues(alpha: 0.22)
+        : Colors.white.withValues(alpha: 0.12);
+    return Tooltip(
+      message: widget.tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.28),
+                width: 0.8,
               ),
-          ],
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black38,
+                  blurRadius: 12,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(widget.icon, color: Colors.white, size: 20),
+          ),
         ),
       ),
     );
