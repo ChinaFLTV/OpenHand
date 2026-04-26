@@ -1259,6 +1259,69 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiWriteToolSummaryMaxCharsInvalid => '请输入 0~8192 之间的整数。';
 
   @override
+  String get aiMaxRecentErrorsLabel => '会话错误记录保留上限';
+
+  @override
+  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。';
+
+  @override
+  String get aiMaxRecentErrorsSave => '保存上限';
+
+  @override
+  String get aiMaxRecentErrorsSaved => '会话错误记录保留上限已更新。';
+
+  @override
+  String get aiMaxRecentErrorsInvalid => '请输入 0~1000 之间的整数。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesLabel => '计划历史保留上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesBody =>
+      'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSave => '保存上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSaved => '计划历史保留上限已更新。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesInvalid => '请输入 0~1000 之间的整数。';
+
+  @override
+  String get aiMaxTruncationContinuationsLabel => '自动续接轮次上限';
+
+  @override
+  String get aiMaxTruncationContinuationsBody =>
+      '模型输出被截断（finish_reason=length）后自动续接的最大次数。默认 5；范围 0~100。';
+
+  @override
+  String get aiMaxTruncationContinuationsSave => '保存上限';
+
+  @override
+  String get aiMaxTruncationContinuationsSaved => '自动续接轮次上限已更新。';
+
+  @override
+  String get aiMaxTruncationContinuationsInvalid => '请输入 0~100 之间的整数。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenLabel => 'Token 字符估算系数';
+
+  @override
+  String get aiEstimatedCharactersPerTokenBody =>
+      '每个 token 约等于多少个字符，用于上下文容量估算。默认 4；范围 1~32。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSave => '保存系数';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSaved => 'Token 字符估算系数已更新。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenInvalid => '请输入 1~32 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -2643,6 +2706,69 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiWriteToolSummaryMaxCharsInvalid => '请输入 0~8192 之间的整数。';
 
   @override
+  String get aiMaxRecentErrorsLabel => '会话错误记录保留上限';
+
+  @override
+  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。';
+
+  @override
+  String get aiMaxRecentErrorsSave => '保存上限';
+
+  @override
+  String get aiMaxRecentErrorsSaved => '会话错误记录保留上限已更新。';
+
+  @override
+  String get aiMaxRecentErrorsInvalid => '请输入 0~1000 之间的整数。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesLabel => '计划历史保留上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesBody =>
+      'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSave => '保存上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSaved => '计划历史保留上限已更新。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesInvalid => '请输入 0~1000 之间的整数。';
+
+  @override
+  String get aiMaxTruncationContinuationsLabel => '自动续接轮次上限';
+
+  @override
+  String get aiMaxTruncationContinuationsBody =>
+      '模型输出被截断（finish_reason=length）后自动续接的最大次数。默认 5；范围 0~100。';
+
+  @override
+  String get aiMaxTruncationContinuationsSave => '保存上限';
+
+  @override
+  String get aiMaxTruncationContinuationsSaved => '自动续接轮次上限已更新。';
+
+  @override
+  String get aiMaxTruncationContinuationsInvalid => '请输入 0~100 之间的整数。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenLabel => 'Token 字符估算系数';
+
+  @override
+  String get aiEstimatedCharactersPerTokenBody =>
+      '每个 token 约等于多少个字符，用于上下文容量估算。默认 4；范围 1~32。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSave => '保存系数';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSaved => 'Token 字符估算系数已更新。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenInvalid => '请输入 1~32 之间的整数。';
+
+  @override
   String get aiImageSizeLimitLabel => '图片大小上限';
 
   @override
@@ -4024,6 +4150,69 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiWriteToolSummaryMaxCharsInvalid => '請輸入 0~8192 之間的整數。';
+
+  @override
+  String get aiMaxRecentErrorsLabel => '會話錯誤紀錄保留上限';
+
+  @override
+  String get aiMaxRecentErrorsBody => 'AI 會話狀態中保留的最近錯誤紀錄條數。預設 20；範圍 0~1000。';
+
+  @override
+  String get aiMaxRecentErrorsSave => '儲存上限';
+
+  @override
+  String get aiMaxRecentErrorsSaved => '會話錯誤紀錄保留上限已更新。';
+
+  @override
+  String get aiMaxRecentErrorsInvalid => '請輸入 0~1000 之間的整數。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesLabel => '計畫歷史保留上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesBody =>
+      'Plan 模式下 plan_history 保留的最大條目數。預設 20；範圍 0~1000。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSave => '儲存上限';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSaved => '計畫歷史保留上限已更新。';
+
+  @override
+  String get aiMaxPlanHistoryEntriesInvalid => '請輸入 0~1000 之間的整數。';
+
+  @override
+  String get aiMaxTruncationContinuationsLabel => '自動接續輪次上限';
+
+  @override
+  String get aiMaxTruncationContinuationsBody =>
+      '模型輸出被截斷（finish_reason=length）後自動接續的最大次數。預設 5；範圍 0~100。';
+
+  @override
+  String get aiMaxTruncationContinuationsSave => '儲存上限';
+
+  @override
+  String get aiMaxTruncationContinuationsSaved => '自動接續輪次上限已更新。';
+
+  @override
+  String get aiMaxTruncationContinuationsInvalid => '請輸入 0~100 之間的整數。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenLabel => 'Token 字元估算係數';
+
+  @override
+  String get aiEstimatedCharactersPerTokenBody =>
+      '每個 token 約等於多少個字元，用於上下文容量估算。預設 4；範圍 1~32。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSave => '儲存係數';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSaved => 'Token 字元估算係數已更新。';
+
+  @override
+  String get aiEstimatedCharactersPerTokenInvalid => '請輸入 1~32 之間的整數。';
 
   @override
   String get aiImageSizeLimitLabel => '圖片大小上限';

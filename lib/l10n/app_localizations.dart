@@ -2530,6 +2530,126 @@ abstract class AppLocalizations {
   /// **'请输入 0~8192 之间的整数。'**
   String get aiWriteToolSummaryMaxCharsInvalid;
 
+  /// No description provided for @aiMaxRecentErrorsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话错误记录保留上限'**
+  String get aiMaxRecentErrorsLabel;
+
+  /// No description provided for @aiMaxRecentErrorsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。'**
+  String get aiMaxRecentErrorsBody;
+
+  /// No description provided for @aiMaxRecentErrorsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiMaxRecentErrorsSave;
+
+  /// No description provided for @aiMaxRecentErrorsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话错误记录保留上限已更新。'**
+  String get aiMaxRecentErrorsSaved;
+
+  /// No description provided for @aiMaxRecentErrorsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~1000 之间的整数。'**
+  String get aiMaxRecentErrorsInvalid;
+
+  /// No description provided for @aiMaxPlanHistoryEntriesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划历史保留上限'**
+  String get aiMaxPlanHistoryEntriesLabel;
+
+  /// No description provided for @aiMaxPlanHistoryEntriesBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。'**
+  String get aiMaxPlanHistoryEntriesBody;
+
+  /// No description provided for @aiMaxPlanHistoryEntriesSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiMaxPlanHistoryEntriesSave;
+
+  /// No description provided for @aiMaxPlanHistoryEntriesSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划历史保留上限已更新。'**
+  String get aiMaxPlanHistoryEntriesSaved;
+
+  /// No description provided for @aiMaxPlanHistoryEntriesInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~1000 之间的整数。'**
+  String get aiMaxPlanHistoryEntriesInvalid;
+
+  /// No description provided for @aiMaxTruncationContinuationsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动续接轮次上限'**
+  String get aiMaxTruncationContinuationsLabel;
+
+  /// No description provided for @aiMaxTruncationContinuationsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型输出被截断（finish_reason=length）后自动续接的最大次数。默认 5；范围 0~100。'**
+  String get aiMaxTruncationContinuationsBody;
+
+  /// No description provided for @aiMaxTruncationContinuationsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get aiMaxTruncationContinuationsSave;
+
+  /// No description provided for @aiMaxTruncationContinuationsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动续接轮次上限已更新。'**
+  String get aiMaxTruncationContinuationsSaved;
+
+  /// No description provided for @aiMaxTruncationContinuationsInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0~100 之间的整数。'**
+  String get aiMaxTruncationContinuationsInvalid;
+
+  /// No description provided for @aiEstimatedCharactersPerTokenLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 字符估算系数'**
+  String get aiEstimatedCharactersPerTokenLabel;
+
+  /// No description provided for @aiEstimatedCharactersPerTokenBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每个 token 约等于多少个字符，用于上下文容量估算。默认 4；范围 1~32。'**
+  String get aiEstimatedCharactersPerTokenBody;
+
+  /// No description provided for @aiEstimatedCharactersPerTokenSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存系数'**
+  String get aiEstimatedCharactersPerTokenSave;
+
+  /// No description provided for @aiEstimatedCharactersPerTokenSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 字符估算系数已更新。'**
+  String get aiEstimatedCharactersPerTokenSaved;
+
+  /// No description provided for @aiEstimatedCharactersPerTokenInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 1~32 之间的整数。'**
+  String get aiEstimatedCharactersPerTokenInvalid;
+
   /// No description provided for @aiImageSizeLimitLabel.
   ///
   /// In zh_Hans, this message translates to:

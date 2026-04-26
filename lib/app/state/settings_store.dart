@@ -164,6 +164,10 @@ class SettingsStore {
           snapshot.aiToolResultCompressionMaxPathHits,
       'ai_write_tool_summary_max_chars': snapshot.aiWriteToolSummaryMaxChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
+      'ai_max_recent_errors': snapshot.aiMaxRecentErrors,
+      'ai_max_plan_history_entries': snapshot.aiMaxPlanHistoryEntries,
+      'ai_max_truncation_continuations': snapshot.aiMaxTruncationContinuations,
+      'ai_estimated_characters_per_token': snapshot.aiEstimatedCharactersPerToken,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -347,6 +351,32 @@ class SettingsStore {
             (json['ai_sequential_tool_round_limit'] as int) > 0
         ? json['ai_sequential_tool_round_limit'] as int
         : AppSettingsSnapshot.defaultAiSequentialToolRoundLimit;
+    final aiMaxRecentErrors = json['ai_max_recent_errors'] is int
+        ? (json['ai_max_recent_errors'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxRecentErrors,
+            AppSettingsSnapshot.maxAiMaxRecentErrors,
+          )
+        : AppSettingsSnapshot.defaultAiMaxRecentErrors;
+    final aiMaxPlanHistoryEntries = json['ai_max_plan_history_entries'] is int
+        ? (json['ai_max_plan_history_entries'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxPlanHistoryEntries,
+            AppSettingsSnapshot.maxAiMaxPlanHistoryEntries,
+          )
+        : AppSettingsSnapshot.defaultAiMaxPlanHistoryEntries;
+    final aiMaxTruncationContinuations =
+        json['ai_max_truncation_continuations'] is int
+        ? (json['ai_max_truncation_continuations'] as int).clamp(
+            AppSettingsSnapshot.minAiMaxTruncationContinuations,
+            AppSettingsSnapshot.maxAiMaxTruncationContinuations,
+          )
+        : AppSettingsSnapshot.defaultAiMaxTruncationContinuations;
+    final aiEstimatedCharactersPerToken =
+        json['ai_estimated_characters_per_token'] is int
+        ? (json['ai_estimated_characters_per_token'] as int).clamp(
+            AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
+            AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
+          )
+        : AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
     final rawImageSizeLimit = json['ai_image_size_limit_bytes'];
     final aiImageSizeLimitBytes =
         (rawImageSizeLimit is int && rawImageSizeLimit > 0)
@@ -706,6 +736,10 @@ class SettingsStore {
       aiWriteToolSummaryMaxChars: aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,
+      aiMaxRecentErrors: aiMaxRecentErrors,
+      aiMaxPlanHistoryEntries: aiMaxPlanHistoryEntries,
+      aiMaxTruncationContinuations: aiMaxTruncationContinuations,
+      aiEstimatedCharactersPerToken: aiEstimatedCharactersPerToken,
       aiImageSizeLimitBytes: aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: aiWriteCommandConfirmationEnabled,
       aiAllowCommandRules: aiAllowCommandRules,

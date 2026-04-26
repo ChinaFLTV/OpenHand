@@ -108,6 +108,14 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _toolCallLimitFocusNode;
   late final TextEditingController _sequentialToolRoundLimitController;
   late final FocusNode _sequentialToolRoundLimitFocusNode;
+  late final TextEditingController _maxRecentErrorsController;
+  late final FocusNode _maxRecentErrorsFocusNode;
+  late final TextEditingController _maxPlanHistoryEntriesController;
+  late final FocusNode _maxPlanHistoryEntriesFocusNode;
+  late final TextEditingController _maxTruncationContinuationsController;
+  late final FocusNode _maxTruncationContinuationsFocusNode;
+  late final TextEditingController _estimatedCharactersPerTokenController;
+  late final FocusNode _estimatedCharactersPerTokenFocusNode;
   late final TextEditingController _imageSizeLimitController;
   late final FocusNode _imageSizeLimitFocusNode;
   late final TextEditingController _connectTimeoutController;
@@ -142,6 +150,14 @@ class _SettingsViewState extends State<SettingsView> {
     _toolCallLimitFocusNode = FocusNode();
     _sequentialToolRoundLimitController = TextEditingController();
     _sequentialToolRoundLimitFocusNode = FocusNode();
+    _maxRecentErrorsController = TextEditingController();
+    _maxRecentErrorsFocusNode = FocusNode();
+    _maxPlanHistoryEntriesController = TextEditingController();
+    _maxPlanHistoryEntriesFocusNode = FocusNode();
+    _maxTruncationContinuationsController = TextEditingController();
+    _maxTruncationContinuationsFocusNode = FocusNode();
+    _estimatedCharactersPerTokenController = TextEditingController();
+    _estimatedCharactersPerTokenFocusNode = FocusNode();
     _imageSizeLimitController = TextEditingController();
     _imageSizeLimitFocusNode = FocusNode();
     _connectTimeoutController = TextEditingController();
@@ -175,6 +191,14 @@ class _SettingsViewState extends State<SettingsView> {
     _toolCallLimitFocusNode.dispose();
     _sequentialToolRoundLimitController.dispose();
     _sequentialToolRoundLimitFocusNode.dispose();
+    _maxRecentErrorsController.dispose();
+    _maxRecentErrorsFocusNode.dispose();
+    _maxPlanHistoryEntriesController.dispose();
+    _maxPlanHistoryEntriesFocusNode.dispose();
+    _maxTruncationContinuationsController.dispose();
+    _maxTruncationContinuationsFocusNode.dispose();
+    _estimatedCharactersPerTokenController.dispose();
+    _estimatedCharactersPerTokenFocusNode.dispose();
     _imageSizeLimitController.dispose();
     _imageSizeLimitFocusNode.dispose();
     _connectTimeoutController.dispose();
@@ -248,6 +272,33 @@ class _SettingsViewState extends State<SettingsView> {
         _sequentialToolRoundLimitController.text !=
             sequentialToolRoundLimitText) {
       _sequentialToolRoundLimitController.text = sequentialToolRoundLimitText;
+    }
+    final maxRecentErrorsText = '${settingsController.aiMaxRecentErrors}';
+    if (!_maxRecentErrorsFocusNode.hasFocus &&
+        _maxRecentErrorsController.text != maxRecentErrorsText) {
+      _maxRecentErrorsController.text = maxRecentErrorsText;
+    }
+    final maxPlanHistoryEntriesText =
+        '${settingsController.aiMaxPlanHistoryEntries}';
+    if (!_maxPlanHistoryEntriesFocusNode.hasFocus &&
+        _maxPlanHistoryEntriesController.text != maxPlanHistoryEntriesText) {
+      _maxPlanHistoryEntriesController.text = maxPlanHistoryEntriesText;
+    }
+    final maxTruncationContinuationsText =
+        '${settingsController.aiMaxTruncationContinuations}';
+    if (!_maxTruncationContinuationsFocusNode.hasFocus &&
+        _maxTruncationContinuationsController.text !=
+            maxTruncationContinuationsText) {
+      _maxTruncationContinuationsController.text =
+          maxTruncationContinuationsText;
+    }
+    final estimatedCharactersPerTokenText =
+        '${settingsController.aiEstimatedCharactersPerToken}';
+    if (!_estimatedCharactersPerTokenFocusNode.hasFocus &&
+        _estimatedCharactersPerTokenController.text !=
+            estimatedCharactersPerTokenText) {
+      _estimatedCharactersPerTokenController.text =
+          estimatedCharactersPerTokenText;
     }
     final imageSizeLimitText = _formatImageSizeLimitInput(
       settingsController.aiImageSizeLimitBytes,
@@ -865,6 +916,148 @@ class _SettingsViewState extends State<SettingsView> {
         ),
       ],
     );
+    final maxRecentErrorsControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsMaxRecentErrorsField'),
+          controller: _maxRecentErrorsController,
+          focusNode: _maxRecentErrorsFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiMaxRecentErrorsLabel,
+            hintText: '${AppSettingsSnapshot.defaultAiMaxRecentErrors}',
+          ),
+          onSubmitted: (value) => _saveMaxRecentErrors(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>('settingsMaxRecentErrorsSaveButton'),
+            onPressed: () => _saveMaxRecentErrors(
+              context,
+              _maxRecentErrorsController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiMaxRecentErrorsSave),
+          ),
+        ),
+      ],
+    );
+    final maxPlanHistoryEntriesControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>('settingsMaxPlanHistoryEntriesField'),
+          controller: _maxPlanHistoryEntriesController,
+          focusNode: _maxPlanHistoryEntriesFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiMaxPlanHistoryEntriesLabel,
+            hintText: '${AppSettingsSnapshot.defaultAiMaxPlanHistoryEntries}',
+          ),
+          onSubmitted: (value) => _saveMaxPlanHistoryEntries(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsMaxPlanHistoryEntriesSaveButton',
+            ),
+            onPressed: () => _saveMaxPlanHistoryEntries(
+              context,
+              _maxPlanHistoryEntriesController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiMaxPlanHistoryEntriesSave),
+          ),
+        ),
+      ],
+    );
+    final maxTruncationContinuationsControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>(
+            'settingsMaxTruncationContinuationsField',
+          ),
+          controller: _maxTruncationContinuationsController,
+          focusNode: _maxTruncationContinuationsFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiMaxTruncationContinuationsLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiMaxTruncationContinuations}',
+          ),
+          onSubmitted: (value) =>
+              _saveMaxTruncationContinuations(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsMaxTruncationContinuationsSaveButton',
+            ),
+            onPressed: () => _saveMaxTruncationContinuations(
+              context,
+              _maxTruncationContinuationsController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiMaxTruncationContinuationsSave),
+          ),
+        ),
+      ],
+    );
+    final estimatedCharactersPerTokenControl = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const ValueKey<String>(
+            'settingsEstimatedCharactersPerTokenField',
+          ),
+          controller: _estimatedCharactersPerTokenController,
+          focusNode: _estimatedCharactersPerTokenFocusNode,
+          keyboardType: TextInputType.number,
+          inputFormatters: <TextInputFormatter>[
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: l10n.aiEstimatedCharactersPerTokenLabel,
+            hintText:
+                '${AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken}',
+          ),
+          onSubmitted: (value) =>
+              _saveEstimatedCharactersPerToken(context, value),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey<String>(
+              'settingsEstimatedCharactersPerTokenSaveButton',
+            ),
+            onPressed: () => _saveEstimatedCharactersPerToken(
+              context,
+              _estimatedCharactersPerTokenController.text,
+            ),
+            icon: const Icon(Icons.save_outlined),
+            label: Text(l10n.aiEstimatedCharactersPerTokenSave),
+          ),
+        ),
+      ],
+    );
     final imageSizeLimitControl = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1351,6 +1544,34 @@ class _SettingsViewState extends State<SettingsView> {
                   en: 'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.',
                 ),
                 control: sequentialToolRoundLimitControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiMaxRecentErrorsLabel,
+                subtitle: l10n.aiMaxRecentErrorsBody,
+                control: maxRecentErrorsControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiMaxPlanHistoryEntriesLabel,
+                subtitle: l10n.aiMaxPlanHistoryEntriesBody,
+                control: maxPlanHistoryEntriesControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiMaxTruncationContinuationsLabel,
+                subtitle: l10n.aiMaxTruncationContinuationsBody,
+                control: maxTruncationContinuationsControl,
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: l10n.aiEstimatedCharactersPerTokenLabel,
+                subtitle: l10n.aiEstimatedCharactersPerTokenBody,
+                control: estimatedCharactersPerTokenControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
@@ -2812,6 +3033,111 @@ class _SettingsViewState extends State<SettingsView> {
         en: 'The sequential tool round limit has been saved.',
       ),
     );
+  }
+
+  Future<void> _saveMaxRecentErrors(BuildContext context, String rawValue) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minAiMaxRecentErrors ||
+        parsed > AppSettingsSnapshot.maxAiMaxRecentErrors) {
+      _showSnackBar(context, l10n.aiMaxRecentErrorsInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiMaxRecentErrors(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _maxRecentErrorsController.text =
+          '${context.read<SettingsController>().aiMaxRecentErrors}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _maxRecentErrorsController.text =
+        '${context.read<SettingsController>().aiMaxRecentErrors}';
+    _showSnackBar(context, l10n.aiMaxRecentErrorsSaved);
+  }
+
+  Future<void> _saveMaxPlanHistoryEntries(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minAiMaxPlanHistoryEntries ||
+        parsed > AppSettingsSnapshot.maxAiMaxPlanHistoryEntries) {
+      _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiMaxPlanHistoryEntries(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _maxPlanHistoryEntriesController.text =
+          '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _maxPlanHistoryEntriesController.text =
+        '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
+    _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesSaved);
+  }
+
+  Future<void> _saveMaxTruncationContinuations(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minAiMaxTruncationContinuations ||
+        parsed > AppSettingsSnapshot.maxAiMaxTruncationContinuations) {
+      _showSnackBar(context, l10n.aiMaxTruncationContinuationsInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiMaxTruncationContinuations(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _maxTruncationContinuationsController.text =
+          '${context.read<SettingsController>().aiMaxTruncationContinuations}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _maxTruncationContinuationsController.text =
+        '${context.read<SettingsController>().aiMaxTruncationContinuations}';
+    _showSnackBar(context, l10n.aiMaxTruncationContinuationsSaved);
+  }
+
+  Future<void> _saveEstimatedCharactersPerToken(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final parsed = int.tryParse(rawValue.trim());
+    if (parsed == null ||
+        parsed < AppSettingsSnapshot.minAiEstimatedCharactersPerToken ||
+        parsed > AppSettingsSnapshot.maxAiEstimatedCharactersPerToken) {
+      _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenInvalid);
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiEstimatedCharactersPerToken(parsed);
+    if (!context.mounted) return;
+    if (!saved) {
+      _estimatedCharactersPerTokenController.text =
+          '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _estimatedCharactersPerTokenController.text =
+        '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
+    _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenSaved);
   }
 
   /// Renders [bytes] as a human-friendly MB value used by the limit field.

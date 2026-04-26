@@ -99,6 +99,10 @@ class AiSessionRuntimeContext {
     this.templateId = '',
     this.singleRoundToolCallLimit = 40,
     this.sequentialToolRoundLimit = 24,
+    this.maxRecentErrors = 20,
+    this.maxPlanHistoryEntries = 20,
+    this.maxTruncationContinuations = 5,
+    this.estimatedCharactersPerToken = 4,
     this.imageSizeLimitBytes = 1024 * 1024,
     this.writeCommandConfirmationEnabled = true,
     this.connectTimeoutSeconds = 60,
@@ -157,6 +161,18 @@ class AiSessionRuntimeContext {
   final String templateId;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
+
+  /// Group A — 会话错误记录保留上限。
+  final int maxRecentErrors;
+
+  /// Group A — plan_history 保留上限。
+  final int maxPlanHistoryEntries;
+
+  /// Group A — 超长响应被截断后的自动续接轮次上限。
+  final int maxTruncationContinuations;
+
+  /// Group A — token 估算系数（每个 token 平均多少字符）。
+  final int estimatedCharactersPerToken;
 
   /// Per-image attachment size cap (bytes). When the user picks an image
   /// larger than this value, the attachment pipeline auto-compresses it
@@ -232,6 +248,10 @@ class AiSessionRuntimeContext {
       'write_tool_summary_max_chars': writeToolSummaryMaxChars,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
+      'max_recent_errors': maxRecentErrors,
+      'max_plan_history_entries': maxPlanHistoryEntries,
+      'max_truncation_continuations': maxTruncationContinuations,
+      'estimated_characters_per_token': estimatedCharactersPerToken,
       'image_size_limit_bytes': imageSizeLimitBytes,
       'write_command_confirmation_enabled': writeCommandConfirmationEnabled,
       'platform_name': platformName,

@@ -1301,6 +1301,77 @@ class AppLocalizationsJa extends AppLocalizations {
       'Enter an integer between 0 and 8192.';
 
   @override
+  String get aiMaxRecentErrorsLabel => 'Session Recent Errors Retention';
+
+  @override
+  String get aiMaxRecentErrorsBody =>
+      'Number of recent error records retained in AI session state. Default 20; range 0-1000.';
+
+  @override
+  String get aiMaxRecentErrorsSave => 'Save Limit';
+
+  @override
+  String get aiMaxRecentErrorsSaved =>
+      'Session recent errors retention updated.';
+
+  @override
+  String get aiMaxRecentErrorsInvalid => 'Enter an integer between 0 and 1000.';
+
+  @override
+  String get aiMaxPlanHistoryEntriesLabel => 'Plan History Retention';
+
+  @override
+  String get aiMaxPlanHistoryEntriesBody =>
+      'Max entries kept in plan_history under Plan mode. Default 20; range 0-1000.';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSave => 'Save Limit';
+
+  @override
+  String get aiMaxPlanHistoryEntriesSaved => 'Plan history retention updated.';
+
+  @override
+  String get aiMaxPlanHistoryEntriesInvalid =>
+      'Enter an integer between 0 and 1000.';
+
+  @override
+  String get aiMaxTruncationContinuationsLabel => 'Auto-Continuation Limit';
+
+  @override
+  String get aiMaxTruncationContinuationsBody =>
+      'Max consecutive auto-continuations after the model output is truncated (finish_reason=length). Default 5; range 0-100.';
+
+  @override
+  String get aiMaxTruncationContinuationsSave => 'Save Limit';
+
+  @override
+  String get aiMaxTruncationContinuationsSaved =>
+      'Auto-continuation limit updated.';
+
+  @override
+  String get aiMaxTruncationContinuationsInvalid =>
+      'Enter an integer between 0 and 100.';
+
+  @override
+  String get aiEstimatedCharactersPerTokenLabel =>
+      'Token Char Estimation Ratio';
+
+  @override
+  String get aiEstimatedCharactersPerTokenBody =>
+      'Approximate characters per token, used for context budget estimation. Default 4; range 1-32.';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSave => 'Save Ratio';
+
+  @override
+  String get aiEstimatedCharactersPerTokenSaved =>
+      'Token char estimation ratio updated.';
+
+  @override
+  String get aiEstimatedCharactersPerTokenInvalid =>
+      'Enter an integer between 1 and 32.';
+
+  @override
   String get aiImageSizeLimitLabel => 'Image Size Limit';
 
   @override

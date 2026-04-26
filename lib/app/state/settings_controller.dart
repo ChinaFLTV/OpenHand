@@ -58,6 +58,10 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiToolResultCompressionMaxPathHits,
        _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
+       _aiMaxRecentErrors = snapshot.aiMaxRecentErrors,
+       _aiMaxPlanHistoryEntries = snapshot.aiMaxPlanHistoryEntries,
+       _aiMaxTruncationContinuations = snapshot.aiMaxTruncationContinuations,
+       _aiEstimatedCharactersPerToken = snapshot.aiEstimatedCharactersPerToken,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -132,6 +136,10 @@ class SettingsController extends ChangeNotifier {
   int _aiToolResultCompressionMaxPathHits;
   int _aiWriteToolSummaryMaxChars;
   int _aiSingleRoundToolCallLimit;
+  int _aiMaxRecentErrors;
+  int _aiMaxPlanHistoryEntries;
+  int _aiMaxTruncationContinuations;
+  int _aiEstimatedCharactersPerToken;
   int _aiSequentialToolRoundLimit;
   int _aiImageSizeLimitBytes;
   bool _aiWriteCommandConfirmationEnabled;
@@ -221,6 +229,10 @@ class SettingsController extends ChangeNotifier {
       _aiToolResultCompressionMaxPathHits;
   int get aiWriteToolSummaryMaxChars => _aiWriteToolSummaryMaxChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
+  int get aiMaxRecentErrors => _aiMaxRecentErrors;
+  int get aiMaxPlanHistoryEntries => _aiMaxPlanHistoryEntries;
+  int get aiMaxTruncationContinuations => _aiMaxTruncationContinuations;
+  int get aiEstimatedCharactersPerToken => _aiEstimatedCharactersPerToken;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
   int get aiImageSizeLimitBytes => _aiImageSizeLimitBytes;
   bool get aiWriteCommandConfirmationEnabled =>
@@ -569,6 +581,62 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiSequentialToolRoundLimit = normalizedValue;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxRecentErrors(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxRecentErrors,
+      AppSettingsSnapshot.maxAiMaxRecentErrors,
+    );
+    return _commitMutation(() {
+      if (_aiMaxRecentErrors == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxRecentErrors = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxPlanHistoryEntries(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxPlanHistoryEntries,
+      AppSettingsSnapshot.maxAiMaxPlanHistoryEntries,
+    );
+    return _commitMutation(() {
+      if (_aiMaxPlanHistoryEntries == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxPlanHistoryEntries = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiMaxTruncationContinuations(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiMaxTruncationContinuations,
+      AppSettingsSnapshot.maxAiMaxTruncationContinuations,
+    );
+    return _commitMutation(() {
+      if (_aiMaxTruncationContinuations == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiMaxTruncationContinuations = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiEstimatedCharactersPerToken(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minAiEstimatedCharactersPerToken,
+      AppSettingsSnapshot.maxAiEstimatedCharactersPerToken,
+    );
+    return _commitMutation(() {
+      if (_aiEstimatedCharactersPerToken == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiEstimatedCharactersPerToken = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1280,6 +1348,10 @@ class SettingsController extends ChangeNotifier {
       aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
       aiWriteToolSummaryMaxChars: _aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
+      aiMaxRecentErrors: _aiMaxRecentErrors,
+      aiMaxPlanHistoryEntries: _aiMaxPlanHistoryEntries,
+      aiMaxTruncationContinuations: _aiMaxTruncationContinuations,
+      aiEstimatedCharactersPerToken: _aiEstimatedCharactersPerToken,
       aiSequentialToolRoundLimit: _aiSequentialToolRoundLimit,
       aiImageSizeLimitBytes: _aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: _aiWriteCommandConfirmationEnabled,
@@ -1341,6 +1413,10 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiToolResultCompressionMaxPathHits;
     _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
+    _aiMaxRecentErrors = snapshot.aiMaxRecentErrors;
+    _aiMaxPlanHistoryEntries = snapshot.aiMaxPlanHistoryEntries;
+    _aiMaxTruncationContinuations = snapshot.aiMaxTruncationContinuations;
+    _aiEstimatedCharactersPerToken = snapshot.aiEstimatedCharactersPerToken;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

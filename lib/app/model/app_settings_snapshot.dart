@@ -42,6 +42,10 @@ class AppSettingsSnapshot {
       aiWriteToolSummaryMaxChars: defaultAiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
+      aiMaxRecentErrors: defaultAiMaxRecentErrors,
+      aiMaxPlanHistoryEntries: defaultAiMaxPlanHistoryEntries,
+      aiMaxTruncationContinuations: defaultAiMaxTruncationContinuations,
+      aiEstimatedCharactersPerToken: defaultAiEstimatedCharactersPerToken,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled: true,
       aiAllowCommandRules: const <AiAllowCommandRule>[],
@@ -99,6 +103,10 @@ class AppSettingsSnapshot {
     required this.aiWriteToolSummaryMaxChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
+    required this.aiMaxRecentErrors,
+    required this.aiMaxPlanHistoryEntries,
+    required this.aiMaxTruncationContinuations,
+    required this.aiEstimatedCharactersPerToken,
     required this.aiImageSizeLimitBytes,
     required this.aiWriteCommandConfirmationEnabled,
     required this.aiAllowCommandRules,
@@ -173,6 +181,23 @@ class AppSettingsSnapshot {
   static const int defaultAiSingleRoundToolCallLimit = 40;
   static const int defaultAiSequentialToolRoundLimit = 24;
 
+  /// 2026-04-29 — Group A: AI 会话控制参数。
+  static const int defaultAiMaxRecentErrors = 20;
+  static const int minAiMaxRecentErrors = 0;
+  static const int maxAiMaxRecentErrors = 1000;
+
+  static const int defaultAiMaxPlanHistoryEntries = 20;
+  static const int minAiMaxPlanHistoryEntries = 0;
+  static const int maxAiMaxPlanHistoryEntries = 1000;
+
+  static const int defaultAiMaxTruncationContinuations = 5;
+  static const int minAiMaxTruncationContinuations = 0;
+  static const int maxAiMaxTruncationContinuations = 100;
+
+  static const int defaultAiEstimatedCharactersPerToken = 4;
+  static const int minAiEstimatedCharactersPerToken = 1;
+  static const int maxAiEstimatedCharactersPerToken = 32;
+
   /// Default per-image attachment size cap (1 MiB).
   ///
   /// When a user attaches an image larger than this threshold, the attachment
@@ -236,6 +261,18 @@ class AppSettingsSnapshot {
   final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
+
+  /// Group A: 会话错误记录保留上限。
+  final int aiMaxRecentErrors;
+
+  /// Group A: plan_history 保留上限。
+  final int aiMaxPlanHistoryEntries;
+
+  /// Group A: 超长响应被截断后的自动续接轮次上限。
+  final int aiMaxTruncationContinuations;
+
+  /// Group A: token 估算系数（每个 token 平均多少字符）。
+  final int aiEstimatedCharactersPerToken;
   final int aiImageSizeLimitBytes;
   final bool aiWriteCommandConfirmationEnabled;
   final List<AiAllowCommandRule> aiAllowCommandRules;
@@ -310,6 +347,10 @@ class AppSettingsSnapshot {
     int? aiWriteToolSummaryMaxChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
+    int? aiMaxRecentErrors,
+    int? aiMaxPlanHistoryEntries,
+    int? aiMaxTruncationContinuations,
+    int? aiEstimatedCharactersPerToken,
     int? aiImageSizeLimitBytes,
     bool? aiWriteCommandConfirmationEnabled,
     List<AiAllowCommandRule>? aiAllowCommandRules,
@@ -375,6 +416,13 @@ class AppSettingsSnapshot {
           aiSingleRoundToolCallLimit ?? this.aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit:
           aiSequentialToolRoundLimit ?? this.aiSequentialToolRoundLimit,
+      aiMaxRecentErrors: aiMaxRecentErrors ?? this.aiMaxRecentErrors,
+      aiMaxPlanHistoryEntries:
+          aiMaxPlanHistoryEntries ?? this.aiMaxPlanHistoryEntries,
+      aiMaxTruncationContinuations:
+          aiMaxTruncationContinuations ?? this.aiMaxTruncationContinuations,
+      aiEstimatedCharactersPerToken:
+          aiEstimatedCharactersPerToken ?? this.aiEstimatedCharactersPerToken,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:

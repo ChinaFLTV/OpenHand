@@ -7,6 +7,7 @@ import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/hook_config.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
@@ -138,7 +139,6 @@ class AiSessionController extends ChangeNotifier {
     'task',
     'issue',
   };
-  static const int _estimatedCharactersPerToken = 4;
   static const String _emptyPlanContinuationReplyError =
       'The assistant returned an empty follow-up response after tool execution.';
 
@@ -202,8 +202,6 @@ class AiSessionController extends ChangeNotifier {
     return controller;
   }
 
-  static const int _maxRecentErrors = 20;
-  static const int _maxPlanHistoryEntries = 20;
   static const int _fallbackTitleMaxCharacters = 20;
   static const int _generatedTitleMaxCharacters = 20;
   static const int _minimumMeaningfulTitleCharacters = 4;
@@ -244,12 +242,38 @@ class AiSessionController extends ChangeNotifier {
   /// Maximum number of consecutive auto-continuations when the model keeps
   /// hitting its output token limit (finish_reason: "length" / "max_tokens").
   /// This prevents infinite loops when the model is stuck in a truncation cycle.
-  static const int _maxTruncationContinuations = 5;
+  /// 2026-04-29: 该上限现在由 [_effectiveMaxTruncationContinuations] 在
+  /// 运行时读取 runtimeContext。
 
   /// Tracks how many consecutive times the current conversation loop has
   /// auto-continued due to model output truncation.  Reset to zero once the
   /// model completes normally or produces tool calls.
   var _truncationContinuationCount = 0;
+
+  /// 2026-04-29 — Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
+  /// 写入本字段；helper 在自身没有 runtimeContext 入参的场景下从中读取
+  /// 用户配置，缺省时回落到 [AppSettingsSnapshot] 默认值。
+  AiSessionRuntimeContext? _latestRuntimeContext;
+
+  void _captureLatestRuntimeContext(AiSessionRuntimeContext runtimeContext) {
+    _latestRuntimeContext = runtimeContext;
+  }
+
+  int get _effectiveMaxRecentErrors =>
+      _latestRuntimeContext?.maxRecentErrors ??
+      AppSettingsSnapshot.defaultAiMaxRecentErrors;
+
+  int get _effectiveMaxPlanHistoryEntries =>
+      _latestRuntimeContext?.maxPlanHistoryEntries ??
+      AppSettingsSnapshot.defaultAiMaxPlanHistoryEntries;
+
+  int get _effectiveMaxTruncationContinuations =>
+      _latestRuntimeContext?.maxTruncationContinuations ??
+      AppSettingsSnapshot.defaultAiMaxTruncationContinuations;
+
+  int get _effectiveEstimatedCharactersPerToken =>
+      _latestRuntimeContext?.estimatedCharactersPerToken ??
+      AppSettingsSnapshot.defaultAiEstimatedCharactersPerToken;
   static const Set<String> _planModePlanningToolAllowlist = <String>{
     'task',
     'glob',
@@ -572,6 +596,7 @@ class AiSessionController extends ChangeNotifier {
     AiSessionMode mode = AiSessionMode.chat,
     bool fullAccessPermission = false,
   }) async {
+    _captureLatestRuntimeContext(runtimeContext);
     if (isSending) {
       return _createSessionUnlocked(
         templateId: templateId,
@@ -1472,6 +1497,7 @@ class AiSessionController extends ChangeNotifier {
     List<String> additionalSystemReminders = const <String>[],
     Map<String, Object?>? selectedSkillMetadata,
   }) async {
+    _captureLatestRuntimeContext(runtimeContext);
     final normalizedContent = content.trim();
     final normalizedAttachmentPaths = _normalizeAttachmentPaths(
       attachmentFilePaths,
@@ -2608,7 +2634,7 @@ class AiSessionController extends ChangeNotifier {
             !didCancelStream &&
             !workingSession.awaitingPlanApproval) {
           _truncationContinuationCount += 1;
-          if (_truncationContinuationCount <= _maxTruncationContinuations) {
+          if (_truncationContinuationCount <= _effectiveMaxTruncationContinuations) {
             _debugSessionLog(
               workingSession.id,
               'auto_continue_truncated round=${toolRoundCount + 1} '
@@ -2651,7 +2677,7 @@ class AiSessionController extends ChangeNotifier {
             workingSession.id,
             'truncation_continuation_limit_reached '
             'count=$_truncationContinuationCount '
-            'limit=$_maxTruncationContinuations',
+            'limit=$_effectiveMaxTruncationContinuations',
           );
         }
         // Reset the truncation counter once the model finishes normally.
@@ -4367,9 +4393,9 @@ class AiSessionController extends ChangeNotifier {
         ),
       );
     }
-    final trimmedHistory = planHistory.length > _maxPlanHistoryEntries
+    final trimmedHistory = planHistory.length > _effectiveMaxPlanHistoryEntries
         ? planHistory
-              .sublist(planHistory.length - _maxPlanHistoryEntries)
+              .sublist(planHistory.length - _effectiveMaxPlanHistoryEntries)
               .toList(growable: false)
         : planHistory;
     return session.copyWith(planHistory: trimmedHistory);
@@ -5791,7 +5817,7 @@ class AiSessionController extends ChangeNotifier {
     final nextErrors = <AiSessionErrorRecord>[
       errorRecord,
       ...session.recentErrors,
-    ].take(_maxRecentErrors).toList(growable: false);
+    ].take(_effectiveMaxRecentErrors).toList(growable: false);
     return _syncPlanHistory(
       session.copyWith(
         recentErrors: nextErrors,
@@ -5972,7 +5998,7 @@ class AiSessionController extends ChangeNotifier {
     if (maxContextTokens == null || maxContextTokens <= 0) {
       return null;
     }
-    return maxContextTokens * _estimatedCharactersPerToken;
+    return maxContextTokens * _effectiveEstimatedCharactersPerToken;
   }
 
   _CompressionWindowSelection _selectCompressionWindowForModelContext({
@@ -6077,8 +6103,8 @@ class AiSessionController extends ChangeNotifier {
     if (characterCount <= 0) {
       return 0;
     }
-    return (characterCount + _estimatedCharactersPerToken - 1) ~/
-        _estimatedCharactersPerToken;
+    return (characterCount + _effectiveEstimatedCharactersPerToken - 1) ~/
+        _effectiveEstimatedCharactersPerToken;
   }
 
   Map<String, Object?> _decodeToolArguments(String arguments) {
