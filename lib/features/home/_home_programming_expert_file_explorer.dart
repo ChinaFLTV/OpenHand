@@ -200,7 +200,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           await _searchDirectory(entry, query, results, depth + 1);
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'search directory', error, stack);
+    }
   }
 
   /// Expand parent directories to make the active file visible in the tree
@@ -536,7 +538,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       }
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'rename node', error, stack);
+    }
   }
 
   Future<void> _deleteNode(_FileNode node) async {
@@ -578,7 +582,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       }
       final parent = _findParentNode(_rootNode, node.path) ?? _rootNode;
       await _refreshNode(parent);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'delete node', error, stack);
+    }
   }
 
   Future<void> _pasteToNode(_FileNode node) async {
@@ -607,7 +613,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         }
       }
       await _refreshRoot();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'paste node', error, stack);
+    }
   }
 
   Future<void> _copyDirectory(Directory source, Directory target) async {
@@ -632,7 +640,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       } else if (Platform.isLinux) {
         await Process.run('xdg-open', [target]);
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'open node in system explorer', error, stack);
+    }
   }
 
   @override
@@ -4835,7 +4845,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         if (!relative.startsWith('..')) {
           return relative;
         }
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('file_explorer', 'display path relative to active root', error, stack);
+      }
     }
     final inferredRoot = _inferWorkspaceRoot(widget.activeFilePath);
     try {
@@ -4843,7 +4855,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!relative.startsWith('..')) {
         return relative;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'display path relative to inferred root', error, stack);
+    }
     return filePath;
   }
 
@@ -8452,7 +8466,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final controller = _textControllers[filePath];
     if (controller == null || _fileDirty[filePath] != true) return;
     try {
-      await File(filePath).writeAsString(controller.text);
+      await File(filePath).writeAsString(controller.text, flush: true);
       if (mounted) {
         setState(() {
           _fileDirty[filePath] = false;
@@ -8460,7 +8474,21 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         });
       }
       await _refreshDiagnostics(filePath);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'save file $filePath', error, stack);
+      if (!mounted) return;
+      final isZh = Localizations.localeOf(context).languageCode.startsWith('zh');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isZh
+                ? '保存失败：${p.basename(filePath)}\n$error'
+                : 'Save failed: ${p.basename(filePath)}\n$error',
+          ),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
   Future<void> _confirmCloseTab(String filePath) async {
@@ -8573,7 +8601,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!candidate.startsWith('..')) {
         relativeFromWorkspace = candidate;
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'workspace-relative path for copy menu', error, stack);
+    }
 
     final selected = await showAnimatedMenu<String>(
       context: context,
@@ -9596,7 +9626,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       } else if (Platform.isLinux) {
         await Process.run('xdg-open', [target]);
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'open file in system explorer', error, stack);
+    }
   }
 
   // ── Code folding infrastructure ──
@@ -12569,7 +12601,9 @@ class _HighlightingTextController extends TextEditingController {
       _lastText = text;
       _lastHighlighterHash = identityHashCode(highlighter);
       _lastDiagnosticsRevision = _diagnosticsRevision;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'rebuild full highlight', error, stack);
+    }
   }
 
   TextSpan _cachePlainTextSpan(TextStyle? style) {
@@ -12778,7 +12812,9 @@ class _HighlightingTextController extends TextEditingController {
       _lastDiagnosticsRevision = _diagnosticsRevision;
       _viewportStartLine = startLine;
       _viewportEndLine = endLine;
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('file_explorer', 'rebuild viewport highlight', error, stack);
+    }
   }
 
   @override

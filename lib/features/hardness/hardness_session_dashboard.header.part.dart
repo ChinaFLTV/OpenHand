@@ -391,7 +391,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 860,
-          maxHeight: MediaQuery.of(context).size.height * 0.82,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),

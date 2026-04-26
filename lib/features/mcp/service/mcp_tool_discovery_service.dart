@@ -1428,7 +1428,15 @@ class _LegacySseSession {
   }) async {
     final requestIdText = '${payload['id']}';
     final responseFuture = _messages.stream
-        .firstWhere((message) => '${message['id']}' == requestIdText)
+        .firstWhere(
+          (message) => '${message['id']}' == requestIdText,
+          // Stream closed (e.g. server hung up) before a matching response
+          // arrived. Surface a uniform timeout so callers handle a single
+          // failure mode regardless of whether the stream closed or stalled.
+          orElse: () => throw TimeoutException(
+            'MCP stream closed before response for request $requestIdText',
+          ),
+        )
         .timeout(timeout ?? _requestTimeout);
     await _post(payload, timeout: timeout);
     return responseFuture;

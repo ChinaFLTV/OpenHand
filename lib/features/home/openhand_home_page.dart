@@ -667,7 +667,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'key': 'editor_tabs_$sessionId',
         'value': payload,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('openhand_home_page', 'persist editor tabs', error, stack);
+    }
   }
 
   Future<void> _restoreEditorTabs(String sessionId) async {
@@ -704,7 +706,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           });
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('openhand_home_page', 'restore editor tabs', error, stack);
+    }
   }
 
   void _syncEditorTabsForSession(String? sessionId) {
@@ -2065,7 +2069,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // Initialize persistence directory structure (non-blocking on error).
       try {
         await config.initializePersistenceDirectories();
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('openhand_home_page', 'initialize HE persistence directories', error, stack);
+      }
       if (!mounted) return false;
       // Launch the program-driven HE session inside the app's content pane
       // instead of a full-screen modal, so the navigation sidebar stays
@@ -5134,7 +5140,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         left: 20,
         right: 20,
         top: 14,
-        bottom: 18 + MediaQuery.of(context).viewInsets.bottom,
+        bottom: 18 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

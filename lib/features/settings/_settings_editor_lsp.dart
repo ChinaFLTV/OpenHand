@@ -1013,7 +1013,9 @@ Future<_DetectedSdkVersion?> _detectDartSdkVersion(String sdkPath) async {
           }
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', 'detect Flutter SDK version', error, stack);
+    }
   }
   return _detectCommandSdkVersion(
     sdkPath: sdkPath,
@@ -1838,7 +1840,9 @@ class _EditorLspInstallRunnerDialogState
   void dispose() {
     try {
       _process?.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', 'kill install process on dispose', error, stack);
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -2061,7 +2065,9 @@ class _EditorLspInstallRunnerDialogState
             onPressed: () {
               try {
                 _process?.kill();
-              } catch (_) {}
+              } catch (error, stack) {
+                silentLog('settings_editor_lsp', 'kill install process on cancel', error, stack);
+              }
               Navigator.of(context).pop(false);
             },
             label: isZh ? '取消' : 'Cancel',

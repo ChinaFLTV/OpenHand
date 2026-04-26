@@ -280,7 +280,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           0,
         );
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('composer', 'at-mention shallow search', error, stack);
+    }
     if (!mounted) return;
     setState(() {
       _atMentionResults = results;
@@ -340,7 +342,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           );
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('composer', 'at-mention deep search', error, stack);
+    }
   }
 
   void _showAtMentionOverlay() {

@@ -1429,6 +1429,10 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard> {
                             File(thumbPath),
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
+                            // Inline 16:9 thumbnail in maxWidth=420 box.
+                            // Decode at ~840px wide (covers 2x DPR) to
+                            // avoid keeping full-resolution raster in memory.
+                            cacheWidth: 840,
                             errorBuilder: (_, _, _) => Container(
                               color: Colors.black87,
                             ),
@@ -2607,6 +2611,9 @@ class _UserSkillSelectionChip extends StatelessWidget {
           File(iconPath),
           width: 14,
           height: 14,
+          // Leading icon rendered at 14 logical px; cache at ~3x DPR.
+          cacheWidth: 42,
+          cacheHeight: 42,
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) => const SizedBox.shrink(),
         ),

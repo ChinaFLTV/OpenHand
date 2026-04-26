@@ -64,7 +64,9 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
           FileStat? stat;
           try {
             stat = await entity.stat();
-          } catch (_) {}
+          } catch (error, stack) {
+            silentLog('hardness_steering', 'stat directory entry', error, stack);
+          }
           entries.add(
             _HeSteeringEntry(
               name: name,
@@ -123,7 +125,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 780,
-          maxHeight: MediaQuery.of(context).size.height * 0.80,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.80,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
@@ -738,7 +740,7 @@ class _HeSteeringFileEditorDialogState
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 1060,
-            maxHeight: MediaQuery.of(context).size.height * 0.88,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),

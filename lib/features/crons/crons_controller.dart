@@ -353,7 +353,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       ),
     );
     try {
-      await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
+      final updated = _entries.firstWhere(
+        (e) => e.id == entry.id,
+        orElse: () => entry,
+      );
+      await _store.updateOne(updated);
     } catch (error, stack) {
       silentLog(
         'crons_controller',
@@ -710,7 +714,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           updatedAt: DateTime.now(),
         ),
       );
-      await _store.updateOne(_entries.firstWhere((e) => e.id == entry.id));
+      await _store.updateOne(
+        _entries.firstWhere(
+          (e) => e.id == entry.id,
+          orElse: () => entry,
+        ),
+      );
 
       await _sendExecutionNotification(entry, record);
 

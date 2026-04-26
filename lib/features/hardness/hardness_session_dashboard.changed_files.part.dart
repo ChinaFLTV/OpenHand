@@ -188,7 +188,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 900,
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),

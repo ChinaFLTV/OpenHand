@@ -1129,8 +1129,8 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: math.min(MediaQuery.of(context).size.width * 0.85, 1200.0),
-        height: math.min(MediaQuery.of(context).size.height * 0.85, 900.0),
+        width: math.min(MediaQuery.sizeOf(context).width * 0.85, 1200.0),
+        height: math.min(MediaQuery.sizeOf(context).height * 0.85, 900.0),
         decoration: BoxDecoration(
           color: widget.theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),

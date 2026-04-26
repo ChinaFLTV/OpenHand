@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';

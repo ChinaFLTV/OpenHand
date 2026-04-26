@@ -1025,6 +1025,11 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           Image.file(
             File(resolvedFilePath),
             fit: BoxFit.contain,
+            // Inline thumbnail constrained by _buildMarkdownImageFrame to
+            // 60% screen width / 400 height. Decode at 1280 logical px to
+            // cover most desktop sizes at 2x DPR; full-resolution image is
+            // shown via the dedicated preview dialog on tap.
+            cacheWidth: 1280,
             frameBuilder: _fadeInImageFrameBuilder,
             errorBuilder: (_, _, _) =>
                 _brokenImagePlaceholder(context, previewTitle),
@@ -1051,6 +1056,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           Image.network(
             uri.toString(),
             fit: BoxFit.contain,
+            // Same constraint as the file variant; full image opens via
+            // the preview dialog.
+            cacheWidth: 1280,
             frameBuilder: _fadeInImageFrameBuilder,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) {

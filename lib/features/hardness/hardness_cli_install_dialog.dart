@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/support/silent_log.dart';
 import 'hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
@@ -42,7 +43,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   void dispose() {
     try {
       _process?.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_cli_install_dialog', 'kill process on dispose', error, stack);
+    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -192,7 +195,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
     if (!_running) return;
     try {
       _process?.kill();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_cli_install_dialog', 'kill process on cancel', error, stack);
+    }
     setState(() {
       _cancelled = true;
       _running = false;
@@ -239,7 +244,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
           installerPath = lines.last;
         }
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('hardness_cli_install_dialog', 'resolve installer path via shell', error, stack);
+    }
 
     final shellCmdStr = ([
       installerPath,

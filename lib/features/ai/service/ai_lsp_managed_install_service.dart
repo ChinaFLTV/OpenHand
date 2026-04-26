@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/data/atomic_file_operations.dart';
 import '../model/ai_lsp_backend_catalog.dart';
 import '../model/ai_lsp_language_settings.dart';
 
@@ -176,9 +177,10 @@ abstract final class AiLspManagedInstallService {
       installRootPath: normalizedRoot,
       installedAt: DateTime.now().toUtc(),
     );
-    await File(
-      AiLspManagedInstallManifest.manifestPathForRoot(normalizedRoot),
-    ).writeAsString(jsonEncode(manifest.toJson()));
+    await writeFileAtomically(
+      File(AiLspManagedInstallManifest.manifestPathForRoot(normalizedRoot)),
+      jsonEncode(manifest.toJson()),
+    );
   }
 
   static Future<void> deleteManagedInstall(String rootPath) async {

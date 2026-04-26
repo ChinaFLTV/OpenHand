@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/data/atomic_file_operations.dart';
 
 /// 文件编辑历史版本服务
 ///
@@ -74,13 +75,13 @@ class AiFileHistoryService {
       final contentFile = File(
         p.join(fileHistoryDir.path, '$versionId.content'),
       );
-      await contentFile.writeAsString(content);
+      await writeFileAtomically(contentFile, content);
 
       // 保存元数据文件
       final metadataFile = File(
         p.join(fileHistoryDir.path, '$versionId.meta.json'),
       );
-      await metadataFile.writeAsString(jsonEncode(versionMetadata));
+      await writeFileAtomically(metadataFile, jsonEncode(versionMetadata));
 
       // 清理旧版本
       await _pruneOldVersions(fileHistoryDir);

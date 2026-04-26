@@ -1174,7 +1174,9 @@ DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {
   if (editedAt.isNotEmpty) {
     try {
       return DateTime.parse(editedAt).toUtc();
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('session_toolbar', 'parse plan timeline edited_at', error, stack);
+    }
   }
   return message.createdAt;
 }

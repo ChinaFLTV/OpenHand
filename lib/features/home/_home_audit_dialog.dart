@@ -1772,7 +1772,9 @@ DateTime? _auditFirstDate(Iterable<Object?> candidates) {
     if (value is int) {
       try {
         return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
-      } catch (_) {}
+      } catch (error, stack) {
+        silentLog('audit_dialog', 'parse epoch ms', error, stack);
+      }
     }
   }
   return null;

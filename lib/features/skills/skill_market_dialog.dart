@@ -1217,6 +1217,10 @@ class _SkillMarketAvatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
+              // Avatar rendered at `size` logical px; decode at ~3x DPR
+              // to keep retina sharpness while skipping full resolution.
+              cacheWidth: (size * 3).round(),
+              cacheHeight: (size * 3).round(),
               errorBuilder: (context, error, stackTrace) => fallback,
             ),
     );

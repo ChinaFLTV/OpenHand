@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
@@ -202,7 +203,9 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
             .where((e) => e.isNotEmpty)
             .toList();
       }
-    } catch (_) {}
+    } catch (error, stack) {
+      silentLog('machine_expert_dialog', 'osascript probe', error, stack);
+    }
     return const <String>[];
   }
 

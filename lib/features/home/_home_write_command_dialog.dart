@@ -70,7 +70,7 @@ class _WriteCommandConfirmationDialogState
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = MediaQuery.sizeOf(context);
     return Focus(
       focusNode: _shortcutFocusNode,
       autofocus: true,
