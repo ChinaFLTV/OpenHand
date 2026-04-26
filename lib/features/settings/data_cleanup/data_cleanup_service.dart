@@ -207,14 +207,22 @@ class DataCleanupService {
     } catch (error, stack) {
       silentLog('data_cleanup', 'cleanUserMemory/delete', error, stack);
     }
-    await _memoryController.refresh();
+    try {
+      await _memoryController.refresh();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanUserMemory/refresh', error, stack);
+    }
   }
 
   /// 删除 MCP Server 配置文件，然后让 controller 重新加载（变成空列表）。
   Future<void> cleanMcpConfig() async {
     final path = _settingsController.mcpServersFilePath;
     await compute(_isolateDeleteFile, path);
-    await _mcpController.refresh();
+    try {
+      await _mcpController.refresh();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanMcpConfig/refresh', error, stack);
+    }
   }
 
   /// 清空技能目录内容（保留目录本身），并让 controller 重新扫描。
@@ -223,7 +231,11 @@ class DataCleanupService {
       _isolateDeleteDirectoryContents,
       _settingsController.skillsStoragePath,
     );
-    await _skillsController.refresh();
+    try {
+      await _skillsController.refresh();
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanSkillsDirectory/refresh', error, stack);
+    }
   }
 
   /// 清空 LSP 安装目录。下次使用对应语言时会触发重新下载。
@@ -430,6 +442,9 @@ DataCleanupSizeReport _isolateMeasureFile(String path) {
 }
 
 void _isolateDeleteFile(String path) {
+  if (!_isSafeDeleteTarget(path)) {
+    return;
+  }
   final file = File(path);
   if (!file.existsSync()) {
     return;
@@ -442,6 +457,9 @@ void _isolateDeleteFile(String path) {
 }
 
 void _isolateDeleteAttachments(String sessionsRoot) {
+  if (!_isSafeDeleteTarget(sessionsRoot)) {
+    return;
+  }
   final root = Directory(sessionsRoot);
   if (!root.existsSync()) {
     return;
@@ -467,6 +485,9 @@ void _isolateDeleteAttachments(String sessionsRoot) {
 }
 
 void _isolateDeleteDirectoryContents(String dir) {
+  if (!_isSafeDeleteTarget(dir)) {
+    return;
+  }
   final root = Directory(dir);
   if (!root.existsSync()) {
     return;
@@ -486,6 +507,46 @@ void _isolateDeleteDirectoryContents(String dir) {
   } catch (_) {
     // 列表失败：忽略。
   }
+}
+
+/// 防误删兜底：拒绝任何看起来像系统根 / HOME 根 / OpenHand 根的路径。
+/// 即使上层逻辑出 bug 把 `/` 或 `~/.openhand` 传进来，也不会引发灾难。
+///
+/// **注意**：这里**不**强制路径必须在 `~/.openhand` 之下，因为技能目录、
+/// LSP 安装目录可能被用户改到任意位置（例如外置硬盘）。我们只在路径明显
+/// 危险时才拒绝。
+bool _isSafeDeleteTarget(String path) {
+  if (path.trim().isEmpty) {
+    return false;
+  }
+  final normalized = p.normalize(path);
+  // 单字符根、相对当前目录、或 path-segment 数量过少的路径一律拒绝。
+  if (normalized == '/' ||
+      normalized == '\\' ||
+      normalized == '.' ||
+      normalized == '..' ||
+      normalized == '~') {
+    return false;
+  }
+  // HOME / OpenHand root 一律拒绝（避免把整个 ~/.openhand 干掉导致 db 句柄崩溃）。
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  if (home != null && home.isNotEmpty) {
+    final normalizedHome = p.normalize(home);
+    if (normalized == normalizedHome) {
+      return false;
+    }
+  }
+  final openhandRoot = p.normalize(OpenHandPaths.defaultRootDirectoryPath());
+  if (normalized == openhandRoot) {
+    return false;
+  }
+  // path 段数 < 2 通常意味着接近根目录（例如 "/usr"），过于危险。
+  final segments = p.split(normalized).where((s) => s.isNotEmpty).toList();
+  if (segments.length < 2) {
+    return false;
+  }
+  return true;
 }
 
 void _safeDeleteDirectoryAndRecreate(Directory dir) {

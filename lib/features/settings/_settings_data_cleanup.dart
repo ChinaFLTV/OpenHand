@@ -386,46 +386,76 @@ class _DataCleanupRow extends StatelessWidget {
             ),
           ],
         );
-        final cleanButton = SizedBox(
-          height: 40,
-          child: isDestructive
-              ? FilledButton.icon(
-                  onPressed: canClean ? onClean : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.error,
-                    foregroundColor: colorScheme.onError,
-                  ),
-                  icon: isCleaning
-                      ? SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.onError,
-                          ),
-                        )
-                      : const Icon(Icons.delete_forever_outlined, size: 18),
-                  label: Text(
-                    _localizedText(context, zh: '一键清空', en: 'Wipe All'),
-                  ),
-                )
-              : FilledButton.tonalIcon(
-                  onPressed: canClean ? onClean : null,
-                  icon: isCleaning
-                      ? SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: colorScheme.primary,
-                          ),
-                        )
-                      : const Icon(Icons.cleaning_services_outlined, size: 18),
-                  label: Text(
-                    _localizedText(context, zh: '清理', en: 'Clean'),
-                  ),
-                ),
+        // 用 ButtonStyle 锁住内边距 / 触控目标 / 文本样式，避免 M3 默认
+        // FilledButton.icon 在外层 `SizedBox(height: 40)` 下会把 label
+        // 挤出可视区（icon + 文本叠在一起，看起来"按钮文本不见了"）。
+        final buttonStyle = FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          minimumSize: const Size(112, 40),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+          textStyle: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.15,
+          ),
+        ).copyWith(
+          backgroundColor: isDestructive
+              ? WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (states.contains(WidgetState.disabled)) {
+                    return colorScheme.error.withValues(alpha: 0.32);
+                  }
+                  return colorScheme.error;
+                })
+              : null,
+          foregroundColor: isDestructive
+              ? WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (states.contains(WidgetState.disabled)) {
+                    return colorScheme.onError.withValues(alpha: 0.7);
+                  }
+                  return colorScheme.onError;
+                })
+              : null,
         );
+        final cleanIcon = isCleaning
+            ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: isDestructive
+                      ? colorScheme.onError
+                      : colorScheme.primary,
+                ),
+              )
+            : Icon(
+                isDestructive
+                    ? Icons.delete_forever_outlined
+                    : Icons.cleaning_services_outlined,
+                size: 18,
+              );
+        final cleanLabel = Text(
+          isDestructive
+              ? _localizedText(context, zh: '一键清空', en: 'Wipe All')
+              : _localizedText(context, zh: '清理', en: 'Clean'),
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.fade,
+        );
+        // 不再外包 `SizedBox(height: 40)`：让按钮按 ButtonStyle 自己选定
+        // intrinsic 高度（约 40~44），不会再压缩 label。
+        final cleanButton = isDestructive
+            ? FilledButton.icon(
+                onPressed: canClean ? onClean : null,
+                style: buttonStyle,
+                icon: cleanIcon,
+                label: cleanLabel,
+              )
+            : FilledButton.tonalIcon(
+                onPressed: canClean ? onClean : null,
+                style: buttonStyle,
+                icon: cleanIcon,
+                label: cleanLabel,
+              );
         if (stacked) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
