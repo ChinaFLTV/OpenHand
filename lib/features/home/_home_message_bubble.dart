@@ -42,6 +42,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
   bool _compressionExpanded = false;
   bool? _reasoningExpandedOverride;
 
+  // 2026-04-27: 启用文本 selectable 后外层 GestureDetector 的 onTap
+  // 会被子节点的文本选择手势抢占，导致点击气泡后
+  // 接不到 onSelect（动作按钮不出现）。改用 Listener 直接
+  // 跨越手势仑免判定点击，如果指针按下与抬起间隔<350ms
+  // 且位移<8逻辑像素，视为一次选中点击。
+  Offset? _pointerDownPosition;
+  DateTime? _pointerDownAt;
+
   // Cached expensive objects to avoid re-allocation on every build.
   List<md.InlineSyntax>? _cachedInlineSyntaxes;
   Map<String, MarkdownElementBuilder>? _cachedBuilders;
@@ -458,9 +466,26 @@ class _MessageBubbleState extends State<_MessageBubble> {
           )
         : bubbleBody;
 
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.translucent,
-      onTap: widget.onSelect,
+      onPointerDown: (event) {
+        _pointerDownPosition = event.position;
+        _pointerDownAt = DateTime.now();
+      },
+      onPointerUp: (event) {
+        final downPos = _pointerDownPosition;
+        final downAt = _pointerDownAt;
+        _pointerDownPosition = null;
+        _pointerDownAt = null;
+        if (downPos == null || downAt == null) {
+          return;
+        }
+        final movement = (event.position - downPos).distance;
+        final elapsed = DateTime.now().difference(downAt);
+        if (movement <= 8 && elapsed.inMilliseconds <= 350) {
+          widget.onSelect();
+        }
+      },
       child: TapRegion(
         enabled: widget.isSelected,
         onTapOutside: (_) => widget.onDeselect(),

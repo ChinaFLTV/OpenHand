@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
@@ -1404,7 +1405,11 @@ class AiPromptBuilder {
 
   String _promptHistoryToolResultContent(AiSessionMessage message) {
     if (!_isWriteLikeToolHistoryMessage(message)) {
-      return _promptContentForMessage(message);
+      // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
+      // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
+      // description/reason），保留首尾片段作为结构性补充信息，避免
+      // conversation history 被海量原文淹没。
+      return _compressGenericToolResultContent(message);
     }
     final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
@@ -1599,6 +1604,127 @@ class AiPromptBuilder {
         ? ''
         : ' -> $normalizedTarget';
     return '[omitted $characterCount chars; $action payload stored locally$targetSuffix]';
+  }
+
+  /// 通用工具调用结果压缩。当 [aiGenericToolResultCompressionThreshold] 阈值
+  /// 被超过时，把整段 raw 输出替换成结构化摘要：
+  ///
+  /// - 工具名称 + 状态
+  /// - 工具调用自述目的（purpose / intent / goal / description / reason）
+  /// - 受影响文件路径与行号（基于正则提取，去重保留前 12 条）
+  /// - 首尾各 256 字符片段，保留语义钩子但杜绝海量正文进入 prompt
+  ///
+  /// 这样可以显著降低 conversation history 的 token 占比，让模型把注意力
+  /// 集中在结构化线索上，避免被冗长 raw 输出淹没。
+  static const int _genericToolResultCompressionThreshold = 1024;
+  static const int _genericToolResultHeadTailWindow = 256;
+  static const int _genericToolResultMaxPathHits = 12;
+
+  String _compressGenericToolResultContent(AiSessionMessage message) {
+    final original = _promptContentForMessage(message);
+    if (original.length <= _genericToolResultCompressionThreshold) {
+      return original;
+    }
+    final metadata = message.metadata;
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+    final status =
+        '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
+            .trim();
+    final purpose = _extractToolCallPurpose(metadata);
+    final pathHits = _extractFilePathLineHits(
+      original,
+      maxHits: _genericToolResultMaxPathHits,
+    );
+    final head = original
+        .substring(
+          0,
+          math.min(original.length, _genericToolResultHeadTailWindow),
+        )
+        .trim();
+    final tailStart = math.max(
+      0,
+      original.length - _genericToolResultHeadTailWindow,
+    );
+    final tail = original.substring(tailStart).trim();
+    final lines = <String>[
+      '[tool_result_summary] ${toolName.isEmpty ? 'Tool' : toolName}',
+      'original_chars: ${original.length}',
+      if (status.isNotEmpty) 'status: $status',
+      if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
+      if (pathHits.isNotEmpty)
+        'affected:\n${pathHits.map((h) => '  - $h').join('\n')}',
+      'head:\n$head',
+      if (tail != head) 'tail:\n$tail',
+      'note: Tool result exceeded $_genericToolResultCompressionThreshold'
+          ' chars and was condensed for the prompt history. Re-run the tool'
+          ' or read the local file directly if exact contents are needed.',
+    ];
+    return lines.join('\n');
+  }
+
+  String? _extractToolCallPurpose(Map<String, Object?> metadata) {
+    const purposeKeys = <String>[
+      'purpose',
+      'intent',
+      'goal',
+      'description',
+      'reason',
+      'summary',
+    ];
+    for (final key in purposeKeys) {
+      final value = '${metadata[key] ?? ''}'.trim();
+      if (value.isNotEmpty) {
+        return value.length > 240 ? '${value.substring(0, 240)}…' : value;
+      }
+    }
+    final argsRaw = metadata['arguments'] ?? metadata['tool_call_arguments'];
+    if (argsRaw is String && argsRaw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(argsRaw);
+        if (decoded is Map<String, Object?>) {
+          for (final key in purposeKeys) {
+            final value = '${decoded[key] ?? ''}'.trim();
+            if (value.isNotEmpty) {
+              return value.length > 240
+                  ? '${value.substring(0, 240)}…'
+                  : value;
+            }
+          }
+        }
+      } catch (_) {
+        // Argument string was not valid JSON; nothing to extract.
+      }
+    }
+    return null;
+  }
+
+  static final RegExp _filePathLineRegExp = RegExp(
+    r'(?:[A-Za-z]:[\\/]|/|\.{1,2}/)?[\w./\\\-]+\.[A-Za-z0-9]{1,8}(?::\d+(?:[-:]\d+)?)?',
+  );
+
+  List<String> _extractFilePathLineHits(
+    String text, {
+    required int maxHits,
+  }) {
+    final seen = <String>{};
+    final hits = <String>[];
+    for (final match in _filePathLineRegExp.allMatches(text)) {
+      final raw = match.group(0)?.trim();
+      if (raw == null || raw.isEmpty) {
+        continue;
+      }
+      // Filter trivial false-positives: pure version strings, numbers, etc.
+      if (raw.length < 4 || !raw.contains('.')) {
+        continue;
+      }
+      if (seen.add(raw)) {
+        hits.add(raw);
+        if (hits.length >= maxHits) {
+          break;
+        }
+      }
+    }
+    return hits;
   }
 
   String? _toolCallTargetPath(Map<String, Object?> arguments) {
