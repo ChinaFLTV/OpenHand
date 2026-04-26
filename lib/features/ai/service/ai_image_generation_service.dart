@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 
@@ -1281,11 +1282,16 @@ class AiImageGenerationService {
     final deadline = startedAt.add(timeout);
     var lastBody = jsonEncode(initialPayload);
     var attempt = 0;
+    var transientFailures = 0;
     while (attempt < 90 && DateTime.now().toUtc().isBefore(deadline)) {
       attempt += 1;
       final remaining = deadline.difference(DateTime.now().toUtc());
       if (remaining <= Duration.zero) break;
-      final wait = Duration(milliseconds: attempt < 6 ? 1200 : 2500);
+      // Add bounded jitter to spread parallel pollers and avoid synchronized
+      // hammering against rate-limited async-task endpoints.
+      final baseMs = attempt < 6 ? 1200 : 2500;
+      final jitterMs = _pollJitter.nextInt(400) - 200;
+      final wait = Duration(milliseconds: math.max(250, baseMs + jitterMs));
       if (wait < remaining) {
         await Future<void>.delayed(wait);
       }
@@ -1301,11 +1307,29 @@ class AiImageGenerationService {
           .timeout(effectiveTimeout);
       lastBody = response.body;
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (_isTransientPollStatus(response.statusCode) &&
+            transientFailures < 4) {
+          transientFailures += 1;
+          final retryAfter = _parseRetryAfter(response.headers['retry-after']);
+          final backoffMs = math.min(
+            8000,
+            1500 * (1 << math.min(transientFailures - 1, 3)),
+          );
+          final backoff =
+              retryAfter ??
+              Duration(milliseconds: backoffMs + _pollJitter.nextInt(400));
+          final budget = deadline.difference(DateTime.now().toUtc());
+          if (backoff < budget) {
+            await Future<void>.delayed(backoff);
+            continue;
+          }
+        }
         throw AiMediaGenerationException(
           'HTTP ${response.statusCode}: ${_extractError(response.body)}',
           rawResponseBody: response.body,
         );
       }
+      transientFailures = 0;
       final decoded = _decodeJsonForKind(response.body, kind);
       // MiniMax video task: status==Success carries `file_id` instead of a
       // direct URL. Resolve via /files/retrieve before returning.
@@ -1379,10 +1403,25 @@ class AiImageGenerationService {
     );
     final pollingHeaders = Map<String, String>.from(requestHeaders)
       ..['accept'] = 'application/json';
-    final response = await _client
-        .get(retrieveUri, headers: pollingHeaders)
-        .timeout(effectiveTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
+    http.Response? response;
+    for (var i = 0; i < 2; i++) {
+      response = await _client
+          .get(retrieveUri, headers: pollingHeaders)
+          .timeout(effectiveTimeout);
+      if (response.statusCode >= 200 && response.statusCode < 300) break;
+      if (!_isTransientPollStatus(response.statusCode) || i == 1) {
+        return null;
+      }
+      // Single retry with jitter to absorb a brief 5xx/429 without
+      // dropping a successful video task on the floor.
+      final retryAfter = _parseRetryAfter(response.headers['retry-after']);
+      await Future<void>.delayed(
+        retryAfter ?? Duration(milliseconds: 750 + _pollJitter.nextInt(400)),
+      );
+    }
+    if (response == null ||
+        response.statusCode < 200 ||
+        response.statusCode >= 300) {
       return null;
     }
     try {
@@ -1407,6 +1446,50 @@ class AiImageGenerationService {
       );
     }
     return null;
+  }
+
+  /// Status codes that warrant a brief backoff retry instead of failing the
+  /// whole media task. Cloud LLM media APIs commonly emit 429 (rate limit) or
+  /// 5xx during async-task polling without the task itself being dead.
+  static const Set<int> _transientPollStatuses = <int>{
+    408,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+  };
+
+  bool _isTransientPollStatus(int status) =>
+      _transientPollStatuses.contains(status);
+
+  static final math.Random _pollJitter = math.Random();
+
+  /// Parses an HTTP `Retry-After` header (seconds or HTTP-date) to a Duration.
+  /// Returns null when the value is missing/invalid so callers can fall back
+  /// to local exponential backoff.
+  static Duration? _parseRetryAfter(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final seconds = int.tryParse(trimmed);
+    if (seconds != null && seconds >= 0) {
+      // Cap at 30s so a hostile/misconfigured server cannot block the
+      // media task for the full deadline window.
+      return Duration(seconds: math.min(seconds, 30));
+    }
+    try {
+      final when = HttpDate.parse(trimmed);
+      final delta = when.toUtc().difference(DateTime.now().toUtc());
+      if (delta.isNegative) return Duration.zero;
+      if (delta > const Duration(seconds: 30)) {
+        return const Duration(seconds: 30);
+      }
+      return delta;
+    } catch (_) {
+      return null;
+    }
   }
 
   String? _resolveOperationUrl(

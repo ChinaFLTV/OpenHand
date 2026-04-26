@@ -510,6 +510,79 @@ void main() {
       expect(result.markdown, contains('files/file-42.mp4'));
     });
 
+    test(
+      'retries transient 429/5xx during video polling instead of failing',
+      () async {
+        var pollCount = 0;
+        final service = AiImageGenerationService(
+          client: MockClient((request) async {
+            if (request.method == 'POST') {
+              return http.Response(
+                jsonEncode({
+                  'id': 'cogvideo-retry',
+                  'task_status': 'PROCESSING',
+                }),
+                200,
+                headers: const {'content-type': 'application/json'},
+              );
+            }
+            pollCount += 1;
+            if (pollCount == 1) {
+              return http.Response(
+                'rate limited',
+                429,
+                headers: const {
+                  'content-type': 'text/plain',
+                  'retry-after': '0',
+                },
+              );
+            }
+            if (pollCount == 2) {
+              return http.Response(
+                'bad gateway',
+                502,
+                headers: const {'content-type': 'text/plain'},
+              );
+            }
+            return http.Response(
+              jsonEncode({
+                'task_status': 'SUCCESS',
+                'video_result': [
+                  {'url': 'https://cdn.bigmodel.invalid/cogvideo/retry.mp4'},
+                ],
+              }),
+              200,
+              headers: const {'content-type': 'application/json'},
+            );
+          }),
+        );
+        const glmRetryModel = AiModelConfig(
+          id: 'glm-video-retry',
+          baseUrl: 'https://open.bigmodel.invalid/api/paas/v4/chat/completions',
+          authScheme: AiAuthScheme.bearer,
+          token: 'mock-token',
+          modelId: 'cogvideox-2',
+          protocolType: AiProtocolType.glm,
+          modelProfiles: <String, AiModelProfile>{
+            'cogvideox-2': AiModelProfile(
+              capabilities: <AiModelCapability>{
+                AiModelCapability.videoGeneration,
+              },
+            ),
+          },
+        );
+
+        final result = await service.generateVideo(
+          model: glmRetryModel,
+          prompt: 'retry test',
+          timeout: const Duration(seconds: 30),
+        );
+
+        expect(pollCount, greaterThanOrEqualTo(3));
+        expect(result.markdown, contains('cogvideo/retry.mp4'));
+      },
+    );
+
     test('polls relative video task URLs with provider auth headers', () async {
       final requestedUrls = <String>[];
       final service = AiImageGenerationService(
