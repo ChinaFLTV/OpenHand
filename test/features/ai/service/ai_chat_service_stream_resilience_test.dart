@@ -189,5 +189,46 @@ void main() {
       },
       timeout: const Timeout(Duration(seconds: 15)),
     );
+
+    test(
+      'surfaces generated audio URLs from provider-specific SSE payloads',
+      () async {
+        const mediaUrl = 'https://cdn.example.invalid/speech/final_audio.mp3';
+        const sse =
+            'data: {"output":{"progress":0.8,"status_url":"https://api.example.invalid/tasks/audio-1"}}\n\n'
+            'data: {"output":{"audio_url":"$mediaUrl"}}\n\n'
+            'data: [DONE]\n\n';
+
+        final mockClient = MockClient.streaming((request, body) async {
+          return http.StreamedResponse(
+            Stream<List<int>>.value(sse.codeUnits),
+            200,
+            headers: const {'content-type': 'text/event-stream'},
+          );
+        });
+
+        final service = AiChatService(client: mockClient);
+        final response = await service.sendMessageStream(
+          model: model,
+          messages: const [
+            AiChatTurn(role: AiChatRole.user, content: 'make audio'),
+          ],
+        );
+        final deltas = <String>[];
+        final subscription = response.events.listen((event) {
+          if (event.textDelta != null) {
+            deltas.add(event.textDelta!);
+          }
+        });
+
+        final result = await response.result;
+        await subscription.cancel();
+
+        expect(result.reply, contains('[AI Generated Audio]($mediaUrl)'));
+        expect(deltas.join(), contains('[AI Generated Audio]($mediaUrl)'));
+        expect(result.reply, isNot(contains('status_url')));
+      },
+      timeout: const Timeout(Duration(seconds: 15)),
+    );
   });
 }
