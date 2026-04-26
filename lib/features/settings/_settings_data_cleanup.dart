@@ -48,6 +48,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
     _service = DataCleanupService(
       aiSessionController: context.read<AiSessionController>(),
       cronsController: context.read<CronsController>(),
+      memoryController: context.read<MemoryController>(),
+      mcpController: context.read<McpController>(),
+      skillsController: context.read<SkillsController>(),
+      settingsController: context.read<SettingsController>(),
     );
     _serviceReady = true;
     // 推迟到当前帧之后再触发测算：避免 didChangeDependencies 内部直接
@@ -99,6 +103,16 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       measureOne(DataCleanupCategory.sessions, _service.measureSessions),
       measureOne(DataCleanupCategory.appCache, _service.measureAppCache),
       measureOne(DataCleanupCategory.logs, _service.measureLogs),
+      measureOne(DataCleanupCategory.userMemory, _service.measureUserMemory),
+      measureOne(DataCleanupCategory.mcpConfig, _service.measureMcpConfig),
+      measureOne(
+        DataCleanupCategory.skillsDirectory,
+        _service.measureSkillsDirectory,
+      ),
+      measureOne(
+        DataCleanupCategory.lspDirectory,
+        _service.measureLspDirectory,
+      ),
     ]);
     if (!mounted || token != _measureToken) {
       return;
@@ -174,6 +188,18 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
           break;
         case DataCleanupCategory.logs:
           await _service.cleanLogs();
+          break;
+        case DataCleanupCategory.userMemory:
+          await _service.cleanUserMemory();
+          break;
+        case DataCleanupCategory.mcpConfig:
+          await _service.cleanMcpConfig();
+          break;
+        case DataCleanupCategory.skillsDirectory:
+          await _service.cleanSkillsDirectory();
+          break;
+        case DataCleanupCategory.lspDirectory:
+          await _service.cleanLspDirectory();
           break;
         case DataCleanupCategory.wipeAll:
           final errors = await _service.cleanAll();
@@ -508,6 +534,14 @@ IconData _categoryIcon(DataCleanupCategory category) {
       return Icons.dns_outlined;
     case DataCleanupCategory.logs:
       return Icons.receipt_long_outlined;
+    case DataCleanupCategory.userMemory:
+      return Icons.psychology_outlined;
+    case DataCleanupCategory.mcpConfig:
+      return Icons.cable_outlined;
+    case DataCleanupCategory.skillsDirectory:
+      return Icons.auto_awesome_outlined;
+    case DataCleanupCategory.lspDirectory:
+      return Icons.code_outlined;
     case DataCleanupCategory.wipeAll:
       return Icons.delete_sweep_outlined;
   }
@@ -523,6 +557,14 @@ String _categoryTitle(BuildContext context, DataCleanupCategory category) {
       return _localizedText(context, zh: '应用缓存', en: 'App Cache');
     case DataCleanupCategory.logs:
       return _localizedText(context, zh: '日志数据', en: 'Logs');
+    case DataCleanupCategory.userMemory:
+      return _localizedText(context, zh: '用户记忆', en: 'User Memory');
+    case DataCleanupCategory.mcpConfig:
+      return _localizedText(context, zh: 'MCP 配置', en: 'MCP Config');
+    case DataCleanupCategory.skillsDirectory:
+      return _localizedText(context, zh: '技能目录', en: 'Skills Directory');
+    case DataCleanupCategory.lspDirectory:
+      return _localizedText(context, zh: 'LSP 安装目录', en: 'LSP Install Dir');
     case DataCleanupCategory.wipeAll:
       return _localizedText(context, zh: '全部数据', en: 'All Data');
   }
@@ -561,16 +603,49 @@ String _categorySubtitle(
         zh: 'cron 执行历史 + ~/.openhand/logs/ 目录。',
         en: 'Cron execution history + the ~/.openhand/logs/ directory.',
       );
+    case DataCleanupCategory.userMemory:
+      return _localizedText(
+        context,
+        zh: '用户画像与所有用户记忆条目。清理后自学习子 Agent 会重新累积。',
+        en:
+            'User profile + all user memory entries. The self-learning '
+            'sub-agent will gradually rebuild them.',
+      );
+    case DataCleanupCategory.mcpConfig:
+      return _localizedText(
+        context,
+        zh: '已配置的 MCP Server 列表（JSON 文件）。清理后 MCP 列表会变空。',
+        en:
+            'Configured MCP Server list (JSON file). The MCP list will be '
+            'empty after cleanup.',
+      );
+    case DataCleanupCategory.skillsDirectory:
+      return _localizedText(
+        context,
+        zh: '当前技能目录下的全部文件。**包含用户自定义的技能内容**，请谨慎操作。',
+        en:
+            'All files under the current skills directory. **User-authored '
+            'skills are included**; proceed with caution.',
+      );
+    case DataCleanupCategory.lspDirectory:
+      return _localizedText(
+        context,
+        zh: '~/.openhand/lsp/ 目录下托管下载的 LSP 二进制。下次需要时会自动重装。',
+        en:
+            'Managed LSP binaries under ~/.openhand/lsp/. They will be '
+            'reinstalled on next use.',
+      );
     case DataCleanupCategory.wipeAll:
       return _localizedText(
         context,
         zh:
-            '一次性清理上述所有分类的数据。**不会**删除应用配置、用户记忆与'
-            '已下载的 LSP / MCP 配置；如需彻底重置，请手动删除 ~/.openhand。',
+            '一次性清理上述所有分类的数据。**不会**删除 sqlite 数据库文件本身或'
+            ' settings.json，否则会让正在运行的进程崩溃；如需彻底重置，请手动'
+            '删除 ~/.openhand。',
         en:
-            'Cleans every category above in one shot. App settings, user '
-            'memory, and downloaded LSP / MCP configs are NOT touched; '
-            'remove ~/.openhand manually for a full reset.',
+            'Cleans every category above in one shot. The sqlite DB file and '
+            'settings.json are NOT removed (would crash the running '
+            'process); remove ~/.openhand manually for a full reset.',
       );
   }
 }

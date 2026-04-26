@@ -6,7 +6,7 @@
 library;
 
 /// 数据清理分类。每一项都对应"全局设置 → 应用数据 → 数据清理"面板里的
-/// 一行。
+/// 一行。**枚举顺序就是 UI 顺序**，`wipeAll` 必须放在最后。
 enum DataCleanupCategory {
   /// 多媒体附件文件（图片、文档等会话附件）。
   multimedia,
@@ -20,6 +20,18 @@ enum DataCleanupCategory {
 
   /// 日志数据：cron 执行历史 + `~/.openhand/logs/`。
   logs,
+
+  /// 用户记忆条目（sqlite `memories` 表 + 用户画像）。
+  userMemory,
+
+  /// MCP Server 配置文件（`~/.openhand/mcp/mcp_servers.json`）。
+  mcpConfig,
+
+  /// 技能目录（默认 `~/.openhand/skills/`，可被设置覆盖）。
+  skillsDirectory,
+
+  /// LSP 安装目录（默认 `~/.openhand/lsp/`），由托管下载器写入。
+  lspDirectory,
 
   /// 一键清空：上述所有分类的并集。
   ///

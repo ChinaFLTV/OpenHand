@@ -18,11 +18,15 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/data/database_service.dart';
 import '../../ai/ai_session_controller.dart';
 import '../../crons/crons_controller.dart';
+import '../../mcp/mcp_controller.dart';
+import '../../memory/memory_controller.dart';
+import '../../skills/skills_controller.dart';
 import 'data_cleanup_models.dart';
 
 /// 数据清理 service：纯实例化（无全局状态），由 UI 层按需创建。
@@ -30,11 +34,23 @@ class DataCleanupService {
   DataCleanupService({
     required AiSessionController aiSessionController,
     required CronsController cronsController,
-  })  : _aiSessionController = aiSessionController,
-        _cronsController = cronsController;
+    required MemoryController memoryController,
+    required McpController mcpController,
+    required SkillsController skillsController,
+    required SettingsController settingsController,
+  }) : _aiSessionController = aiSessionController,
+       _cronsController = cronsController,
+       _memoryController = memoryController,
+       _mcpController = mcpController,
+       _skillsController = skillsController,
+       _settingsController = settingsController;
 
   final AiSessionController _aiSessionController;
   final CronsController _cronsController;
+  final MemoryController _memoryController;
+  final McpController _mcpController;
+  final SkillsController _skillsController;
+  final SettingsController _settingsController;
 
   // ---------------------------------------------------------------------------
   // 体积探测
@@ -75,14 +91,70 @@ class DataCleanupService {
     return dbReport + fsReport;
   }
 
+  /// 用户记忆条目：sqlite `memories` 表的行数 + LENGTH 估算。
+  Future<DataCleanupSizeReport> measureUserMemory() async {
+    try {
+      final db = DatabaseService.instance.database;
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS cnt, '
+        'COALESCE(SUM('
+        'LENGTH(IFNULL(content, \'\')) '
+        '+ LENGTH(IFNULL(title, \'\')) '
+        '+ LENGTH(IFNULL(tags_json, \'\'))'
+        '), 0) AS bytes '
+        'FROM memories',
+      );
+      if (rows.isEmpty) {
+        return DataCleanupSizeReport.empty;
+      }
+      final row = rows.first;
+      return DataCleanupSizeReport(
+        bytes: (row['bytes'] as int?) ?? 0,
+        itemCount: (row['cnt'] as int?) ?? 0,
+      );
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'measureUserMemory', error, stack);
+      return DataCleanupSizeReport.unknown;
+    }
+  }
+
+  /// MCP 配置文件大小。
+  Future<DataCleanupSizeReport> measureMcpConfig() {
+    return compute(
+      _isolateMeasureFile,
+      _settingsController.mcpServersFilePath,
+    );
+  }
+
+  /// 技能目录体积。
+  Future<DataCleanupSizeReport> measureSkillsDirectory() {
+    return compute(
+      _isolateMeasureDirectory,
+      _settingsController.skillsStoragePath,
+    );
+  }
+
+  /// LSP 安装目录体积。
+  Future<DataCleanupSizeReport> measureLspDirectory() {
+    return compute(
+      _isolateMeasureDirectory,
+      OpenHandPaths.defaultLspDirectoryPath(),
+    );
+  }
+
   /// 所有分类合计。计算独立分支的并集，**不会**重复加和。
   Future<DataCleanupSizeReport> measureAll() async {
     final results = await Future.wait<DataCleanupSizeReport>(<
-        Future<DataCleanupSizeReport>>[
+      Future<DataCleanupSizeReport>
+    >[
       measureMultimedia(),
       measureSessions(),
       measureAppCache(),
       measureLogs(),
+      measureUserMemory(),
+      measureMcpConfig(),
+      measureSkillsDirectory(),
+      measureLspDirectory(),
     ]);
     return results.fold<DataCleanupSizeReport>(
       DataCleanupSizeReport.empty,
@@ -126,6 +198,42 @@ class DataCleanupService {
     );
   }
 
+  /// 清空用户记忆条目（含用户画像）。直接走数据库整表删除，然后让
+  /// controller 重新加载，避免逐行 delete 的 N 次 IO。
+  Future<void> cleanUserMemory() async {
+    try {
+      final db = DatabaseService.instance.database;
+      await db.delete('memories');
+    } catch (error, stack) {
+      silentLog('data_cleanup', 'cleanUserMemory/delete', error, stack);
+    }
+    await _memoryController.refresh();
+  }
+
+  /// 删除 MCP Server 配置文件，然后让 controller 重新加载（变成空列表）。
+  Future<void> cleanMcpConfig() async {
+    final path = _settingsController.mcpServersFilePath;
+    await compute(_isolateDeleteFile, path);
+    await _mcpController.refresh();
+  }
+
+  /// 清空技能目录内容（保留目录本身），并让 controller 重新扫描。
+  Future<void> cleanSkillsDirectory() async {
+    await compute(
+      _isolateDeleteDirectoryContents,
+      _settingsController.skillsStoragePath,
+    );
+    await _skillsController.refresh();
+  }
+
+  /// 清空 LSP 安装目录。下次使用对应语言时会触发重新下载。
+  Future<void> cleanLspDirectory() {
+    return compute(
+      _isolateDeleteDirectoryContents,
+      OpenHandPaths.defaultLspDirectoryPath(),
+    );
+  }
+
   /// 顺序执行所有分类的清理。任何分支抛异常都会被 silentLog 吞掉，
   /// 后续分类继续执行；最终的总错误数通过返回的 `errors` 暴露给 UI。
   Future<int> cleanAll() async {
@@ -142,6 +250,10 @@ class DataCleanupService {
     await runStep('multimedia', cleanMultimedia);
     await runStep('appCache', cleanAppCache);
     await runStep('logs', cleanLogs);
+    await runStep('userMemory', cleanUserMemory);
+    await runStep('mcpConfig', cleanMcpConfig);
+    await runStep('skillsDirectory', cleanSkillsDirectory);
+    await runStep('lspDirectory', cleanLspDirectory);
     // 会话放在最后清理：上面的步骤即便意外失败，残留附件引用也已经
     // 失效，但 sessions 表仍在；如果反过来先清 sessions，再清附件失败，
     // 用户看到的是"会话没了，但附件目录还在占空间"。
@@ -303,6 +415,30 @@ DataCleanupSizeReport _isolateMeasureDirectory(String dir) {
   }
   final stats = _walkDirectoryStats(root);
   return DataCleanupSizeReport(bytes: stats.bytes, itemCount: stats.files);
+}
+
+DataCleanupSizeReport _isolateMeasureFile(String path) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    return DataCleanupSizeReport.empty;
+  }
+  try {
+    return DataCleanupSizeReport(bytes: file.lengthSync(), itemCount: 1);
+  } catch (_) {
+    return DataCleanupSizeReport.unknown;
+  }
+}
+
+void _isolateDeleteFile(String path) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    return;
+  }
+  try {
+    file.deleteSync();
+  } catch (_) {
+    // ignore — caller will fall back to controller refresh.
+  }
 }
 
 void _isolateDeleteAttachments(String sessionsRoot) {
