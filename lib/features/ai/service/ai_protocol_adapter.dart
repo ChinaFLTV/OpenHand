@@ -96,6 +96,7 @@ class AiChatTurn {
     this.toolCallId,
     this.toolCalls = const <AiToolCall>[],
     this.parts = const <AiChatContentPart>[],
+    this.reasoningContent,
   });
 
   final AiChatRole role;
@@ -103,6 +104,25 @@ class AiChatTurn {
   final String? toolCallId;
   final List<AiToolCall> toolCalls;
   final List<AiChatContentPart> parts;
+
+  /// Echo-back chain-of-thought captured from the previous turn. Required by
+  /// some thinking-mode gateways (e.g. the `deepseek-v4-pro` family that
+  /// rejects the request with HTTP 400 "The 'reasoning_content' in the
+  /// thinking mode must be passed back to the API" when omitted) and harmless
+  /// for providers that ignore the field. Only meaningful for assistant role
+  /// turns.
+  final String? reasoningContent;
+
+  AiChatTurn copyWith({String? reasoningContent}) {
+    return AiChatTurn(
+      role: role,
+      content: content,
+      toolCallId: toolCallId,
+      toolCalls: toolCalls,
+      parts: parts,
+      reasoningContent: reasoningContent ?? this.reasoningContent,
+    );
+  }
 
   String get roleName {
     return switch (role) {
@@ -435,6 +455,19 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       payload['tool_calls'] = item.toolCalls
           .map((toolCall) => toolCall.toOpenAiJson())
           .toList(growable: false);
+    }
+    if (item.role == AiChatRole.assistant) {
+      final reasoning = item.reasoningContent;
+      if (reasoning != null && reasoning.isNotEmpty) {
+        // Some thinking-mode providers (notably the `deepseek-v4-pro`
+        // family routed via OpenAI-compatible gateways) reject follow-up
+        // requests with HTTP 400 "The 'reasoning_content' in the thinking
+        // mode must be passed back to the API" if the prior assistant
+        // chain-of-thought is dropped. Echoing the reasoning here is
+        // ignored by providers that don't expect it (per the OpenAI
+        // schema unknown fields are tolerated).
+        payload['reasoning_content'] = reasoning;
+      }
     }
     return payload;
   }

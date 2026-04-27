@@ -733,6 +733,7 @@ class AiPromptBuilder {
     String? toolCallId,
     List<AiToolCall> toolCalls = const <AiToolCall>[],
     List<AiChatContentPart> parts = const <AiChatContentPart>[],
+    String? reasoningContent,
   }) {
     final extracted = _extractSystemReminders(content);
     final turns = extracted.reminders
@@ -753,6 +754,7 @@ class AiPromptBuilder {
         toolCallId: toolCallId,
         toolCalls: toolCalls,
         parts: parts,
+        reasoningContent: reasoningContent,
       ),
     );
     return turns;
@@ -838,8 +840,22 @@ class AiPromptBuilder {
   ) {
     final turns = <AiChatTurn>[];
     var index = 0;
+    String? pendingReasoning;
     while (index < messages.length) {
       final message = messages[index];
+      if (message.kind == AiSessionMessageKind.reasoning) {
+        // Buffer reasoning so it can be attached to the next assistant /
+        // toolCall turn — required by thinking-mode gateways that reject
+        // follow-up requests when the prior chain-of-thought is dropped.
+        final trimmed = message.content.trim();
+        if (trimmed.isNotEmpty) {
+          pendingReasoning = pendingReasoning == null
+              ? trimmed
+              : '$pendingReasoning\n\n$trimmed';
+        }
+        index += 1;
+        continue;
+      }
       if (message.kind == AiSessionMessageKind.toolCall) {
         final mappedGroup = _mapToolExchange(
           messages,
@@ -849,7 +865,12 @@ class AiPromptBuilder {
           compressionConfig,
         );
         if (mappedGroup.turns.isNotEmpty) {
-          turns.addAll(mappedGroup.turns);
+          final attached = _attachReasoningToFirstAssistantTurn(
+            mappedGroup.turns,
+            pendingReasoning,
+          );
+          turns.addAll(attached);
+          pendingReasoning = null;
         }
         index = mappedGroup.nextIndex;
         continue;
@@ -858,17 +879,48 @@ class AiPromptBuilder {
         index += 1;
         continue;
       }
-      turns.addAll(
-        _mapNonToolHistoryMessage(
-          message,
-          session,
-          model,
-          compressionConfig,
-        ),
+      final mapped = _mapNonToolHistoryMessage(
+        message,
+        session,
+        model,
+        compressionConfig,
       );
+      if (mapped.isNotEmpty) {
+        final attached = _attachReasoningToFirstAssistantTurn(
+          mapped,
+          pendingReasoning,
+        );
+        turns.addAll(attached);
+        if (attached.any((turn) => turn.role == AiChatRole.assistant)) {
+          pendingReasoning = null;
+        }
+      }
       index += 1;
     }
     return turns;
+  }
+
+  static List<AiChatTurn> _attachReasoningToFirstAssistantTurn(
+    List<AiChatTurn> turns,
+    String? reasoning,
+  ) {
+    if (reasoning == null || reasoning.isEmpty) {
+      return turns;
+    }
+    final result = <AiChatTurn>[];
+    var attached = false;
+    for (final turn in turns) {
+      if (!attached &&
+          turn.role == AiChatRole.assistant &&
+          (turn.reasoningContent == null ||
+              turn.reasoningContent!.isEmpty)) {
+        result.add(turn.copyWith(reasoningContent: reasoning));
+        attached = true;
+      } else {
+        result.add(turn);
+      }
+    }
+    return result;
   }
 
   List<AiChatTurn> _sanitizeToolSequence(List<AiChatTurn> turns) {
