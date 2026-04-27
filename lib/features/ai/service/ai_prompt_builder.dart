@@ -841,6 +841,19 @@ class AiPromptBuilder {
     final turns = <AiChatTurn>[];
     var index = 0;
     String? roundReasoning;
+    // 2026-04-27 (修复): 找出"已被模型消费"的边界。任何 assistant /
+    // toolCall 消息都意味着模型已经基于之前的工具结果产出了下一步动作；
+    // 因此 index 大于 `lastConsumerIndex` 的 tool 结果属于尚未被消费的
+    // 最新一轮，需在 prompt 中保留原文，避免被压缩成 head/tail 摘要后
+    // 让模型在"首次看到该结果"时就丢掉关键信息。
+    var lastConsumerIndex = -1;
+    for (var i = 0; i < messages.length; i++) {
+      final kind = messages[i].kind;
+      if (kind == AiSessionMessageKind.assistant ||
+          kind == AiSessionMessageKind.toolCall) {
+        lastConsumerIndex = i;
+      }
+    }
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
@@ -869,6 +882,7 @@ class AiPromptBuilder {
           session,
           model,
           compressionConfig,
+          lastConsumerIndex: lastConsumerIndex,
         );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(
@@ -890,6 +904,8 @@ class AiPromptBuilder {
         session,
         model,
         compressionConfig,
+        messageIndex: index,
+        lastConsumerIndex: lastConsumerIndex,
       );
       if (mapped.isNotEmpty) {
         turns.addAll(
@@ -957,8 +973,9 @@ class AiPromptBuilder {
     int startIndex,
     AiSession session,
     AiModelConfig model,
-    _ToolCompressionConfig compressionConfig,
-  ) {
+    _ToolCompressionConfig compressionConfig, {
+    required int lastConsumerIndex,
+  }) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
     final groupedToolCalls = <AiToolCall>[];
@@ -976,6 +993,8 @@ class AiPromptBuilder {
               session,
               model,
               compressionConfig,
+              messageIndex: cursor,
+              lastConsumerIndex: lastConsumerIndex,
             ),
             nextIndex: cursor + 1,
           );
@@ -1003,11 +1022,14 @@ class AiPromptBuilder {
           session,
           model,
           compressionConfig,
+          messageIndex: startIndex,
+          lastConsumerIndex: lastConsumerIndex,
         ),
         nextIndex: startIndex + 1,
       );
     }
     final toolMessagesByCallId = <String, AiSessionMessage>{};
+    final toolMessageIndexByCallId = <String, int>{};
     while (cursor < messages.length &&
         _isToolResultKind(messages[cursor].kind)) {
       final toolMessage = messages[cursor];
@@ -1016,6 +1038,7 @@ class AiPromptBuilder {
           expectedToolCallIds.contains(toolCallId) &&
           !toolMessagesByCallId.containsKey(toolCallId)) {
         toolMessagesByCallId[toolCallId] = toolMessage;
+        toolMessageIndexByCallId[toolCallId] = cursor;
       }
       cursor += 1;
     }
@@ -1037,6 +1060,7 @@ class AiPromptBuilder {
     ];
     for (final toolCall in groupedToolCalls) {
       final toolMessage = toolMessagesByCallId[toolCall.id]!;
+      final toolMessageIndex = toolMessageIndexByCallId[toolCall.id]!;
       turns.addAll(
         _mapMessageContent(
           role: AiChatRole.tool,
@@ -1044,6 +1068,8 @@ class AiPromptBuilder {
           content: _promptHistoryToolResultContent(
             toolMessage,
             compressionConfig,
+            isFreshUnconsumedResult:
+                toolMessageIndex > lastConsumerIndex,
           ),
         ),
       );
@@ -1055,8 +1081,10 @@ class AiPromptBuilder {
     AiSessionMessage message,
     AiSession session,
     AiModelConfig model,
-    _ToolCompressionConfig compressionConfig,
-  ) {
+    _ToolCompressionConfig compressionConfig, {
+    required int messageIndex,
+    required int lastConsumerIndex,
+  }) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
       case AiSessionMessageKind.user:
@@ -1082,6 +1110,7 @@ class AiPromptBuilder {
           content: _promptHistoryToolResultContent(
             message,
             compressionConfig,
+            isFreshUnconsumedResult: messageIndex > lastConsumerIndex,
           ),
         );
       case AiSessionMessageKind.mcp:
@@ -1490,20 +1519,19 @@ class AiPromptBuilder {
 
   String _promptHistoryToolResultContent(
     AiSessionMessage message,
-    _ToolCompressionConfig compressionConfig,
-  ) {
+    _ToolCompressionConfig compressionConfig, {
+    bool isFreshUnconsumedResult = false,
+  }) {
     if (!compressionConfig.enabled) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
       return _promptContentForMessage(message);
     }
-    // 2026-04-27 (修复): Read / NotebookRead 工具结果是模型查看文件实际内容
-    // 的唯一通道，被压缩成 head/tail 摘要会让模型误判文件被截断 / 丢失数据，
-    // 从而陷入"再写一次 → 再读 → 再次以为被截断"的死循环。这里整体豁免
-    // 读取类工具的结果压缩，让模型看到完整原始字节。
-    final toolNameLower = '${message.metadata['tool_name'] ?? ''}'
-        .trim()
-        .toLowerCase();
-    if (toolNameLower == 'read' || toolNameLower == 'notebookread') {
+    if (isFreshUnconsumedResult) {
+      // 2026-04-27 (修复): 最新一轮工具调用的结果是即将交给模型 *首次*
+      // 消费的内容（例如它刚 Read 完一个文件，准备据此回答）。这一轮的
+      // 内容若被压缩成 head/tail 摘要，模型就拿不到必要的原始数据，
+      // 会被迫凭空猜测或反复重试。仅对"已被模型消费过"的历史轮次
+      // 启用压缩，未消费的最新一轮始终保留原文。
       return _promptContentForMessage(message);
     }
     if (!_isWriteLikeToolHistoryMessage(message)) {
