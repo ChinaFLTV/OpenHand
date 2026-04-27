@@ -840,21 +840,27 @@ class AiPromptBuilder {
   ) {
     final turns = <AiChatTurn>[];
     var index = 0;
-    String? pendingReasoning;
+    String? roundReasoning;
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
-        // Buffer reasoning so it can be attached to the next assistant /
-        // toolCall turn — required by thinking-mode gateways that reject
-        // follow-up requests when the prior chain-of-thought is dropped.
+        // A new reasoning block starts a new "thinking round". Buffer it
+        // and attach to every assistant / toolCall turn that follows
+        // until either the next reasoning block or the next user message
+        // closes the round. This is required by thinking-mode gateways
+        // (e.g. `deepseek-v4-pro`) that reject follow-up requests when
+        // the prior chain-of-thought is dropped from any assistant
+        // message in the round (content message AND tool_calls message
+        // both need it because we split a single API response into two
+        // session entries).
         final trimmed = message.content.trim();
-        if (trimmed.isNotEmpty) {
-          pendingReasoning = pendingReasoning == null
-              ? trimmed
-              : '$pendingReasoning\n\n$trimmed';
-        }
+        roundReasoning = trimmed.isEmpty ? null : trimmed;
         index += 1;
         continue;
+      }
+      if (message.kind == AiSessionMessageKind.user) {
+        // User message ends the previous thinking round.
+        roundReasoning = null;
       }
       if (message.kind == AiSessionMessageKind.toolCall) {
         final mappedGroup = _mapToolExchange(
@@ -865,12 +871,12 @@ class AiPromptBuilder {
           compressionConfig,
         );
         if (mappedGroup.turns.isNotEmpty) {
-          final attached = _attachReasoningToFirstAssistantTurn(
-            mappedGroup.turns,
-            pendingReasoning,
+          turns.addAll(
+            _attachReasoningToAssistantTurns(
+              mappedGroup.turns,
+              roundReasoning,
+            ),
           );
-          turns.addAll(attached);
-          pendingReasoning = null;
         }
         index = mappedGroup.nextIndex;
         continue;
@@ -886,41 +892,31 @@ class AiPromptBuilder {
         compressionConfig,
       );
       if (mapped.isNotEmpty) {
-        final attached = _attachReasoningToFirstAssistantTurn(
-          mapped,
-          pendingReasoning,
+        turns.addAll(
+          _attachReasoningToAssistantTurns(mapped, roundReasoning),
         );
-        turns.addAll(attached);
-        if (attached.any((turn) => turn.role == AiChatRole.assistant)) {
-          pendingReasoning = null;
-        }
       }
       index += 1;
     }
     return turns;
   }
 
-  static List<AiChatTurn> _attachReasoningToFirstAssistantTurn(
+  static List<AiChatTurn> _attachReasoningToAssistantTurns(
     List<AiChatTurn> turns,
     String? reasoning,
   ) {
     if (reasoning == null || reasoning.isEmpty) {
       return turns;
     }
-    final result = <AiChatTurn>[];
-    var attached = false;
-    for (final turn in turns) {
-      if (!attached &&
-          turn.role == AiChatRole.assistant &&
-          (turn.reasoningContent == null ||
-              turn.reasoningContent!.isEmpty)) {
-        result.add(turn.copyWith(reasoningContent: reasoning));
-        attached = true;
-      } else {
-        result.add(turn);
-      }
-    }
-    return result;
+    return turns
+        .map(
+          (turn) => turn.role == AiChatRole.assistant &&
+                  (turn.reasoningContent == null ||
+                      turn.reasoningContent!.isEmpty)
+              ? turn.copyWith(reasoningContent: reasoning)
+              : turn,
+        )
+        .toList(growable: false);
   }
 
   List<AiChatTurn> _sanitizeToolSequence(List<AiChatTurn> turns) {
