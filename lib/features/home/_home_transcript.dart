@@ -35,7 +35,10 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           onFileExplorerToggled: onFileExplorerToggled,
         ),
         const SizedBox(height: 14),
-        const Expanded(child: OpenHandLoadingLogo()),
+        // 2026-04-27 (UX): 移除会话加载占位中的 OpenHand 品牌 LOGO，避免在
+        // 转录区中央突兀展示。保留 Expanded 占位以维持 Column 布局，使工具
+        // 栏与底部输入框间距一致。
+        const Expanded(child: SizedBox.shrink()),
       ],
     );
   }

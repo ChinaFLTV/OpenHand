@@ -98,7 +98,6 @@ import '../skills/skills_view.dart';
 import 'editor_indentation.dart';
 import 'machine_expert_dialog.dart';
 import 'message_path_linking.dart';
-import 'openhand_loading_logo.dart';
 import 'slash_command_parser.dart';
 import 'tool_call_argument_parser.dart';
 
