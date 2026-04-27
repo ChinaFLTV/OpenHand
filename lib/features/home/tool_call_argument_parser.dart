@@ -53,11 +53,21 @@ String _readToolArgumentValue(
         }
       }
     } else {
-      silentLog(
-        'tool_call_argument_parser',
-        'decode tool arguments json',
-        'unrecoverable: ${_truncateForLog(trimmed)}',
-      );
+      // Suppress the silent-log spam when the buffer looks like a still-
+      // streaming partial object: the parser is invoked on every widget
+      // rebuild while tool-call arguments are being assembled chunk by
+      // chunk, so unbalanced braces / unterminated strings are expected
+      // (and will resolve naturally once the stream completes).
+      final looksIncomplete =
+          trimmed.codeUnitAt(0) == 0x7B &&
+          _findBalancedObjectEnd(trimmed, 0) < 0;
+      if (!looksIncomplete) {
+        silentLog(
+          'tool_call_argument_parser',
+          'decode tool arguments json',
+          'unrecoverable: ${_truncateForLog(trimmed)}',
+        );
+      }
     }
   }
   return _readPartialJsonStringField(trimmed, preferredKeys);
