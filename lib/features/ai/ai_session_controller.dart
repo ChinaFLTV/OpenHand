@@ -30,6 +30,7 @@ import 'service/ai_chat_service.dart';
 import 'service/ai_claude_hook_service.dart';
 import 'service/ai_dsml_tool_call_parser.dart';
 import 'service/ai_image_summary_extractor.dart';
+import 'service/ai_plan_approval_detector.dart';
 import 'service/ai_prompt_builder.dart';
 import 'service/ai_prompt_template_repository.dart';
 import 'service/ai_protocol_adapter.dart';
@@ -4605,61 +4606,8 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
-  bool _looksLikePlanApproval(String content) {
-    final normalized = content.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return false;
-    }
-    final compactReply = normalized.replaceAll(
-      RegExp(r'[\s!！。．\.,，、;；:：~～?？]+'),
-      '',
-    );
-    if (compactReply == '确认') {
-      return true;
-    }
-    const approvalPhrases = <String>[
-      'approve',
-      'approved',
-      'go ahead',
-      'go for it',
-      'proceed',
-      'start implementing',
-      'begin implementation',
-      'continue implementation',
-      'confirm execution',
-      "let's go",
-      "let's do it",
-      "let's start",
-      'do it',
-      'ship it',
-      'start now',
-      'make it so',
-      '确认执行',
-      '确认开始',
-      '开始执行',
-      '继续实施',
-      '继续执行',
-      '开始吧',
-      '执行吧',
-      '可以执行',
-      '可以开始',
-      '去写吧',
-      '去做吧',
-      '去搞吧',
-      '去实现',
-      '去实现吧',
-      '去干吧',
-      '动手吧',
-      '写吧',
-      '做吧',
-      '搞吧',
-      '干吧',
-      '上吧',
-      '撸起来',
-      '动手',
-    ];
-    return approvalPhrases.any((phrase) => normalized.contains(phrase));
-  }
+  bool _looksLikePlanApproval(String content) =>
+      AiPlanApprovalDetector.looksLikePlanApproval(content);
 
   Future<AiSession> _compressIfNeeded({
     required AiSession session,
