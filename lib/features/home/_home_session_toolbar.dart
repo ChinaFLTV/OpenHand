@@ -843,7 +843,23 @@ _PlanTimelineData? _buildPlanTimelineDataFromPlanRecord(
       planRecord.status == AiSessionPlanStatus.completed) {
     return null;
   }
-  if (planRecord.status == AiSessionPlanStatus.pendingApproval) {
+  // 2026-04-28: 单一真相 = `session.awaitingPlanApproval`。
+  // 历史上出现过 planRecord.status 滞留在 `pendingApproval`、但
+  // session 已经清掉 awaiting 标志、且模型已经在跑 todo 的 case，导致
+  // 计划面板被卡在“计划待确认”、用户看不出已经在执行了。这里在面板侧
+  // 做一次显式校正：若 session 已经进入执行（awaitingPlanApproval=false
+  // 且 todo / 进行中状态存在），则把展示态从 pendingApproval 降级。
+  final sessionAwaitingApproval = session.awaitingPlanApproval;
+  final hasExecutionEvidence =
+      session.todoItems.isNotEmpty ||
+      sendPhase != AiSendPhase.idle ||
+      sendPhase == AiSendPhase.responding ||
+      sendPhase == AiSendPhase.sendingMessage;
+  final treatAsPendingApproval =
+      planRecord.status == AiSessionPlanStatus.pendingApproval &&
+      sessionAwaitingApproval &&
+      !hasExecutionEvidence;
+  if (treatAsPendingApproval) {
     final pendingPlanSteps = _planTimelineStepsFromPlanRecord(planRecord);
     if (pendingPlanSteps.isEmpty) {
       return null;
