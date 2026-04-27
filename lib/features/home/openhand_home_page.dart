@@ -40,6 +40,7 @@ import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/appear_tracker.dart';
 import '../../shared/widgets/choice_input_dialog.dart';
+import '../../shared/widgets/export_progress_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
@@ -62,6 +63,7 @@ import '../ai/service/ai_claude_hook_service.dart';
 import '../ai/service/ai_file_history_service.dart';
 import '../ai/service/ai_git_snapshot_service.dart';
 import '../ai/service/ai_protocol_adapter.dart';
+import '../ai/service/ai_session_jsonl_exporter.dart';
 import '../ai/service/ai_workspace_instruction_service.dart';
 import '../ai/service/lsp_client_service.dart';
 import '../ai/tools/ai_ask_user_choice_tool.dart';
@@ -4376,6 +4378,216 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     unawaited(_hardnessSessionStore.clear().catchError((_) {}));
   }
 
+  /// Sanitises a session title for use in a default filename. Strips path
+  /// separators, control chars, and trims to a reasonable length.
+  String _sanitizeFileBasename(String input) {
+    final cleaned = input
+        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.isEmpty) return 'session';
+    return cleaned.length > 80 ? cleaned.substring(0, 80) : cleaned;
+  }
+
+  /// Hard cap on a single export operation so a corrupt session can never
+  /// hang the UI indefinitely.
+  static const Duration _exportTimeout = Duration(minutes: 5);
+
+  Future<void> _exportSession(AiSession session) async {
+    final controller = context.read<AiSessionController>();
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup = XTypeGroup(
+      label: 'JSONL',
+      extensions: <String>['jsonl'],
+    );
+    final suggested =
+        '${_sanitizeFileBasename(session.title)}_${session.id}.jsonl';
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: suggested,
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog('openhand_home_page', '_exportSession.getSaveLocation', error,
+          stack);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(context,
+                zh: '无法打开保存对话框：$error',
+                en: 'Unable to open save dialog: $error'),
+          ),
+        ),
+      );
+      return;
+    }
+    if (location == null || !mounted) return;
+
+    final cancelToken = ExportCancelToken();
+    final progressController =
+        ExportProgressController(cancelToken: cancelToken);
+
+    Future<ExportResult> runExport() async {
+      final loaded = await controller.store.loadSession(session.id);
+      if (loaded == null) {
+        throw StateError('Session not found: ${session.id}');
+      }
+      return exportAiSessionToJsonl(
+        session: loaded,
+        destinationPath: location!.path,
+        cancelToken: cancelToken,
+        onProgress: progressController.updateProgress,
+      );
+    }
+
+    final dialogFuture = showExportProgressDialog(
+      context: context,
+      controller: progressController,
+      title: _localizedText(context,
+          zh: '导出会话数据', en: 'Export Session Data'),
+      subtitle: _localizedText(context,
+          zh: '正在导出 “${session.title}”…',
+          en: 'Exporting "${session.title}"…'),
+      cancelLabel:
+          _localizedText(context, zh: '取消', en: 'Cancel'),
+    );
+
+    ExportResult result;
+    try {
+      result = await runExport().timeout(_exportTimeout, onTimeout: () {
+        cancelToken.cancel();
+        return const ExportResult(kind: ExportResultKind.failure);
+      });
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        '_exportSession.runExport',
+        error,
+        stack,
+      );
+      result = ExportResult(kind: ExportResultKind.failure, error: error);
+    }
+    progressController.markFinished();
+    // Pop the modal progress dialog if it's still on screen. The dialog
+    // future never throws here; awaiting it ensures we resume after the
+    // animated exit completes (so subsequent snackbars sit correctly).
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    await dialogFuture;
+    progressController.dispose();
+
+    if (!mounted) return;
+    _showExportResultSnackBar(messenger, result, location.path);
+  }
+
+  Future<void> _exportHardnessSession() async {
+    final record = _persistedHardnessSession;
+    if (record == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    const typeGroup = XTypeGroup(
+      label: 'JSONL',
+      extensions: <String>['jsonl'],
+    );
+    final suggested =
+        '${_sanitizeFileBasename(record.title)}_${record.id}.jsonl';
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: suggested,
+        acceptedTypeGroups: <XTypeGroup>[typeGroup],
+      );
+    } catch (error, stack) {
+      silentLog('openhand_home_page',
+          '_exportHardnessSession.getSaveLocation', error, stack);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(context,
+                zh: '无法打开保存对话框：$error',
+                en: 'Unable to open save dialog: $error'),
+          ),
+        ),
+      );
+      return;
+    }
+    if (location == null || !mounted) return;
+
+    final cancelToken = ExportCancelToken();
+    final progressController =
+        ExportProgressController(cancelToken: cancelToken);
+
+    final dialogFuture = showExportProgressDialog(
+      context: context,
+      controller: progressController,
+      title: _localizedText(context,
+          zh: '导出会话数据', en: 'Export Session Data'),
+      subtitle: _localizedText(context,
+          zh: '正在导出 “${record.title}”…',
+          en: 'Exporting "${record.title}"…'),
+      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+    );
+
+    ExportResult result;
+    try {
+      result = await exportHardnessSessionToJsonl(
+        record: record,
+        destinationPath: location.path,
+        cancelToken: cancelToken,
+        onProgress: progressController.updateProgress,
+      ).timeout(_exportTimeout, onTimeout: () {
+        cancelToken.cancel();
+        return const ExportResult(kind: ExportResultKind.failure);
+      });
+    } catch (error, stack) {
+      silentLog(
+        'openhand_home_page',
+        '_exportHardnessSession.run',
+        error,
+        stack,
+      );
+      result = ExportResult(kind: ExportResultKind.failure, error: error);
+    }
+    progressController.markFinished();
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    await dialogFuture;
+    progressController.dispose();
+
+    if (!mounted) return;
+    _showExportResultSnackBar(messenger, result, location.path);
+  }
+
+  void _showExportResultSnackBar(
+    ScaffoldMessengerState messenger,
+    ExportResult result,
+    String destinationPath,
+  ) {
+    final ctx = context;
+    final String message;
+    switch (result.kind) {
+      case ExportResultKind.success:
+        message = _localizedText(ctx,
+            zh: '导出成功：$destinationPath',
+            en: 'Export succeeded: $destinationPath');
+        break;
+      case ExportResultKind.cancelled:
+        message =
+            _localizedText(ctx, zh: '已取消导出。', en: 'Export cancelled.');
+        break;
+      case ExportResultKind.failure:
+        final reason = result.error?.toString() ?? 'unknown error';
+        message = _localizedText(ctx,
+            zh: '导出失败：$reason', en: 'Export failed: $reason');
+        break;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _editMessage(AiSessionMessage message) async {
     final result = await context
         .read<AiSessionController>()
@@ -4604,6 +4816,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                   onSessionSelected: _activateSession,
                   onRenameSession: _renameSession,
                   onDeleteSession: _deleteSession,
+                  onExportSession: _exportSession,
                   onSectionSelected: _selectSection,
                   activeHardnessOrchestrator: _activeHardnessOrchestrator,
                   hardnessSessionRecord: _persistedHardnessSession,
@@ -4617,6 +4830,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                       : null,
                   onDeleteHardnessSession: _persistedHardnessSession != null
                       ? _deleteHardnessSession
+                      : null,
+                  onExportHardnessSession: _persistedHardnessSession != null
+                      ? _exportHardnessSession
                       : null,
                 );
 

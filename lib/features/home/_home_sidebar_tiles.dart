@@ -9,6 +9,7 @@ class _HardnessSessionTile extends StatelessWidget {
     required this.onTap,
     required this.onRename,
     required this.onDelete,
+    required this.onExport,
   });
 
   final String title;
@@ -18,6 +19,7 @@ class _HardnessSessionTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,13 @@ class _HardnessSessionTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)!.commonEdit),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '重命名线程',
+                      en: 'Rename Thread',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -65,6 +73,22 @@ class _HardnessSessionTile extends StatelessWidget {
                 ],
               ),
             ),
+            PopupMenuItem<String>(
+              value: 'export',
+              child: Row(
+                children: [
+                  const Icon(Icons.file_download_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '导出会话数据',
+                      en: 'Export Session Data',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
         if (!context.mounted || selected == null) {
@@ -73,6 +97,7 @@ class _HardnessSessionTile extends StatelessWidget {
         final VoidCallback? action = switch (selected) {
           'rename' => onRename,
           'delete' => onDelete,
+          'export' => onExport,
           _ => null,
         };
         if (action == null) {
@@ -239,6 +264,7 @@ class _ThreadTile extends StatelessWidget {
     required this.onTap,
     required this.onRename,
     required this.onDelete,
+    required this.onExport,
   });
 
   final AiSession session;
@@ -247,6 +273,7 @@ class _ThreadTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onRename;
   final VoidCallback onDelete;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +303,13 @@ class _ThreadTile extends StatelessWidget {
                 children: [
                   const Icon(Icons.edit_outlined, size: 18),
                   const SizedBox(width: 8),
-                  Text(AppLocalizations.of(context)!.commonEdit),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '重命名线程',
+                      en: 'Rename Thread',
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -290,6 +323,22 @@ class _ThreadTile extends StatelessWidget {
                 ],
               ),
             ),
+            PopupMenuItem<String>(
+              value: 'export',
+              child: Row(
+                children: [
+                  const Icon(Icons.file_download_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '导出会话数据',
+                      en: 'Export Session Data',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
         if (!context.mounted || selected == null) {
@@ -298,6 +347,7 @@ class _ThreadTile extends StatelessWidget {
         final VoidCallback? action = switch (selected) {
           'rename' => onRename,
           'delete' => onDelete,
+          'export' => onExport,
           _ => null,
         };
         if (action == null) {

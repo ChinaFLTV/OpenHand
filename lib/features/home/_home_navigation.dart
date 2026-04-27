@@ -10,12 +10,14 @@ class _NavigationPane extends StatefulWidget {
     required this.onSessionSelected,
     required this.onRenameSession,
     required this.onDeleteSession,
+    required this.onExportSession,
     required this.onSectionSelected,
     this.activeHardnessOrchestrator,
     this.hardnessSessionRecord,
     this.onHardnessSessionSelected,
     this.onRenameHardnessSession,
     this.onDeleteHardnessSession,
+    this.onExportHardnessSession,
   });
 
   final AppSection selectedSection;
@@ -26,12 +28,14 @@ class _NavigationPane extends StatefulWidget {
   final Future<void> Function(String sessionId) onSessionSelected;
   final Future<void> Function(AiSession session) onRenameSession;
   final Future<void> Function(AiSession session) onDeleteSession;
+  final Future<void> Function(AiSession session) onExportSession;
   final ValueChanged<AppSection> onSectionSelected;
   final HardnessOrchestrator? activeHardnessOrchestrator;
   final HardnessSessionRecord? hardnessSessionRecord;
   final VoidCallback? onHardnessSessionSelected;
   final VoidCallback? onRenameHardnessSession;
   final VoidCallback? onDeleteHardnessSession;
+  final VoidCallback? onExportHardnessSession;
 
   @override
   State<_NavigationPane> createState() => _NavigationPaneState();
@@ -137,6 +141,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             onTap: widget.onHardnessSessionSelected ?? () {},
             onRename: widget.onRenameHardnessSession ?? () {},
             onDelete: widget.onDeleteHardnessSession ?? () {},
+            onExport: widget.onExportHardnessSession ?? () {},
           ),
         ),
       );
@@ -207,6 +212,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
             onTap: () => widget.onSessionSelected(sessionId),
             onRename: () => widget.onRenameSession(session),
             onDelete: () => widget.onDeleteSession(session),
+            onExport: () => widget.onExportSession(session),
           ),
         ),
       );
