@@ -435,6 +435,29 @@ class AiSession {
         .toList(growable: false);
   }
 
+  /// Same slice as [activeConversationMessages] but additionally retains
+  /// `reasoning` messages so the prompt builder can echo prior chain-of-
+  /// thought back to thinking-mode gateways (e.g. `deepseek-v4-pro`) which
+  /// require `reasoning_content` to be passed back on follow-up requests.
+  List<AiSessionMessage> get activeConversationMessagesForPrompt {
+    final latestCompressionPointIndex = this.latestCompressionPointIndex;
+    bool keep(AiSessionMessage item) {
+      if (item.isDeleted) {
+        return false;
+      }
+      return item.isConversationTurn ||
+          item.kind == AiSessionMessageKind.reasoning;
+    }
+
+    if (latestCompressionPointIndex == null) {
+      return messages.where(keep).toList(growable: false);
+    }
+    return messages
+        .skip(latestCompressionPointIndex + 1)
+        .where(keep)
+        .toList(growable: false);
+  }
+
   int? _computeLatestCompressionPointIndex() {
     for (var index = messages.length - 1; index >= 0; index--) {
       if (!messages[index].isDeleted &&

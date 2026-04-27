@@ -1996,7 +1996,7 @@ class AiSessionController extends ChangeNotifier {
         model: model,
         runtimeContext: runtimeContext,
         memoryEntries: runtimeContext.memoryEntries,
-        sessionMessages: workingSession.activeConversationMessages,
+        sessionMessages: workingSession.activeConversationMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
         availableTools: toolsForRound,
       );
