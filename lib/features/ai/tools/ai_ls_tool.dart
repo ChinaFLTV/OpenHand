@@ -15,12 +15,18 @@ class AiLsTool extends AiTool {
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
-    final path = AiToolUtils.requireAbsoluteDirectoryPath(
-      '${args['path'] ?? ''}'.trim(),
-    );
-    if (path == null) {
-      return AiToolUtils.invalidResult('LS', 'LS requires an absolute path.');
+    final rawPath = '${args['path'] ?? ''}'.trim();
+    if (rawPath.isEmpty) {
+      return AiToolUtils.invalidResult(
+        'LS',
+        'LS requires a non-empty path.',
+      );
     }
+    // 2026-04-28: 与 Read/Write/Edit 等其它工具对齐 —— 模型经常传相对路径
+    // （如 "."、"src/"），原本的 requireAbsoluteDirectoryPath 会硬拒并返回
+    // invalid_arguments，让模型陷入“参数明明对、却被反复拒”的死循环。
+    // 改用 resolvePath，相对路径自动按当前工作目录展开为绝对路径。
+    final path = AiToolUtils.resolvePath(rawPath);
     final directory = Directory(path);
     if (!await directory.exists()) {
       return AiToolUtils.invalidResult('LS', 'Directory does not exist: $path');
