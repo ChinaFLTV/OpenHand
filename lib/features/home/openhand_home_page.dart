@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:highlight/highlight.dart' as highlight;
@@ -1342,6 +1343,31 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final nextPaused = _autoFollowEnabled && !_shouldAutoFollowMessages;
     if (nextPaused == _autoFollowPaused) {
+      return;
+    }
+    // 2026-04-27 (修复): 滚动通知有时会在 ListView 的 performLayout 阶段
+    // 派发（例如 viewport 在 layout 中调用 applyContentDimensions →
+    // dispatchScrollStartNotification）。此时直接 setState 会触发
+    // "Build scheduled during frame" 断言。当当前正处于 layout / paint /
+    // 持久回调阶段时，把状态变更推迟到本帧结束后的 post-frame 回调里。
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final inFrame = phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks ||
+        phase == SchedulerPhase.transientCallbacks;
+    if (inFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final latestPaused =
+            _autoFollowEnabled && !_shouldAutoFollowMessages;
+        if (latestPaused == _autoFollowPaused) {
+          return;
+        }
+        setState(() {
+          _autoFollowPaused = latestPaused;
+        });
+      });
       return;
     }
     setState(() {
