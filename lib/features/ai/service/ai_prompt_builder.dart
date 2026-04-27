@@ -1474,10 +1474,10 @@ class AiPromptBuilder {
     }
     final arguments = _decodeToolArgumentsMap(toolCall.arguments);
     final targetPath = _toolCallTargetPath(arguments);
-    final writeLike =
-        _isFileEditingToolName(normalizedName) ||
-        (normalizedName.toLowerCase() == 'bash' &&
-            _looksLikeWriteLikeBashArguments(arguments));
+    // 2026-04-27 (修复): Bash 命令体不再被丢弃；仅原生 Write/Edit 系列工具
+    // 才标注 "payload omitted"。否则模型会以为自己执行的 shell 命令也被
+    // 截断，产生不必要的"再写一次"重试。
+    final writeLike = _isFileEditingToolName(normalizedName);
     if (targetPath != null) {
       return writeLike
           ? 'Tool call: $normalizedName -> $targetPath (payload omitted from prompt history)'
@@ -1494,6 +1494,16 @@ class AiPromptBuilder {
   ) {
     if (!compressionConfig.enabled) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
+      return _promptContentForMessage(message);
+    }
+    // 2026-04-27 (修复): Read / NotebookRead 工具结果是模型查看文件实际内容
+    // 的唯一通道，被压缩成 head/tail 摘要会让模型误判文件被截断 / 丢失数据，
+    // 从而陷入"再写一次 → 再读 → 再次以为被截断"的死循环。这里整体豁免
+    // 读取类工具的结果压缩，让模型看到完整原始字节。
+    final toolNameLower = '${message.metadata['tool_name'] ?? ''}'
+        .trim()
+        .toLowerCase();
+    if (toolNameLower == 'read' || toolNameLower == 'notebookread') {
       return _promptContentForMessage(message);
     }
     if (!_isWriteLikeToolHistoryMessage(message)) {
@@ -1647,27 +1657,41 @@ class AiPromptBuilder {
           ),
         });
       case 'bash':
-        if (_looksLikeWriteLikeBashArguments(arguments) ||
-            _isWriteLikeToolMetadata(metadata)) {
-          final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}';
-          return jsonEncode(<String, Object?>{
-            'cmd': _omittedPayloadSummary(
-              command.length,
-              action: 'write_like_shell_command',
-            ),
-            if ('${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
-                .trim()
-                .isNotEmpty)
-              'working_directory':
-                  '${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
-                      .trim(),
-            if (metadata['tool_execution_write_analysis_reason'] != null)
-              'write_reason':
-                  '${metadata['tool_execution_write_analysis_reason'] ?? ''}'
-                      .trim(),
-          });
+        // 2026-04-27 (修复): 之前对"写文件类 Bash"完全省略命令体，导致模型
+        // 在后续轮次完全忘记自己执行了什么 shell（heredoc 内容、脚本逻辑都
+        // 被丢弃），从而把"我刚写过的小文件"误判为被截断。Bash 命令本身
+        // 即"我做了什么"的语义载体，不能丢。这里改为：保留完整命令；只
+        // 在命令体超大时（>8KB）做 head/tail 截断，并附上 stored locally
+        // 提示便于审计。
+        final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}';
+        const bashCommandPromptHistoryMaxChars = 8192;
+        if (command.length <= bashCommandPromptHistoryMaxChars) {
+          return toolCall.arguments;
         }
-        return toolCall.arguments;
+        final isWriteLikeBash =
+            _looksLikeWriteLikeBashArguments(arguments) ||
+            _isWriteLikeToolMetadata(metadata);
+        const headTail = 1024;
+        final head = command.substring(0, headTail);
+        final tail = command.substring(command.length - headTail);
+        final summarizedCommand =
+            '$head\n…[bash_command_truncated: dropped '
+            '${command.length - headTail * 2} chars; '
+            'full command stored locally]…\n$tail';
+        return jsonEncode(<String, Object?>{
+          'cmd': summarizedCommand,
+          if ('${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
+              .trim()
+              .isNotEmpty)
+            'working_directory':
+                '${arguments['working_directory'] ?? arguments['cwd'] ?? ''}'
+                    .trim(),
+          if (isWriteLikeBash &&
+              metadata['tool_execution_write_analysis_reason'] != null)
+            'write_reason':
+                '${metadata['tool_execution_write_analysis_reason'] ?? ''}'
+                    .trim(),
+        });
       default:
         return toolCall.arguments;
     }
