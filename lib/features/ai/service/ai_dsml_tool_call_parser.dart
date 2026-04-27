@@ -24,9 +24,16 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
 }) {
   final canonical = _canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
+    // No tool-call markup at all — fast path, but still strip any leaked
+    // ##TOOL_CALL## opening fragment that lacks a closing marker. Operate
+    // on the converted form so we only strip true leftovers (the
+    // converter has already deleted complete envelopes).
+    final converted = _convertHashTagToolCalls(value);
+    final fastSanitized = _stripDanglingHashTagToolCallMarker(converted);
     return AiDsmlToolCallExtractionResult(
-      sanitizedText: value,
+      sanitizedText: fastSanitized,
       toolCalls: const <AiToolCall>[],
+      hasTrailingIncompleteMarkup: fastSanitized.length != converted.length,
     );
   }
   final toolCalls = <AiToolCall>[];
@@ -102,7 +109,9 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
 String sanitizeVisibleDsmlContent(String value) {
   final canonical = _canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
-    return value;
+    return _stripDanglingHashTagToolCallMarker(
+      _convertHashTagToolCalls(value),
+    );
   }
   var sanitized = canonical
       .replaceAll(_dsmlFunctionCallsPattern, '')
@@ -161,7 +170,14 @@ final RegExp _dsmlAttributePattern = RegExp(
 );
 
 String _canonicalizeDsmlMarkup(String value) {
-  var normalized = value
+  // 2026-04-26: Some weaker models (notably ones that pretend to follow a
+  // generic "agent" protocol they were trained on) emit tool calls inside
+  // a `##TOOL_CALL## { "name": "...", "input": {...} } ##END_CALL##`
+  // envelope instead of using protocol-native tool_calls or our DSML
+  // tags. Convert these to canonical DSML *before* anything else so the
+  // rest of the pipeline (extraction + sanitization) can swallow them.
+  var normalized = _convertHashTagToolCalls(value);
+  normalized = normalized
       .replaceAll('<｜DSML｜', '<DSML:')
       .replaceAll('</｜DSML｜', '</DSML:')
       .replaceAll('<｜dsml｜', '<DSML:')
@@ -296,4 +312,97 @@ String _stripCdataWrappers(String value) {
     return value;
   }
   return value.replaceAllMapped(_cdataPattern, (m) => m.group(1) ?? '');
+}
+
+// 2026-04-26: Recognize the `##TOOL_CALL## ... ##END_CALL##` envelope that
+// some weak models emit instead of native protocol tool calls or our DSML
+// tags. Convert each well-formed envelope into a DSML invoke block so the
+// downstream extractor + sanitizer treat it like any other tool call.
+//
+// Body shape we accept:
+//   { "name": "<tool_name>", "input": { <key>: <value>, ... } }
+// or  { "tool_name": "...", "parameters": {...} }
+// or  { "name": "...", "arguments": {...} }
+final RegExp _hashTagToolCallEnvelopePattern = RegExp(
+  r'##\s*TOOL[_-]?CALL\s*##([\s\S]*?)##\s*END[_-]?CALL\s*##',
+  caseSensitive: false,
+);
+
+// Matches a dangling `##TOOL_CALL## ...` opening with no `##END_CALL##`
+// terminator (truncated stream / model dropped the closing marker).
+// We strip from the opener through end-of-string to keep raw scaffolding
+// out of the rendered bubble, mirroring `_trailingIncompleteDsmlPattern`.
+final RegExp _hashTagToolCallDanglingPattern = RegExp(
+  r'##\s*TOOL[_-]?CALL\s*##[\s\S]*$',
+  caseSensitive: false,
+);
+
+String _convertHashTagToolCalls(String value) {
+  if (!value.contains('##')) {
+    return value;
+  }
+  if (!_hashTagToolCallEnvelopePattern.hasMatch(value)) {
+    return value;
+  }
+  return value.replaceAllMapped(_hashTagToolCallEnvelopePattern, (match) {
+    final raw = (match.group(1) ?? '').trim();
+    if (raw.isEmpty) {
+      return '';
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        return '';
+      }
+      final name = '${decoded['name'] ?? decoded['tool_name'] ?? ''}'.trim();
+      if (name.isEmpty) {
+        return '';
+      }
+      final argsRaw = decoded['input'] ??
+          decoded['arguments'] ??
+          decoded['parameters'] ??
+          decoded['args'];
+      final argsMap = argsRaw is Map
+          ? Map<String, Object?>.from(argsRaw)
+          : <String, Object?>{};
+      final buffer = StringBuffer()
+        ..write('<DSML:invoke name="')
+        ..write(_escapeDsmlAttributeValue(name))
+        ..write('">');
+      argsMap.forEach((key, val) {
+        final encoded = val is String ? val : jsonEncode(val);
+        buffer
+          ..write('<DSML:parameter name="')
+          ..write(_escapeDsmlAttributeValue(key))
+          ..write('">')
+          ..write(encoded)
+          ..write('</DSML:parameter>');
+      });
+      buffer.write('</DSML:invoke>');
+      return buffer.toString();
+    } catch (_) {
+      // Malformed JSON — drop the envelope entirely so it doesn't leak
+      // raw scaffolding into the visible bubble. The model will be
+      // re-prompted by the runtime when no tool call is dispatched.
+      return '';
+    }
+  });
+}
+
+String _escapeDsmlAttributeValue(String value) {
+  return value
+      .replaceAll('&', '&amp;')
+      .replaceAll('"', '&quot;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
+}
+
+String _stripDanglingHashTagToolCallMarker(String value) {
+  if (!value.contains('##')) {
+    return value;
+  }
+  if (!_hashTagToolCallDanglingPattern.hasMatch(value)) {
+    return value;
+  }
+  return value.replaceAll(_hashTagToolCallDanglingPattern, '').trimRight();
 }
