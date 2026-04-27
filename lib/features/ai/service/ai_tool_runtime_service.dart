@@ -490,15 +490,48 @@ class AiToolRuntimeService {
   }) async {
     final resolvedTool = catalog.find(toolCall.name);
     if (resolvedTool == null) {
+      // 2026-04-28: 工具未命中时，给模型一份可操作的引导，而不是只丢一句
+      // “Unsupported tool name”。常见两种诱因：
+      //   1) 模型在 plan 待批准轮次幻觉调用 Write/TodoWrite —— 此时 catalog
+      //      被刻意清空，应提示先调用 ExitPlanMode 或等待用户批准；
+      //   2) 模型把 Claude Code 风格名字（如 TodoWrite）当成了别名 —— 给出
+      //      当前轮次真实可用的工具名清单，便于自我纠正。
+      final availableNames = catalog.definitions
+          .map((tool) => tool.name.trim())
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false);
+      final guidance = StringBuffer('Unsupported tool name: ${toolCall.name}.');
+      if (availableNames.isEmpty) {
+        guidance.write(
+          ' The tool catalog is empty for this turn — usually because the '
+          'system is waiting for the user to approve a pending plan. Do NOT '
+          'invent tool names; respond by presenting the captured plan and '
+          'asking the user to confirm. Once approved, the next turn will '
+          'restore Write/Edit/MultiEdit/Bash automatically.',
+        );
+      } else {
+        // Cap the suggestion list so an MCP-heavy session does not blow the
+        // tool-result envelope.
+        const maxSuggestions = 24;
+        final preview = availableNames.length <= maxSuggestions
+            ? availableNames.join(', ')
+            : '${availableNames.take(maxSuggestions).join(', ')} … '
+                  '(${availableNames.length - maxSuggestions} more)';
+        guidance.write(
+          ' Use only exact names from this turn\'s catalog: $preview. '
+          'Re-issue the call with the correct tool name (and matching argument '
+          'schema) — do NOT fall back to dumping code into chat.',
+        );
+      }
+      final guidanceText = guidance.toString();
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.invalidArguments,
         command: toolCall.name,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'Unsupported tool name: ${toolCall.name}',
+        stderr: guidanceText,
         durationMs: 0,
-        resultText:
-            'status: invalid_arguments\nerror: Unsupported tool name: ${toolCall.name}',
+        resultText: 'status: invalid_arguments\nerror: $guidanceText',
       );
     }
     final decodedArguments = AiToolUtils.decodeArguments(toolCall.arguments);
