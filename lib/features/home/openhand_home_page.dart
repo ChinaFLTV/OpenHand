@@ -2062,6 +2062,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (templateId == 'programming_expert') {
       final sessionController = context.read<AiSessionController>();
+      if (kDebugMode) {
+        debugPrint(
+          '[pe.recents] dialog-open#A sessions=${sessionController.sessions.length}',
+        );
+      }
       final recentPathCache = _collectProgrammingExpertRecentPaths(
         sessionController.sessions,
       );
@@ -2100,7 +2105,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (created && mounted) {
         final currentSession = sessionController.currentSession;
         if (currentSession != null) {
-          await sessionController.updateSessionMetadata(
+          final ok = await sessionController.updateSessionMetadata(
             currentSession.id,
             <String, Object?>{
               'programming_expert_config': <String, Object?>{
@@ -2111,6 +2116,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
             },
           );
+          if (kDebugMode) {
+            debugPrint(
+              '[pe.recents] metadata-saved#A session=${currentSession.id} ok=$ok '
+              'projectRoot=${peConfig.projectRoot}',
+            );
+          }
         }
       }
       return created;
@@ -3077,6 +3088,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       // the correct working directory and project context.
       _ProgrammingExpertConfig? peConfig;
       if (templateId == 'programming_expert') {
+        if (kDebugMode) {
+          debugPrint(
+            '[pe.recents] dialog-open#B sessions=${sessionController.sessions.length}',
+          );
+        }
         final recentPathCache = _collectProgrammingExpertRecentPaths(
           sessionController.sessions,
         );
@@ -3121,7 +3137,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (peConfig != null) {
         final currentSession = sessionController.currentSession;
         if (currentSession != null) {
-          await sessionController.updateSessionMetadata(
+          final ok = await sessionController.updateSessionMetadata(
             currentSession.id,
             <String, Object?>{
               'programming_expert_config': <String, Object?>{
@@ -3132,6 +3148,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               },
             },
           );
+          if (kDebugMode) {
+            debugPrint(
+              '[pe.recents] metadata-saved#B session=${currentSession.id} ok=$ok '
+              'projectRoot=${peConfig.projectRoot}',
+            );
+          }
         }
         if (!mounted) {
           return;

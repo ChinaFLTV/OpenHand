@@ -838,10 +838,19 @@ class AiSessionController extends ChangeNotifier {
     updatedSessions[existingIndex] = updatedSession;
     _setSessions(updatedSessions);
     notifyListeners();
+    var persisted = false;
     try {
       await _store.save(updatedSession);
+      persisted = true;
     } catch (error, stack) {
       silentLog('ai_session_controller', 'persist metadata patch', error, stack);
+    }
+    if (kDebugMode) {
+      debugPrint(
+        '[pe.recents] updateSessionMetadata session=$sessionId '
+        'payloadKeys=${payload.keys.toList()} persisted=$persisted '
+        'metadataKeysAfter=${updatedSession.metadata.keys.toList()}',
+      );
     }
     return true;
   }
