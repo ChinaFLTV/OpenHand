@@ -1931,15 +1931,17 @@ class AiSessionController extends ChangeNotifier {
       session.templateId,
     );
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
-    final toolCatalog = adapter.supportsToolCalls
-        ? await _toolRuntimeService.resolveCatalog(
-            runtimeContext: runtimeContext,
-            templateId: session.templateId,
-          )
-        : const AiResolvedToolCatalog(
-            definitions: <AiToolDefinition>[],
-            toolsByName: <String, AiResolvedTool>{},
-          );
+    final supportsNativeToolCalls = adapter.supportsToolCalls;
+    // 2026-04-26: Even when the protocol adapter cannot ferry tool definitions
+    // through the native function-calling channel, we still resolve the full
+    // catalog and surface it to the model via the system-prompt + DSML fallback
+    // (see `useDsmlToolCalls` below). This prevents weak models from inventing
+    // bogus envelopes (`##TOOL_CALL##`, `u_TodoWrite`, etc.) when they have no
+    // explicit guidance on how to call tools.
+    final toolCatalog = await _toolRuntimeService.resolveCatalog(
+      runtimeContext: runtimeContext,
+      templateId: session.templateId,
+    );
     var workingSession = session;
     var activeLatestUserMessageId = latestUserMessageId;
     var planModeRecoveryInspectionRequired =
@@ -2009,6 +2011,7 @@ class AiSessionController extends ChangeNotifier {
         sessionMessages: workingSession.activeConversationMessagesForPrompt,
         latestUserMessageId: activeLatestUserMessageId,
         availableTools: toolsForRound,
+        useDsmlToolCalls: !supportsNativeToolCalls,
       );
       late final AiChatStreamingResponse streamResponse;
       try {
@@ -2023,7 +2026,12 @@ class AiSessionController extends ChangeNotifier {
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
           messages: promptResult.messages,
-          tools: toolsForRound,
+          // Native protocol tools field is meaningless for adapters that
+          // do not support function calling — the model will receive the
+          // catalog via the system-prompt DSML section instead.
+          tools: supportsNativeToolCalls
+              ? toolsForRound
+              : const <AiToolDefinition>[],
           responseModalities: responseModalities,
           creationRequest: creationRequest,
           timeout: effectiveRequestTimeout,

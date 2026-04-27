@@ -48,6 +48,7 @@ class AiPromptBuilder {
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage latestUserMessage,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    bool useDsmlToolCalls = false,
   }) {
     final sessionMessages = <AiSessionMessage>[
       ...historyMessages,
@@ -62,6 +63,7 @@ class AiPromptBuilder {
       sessionMessages: sessionMessages,
       latestUserMessageId: latestUserMessage.id,
       availableTools: availableTools,
+      useDsmlToolCalls: useDsmlToolCalls,
     );
   }
 
@@ -74,6 +76,7 @@ class AiPromptBuilder {
     required List<AiSessionMessage> sessionMessages,
     String? latestUserMessageId,
     List<AiToolDefinition> availableTools = const <AiToolDefinition>[],
+    bool useDsmlToolCalls = false,
   }) {
     final repositorySnapshot = _effectiveRepositorySnapshot(
       session: session,
@@ -238,7 +241,7 @@ class AiPromptBuilder {
       AiChatTurn(
         role: AiChatRole.system,
         content:
-            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval)}',
+            '# [2] Tool Catalog\n\n${_renderRuntimeToolCatalog(availableTools, compact: isCompactTemplate, templateId: templateBundle.template.id, awaitingPlanApproval: session.awaitingPlanApproval, useDsmlToolCalls: useDsmlToolCalls)}',
       ),
       // For compact templates, reminders are folded into the metadata JSON
       // to reduce system message count and API overhead.
@@ -533,6 +536,7 @@ class AiPromptBuilder {
     bool compact = false,
     String? templateId,
     bool awaitingPlanApproval = false,
+    bool useDsmlToolCalls = false,
   }) {
     final visibleTools = availableTools
         .where((tool) => tool.name.trim().isNotEmpty)
@@ -636,6 +640,36 @@ class AiPromptBuilder {
           compact: compact,
         );
       }
+    }
+    if (useDsmlToolCalls && visibleTools.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Tool Invocation Format (DSML)')
+        ..writeln(
+          'This model does NOT support protocol-native function calling. '
+          'To invoke a tool, append the following XML at the END of your reply '
+          '(after any natural-language explanation, with no trailing prose). '
+          'Output exactly one `<DSML:function_calls>` block per turn; the runtime '
+          'will execute the calls and feed the results back as a tool message.',
+        )
+        ..writeln()
+        ..writeln('```xml')
+        ..writeln('<DSML:function_calls>')
+        ..writeln('  <DSML:invoke name="ExactToolName">')
+        ..writeln('    <DSML:parameter name="key1">value1</DSML:parameter>')
+        ..writeln('    <DSML:parameter name="key2">{"json":"ok"}</DSML:parameter>')
+        ..writeln('  </DSML:invoke>')
+        ..writeln('</DSML:function_calls>')
+        ..writeln('```')
+        ..writeln()
+        ..writeln(
+          'Rules: (1) Use ONLY tool names listed above — do NOT invent names like '
+          '`TodoWrite`, `u_TodoWrite` or wrap calls in `##TOOL_CALL##` markers. '
+          '(2) Each parameter value is a STRING; pass JSON-encoded text for '
+          'object/array/number values. (3) Never wrap the DSML block in Markdown '
+          'code fences in the actual output. (4) Place the DSML block at the very '
+          'end of your reply with no text after `</DSML:function_calls>`.',
+        );
     }
     return buffer.toString().trimRight();
   }
