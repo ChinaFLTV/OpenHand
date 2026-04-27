@@ -42,17 +42,23 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _ToolExecutionChip(
-              icon: toolCall.presentation.icon,
-              label: toolCall.primaryChipLabel,
-            ),
+    return AppearOnce(
+      child: ClipRect(
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ToolExecutionChip(
+                    icon: toolCall.presentation.icon,
+                    label: toolCall.primaryChipLabel,
+                  ),
             if (toolCall.workingDirectory.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.folder_outlined,
@@ -179,6 +185,9 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
           _FileMutationRow(message: message),
         ],
       ],
+            ),
+          ),
+        ),
     );
   }
 
