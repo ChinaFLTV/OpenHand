@@ -58,8 +58,6 @@
 
 ## 🖼 应用截图
 
-> ℹ️ 以下为占位路径，请将实际截图放入 `docs/screenshots/`，文件名保持一致即可自动生效。
-
 <table>
   <tr>
     <td align="center"><img src="docs/screenshots/01-main-chat.png" alt="主聊天界面" /><br/><sub><b>主聊天 · 多模型并行</b></sub></td>
