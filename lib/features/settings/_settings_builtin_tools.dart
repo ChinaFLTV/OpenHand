@@ -694,20 +694,17 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
                                 decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    context,
-                                    zh: '超时时间（秒）',
-                                    en: 'Timeout (seconds)',
+                                  labelText: AppLocalizations.of(context)!
+                                      .builtinToolTimeoutLabel,
+                                  hintText: AppLocalizations.of(context)!
+                                      .builtinToolTimeoutHint(
+                                    AiBuiltinToolConfig
+                                        .defaultTimeoutSeconds,
                                   ),
-                                  hintText: _localizedText(
-                                    context,
-                                    zh: '默认 ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
-                                    en: 'Default ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
-                                  ),
-                                  helperText: _localizedText(
-                                    context,
-                                    zh: '留空则使用默认 ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
-                                    en: 'Blank = default ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
+                                  helperText: AppLocalizations.of(context)!
+                                      .builtinToolTimeoutHelper(
+                                    AiBuiltinToolConfig
+                                        .defaultTimeoutSeconds,
                                   ),
                                 ),
                               ),
@@ -724,22 +721,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               child: SwitchListTile(
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '失败/超时自动重试',
-                                    en: 'Retry on failure / timeout',
-                                  ),
+                                  AppLocalizations.of(context)!
+                                      .builtinToolRetryLabel,
                                 ),
                                 subtitle: Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '默认关闭。仅对真正失败 (failed/timed_out) 触发，'
-                                        '不会重试参数错误或被拒绝的调用。',
-                                    en:
-                                        'Off by default. Only triggers on real failed/'
-                                        'timed_out outcomes; will not retry invalid '
-                                        'arguments or denied calls.',
-                                  ),
+                                  AppLocalizations.of(context)!
+                                      .builtinToolRetryBody,
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -759,16 +746,15 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   FilteringTextInputFormatter.digitsOnly,
                                 ],
                                 decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    context,
-                                    zh: '最大重试次数 (0–${AiBuiltinToolConfig.maxRetriesUpperBound})',
-                                    en: 'Max Retries (0–${AiBuiltinToolConfig.maxRetriesUpperBound})',
+                                  labelText: AppLocalizations.of(context)!
+                                      .builtinToolMaxRetriesLabel(
+                                    AiBuiltinToolConfig
+                                        .maxRetriesUpperBound,
                                   ),
-                                  helperText: _localizedText(
-                                    context,
-                                    zh: '不含首次执行；上限 ${AiBuiltinToolConfig.maxRetriesUpperBound} 次',
-                                    en:
-                                        'Excluding first attempt; capped at ${AiBuiltinToolConfig.maxRetriesUpperBound}',
+                                  helperText: AppLocalizations.of(context)!
+                                      .builtinToolMaxRetriesHelper(
+                                    AiBuiltinToolConfig
+                                        .maxRetriesUpperBound,
                                   ),
                                 ),
                               ),
@@ -786,23 +772,15 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           decoration: InputDecoration(
-                            labelText: _localizedText(
-                              context,
-                              zh: '重试退避基线（毫秒）',
-                              en: 'Retry backoff base (ms)',
+                            labelText: AppLocalizations.of(context)!
+                                .builtinToolBackoffLabel,
+                            hintText: AppLocalizations.of(context)!
+                                .builtinToolBackoffHint(
+                              AiBuiltinToolConfig.defaultRetryBackoffMs,
                             ),
-                            hintText: _localizedText(
-                              context,
-                              zh: '默认 ${AiBuiltinToolConfig.defaultRetryBackoffMs}ms',
-                              en: 'Default ${AiBuiltinToolConfig.defaultRetryBackoffMs}ms',
-                            ),
-                            helperText: _localizedText(
-                              context,
-                              zh: '指数退避：第 N 次重试等待 base × 2^(N-1)ms，'
-                                  '上限 ${AiBuiltinToolConfig.maxRetryBackoffMs}ms',
-                              en:
-                                  'Exponential: nth retry waits base × 2^(N-1) ms, '
-                                  'capped at ${AiBuiltinToolConfig.maxRetryBackoffMs}ms',
+                            helperText: AppLocalizations.of(context)!
+                                .builtinToolBackoffHelper(
+                              AiBuiltinToolConfig.maxRetryBackoffMs,
                             ),
                           ),
                         ),

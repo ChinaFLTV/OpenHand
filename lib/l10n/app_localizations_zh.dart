@@ -1730,6 +1730,59 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get imageEditorProcessing => '处理中…';
+
+  @override
+  String get builtinToolTimeoutLabel => '超时时间（秒）';
+
+  @override
+  String builtinToolTimeoutHint(int seconds) {
+    return '默认 ${seconds}s';
+  }
+
+  @override
+  String builtinToolTimeoutHelper(int seconds) {
+    return '留空则使用默认 ${seconds}s';
+  }
+
+  @override
+  String get builtinToolRetryLabel => '失败/超时自动重试';
+
+  @override
+  String get builtinToolRetryBody =>
+      '默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。';
+
+  @override
+  String builtinToolMaxRetriesLabel(int max) {
+    return '最大重试次数 (0–$max)';
+  }
+
+  @override
+  String builtinToolMaxRetriesHelper(int max) {
+    return '不含首次执行；上限 $max 次';
+  }
+
+  @override
+  String get builtinToolBackoffLabel => '重试退避基线（毫秒）';
+
+  @override
+  String builtinToolBackoffHint(int ms) {
+    return '默认 ${ms}ms';
+  }
+
+  @override
+  String builtinToolBackoffHelper(int max) {
+    return '指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 ${max}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalLabel(int ms) {
+    return '流式刷新间隔：${ms}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalHelper(int min, int max) {
+    return '自我学习卡片流式输出的持久化间隔（$min–${max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -3458,6 +3511,59 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get imageEditorProcessing => '处理中…';
+
+  @override
+  String get builtinToolTimeoutLabel => '超时时间（秒）';
+
+  @override
+  String builtinToolTimeoutHint(int seconds) {
+    return '默认 ${seconds}s';
+  }
+
+  @override
+  String builtinToolTimeoutHelper(int seconds) {
+    return '留空则使用默认 ${seconds}s';
+  }
+
+  @override
+  String get builtinToolRetryLabel => '失败/超时自动重试';
+
+  @override
+  String get builtinToolRetryBody =>
+      '默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。';
+
+  @override
+  String builtinToolMaxRetriesLabel(int max) {
+    return '最大重试次数 (0–$max)';
+  }
+
+  @override
+  String builtinToolMaxRetriesHelper(int max) {
+    return '不含首次执行；上限 $max 次';
+  }
+
+  @override
+  String get builtinToolBackoffLabel => '重试退避基线（毫秒）';
+
+  @override
+  String builtinToolBackoffHint(int ms) {
+    return '默认 ${ms}ms';
+  }
+
+  @override
+  String builtinToolBackoffHelper(int max) {
+    return '指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 ${max}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalLabel(int ms) {
+    return '流式刷新间隔：${ms}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalHelper(int min, int max) {
+    return '自我学习卡片流式输出的持久化间隔（$min–${max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -5185,4 +5291,57 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get imageEditorProcessing => '處理中…';
+
+  @override
+  String get builtinToolTimeoutLabel => '超時時間（秒）';
+
+  @override
+  String builtinToolTimeoutHint(int seconds) {
+    return '預設 ${seconds}s';
+  }
+
+  @override
+  String builtinToolTimeoutHelper(int seconds) {
+    return '留空則使用預設 ${seconds}s';
+  }
+
+  @override
+  String get builtinToolRetryLabel => '失敗/超時自動重試';
+
+  @override
+  String get builtinToolRetryBody =>
+      '預設關閉。僅對真正失敗 (failed/timed_out) 觸發，不會重試參數錯誤或被拒絕的呼叫。';
+
+  @override
+  String builtinToolMaxRetriesLabel(int max) {
+    return '最大重試次數 (0–$max)';
+  }
+
+  @override
+  String builtinToolMaxRetriesHelper(int max) {
+    return '不含首次執行；上限 $max 次';
+  }
+
+  @override
+  String get builtinToolBackoffLabel => '重試退避基線（毫秒）';
+
+  @override
+  String builtinToolBackoffHint(int ms) {
+    return '預設 ${ms}ms';
+  }
+
+  @override
+  String builtinToolBackoffHelper(int max) {
+    return '指數退避：第 N 次重試等待 base × 2^(N-1)ms，上限 ${max}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalLabel(int ms) {
+    return '串流刷新間隔：${ms}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalHelper(int min, int max) {
+    return '自我學習卡片串流輸出的持久化間隔（$min–${max}ms）。調小=更即時但更多布局抖動；調大=更平滑但增量延遲更高。預設 600ms。';
+  }
 }

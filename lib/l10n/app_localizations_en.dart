@@ -1839,4 +1839,57 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageEditorProcessing => 'Processing...';
+
+  @override
+  String get builtinToolTimeoutLabel => 'Timeout (seconds)';
+
+  @override
+  String builtinToolTimeoutHint(int seconds) {
+    return 'Default ${seconds}s';
+  }
+
+  @override
+  String builtinToolTimeoutHelper(int seconds) {
+    return 'Blank = default ${seconds}s';
+  }
+
+  @override
+  String get builtinToolRetryLabel => 'Retry on failure / timeout';
+
+  @override
+  String get builtinToolRetryBody =>
+      'Off by default. Only triggers on real failed/timed_out outcomes; will not retry invalid arguments or denied calls.';
+
+  @override
+  String builtinToolMaxRetriesLabel(int max) {
+    return 'Max Retries (0–$max)';
+  }
+
+  @override
+  String builtinToolMaxRetriesHelper(int max) {
+    return 'Excluding first attempt; capped at $max';
+  }
+
+  @override
+  String get builtinToolBackoffLabel => 'Retry backoff base (ms)';
+
+  @override
+  String builtinToolBackoffHint(int ms) {
+    return 'Default ${ms}ms';
+  }
+
+  @override
+  String builtinToolBackoffHelper(int max) {
+    return 'Exponential: nth retry waits base × 2^(N-1) ms, capped at ${max}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalLabel(int ms) {
+    return 'Stream flush interval: ${ms}ms';
+  }
+
+  @override
+  String selfLearningFlushIntervalHelper(int min, int max) {
+    return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
+  }
 }

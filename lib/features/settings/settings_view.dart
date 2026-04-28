@@ -2112,11 +2112,8 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         Text(
-          _localizedText(
-            context,
-            zh: '流式刷新间隔：${flushMs}ms',
-            en: 'Stream flush interval: ${flushMs}ms',
-          ),
+          AppLocalizations.of(context)!
+              .selfLearningFlushIntervalLabel(flushMs),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2136,17 +2133,8 @@ class _SettingsViewState extends State<SettingsView> {
           },
         ),
         Text(
-          _localizedText(
-            context,
-            zh:
-                '自我学习卡片流式输出的持久化间隔（$minFlushMs–${maxFlushMs}ms）。'
-                '调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。',
-            en:
-                'Persistence interval for self-learning card streaming output '
-                '($minFlushMs–${maxFlushMs}ms). Smaller=more real-time but more '
-                'layout jitter; larger=smoother but higher per-chunk latency. '
-                'Defaults to 600ms.',
-          ),
+          AppLocalizations.of(context)!
+              .selfLearningFlushIntervalHelper(minFlushMs, maxFlushMs),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),

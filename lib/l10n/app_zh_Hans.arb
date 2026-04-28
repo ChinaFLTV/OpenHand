@@ -565,20 +565,36 @@
   "imageEditorCopyToClipboard": "复制到剪贴板",
   "imageEditorSavedTo": "已另存：{path}",
   "@imageEditorSavedTo": {
-    "placeholders": {"path": {"type": "String"}}
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorSaveFailed": "另存失败：{error}",
   "@imageEditorSaveFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorClipboardCopiedBitmap": "已复制图片到剪贴板（文件路径同时复制为文本）。",
   "imageEditorClipboardCopiedPath": "已复制图片文件路径到剪贴板：{path}",
   "@imageEditorClipboardCopiedPath": {
-    "placeholders": {"path": {"type": "String"}}
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorClipboardFailed": "复制失败：{error}",
   "@imageEditorClipboardFailed": {
-    "placeholders": {"error": {"type": "String"}}
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   },
   "imageEditorApplyButton": "应用",
   "imageEditorUndoButton": "回退",
@@ -591,5 +607,76 @@
   "imageEditorWatermarkColorSaturation": "饱和度",
   "imageEditorWatermarkColorLightness": "明度",
   "imageEditorApplySuccess": "调整已应用",
-  "imageEditorProcessing": "处理中…"
+  "imageEditorProcessing": "处理中…",
+  "builtinToolTimeoutLabel": "超时时间（秒）",
+  "builtinToolTimeoutHint": "默认 {seconds}s",
+  "builtinToolTimeoutHelper": "留空则使用默认 {seconds}s",
+  "builtinToolRetryLabel": "失败/超时自动重试",
+  "builtinToolRetryBody": "默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。",
+  "builtinToolMaxRetriesLabel": "最大重试次数 (0–{max})",
+  "builtinToolMaxRetriesHelper": "不含首次执行；上限 {max} 次",
+  "builtinToolBackoffLabel": "重试退避基线（毫秒）",
+  "builtinToolBackoffHint": "默认 {ms}ms",
+  "builtinToolBackoffHelper": "指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 {max}ms",
+  "selfLearningFlushIntervalLabel": "流式刷新间隔：{ms}ms",
+  "selfLearningFlushIntervalHelper": "自我学习卡片流式输出的持久化间隔（{min}–{max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。",
+  "@builtinToolTimeoutHint": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "@builtinToolTimeoutHelper": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "@builtinToolMaxRetriesLabel": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@builtinToolMaxRetriesHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@builtinToolBackoffHint": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "@builtinToolBackoffHelper": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "@selfLearningFlushIntervalLabel": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      }
+    }
+  },
+  "@selfLearningFlushIntervalHelper": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  }
 }

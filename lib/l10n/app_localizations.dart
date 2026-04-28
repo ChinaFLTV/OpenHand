@@ -3429,6 +3429,78 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'处理中…'**
   String get imageEditorProcessing;
+
+  /// No description provided for @builtinToolTimeoutLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'超时时间（秒）'**
+  String get builtinToolTimeoutLabel;
+
+  /// No description provided for @builtinToolTimeoutHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {seconds}s'**
+  String builtinToolTimeoutHint(int seconds);
+
+  /// No description provided for @builtinToolTimeoutHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'留空则使用默认 {seconds}s'**
+  String builtinToolTimeoutHelper(int seconds);
+
+  /// No description provided for @builtinToolRetryLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败/超时自动重试'**
+  String get builtinToolRetryLabel;
+
+  /// No description provided for @builtinToolRetryBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认关闭。仅对真正失败 (failed/timed_out) 触发，不会重试参数错误或被拒绝的调用。'**
+  String get builtinToolRetryBody;
+
+  /// No description provided for @builtinToolMaxRetriesLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最大重试次数 (0–{max})'**
+  String builtinToolMaxRetriesLabel(int max);
+
+  /// No description provided for @builtinToolMaxRetriesHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'不含首次执行；上限 {max} 次'**
+  String builtinToolMaxRetriesHelper(int max);
+
+  /// No description provided for @builtinToolBackoffLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重试退避基线（毫秒）'**
+  String get builtinToolBackoffLabel;
+
+  /// No description provided for @builtinToolBackoffHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {ms}ms'**
+  String builtinToolBackoffHint(int ms);
+
+  /// No description provided for @builtinToolBackoffHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'指数退避：第 N 次重试等待 base × 2^(N-1)ms，上限 {max}ms'**
+  String builtinToolBackoffHelper(int max);
+
+  /// No description provided for @selfLearningFlushIntervalLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'流式刷新间隔：{ms}ms'**
+  String selfLearningFlushIntervalLabel(int ms);
+
+  /// No description provided for @selfLearningFlushIntervalHelper.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自我学习卡片流式输出的持久化间隔（{min}–{max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。'**
+  String selfLearningFlushIntervalHelper(int min, int max);
 }
 
 class _AppLocalizationsDelegate

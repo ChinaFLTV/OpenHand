@@ -607,5 +607,17 @@
   "imageEditorWatermarkColorSaturation": "Saturation",
   "imageEditorWatermarkColorLightness": "Lightness",
   "imageEditorApplySuccess": "Adjustments applied",
-  "imageEditorProcessing": "Processing..."
+  "imageEditorProcessing": "Processing...",
+  "builtinToolTimeoutLabel": "Timeout (seconds)",
+  "builtinToolTimeoutHint": "Default {seconds}s",
+  "builtinToolTimeoutHelper": "Blank = default {seconds}s",
+  "builtinToolRetryLabel": "Retry on failure / timeout",
+  "builtinToolRetryBody": "Off by default. Only triggers on real failed/timed_out outcomes; will not retry invalid arguments or denied calls.",
+  "builtinToolMaxRetriesLabel": "Max Retries (0–{max})",
+  "builtinToolMaxRetriesHelper": "Excluding first attempt; capped at {max}",
+  "builtinToolBackoffLabel": "Retry backoff base (ms)",
+  "builtinToolBackoffHint": "Default {ms}ms",
+  "builtinToolBackoffHelper": "Exponential: nth retry waits base × 2^(N-1) ms, capped at {max}ms",
+  "selfLearningFlushIntervalLabel": "Stream flush interval: {ms}ms",
+  "selfLearningFlushIntervalHelper": "Persistence interval for self-learning card streaming output ({min}–{max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms."
 }

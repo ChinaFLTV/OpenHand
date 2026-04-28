@@ -607,5 +607,17 @@
   "imageEditorWatermarkColorSaturation": "飽和度",
   "imageEditorWatermarkColorLightness": "明度",
   "imageEditorApplySuccess": "調整已應用",
-  "imageEditorProcessing": "處理中…"
+  "imageEditorProcessing": "處理中…",
+  "builtinToolTimeoutLabel": "超時時間（秒）",
+  "builtinToolTimeoutHint": "預設 {seconds}s",
+  "builtinToolTimeoutHelper": "留空則使用預設 {seconds}s",
+  "builtinToolRetryLabel": "失敗/超時自動重試",
+  "builtinToolRetryBody": "預設關閉。僅對真正失敗 (failed/timed_out) 觸發，不會重試參數錯誤或被拒絕的呼叫。",
+  "builtinToolMaxRetriesLabel": "最大重試次數 (0–{max})",
+  "builtinToolMaxRetriesHelper": "不含首次執行；上限 {max} 次",
+  "builtinToolBackoffLabel": "重試退避基線（毫秒）",
+  "builtinToolBackoffHint": "預設 {ms}ms",
+  "builtinToolBackoffHelper": "指數退避：第 N 次重試等待 base × 2^(N-1)ms，上限 {max}ms",
+  "selfLearningFlushIntervalLabel": "串流刷新間隔：{ms}ms",
+  "selfLearningFlushIntervalHelper": "自我學習卡片串流輸出的持久化間隔（{min}–{max}ms）。調小=更即時但更多布局抖動；調大=更平滑但增量延遲更高。預設 600ms。"
 }
