@@ -172,7 +172,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
   required AiChatService chatClient,
   required SettingsController settingsController,
   required MemoryController memoryController,
-  int maxToolCallRounds = 6,
+  int maxToolCallRounds = 8,
 }) {
   final memoryTool = AiMemoryTool(
     memoryControllerProvider: () => memoryController,
@@ -323,6 +323,49 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
 
       // No tool calls → done.
       if (result.toolCalls.isEmpty) {
+        // 2026-04-29 — Recovery: 若模型在思考/回复里明显**描述**了要更新画像
+        // /记忆/技能（出现 upsert_profile / append / memory / skill_manager
+        // 等关键词）但**没有**真正发起工具调用，认定为"光说不做"。给模型
+        // 追加一条强提醒并再跑一轮，让它实际动手。最多重试 1 次以避免循环。
+        final spokeIntent = _looksLikeUnfulfilledIntent(
+          reply: result.reply,
+          reasoning: result.reasoning,
+        );
+        final alreadyNudged = turns.any(
+          (t) =>
+              t.role == AiChatRole.user &&
+              t.content.contains('__SELF_LEARNING_NUDGE__'),
+        );
+        if (spokeIntent && !alreadyNudged && round + 1 < maxToolCallRounds) {
+          turns.add(
+            AiChatTurn(
+              role: AiChatRole.assistant,
+              content: result.reply,
+            ),
+          );
+          turns.add(
+            const AiChatTurn(
+              role: AiChatRole.user,
+              content:
+                  '__SELF_LEARNING_NUDGE__\n'
+                  '你刚才详细描述了要更新画像/记忆/技能，但并没有**实际调用**'
+                  ' memory / skill_manager 工具——这意味着没有任何持久化发生。\n\n'
+                  '请立刻执行以下两件事之一：\n'
+                  '(A) 如果你确认那些更新值得做：直接发起对应的 memory / '
+                  'skill_manager 工具调用（标准 tool_call 格式），不要再描述、'
+                  '不要再思考、不要写"我将"，直接调用；\n'
+                  '(B) 如果对照系统提示中的硬规则 H1–H5，那些信号其实没达到'
+                  '准入门槛：返回一段一句话说明"无变更"，然后结束本轮。\n\n'
+                  '请二选一，立即给出结果。',
+            ),
+          );
+          if (progress != null) {
+            const nudgeMarker = '\n\n— 检测到光说不做，已要求实际动手 —\n\n';
+            responseBuffer.write(nudgeMarker);
+            progress(aiResponse: responseBuffer.toString());
+          }
+          continue;
+        }
         terminatedReason = 'no_tool_calls';
         break;
       }
@@ -520,4 +563,40 @@ String _summariseSkillArgs(Map<String, Object?> args) {
     'delete' => '删除技能',
     _ => action.isEmpty ? '技能操作' : action,
   };
+}
+
+/// 启发式：当模型在 reply / reasoning 中提到了要做的更新动作（中文/英文/工具
+/// 名都覆盖），但**没有**实际发起 tool_call 时，认为它"光说不做"，需要在
+/// 下一轮强制提醒它真正调用工具。门槛刻意取较松：宁可多触发一次保险提醒，
+/// 也不要让一轮真正想更新但忘了调用工具的自学习被白白丢弃。
+bool _looksLikeUnfulfilledIntent({
+  required String reply,
+  required String reasoning,
+}) {
+  final combined = '$reply\n$reasoning';
+  if (combined.trim().isEmpty) return false;
+  // 显式说"无变更/无更新"的情况不算光说不做。
+  final negationPatterns = <RegExp>[
+    RegExp(r'无\s*变\s*更'),
+    RegExp(r'不\s*需\s*要\s*更新'),
+    RegExp(r'本\s*轮\s*放\s*弃'),
+    RegExp(r'\bno\s+changes?\b', caseSensitive: false),
+    RegExp(r'\bskip(?:ping)?\s+this\s+round\b', caseSensitive: false),
+  ];
+  for (final neg in negationPatterns) {
+    if (neg.hasMatch(combined)) return false;
+  }
+  final intentPatterns = <RegExp>[
+    RegExp(r'upsert_profile'),
+    RegExp(r'memory\s*\(\s*action'),
+    RegExp(r'skill[_\s-]?manager'),
+    RegExp(r'我\s*(?:将|要|准备|打算|应该|会|需要)\s*(?:调用|更新|新增|追加|删除|patch|edit|create)'),
+    RegExp(r'(?:更新|新增|追加|修订|纠正)\s*(?:画像|user_profile|记忆|技能|skill)'),
+    RegExp(r'\b(?:I\s+(?:will|should|need\s+to)|let\s+me)\s+(?:call|update|append|add|delete|invoke)\b',
+        caseSensitive: false),
+  ];
+  for (final pat in intentPatterns) {
+    if (pat.hasMatch(combined)) return true;
+  }
+  return false;
 }

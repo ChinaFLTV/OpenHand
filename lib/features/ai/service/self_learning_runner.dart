@@ -189,8 +189,13 @@ class SelfLearningRunner {
   final String autoLearnedMemoriesTag;
 
   /// 流式累计文本写入卡片的最小间隔。设置过小会引起频繁 sqflite 写入；
-  /// 设置过大会让 UI 看起来不够丝滑。250ms 是经验折中。
-  static const Duration _streamFlushInterval = Duration(milliseconds: 250);
+  /// 设置过大会让 UI 看起来不够丝滑。
+  ///
+  /// 2026-04-29 — 由 250ms 调高到 600ms。原值与"用户在自主学习流式期间
+  /// 发出新消息"的场景叠加时，会让中段流式卡片每秒重绘 4 次，与 transcript
+  /// 的 auto-follow 一起把视图反复推到底部，外观上像抽搐。600ms 已经够
+  /// 让推理-丰富的模型每段思考显示一次，同时把 layout 抖动降到肉眼可接受。
+  static const Duration _streamFlushInterval = Duration(milliseconds: 600);
 
   /// 由 [SelfLearningScheduler] 调用。为单个会话执行一次自我学习流程。
   Future<SelfLearningSessionReport?> runForSession(AiSession session) async {
@@ -457,50 +462,62 @@ class SelfLearningRunner {
     );
   }
 
-  String _buildConversationSlice(AiSession session) {
-    int startIndex = 0;
+  /// 仅纳入"纯净对话"——即真正承载用户意图与助手最终回复的两类消息：
+  ///   - kind == user
+  ///   - kind == assistant
+  ///
+  /// 显式排除（即使 role 为 user/assistant）：
+  ///   - selfLearning：避免把上一轮自主学习卡片当作新素材，造成自我引用循环
+  ///   - reasoning / toolCall / tool：模型思考与工具往返与"长期价值"无关，
+  ///     混入会让画像记忆被中间过程污染，并显著增长 prompt
+  ///   - mcp / skill / hook / status / compressionPoint：纯系统/编排副作用
+  ///
+  /// 同时只回看到"最近一条 selfLearning 卡片之后"——之前的所有消息都已经
+  /// 被那一轮检查点学习过，不应再次喂入。
+  bool _shouldIncludeMessageInSlice(AiSessionMessage m) {
+    if (m.isDeleted) return false;
+    if (m.kind != AiSessionMessageKind.user &&
+        m.kind != AiSessionMessageKind.assistant) {
+      return false;
+    }
+    if (m.role != AiSessionMessageRole.user &&
+        m.role != AiSessionMessageRole.assistant) {
+      return false;
+    }
+    return true;
+  }
+
+  int _sliceStartIndex(AiSession session) {
     for (var i = session.messages.length - 1; i >= 0; i--) {
       final m = session.messages[i];
       if (m.isDeleted) continue;
       if (m.kind == AiSessionMessageKind.selfLearning) {
-        startIndex = i + 1;
-        break;
+        return i + 1;
       }
     }
+    return 0;
+  }
+
+  String _buildConversationSlice(AiSession session) {
+    final startIndex = _sliceStartIndex(session);
     final buffer = StringBuffer();
     for (var i = startIndex; i < session.messages.length; i++) {
       final m = session.messages[i];
-      if (m.isDeleted) continue;
-      final role = switch (m.role) {
-        AiSessionMessageRole.user => 'user',
-        AiSessionMessageRole.assistant => 'assistant',
-        _ => null,
-      };
-      if (role == null) continue;
+      if (!_shouldIncludeMessageInSlice(m)) continue;
+      final role = m.kind == AiSessionMessageKind.user ? 'user' : 'assistant';
       buffer.writeln('$role: ${m.content}');
     }
     return buffer.toString().trimRight();
   }
 
-  /// Counts non-deleted user/assistant messages after the most recent
+  /// Counts pure user/assistant messages after the most recent
   /// `selfLearning` checkpoint. Robust against multi-line message content
   /// (unlike line counting on the rendered slice).
   int _countSliceMessages(AiSession session) {
-    int startIndex = 0;
-    for (var i = session.messages.length - 1; i >= 0; i--) {
-      final m = session.messages[i];
-      if (m.isDeleted) continue;
-      if (m.kind == AiSessionMessageKind.selfLearning) {
-        startIndex = i + 1;
-        break;
-      }
-    }
+    final startIndex = _sliceStartIndex(session);
     var count = 0;
     for (var i = startIndex; i < session.messages.length; i++) {
-      final m = session.messages[i];
-      if (m.isDeleted) continue;
-      if (m.role == AiSessionMessageRole.user ||
-          m.role == AiSessionMessageRole.assistant) {
+      if (_shouldIncludeMessageInSlice(session.messages[i])) {
         count += 1;
       }
     }
@@ -515,26 +532,57 @@ class SelfLearningRunner {
     final profileSection = userProfile.isEmpty ? '(空)' : userProfile;
     final autoLearnedSection = autoLearned.isEmpty ? '(空)' : autoLearned;
     return '''
-[系统消息: 这是一次自我学习流程,目的是在不打扰用户的情况下,将本次对话
-中沉淀下来的价值信息持久化为长期记忆或技能。请按以下步骤执行:
+[系统消息: 这是一次自我学习流程,目的是在不打扰用户的情况下,把本次对话中
+**真正具有长期价值**的信号沉淀为长期记忆/画像/技能。请按以下流程严格执行。
 
-1. 审视下方对话,提炼出:
-   - 用户画像更新 (偏好/角色/关注点/习惯)
-   - 通用价值记忆 (不属于画像的经验/事实/决策)
-   - 可复用技能 (若本次解决了非平凡的可复现任务)
-2. 调用 memory 工具:
-   - 对 type=user_profile 的记忆,使用 upsert 而非新建 (全库只允许一条
-     user_profile 记忆);在已有画像基础上纠正/精炼,而不是覆盖无关字段。
-   - 对 type=user 的自主学习记忆,使用 '$autoLearnedMemoriesTag' 标签;优先更新已有相
-     关条目,而不是无限新增。
-   - **每次 append / update 一条 type=user 的记忆时,务必同时提供一个 `title`
-     字段**: 一句话浓缩本条记忆的主旨, ≤30 个汉字 / ≤80 个 ASCII 字符,
-     用于 UI 卡片头部展示。如果是 update 且原标题已经准确,可以省略 `title`
-     保留旧标题; 否则请显式给出新标题。
-3. 调用 skill_manager 工具 (仅在出现可复用工作流时):
-   - 优先使用 patch 细调,而非 edit 全量重写。
-   - 默认保存到用户全局设置中的技能目录。
-4. 输出自然、零痕迹;不要向用户提及记忆/画像这件事。
+══════════════════════════════════════════════════════════════════════
+【强制硬规则 — 任何一条违反则本轮立即返回 "无变更" 并结束】
+══════════════════════════════════════════════════════════════════════
+H1. 你**必须真正调用 memory / skill_manager 工具**才能产生任何持久化效果。
+    仅在思考或回复中"描述要做什么"是无效的、会被丢弃。
+H2. 严禁基于**单次、偶发、临时性**对话片段（如临时心情、随口一句、
+    一次性玩笑、玩梗、一次性切换语气）就更新画像或新增记忆。
+H3. 严禁与已有画像/记忆**重复、近义、碎片化**的新增 — 必须先逐条对照
+    "当前用户画像" 与 "最近的自主学习记忆"，能合并则合并(update)，
+    不能合并且不显著则放弃(no-op)。
+H4. 严禁删除用户主动写入(非"自主学习"标签)的记忆。删除仅允许针对自己
+    历史新增的、已被新条目完全覆盖的过期条目。
+H5. 严禁仅凭一次对话就推断出新的"长期偏好/价值观/身份"。需至少看到
+    **同一信号在本次对话中清晰出现 ≥ 2 次**（不同上下文/不同表达），
+    或与现有画像中的相关条目**形成可解释的强化/修正关系**。
+
+══════════════════════════════════════════════════════════════════════
+【执行步骤】
+══════════════════════════════════════════════════════════════════════
+S1. 信号筛选 — 在思考中先列出本次对话中**候选信号**（最多 5 条），
+    然后逐条用 H1–H5 自检；通过自检的才进入 S2。
+S2. 画像更新 — 仅当满足下列**全部**条件才调用 memory(action=upsert_profile)：
+    (a) 信号强度高（明确陈述 / 重复出现 / 与已有画像存在张力或缺失）；
+    (b) 不属于一次性玩笑/网络梗的临时风格；
+    (c) **辩证式**修订：保留已有正确部分，只针对真正变化或缺失的字段
+        增/改一段最多 80 字的精炼内容；不要重写无关字段；
+    (d) 修订后整体长度增长 ≤ 30%（避免画像被无意义铺陈撑大）。
+S3. 通用记忆 — 仅当满足下列**全部**条件才调用 memory(action=append/update)
+    并使用 '$autoLearnedMemoriesTag' 标签：
+    (a) 是可在**未来其他对话中复用**的事实/经验/决策/偏好（不是"刚才聊了 X"）；
+    (b) **不可压缩进画像**（否则应走 S2）；
+    (c) 与现有同类记忆不重复也不矛盾（重复→update 现有条目，矛盾→update
+        并解释取舍；都不行则放弃）；
+    (d) **每条 type=user 记忆必须提供 `title` 字段**（≤30 汉字 / ≤80 ASCII），
+        update 且原 title 仍准确时可省略。
+S4. 技能 — 仅当出现**完整、可复现、非平凡**的工作流时才调用 skill_manager；
+    优先 patch 细调，避免 edit 全量重写；默认保存到全局技能目录。
+S5. 输出自然、零痕迹 — 不要向用户提及"记忆/画像/技能"这件事。
+
+══════════════════════════════════════════════════════════════════════
+【准入门槛速查表 — 拿不准就**放弃**】
+══════════════════════════════════════════════════════════════════════
+| 类型 | 该做 | 不该做 |
+|------|------|--------|
+| 画像 upsert | 强信号、重复出现、修正现有缺陷 | 一次性梗、临时心情、本就涵盖 |
+| 记忆 append | 可跨对话复用的事实/经验 | 描述本次对话本身 / 已存在 |
+| 记忆 update | 已有条目内容过期或不准 | 新增近义条目 |
+| 记忆 delete | 仅删自己历史新增的过期条目 | 删用户手写记忆 |
 
 ---
 
@@ -547,7 +595,10 @@ $autoLearnedSection
 ## 本次需要学习的对话片段
 $slice
 
-完成后不要回复用户,只需调用工具并结束本轮。]
+══════════════════════════════════════════════════════════════════════
+完成后不要回复用户，只用一段中文向系统总结本轮"评估了哪些候选信号、
+为何接受或放弃"。如果全部信号都被 H1–H5 拒绝，**直接返回"无变更"** —
+这本身就是合格的输出，比强行新增更好。]
 ''';
   }
 }
