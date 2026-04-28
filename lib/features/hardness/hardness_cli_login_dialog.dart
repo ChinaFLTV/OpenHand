@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'hardness_cli_catalog.dart';
 
@@ -228,7 +229,10 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         final escapedCmd = _commandPreview
             .replaceAll('\\', '\\\\')
             .replaceAll('"', '\\"');
-        await Process.run('osascript', [
+        // safe_subprocess: hard timeout + child kill avoids leaking an
+        // osascript that could disrupt the host app's input-method context
+        // (observed previously as TextFields refusing input/paste).
+        await runProcessWithTimeout('osascript', [
           '-e',
           'tell application "Terminal"',
           '-e',
@@ -237,7 +241,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
           'do script "$escapedCmd"',
           '-e',
           'end tell',
-        ]);
+        ], tag: 'hardness_cli_login_dialog');
       } else if (Platform.isLinux) {
         // Try common terminal emulators.
         final terminals = ['gnome-terminal', 'xterm', 'konsole'];
