@@ -77,6 +77,7 @@ class AiResolvedTool {
     this.mcpServer,
     this.mcpTool,
     this.skill,
+    this.builtinConfig,
   });
 
   final String name;
@@ -86,6 +87,10 @@ class AiResolvedTool {
   final McpServer? mcpServer;
   final McpTool? mcpTool;
   final LocalSkill? skill;
+
+  /// 用户层面的内建工具配置（仅 builtin 来源）。携带 timeout / retry 等
+  /// 运行时策略；execute() 据此包裹超时与重试逻辑（2026-04-29）。
+  final AiBuiltinToolConfig? builtinConfig;
 }
 
 enum AiBuiltinToolKind {
@@ -288,7 +293,20 @@ class AiToolRuntimeService {
           overrideSummary != null ||
           cfg.schemaOverride != null;
       if (!needsOverride) {
-        result.add(baseTool);
+        // 即使没有 prompt/schema 覆盖，也要把用户配置（timeout/retry/...）
+        // 透传给 execute()，否则 retry-on-failure 等策略不会生效。
+        result.add(
+          AiResolvedTool(
+            name: baseTool.name,
+            definition: baseTool.definition,
+            source: baseTool.source,
+            builtinKind: baseTool.builtinKind,
+            mcpServer: baseTool.mcpServer,
+            mcpTool: baseTool.mcpTool,
+            skill: baseTool.skill,
+            builtinConfig: cfg,
+          ),
+        );
         continue;
       }
       var desc = baseTool.definition.description;
@@ -308,6 +326,7 @@ class AiToolRuntimeService {
           ),
           source: baseTool.source,
           builtinKind: baseTool.builtinKind,
+          builtinConfig: cfg,
         ),
       );
     }
@@ -561,8 +580,19 @@ class AiToolRuntimeService {
 
     final rawExecutionStartedAt = Stopwatch()..start();
     late final AiToolExecutionResult rawResult;
-    try {
-      rawResult = await switch (resolvedTool.source) {
+    // 2026-04-29 — 用户层 timeout / retry 策略包裹真正的 dispatch。
+    // 仅当工具来自 builtin 且携带 [builtinConfig] 时启用：
+    //   • timeout: Duration(seconds: cfg.effectiveTimeoutSeconds) 包裹 future；
+    //   • retry: 在 retryOnFailure=true 且 maxRetries>0 时，针对**真正失败**
+    //     （TimeoutException / 抛出异常 / status=failed/timed_out）的情况
+    //     重跑——但跳过 invalid_arguments / 已被用户拒绝执行等"非瞬时"失败。
+    final builtinCfg = resolvedTool.builtinConfig;
+    final timeoutDuration = builtinCfg != null
+        ? Duration(seconds: builtinCfg.effectiveTimeoutSeconds)
+        : null;
+    final maxRetries = builtinCfg?.effectiveMaxRetries ?? 0;
+    Future<AiToolExecutionResult> dispatchOnce() async {
+      return switch (resolvedTool.source) {
         AiRuntimeToolSource.builtin => _executeBuiltinTool(
           sessionId: sessionId,
           catalog: catalog,
@@ -588,14 +618,82 @@ class AiToolRuntimeService {
           decodedArguments: decodedArguments,
         ),
       };
-    } catch (error) {
-      rawResult = _toolExecutionErrorResult(
-        tool: resolvedTool,
-        fallbackWorkingDirectory: hookWorkingDirectory,
-        error: error,
-        durationMs: rawExecutionStartedAt.elapsedMilliseconds,
-      );
     }
+
+    bool isRetryableResult(AiToolExecutionResult r) {
+      // 仅在用户启用 retry-on-failure 时判定。
+      if (builtinCfg == null || !builtinCfg.retryOnFailure) return false;
+      switch (r.status) {
+        case BashToolExecutionStatus.failed:
+        case BashToolExecutionStatus.timedOut:
+          return true;
+        case BashToolExecutionStatus.success:
+        case BashToolExecutionStatus.cancelled:
+        case BashToolExecutionStatus.denied:
+        case BashToolExecutionStatus.rejected:
+        case BashToolExecutionStatus.invalidArguments:
+          return false;
+      }
+    }
+
+    Future<AiToolExecutionResult> dispatchWithTimeout() async {
+      final f = dispatchOnce();
+      if (timeoutDuration == null) return f;
+      try {
+        return await f.timeout(
+          timeoutDuration,
+          onTimeout: () => AiToolExecutionResult(
+            status: BashToolExecutionStatus.timedOut,
+            command: resolvedTool.name,
+            workingDirectory: hookWorkingDirectory,
+            stdout: '',
+            stderr:
+                'Tool "${resolvedTool.name}" exceeded the configured '
+                '${timeoutDuration.inSeconds}s timeout.',
+            durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+            resultText:
+                'status: timed_out\nerror: tool exceeded ${timeoutDuration.inSeconds}s timeout',
+          ),
+        );
+      } on TimeoutException {
+        return AiToolExecutionResult(
+          status: BashToolExecutionStatus.timedOut,
+          command: resolvedTool.name,
+          workingDirectory: hookWorkingDirectory,
+          stdout: '',
+          stderr:
+              'Tool "${resolvedTool.name}" exceeded the configured '
+              '${timeoutDuration.inSeconds}s timeout.',
+          durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+          resultText:
+              'status: timed_out\nerror: tool exceeded ${timeoutDuration.inSeconds}s timeout',
+        );
+      }
+    }
+
+    AiToolExecutionResult? attemptResult;
+    var attempts = 0;
+    while (true) {
+      attempts += 1;
+      try {
+        attemptResult = await dispatchWithTimeout();
+        if (!isRetryableResult(attemptResult) || attempts > maxRetries) {
+          break;
+        }
+      } catch (error) {
+        if (builtinCfg == null || !builtinCfg.retryOnFailure ||
+            attempts > maxRetries) {
+          attemptResult = _toolExecutionErrorResult(
+            tool: resolvedTool,
+            fallbackWorkingDirectory: hookWorkingDirectory,
+            error: error,
+            durationMs: rawExecutionStartedAt.elapsedMilliseconds,
+          );
+          break;
+        }
+      }
+    }
+    rawResult = attemptResult;
     final postHookResult = await _hookService.runHooks(
       eventName: rawResult.status == BashToolExecutionStatus.success
           ? 'PostToolUse'

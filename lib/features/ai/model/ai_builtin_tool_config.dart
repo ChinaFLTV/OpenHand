@@ -39,11 +39,21 @@ class AiBuiltinToolConfig {
     this.maxOutputChars,
     this.timeoutSeconds,
     this.requireConfirmation,
+    this.retryOnFailure = false,
+    this.maxRetries = 0,
     this.isCustom = false,
     this.customToolName,
     this.customDescription,
     this.customParameters,
   });
+
+  /// 单次工具调用未在用户层面显式覆盖时使用的默认超时秒数（2026-04-29）。
+  /// 之前为 null 时由调用方各自决定，现在统一为 20s 以避免内建工具长时间挂起。
+  static const int defaultTimeoutSeconds = 20;
+
+  /// 失败/超时重试的硬上限。即便用户把 [maxRetries] 设得很大，
+  /// 也不会超过此值，避免错误指数级放大。
+  static const int maxRetriesUpperBound = 5;
 
   /// 工具类型标识。
   final AiBuiltinToolKind kind;
@@ -85,6 +95,30 @@ class AiBuiltinToolConfig {
 
   /// 是否需要用户手动确认后才执行。null 表示使用工具自身默认行为。
   final bool? requireConfirmation;
+
+  /// 失败或超时后是否自动重试。默认 false。
+  /// 仅在工具调用产生明确失败状态（status=failed/timed_out 或抛出异常）
+  /// 时才会触发重试；invalid_arguments / 已确认拒绝执行等状态不会重试。
+  final bool retryOnFailure;
+
+  /// 最多重试次数（不含首次执行）。范围 [0, [maxRetriesUpperBound]]。
+  /// 仅当 [retryOnFailure] = true 时生效。
+  final int maxRetries;
+
+  /// 实际生效的超时秒数（毫秒级 Duration 由调用方包装）。
+  int get effectiveTimeoutSeconds {
+    final raw = timeoutSeconds ?? defaultTimeoutSeconds;
+    if (raw <= 0) return defaultTimeoutSeconds;
+    return raw;
+  }
+
+  /// 实际生效的重试次数（已 clamp 到上限）。
+  int get effectiveMaxRetries {
+    if (!retryOnFailure) return 0;
+    if (maxRetries <= 0) return 0;
+    if (maxRetries > maxRetriesUpperBound) return maxRetriesUpperBound;
+    return maxRetries;
+  }
 
   /// 是否为用户自定义的"新增"工具（非内建 kind 映射）。
   final bool isCustom;
@@ -134,6 +168,8 @@ class AiBuiltinToolConfig {
     int? maxOutputChars,
     int? timeoutSeconds,
     bool? requireConfirmation,
+    bool? retryOnFailure,
+    int? maxRetries,
     bool? isCustom,
     String? customToolName,
     String? customDescription,
@@ -173,6 +209,8 @@ class AiBuiltinToolConfig {
       requireConfirmation: clearRequireConfirmation
           ? null
           : (requireConfirmation ?? this.requireConfirmation),
+      retryOnFailure: retryOnFailure ?? this.retryOnFailure,
+      maxRetries: maxRetries ?? this.maxRetries,
       isCustom: isCustom ?? this.isCustom,
       customToolName: clearCustomToolName
           ? null
@@ -202,6 +240,8 @@ class AiBuiltinToolConfig {
       if (timeoutSeconds != null) 'timeout_seconds': timeoutSeconds,
       if (requireConfirmation != null)
         'require_confirmation': requireConfirmation,
+      'retry_on_failure': retryOnFailure,
+      'max_retries': maxRetries,
       'is_custom': isCustom,
       if (customToolName != null) 'custom_tool_name': customToolName,
       if (customDescription != null) 'custom_description': customDescription,
@@ -268,6 +308,10 @@ class AiBuiltinToolConfig {
       requireConfirmation: json['require_confirmation'] is bool
           ? json['require_confirmation'] as bool
           : null,
+      retryOnFailure: json['retry_on_failure'] is bool
+          ? json['retry_on_failure'] as bool
+          : false,
+      maxRetries: (json['max_retries'] as num?)?.toInt() ?? 0,
       isCustom: json['is_custom'] is bool ? json['is_custom'] as bool : false,
       customToolName: json['custom_tool_name'] is String
           ? json['custom_tool_name'] as String

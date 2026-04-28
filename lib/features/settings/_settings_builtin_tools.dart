@@ -319,11 +319,13 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   late final TextEditingController _priorityController;
   late final TextEditingController _maxOutputCharsController;
   late final TextEditingController _timeoutSecondsController;
+  late final TextEditingController _maxRetriesController;
   late final TextEditingController _tagsController;
 
   late bool _enabled;
   late AiBuiltinToolLoadStrategy _loadStrategy;
   late bool? _requireConfirmation;
+  late bool _retryOnFailure;
   bool _isSaving = false;
 
   @override
@@ -352,10 +354,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _timeoutSecondsController = TextEditingController(
       text: c.timeoutSeconds != null ? '${c.timeoutSeconds}' : '',
     );
+    _maxRetriesController = TextEditingController(text: '${c.maxRetries}');
     _tagsController = TextEditingController(text: c.tags.join(', '));
     _enabled = c.enabled;
     _loadStrategy = c.loadStrategy;
     _requireConfirmation = c.requireConfirmation;
+    _retryOnFailure = c.retryOnFailure;
   }
 
   @override
@@ -367,6 +371,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _priorityController.dispose();
     _maxOutputCharsController.dispose();
     _timeoutSecondsController.dispose();
+    _maxRetriesController.dispose();
     _tagsController.dispose();
     super.dispose();
   }
@@ -390,6 +395,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     final priority = int.tryParse(_priorityController.text.trim()) ?? 100;
     final maxOutputChars = int.tryParse(_maxOutputCharsController.text.trim());
     final timeoutSeconds = int.tryParse(_timeoutSecondsController.text.trim());
+    final parsedMaxRetries =
+        int.tryParse(_maxRetriesController.text.trim()) ?? 0;
+    final maxRetries = parsedMaxRetries.clamp(
+      0,
+      AiBuiltinToolConfig.maxRetriesUpperBound,
+    );
     final rawTags = _tagsController.text
         .split(',')
         .map((t) => t.trim())
@@ -408,6 +419,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       maxOutputChars: maxOutputChars,
       timeoutSeconds: timeoutSeconds,
       requireConfirmation: _requireConfirmation,
+      retryOnFailure: _retryOnFailure,
+      maxRetries: maxRetries,
       clearDisplayName: displayName.isEmpty,
       clearSummary: summary.isEmpty,
       clearPromptOverride: promptOverride.isEmpty,
@@ -677,8 +690,74 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   ),
                                   hintText: _localizedText(
                                     context,
-                                    zh: '使用全局默认',
-                                    en: 'Global default',
+                                    zh: '默认 ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
+                                    en: 'Default ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
+                                  ),
+                                  helperText: _localizedText(
+                                    context,
+                                    zh: '留空则使用默认 ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
+                                    en: 'Blank = default ${AiBuiltinToolConfig.defaultTimeoutSeconds}s',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Retry on failure / Max retries
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '失败/超时自动重试',
+                                    en: 'Retry on failure / timeout',
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _localizedText(
+                                    context,
+                                    zh: '默认关闭。仅对真正失败 (failed/timed_out) 触发，'
+                                        '不会重试参数错误或被拒绝的调用。',
+                                    en:
+                                        'Off by default. Only triggers on real failed/'
+                                        'timed_out outcomes; will not retry invalid '
+                                        'arguments or denied calls.',
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                value: _retryOnFailure,
+                                onChanged: (value) =>
+                                    setState(() => _retryOnFailure = value),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: TextField(
+                                controller: _maxRetriesController,
+                                enabled: _retryOnFailure,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: <TextInputFormatter>[
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: _localizedText(
+                                    context,
+                                    zh: '最大重试次数 (0–${AiBuiltinToolConfig.maxRetriesUpperBound})',
+                                    en: 'Max Retries (0–${AiBuiltinToolConfig.maxRetriesUpperBound})',
+                                  ),
+                                  helperText: _localizedText(
+                                    context,
+                                    zh: '不含首次执行；上限 ${AiBuiltinToolConfig.maxRetriesUpperBound} 次',
+                                    en:
+                                        'Excluding first attempt; capped at ${AiBuiltinToolConfig.maxRetriesUpperBound}',
                                   ),
                                 ),
                               ),
