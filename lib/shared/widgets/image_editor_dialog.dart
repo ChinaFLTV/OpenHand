@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
@@ -2085,15 +2086,18 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
 
       var bitmapCopied = false;
       if (Platform.isMacOS) {
-        try {
-          final result = await Process.run('osascript', <String>[
+        // Use the safe subprocess wrapper so a hung osascript cannot leak
+        // and corrupt the host app's input-method context (which would
+        // surface as TextFields no longer accepting input/paste).
+        final result = await runProcessWithTimeout(
+          'osascript',
+          <String>[
             '-e',
             'set the clipboard to (read POSIX file "${tempFile.path.replaceAll('"', r'\"')}") as ${ext == 'png' ? 'picture' : 'JPEG picture'}',
-          ]);
-          bitmapCopied = result.exitCode == 0;
-        } catch (_) {
-          bitmapCopied = false;
-        }
+          ],
+          tag: 'image_editor_dialog',
+        );
+        bitmapCopied = result?.exitCode == 0;
       }
 
       // Always also push the file path so non-image-aware paste targets get

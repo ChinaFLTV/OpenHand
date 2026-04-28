@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'safe_subprocess.dart';
+
 enum OpenHandNotificationLevel { info, success, warning, error, critical }
 
 abstract final class OpenHandNotificationService {
@@ -114,15 +116,15 @@ abstract final class OpenHandNotificationService {
   }) async {
     final safeTitle = _escapeAppleScript(title);
     final safeBody = _escapeAppleScript(body);
-    try {
-      final result = await Process.run('osascript', [
+    final result = await runProcessWithTimeout(
+      'osascript',
+      [
         '-e',
         'display notification "$safeBody" with title "$safeTitle"',
-      ]);
-      return result.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
+      ],
+      tag: 'openhand_notification_service',
+    );
+    return result?.exitCode == 0;
   }
 
   static Future<bool> _showLinux({
@@ -243,17 +245,22 @@ $notifier.Show($toast)
       OpenHandNotificationLevel.info => 'Funk',
     };
     final soundPath = '/System/Library/Sounds/$soundName.aiff';
-    try {
-      final file = File(soundPath);
-      if (file.existsSync()) {
-        final result = await Process.run('afplay', [soundPath]);
-        if (result.exitCode == 0) return true;
-      }
-      final fallback = await Process.run('osascript', ['-e', 'beep']);
-      return fallback.exitCode == 0;
-    } catch (_) {
-      return false;
+    final file = File(soundPath);
+    if (file.existsSync()) {
+      final result = await runProcessWithTimeout(
+        'afplay',
+        [soundPath],
+        timeout: const Duration(seconds: 6),
+        tag: 'openhand_notification_service',
+      );
+      if (result?.exitCode == 0) return true;
     }
+    final fallback = await runProcessWithTimeout(
+      'osascript',
+      ['-e', 'beep'],
+      tag: 'openhand_notification_service',
+    );
+    return fallback?.exitCode == 0;
   }
 
   static Future<bool> _playSoundLinux(OpenHandNotificationLevel level) async {
