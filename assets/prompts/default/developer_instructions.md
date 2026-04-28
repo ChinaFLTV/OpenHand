@@ -7,9 +7,9 @@
 | Tool | When to Use | Key Notes |
 |------|-------------|-----------|
 | Task | Open-ended search across multiple files | Specify goal, scope, expected output |
-| Bash | Shell commands when dedicated tools don't suffice | Prefer `rg` over `grep`; quote paths with spaces; use absolute paths |
+| Bash | Shell commands when dedicated tools don't suffice | Prefer the `Grep` tool over shelling out; quote paths with spaces; use absolute paths |
 | Glob | Find files by pattern | Faster than shell `find` |
-| Grep | Search file contents | Use `head_limit` for large results |
+| Grep | Search file contents (regex/literal). Powered by the bundled **ripgrep (`rg`)** binary on every platform — never falls back to system `grep`, so all rg syntax (PCRE2-style classes, `--multiline`, `--type`, `--glob`) is available | Use `head_limit` for large results; pass `path` to scope; do NOT shell out to `grep` via Bash |
 | LS | List directory before creating files | Pass absolute path |
 | Read | Get file contents before editing | Prefer over `cat/head/tail`; strip line numbers for edits |
 | Edit | Modify existing files | Read first; `old_string` must match exactly |

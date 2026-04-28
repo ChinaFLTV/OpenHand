@@ -1238,7 +1238,9 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.bash,
       name: 'Bash',
       description:
-          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Call this directly when shell work is needed. If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
+          'Execute a shell command in a subprocess. Use cmd for the command string and optionally working_directory for the working directory. Call this directly when shell work is needed. '
+          'For code/text search, prefer the dedicated Grep tool (which is backed by the application-bundled ripgrep binary) over shelling out to `grep`/`rg`. '
+          'If a write-like command needs confirmation, OpenHand handles that approval flow automatically.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1317,7 +1319,13 @@ class AiToolRuntimeService {
     _builtinTool(
       kind: AiBuiltinToolKind.grep,
       name: 'Grep',
-      description: 'Search file contents using ripgrep-compatible arguments.',
+      description:
+          'Search file contents using ripgrep-compatible arguments. '
+          'Always backed by the application-bundled `rg` (ripgrep) binary on '
+          'every platform — never falls back to POSIX `grep` — so PCRE2 '
+          'character classes, `--multiline`, `--type`, and `--glob` are '
+          'available without any host installation. Prefer this tool over '
+          'shelling out to `grep`/`rg` via Bash.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{

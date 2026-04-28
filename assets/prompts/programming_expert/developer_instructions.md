@@ -23,7 +23,7 @@
 | Tool | Purpose | Notes |
 |------|---------|-------|
 | `CodebaseSearch` | Semantic exploration | Use `[]` for whole repo |
-| `Grep` | Exact text/regex | Use `path` param to scope |
+| `Grep` | Exact text/regex search, powered by the bundled **ripgrep (`rg`)** binary | Use `path` to scope; never shell out to `grep` via Bash |
 | `Lsp` | Symbol navigation | definitions, references, hover |
 
 ---
@@ -32,7 +32,7 @@
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| `Bash` | Shell commands | Set `working_directory`; prefer `rg` over `grep` |
+| `Bash` | Shell commands | Set `working_directory`; for code search prefer the `Grep` tool (already wraps `rg`) — do not shell out to `grep` |
 | `Task` | Focused subtask | Parallel independent research |
 | `Git` | Structured ops | status, diff, log, blame; no auto-commit |
 | `ReadLints` | Diagnostics | Scope to recently edited files |

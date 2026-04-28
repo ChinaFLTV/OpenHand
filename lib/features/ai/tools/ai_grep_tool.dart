@@ -50,20 +50,26 @@ class AiGrepTool extends AiTool {
     final headLimit = AiToolUtils.readInt(args['head_limit']);
     final multiline = args['multiline'] == true;
 
-    // 查找 rg 可执行文件（使用共享工具方法）
+    // 查找 rg 可执行文件（优先使用应用内嵌入的 vendor/ripgrep；
+    // 仅当应用打包损坏导致内嵌二进制丢失时才会回退到系统 PATH）。
     final rgPath = await AiToolUtils.resolveRipgrepPath();
     if (rgPath == null) {
+      const message =
+          'ripgrep (rg) binary unavailable. The application bundles rg under '
+          'vendor/ripgrep/{arch}-{os}/rg, so this normally never happens — '
+          'reinstall the app or ensure the vendor directory was shipped. '
+          'As a last resort install ripgrep system-wide (e.g. `brew install '
+          'ripgrep` on macOS).';
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: 'Grep $pattern',
         workingDirectory: path,
         stdout: '',
-        stderr:
-            'ripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
+        stderr: message,
         durationMs: startedAt.elapsedMilliseconds,
         exitCode: 127,
         resultText:
-            'status: failed\nexit_code: 127\nstdout:\n\nstderr:\nripgrep (rg) command not found. Please install ripgrep: brew install ripgrep',
+            'status: failed\nexit_code: 127\nstdout:\n\nstderr:\n$message',
       );
     }
 
