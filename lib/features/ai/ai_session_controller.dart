@@ -1106,6 +1106,62 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
+  /// Persist a manual ordering of sessions. The first id in
+  /// [orderedSessionIds] becomes display_order=0, etc. The in-memory
+  /// `_sessions` list is reordered to match (with any unknown ids dropped
+  /// and any locally known ids missing from the input appended at the
+  /// tail in their existing relative order — mirroring the next
+  /// `loadAllHeaders()` result).
+  Future<bool> reorderSessions(List<String> orderedSessionIds) async {
+    return _enqueueOperation(() async {
+      final previousSessions = List<AiSession>.from(_sessions);
+      final byId = <String, AiSession>{
+        for (final session in _sessions) session.id: session,
+      };
+      final reordered = <AiSession>[];
+      final seen = <String>{};
+      for (final rawId in orderedSessionIds) {
+        final id = rawId.trim();
+        if (id.isEmpty || !seen.add(id)) continue;
+        final session = byId.remove(id);
+        if (session != null) reordered.add(session);
+      }
+      // Append any sessions not in the supplied order at the tail in their
+      // pre-existing relative order. Without this, sessions that exist in
+      // memory but weren't enumerated by the dialog (e.g. created
+      // concurrently) would appear to vanish until the next refresh.
+      for (final session in previousSessions) {
+        if (byId.containsKey(session.id)) reordered.add(session);
+      }
+      if (reordered.length != previousSessions.length) {
+        // Defensive: if anything went wrong (count mismatch), leave the
+        // in-memory list alone and fail the operation so the caller can
+        // surface a snackbar.
+        return false;
+      }
+      _setSessions(reordered);
+      notifyListeners();
+      try {
+        await _store.reorderSessions(
+          reordered.map((session) => session.id).toList(growable: false),
+        );
+        return true;
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'reorderSessions persist',
+          error,
+          stack,
+        );
+        // Roll back in-memory ordering on persistence failure so the UI
+        // matches the on-disk state.
+        _setSessions(previousSessions);
+        notifyListeners();
+        return false;
+      }
+    });
+  }
+
   AiRuntimeToolPreview previewRuntimeToolCatalog({
     required AiSession session,
     required AiModelConfig model,

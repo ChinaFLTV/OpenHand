@@ -113,7 +113,10 @@ class AiSessionStore {
   /// Loads all sessions **with their messages** (backward-compatible API).
   Future<AiSessionLoadResult> loadAll() async {
     final issues = <AiSessionPersistenceIssue>[];
-    final sessionRows = await _db.query('sessions', orderBy: 'updated_at DESC');
+    final sessionRows = await _db.query(
+      'sessions',
+      orderBy: _sessionsOrderBy,
+    );
 
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
@@ -144,7 +147,10 @@ class AiSessionStore {
   /// the sidebar session list.
   Future<AiSessionLoadResult> loadAllHeaders() async {
     final issues = <AiSessionPersistenceIssue>[];
-    final sessionRows = await _db.query('sessions', orderBy: 'updated_at DESC');
+    final sessionRows = await _db.query(
+      'sessions',
+      orderBy: _sessionsOrderBy,
+    );
 
     final sessions = <AiSession>[];
     for (final row in sessionRows) {
@@ -162,6 +168,42 @@ class AiSessionStore {
     }
 
     return AiSessionLoadResult(sessions: sessions, issues: issues);
+  }
+
+  /// Default ordering for the sessions table.
+  ///
+  /// Sessions whose `display_order` is NULL appear first, sorted by
+  /// `updated_at DESC` (newest first — the original sidebar behaviour).
+  /// Sessions with an explicit `display_order` then follow in ascending
+  /// order. This lets the Thread Session Management dialog persist a
+  /// stable manual order while still letting brand-new sessions surface
+  /// at the top of the sidebar.
+  static const String _sessionsOrderBy =
+      '(display_order IS NULL) DESC, '
+      'COALESCE(display_order, 9223372036854775807) ASC, '
+      'updated_at DESC';
+
+  /// Persist a manual ordering of the supplied [orderedSessionIds]. The
+  /// first id receives `display_order = 0`, the second `1`, etc. Any
+  /// session id missing from the list keeps its existing order (which may
+  /// be NULL). The transaction is atomic and silent on errors so the UI
+  /// can fall back to the previous ordering on disk.
+  Future<void> reorderSessions(List<String> orderedSessionIds) async {
+    if (orderedSessionIds.isEmpty) return;
+    await _db.transaction((txn) async {
+      final batch = txn.batch();
+      for (var i = 0; i < orderedSessionIds.length; i++) {
+        final sessionId = orderedSessionIds[i].trim();
+        if (!_isSafeStorageIdentifier(sessionId)) continue;
+        batch.update(
+          'sessions',
+          <String, Object?>{'display_order': i},
+          where: 'id = ?',
+          whereArgs: <Object?>[sessionId],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   /// Loads a single session with all its messages.
@@ -198,7 +240,7 @@ class AiSessionStore {
       'sessions',
       where: 'template_id = ? AND created_at >= ?',
       whereArgs: <Object?>[templateId, minCreatedAt.toUtc().toIso8601String()],
-      orderBy: 'updated_at DESC',
+      orderBy: _sessionsOrderBy,
     );
     final sessions = <AiSession>[];
     for (final row in rows) {
@@ -264,10 +306,27 @@ class AiSessionStore {
     _validateSessionForStorage(session);
 
     await _db.transaction((txn) async {
+      // Preserve any existing display_order assigned by the Thread
+      // Session Management dialog. The default ConflictAlgorithm.replace
+      // would otherwise wipe the column on every save (it deletes the
+      // existing row before inserting the replacement).
+      final existing = await txn.query(
+        'sessions',
+        columns: const <String>['display_order'],
+        where: 'id = ?',
+        whereArgs: <Object?>[session.id],
+        limit: 1,
+      );
+      final preservedDisplayOrder = existing.isNotEmpty
+          ? existing.first['display_order']
+          : null;
+
       // Upsert session row.
+      final row = _sessionToRow(session);
+      row['display_order'] = preservedDisplayOrder;
       await txn.insert(
         'sessions',
-        _sessionToRow(session),
+        row,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 

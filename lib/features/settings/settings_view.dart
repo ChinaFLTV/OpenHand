@@ -47,6 +47,7 @@ import '../memory/memory_controller.dart';
 import '../skills/skills_controller.dart';
 import 'data_cleanup/data_cleanup_models.dart';
 import 'data_cleanup/data_cleanup_service.dart';
+import 'thread_session_management_dialog.dart';
 
 part '_settings_ai_model_editor.dart';
 part '_settings_editor_lsp.dart';
@@ -73,6 +74,7 @@ enum _SettingsSection {
   memory,
   crons,
   hermesTalker,
+  messageGateway,
   editor,
   appData,
   about,
@@ -338,6 +340,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.memory,
       _SettingsSection.crons,
       _SettingsSection.hermesTalker,
+      _SettingsSection.messageGateway,
       _SettingsSection.editor,
       _SettingsSection.appData,
       _SettingsSection.about,
@@ -590,6 +593,38 @@ class _SettingsViewState extends State<SettingsView> {
           en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
         ),
         children: [_buildHermesTalkerSection(context, settingsController)],
+      ),
+      _SettingsSection.messageGateway => _SettingsGroupCard(
+        title: _localizedText(context, zh: '消息网关', en: 'Message Gateway'),
+        description: _localizedText(
+          context,
+          zh: '管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，'
+              '当前为预留入口。',
+          en: 'Configure message-gateway routing, transforms, and throttling. '
+              'Concrete options will be added in a future release; this '
+              'section is currently a placeholder entry.',
+        ),
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.hub_outlined),
+            title: Text(
+              _localizedText(
+                context,
+                zh: '即将推出',
+                en: 'Coming soon',
+              ),
+            ),
+            subtitle: Text(
+              _localizedText(
+                context,
+                zh: '消息网关详细配置将在下一个迭代中提供。',
+                en: 'Detailed message-gateway configuration is planned for '
+                    'the next iteration.',
+              ),
+            ),
+          ),
+        ],
       ),
       _SettingsSection.editor => _SettingsGroupCard(
         title: _localizedText(context, zh: '编辑器', en: 'Editor'),
@@ -1369,6 +1404,39 @@ class _SettingsViewState extends State<SettingsView> {
                 control: const Align(
                   alignment: Alignment.centerLeft,
                   child: _UserProfileSettingsButton(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '线程会话管理',
+                  en: 'Thread Session Management',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '查看所有线程的标题、创建/更新时间、占用大小、消息构成和 token 统计。'
+                      '支持拖拽排序、多选删除、双击或右键打开重命名/导出/删除菜单。'
+                      '弹窗的进出场动画跟随全局设置中的弹窗动画配置。',
+                  en: 'Inspect every thread\'s title, created/updated time, '
+                      'storage footprint, message breakdown, and token stats. '
+                      'Supports drag-reorder, multi-select delete, and a '
+                      'double-click / right-click menu for rename/export/'
+                      'delete. The dialog enter/exit animation follows the '
+                      'global dialog animation settings.',
+                ),
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () =>
+                        showThreadSessionManagementDialog(context),
+                    icon: const Icon(Icons.dynamic_feed_outlined),
+                    label: Text(_localizedText(
+                      context,
+                      zh: '打开管理弹窗',
+                      en: 'Open Manager',
+                    )),
+                  ),
                 ),
               ),
             ],

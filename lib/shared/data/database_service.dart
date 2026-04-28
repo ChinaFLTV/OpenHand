@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -132,11 +132,15 @@ class DatabaseService {
         last_prompt_metadata_json                 TEXT NOT NULL DEFAULT '{}',
         recent_errors_json                        TEXT NOT NULL DEFAULT '[]',
         todo_items_json                           TEXT NOT NULL DEFAULT '[]',
-        plan_history_json                         TEXT NOT NULL DEFAULT '[]'
+        plan_history_json                         TEXT NOT NULL DEFAULT '[]',
+        display_order                             INTEGER
       )
     ''');
     batch.execute(
       'CREATE INDEX idx_sessions_updated_at ON sessions(updated_at)',
+    );
+    batch.execute(
+      'CREATE INDEX idx_sessions_display_order ON sessions(display_order)',
     );
 
     // ----- Messages (one per row, linked to session) -----
@@ -269,6 +273,19 @@ class DatabaseService {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_user_instructions_sort '
         'ON user_instructions(sort_order)',
+      );
+    }
+    // 2026-04-26: schema v4 — add display_order to sessions for the
+    // 'Thread Session Management' dialog's drag-reorder feature. Null
+    // means "no manual order"; sessions sort by updated_at DESC for
+    // those rows. Manual rows sort by display_order ASC first.
+    if (oldVersion < 4) {
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN display_order INTEGER',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sessions_display_order '
+        'ON sessions(display_order)',
       );
     }
   }
