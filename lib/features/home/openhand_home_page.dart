@@ -3741,9 +3741,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _pendingAnimatedScrollToBottom = _pendingAnimatedScrollToBottom || animated;
     if (allowSettlePasses) {
+      // 2026-04-29: 之前 force 路径用 30 次 settle pass，与流式中的
+      // 自主学习卡片（位于消息列表中段、随 token 持续增高）叠加时会导致
+      // 滚动反复触底→重排→再触底的"抽搐"。将 force 上限收紧到 8 已经
+      // 足以覆盖一次用户消息发出后的 1–2 帧 layout settle，避免与中段
+      // 流式卡片的高度增长产生共振。
       _pendingScrollToBottomSettlePasses = math.max(
         _pendingScrollToBottomSettlePasses,
-        force ? 30 : (animated ? 4 : 3),
+        force ? 8 : (animated ? 4 : 3),
       );
     }
     if (_programmaticAutoFollowScrollInProgress) {
