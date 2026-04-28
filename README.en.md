@@ -62,7 +62,7 @@ Orchestrate 20+ model protocols, programmable tools, skills, MCP servers, hooks 
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/01-main-chat.png" alt="Main chat" /><br/><sub><b>Main chat · multi-thread sidebar</b></sub></td>
+    <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="Main chat" /><br/><sub><b>Main chat · multi-thread sidebar</b></sub></td>
     <td align="center"><img src="docs/screenshots/02-programming-expert.png" alt="Programming expert" /><br/><sub><b>Programming Expert · workspace view</b></sub></td>
   </tr>
   <tr>
