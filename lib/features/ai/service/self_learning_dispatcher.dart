@@ -251,6 +251,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
     final skillChanges = <Map<String, Object?>>[];
     var lastReply = '';
     var roundsRun = 0;
+    var nudgeRecovered = false;
     var terminatedReason = 'completed';
 
     for (var round = 0; round < maxToolCallRounds; round++) {
@@ -364,6 +365,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
             responseBuffer.write(nudgeMarker);
             progress(aiResponse: responseBuffer.toString());
           }
+          nudgeRecovered = true;
           continue;
         }
         terminatedReason = 'no_tool_calls';
@@ -527,6 +529,7 @@ SelfLearningLlmDispatcher buildSelfLearningDispatcher({
         'skill_changes': skillChanges,
         'tool_call_rounds': roundsRun,
         'terminated_reason': terminatedReason,
+        if (nudgeRecovered) 'nudge_recovered': true,
         if (toolCallsLog.isNotEmpty) 'tool_calls': toolCallsLog,
         if (aggregateUsage != null) 'usage': aggregateUsage.toJson(),
       },

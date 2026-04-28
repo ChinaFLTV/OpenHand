@@ -2945,6 +2945,15 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               icon: Icons.schedule_rounded,
               label: elapsedLabel,
             ),
+            if (metadata['nudge_recovered'] == true)
+              _ToolExecutionChip(
+                icon: Icons.refresh_rounded,
+                label: _localizedText(
+                  context,
+                  zh: '已纠正"光说不做"',
+                  en: 'Nudge recovered',
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 10),
