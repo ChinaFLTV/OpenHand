@@ -175,13 +175,18 @@ class AiSessionStore {
   /// Sessions whose `display_order` is NULL appear first, sorted by
   /// `updated_at DESC` (newest first — the original sidebar behaviour).
   /// Sessions with an explicit `display_order` then follow in ascending
-  /// order. This lets the Thread Session Management dialog persist a
-  /// stable manual order while still letting brand-new sessions surface
-  /// at the top of the sidebar.
+  /// Sessions with an explicit `display_order` are surfaced first (in
+  /// ascending order). Sessions that have never been manually reordered
+  /// fall back to recency: `updated_at DESC`, with `created_at DESC` as a
+  /// stable tiebreaker for sessions that were created in bulk and have
+  /// not yet been edited. This pairing lets the Thread Session
+  /// Management dialog persist a stable manual order while still keeping
+  /// untouched threads in their natural recency order on the sidebar.
   static const String _sessionsOrderBy =
-      '(display_order IS NULL) DESC, '
-      'COALESCE(display_order, 9223372036854775807) ASC, '
-      'updated_at DESC';
+      '(display_order IS NULL) ASC, '
+      'display_order ASC, '
+      'updated_at DESC, '
+      'created_at DESC';
 
   /// Persist a manual ordering of the supplied [orderedSessionIds]. The
   /// first id receives `display_order = 0`, the second `1`, etc. Any
@@ -204,6 +209,70 @@ class AiSessionStore {
       }
       await batch.commit(noResult: true);
     });
+  }
+
+  /// Computes the on-disk byte footprint of every session in a single
+  /// pass. Returns a map of `sessionId -> bytes`. Counts the LENGTH of
+  /// every TEXT column on the session row plus every TEXT column on its
+  /// associated messages — this matches what a `VACUUM`-trimmed SQLite
+  /// file actually pays for those rows. The query joins via correlated
+  /// subquery so sessions with zero messages still receive an entry.
+  ///
+  /// We intentionally do this in one query rather than per-session loops
+  /// so opening the Thread Session Management dialog stays O(1) round
+  /// trips even with thousands of sessions.
+  Future<Map<String, int>> computeAllSessionDiskBytes() async {
+    final rows = await _db.rawQuery('''
+      SELECT s.id AS session_id,
+             COALESCE(LENGTH(s.title), 0)
+               + COALESCE(LENGTH(s.template_id), 0)
+               + COALESCE(LENGTH(s.template_name), 0)
+               + COALESCE(LENGTH(s.template_icon_name), 0)
+               + COALESCE(LENGTH(s.template_internal_version), 0)
+               + COALESCE(LENGTH(s.created_at), 0)
+               + COALESCE(LENGTH(s.updated_at), 0)
+               + COALESCE(LENGTH(s.last_used_model_id), 0)
+               + COALESCE(LENGTH(s.last_used_model_label), 0)
+               + COALESCE(LENGTH(s.auto_title_generated_at), 0)
+               + COALESCE(LENGTH(s.auto_title_source_message_id), 0)
+               + COALESCE(LENGTH(s.latest_compression_checkpoint_message_id), 0)
+               + COALESCE(LENGTH(s.latest_compression_at), 0)
+               + COALESCE(LENGTH(s.mode), 0)
+               + COALESCE(LENGTH(s.pending_plan), 0)
+               + COALESCE(LENGTH(s.metadata_json), 0)
+               + COALESCE(LENGTH(s.environment_json), 0)
+               + COALESCE(LENGTH(s.statistics_json), 0)
+               + COALESCE(LENGTH(s.last_prompt_metadata_json), 0)
+               + COALESCE(LENGTH(s.recent_errors_json), 0)
+               + COALESCE(LENGTH(s.todo_items_json), 0)
+               + COALESCE(LENGTH(s.plan_history_json), 0)
+               + COALESCE((
+                   SELECT SUM(
+                     COALESCE(LENGTH(m.id), 0)
+                     + COALESCE(LENGTH(m.session_id), 0)
+                     + COALESCE(LENGTH(m.kind), 0)
+                     + COALESCE(LENGTH(m.role), 0)
+                     + COALESCE(LENGTH(m.content), 0)
+                     + COALESCE(LENGTH(m.created_at), 0)
+                     + COALESCE(LENGTH(m.model_id), 0)
+                     + COALESCE(LENGTH(m.model_label), 0)
+                     + COALESCE(LENGTH(m.usage_json), 0)
+                     + COALESCE(LENGTH(m.metadata_json), 0)
+                   )
+                   FROM messages m
+                   WHERE m.session_id = s.id
+                 ), 0) AS total_bytes
+      FROM sessions s
+    ''');
+    final result = <String, int>{};
+    for (final row in rows) {
+      final id = row['session_id'];
+      final bytes = row['total_bytes'];
+      if (id is String && bytes is num) {
+        result[id] = bytes.toInt();
+      }
+    }
+    return result;
   }
 
   /// Loads a single session with all its messages.

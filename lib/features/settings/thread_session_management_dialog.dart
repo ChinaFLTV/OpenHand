@@ -43,10 +43,55 @@ class _ThreadSessionManagementDialogState
   bool _isSelectionMode = false;
   Timer? _persistDebounce;
 
+  // Precise on-disk byte footprint per session, refreshed asynchronously
+  // after the dialog opens / sessions change. Falls back to the
+  // statistics-based estimate while loading.
+  Map<String, int> _diskBytes = const <String, int>{};
+  bool _diskBytesLoading = false;
+
+  // View controls.
+  _SortMode _sortMode = _SortMode.manual;
+  String _searchQuery = '';
+  late final TextEditingController _searchController;
+  final Set<String> _templateFilter = <String>{};
+  bool _denseMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshDiskBytes();
+    });
+  }
+
   @override
   void dispose() {
     _persistDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshDiskBytes() async {
+    if (_diskBytesLoading) return;
+    _diskBytesLoading = true;
+    try {
+      final controller = context.read<AiSessionController>();
+      final bytes = await controller.store.computeAllSessionDiskBytes();
+      if (!mounted) return;
+      setState(() {
+        _diskBytes = bytes;
+      });
+    } catch (error, stack) {
+      silentLog(
+        'thread_session_management_dialog',
+        'computeAllSessionDiskBytes',
+        error,
+        stack,
+      );
+    } finally {
+      _diskBytesLoading = false;
+    }
   }
 
   // ------------------------------------------------------------------
@@ -265,6 +310,8 @@ class _ThreadSessionManagementDialogState
         ),
       );
     }
+    // Recompute disk footprint after the row count changes.
+    unawaited(_refreshDiskBytes());
   }
 
   Future<void> _exportSession(AiSession headerOnly) async {
@@ -364,6 +411,117 @@ class _ThreadSessionManagementDialogState
     ));
   }
 
+  Future<void> _batchExportSelected() async {
+    if (_selectedIds.isEmpty) return;
+    final ids = List<String>.from(_selectedIds);
+    final controller = context.read<AiSessionController>();
+    final messenger = ScaffoldMessenger.of(context);
+    // Pick a destination folder once, then write each session into it.
+    String? folderPath;
+    try {
+      folderPath = await getDirectoryPath(
+        confirmButtonText: _localizedText(
+          context,
+          zh: '选择导出目录',
+          en: 'Choose Export Folder',
+        ),
+      );
+    } catch (error, stack) {
+      silentLog(
+        'thread_session_management_dialog',
+        'batchExport.getDirectoryPath',
+        error,
+        stack,
+      );
+    }
+    if (folderPath == null || !mounted) return;
+    final config = await showAiSessionExportConfigDialog(
+      context: context,
+      // Use a placeholder total — per-session totals vary; we rely on the
+      // config's filter flags only.
+      totalMessages: 0,
+    );
+    if (config == null || !mounted) return;
+    final cancelToken = ExportCancelToken();
+    final progressController =
+        ExportProgressController(cancelToken: cancelToken);
+    final dialogFuture = showExportProgressDialog(
+      context: context,
+      controller: progressController,
+      title: _localizedText(context, zh: '批量导出', en: 'Batch Export'),
+      subtitle: _localizedText(
+        context,
+        zh: '即将导出 ${ids.length} 个线程…',
+        en: 'About to export ${ids.length} threads…',
+      ),
+      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+    );
+    var ok = 0;
+    var failed = 0;
+    for (var i = 0; i < ids.length; i++) {
+      if (cancelToken.isCancelled) break;
+      final id = ids[i];
+      progressController.updateProgress(
+        ExportProgress(processed: i, total: ids.length),
+      );
+      AiSession? full;
+      try {
+        full = await controller.store.loadSession(id);
+      } catch (error, stack) {
+        silentLog(
+          'thread_session_management_dialog',
+          'batchExport.loadSession',
+          error,
+          stack,
+        );
+      }
+      if (full == null) {
+        failed++;
+        continue;
+      }
+      final safeTitle = full.title
+          .replaceAll(RegExp(r'[^A-Za-z0-9_\u4e00-\u9fa5]+'), '_')
+          .trim();
+      final fileName =
+          '${safeTitle.isEmpty ? "session" : safeTitle}_${full.id}.jsonl';
+      final destPath = '$folderPath/$fileName';
+      try {
+        final result = await exportAiSessionToJsonl(
+          session: full,
+          destinationPath: destPath,
+          cancelToken: cancelToken,
+          config: config,
+        );
+        if (result.kind == ExportResultKind.success) {
+          ok++;
+        } else {
+          failed++;
+        }
+      } catch (error, stack) {
+        silentLog(
+          'thread_session_management_dialog',
+          'batchExport.run',
+          error,
+          stack,
+        );
+        failed++;
+      }
+    }
+    progressController.markFinished();
+    if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+    await dialogFuture;
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(
+      content: Text(_localizedText(
+        context,
+        zh: '批量导出完成：成功 $ok / 失败 $failed',
+        en: 'Batch export done: $ok ok / $failed failed',
+      )),
+    ));
+  }
+
   Future<void> _showSessionContextMenu(
     AiSession session,
     Offset globalPosition,
@@ -458,6 +616,42 @@ class _ThreadSessionManagementDialogState
       _localOrder = <AiSession>[...additions, ...preserved];
     }
     final sessions = _localOrder!;
+    // Apply view-controls (search / template filter / sort) to derive
+    // the visible list. Reorder mode operates against `sessions` (the
+    // raw manual order) so drag indices map back to the underlying list.
+    final templates = <String>{
+      for (final s in sessions) s.templateName.trim(),
+    }..removeWhere((t) => t.isEmpty);
+    final query = _searchQuery.trim().toLowerCase();
+    Iterable<AiSession> filtered = sessions;
+    if (query.isNotEmpty) {
+      filtered = filtered.where(
+        (s) => s.title.toLowerCase().contains(query) || s.id.contains(query),
+      );
+    }
+    if (_templateFilter.isNotEmpty) {
+      filtered = filtered
+          .where((s) => _templateFilter.contains(s.templateName.trim()));
+    }
+    final visible = filtered.toList();
+    int sizeOf(AiSession s) => _diskBytes[s.id] ?? _estimateBytes(s);
+    switch (_sortMode) {
+      case _SortMode.manual:
+        // Already in manual order — leave as-is.
+        break;
+      case _SortMode.updatedDesc:
+        visible.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      case _SortMode.createdDesc:
+        visible.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _SortMode.sizeDesc:
+        visible.sort((a, b) => sizeOf(b).compareTo(sizeOf(a)));
+      case _SortMode.messagesDesc:
+        visible.sort((a, b) => b.statistics.totalMessageCount
+            .compareTo(a.statistics.totalMessageCount));
+      case _SortMode.tokenDesc:
+        visible.sort((a, b) => (b.statistics.totalTokens ?? 0)
+            .compareTo(a.statistics.totalTokens ?? 0));
+    }
     final theme = Theme.of(context);
     final mediaWidth = MediaQuery.sizeOf(context).width;
     final mediaHeight = MediaQuery.sizeOf(context).height;
@@ -476,11 +670,13 @@ class _ThreadSessionManagementDialogState
           children: [
             _buildHeader(theme, sessions),
             const Divider(height: 1),
-            if (_isSelectionMode) _buildSelectionToolbar(theme, sessions),
+            _buildToolbar(theme, templates),
+            const Divider(height: 1),
+            if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
             Expanded(
-              child: sessions.isEmpty
+              child: visible.isEmpty
                   ? _buildEmptyState()
-                  : _buildList(sessions),
+                  : _buildList(visible),
             ),
             const Divider(height: 1),
             _buildFooter(),
@@ -488,6 +684,139 @@ class _ThreadSessionManagementDialogState
         ),
       ),
     );
+  }
+
+  Widget _buildToolbar(ThemeData theme, Set<String> templates) {
+    final isManual = _sortMode == _SortMode.manual;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintText: _localizedText(
+                        context,
+                        zh: '按标题或 ID 搜索',
+                        en: 'Search by title or ID',
+                      ),
+                      border: const OutlineInputBorder(),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<_SortMode>(
+                value: _sortMode,
+                isDense: true,
+                items: [
+                  for (final mode in _SortMode.values)
+                    DropdownMenuItem(
+                      value: mode,
+                      child: Text(_sortModeLabel(mode)),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _sortMode = value);
+                },
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: _localizedText(
+                  context,
+                  zh: _denseMode ? '舒适密度' : '紧凑密度',
+                  en: _denseMode ? 'Comfortable' : 'Compact',
+                ),
+                child: IconButton(
+                  icon: Icon(
+                    _denseMode
+                        ? Icons.density_medium
+                        : Icons.density_small,
+                  ),
+                  onPressed: () => setState(() => _denseMode = !_denseMode),
+                ),
+              ),
+            ],
+          ),
+          if (templates.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                FilterChip(
+                  label: Text(
+                    _localizedText(context, zh: '全部模板', en: 'All Templates'),
+                  ),
+                  selected: _templateFilter.isEmpty,
+                  onSelected: (_) => setState(() => _templateFilter.clear()),
+                ),
+                for (final t in templates)
+                  FilterChip(
+                    label: Text(t),
+                    selected: _templateFilter.contains(t),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _templateFilter.add(t);
+                        } else {
+                          _templateFilter.remove(t);
+                        }
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ],
+          if (!isManual)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _localizedText(
+                  context,
+                  zh: '当前为「${_sortModeLabel(_sortMode)}」排序，'
+                      '拖拽手柄已禁用，切回「手动顺序」可继续调整。',
+                  en: 'Sorted by "${_sortModeLabel(_sortMode)}". Drag handles '
+                      'are disabled; switch back to "Manual Order" to '
+                      'reorder.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _sortModeLabel(_SortMode mode) {
+    switch (mode) {
+      case _SortMode.manual:
+        return _localizedText(context, zh: '手动顺序', en: 'Manual Order');
+      case _SortMode.updatedDesc:
+        return _localizedText(context, zh: '最近更新', en: 'Recently Updated');
+      case _SortMode.createdDesc:
+        return _localizedText(context, zh: '最近创建', en: 'Recently Created');
+      case _SortMode.sizeDesc:
+        return _localizedText(context, zh: '占用大小', en: 'By Size');
+      case _SortMode.messagesDesc:
+        return _localizedText(context, zh: '消息数量', en: 'By Messages');
+      case _SortMode.tokenDesc:
+        return _localizedText(context, zh: 'Token 数', en: 'By Token');
+    }
   }
 
   Widget _buildHeader(ThemeData theme, List<AiSession> sessions) {
@@ -582,6 +911,15 @@ class _ThreadSessionManagementDialogState
           const Spacer(),
           TextButton.icon(
             onPressed:
+                _selectedIds.isEmpty ? null : _batchExportSelected,
+            icon: const Icon(Icons.download_outlined),
+            label: Text(
+              _localizedText(context, zh: '批量导出', en: 'Batch Export'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed:
                 _selectedIds.isEmpty ? null : _confirmDeleteSelected,
             icon: const Icon(Icons.delete_outline),
             label: Text(
@@ -612,36 +950,53 @@ class _ThreadSessionManagementDialogState
   }
 
   Widget _buildList(List<AiSession> sessions) {
+    final canReorder = _sortMode == _SortMode.manual &&
+        _searchQuery.trim().isEmpty &&
+        _templateFilter.isEmpty;
+
+    Widget rowFor(int index) {
+      final session = sessions[index];
+      return _SessionRow(
+        key: ValueKey<String>(session.id),
+        index: index,
+        session: session,
+        isSelectionMode: _isSelectionMode,
+        isSelected: _selectedIds.contains(session.id),
+        denseMode: _denseMode,
+        showDragHandle: canReorder,
+        diskBytes: _diskBytes[session.id],
+        formatDateTime: _formatDateTime,
+        formatBytes: _formatBytes,
+        estimateBytes: _estimateBytes,
+        localizedText: _localizedText,
+        onToggleSelect: (checked) {
+          setState(() {
+            if (checked == true) {
+              _selectedIds.add(session.id);
+            } else {
+              _selectedIds.remove(session.id);
+            }
+          });
+        },
+        onDoubleTap: (pos) => _showSessionContextMenu(session, pos),
+        onSecondaryTap: (pos) => _showSessionContextMenu(session, pos),
+      );
+    }
+
+    if (!canReorder) {
+      return ListView.builder(
+        itemCount: sessions.length,
+        cacheExtent: 600,
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        itemBuilder: (context, index) => rowFor(index),
+      );
+    }
     return ReorderableListView.builder(
       buildDefaultDragHandles: false,
       itemCount: sessions.length,
       cacheExtent: 600,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      itemBuilder: (context, index) {
-        final session = sessions[index];
-        return _SessionRow(
-          key: ValueKey<String>(session.id),
-          index: index,
-          session: session,
-          isSelectionMode: _isSelectionMode,
-          isSelected: _selectedIds.contains(session.id),
-          formatDateTime: _formatDateTime,
-          formatBytes: _formatBytes,
-          estimateBytes: _estimateBytes,
-          localizedText: _localizedText,
-          onToggleSelect: (checked) {
-            setState(() {
-              if (checked == true) {
-                _selectedIds.add(session.id);
-              } else {
-                _selectedIds.remove(session.id);
-              }
-            });
-          },
-          onDoubleTap: (pos) => _showSessionContextMenu(session, pos),
-          onSecondaryTap: (pos) => _showSessionContextMenu(session, pos),
-        );
-      },
+      itemBuilder: (context, index) => rowFor(index),
       onReorder: (oldIndex, newIndex) {
         setState(() {
           final list = _localOrder!;
@@ -672,6 +1027,15 @@ class _ThreadSessionManagementDialogState
 
 enum _SessionRowAction { rename, export, delete }
 
+enum _SortMode {
+  manual,
+  updatedDesc,
+  createdDesc,
+  sizeDesc,
+  messagesDesc,
+  tokenDesc,
+}
+
 class _SessionRow extends StatelessWidget {
   const _SessionRow({
     super.key,
@@ -679,6 +1043,9 @@ class _SessionRow extends StatelessWidget {
     required this.session,
     required this.isSelectionMode,
     required this.isSelected,
+    required this.denseMode,
+    required this.showDragHandle,
+    required this.diskBytes,
     required this.formatDateTime,
     required this.formatBytes,
     required this.estimateBytes,
@@ -692,6 +1059,9 @@ class _SessionRow extends StatelessWidget {
   final AiSession session;
   final bool isSelectionMode;
   final bool isSelected;
+  final bool denseMode;
+  final bool showDragHandle;
+  final int? diskBytes;
   final String Function(BuildContext, DateTime) formatDateTime;
   final String Function(int) formatBytes;
   final int Function(AiSession) estimateBytes;
@@ -713,10 +1083,14 @@ class _SessionRow extends StatelessWidget {
             '(in ${stats.totalPromptTokens ?? 0} / out '
             '${stats.totalCompletionTokens ?? 0})'
         : localizedText(context, zh: '未知', en: 'unknown');
-    final bytes = estimateBytes(session);
+    final bytes = diskBytes ?? estimateBytes(session);
+    final isApproxBytes = diskBytes == null;
 
     final card = Card(
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      margin: EdgeInsets.symmetric(
+        vertical: denseMode ? 2 : 4,
+        horizontal: 4,
+      ),
       elevation: 0,
       shape: RoundedRectangleBorder(
         side: BorderSide(
@@ -732,7 +1106,12 @@ class _SessionRow extends StatelessWidget {
         onSecondaryTapDown: (details) =>
             onSecondaryTap(details.globalPosition),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            denseMode ? 6 : 10,
+            8,
+            denseMode ? 6 : 10,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -803,7 +1182,9 @@ class _SessionRow extends StatelessWidget {
                             zh: '占用',
                             en: 'Size',
                           ),
-                          value: formatBytes(bytes),
+                          value: isApproxBytes
+                              ? '~ ${formatBytes(bytes)}'
+                              : formatBytes(bytes),
                         ),
                         _MetaChip(
                           icon: Icons.forum_outlined,
@@ -825,7 +1206,7 @@ class _SessionRow extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (total > 0) ...[
+                    if (total > 0 && !denseMode) ...[
                       const SizedBox(height: 4),
                       Text(
                         '${localizedText(context, zh: '占比', en: 'By kind')}: '
@@ -842,16 +1223,17 @@ class _SessionRow extends StatelessWidget {
                   ],
                 ),
               ),
-              ReorderableDragStartListener(
-                index: index,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 4),
-                  child: Icon(
-                    Icons.drag_indicator,
-                    color: theme.colorScheme.onSurfaceVariant,
+              if (showDragHandle)
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 4),
+                    child: Icon(
+                      Icons.drag_indicator,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
