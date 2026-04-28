@@ -320,6 +320,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
   late final TextEditingController _maxOutputCharsController;
   late final TextEditingController _timeoutSecondsController;
   late final TextEditingController _maxRetriesController;
+  late final TextEditingController _retryBackoffMsController;
   late final TextEditingController _tagsController;
 
   late bool _enabled;
@@ -355,6 +356,8 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       text: c.timeoutSeconds != null ? '${c.timeoutSeconds}' : '',
     );
     _maxRetriesController = TextEditingController(text: '${c.maxRetries}');
+    _retryBackoffMsController =
+        TextEditingController(text: '${c.retryBackoffMs}');
     _tagsController = TextEditingController(text: c.tags.join(', '));
     _enabled = c.enabled;
     _loadStrategy = c.loadStrategy;
@@ -372,6 +375,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
     _maxOutputCharsController.dispose();
     _timeoutSecondsController.dispose();
     _maxRetriesController.dispose();
+    _retryBackoffMsController.dispose();
     _tagsController.dispose();
     super.dispose();
   }
@@ -401,6 +405,12 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       0,
       AiBuiltinToolConfig.maxRetriesUpperBound,
     );
+    final parsedBackoff = int.tryParse(_retryBackoffMsController.text.trim()) ??
+        AiBuiltinToolConfig.defaultRetryBackoffMs;
+    final retryBackoffMs = parsedBackoff.clamp(
+      0,
+      AiBuiltinToolConfig.maxRetryBackoffMs,
+    );
     final rawTags = _tagsController.text
         .split(',')
         .map((t) => t.trim())
@@ -421,6 +431,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
       requireConfirmation: _requireConfirmation,
       retryOnFailure: _retryOnFailure,
       maxRetries: maxRetries,
+      retryBackoffMs: retryBackoffMs,
       clearDisplayName: displayName.isEmpty,
       clearSummary: summary.isEmpty,
       clearPromptOverride: promptOverride.isEmpty,
@@ -763,6 +774,37 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Retry backoff base (ms)
+                        TextField(
+                          controller: _retryBackoffMsController,
+                          enabled: _retryOnFailure,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          decoration: InputDecoration(
+                            labelText: _localizedText(
+                              context,
+                              zh: '重试退避基线（毫秒）',
+                              en: 'Retry backoff base (ms)',
+                            ),
+                            hintText: _localizedText(
+                              context,
+                              zh: '默认 ${AiBuiltinToolConfig.defaultRetryBackoffMs}ms',
+                              en: 'Default ${AiBuiltinToolConfig.defaultRetryBackoffMs}ms',
+                            ),
+                            helperText: _localizedText(
+                              context,
+                              zh: '指数退避：第 N 次重试等待 base × 2^(N-1)ms，'
+                                  '上限 ${AiBuiltinToolConfig.maxRetryBackoffMs}ms',
+                              en:
+                                  'Exponential: nth retry waits base × 2^(N-1) ms, '
+                                  'capped at ${AiBuiltinToolConfig.maxRetryBackoffMs}ms',
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 14),
 

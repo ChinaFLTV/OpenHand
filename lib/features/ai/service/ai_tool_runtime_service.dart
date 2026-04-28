@@ -692,6 +692,13 @@ class AiToolRuntimeService {
           break;
         }
       }
+      // 指数退避：仅在还要继续下一轮重试时才等待。
+      if (builtinCfg != null) {
+        final backoff = builtinCfg.retryBackoffFor(attempts);
+        if (backoff > Duration.zero) {
+          await Future<void>.delayed(backoff);
+        }
+      }
     }
     rawResult = attemptResult;
     final postHookResult = await _hookService.runHooks(

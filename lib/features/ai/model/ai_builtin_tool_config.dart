@@ -41,6 +41,7 @@ class AiBuiltinToolConfig {
     this.requireConfirmation,
     this.retryOnFailure = false,
     this.maxRetries = 0,
+    this.retryBackoffMs = defaultRetryBackoffMs,
     this.isCustom = false,
     this.customToolName,
     this.customDescription,
@@ -54,6 +55,12 @@ class AiBuiltinToolConfig {
   /// 失败/超时重试的硬上限。即便用户把 [maxRetries] 设得很大，
   /// 也不会超过此值，避免错误指数级放大。
   static const int maxRetriesUpperBound = 5;
+
+  /// 重试间隔（毫秒）的默认值——首轮重试等待 200ms，后续按指数退避。
+  static const int defaultRetryBackoffMs = 200;
+
+  /// 重试间隔（毫秒）的硬上限：单次等待最多 30s，避免任意大数把流程卡死。
+  static const int maxRetryBackoffMs = 30000;
 
   /// 工具类型标识。
   final AiBuiltinToolKind kind;
@@ -105,6 +112,11 @@ class AiBuiltinToolConfig {
   /// 仅当 [retryOnFailure] = true 时生效。
   final int maxRetries;
 
+  /// 重试前的基础等待间隔（毫秒）。第 N 次重试实际等待
+  /// `retryBackoffMs * (1 << (N-1))` 毫秒（指数退避，封顶 [maxRetryBackoffMs]）。
+  /// 设为 0 表示无等待立即重试（不推荐）。
+  final int retryBackoffMs;
+
   /// 实际生效的超时秒数（毫秒级 Duration 由调用方包装）。
   int get effectiveTimeoutSeconds {
     final raw = timeoutSeconds ?? defaultTimeoutSeconds;
@@ -118,6 +130,25 @@ class AiBuiltinToolConfig {
     if (maxRetries <= 0) return 0;
     if (maxRetries > maxRetriesUpperBound) return maxRetriesUpperBound;
     return maxRetries;
+  }
+
+  /// 实际生效的退避基线（毫秒），已 clamp 到 [0, [maxRetryBackoffMs]]。
+  int get effectiveRetryBackoffMs {
+    if (retryBackoffMs <= 0) return 0;
+    if (retryBackoffMs > maxRetryBackoffMs) return maxRetryBackoffMs;
+    return retryBackoffMs;
+  }
+
+  /// 计算第 [attemptIndex]（1-based: 第 1 次重试 = 1）次重试前应等待的毫秒数。
+  /// 指数退避：base * 2^(attemptIndex-1)，上限 [maxRetryBackoffMs]。
+  Duration retryBackoffFor(int attemptIndex) {
+    if (attemptIndex <= 0) return Duration.zero;
+    final base = effectiveRetryBackoffMs;
+    if (base == 0) return Duration.zero;
+    final shift = attemptIndex - 1;
+    final raw = shift >= 30 ? maxRetryBackoffMs : base << shift;
+    final capped = raw > maxRetryBackoffMs ? maxRetryBackoffMs : raw;
+    return Duration(milliseconds: capped);
   }
 
   /// 是否为用户自定义的"新增"工具（非内建 kind 映射）。
@@ -170,6 +201,7 @@ class AiBuiltinToolConfig {
     bool? requireConfirmation,
     bool? retryOnFailure,
     int? maxRetries,
+    int? retryBackoffMs,
     bool? isCustom,
     String? customToolName,
     String? customDescription,
@@ -211,6 +243,7 @@ class AiBuiltinToolConfig {
           : (requireConfirmation ?? this.requireConfirmation),
       retryOnFailure: retryOnFailure ?? this.retryOnFailure,
       maxRetries: maxRetries ?? this.maxRetries,
+      retryBackoffMs: retryBackoffMs ?? this.retryBackoffMs,
       isCustom: isCustom ?? this.isCustom,
       customToolName: clearCustomToolName
           ? null
@@ -242,6 +275,7 @@ class AiBuiltinToolConfig {
         'require_confirmation': requireConfirmation,
       'retry_on_failure': retryOnFailure,
       'max_retries': maxRetries,
+      'retry_backoff_ms': retryBackoffMs,
       'is_custom': isCustom,
       if (customToolName != null) 'custom_tool_name': customToolName,
       if (customDescription != null) 'custom_description': customDescription,
@@ -312,6 +346,8 @@ class AiBuiltinToolConfig {
           ? json['retry_on_failure'] as bool
           : false,
       maxRetries: (json['max_retries'] as num?)?.toInt() ?? 0,
+      retryBackoffMs:
+          (json['retry_backoff_ms'] as num?)?.toInt() ?? defaultRetryBackoffMs,
       isCustom: json['is_custom'] is bool ? json['is_custom'] as bool : false,
       customToolName: json['custom_tool_name'] is String
           ? json['custom_tool_name'] as String
