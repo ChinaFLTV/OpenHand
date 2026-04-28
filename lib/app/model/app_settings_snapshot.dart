@@ -169,6 +169,8 @@ class AppSettingsSnapshot {
     required this.telemetryMaxPayloadChars,
     this.selfLearningEnabled = true,
     this.selfLearningConcurrency = defaultSelfLearningConcurrency,
+    this.selfLearningStreamFlushIntervalMs =
+        defaultSelfLearningStreamFlushIntervalMs,
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
@@ -178,6 +180,13 @@ class AppSettingsSnapshot {
   static const int defaultSelfLearningConcurrency = 5;
   static const int minSelfLearningConcurrency = 1;
   static const int maxSelfLearningConcurrency = 10;
+
+  /// 2026-04-29 — 自学习卡片流式输出后台刷新间隔。越大越平滑，
+  /// 但用户看到的增量越延迟；越小越实时，但渲染负担与布局拖拽越大。
+  /// 默认 600ms 是 "人眼可接受的延迟 + UI 顺畅" 的折衰点。
+  static const int defaultSelfLearningStreamFlushIntervalMs = 600;
+  static const int minSelfLearningStreamFlushIntervalMs = 100;
+  static const int maxSelfLearningStreamFlushIntervalMs = 5000;
 
   /// 2026-04-25 — 冷启动后自动清理 cron 历史的默认保留天数。
   static const int defaultCronAutoCleanupRetentionDays = 7;
@@ -445,6 +454,11 @@ class AppSettingsSnapshot {
   /// Clamped to [minSelfLearningConcurrency] .. [maxSelfLearningConcurrency].
   final int selfLearningConcurrency;
 
+  /// 自学习卡片流式输出后台刷新（持久化）间隔，毫秒。
+  /// Clamped to [minSelfLearningStreamFlushIntervalMs] ..
+  /// [maxSelfLearningStreamFlushIntervalMs].
+  final int selfLearningStreamFlushIntervalMs;
+
   /// Whether self-learning (Hermes Talker) cards are rendered in the chat
   /// transcript. Independent of [selfLearningEnabled]: the scheduler may
   /// still produce cards in the background; this flag only controls UI
@@ -529,6 +543,7 @@ class AppSettingsSnapshot {
     int? telemetryMaxPayloadChars,
     bool? selfLearningEnabled,
     int? selfLearningConcurrency,
+    int? selfLearningStreamFlushIntervalMs,
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
@@ -650,6 +665,8 @@ class AppSettingsSnapshot {
       selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
       selfLearningConcurrency:
           selfLearningConcurrency ?? this.selfLearningConcurrency,
+      selfLearningStreamFlushIntervalMs: selfLearningStreamFlushIntervalMs ??
+          this.selfLearningStreamFlushIntervalMs,
       showSelfLearningMessages:
           showSelfLearningMessages ?? this.showSelfLearningMessages,
       cronAutoCleanupEnabled:

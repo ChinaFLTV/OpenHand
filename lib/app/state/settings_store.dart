@@ -226,6 +226,8 @@ class SettingsStore {
       'telemetry_max_payload_chars': snapshot.telemetryMaxPayloadChars,
       'self_learning_enabled': snapshot.selfLearningEnabled,
       'self_learning_concurrency': snapshot.selfLearningConcurrency,
+      'self_learning_stream_flush_interval_ms':
+          snapshot.selfLearningStreamFlushIntervalMs,
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
@@ -824,6 +826,15 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultSelfLearningConcurrency;
 
+    final rawSelfLearningFlushMs = json['self_learning_stream_flush_interval_ms'];
+    final selfLearningStreamFlushIntervalMs =
+        (rawSelfLearningFlushMs is int && rawSelfLearningFlushMs > 0)
+            ? rawSelfLearningFlushMs.clamp(
+                AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
+                AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
+              )
+            : AppSettingsSnapshot.defaultSelfLearningStreamFlushIntervalMs;
+
     final showSelfLearningMessages = json['show_self_learning_messages'] is bool
         ? json['show_self_learning_messages'] as bool
         : true;
@@ -911,6 +922,7 @@ class SettingsStore {
       telemetryMaxPayloadChars: telemetryMaxPayloadChars,
       selfLearningEnabled: selfLearningEnabled,
       selfLearningConcurrency: selfLearningConcurrency,
+      selfLearningStreamFlushIntervalMs: selfLearningStreamFlushIntervalMs,
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,

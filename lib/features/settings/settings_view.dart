@@ -2048,6 +2048,9 @@ class _SettingsViewState extends State<SettingsView> {
     final concurrency = settingsController.selfLearningConcurrency;
     const minC = AppSettingsSnapshot.minSelfLearningConcurrency;
     const maxC = AppSettingsSnapshot.maxSelfLearningConcurrency;
+    final flushMs = settingsController.selfLearningStreamFlushIntervalMs;
+    const minFlushMs = AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs;
+    const maxFlushMs = AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2102,6 +2105,47 @@ class _SettingsViewState extends State<SettingsView> {
             context,
             zh: '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。',
             en: 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.',
+          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          _localizedText(
+            context,
+            zh: '流式刷新间隔：${flushMs}ms',
+            en: 'Stream flush interval: ${flushMs}ms',
+          ),
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        Slider(
+          min: minFlushMs.toDouble(),
+          max: maxFlushMs.toDouble(),
+          divisions: ((maxFlushMs - minFlushMs) ~/ 100),
+          value: flushMs.toDouble().clamp(
+                minFlushMs.toDouble(),
+                maxFlushMs.toDouble(),
+              ),
+          label: '${flushMs}ms',
+          onChanged: (value) async {
+            final saved = await settingsController
+                .updateSelfLearningStreamFlushIntervalMs(value.round());
+            if (!context.mounted || saved) return;
+            _showPersistenceFailureSnackBar(context);
+          },
+        ),
+        Text(
+          _localizedText(
+            context,
+            zh:
+                '自我学习卡片流式输出的持久化间隔（$minFlushMs–${maxFlushMs}ms）。'
+                '调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。',
+            en:
+                'Persistence interval for self-learning card streaming output '
+                '($minFlushMs–${maxFlushMs}ms). Smaller=more real-time but more '
+                'layout jitter; larger=smoother but higher per-chunk latency. '
+                'Defaults to 600ms.',
           ),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,

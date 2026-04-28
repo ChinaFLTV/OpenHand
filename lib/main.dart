@@ -240,7 +240,12 @@ Future<void> _bootstrap() async {
     selfLearningScheduler.updateConcurrency(
       settingsController.selfLearningConcurrency,
     );
+    SelfLearningRunner.streamFlushIntervalMs =
+        settingsController.selfLearningStreamFlushIntervalMs;
   });
+  // 启动期同步一次，避免首次 listener 触发前的 race。
+  SelfLearningRunner.streamFlushIntervalMs =
+      settingsController.selfLearningStreamFlushIntervalMs;
   // Kick off the deferred cron init AFTER the agent handler is registered so
   // any immediate scheduler tick post-init can dispatch correctly.
   unawaited(cronsController.initialize());

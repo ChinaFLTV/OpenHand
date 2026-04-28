@@ -118,6 +118,8 @@ class SettingsController extends ChangeNotifier {
        _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars,
        _selfLearningEnabled = snapshot.selfLearningEnabled,
        _selfLearningConcurrency = snapshot.selfLearningConcurrency,
+       _selfLearningStreamFlushIntervalMs =
+           snapshot.selfLearningStreamFlushIntervalMs,
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
@@ -205,6 +207,7 @@ class SettingsController extends ChangeNotifier {
   int _telemetryMaxPayloadChars;
   bool _selfLearningEnabled;
   int _selfLearningConcurrency;
+  int _selfLearningStreamFlushIntervalMs;
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
@@ -338,6 +341,9 @@ class SettingsController extends ChangeNotifier {
 
   /// Maximum concurrent self-learning sub-agent dispatches.
   int get selfLearningConcurrency => _selfLearningConcurrency;
+
+  /// 自学习卡片流式输出后台刷新（持久化）间隔，毫秒。
+  int get selfLearningStreamFlushIntervalMs => _selfLearningStreamFlushIntervalMs;
 
   /// Whether self-learning cards are rendered in the chat transcript.
   /// Independent of [selfLearningEnabled] which only controls the
@@ -1525,6 +1531,20 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateSelfLearningStreamFlushIntervalMs(int value) async {
+    final clamped = value.clamp(
+      AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
+      AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
+    );
+    return _commitMutation(() {
+      if (_selfLearningStreamFlushIntervalMs == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _selfLearningStreamFlushIntervalMs = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateShowSelfLearningMessages(bool value) async {
     return _commitMutation(() {
       if (_showSelfLearningMessages == value) {
@@ -1709,6 +1729,7 @@ class SettingsController extends ChangeNotifier {
       telemetryMaxPayloadChars: _telemetryMaxPayloadChars,
       selfLearningEnabled: _selfLearningEnabled,
       selfLearningConcurrency: _selfLearningConcurrency,
+      selfLearningStreamFlushIntervalMs: _selfLearningStreamFlushIntervalMs,
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
@@ -1800,6 +1821,8 @@ class SettingsController extends ChangeNotifier {
     _telemetryMaxPayloadChars = snapshot.telemetryMaxPayloadChars;
     _selfLearningEnabled = snapshot.selfLearningEnabled;
     _selfLearningConcurrency = snapshot.selfLearningConcurrency;
+    _selfLearningStreamFlushIntervalMs =
+        snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
   }
 

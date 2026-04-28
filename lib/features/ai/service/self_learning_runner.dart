@@ -191,11 +191,14 @@ class SelfLearningRunner {
   /// 流式累计文本写入卡片的最小间隔。设置过小会引起频繁 sqflite 写入；
   /// 设置过大会让 UI 看起来不够丝滑。
   ///
-  /// 2026-04-29 — 由 250ms 调高到 600ms。原值与"用户在自主学习流式期间
-  /// 发出新消息"的场景叠加时，会让中段流式卡片每秒重绘 4 次，与 transcript
-  /// 的 auto-follow 一起把视图反复推到底部，外观上像抽搐。600ms 已经够
-  /// 让推理-丰富的模型每段思考显示一次，同时把 layout 抖动降到肉眼可接受。
-  static const Duration _streamFlushInterval = Duration(milliseconds: 600);
+  /// 2026-04-29 — 由 250ms 调高到 600ms 默认值。原值与"用户在自主学习流式
+  /// 期间发出新消息"的场景叠加时，会让中段流式卡片每秒重绘 4 次，与
+  /// transcript 的 auto-follow 一起把视图反复推到底部，外观上像抽搐。
+  /// 设为可由设置面板覆盖（`updateSelfLearningStreamFlushIntervalMs`），
+  /// 全局静态字段以避免向 runner 实例传播大量参数。
+  static int streamFlushIntervalMs = 600;
+  static Duration get _streamFlushInterval =>
+      Duration(milliseconds: streamFlushIntervalMs);
 
   /// 由 [SelfLearningScheduler] 调用。为单个会话执行一次自我学习流程。
   Future<SelfLearningSessionReport?> runForSession(AiSession session) async {
