@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -168,7 +170,21 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
         : 'Linux';
     _selectedTerminal = _terminalsByPlatform[defaultOs]?.firstOrNull;
     if (_selectedTerminal != null) {
-      _updateWindowsForTerminal(_selectedTerminal!);
+      // 2026-04-28: Defer the AppleScript probe until *after* the dialog
+      // has rendered its first frame.  Running osascript synchronously
+      // inside initState fights for focus with the dialog's TextField on
+      // macOS — it briefly activates the target app (iTerm/Terminal) via
+      // Apple Events which leaves the host app's IMK input context stale
+      // and surfaces as the recurring "can't type or paste in popup
+      // text fields" bug accompanied by
+      // `IMKCFRunLoopWakeUpReliable` console errors.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final terminal = _selectedTerminal;
+        if (terminal != null) {
+          _updateWindowsForTerminal(terminal);
+        }
+      });
     }
     if (widget.initialTask?.isNotEmpty == true) {
       _taskController.text = widget.initialTask!;
@@ -189,21 +205,45 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
 
   Future<List<String>> _fetchMacOSAppleScript(String script) async {
     if (!Platform.isMacOS) return const <String>[];
+    Process? proc;
     try {
-      final result = await Process.run('osascript', [
-        '-e',
-        script,
-      ]).timeout(const Duration(seconds: 2));
-      if (result.exitCode == 0) {
-        final raw = (result.stdout as String).trim();
-        if (raw.isEmpty || raw == 'missing value') return const <String>[];
-        return raw
-            .split(', ')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+      proc = await Process.start('osascript', ['-e', script]);
+      // Drain stdout/stderr concurrently so the child cannot block on a
+      // full pipe while we are waiting on it.
+      final stdoutFuture = proc.stdout.transform(utf8.decoder).join();
+      // ignore: unawaited_futures
+      proc.stderr.transform(utf8.decoder).join();
+      final raw = await stdoutFuture.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          // Crucial: kill the child process so it does not linger and
+          // continue talking to other macOS apps via Apple Events, which
+          // is what disrupts the host app's input method and breaks text
+          // input in subsequent dialogs.
+          proc?.kill(ProcessSignal.sigkill);
+          throw TimeoutException('osascript probe timed out');
+        },
+      );
+      // Best-effort wait for exit so we don't leak zombies; ignore errors.
+      await proc.exitCode.timeout(
+        const Duration(milliseconds: 200),
+        onTimeout: () => -1,
+      );
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty || trimmed == 'missing value') {
+        return const <String>[];
       }
+      return trimmed
+          .split(', ')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    } on TimeoutException {
+      // Expected when the target terminal app is not running or not
+      // automatable; logging the full stack trace is just noise.
+      return const <String>[];
     } catch (error, stack) {
+      proc?.kill(ProcessSignal.sigkill);
       silentLog('machine_expert_dialog', 'osascript probe', error, stack);
     }
     return const <String>[];
@@ -571,20 +611,38 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       setState(() {
         _isLoading = true;
       });
+      Process? permProc;
       try {
         final appName = _selectedTerminal == 'iTerm2'
             ? 'iTerm'
             : _selectedTerminal!;
-        // Trigger accessibility / automation prompt by asking for a property
-        final result = await Process.run('osascript', [
+        // Trigger accessibility / automation prompt by asking for a property.
+        permProc = await Process.start('osascript', [
           '-e',
           'try\ntell application "$appName" to get id\nend try',
-        ]).timeout(const Duration(seconds: 4));
-        if (result.exitCode != 0 && result.stderr.toString().isNotEmpty) {
-          // Permission interaction failed or denied
-        }
-      } catch (e) {
-        // Error triggering osascript permission
+        ]);
+        // ignore: unawaited_futures
+        permProc.stdout.transform(utf8.decoder).join();
+        // ignore: unawaited_futures
+        permProc.stderr.transform(utf8.decoder).join();
+        await permProc.exitCode.timeout(
+          const Duration(seconds: 4),
+          onTimeout: () {
+            permProc?.kill(ProcessSignal.sigkill);
+            return -1;
+          },
+        );
+      } on TimeoutException {
+        // User did not respond to the automation prompt in time; proceed
+        // anyway — the actual command execution downstream will surface
+        // any permission error.
+      } catch (error, stack) {
+        silentLog(
+          'machine_expert_dialog',
+          'osascript automation prompt',
+          error,
+          stack,
+        );
       } finally {
         if (mounted) {
           setState(() {
