@@ -1162,6 +1162,73 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
+  /// Toggles the `pinned` flag for a session. Pinned sessions sort to
+  /// the top of the sidebar regardless of any manual `display_order`.
+  /// Returns true if the database write succeeded.
+  Future<bool> setSessionPinned(String sessionId, bool pinned) async {
+    return _enqueueOperation(() async {
+      try {
+        await _store.setSessionPinned(sessionId, pinned);
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'setSessionPinned',
+          error,
+          stack,
+        );
+        return false;
+      }
+      // Refresh in-memory order so the sidebar picks up the new sort
+      // immediately. We re-load headers; messages stay cached per
+      // session and lazy-load on demand.
+      try {
+        final result = await _store.loadAllHeaders();
+        _setSessions(result.sessions);
+        notifyListeners();
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'setSessionPinned.refresh',
+          error,
+          stack,
+        );
+      }
+      return true;
+    });
+  }
+
+  /// Toggles the `archived` flag for a session. Archived sessions are
+  /// hidden from the sidebar by default but remain accessible via the
+  /// Thread Session Management dialog. Returns true on success.
+  Future<bool> setSessionArchived(String sessionId, bool archived) async {
+    return _enqueueOperation(() async {
+      try {
+        await _store.setSessionArchived(sessionId, archived);
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'setSessionArchived',
+          error,
+          stack,
+        );
+        return false;
+      }
+      try {
+        final result = await _store.loadAllHeaders();
+        _setSessions(result.sessions);
+        notifyListeners();
+      } catch (error, stack) {
+        silentLog(
+          'ai_session_controller',
+          'setSessionArchived.refresh',
+          error,
+          stack,
+        );
+      }
+      return true;
+    });
+  }
+
   AiRuntimeToolPreview previewRuntimeToolCatalog({
     required AiSession session,
     required AiModelConfig model,

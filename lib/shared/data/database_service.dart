@@ -15,7 +15,7 @@ class DatabaseService {
   static DatabaseService? _instance;
   Database? _database;
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
   static const String _databaseFileName = 'openhand.db';
 
   /// Returns the singleton instance.  Must call [initialize] first.
@@ -133,7 +133,9 @@ class DatabaseService {
         recent_errors_json                        TEXT NOT NULL DEFAULT '[]',
         todo_items_json                           TEXT NOT NULL DEFAULT '[]',
         plan_history_json                         TEXT NOT NULL DEFAULT '[]',
-        display_order                             INTEGER
+        display_order                             INTEGER,
+        pinned                                    INTEGER NOT NULL DEFAULT 0,
+        archived                                  INTEGER NOT NULL DEFAULT 0
       )
     ''');
     batch.execute(
@@ -141,6 +143,12 @@ class DatabaseService {
     );
     batch.execute(
       'CREATE INDEX idx_sessions_display_order ON sessions(display_order)',
+    );
+    batch.execute(
+      'CREATE INDEX idx_sessions_pinned ON sessions(pinned)',
+    );
+    batch.execute(
+      'CREATE INDEX idx_sessions_archived ON sessions(archived)',
     );
 
     // ----- Messages (one per row, linked to session) -----
@@ -286,6 +294,27 @@ class DatabaseService {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_sessions_display_order '
         'ON sessions(display_order)',
+      );
+    }
+    // 2026-05-XX: schema v5 — pinned/archived columns for the Thread
+    // Session Management dialog. Pinned sessions are forced to the top
+    // (above any manual display_order); archived sessions are hidden by
+    // default in both the sidebar and the manager unless explicitly
+    // requested via includeArchived.
+    if (oldVersion < 5) {
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE sessions ADD COLUMN archived INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sessions_pinned '
+        'ON sessions(pinned)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_sessions_archived '
+        'ON sessions(archived)',
       );
     }
   }

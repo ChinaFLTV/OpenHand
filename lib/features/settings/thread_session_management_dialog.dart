@@ -49,12 +49,35 @@ class _ThreadSessionManagementDialogState
   Map<String, int> _diskBytes = const <String, int>{};
   bool _diskBytesLoading = false;
 
+  // Pin/Archive flags loaded from the DB. The AiSession model does not
+  // carry these so we keep them in a side-map and refresh after every
+  // pin/archive toggle.
+  Map<String, ({bool pinned, bool archived})> _flags =
+      const <String, ({bool pinned, bool archived})>{};
+
+  // Sessions flagged as `archived`. The controller's `sessions` list
+  // already excludes them (sidebar default), so the dialog loads them
+  // separately and merges only when [_showArchived] is on.
+  List<AiSession> _archivedSessions = const <AiSession>[];
+
   // View controls.
   _SortMode _sortMode = _SortMode.manual;
   String _searchQuery = '';
   late final TextEditingController _searchController;
   final Set<String> _templateFilter = <String>{};
   bool _denseMode = false;
+  bool _showArchived = false;
+
+  // IDs whose row is currently animating out (delete collapse + fade).
+  // Rows present in this set render with height 0 so the surrounding
+  // list rows slide up smoothly via AnimatedSize before the actual
+  // controller delete fires.
+  final Set<String> _animatingOutIds = <String>{};
+
+  // Currently-previewed session in the right-side drawer (loaded with
+  // messages on demand so the dialog opens fast).
+  AiSession? _previewSession;
+  bool _previewLoading = false;
 
   @override
   void initState() {
@@ -62,6 +85,7 @@ class _ThreadSessionManagementDialogState
     _searchController = TextEditingController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshDiskBytes();
+      _refreshFlags();
     });
   }
 
@@ -91,6 +115,35 @@ class _ThreadSessionManagementDialogState
       );
     } finally {
       _diskBytesLoading = false;
+    }
+  }
+
+  Future<void> _refreshFlags() async {
+    try {
+      final controller = context.read<AiSessionController>();
+      final flags = await controller.store.loadSessionFlags();
+      // If "show archived" is on, also pull the archived sessions so we
+      // can merge them into the visible list.
+      List<AiSession> archived = const <AiSession>[];
+      if (_showArchived) {
+        final result =
+            await controller.store.loadAllHeaders(includeArchived: true);
+        archived = result.sessions
+            .where((s) => flags[s.id]?.archived == true)
+            .toList(growable: false);
+      }
+      if (!mounted) return;
+      setState(() {
+        _flags = flags;
+        _archivedSessions = archived;
+      });
+    } catch (error, stack) {
+      silentLog(
+        'thread_session_management_dialog',
+        'refreshFlags',
+        error,
+        stack,
+      );
     }
   }
 
@@ -285,6 +338,21 @@ class _ThreadSessionManagementDialogState
   }
 
   Future<void> _deleteIds(Set<String> ids) async {
+    // Phase 1: kick off the row collapse animation. The wrapper around
+    // each `_SessionRow` watches `_animatingOutIds`; flagging an id here
+    // collapses that row's height to 0 over ~240ms while neighbouring
+    // rows slide up smoothly via `AnimatedSize`.
+    if (mounted) {
+      setState(() {
+        _animatingOutIds.addAll(ids);
+        // If we're previewing one of the rows being deleted, close it.
+        if (_previewSession != null && ids.contains(_previewSession!.id)) {
+          _previewSession = null;
+        }
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 240));
+      if (!mounted) return;
+    }
     final controller = context.read<AiSessionController>();
     var failed = 0;
     for (final id in ids) {
@@ -293,6 +361,7 @@ class _ThreadSessionManagementDialogState
     }
     if (!mounted) return;
     setState(() {
+      _animatingOutIds.removeAll(ids);
       _selectedIds.removeAll(ids);
       if (_selectedIds.isEmpty) _isSelectionMode = false;
       // Drop deleted rows from the local order overlay so the list
@@ -312,6 +381,7 @@ class _ThreadSessionManagementDialogState
     }
     // Recompute disk footprint after the row count changes.
     unawaited(_refreshDiskBytes());
+    unawaited(_refreshFlags());
   }
 
   Future<void> _exportSession(AiSession headerOnly) async {
@@ -529,6 +599,9 @@ class _ThreadSessionManagementDialogState
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (overlay == null) return;
+    final flag = _flags[session.id];
+    final isPinned = flag?.pinned ?? false;
+    final isArchived = flag?.archived ?? false;
     final selected = await showMenu<_SessionRowAction>(
       context: context,
       position: RelativeRect.fromRect(
@@ -537,6 +610,17 @@ class _ThreadSessionManagementDialogState
       ),
       items: [
         PopupMenuItem(
+          value: _SessionRowAction.preview,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.visibility_outlined),
+            title: Text(
+              _localizedText(context, zh: '预览', en: 'Preview'),
+            ),
+          ),
+        ),
+        PopupMenuItem(
           value: _SessionRowAction.rename,
           child: ListTile(
             dense: true,
@@ -544,6 +628,38 @@ class _ThreadSessionManagementDialogState
             leading: const Icon(Icons.edit_outlined),
             title: Text(
               _localizedText(context, zh: '重命名', en: 'Rename'),
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: _SessionRowAction.pin,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+            ),
+            title: Text(
+              isPinned
+                  ? _localizedText(context, zh: '取消置顶', en: 'Unpin')
+                  : _localizedText(context, zh: '置顶', en: 'Pin'),
+            ),
+          ),
+        ),
+        PopupMenuItem(
+          value: _SessionRowAction.archive,
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              isArchived
+                  ? Icons.unarchive_outlined
+                  : Icons.archive_outlined,
+            ),
+            title: Text(
+              isArchived
+                  ? _localizedText(context, zh: '取消归档', en: 'Unarchive')
+                  : _localizedText(context, zh: '归档', en: 'Archive'),
             ),
           ),
         ),
@@ -573,13 +689,242 @@ class _ThreadSessionManagementDialogState
     );
     if (!mounted || selected == null) return;
     switch (selected) {
+      case _SessionRowAction.preview:
+        await _openPreview(session);
       case _SessionRowAction.rename:
         await _renameSession(session);
+      case _SessionRowAction.pin:
+        await _togglePin(session);
+      case _SessionRowAction.archive:
+        await _toggleArchive(session);
       case _SessionRowAction.export:
         await _exportSession(session);
       case _SessionRowAction.delete:
         await _confirmDeleteSingle(session);
     }
+  }
+
+  Future<void> _togglePin(AiSession session) async {
+    final controller = context.read<AiSessionController>();
+    final wasPinned = _flags[session.id]?.pinned ?? false;
+    final ok = await controller.setSessionPinned(session.id, !wasPinned);
+    if (!mounted) return;
+    if (ok) {
+      // Manual ordering tracked by the dialog overlay must be invalidated
+      // because the controller has just refreshed `sessions` with a new
+      // pinned-first order. Drop the overlay so the next build re-mirrors
+      // upstream.
+      setState(() {
+        _localOrder = null;
+      });
+      await _refreshFlags();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_localizedText(
+          context,
+          zh: '置顶状态更新失败',
+          en: 'Failed to update pin state',
+        )),
+      ));
+    }
+  }
+
+  Future<void> _toggleArchive(AiSession session) async {
+    final controller = context.read<AiSessionController>();
+    final wasArchived = _flags[session.id]?.archived ?? false;
+    final ok = await controller.setSessionArchived(session.id, !wasArchived);
+    if (!mounted) return;
+    if (ok) {
+      setState(() {
+        _localOrder = null;
+        // If we're previewing this session and it just got archived
+        // while archived rows are hidden, close the drawer.
+        if (_previewSession?.id == session.id &&
+            !wasArchived &&
+            !_showArchived) {
+          _previewSession = null;
+        }
+      });
+      await _refreshFlags();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_localizedText(
+          context,
+          zh: '归档状态更新失败',
+          en: 'Failed to update archive state',
+        )),
+      ));
+    }
+  }
+
+  Future<void> _openPreview(AiSession session) async {
+    setState(() {
+      _previewLoading = true;
+      _previewSession = session;
+    });
+    AiSession? full;
+    try {
+      final controller = context.read<AiSessionController>();
+      full = await controller.store.loadSession(session.id);
+    } catch (error, stack) {
+      silentLog(
+        'thread_session_management_dialog',
+        'openPreview.loadSession',
+        error,
+        stack,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _previewLoading = false;
+      // Keep the placeholder header visible if the load failed; show
+      // full messages once available.
+      if (full != null) _previewSession = full;
+    });
+  }
+
+  void _closePreview() {
+    setState(() {
+      _previewSession = null;
+      _previewLoading = false;
+    });
+  }
+
+  Widget _buildPreviewDrawer(ThemeData theme) {
+    final session = _previewSession!;
+    final stats = session.statistics;
+    // Take the last 6 visible messages so the drawer stays compact.
+    final allMessages = session.messages;
+    final tail = allMessages.length > 6
+        ? allMessages.sublist(allMessages.length - 6)
+        : allMessages;
+    return Container(
+      width: 340,
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        color: theme.colorScheme.surfaceContainerLowest,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 6, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.title.isEmpty
+                            ? _localizedText(
+                                context,
+                                zh: '(未命名线程)',
+                                en: '(Untitled Thread)',
+                              )
+                            : session.title,
+                        style: theme.textTheme.titleSmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _localizedText(
+                          context,
+                          zh: '${stats.totalMessageCount} 条消息',
+                          en: '${stats.totalMessageCount} messages',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: _localizedText(
+                    context,
+                    zh: '关闭预览',
+                    en: 'Close Preview',
+                  ),
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: _closePreview,
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          if (_previewLoading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            Expanded(
+              child: tail.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          _localizedText(
+                            context,
+                            zh: '暂无消息',
+                            en: 'No messages',
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: tail.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final m = tail[index];
+                        final preview = m.content.length > 320
+                            ? '${m.content.substring(0, 320)}…'
+                            : m.content;
+                        return Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${m.kind.name} · ${m.role.name}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                preview.isEmpty
+                                    ? _localizedText(
+                                        context,
+                                        zh: '(空消息)',
+                                        en: '(empty)',
+                                      )
+                                    : preview,
+                                style: theme.textTheme.bodySmall,
+                                maxLines: 8,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+        ],
+      ),
+    );
   }
 
   // ------------------------------------------------------------------
@@ -590,10 +935,21 @@ class _ThreadSessionManagementDialogState
   Widget build(BuildContext context) {
     final controller = context.watch<AiSessionController>();
     final upstream = controller.sessions;
+    // When the user opts in to view archived rows, fold them into the
+    // upstream list. Archived sessions live outside `controller.sessions`
+    // (which mirrors the sidebar — sidebar excludes archived) so we
+    // augment locally only when the toggle is active.
+    final List<AiSession> upstreamMerged = _showArchived
+        ? <AiSession>[
+            ...upstream,
+            for (final s in _archivedSessions)
+              if (!upstream.any((u) => u.id == s.id)) s,
+          ]
+        : upstream;
     // Initialize / sync local overlay. We trust the controller's order on
     // first build and after additions/removals the user didn't perform.
     if (_localOrder == null) {
-      _localOrder = List<AiSession>.from(upstream);
+      _localOrder = List<AiSession>.from(upstreamMerged);
     } else {
       // Reconcile: keep our manual order for ids that still exist, append
       // new ids that appeared in upstream at the top (matches sidebar
@@ -601,7 +957,7 @@ class _ThreadSessionManagementDialogState
       // visual jumps mid-drag.
       final knownIds = _localOrder!.map((s) => s.id).toSet();
       final upstreamById = <String, AiSession>{
-        for (final s in upstream) s.id: s,
+        for (final s in upstreamMerged) s.id: s,
       };
       // Refresh known sessions (so titles update after rename, etc.)
       final preserved = <AiSession>[];
@@ -610,7 +966,7 @@ class _ThreadSessionManagementDialogState
         if (fresh != null) preserved.add(fresh);
       }
       // Prepend brand-new sessions that don't appear in our local order.
-      final additions = upstream
+      final additions = upstreamMerged
           .where((s) => !knownIds.contains(s.id))
           .toList(growable: false);
       _localOrder = <AiSession>[...additions, ...preserved];
@@ -674,9 +1030,24 @@ class _ThreadSessionManagementDialogState
             const Divider(height: 1),
             if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
             Expanded(
-              child: visible.isEmpty
-                  ? _buildEmptyState()
-                  : _buildList(visible),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: visible.isEmpty
+                        ? _buildEmptyState()
+                        : _buildList(visible),
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.centerLeft,
+                    child: _previewSession == null
+                        ? const SizedBox(width: 0)
+                        : _buildPreviewDrawer(theme),
+                  ),
+                ],
+              ),
             ),
             const Divider(height: 1),
             _buildFooter(),
@@ -854,6 +1225,19 @@ class _ThreadSessionManagementDialogState
             ),
           ),
           IconButton(
+            tooltip: _showArchived
+                ? _localizedText(context, zh: '隐藏归档', en: 'Hide Archived')
+                : _localizedText(context, zh: '显示归档', en: 'Show Archived'),
+            icon: Icon(
+              _showArchived ? Icons.inventory_2 : Icons.inventory_2_outlined,
+            ),
+            onPressed: () {
+              setState(() => _showArchived = !_showArchived);
+              _refreshFlags();
+            },
+          ),
+          const SizedBox(width: 6),
+          IconButton(
             tooltip: _isSelectionMode
                 ? _localizedText(context, zh: '退出多选', en: 'Exit Selection')
                 : _localizedText(context, zh: '多选', en: 'Multi-select'),
@@ -869,6 +1253,7 @@ class _ThreadSessionManagementDialogState
               });
             },
           ),
+          const SizedBox(width: 6),
           IconButton(
             tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
             icon: const Icon(Icons.close),
@@ -956,12 +1341,17 @@ class _ThreadSessionManagementDialogState
 
     Widget rowFor(int index) {
       final session = sessions[index];
-      return _SessionRow(
+      final flag = _flags[session.id];
+      final isAnimatingOut = _animatingOutIds.contains(session.id);
+      final row = _SessionRow(
         key: ValueKey<String>(session.id),
         index: index,
         session: session,
         isSelectionMode: _isSelectionMode,
         isSelected: _selectedIds.contains(session.id),
+        isPinned: flag?.pinned ?? false,
+        isArchived: flag?.archived ?? false,
+        isPreviewing: _previewSession?.id == session.id,
         denseMode: _denseMode,
         showDragHandle: canReorder,
         diskBytes: _diskBytes[session.id],
@@ -969,6 +1359,9 @@ class _ThreadSessionManagementDialogState
         formatBytes: _formatBytes,
         estimateBytes: _estimateBytes,
         localizedText: _localizedText,
+        onTap: _isSelectionMode
+            ? null
+            : () => _openPreview(session),
         onToggleSelect: (checked) {
           setState(() {
             if (checked == true) {
@@ -980,6 +1373,25 @@ class _ThreadSessionManagementDialogState
         },
         onDoubleTap: (pos) => _showSessionContextMenu(session, pos),
         onSecondaryTap: (pos) => _showSessionContextMenu(session, pos),
+      );
+      // Wrap each row so deletion plays a smooth collapse + fade before
+      // the controller's notifyListeners actually removes the entry from
+      // the list. The wrapper itself keeps a stable key so its state
+      // survives upstream rebuilds.
+      return KeyedSubtree(
+        key: ValueKey<String>('row-wrapper-${session.id}'),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 200),
+            opacity: isAnimatingOut ? 0.0 : 1.0,
+            child: isAnimatingOut
+                ? const SizedBox(width: double.infinity, height: 0)
+                : row,
+          ),
+        ),
       );
     }
 
@@ -997,6 +1409,26 @@ class _ThreadSessionManagementDialogState
       cacheExtent: 600,
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       itemBuilder: (context, index) => rowFor(index),
+      proxyDecorator: (child, index, animation) {
+        // The default proxy wraps the row in a square Material whose
+        // bounds extend past our rounded Card border, leaving an ugly
+        // rectangular halo while dragging. Override with a transparent
+        // Material so only the Card's own rounded shape is visible.
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, _) {
+            final lerp = Curves.easeInOut.transform(animation.value);
+            return Material(
+              type: MaterialType.transparency,
+              child: Transform.scale(
+                scale: 1 + 0.02 * lerp,
+                child: child,
+              ),
+            );
+          },
+          child: child,
+        );
+      },
       onReorder: (oldIndex, newIndex) {
         setState(() {
           final list = _localOrder!;
@@ -1025,7 +1457,7 @@ class _ThreadSessionManagementDialogState
   }
 }
 
-enum _SessionRowAction { rename, export, delete }
+enum _SessionRowAction { preview, rename, pin, archive, export, delete }
 
 enum _SortMode {
   manual,
@@ -1053,6 +1485,10 @@ class _SessionRow extends StatelessWidget {
     required this.onToggleSelect,
     required this.onDoubleTap,
     required this.onSecondaryTap,
+    this.isPinned = false,
+    this.isArchived = false,
+    this.isPreviewing = false,
+    this.onTap,
   });
 
   final int index;
@@ -1070,6 +1506,10 @@ class _SessionRow extends StatelessWidget {
   final ValueChanged<bool?> onToggleSelect;
   final void Function(Offset globalPosition) onDoubleTap;
   final void Function(Offset globalPosition) onSecondaryTap;
+  final bool isPinned;
+  final bool isArchived;
+  final bool isPreviewing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1094,64 +1534,86 @@ class _SessionRow extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: isSelected
+          color: isPreviewing
               ? theme.colorScheme.primary
-              : theme.colorScheme.outlineVariant,
+              : (isSelected
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.outlineVariant),
+          width: isPreviewing ? 1.4 : 1,
         ),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onDoubleTapDown: (details) => onDoubleTap(details.globalPosition),
-        onSecondaryTapDown: (details) =>
-            onSecondaryTap(details.globalPosition),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            12,
-            denseMode ? 6 : 10,
-            8,
-            denseMode ? 6 : 10,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isSelectionMode)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, top: 2),
-                  child: Checkbox(
-                    value: isSelected,
-                    onChanged: onToggleSelect,
-                  ),
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            session.title.isEmpty
-                                ? localizedText(
-                                    context,
-                                    zh: '(未命名线程)',
-                                    en: '(Untitled Thread)',
-                                  )
-                                : session.title,
-                            style: theme.textTheme.titleSmall,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          session.templateName,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
+      child: Opacity(
+        opacity: isArchived ? 0.62 : 1.0,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          onDoubleTapDown: (details) => onDoubleTap(details.globalPosition),
+          onSecondaryTapDown: (details) =>
+              onSecondaryTap(details.globalPosition),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              12,
+              denseMode ? 6 : 10,
+              8,
+              denseMode ? 6 : 10,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isSelectionMode)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4, top: 2),
+                    child: Checkbox(
+                      value: isSelected,
+                      onChanged: onToggleSelect,
                     ),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (isPinned) ...[
+                            Icon(
+                              Icons.push_pin,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          if (isArchived) ...[
+                            Icon(
+                              Icons.archive,
+                              size: 14,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          Expanded(
+                            child: Text(
+                              session.title.isEmpty
+                                  ? localizedText(
+                                      context,
+                                      zh: '(未命名线程)',
+                                      en: '(Untitled Thread)',
+                                    )
+                                  : session.title,
+                              style: theme.textTheme.titleSmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            session.templateName,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 14,
@@ -1238,6 +1700,7 @@ class _SessionRow extends StatelessWidget {
           ),
         ),
       ),
+        ),
     );
     return card;
   }

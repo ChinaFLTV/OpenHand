@@ -111,10 +111,15 @@ class AiSessionStore {
   }
 
   /// Loads all sessions **with their messages** (backward-compatible API).
-  Future<AiSessionLoadResult> loadAll() async {
+  /// By default, sessions flagged as `archived` are excluded so the
+  /// sidebar does not surface long-shelved threads. Pass
+  /// [includeArchived] to load every row regardless of archive state
+  /// (used by the Thread Session Management dialog).
+  Future<AiSessionLoadResult> loadAll({bool includeArchived = false}) async {
     final issues = <AiSessionPersistenceIssue>[];
     final sessionRows = await _db.query(
       'sessions',
+      where: includeArchived ? null : 'archived = 0',
       orderBy: _sessionsOrderBy,
     );
 
@@ -144,11 +149,15 @@ class AiSessionStore {
   }
 
   /// Loads **only session metadata** (no messages).  Much faster for building
-  /// the sidebar session list.
-  Future<AiSessionLoadResult> loadAllHeaders() async {
+  /// the sidebar session list. Like [loadAll], excludes archived rows by
+  /// default.
+  Future<AiSessionLoadResult> loadAllHeaders({
+    bool includeArchived = false,
+  }) async {
     final issues = <AiSessionPersistenceIssue>[];
     final sessionRows = await _db.query(
       'sessions',
+      where: includeArchived ? null : 'archived = 0',
       orderBy: _sessionsOrderBy,
     );
 
@@ -183,6 +192,7 @@ class AiSessionStore {
   /// Management dialog persist a stable manual order while still keeping
   /// untouched threads in their natural recency order on the sidebar.
   static const String _sessionsOrderBy =
+      'pinned DESC, '
       '(display_order IS NULL) ASC, '
       'display_order ASC, '
       'updated_at DESC, '
@@ -209,6 +219,55 @@ class AiSessionStore {
       }
       await batch.commit(noResult: true);
     });
+  }
+
+  /// Sets the `pinned` flag for a single session. Pinned sessions sort
+  /// to the top of every listing (above any manual `display_order`).
+  Future<void> setSessionPinned(String sessionId, bool pinned) async {
+    final id = sessionId.trim();
+    if (!_isSafeStorageIdentifier(id)) return;
+    await _db.update(
+      'sessions',
+      <String, Object?>{'pinned': pinned ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  /// Sets the `archived` flag for a single session. Archived sessions
+  /// are excluded from default loaders (sidebar) but remain accessible
+  /// via [loadAll]/[loadAllHeaders] when `includeArchived: true`.
+  Future<void> setSessionArchived(String sessionId, bool archived) async {
+    final id = sessionId.trim();
+    if (!_isSafeStorageIdentifier(id)) return;
+    await _db.update(
+      'sessions',
+      <String, Object?>{'archived': archived ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+    );
+  }
+
+  /// Returns a map of `sessionId -> (pinned, archived)` flags for every
+  /// session in the database. The Thread Session Management dialog uses
+  /// this to render badges and toggle states without bloating the
+  /// in-memory `AiSession` model.
+  Future<Map<String, ({bool pinned, bool archived})>>
+      loadSessionFlags() async {
+    final rows = await _db.query(
+      'sessions',
+      columns: const <String>['id', 'pinned', 'archived'],
+    );
+    final result = <String, ({bool pinned, bool archived})>{};
+    for (final row in rows) {
+      final id = row['id'];
+      if (id is! String) continue;
+      result[id] = (
+        pinned: (row['pinned'] as int? ?? 0) != 0,
+        archived: (row['archived'] as int? ?? 0) != 0,
+      );
+    }
+    return result;
   }
 
   /// Computes the on-disk byte footprint of every session in a single
@@ -375,13 +434,14 @@ class AiSessionStore {
     _validateSessionForStorage(session);
 
     await _db.transaction((txn) async {
-      // Preserve any existing display_order assigned by the Thread
-      // Session Management dialog. The default ConflictAlgorithm.replace
-      // would otherwise wipe the column on every save (it deletes the
-      // existing row before inserting the replacement).
+      // Preserve any existing display_order, pinned, and archived flags
+      // assigned via the Thread Session Management dialog. The default
+      // ConflictAlgorithm.replace would otherwise wipe these columns on
+      // every save (it deletes the existing row before inserting the
+      // replacement).
       final existing = await txn.query(
         'sessions',
-        columns: const <String>['display_order'],
+        columns: const <String>['display_order', 'pinned', 'archived'],
         where: 'id = ?',
         whereArgs: <Object?>[session.id],
         limit: 1,
@@ -389,10 +449,18 @@ class AiSessionStore {
       final preservedDisplayOrder = existing.isNotEmpty
           ? existing.first['display_order']
           : null;
+      final preservedPinned = existing.isNotEmpty
+          ? (existing.first['pinned'] as int? ?? 0)
+          : 0;
+      final preservedArchived = existing.isNotEmpty
+          ? (existing.first['archived'] as int? ?? 0)
+          : 0;
 
       // Upsert session row.
       final row = _sessionToRow(session);
       row['display_order'] = preservedDisplayOrder;
+      row['pinned'] = preservedPinned;
+      row['archived'] = preservedArchived;
       await txn.insert(
         'sessions',
         row,
