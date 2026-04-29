@@ -91,6 +91,7 @@ import '../mcp/model/mcp_server.dart';
 import '../mcp/model/mcp_tool.dart';
 import '../memory/memory_controller.dart';
 import '../memory/memory_view.dart';
+import '../message_gateway/message_gateway_view.dart';
 import '../settings/settings_view.dart';
 import '../skills/model/local_skill.dart';
 import '../skills/skills_controller.dart';
@@ -130,6 +131,7 @@ enum AppSection {
   hooks,
   crons,
   instructions,
+  messageGateway,
   settings,
   hardnessSession,
 }
@@ -4101,6 +4103,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         zh: '指令',
         en: 'Instructions',
       ),
+      AppSection.messageGateway => _localizedText(
+        context,
+        zh: '消息网关',
+        en: 'Message Gateway',
+      ),
       AppSection.settings => _localizedText(context, zh: '设置', en: 'Settings'),
       AppSection.hardnessSession => _localizedText(
         context,
@@ -5375,6 +5382,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.hooks => const HooksView(),
       AppSection.crons => const CronsView(),
       AppSection.instructions => const InstructionsView(),
+      AppSection.messageGateway => const MessageGatewayView(),
       AppSection.settings => const SettingsView(),
       AppSection.hardnessSession =>
         _activeHardnessOrchestrator != null && _activeHardnessConfig != null
@@ -5484,7 +5492,8 @@ extension on AppSection {
       AppSection.hooks => 4,
       AppSection.crons => 5,
       AppSection.instructions => 6,
-      AppSection.settings => 7,
+      AppSection.messageGateway => 7,
+      AppSection.settings => 8,
     };
   }
 }
@@ -5498,7 +5507,8 @@ AppSection _sectionFromDrawerIndex(int index) {
     4 => AppSection.hooks,
     5 => AppSection.crons,
     6 => AppSection.instructions,
-    7 => AppSection.settings,
+    7 => AppSection.messageGateway,
+    8 => AppSection.settings,
     _ => AppSection.workspace,
   };
 }

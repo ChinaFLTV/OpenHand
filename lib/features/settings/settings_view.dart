@@ -74,7 +74,6 @@ enum _SettingsSection {
   memory,
   crons,
   hermesTalker,
-  messageGateway,
   editor,
   appData,
   about,
@@ -340,7 +339,6 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.memory,
       _SettingsSection.crons,
       _SettingsSection.hermesTalker,
-      _SettingsSection.messageGateway,
       _SettingsSection.editor,
       _SettingsSection.appData,
       _SettingsSection.about,
@@ -593,24 +591,6 @@ class _SettingsViewState extends State<SettingsView> {
           en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
         ),
         children: [_buildHermesTalkerSection(context, settingsController)],
-      ),
-      _SettingsSection.messageGateway => _SettingsGroupCard(
-        title: AppLocalizations.of(context)!.settingsMessageGatewayTitle,
-        description:
-            AppLocalizations.of(context)!.settingsMessageGatewayDescription,
-        children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.hub_outlined),
-            title: Text(
-              AppLocalizations.of(context)!.settingsMessageGatewayComingSoon,
-            ),
-            subtitle: Text(
-              AppLocalizations.of(context)!
-                  .settingsMessageGatewayComingSoonSubtitle,
-            ),
-          ),
-        ],
       ),
       _SettingsSection.editor => _SettingsGroupCard(
         title: _localizedText(context, zh: '编辑器', en: 'Editor'),

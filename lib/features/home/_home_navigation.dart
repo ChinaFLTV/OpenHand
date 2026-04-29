@@ -346,6 +346,11 @@ class _NavigationPaneState extends State<_NavigationPane> {
               label: Text(_localizedText(context, zh: '指令', en: 'Instructions')),
             ),
             NavigationDrawerDestination(
+              icon: const Icon(Icons.alt_route_outlined),
+              selectedIcon: const Icon(Icons.alt_route_rounded),
+              label: Text(l10n.settingsMessageGatewayTitle),
+            ),
+            NavigationDrawerDestination(
               icon: const Icon(Icons.settings_outlined),
               selectedIcon: const Icon(Icons.settings_rounded),
               label: Text(l10n.settings),
