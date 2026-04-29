@@ -1898,4 +1898,230 @@ class AppLocalizationsFr extends AppLocalizations {
   String selfLearningFlushIntervalHelper(int min, int max) {
     return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
   }
+
+  @override
+  String get tsmRenameThreadTitle => 'Renommer le fil';
+
+  @override
+  String get tsmRenameHint => 'Saisissez un titre de fil';
+
+  @override
+  String get tsmRenameFailed => 'Échec du renommage';
+
+  @override
+  String get tsmDeleteThreadTitle => 'Supprimer le fil';
+
+  @override
+  String get tsmDeleteSelectedTitle => 'Supprimer les fils sélectionnés';
+
+  @override
+  String tsmDeleteSelectedConfirm(Object count) {
+    return 'Supprimera définitivement $count fils et leurs messages. Cette action est irréversible.';
+  }
+
+  @override
+  String tsmDeleteFailedCount(Object count) {
+    return '$count fil(s) n\'ont pas pu être supprimés';
+  }
+
+  @override
+  String get tsmSessionMissing => 'Session manquante ou supprimée';
+
+  @override
+  String get tsmExportSessionDataTitle => 'Exporter les données de session';
+
+  @override
+  String tsmExportingSession(Object title) {
+    return 'Export de « $title »…';
+  }
+
+  @override
+  String get tsmExportComplete => 'Export terminé';
+
+  @override
+  String get tsmExportFailed => 'Échec de l\'export';
+
+  @override
+  String get tsmChooseExportFolder => 'Choisir le dossier d\'export';
+
+  @override
+  String get tsmBatchExportTitle => 'Export en lot';
+
+  @override
+  String tsmBatchExportSubtitle(Object count) {
+    return 'Export imminent de $count fils…';
+  }
+
+  @override
+  String tsmBatchExportDone(Object ok, Object failed) {
+    return 'Export en lot terminé : $ok réussi(s) / $failed échoué(s)';
+  }
+
+  @override
+  String get tsmMenuPreview => 'Aperçu';
+
+  @override
+  String get tsmMenuRename => 'Renommer';
+
+  @override
+  String get tsmMenuExportSession => 'Exporter la session';
+
+  @override
+  String get tsmMenuPin => 'Épingler';
+
+  @override
+  String get tsmMenuUnpin => 'Détacher';
+
+  @override
+  String get tsmMenuArchive => 'Archiver';
+
+  @override
+  String get tsmMenuUnarchive => 'Désarchiver';
+
+  @override
+  String get tsmMenuDelete => 'Supprimer';
+
+  @override
+  String get tsmPinUpdateFailed => 'Échec de la mise à jour de l\'épingle';
+
+  @override
+  String get tsmArchiveUpdateFailed => 'Échec de la mise à jour de l\'archive';
+
+  @override
+  String get tsmUntitledThread => '(Fil sans titre)';
+
+  @override
+  String tsmPreviewMessageCount(Object count) {
+    return '$count messages';
+  }
+
+  @override
+  String get tsmClosePreview => 'Fermer l\'aperçu';
+
+  @override
+  String get tsmNoMessages => 'Aucun message';
+
+  @override
+  String get tsmEmptyMessage => '(vide)';
+
+  @override
+  String get tsmSearchHint => 'Rechercher par titre ou ID';
+
+  @override
+  String get tsmDensityComfortable => 'Confortable';
+
+  @override
+  String get tsmDensityCompact => 'Compact';
+
+  @override
+  String get tsmAllTemplates => 'Tous les modèles';
+
+  @override
+  String tsmSortDisabledHint(Object mode) {
+    return 'Trié par « $mode ». Les poignées de glissement sont désactivées ; revenez à « Ordre manuel » pour réordonner.';
+  }
+
+  @override
+  String get tsmSortManual => 'Ordre manuel';
+
+  @override
+  String get tsmSortUpdated => 'Récemment mis à jour';
+
+  @override
+  String get tsmSortCreated => 'Récemment créé';
+
+  @override
+  String get tsmSortSize => 'Par taille';
+
+  @override
+  String get tsmSortMessages => 'Par messages';
+
+  @override
+  String get tsmSortToken => 'Par token';
+
+  @override
+  String get tsmHideArchived => 'Masquer les archives';
+
+  @override
+  String get tsmShowArchived => 'Afficher les archives';
+
+  @override
+  String get tsmExitSelection => 'Quitter la sélection';
+
+  @override
+  String get tsmEnterSelection => 'Multi-sélection';
+
+  @override
+  String get tsmClose => 'Fermer';
+
+  @override
+  String get tsmTitle => 'Gestion des sessions de fils';
+
+  @override
+  String tsmHeaderSubtitle(Object count) {
+    return '$count fil(s) · appui long / glisser la poignée pour réordonner, double-clic / clic-droit pour plus';
+  }
+
+  @override
+  String tsmSelectedCount(Object count) {
+    return '$count sélectionné(s)';
+  }
+
+  @override
+  String get tsmBatchExportButton => 'Export en lot';
+
+  @override
+  String get tsmDeleteSelectedButton => 'Supprimer la sélection';
+
+  @override
+  String get tsmEmptyState => 'Aucune session de fil pour l\'instant';
+
+  @override
+  String get tsmCancel => 'Annuler';
+
+  @override
+  String get settingsThreadSessionManagementTitle =>
+      'Gestion des sessions de fils';
+
+  @override
+  String get settingsThreadSessionManagementSubtitle =>
+      'Inspectez le titre, l\'heure de création/mise à jour, l\'empreinte de stockage, la répartition des messages et les statistiques de tokens de chaque fil. Prend en charge le réordonnancement par glissement, la suppression multi-sélection et un menu double-clic / clic-droit pour renommer/exporter/supprimer. L\'animation d\'entrée/sortie suit les réglages globaux.';
+
+  @override
+  String get settingsThreadSessionManagementOpen => 'Ouvrir le gestionnaire';
+
+  @override
+  String get settingsMessageGatewayTitle => 'Passerelle de messages';
+
+  @override
+  String get settingsMessageGatewayDescription =>
+      'Configurez le routage, les transformations et la limitation de débit de la passerelle de messages. Les options concrètes seront ajoutées dans une future version ; cette section est actuellement un emplacement réservé.';
+
+  @override
+  String get settingsMessageGatewayComingSoon => 'Bientôt disponible';
+
+  @override
+  String get settingsMessageGatewayComingSoonSubtitle =>
+      'La configuration détaillée de la passerelle de messages est prévue pour la prochaine itération.';
+
+  @override
+  String get tsmRowUnknown => 'inconnu';
+
+  @override
+  String get tsmRowCreated => 'Créé';
+
+  @override
+  String get tsmRowUpdated => 'Mis à jour';
+
+  @override
+  String get tsmRowSize => 'Taille';
+
+  @override
+  String get tsmRowMessages => 'Messages';
+
+  @override
+  String get tsmRowToken => 'Token';
+
+  @override
+  String get tsmRowByKind => 'Par type';
 }

@@ -3501,6 +3501,414 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'自我学习卡片流式输出的持久化间隔（{min}–{max}ms）。调小=更实时但更多布局抖动；调大=更平滑但增量延迟更高。默认 600ms。'**
   String selfLearningFlushIntervalHelper(int min, int max);
+
+  /// No description provided for @tsmRenameThreadTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名线程'**
+  String get tsmRenameThreadTitle;
+
+  /// No description provided for @tsmRenameHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入线程标题'**
+  String get tsmRenameHint;
+
+  /// No description provided for @tsmRenameFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名失败'**
+  String get tsmRenameFailed;
+
+  /// No description provided for @tsmDeleteThreadTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除线程'**
+  String get tsmDeleteThreadTitle;
+
+  /// No description provided for @tsmDeleteSelectedTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除所选线程'**
+  String get tsmDeleteSelectedTitle;
+
+  /// No description provided for @tsmDeleteSelectedConfirm.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'将永久删除 {count} 个线程及其消息。此操作无法撤销。'**
+  String tsmDeleteSelectedConfirm(Object count);
+
+  /// No description provided for @tsmDeleteFailedCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 个线程删除失败'**
+  String tsmDeleteFailedCount(Object count);
+
+  /// No description provided for @tsmSessionMissing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话不存在或已被删除'**
+  String get tsmSessionMissing;
+
+  /// No description provided for @tsmExportSessionDataTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出会话数据'**
+  String get tsmExportSessionDataTitle;
+
+  /// No description provided for @tsmExportingSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在导出 “{title}”…'**
+  String tsmExportingSession(Object title);
+
+  /// No description provided for @tsmExportComplete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出完成'**
+  String get tsmExportComplete;
+
+  /// No description provided for @tsmExportFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出失败'**
+  String get tsmExportFailed;
+
+  /// No description provided for @tsmChooseExportFolder.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'选择导出目录'**
+  String get tsmChooseExportFolder;
+
+  /// No description provided for @tsmBatchExportTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'批量导出'**
+  String get tsmBatchExportTitle;
+
+  /// No description provided for @tsmBatchExportSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'即将导出 {count} 个线程…'**
+  String tsmBatchExportSubtitle(Object count);
+
+  /// No description provided for @tsmBatchExportDone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'批量导出完成：成功 {ok} / 失败 {failed}'**
+  String tsmBatchExportDone(Object ok, Object failed);
+
+  /// No description provided for @tsmMenuPreview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'预览'**
+  String get tsmMenuPreview;
+
+  /// No description provided for @tsmMenuRename.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名'**
+  String get tsmMenuRename;
+
+  /// No description provided for @tsmMenuExportSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'导出会话数据'**
+  String get tsmMenuExportSession;
+
+  /// No description provided for @tsmMenuPin.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'置顶'**
+  String get tsmMenuPin;
+
+  /// No description provided for @tsmMenuUnpin.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消置顶'**
+  String get tsmMenuUnpin;
+
+  /// No description provided for @tsmMenuArchive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'归档'**
+  String get tsmMenuArchive;
+
+  /// No description provided for @tsmMenuUnarchive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消归档'**
+  String get tsmMenuUnarchive;
+
+  /// No description provided for @tsmMenuDelete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get tsmMenuDelete;
+
+  /// No description provided for @tsmPinUpdateFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'置顶状态更新失败'**
+  String get tsmPinUpdateFailed;
+
+  /// No description provided for @tsmArchiveUpdateFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'归档状态更新失败'**
+  String get tsmArchiveUpdateFailed;
+
+  /// No description provided for @tsmUntitledThread.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(未命名线程)'**
+  String get tsmUntitledThread;
+
+  /// No description provided for @tsmPreviewMessageCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{count} 条消息'**
+  String tsmPreviewMessageCount(Object count);
+
+  /// No description provided for @tsmClosePreview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭预览'**
+  String get tsmClosePreview;
+
+  /// No description provided for @tsmNoMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无消息'**
+  String get tsmNoMessages;
+
+  /// No description provided for @tsmEmptyMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(空消息)'**
+  String get tsmEmptyMessage;
+
+  /// No description provided for @tsmSearchHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按标题或 ID 搜索'**
+  String get tsmSearchHint;
+
+  /// No description provided for @tsmDensityComfortable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'舒适密度'**
+  String get tsmDensityComfortable;
+
+  /// No description provided for @tsmDensityCompact.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'紧凑密度'**
+  String get tsmDensityCompact;
+
+  /// No description provided for @tsmAllTemplates.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部模板'**
+  String get tsmAllTemplates;
+
+  /// No description provided for @tsmSortDisabledHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前为「{mode}」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。'**
+  String tsmSortDisabledHint(Object mode);
+
+  /// No description provided for @tsmSortManual.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动顺序'**
+  String get tsmSortManual;
+
+  /// No description provided for @tsmSortUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近更新'**
+  String get tsmSortUpdated;
+
+  /// No description provided for @tsmSortCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近创建'**
+  String get tsmSortCreated;
+
+  /// No description provided for @tsmSortSize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'占用大小'**
+  String get tsmSortSize;
+
+  /// No description provided for @tsmSortMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息数量'**
+  String get tsmSortMessages;
+
+  /// No description provided for @tsmSortToken.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 数'**
+  String get tsmSortToken;
+
+  /// No description provided for @tsmHideArchived.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'隐藏归档'**
+  String get tsmHideArchived;
+
+  /// No description provided for @tsmShowArchived.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示归档'**
+  String get tsmShowArchived;
+
+  /// No description provided for @tsmExitSelection.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'退出多选'**
+  String get tsmExitSelection;
+
+  /// No description provided for @tsmEnterSelection.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多选'**
+  String get tsmEnterSelection;
+
+  /// No description provided for @tsmClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get tsmClose;
+
+  /// No description provided for @tsmTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'线程会话管理'**
+  String get tsmTitle;
+
+  /// No description provided for @tsmHeaderSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'共 {count} 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作'**
+  String tsmHeaderSubtitle(Object count);
+
+  /// No description provided for @tsmSelectedCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已选 {count}'**
+  String tsmSelectedCount(Object count);
+
+  /// No description provided for @tsmBatchExportButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'批量导出'**
+  String get tsmBatchExportButton;
+
+  /// No description provided for @tsmDeleteSelectedButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除所选'**
+  String get tsmDeleteSelectedButton;
+
+  /// No description provided for @tsmEmptyState.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无线程会话'**
+  String get tsmEmptyState;
+
+  /// No description provided for @tsmCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get tsmCancel;
+
+  /// No description provided for @settingsThreadSessionManagementTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'线程会话管理'**
+  String get settingsThreadSessionManagementTitle;
+
+  /// No description provided for @settingsThreadSessionManagementSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看所有线程的标题、创建/更新时间、占用大小、消息构成和 token 统计。支持拖拽排序、多选删除、双击或右键打开重命名/导出/删除菜单。弹窗的进出场动画跟随全局设置中的弹窗动画配置。'**
+  String get settingsThreadSessionManagementSubtitle;
+
+  /// No description provided for @settingsThreadSessionManagementOpen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开管理弹窗'**
+  String get settingsThreadSessionManagementOpen;
+
+  /// No description provided for @settingsMessageGatewayTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息网关'**
+  String get settingsMessageGatewayTitle;
+
+  /// No description provided for @settingsMessageGatewayDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。'**
+  String get settingsMessageGatewayDescription;
+
+  /// No description provided for @settingsMessageGatewayComingSoon.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'即将推出'**
+  String get settingsMessageGatewayComingSoon;
+
+  /// No description provided for @settingsMessageGatewayComingSoonSubtitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息网关详细配置将在下一个迭代中提供。'**
+  String get settingsMessageGatewayComingSoonSubtitle;
+
+  /// No description provided for @tsmRowUnknown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未知'**
+  String get tsmRowUnknown;
+
+  /// No description provided for @tsmRowCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建'**
+  String get tsmRowCreated;
+
+  /// No description provided for @tsmRowUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新'**
+  String get tsmRowUpdated;
+
+  /// No description provided for @tsmRowSize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'占用'**
+  String get tsmRowSize;
+
+  /// No description provided for @tsmRowMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息'**
+  String get tsmRowMessages;
+
+  /// No description provided for @tsmRowToken.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token'**
+  String get tsmRowToken;
+
+  /// No description provided for @tsmRowByKind.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'占比'**
+  String get tsmRowByKind;
 }
 
 class _AppLocalizationsDelegate

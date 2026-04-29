@@ -1896,4 +1896,232 @@ class AppLocalizationsDe extends AppLocalizations {
   String selfLearningFlushIntervalHelper(int min, int max) {
     return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
   }
+
+  @override
+  String get tsmRenameThreadTitle => 'Thread umbenennen';
+
+  @override
+  String get tsmRenameHint => 'Thread-Titel eingeben';
+
+  @override
+  String get tsmRenameFailed => 'Umbenennen fehlgeschlagen';
+
+  @override
+  String get tsmDeleteThreadTitle => 'Thread löschen';
+
+  @override
+  String get tsmDeleteSelectedTitle => 'Ausgewählte Threads löschen';
+
+  @override
+  String tsmDeleteSelectedConfirm(Object count) {
+    return '$count Threads und ihre Nachrichten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.';
+  }
+
+  @override
+  String tsmDeleteFailedCount(Object count) {
+    return '$count Thread(s) konnten nicht gelöscht werden';
+  }
+
+  @override
+  String get tsmSessionMissing => 'Sitzung fehlt oder wurde gelöscht';
+
+  @override
+  String get tsmExportSessionDataTitle => 'Sitzungsdaten exportieren';
+
+  @override
+  String tsmExportingSession(Object title) {
+    return '„$title\" wird exportiert…';
+  }
+
+  @override
+  String get tsmExportComplete => 'Export abgeschlossen';
+
+  @override
+  String get tsmExportFailed => 'Export fehlgeschlagen';
+
+  @override
+  String get tsmChooseExportFolder => 'Exportordner wählen';
+
+  @override
+  String get tsmBatchExportTitle => 'Stapelexport';
+
+  @override
+  String tsmBatchExportSubtitle(Object count) {
+    return '$count Threads werden exportiert…';
+  }
+
+  @override
+  String tsmBatchExportDone(Object ok, Object failed) {
+    return 'Stapelexport fertig: $ok OK / $failed fehlgeschlagen';
+  }
+
+  @override
+  String get tsmMenuPreview => 'Vorschau';
+
+  @override
+  String get tsmMenuRename => 'Umbenennen';
+
+  @override
+  String get tsmMenuExportSession => 'Sitzung exportieren';
+
+  @override
+  String get tsmMenuPin => 'Anheften';
+
+  @override
+  String get tsmMenuUnpin => 'Lösen';
+
+  @override
+  String get tsmMenuArchive => 'Archivieren';
+
+  @override
+  String get tsmMenuUnarchive => 'Aus dem Archiv';
+
+  @override
+  String get tsmMenuDelete => 'Löschen';
+
+  @override
+  String get tsmPinUpdateFailed =>
+      'Anheftstatus konnte nicht aktualisiert werden';
+
+  @override
+  String get tsmArchiveUpdateFailed =>
+      'Archivstatus konnte nicht aktualisiert werden';
+
+  @override
+  String get tsmUntitledThread => '(Unbenannter Thread)';
+
+  @override
+  String tsmPreviewMessageCount(Object count) {
+    return '$count Nachrichten';
+  }
+
+  @override
+  String get tsmClosePreview => 'Vorschau schließen';
+
+  @override
+  String get tsmNoMessages => 'Keine Nachrichten';
+
+  @override
+  String get tsmEmptyMessage => '(leer)';
+
+  @override
+  String get tsmSearchHint => 'Nach Titel oder ID suchen';
+
+  @override
+  String get tsmDensityComfortable => 'Komfortabel';
+
+  @override
+  String get tsmDensityCompact => 'Kompakt';
+
+  @override
+  String get tsmAllTemplates => 'Alle Vorlagen';
+
+  @override
+  String tsmSortDisabledHint(Object mode) {
+    return 'Sortiert nach „$mode\". Ziehgriffe deaktiviert; zurück zu „Manuelle Reihenfolge\", um neu zu ordnen.';
+  }
+
+  @override
+  String get tsmSortManual => 'Manuelle Reihenfolge';
+
+  @override
+  String get tsmSortUpdated => 'Zuletzt aktualisiert';
+
+  @override
+  String get tsmSortCreated => 'Zuletzt erstellt';
+
+  @override
+  String get tsmSortSize => 'Nach Größe';
+
+  @override
+  String get tsmSortMessages => 'Nach Nachrichten';
+
+  @override
+  String get tsmSortToken => 'Nach Token';
+
+  @override
+  String get tsmHideArchived => 'Archivierte ausblenden';
+
+  @override
+  String get tsmShowArchived => 'Archivierte anzeigen';
+
+  @override
+  String get tsmExitSelection => 'Auswahl verlassen';
+
+  @override
+  String get tsmEnterSelection => 'Mehrfachauswahl';
+
+  @override
+  String get tsmClose => 'Schließen';
+
+  @override
+  String get tsmTitle => 'Thread-Sitzungsverwaltung';
+
+  @override
+  String tsmHeaderSubtitle(Object count) {
+    return '$count Thread(s) · Lange drücken oder Griff ziehen zum Neuordnen, Doppelklick / Rechtsklick für mehr';
+  }
+
+  @override
+  String tsmSelectedCount(Object count) {
+    return '$count ausgewählt';
+  }
+
+  @override
+  String get tsmBatchExportButton => 'Stapelexport';
+
+  @override
+  String get tsmDeleteSelectedButton => 'Ausgewählte löschen';
+
+  @override
+  String get tsmEmptyState => 'Noch keine Thread-Sitzungen';
+
+  @override
+  String get tsmCancel => 'Abbrechen';
+
+  @override
+  String get settingsThreadSessionManagementTitle =>
+      'Thread-Sitzungsverwaltung';
+
+  @override
+  String get settingsThreadSessionManagementSubtitle =>
+      'Sehen Sie Titel, Erstell-/Aktualisierungszeit, Speicherbedarf, Nachrichtenaufschlüsselung und Token-Statistiken jedes Threads. Unterstützt Drag-and-Drop-Sortierung, Mehrfachauswahl-Löschen und ein Doppelklick-/Rechtsklick-Menü für Umbenennen/Exportieren/Löschen. Die Dialog-Animation folgt den globalen Dialogeinstellungen.';
+
+  @override
+  String get settingsThreadSessionManagementOpen => 'Verwaltung öffnen';
+
+  @override
+  String get settingsMessageGatewayTitle => 'Nachrichten-Gateway';
+
+  @override
+  String get settingsMessageGatewayDescription =>
+      'Konfigurieren Sie Routing, Transformationen und Drosselung des Nachrichten-Gateways. Konkrete Optionen folgen in einem zukünftigen Release; dieser Bereich ist derzeit ein Platzhalter.';
+
+  @override
+  String get settingsMessageGatewayComingSoon => 'Bald verfügbar';
+
+  @override
+  String get settingsMessageGatewayComingSoonSubtitle =>
+      'Die detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.';
+
+  @override
+  String get tsmRowUnknown => 'unbekannt';
+
+  @override
+  String get tsmRowCreated => 'Erstellt';
+
+  @override
+  String get tsmRowUpdated => 'Aktualisiert';
+
+  @override
+  String get tsmRowSize => 'Größe';
+
+  @override
+  String get tsmRowMessages => 'Nachrichten';
+
+  @override
+  String get tsmRowToken => 'Token';
+
+  @override
+  String get tsmRowByKind => 'Nach Typ';
 }

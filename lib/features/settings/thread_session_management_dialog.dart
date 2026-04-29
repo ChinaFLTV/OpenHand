@@ -151,15 +151,6 @@ class _ThreadSessionManagementDialogState
   // Helpers
   // ------------------------------------------------------------------
 
-  String _localizedText(
-    BuildContext context, {
-    required String zh,
-    required String en,
-  }) {
-    final code = Localizations.localeOf(context).languageCode;
-    return code.startsWith('zh') ? zh : en;
-  }
-
   String _formatDateTime(BuildContext context, DateTime dt) {
     final local = dt.toLocal();
     String pad(int n) => n.toString().padLeft(2, '0');
@@ -223,21 +214,14 @@ class _ThreadSessionManagementDialogState
       submitted = await showAnimatedDialog<String>(
         context: context,
         builder: (dialogContext) {
+          final dl10n = AppLocalizations.of(dialogContext)!;
           return AlertDialog(
-            title: Text(_localizedText(
-              dialogContext,
-              zh: '重命名线程',
-              en: 'Rename Thread',
-            )),
+            title: Text(dl10n.tsmRenameThreadTitle),
             content: TextField(
               controller: titleController,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: _localizedText(
-                  dialogContext,
-                  zh: '输入线程标题',
-                  en: 'Enter a thread title',
-                ),
+                hintText: dl10n.tsmRenameHint,
               ),
               onSubmitted: (value) =>
                   Navigator.of(dialogContext).pop(value.trim()),
@@ -270,7 +254,7 @@ class _ThreadSessionManagementDialogState
       SnackBar(
         content: Text(
           controller.lastErrorMessage ??
-              _localizedText(context, zh: '重命名失败', en: 'Rename failed'),
+              AppLocalizations.of(context)!.tsmRenameFailed,
         ),
       ),
     );
@@ -281,11 +265,7 @@ class _ThreadSessionManagementDialogState
     final ok = await showAnimatedDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(_localizedText(
-          dialogContext,
-          zh: '删除线程',
-          en: 'Delete Thread',
-        )),
+        title: Text(AppLocalizations.of(dialogContext)!.tsmDeleteThreadTitle),
         content: Text(session.title),
         actions: [
           OpenHandDialogActionButton.secondary(
@@ -309,18 +289,11 @@ class _ThreadSessionManagementDialogState
     final l10n = AppLocalizations.of(context)!;
     final ok = await showAnimatedDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(_localizedText(
-          dialogContext,
-          zh: '删除所选线程',
-          en: 'Delete Selected Threads',
-        )),
-        content: Text(_localizedText(
-          dialogContext,
-          zh: '将永久删除 ${ids.length} 个线程及其消息。此操作无法撤销。',
-          en: 'Will permanently delete ${ids.length} threads and their '
-              'messages. This cannot be undone.',
-        )),
+      builder: (dialogContext) {
+        final dl10n = AppLocalizations.of(dialogContext)!;
+        return AlertDialog(
+        title: Text(dl10n.tsmDeleteSelectedTitle),
+        content: Text(dl10n.tsmDeleteSelectedConfirm(ids.length)),
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -331,7 +304,8 @@ class _ThreadSessionManagementDialogState
             label: l10n.commonDelete,
           ),
         ],
-      ),
+      );
+      },
     );
     if (ok != true || !mounted) return;
     await _deleteIds(ids);
@@ -371,11 +345,9 @@ class _ThreadSessionManagementDialogState
     if (failed > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_localizedText(
-            context,
-            zh: '$failed 个线程删除失败',
-            en: '$failed thread(s) failed to delete',
-          )),
+          content: Text(
+            AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
+          ),
         ),
       );
     }
@@ -401,11 +373,9 @@ class _ThreadSessionManagementDialogState
     if (full == null || !mounted) {
       if (mounted) {
         messenger.showSnackBar(SnackBar(
-          content: Text(_localizedText(
-            context,
-            zh: '会话不存在或已被删除',
-            en: 'Session is missing or deleted',
-          )),
+          content: Text(
+            AppLocalizations.of(context)!.tsmSessionMissing,
+          ),
         ));
       }
       return;
@@ -441,13 +411,9 @@ class _ThreadSessionManagementDialogState
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context, zh: '导出会话数据', en: 'Export Session Data'),
-      subtitle: _localizedText(
-        context,
-        zh: '正在导出 “${full.title}”…',
-        en: 'Exporting "${full.title}"…',
-      ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      title: AppLocalizations.of(context)!.tsmExportSessionDataTitle,
+      subtitle: AppLocalizations.of(context)!.tsmExportingSession(full.title),
+      cancelLabel: AppLocalizations.of(context)!.tsmCancel,
     );
     ExportResult result;
     try {
@@ -474,10 +440,9 @@ class _ThreadSessionManagementDialogState
     await dialogFuture;
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
+    final l10n = AppLocalizations.of(context)!;
     messenger.showSnackBar(SnackBar(
-      content: Text(ok
-          ? _localizedText(context, zh: '导出完成', en: 'Export complete')
-          : _localizedText(context, zh: '导出失败', en: 'Export failed')),
+      content: Text(ok ? l10n.tsmExportComplete : l10n.tsmExportFailed),
     ));
   }
 
@@ -490,11 +455,8 @@ class _ThreadSessionManagementDialogState
     String? folderPath;
     try {
       folderPath = await getDirectoryPath(
-        confirmButtonText: _localizedText(
-          context,
-          zh: '选择导出目录',
-          en: 'Choose Export Folder',
-        ),
+        confirmButtonText:
+            AppLocalizations.of(context)!.tsmChooseExportFolder,
       );
     } catch (error, stack) {
       silentLog(
@@ -518,13 +480,9 @@ class _ThreadSessionManagementDialogState
     final dialogFuture = showExportProgressDialog(
       context: context,
       controller: progressController,
-      title: _localizedText(context, zh: '批量导出', en: 'Batch Export'),
-      subtitle: _localizedText(
-        context,
-        zh: '即将导出 ${ids.length} 个线程…',
-        en: 'About to export ${ids.length} threads…',
-      ),
-      cancelLabel: _localizedText(context, zh: '取消', en: 'Cancel'),
+      title: AppLocalizations.of(context)!.tsmBatchExportTitle,
+      subtitle: AppLocalizations.of(context)!.tsmBatchExportSubtitle(ids.length),
+      cancelLabel: AppLocalizations.of(context)!.tsmCancel,
     );
     var ok = 0;
     var failed = 0;
@@ -584,11 +542,9 @@ class _ThreadSessionManagementDialogState
     await dialogFuture;
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(
-      content: Text(_localizedText(
-        context,
-        zh: '批量导出完成：成功 $ok / 失败 $failed',
-        en: 'Batch export done: $ok ok / $failed failed',
-      )),
+      content: Text(
+        AppLocalizations.of(context)!.tsmBatchExportDone(ok, failed),
+      ),
     ));
   }
 
@@ -602,6 +558,7 @@ class _ThreadSessionManagementDialogState
     final flag = _flags[session.id];
     final isPinned = flag?.pinned ?? false;
     final isArchived = flag?.archived ?? false;
+    final l10n = AppLocalizations.of(context)!;
     final selected = await showMenu<_SessionRowAction>(
       context: context,
       position: RelativeRect.fromRect(
@@ -615,9 +572,7 @@ class _ThreadSessionManagementDialogState
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.visibility_outlined),
-            title: Text(
-              _localizedText(context, zh: '预览', en: 'Preview'),
-            ),
+            title: Text(l10n.tsmMenuPreview),
           ),
         ),
         PopupMenuItem(
@@ -626,9 +581,7 @@ class _ThreadSessionManagementDialogState
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.edit_outlined),
-            title: Text(
-              _localizedText(context, zh: '重命名', en: 'Rename'),
-            ),
+            title: Text(l10n.tsmMenuRename),
           ),
         ),
         PopupMenuItem(
@@ -639,11 +592,7 @@ class _ThreadSessionManagementDialogState
             leading: Icon(
               isPinned ? Icons.push_pin : Icons.push_pin_outlined,
             ),
-            title: Text(
-              isPinned
-                  ? _localizedText(context, zh: '取消置顶', en: 'Unpin')
-                  : _localizedText(context, zh: '置顶', en: 'Pin'),
-            ),
+            title: Text(isPinned ? l10n.tsmMenuUnpin : l10n.tsmMenuPin),
           ),
         ),
         PopupMenuItem(
@@ -657,9 +606,7 @@ class _ThreadSessionManagementDialogState
                   : Icons.archive_outlined,
             ),
             title: Text(
-              isArchived
-                  ? _localizedText(context, zh: '取消归档', en: 'Unarchive')
-                  : _localizedText(context, zh: '归档', en: 'Archive'),
+              isArchived ? l10n.tsmMenuUnarchive : l10n.tsmMenuArchive,
             ),
           ),
         ),
@@ -669,9 +616,7 @@ class _ThreadSessionManagementDialogState
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.upload_file_outlined),
-            title: Text(
-              _localizedText(context, zh: '导出会话数据', en: 'Export Session'),
-            ),
+            title: Text(l10n.tsmMenuExportSession),
           ),
         ),
         PopupMenuItem(
@@ -680,9 +625,7 @@ class _ThreadSessionManagementDialogState
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.delete_outline),
-            title: Text(
-              _localizedText(context, zh: '删除', en: 'Delete'),
-            ),
+            title: Text(l10n.tsmMenuDelete),
           ),
         ),
       ],
@@ -720,11 +663,7 @@ class _ThreadSessionManagementDialogState
       await _refreshFlags();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_localizedText(
-          context,
-          zh: '置顶状态更新失败',
-          en: 'Failed to update pin state',
-        )),
+        content: Text(AppLocalizations.of(context)!.tsmPinUpdateFailed),
       ));
     }
   }
@@ -748,11 +687,7 @@ class _ThreadSessionManagementDialogState
       await _refreshFlags();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_localizedText(
-          context,
-          zh: '归档状态更新失败',
-          en: 'Failed to update archive state',
-        )),
+        content: Text(AppLocalizations.of(context)!.tsmArchiveUpdateFailed),
       ));
     }
   }
@@ -791,6 +726,7 @@ class _ThreadSessionManagementDialogState
   }
 
   Widget _buildPreviewDrawer(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     final session = _previewSession!;
     final stats = session.statistics;
     // Take the last 6 visible messages so the drawer stays compact.
@@ -819,11 +755,7 @@ class _ThreadSessionManagementDialogState
                     children: [
                       Text(
                         session.title.isEmpty
-                            ? _localizedText(
-                                context,
-                                zh: '(未命名线程)',
-                                en: '(Untitled Thread)',
-                              )
+                            ? l10n.tsmUntitledThread
                             : session.title,
                         style: theme.textTheme.titleSmall,
                         maxLines: 2,
@@ -831,11 +763,7 @@ class _ThreadSessionManagementDialogState
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _localizedText(
-                          context,
-                          zh: '${stats.totalMessageCount} 条消息',
-                          en: '${stats.totalMessageCount} messages',
-                        ),
+                        l10n.tsmPreviewMessageCount(stats.totalMessageCount),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -844,11 +772,7 @@ class _ThreadSessionManagementDialogState
                   ),
                 ),
                 IconButton(
-                  tooltip: _localizedText(
-                    context,
-                    zh: '关闭预览',
-                    en: 'Close Preview',
-                  ),
+                  tooltip: l10n.tsmClosePreview,
                   icon: const Icon(Icons.chevron_right),
                   onPressed: _closePreview,
                 ),
@@ -868,11 +792,7 @@ class _ThreadSessionManagementDialogState
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Text(
-                          _localizedText(
-                            context,
-                            zh: '暂无消息',
-                            en: 'No messages',
-                          ),
+                          l10n.tsmNoMessages,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -906,11 +826,7 @@ class _ThreadSessionManagementDialogState
                               const SizedBox(height: 4),
                               Text(
                                 preview.isEmpty
-                                    ? _localizedText(
-                                        context,
-                                        zh: '(空消息)',
-                                        en: '(empty)',
-                                      )
+                                    ? l10n.tsmEmptyMessage
                                     : preview,
                                 style: theme.textTheme.bodySmall,
                                 maxLines: 8,
@@ -1074,11 +990,8 @@ class _ThreadSessionManagementDialogState
                     decoration: InputDecoration(
                       isDense: true,
                       prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText: _localizedText(
-                        context,
-                        zh: '按标题或 ID 搜索',
-                        en: 'Search by title or ID',
-                      ),
+                      hintText:
+                          AppLocalizations.of(context)!.tsmSearchHint,
                       border: const OutlineInputBorder(),
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 8),
@@ -1105,11 +1018,9 @@ class _ThreadSessionManagementDialogState
               ),
               const SizedBox(width: 8),
               Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: _denseMode ? '舒适密度' : '紧凑密度',
-                  en: _denseMode ? 'Comfortable' : 'Compact',
-                ),
+                message: _denseMode
+                    ? AppLocalizations.of(context)!.tsmDensityComfortable
+                    : AppLocalizations.of(context)!.tsmDensityCompact,
                 child: IconButton(
                   icon: Icon(
                     _denseMode
@@ -1129,7 +1040,7 @@ class _ThreadSessionManagementDialogState
               children: [
                 FilterChip(
                   label: Text(
-                    _localizedText(context, zh: '全部模板', en: 'All Templates'),
+                    AppLocalizations.of(context)!.tsmAllTemplates,
                   ),
                   selected: _templateFilter.isEmpty,
                   onSelected: (_) => setState(() => _templateFilter.clear()),
@@ -1155,14 +1066,8 @@ class _ThreadSessionManagementDialogState
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                _localizedText(
-                  context,
-                  zh: '当前为「${_sortModeLabel(_sortMode)}」排序，'
-                      '拖拽手柄已禁用，切回「手动顺序」可继续调整。',
-                  en: 'Sorted by "${_sortModeLabel(_sortMode)}". Drag handles '
-                      'are disabled; switch back to "Manual Order" to '
-                      'reorder.',
-                ),
+                AppLocalizations.of(context)!
+                    .tsmSortDisabledHint(_sortModeLabel(_sortMode)),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -1174,23 +1079,25 @@ class _ThreadSessionManagementDialogState
   }
 
   String _sortModeLabel(_SortMode mode) {
+    final l10n = AppLocalizations.of(context)!;
     switch (mode) {
       case _SortMode.manual:
-        return _localizedText(context, zh: '手动顺序', en: 'Manual Order');
+        return l10n.tsmSortManual;
       case _SortMode.updatedDesc:
-        return _localizedText(context, zh: '最近更新', en: 'Recently Updated');
+        return l10n.tsmSortUpdated;
       case _SortMode.createdDesc:
-        return _localizedText(context, zh: '最近创建', en: 'Recently Created');
+        return l10n.tsmSortCreated;
       case _SortMode.sizeDesc:
-        return _localizedText(context, zh: '占用大小', en: 'By Size');
+        return l10n.tsmSortSize;
       case _SortMode.messagesDesc:
-        return _localizedText(context, zh: '消息数量', en: 'By Messages');
+        return l10n.tsmSortMessages;
       case _SortMode.tokenDesc:
-        return _localizedText(context, zh: 'Token 数', en: 'By Token');
+        return l10n.tsmSortToken;
     }
   }
 
   Widget _buildHeader(ThemeData theme, List<AiSession> sessions) {
+    final l10n = AppLocalizations.of(context)!;
     final totalCount = sessions.length;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
@@ -1201,22 +1108,12 @@ class _ThreadSessionManagementDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _localizedText(
-                    context,
-                    zh: '线程会话管理',
-                    en: 'Thread Session Management',
-                  ),
+                  l10n.tsmTitle,
                   style: theme.textTheme.titleLarge,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _localizedText(
-                    context,
-                    zh: '共 $totalCount 个线程 · 长按或拖拽手柄可调整顺序，'
-                        '双击/右键查看更多操作',
-                    en: '$totalCount thread(s) · long-press / drag the handle '
-                        'to reorder, double-click / right-click for more',
-                  ),
+                  l10n.tsmHeaderSubtitle(totalCount),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -1226,8 +1123,8 @@ class _ThreadSessionManagementDialogState
           ),
           IconButton(
             tooltip: _showArchived
-                ? _localizedText(context, zh: '隐藏归档', en: 'Hide Archived')
-                : _localizedText(context, zh: '显示归档', en: 'Show Archived'),
+                ? l10n.tsmHideArchived
+                : l10n.tsmShowArchived,
             icon: Icon(
               _showArchived ? Icons.inventory_2 : Icons.inventory_2_outlined,
             ),
@@ -1239,8 +1136,8 @@ class _ThreadSessionManagementDialogState
           const SizedBox(width: 6),
           IconButton(
             tooltip: _isSelectionMode
-                ? _localizedText(context, zh: '退出多选', en: 'Exit Selection')
-                : _localizedText(context, zh: '多选', en: 'Multi-select'),
+                ? l10n.tsmExitSelection
+                : l10n.tsmEnterSelection,
             icon: Icon(
               _isSelectionMode
                   ? Icons.check_box_outlined
@@ -1255,7 +1152,7 @@ class _ThreadSessionManagementDialogState
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+            tooltip: l10n.tsmClose,
             icon: const Icon(Icons.close),
             onPressed: () => Navigator.of(context).pop(),
           ),
@@ -1286,11 +1183,8 @@ class _ThreadSessionManagementDialogState
             },
           ),
           Text(
-            _localizedText(
-              context,
-              zh: '已选 ${_selectedIds.length}',
-              en: '${_selectedIds.length} selected',
-            ),
+            AppLocalizations.of(context)!
+                .tsmSelectedCount(_selectedIds.length),
             style: theme.textTheme.bodyMedium,
           ),
           const Spacer(),
@@ -1299,7 +1193,7 @@ class _ThreadSessionManagementDialogState
                 _selectedIds.isEmpty ? null : _batchExportSelected,
             icon: const Icon(Icons.download_outlined),
             label: Text(
-              _localizedText(context, zh: '批量导出', en: 'Batch Export'),
+              AppLocalizations.of(context)!.tsmBatchExportButton,
             ),
           ),
           const SizedBox(width: 8),
@@ -1308,7 +1202,7 @@ class _ThreadSessionManagementDialogState
                 _selectedIds.isEmpty ? null : _confirmDeleteSelected,
             icon: const Icon(Icons.delete_outline),
             label: Text(
-              _localizedText(context, zh: '删除所选', en: 'Delete Selected'),
+              AppLocalizations.of(context)!.tsmDeleteSelectedButton,
             ),
           ),
         ],
@@ -1321,11 +1215,7 @@ class _ThreadSessionManagementDialogState
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          _localizedText(
-            context,
-            zh: '暂无线程会话',
-            en: 'No thread sessions yet',
-          ),
+          AppLocalizations.of(context)!.tsmEmptyState,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -1358,7 +1248,6 @@ class _ThreadSessionManagementDialogState
         formatDateTime: _formatDateTime,
         formatBytes: _formatBytes,
         estimateBytes: _estimateBytes,
-        localizedText: _localizedText,
         onTap: _isSelectionMode
             ? null
             : () => _openPreview(session),
@@ -1449,7 +1338,7 @@ class _ThreadSessionManagementDialogState
         children: [
           OpenHandDialogActionButton.primary(
             onPressed: () => Navigator.of(context).pop(),
-            label: _localizedText(context, zh: '关闭', en: 'Close'),
+            label: AppLocalizations.of(context)!.tsmClose,
           ),
         ],
       ),
@@ -1481,7 +1370,6 @@ class _SessionRow extends StatelessWidget {
     required this.formatDateTime,
     required this.formatBytes,
     required this.estimateBytes,
-    required this.localizedText,
     required this.onToggleSelect,
     required this.onDoubleTap,
     required this.onSecondaryTap,
@@ -1501,8 +1389,6 @@ class _SessionRow extends StatelessWidget {
   final String Function(BuildContext, DateTime) formatDateTime;
   final String Function(int) formatBytes;
   final int Function(AiSession) estimateBytes;
-  final String Function(BuildContext, {required String zh, required String en})
-      localizedText;
   final ValueChanged<bool?> onToggleSelect;
   final void Function(Offset globalPosition) onDoubleTap;
   final void Function(Offset globalPosition) onSecondaryTap;
@@ -1514,6 +1400,7 @@ class _SessionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final stats = session.statistics;
     final total = stats.totalMessageCount;
     String pct(int n) =>
@@ -1522,7 +1409,7 @@ class _SessionRow extends StatelessWidget {
         ? '${stats.totalTokens} '
             '(in ${stats.totalPromptTokens ?? 0} / out '
             '${stats.totalCompletionTokens ?? 0})'
-        : localizedText(context, zh: '未知', en: 'unknown');
+        : l10n.tsmRowUnknown;
     final bytes = diskBytes ?? estimateBytes(session);
     final isApproxBytes = diskBytes == null;
 
@@ -1594,11 +1481,7 @@ class _SessionRow extends StatelessWidget {
                           Expanded(
                             child: Text(
                               session.title.isEmpty
-                                  ? localizedText(
-                                      context,
-                                      zh: '(未命名线程)',
-                                      en: '(Untitled Thread)',
-                                    )
+                                  ? l10n.tsmUntitledThread
                                   : session.title,
                               style: theme.textTheme.titleSmall,
                               maxLines: 1,
@@ -1621,49 +1504,29 @@ class _SessionRow extends StatelessWidget {
                       children: [
                         _MetaChip(
                           icon: Icons.add_circle_outline,
-                          label: localizedText(
-                            context,
-                            zh: '创建',
-                            en: 'Created',
-                          ),
+                          label: l10n.tsmRowCreated,
                           value: formatDateTime(context, session.createdAt),
                         ),
                         _MetaChip(
                           icon: Icons.update,
-                          label: localizedText(
-                            context,
-                            zh: '更新',
-                            en: 'Updated',
-                          ),
+                          label: l10n.tsmRowUpdated,
                           value: formatDateTime(context, session.updatedAt),
                         ),
                         _MetaChip(
                           icon: Icons.storage_outlined,
-                          label: localizedText(
-                            context,
-                            zh: '占用',
-                            en: 'Size',
-                          ),
+                          label: l10n.tsmRowSize,
                           value: isApproxBytes
                               ? '~ ${formatBytes(bytes)}'
                               : formatBytes(bytes),
                         ),
                         _MetaChip(
                           icon: Icons.forum_outlined,
-                          label: localizedText(
-                            context,
-                            zh: '消息',
-                            en: 'Messages',
-                          ),
+                          label: l10n.tsmRowMessages,
                           value: '$total',
                         ),
                         _MetaChip(
                           icon: Icons.bolt_outlined,
-                          label: localizedText(
-                            context,
-                            zh: 'Token',
-                            en: 'Token',
-                          ),
+                          label: l10n.tsmRowToken,
                           value: tokenSummary,
                         ),
                       ],
@@ -1671,7 +1534,7 @@ class _SessionRow extends StatelessWidget {
                     if (total > 0 && !denseMode) ...[
                       const SizedBox(height: 4),
                       Text(
-                        '${localizedText(context, zh: '占比', en: 'By kind')}: '
+                        '${l10n.tsmRowByKind}: '
                         'user ${pct(stats.userMessageCount)} · '
                         'assistant ${pct(stats.assistantMessageCount)} · '
                         'tool ${pct(stats.toolMessageCount)} · '

@@ -678,5 +678,178 @@
         "type": "int"
       }
     }
-  }
+  },
+  "tsmRenameThreadTitle": "重命名线程",
+  "@tsmRenameThreadTitle": {},
+  "tsmRenameHint": "输入线程标题",
+  "@tsmRenameHint": {},
+  "tsmRenameFailed": "重命名失败",
+  "@tsmRenameFailed": {},
+  "tsmDeleteThreadTitle": "删除线程",
+  "@tsmDeleteThreadTitle": {},
+  "tsmDeleteSelectedTitle": "删除所选线程",
+  "@tsmDeleteSelectedTitle": {},
+  "tsmDeleteSelectedConfirm": "将永久删除 {count} 个线程及其消息。此操作无法撤销。",
+  "@tsmDeleteSelectedConfirm": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmDeleteFailedCount": "{count} 个线程删除失败",
+  "@tsmDeleteFailedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmSessionMissing": "会话不存在或已被删除",
+  "@tsmSessionMissing": {},
+  "tsmExportSessionDataTitle": "导出会话数据",
+  "@tsmExportSessionDataTitle": {},
+  "tsmExportingSession": "正在导出 “{title}”…",
+  "@tsmExportingSession": {
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "tsmExportComplete": "导出完成",
+  "@tsmExportComplete": {},
+  "tsmExportFailed": "导出失败",
+  "@tsmExportFailed": {},
+  "tsmChooseExportFolder": "选择导出目录",
+  "@tsmChooseExportFolder": {},
+  "tsmBatchExportTitle": "批量导出",
+  "@tsmBatchExportTitle": {},
+  "tsmBatchExportSubtitle": "即将导出 {count} 个线程…",
+  "@tsmBatchExportSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmBatchExportDone": "批量导出完成：成功 {ok} / 失败 {failed}",
+  "@tsmBatchExportDone": {
+    "placeholders": {
+      "ok": {},
+      "failed": {}
+    }
+  },
+  "tsmMenuPreview": "预览",
+  "@tsmMenuPreview": {},
+  "tsmMenuRename": "重命名",
+  "@tsmMenuRename": {},
+  "tsmMenuExportSession": "导出会话数据",
+  "@tsmMenuExportSession": {},
+  "tsmMenuPin": "置顶",
+  "@tsmMenuPin": {},
+  "tsmMenuUnpin": "取消置顶",
+  "@tsmMenuUnpin": {},
+  "tsmMenuArchive": "归档",
+  "@tsmMenuArchive": {},
+  "tsmMenuUnarchive": "取消归档",
+  "@tsmMenuUnarchive": {},
+  "tsmMenuDelete": "删除",
+  "@tsmMenuDelete": {},
+  "tsmPinUpdateFailed": "置顶状态更新失败",
+  "@tsmPinUpdateFailed": {},
+  "tsmArchiveUpdateFailed": "归档状态更新失败",
+  "@tsmArchiveUpdateFailed": {},
+  "tsmUntitledThread": "(未命名线程)",
+  "@tsmUntitledThread": {},
+  "tsmPreviewMessageCount": "{count} 条消息",
+  "@tsmPreviewMessageCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmClosePreview": "关闭预览",
+  "@tsmClosePreview": {},
+  "tsmNoMessages": "暂无消息",
+  "@tsmNoMessages": {},
+  "tsmEmptyMessage": "(空消息)",
+  "@tsmEmptyMessage": {},
+  "tsmSearchHint": "按标题或 ID 搜索",
+  "@tsmSearchHint": {},
+  "tsmDensityComfortable": "舒适密度",
+  "@tsmDensityComfortable": {},
+  "tsmDensityCompact": "紧凑密度",
+  "@tsmDensityCompact": {},
+  "tsmAllTemplates": "全部模板",
+  "@tsmAllTemplates": {},
+  "tsmSortDisabledHint": "当前为「{mode}」排序，拖拽手柄已禁用，切回「手动顺序」可继续调整。",
+  "@tsmSortDisabledHint": {
+    "placeholders": {
+      "mode": {}
+    }
+  },
+  "tsmSortManual": "手动顺序",
+  "@tsmSortManual": {},
+  "tsmSortUpdated": "最近更新",
+  "@tsmSortUpdated": {},
+  "tsmSortCreated": "最近创建",
+  "@tsmSortCreated": {},
+  "tsmSortSize": "占用大小",
+  "@tsmSortSize": {},
+  "tsmSortMessages": "消息数量",
+  "@tsmSortMessages": {},
+  "tsmSortToken": "Token 数",
+  "@tsmSortToken": {},
+  "tsmHideArchived": "隐藏归档",
+  "@tsmHideArchived": {},
+  "tsmShowArchived": "显示归档",
+  "@tsmShowArchived": {},
+  "tsmExitSelection": "退出多选",
+  "@tsmExitSelection": {},
+  "tsmEnterSelection": "多选",
+  "@tsmEnterSelection": {},
+  "tsmClose": "关闭",
+  "@tsmClose": {},
+  "tsmTitle": "线程会话管理",
+  "@tsmTitle": {},
+  "tsmHeaderSubtitle": "共 {count} 个线程 · 长按或拖拽手柄可调整顺序，双击/右键查看更多操作",
+  "@tsmHeaderSubtitle": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmSelectedCount": "已选 {count}",
+  "@tsmSelectedCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "tsmBatchExportButton": "批量导出",
+  "@tsmBatchExportButton": {},
+  "tsmDeleteSelectedButton": "删除所选",
+  "@tsmDeleteSelectedButton": {},
+  "tsmEmptyState": "暂无线程会话",
+  "@tsmEmptyState": {},
+  "tsmCancel": "取消",
+  "@tsmCancel": {},
+  "settingsThreadSessionManagementTitle": "线程会话管理",
+  "@settingsThreadSessionManagementTitle": {},
+  "settingsThreadSessionManagementSubtitle": "查看所有线程的标题、创建/更新时间、占用大小、消息构成和 token 统计。支持拖拽排序、多选删除、双击或右键打开重命名/导出/删除菜单。弹窗的进出场动画跟随全局设置中的弹窗动画配置。",
+  "@settingsThreadSessionManagementSubtitle": {},
+  "settingsThreadSessionManagementOpen": "打开管理弹窗",
+  "@settingsThreadSessionManagementOpen": {},
+  "settingsMessageGatewayTitle": "消息网关",
+  "@settingsMessageGatewayTitle": {},
+  "settingsMessageGatewayDescription": "管理消息网关的路由、转换与节流策略。具体配置项将在后续版本中开放，当前为预留入口。",
+  "@settingsMessageGatewayDescription": {},
+  "settingsMessageGatewayComingSoon": "即将推出",
+  "@settingsMessageGatewayComingSoon": {},
+  "settingsMessageGatewayComingSoonSubtitle": "消息网关详细配置将在下一个迭代中提供。",
+  "@settingsMessageGatewayComingSoonSubtitle": {},
+  "tsmRowUnknown": "未知",
+  "@tsmRowUnknown": {},
+  "tsmRowCreated": "创建",
+  "@tsmRowCreated": {},
+  "tsmRowUpdated": "更新",
+  "@tsmRowUpdated": {},
+  "tsmRowSize": "占用",
+  "@tsmRowSize": {},
+  "tsmRowMessages": "消息",
+  "@tsmRowMessages": {},
+  "tsmRowToken": "Token",
+  "@tsmRowToken": {},
+  "tsmRowByKind": "占比",
+  "@tsmRowByKind": {}
 }

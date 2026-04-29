@@ -1876,4 +1876,229 @@ class AppLocalizationsJa extends AppLocalizations {
   String selfLearningFlushIntervalHelper(int min, int max) {
     return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
   }
+
+  @override
+  String get tsmRenameThreadTitle => 'スレッドの名前を変更';
+
+  @override
+  String get tsmRenameHint => 'スレッドのタイトルを入力';
+
+  @override
+  String get tsmRenameFailed => '名前の変更に失敗しました';
+
+  @override
+  String get tsmDeleteThreadTitle => 'スレッドを削除';
+
+  @override
+  String get tsmDeleteSelectedTitle => '選択したスレッドを削除';
+
+  @override
+  String tsmDeleteSelectedConfirm(Object count) {
+    return '$count 件のスレッドとメッセージを完全に削除します。この操作は取り消せません。';
+  }
+
+  @override
+  String tsmDeleteFailedCount(Object count) {
+    return '$count 件のスレッドの削除に失敗しました';
+  }
+
+  @override
+  String get tsmSessionMissing => 'セッションが見つからないか削除されています';
+
+  @override
+  String get tsmExportSessionDataTitle => 'セッションデータをエクスポート';
+
+  @override
+  String tsmExportingSession(Object title) {
+    return '「$title」をエクスポート中…';
+  }
+
+  @override
+  String get tsmExportComplete => 'エクスポート完了';
+
+  @override
+  String get tsmExportFailed => 'エクスポートに失敗しました';
+
+  @override
+  String get tsmChooseExportFolder => 'エクスポート先フォルダを選択';
+
+  @override
+  String get tsmBatchExportTitle => '一括エクスポート';
+
+  @override
+  String tsmBatchExportSubtitle(Object count) {
+    return '$count 件のスレッドをエクスポートします…';
+  }
+
+  @override
+  String tsmBatchExportDone(Object ok, Object failed) {
+    return '一括エクスポート完了：成功 $ok / 失敗 $failed';
+  }
+
+  @override
+  String get tsmMenuPreview => 'プレビュー';
+
+  @override
+  String get tsmMenuRename => '名前を変更';
+
+  @override
+  String get tsmMenuExportSession => 'セッションをエクスポート';
+
+  @override
+  String get tsmMenuPin => 'ピン留め';
+
+  @override
+  String get tsmMenuUnpin => 'ピン留めを解除';
+
+  @override
+  String get tsmMenuArchive => 'アーカイブ';
+
+  @override
+  String get tsmMenuUnarchive => 'アーカイブから戻す';
+
+  @override
+  String get tsmMenuDelete => '削除';
+
+  @override
+  String get tsmPinUpdateFailed => 'ピン留め状態の更新に失敗しました';
+
+  @override
+  String get tsmArchiveUpdateFailed => 'アーカイブ状態の更新に失敗しました';
+
+  @override
+  String get tsmUntitledThread => '(無題のスレッド)';
+
+  @override
+  String tsmPreviewMessageCount(Object count) {
+    return '$count 件のメッセージ';
+  }
+
+  @override
+  String get tsmClosePreview => 'プレビューを閉じる';
+
+  @override
+  String get tsmNoMessages => 'メッセージなし';
+
+  @override
+  String get tsmEmptyMessage => '(空)';
+
+  @override
+  String get tsmSearchHint => 'タイトルまたは ID で検索';
+
+  @override
+  String get tsmDensityComfortable => 'ゆったり';
+
+  @override
+  String get tsmDensityCompact => 'コンパクト';
+
+  @override
+  String get tsmAllTemplates => 'すべてのテンプレート';
+
+  @override
+  String tsmSortDisabledHint(Object mode) {
+    return '「$mode」で並び替え中。ドラッグハンドルは無効です。並び替えるには「手動順序」に戻してください。';
+  }
+
+  @override
+  String get tsmSortManual => '手動順序';
+
+  @override
+  String get tsmSortUpdated => '最近の更新';
+
+  @override
+  String get tsmSortCreated => '最近の作成';
+
+  @override
+  String get tsmSortSize => 'サイズ順';
+
+  @override
+  String get tsmSortMessages => 'メッセージ数順';
+
+  @override
+  String get tsmSortToken => 'トークン数順';
+
+  @override
+  String get tsmHideArchived => 'アーカイブを隠す';
+
+  @override
+  String get tsmShowArchived => 'アーカイブを表示';
+
+  @override
+  String get tsmExitSelection => '選択を終了';
+
+  @override
+  String get tsmEnterSelection => '複数選択';
+
+  @override
+  String get tsmClose => '閉じる';
+
+  @override
+  String get tsmTitle => 'スレッドセッション管理';
+
+  @override
+  String tsmHeaderSubtitle(Object count) {
+    return '$count 件のスレッド · 長押し／ハンドルをドラッグで並び替え、ダブルクリック／右クリックでメニュー';
+  }
+
+  @override
+  String tsmSelectedCount(Object count) {
+    return '$count 件選択中';
+  }
+
+  @override
+  String get tsmBatchExportButton => '一括エクスポート';
+
+  @override
+  String get tsmDeleteSelectedButton => '選択を削除';
+
+  @override
+  String get tsmEmptyState => 'まだスレッドセッションがありません';
+
+  @override
+  String get tsmCancel => 'キャンセル';
+
+  @override
+  String get settingsThreadSessionManagementTitle => 'スレッドセッション管理';
+
+  @override
+  String get settingsThreadSessionManagementSubtitle =>
+      '各スレッドのタイトル、作成/更新日時、ストレージ使用量、メッセージ内訳、トークン統計を表示します。ドラッグでの並び替え、複数選択削除、ダブルクリック/右クリックでの名前変更/エクスポート/削除メニューに対応。ダイアログの開閉アニメーションはグローバル設定に従います。';
+
+  @override
+  String get settingsThreadSessionManagementOpen => 'マネージャーを開く';
+
+  @override
+  String get settingsMessageGatewayTitle => 'メッセージゲートウェイ';
+
+  @override
+  String get settingsMessageGatewayDescription =>
+      'メッセージゲートウェイのルーティング、変換、スロットリングを設定します。詳細なオプションは今後のリリースで追加される予定で、現在はプレースホルダーです。';
+
+  @override
+  String get settingsMessageGatewayComingSoon => '近日公開';
+
+  @override
+  String get settingsMessageGatewayComingSoonSubtitle =>
+      'メッセージゲートウェイの詳細設定は次回のイテレーションで提供予定です。';
+
+  @override
+  String get tsmRowUnknown => '不明';
+
+  @override
+  String get tsmRowCreated => '作成';
+
+  @override
+  String get tsmRowUpdated => '更新';
+
+  @override
+  String get tsmRowSize => 'サイズ';
+
+  @override
+  String get tsmRowMessages => 'メッセージ';
+
+  @override
+  String get tsmRowToken => 'Token';
+
+  @override
+  String get tsmRowByKind => '種類別';
 }

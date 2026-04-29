@@ -1892,4 +1892,230 @@ class AppLocalizationsEn extends AppLocalizations {
   String selfLearningFlushIntervalHelper(int min, int max) {
     return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
   }
+
+  @override
+  String get tsmRenameThreadTitle => 'Rename Thread';
+
+  @override
+  String get tsmRenameHint => 'Enter a thread title';
+
+  @override
+  String get tsmRenameFailed => 'Rename failed';
+
+  @override
+  String get tsmDeleteThreadTitle => 'Delete Thread';
+
+  @override
+  String get tsmDeleteSelectedTitle => 'Delete Selected Threads';
+
+  @override
+  String tsmDeleteSelectedConfirm(Object count) {
+    return 'Will permanently delete $count threads and their messages. This cannot be undone.';
+  }
+
+  @override
+  String tsmDeleteFailedCount(Object count) {
+    return '$count thread(s) failed to delete';
+  }
+
+  @override
+  String get tsmSessionMissing => 'Session is missing or deleted';
+
+  @override
+  String get tsmExportSessionDataTitle => 'Export Session Data';
+
+  @override
+  String tsmExportingSession(Object title) {
+    return 'Exporting \"$title\"…';
+  }
+
+  @override
+  String get tsmExportComplete => 'Export complete';
+
+  @override
+  String get tsmExportFailed => 'Export failed';
+
+  @override
+  String get tsmChooseExportFolder => 'Choose Export Folder';
+
+  @override
+  String get tsmBatchExportTitle => 'Batch Export';
+
+  @override
+  String tsmBatchExportSubtitle(Object count) {
+    return 'About to export $count threads…';
+  }
+
+  @override
+  String tsmBatchExportDone(Object ok, Object failed) {
+    return 'Batch export done: $ok ok / $failed failed';
+  }
+
+  @override
+  String get tsmMenuPreview => 'Preview';
+
+  @override
+  String get tsmMenuRename => 'Rename';
+
+  @override
+  String get tsmMenuExportSession => 'Export Session';
+
+  @override
+  String get tsmMenuPin => 'Pin';
+
+  @override
+  String get tsmMenuUnpin => 'Unpin';
+
+  @override
+  String get tsmMenuArchive => 'Archive';
+
+  @override
+  String get tsmMenuUnarchive => 'Unarchive';
+
+  @override
+  String get tsmMenuDelete => 'Delete';
+
+  @override
+  String get tsmPinUpdateFailed => 'Failed to update pin state';
+
+  @override
+  String get tsmArchiveUpdateFailed => 'Failed to update archive state';
+
+  @override
+  String get tsmUntitledThread => '(Untitled Thread)';
+
+  @override
+  String tsmPreviewMessageCount(Object count) {
+    return '$count messages';
+  }
+
+  @override
+  String get tsmClosePreview => 'Close Preview';
+
+  @override
+  String get tsmNoMessages => 'No messages';
+
+  @override
+  String get tsmEmptyMessage => '(empty)';
+
+  @override
+  String get tsmSearchHint => 'Search by title or ID';
+
+  @override
+  String get tsmDensityComfortable => 'Comfortable';
+
+  @override
+  String get tsmDensityCompact => 'Compact';
+
+  @override
+  String get tsmAllTemplates => 'All Templates';
+
+  @override
+  String tsmSortDisabledHint(Object mode) {
+    return 'Sorted by \"$mode\". Drag handles are disabled; switch back to \"Manual Order\" to reorder.';
+  }
+
+  @override
+  String get tsmSortManual => 'Manual Order';
+
+  @override
+  String get tsmSortUpdated => 'Recently Updated';
+
+  @override
+  String get tsmSortCreated => 'Recently Created';
+
+  @override
+  String get tsmSortSize => 'By Size';
+
+  @override
+  String get tsmSortMessages => 'By Messages';
+
+  @override
+  String get tsmSortToken => 'By Token';
+
+  @override
+  String get tsmHideArchived => 'Hide Archived';
+
+  @override
+  String get tsmShowArchived => 'Show Archived';
+
+  @override
+  String get tsmExitSelection => 'Exit Selection';
+
+  @override
+  String get tsmEnterSelection => 'Multi-select';
+
+  @override
+  String get tsmClose => 'Close';
+
+  @override
+  String get tsmTitle => 'Thread Session Management';
+
+  @override
+  String tsmHeaderSubtitle(Object count) {
+    return '$count thread(s) · long-press / drag the handle to reorder, double-click / right-click for more';
+  }
+
+  @override
+  String tsmSelectedCount(Object count) {
+    return '$count selected';
+  }
+
+  @override
+  String get tsmBatchExportButton => 'Batch Export';
+
+  @override
+  String get tsmDeleteSelectedButton => 'Delete Selected';
+
+  @override
+  String get tsmEmptyState => 'No thread sessions yet';
+
+  @override
+  String get tsmCancel => 'Cancel';
+
+  @override
+  String get settingsThreadSessionManagementTitle =>
+      'Thread Session Management';
+
+  @override
+  String get settingsThreadSessionManagementSubtitle =>
+      'Inspect every thread\'s title, created/updated time, storage footprint, message breakdown, and token stats. Supports drag-reorder, multi-select delete, and a double-click / right-click menu for rename/export/delete. The dialog enter/exit animation follows the global dialog animation settings.';
+
+  @override
+  String get settingsThreadSessionManagementOpen => 'Open Manager';
+
+  @override
+  String get settingsMessageGatewayTitle => 'Message Gateway';
+
+  @override
+  String get settingsMessageGatewayDescription =>
+      'Configure message-gateway routing, transforms, and throttling. Concrete options will be added in a future release; this section is currently a placeholder entry.';
+
+  @override
+  String get settingsMessageGatewayComingSoon => 'Coming soon';
+
+  @override
+  String get settingsMessageGatewayComingSoonSubtitle =>
+      'Detailed message-gateway configuration is planned for the next iteration.';
+
+  @override
+  String get tsmRowUnknown => 'unknown';
+
+  @override
+  String get tsmRowCreated => 'Created';
+
+  @override
+  String get tsmRowUpdated => 'Updated';
+
+  @override
+  String get tsmRowSize => 'Size';
+
+  @override
+  String get tsmRowMessages => 'Messages';
+
+  @override
+  String get tsmRowToken => 'Token';
+
+  @override
+  String get tsmRowByKind => 'By kind';
 }
