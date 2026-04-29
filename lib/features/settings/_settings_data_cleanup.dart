@@ -652,10 +652,10 @@ String _categorySubtitle(
     case DataCleanupCategory.skillsDirectory:
       return _localizedText(
         context,
-        zh: '当前技能目录下的全部文件。**包含用户自定义的技能内容**，请谨慎操作。',
+        zh: '当前技能目录下的全部文件。包含用户自定义的技能内容，请谨慎操作。',
         en:
-            'All files under the current skills directory. **User-authored '
-            'skills are included**; proceed with caution.',
+            'All files under the current skills directory. User-authored '
+            'skills are included; proceed with caution.',
       );
     case DataCleanupCategory.lspDirectory:
       return _localizedText(
@@ -669,12 +669,12 @@ String _categorySubtitle(
       return _localizedText(
         context,
         zh:
-            '一次性清理上述所有分类的数据。**不会**删除 sqlite 数据库文件本身或'
+            '一次性清理上述所有分类的数据。不会删除 sqlite 数据库文件本身或'
             ' settings.json，否则会让正在运行的进程崩溃；如需彻底重置，请手动'
             '删除 ~/.openhand。',
         en:
             'Cleans every category above in one shot. The sqlite DB file and '
-            'settings.json are NOT removed (would crash the running '
+            'settings.json are not removed (would crash the running '
             'process); remove ~/.openhand manually for a full reset.',
       );
   }

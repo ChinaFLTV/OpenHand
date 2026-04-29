@@ -5794,39 +5794,39 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get tsmRenameThreadTitle => '重新命名線程';
+  String get tsmRenameThreadTitle => '重新命名執行緒';
 
   @override
-  String get tsmRenameHint => '輸入線程標題';
+  String get tsmRenameHint => '輸入執行緒標題';
 
   @override
   String get tsmRenameFailed => '重新命名失敗';
 
   @override
-  String get tsmDeleteThreadTitle => '刪除線程';
+  String get tsmDeleteThreadTitle => '刪除執行緒';
 
   @override
-  String get tsmDeleteSelectedTitle => '刪除所選線程';
+  String get tsmDeleteSelectedTitle => '刪除選取的執行緒';
 
   @override
   String tsmDeleteSelectedConfirm(Object count) {
-    return '將永久刪除 $count 個線程及其訊息。此操作無法撤銷。';
+    return '將永久刪除 $count 個執行緒及其訊息，此操作無法復原。';
   }
 
   @override
   String tsmDeleteFailedCount(Object count) {
-    return '$count 個線程刪除失敗';
+    return '$count 個執行緒刪除失敗';
   }
 
   @override
-  String get tsmSessionMissing => '會話不存在或已被刪除';
+  String get tsmSessionMissing => '工作階段不存在或已刪除';
 
   @override
-  String get tsmExportSessionDataTitle => '匯出會話資料';
+  String get tsmExportSessionDataTitle => '匯出工作階段資料';
 
   @override
   String tsmExportingSession(Object title) {
-    return '正在匯出 「$title」…';
+    return '正在匯出「$title」…';
   }
 
   @override
@@ -5836,19 +5836,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmExportFailed => '匯出失敗';
 
   @override
-  String get tsmChooseExportFolder => '選擇匯出目錄';
+  String get tsmChooseExportFolder => '選擇匯出資料夾';
 
   @override
   String get tsmBatchExportTitle => '批次匯出';
 
   @override
   String tsmBatchExportSubtitle(Object count) {
-    return '即將匯出 $count 個線程…';
+    return '即將匯出 $count 個執行緒…';
   }
 
   @override
   String tsmBatchExportDone(Object ok, Object failed) {
-    return '批次匯出完成：成功 $ok / 失敗 $failed';
+    return '批次匯出完成：成功 $ok 件 / 失敗 $failed 件';
   }
 
   @override
@@ -5858,13 +5858,13 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmMenuRename => '重新命名';
 
   @override
-  String get tsmMenuExportSession => '匯出會話資料';
+  String get tsmMenuExportSession => '匯出工作階段';
 
   @override
-  String get tsmMenuPin => '置頂';
+  String get tsmMenuPin => '釘選';
 
   @override
-  String get tsmMenuUnpin => '取消置頂';
+  String get tsmMenuUnpin => '取消釘選';
 
   @override
   String get tsmMenuArchive => '封存';
@@ -5876,47 +5876,47 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmMenuDelete => '刪除';
 
   @override
-  String get tsmPinUpdateFailed => '置頂狀態更新失敗';
+  String get tsmPinUpdateFailed => '更新釘選狀態失敗';
 
   @override
-  String get tsmArchiveUpdateFailed => '封存狀態更新失敗';
+  String get tsmArchiveUpdateFailed => '更新封存狀態失敗';
 
   @override
-  String get tsmUntitledThread => '(未命名線程)';
+  String get tsmUntitledThread => '（未命名執行緒）';
 
   @override
   String tsmPreviewMessageCount(Object count) {
-    return '$count 條訊息';
+    return '$count 則訊息';
   }
 
   @override
   String get tsmClosePreview => '關閉預覽';
 
   @override
-  String get tsmNoMessages => '暫無訊息';
+  String get tsmNoMessages => '沒有訊息';
 
   @override
-  String get tsmEmptyMessage => '(空訊息)';
+  String get tsmEmptyMessage => '（空）';
 
   @override
-  String get tsmSearchHint => '按標題或 ID 搜尋';
+  String get tsmSearchHint => '依標題或 ID 搜尋';
 
   @override
-  String get tsmDensityComfortable => '舒適密度';
+  String get tsmDensityComfortable => '舒適';
 
   @override
-  String get tsmDensityCompact => '緊湊密度';
+  String get tsmDensityCompact => '精簡';
 
   @override
-  String get tsmAllTemplates => '全部範本';
+  String get tsmAllTemplates => '所有範本';
 
   @override
   String tsmSortDisabledHint(Object mode) {
-    return '目前為「$mode」排序，拖曳控制已停用，切回「手動順序」可繼續調整。';
+    return '目前依「$mode」排序，拖曳控制點已停用；切回「手動排序」即可重新排列。';
   }
 
   @override
-  String get tsmSortManual => '手動順序';
+  String get tsmSortManual => '手動排序';
 
   @override
   String get tsmSortUpdated => '最近更新';
@@ -5925,22 +5925,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmSortCreated => '最近建立';
 
   @override
-  String get tsmSortSize => '佔用大小';
+  String get tsmSortSize => '依大小';
 
   @override
-  String get tsmSortMessages => '訊息數量';
+  String get tsmSortMessages => '依訊息數';
 
   @override
-  String get tsmSortToken => 'Token 數';
+  String get tsmSortToken => '依 Token 數';
 
   @override
-  String get tsmHideArchived => '隱藏封存';
+  String get tsmHideArchived => '隱藏已封存';
 
   @override
-  String get tsmShowArchived => '顯示封存';
+  String get tsmShowArchived => '顯示已封存';
 
   @override
-  String get tsmExitSelection => '退出多選';
+  String get tsmExitSelection => '結束多選';
 
   @override
   String get tsmEnterSelection => '多選';
@@ -5949,52 +5949,52 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tsmClose => '關閉';
 
   @override
-  String get tsmTitle => '線程會話管理';
+  String get tsmTitle => '執行緒工作階段管理';
 
   @override
   String tsmHeaderSubtitle(Object count) {
-    return '共 $count 個線程 · 長按或拖曳控制可調整順序，雙擊/右鍵檢視更多操作';
+    return '共 $count 個執行緒 · 長按或拖曳控制點可重新排序，按兩下或按右鍵可叫出更多選項';
   }
 
   @override
   String tsmSelectedCount(Object count) {
-    return '已選 $count';
+    return '已選取 $count 個';
   }
 
   @override
   String get tsmBatchExportButton => '批次匯出';
 
   @override
-  String get tsmDeleteSelectedButton => '刪除所選';
+  String get tsmDeleteSelectedButton => '刪除選取項目';
 
   @override
-  String get tsmEmptyState => '暫無線程會話';
+  String get tsmEmptyState => '尚無執行緒工作階段';
 
   @override
   String get tsmCancel => '取消';
 
   @override
-  String get settingsThreadSessionManagementTitle => '線程會話管理';
+  String get settingsThreadSessionManagementTitle => '執行緒工作階段管理';
 
   @override
   String get settingsThreadSessionManagementSubtitle =>
-      '檢視所有線程的標題、建立/更新時間、佔用大小、訊息構成和 token 統計。支援拖曳排序、多選刪除、雙擊或右鍵開啟重新命名/匯出/刪除選單。彈窗的進出場動畫跟隨全域設定中的彈窗動畫設定。';
+      '檢視所有執行緒的標題、建立／更新時間、佔用大小、訊息構成與 Token 統計。支援拖曳排序、多選刪除，並可用按兩下或按右鍵叫出重新命名／匯出／刪除選單。對話框的進場與退場動畫會依全域設定的對話框動畫設定。';
 
   @override
-  String get settingsThreadSessionManagementOpen => '開啟管理彈窗';
+  String get settingsThreadSessionManagementOpen => '開啟管理視窗';
 
   @override
   String get settingsMessageGatewayTitle => '訊息閘道';
 
   @override
   String get settingsMessageGatewayDescription =>
-      '管理訊息閘道的路由、轉換與節流策略。具體設定項將在後續版本中開放，目前為預留入口。';
+      '設定訊息閘道的路由、轉換與節流策略。具體選項將於後續版本中釋出，目前為預留入口。';
 
   @override
   String get settingsMessageGatewayComingSoon => '即將推出';
 
   @override
-  String get settingsMessageGatewayComingSoonSubtitle => '訊息閘道詳細設定將在下一個迭代中提供。';
+  String get settingsMessageGatewayComingSoonSubtitle => '訊息閘道的詳細設定將於下一個迭代提供。';
 
   @override
   String get tsmRowUnknown => '未知';

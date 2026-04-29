@@ -1903,7 +1903,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmRenameThreadTitle => 'Renommer le fil';
 
   @override
-  String get tsmRenameHint => 'Saisissez un titre de fil';
+  String get tsmRenameHint => 'Saisir un titre de fil';
 
   @override
   String get tsmRenameFailed => 'Échec du renommage';
@@ -1916,45 +1916,45 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String tsmDeleteSelectedConfirm(Object count) {
-    return 'Supprimera définitivement $count fils et leurs messages. Cette action est irréversible.';
+    return '$count fil(s) et leurs messages seront supprimés définitivement. Cette action est irréversible.';
   }
 
   @override
   String tsmDeleteFailedCount(Object count) {
-    return '$count fil(s) n\'ont pas pu être supprimés';
+    return 'Échec de la suppression de $count fil(s)';
   }
 
   @override
-  String get tsmSessionMissing => 'Session manquante ou supprimée';
+  String get tsmSessionMissing => 'Session introuvable ou supprimée';
 
   @override
   String get tsmExportSessionDataTitle => 'Exporter les données de session';
 
   @override
   String tsmExportingSession(Object title) {
-    return 'Export de « $title »…';
+    return 'Exportation de « $title »…';
   }
 
   @override
-  String get tsmExportComplete => 'Export terminé';
+  String get tsmExportComplete => 'Exportation terminée';
 
   @override
-  String get tsmExportFailed => 'Échec de l\'export';
+  String get tsmExportFailed => 'Échec de l\'exportation';
 
   @override
   String get tsmChooseExportFolder => 'Choisir le dossier d\'export';
 
   @override
-  String get tsmBatchExportTitle => 'Export en lot';
+  String get tsmBatchExportTitle => 'Exportation par lots';
 
   @override
   String tsmBatchExportSubtitle(Object count) {
-    return 'Export imminent de $count fils…';
+    return 'Exportation imminente de $count fils…';
   }
 
   @override
   String tsmBatchExportDone(Object ok, Object failed) {
-    return 'Export en lot terminé : $ok réussi(s) / $failed échoué(s)';
+    return 'Export par lots terminé : $ok réussis / $failed échoués';
   }
 
   @override
@@ -1982,10 +1982,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmMenuDelete => 'Supprimer';
 
   @override
-  String get tsmPinUpdateFailed => 'Échec de la mise à jour de l\'épingle';
+  String get tsmPinUpdateFailed => 'Échec de la mise à jour de l\'épinglage';
 
   @override
-  String get tsmArchiveUpdateFailed => 'Échec de la mise à jour de l\'archive';
+  String get tsmArchiveUpdateFailed =>
+      'Échec de la mise à jour de l\'archivage';
 
   @override
   String get tsmUntitledThread => '(Fil sans titre)';
@@ -2018,7 +2019,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String tsmSortDisabledHint(Object mode) {
-    return 'Trié par « $mode ». Les poignées de glissement sont désactivées ; revenez à « Ordre manuel » pour réordonner.';
+    return 'Trié par « $mode ». Les poignées sont désactivées ; revenez à « Ordre manuel » pour réorganiser.';
   }
 
   @override
@@ -2028,7 +2029,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmSortUpdated => 'Récemment mis à jour';
 
   @override
-  String get tsmSortCreated => 'Récemment créé';
+  String get tsmSortCreated => 'Récemment créés';
 
   @override
   String get tsmSortSize => 'Par taille';
@@ -2037,7 +2038,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmSortMessages => 'Par messages';
 
   @override
-  String get tsmSortToken => 'Par token';
+  String get tsmSortToken => 'Par tokens';
 
   @override
   String get tsmHideArchived => 'Masquer les archives';
@@ -2049,17 +2050,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmExitSelection => 'Quitter la sélection';
 
   @override
-  String get tsmEnterSelection => 'Multi-sélection';
+  String get tsmEnterSelection => 'Sélection multiple';
 
   @override
   String get tsmClose => 'Fermer';
 
   @override
-  String get tsmTitle => 'Gestion des sessions de fils';
+  String get tsmTitle => 'Gestion des sessions de fil';
 
   @override
   String tsmHeaderSubtitle(Object count) {
-    return '$count fil(s) · appui long / glisser la poignée pour réordonner, double-clic / clic-droit pour plus';
+    return '$count fil(s) · maintenez ou glissez la poignée pour réorganiser, double-clic / clic droit pour plus d\'options';
   }
 
   @override
@@ -2068,24 +2069,24 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get tsmBatchExportButton => 'Export en lot';
+  String get tsmBatchExportButton => 'Exporter par lots';
 
   @override
   String get tsmDeleteSelectedButton => 'Supprimer la sélection';
 
   @override
-  String get tsmEmptyState => 'Aucune session de fil pour l\'instant';
+  String get tsmEmptyState => 'Aucune session de fil pour le moment';
 
   @override
   String get tsmCancel => 'Annuler';
 
   @override
   String get settingsThreadSessionManagementTitle =>
-      'Gestion des sessions de fils';
+      'Gestion des sessions de fil';
 
   @override
   String get settingsThreadSessionManagementSubtitle =>
-      'Inspectez le titre, l\'heure de création/mise à jour, l\'empreinte de stockage, la répartition des messages et les statistiques de tokens de chaque fil. Prend en charge le réordonnancement par glissement, la suppression multi-sélection et un menu double-clic / clic-droit pour renommer/exporter/supprimer. L\'animation d\'entrée/sortie suit les réglages globaux.';
+      'Inspectez le titre, l\'heure de création et de mise à jour, l\'empreinte de stockage, la composition des messages et les statistiques de tokens de chaque fil. Prend en charge le glisser-déposer pour réorganiser, la suppression par sélection multiple, ainsi qu\'un menu en double-clic ou clic droit pour renommer, exporter ou supprimer. L\'animation d\'entrée et de sortie de la boîte de dialogue suit la configuration globale d\'animation des dialogues.';
 
   @override
   String get settingsThreadSessionManagementOpen => 'Ouvrir le gestionnaire';
@@ -2095,7 +2096,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'Configurez le routage, les transformations et la limitation de débit de la passerelle de messages. Les options concrètes seront ajoutées dans une future version ; cette section est actuellement un emplacement réservé.';
+      'Configurez le routage, les transformations et la limitation de débit de la passerelle de messages. Les options détaillées seront ajoutées dans une prochaine version ; cette section n\'est pour l\'instant qu\'un emplacement réservé.';
 
   @override
   String get settingsMessageGatewayComingSoon => 'Bientôt disponible';
@@ -2123,5 +2124,5 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tsmRowToken => 'Token';
 
   @override
-  String get tsmRowByKind => 'Par type';
+  String get tsmRowByKind => 'Répartition';
 }

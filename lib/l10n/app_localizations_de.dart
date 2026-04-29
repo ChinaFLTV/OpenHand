@@ -1914,7 +1914,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String tsmDeleteSelectedConfirm(Object count) {
-    return '$count Threads und ihre Nachrichten werden dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden.';
+    return '$count Thread(s) und ihre Nachrichten werden endgültig gelöscht. Dieser Vorgang kann nicht rückgängig gemacht werden.';
   }
 
   @override
@@ -1930,7 +1930,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String tsmExportingSession(Object title) {
-    return '„$title\" wird exportiert…';
+    return 'Exportiere „$title“…';
   }
 
   @override
@@ -1940,19 +1940,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmExportFailed => 'Export fehlgeschlagen';
 
   @override
-  String get tsmChooseExportFolder => 'Exportordner wählen';
+  String get tsmChooseExportFolder => 'Exportordner auswählen';
 
   @override
   String get tsmBatchExportTitle => 'Stapelexport';
 
   @override
   String tsmBatchExportSubtitle(Object count) {
-    return '$count Threads werden exportiert…';
+    return '$count Threads werden gleich exportiert…';
   }
 
   @override
   String tsmBatchExportDone(Object ok, Object failed) {
-    return 'Stapelexport fertig: $ok OK / $failed fehlgeschlagen';
+    return 'Stapelexport abgeschlossen: $ok erfolgreich / $failed fehlgeschlagen';
   }
 
   @override
@@ -1974,14 +1974,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmMenuArchive => 'Archivieren';
 
   @override
-  String get tsmMenuUnarchive => 'Aus dem Archiv';
+  String get tsmMenuUnarchive => 'Aus Archiv holen';
 
   @override
   String get tsmMenuDelete => 'Löschen';
 
   @override
   String get tsmPinUpdateFailed =>
-      'Anheftstatus konnte nicht aktualisiert werden';
+      'Anheft-Status konnte nicht aktualisiert werden';
 
   @override
   String get tsmArchiveUpdateFailed =>
@@ -2018,7 +2018,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String tsmSortDisabledHint(Object mode) {
-    return 'Sortiert nach „$mode\". Ziehgriffe deaktiviert; zurück zu „Manuelle Reihenfolge\", um neu zu ordnen.';
+    return 'Sortiert nach „$mode\". Ziehgriffe sind deaktiviert; wechseln Sie zurück zu „Manuelle Reihenfolge\", um neu anzuordnen.';
   }
 
   @override
@@ -2043,10 +2043,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmHideArchived => 'Archivierte ausblenden';
 
   @override
-  String get tsmShowArchived => 'Archivierte anzeigen';
+  String get tsmShowArchived => 'Archivierte einblenden';
 
   @override
-  String get tsmExitSelection => 'Auswahl verlassen';
+  String get tsmExitSelection => 'Auswahl beenden';
 
   @override
   String get tsmEnterSelection => 'Mehrfachauswahl';
@@ -2059,7 +2059,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String tsmHeaderSubtitle(Object count) {
-    return '$count Thread(s) · Lange drücken oder Griff ziehen zum Neuordnen, Doppelklick / Rechtsklick für mehr';
+    return '$count Thread(s) · Lange drücken oder Griff ziehen, um neu zu sortieren; Doppelklick / Rechtsklick für mehr';
   }
 
   @override
@@ -2071,7 +2071,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmBatchExportButton => 'Stapelexport';
 
   @override
-  String get tsmDeleteSelectedButton => 'Ausgewählte löschen';
+  String get tsmDeleteSelectedButton => 'Auswahl löschen';
 
   @override
   String get tsmEmptyState => 'Noch keine Thread-Sitzungen';
@@ -2085,7 +2085,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsThreadSessionManagementSubtitle =>
-      'Sehen Sie Titel, Erstell-/Aktualisierungszeit, Speicherbedarf, Nachrichtenaufschlüsselung und Token-Statistiken jedes Threads. Unterstützt Drag-and-Drop-Sortierung, Mehrfachauswahl-Löschen und ein Doppelklick-/Rechtsklick-Menü für Umbenennen/Exportieren/Löschen. Die Dialog-Animation folgt den globalen Dialogeinstellungen.';
+      'Übersicht über Titel, Erstell- und Aktualisierungszeit, Speicherbedarf, Nachrichtenzusammensetzung sowie Token-Statistik aller Threads. Unterstützt Drag-and-Drop-Sortierung, Mehrfachauswahl-Löschen sowie Doppelklick- bzw. Rechtsklick-Menüs zum Umbenennen, Exportieren und Löschen. Die Ein- und Ausblendanimation des Dialogs folgt der globalen Dialoganimationskonfiguration.';
 
   @override
   String get settingsThreadSessionManagementOpen => 'Verwaltung öffnen';
@@ -2095,14 +2095,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsMessageGatewayDescription =>
-      'Konfigurieren Sie Routing, Transformationen und Drosselung des Nachrichten-Gateways. Konkrete Optionen folgen in einem zukünftigen Release; dieser Bereich ist derzeit ein Platzhalter.';
+      'Konfigurieren Sie Routing, Transformationen und Drosselung des Nachrichten-Gateways. Konkrete Optionen folgen in einer späteren Version; dieser Abschnitt ist derzeit ein Platzhalter.';
 
   @override
-  String get settingsMessageGatewayComingSoon => 'Bald verfügbar';
+  String get settingsMessageGatewayComingSoon => 'Demnächst verfügbar';
 
   @override
   String get settingsMessageGatewayComingSoonSubtitle =>
-      'Die detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.';
+      'Detaillierte Konfiguration des Nachrichten-Gateways ist für die nächste Iteration geplant.';
 
   @override
   String get tsmRowUnknown => 'unbekannt';
@@ -2123,5 +2123,5 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tsmRowToken => 'Token';
 
   @override
-  String get tsmRowByKind => 'Nach Typ';
+  String get tsmRowByKind => 'Aufteilung';
 }

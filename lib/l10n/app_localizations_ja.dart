@@ -1894,7 +1894,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String tsmDeleteSelectedConfirm(Object count) {
-    return '$count 件のスレッドとメッセージを完全に削除します。この操作は取り消せません。';
+    return '$count 件のスレッドとそのメッセージを完全に削除します。この操作は取り消せません。';
   }
 
   @override
@@ -1932,7 +1932,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String tsmBatchExportDone(Object ok, Object failed) {
-    return '一括エクスポート完了：成功 $ok / 失敗 $failed';
+    return '一括エクスポート完了：成功 $ok 件 / 失敗 $failed 件';
   }
 
   @override
@@ -1960,7 +1960,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmMenuDelete => '削除';
 
   @override
-  String get tsmPinUpdateFailed => 'ピン留め状態の更新に失敗しました';
+  String get tsmPinUpdateFailed => 'ピン留めの更新に失敗しました';
 
   @override
   String get tsmArchiveUpdateFailed => 'アーカイブ状態の更新に失敗しました';
@@ -1977,7 +1977,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmClosePreview => 'プレビューを閉じる';
 
   @override
-  String get tsmNoMessages => 'メッセージなし';
+  String get tsmNoMessages => 'メッセージがありません';
 
   @override
   String get tsmEmptyMessage => '(空)';
@@ -1986,7 +1986,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmSearchHint => 'タイトルまたは ID で検索';
 
   @override
-  String get tsmDensityComfortable => 'ゆったり';
+  String get tsmDensityComfortable => '標準';
 
   @override
   String get tsmDensityCompact => 'コンパクト';
@@ -1996,17 +1996,17 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String tsmSortDisabledHint(Object mode) {
-    return '「$mode」で並び替え中。ドラッグハンドルは無効です。並び替えるには「手動順序」に戻してください。';
+    return '「$mode」で並び替え中です。ドラッグハンドルは無効化されています。並べ替えるには「手動の順序」に戻してください。';
   }
 
   @override
-  String get tsmSortManual => '手動順序';
+  String get tsmSortManual => '手動の順序';
 
   @override
-  String get tsmSortUpdated => '最近の更新';
+  String get tsmSortUpdated => '更新が新しい順';
 
   @override
-  String get tsmSortCreated => '最近の作成';
+  String get tsmSortCreated => '作成が新しい順';
 
   @override
   String get tsmSortSize => 'サイズ順';
@@ -2018,7 +2018,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmSortToken => 'トークン数順';
 
   @override
-  String get tsmHideArchived => 'アーカイブを隠す';
+  String get tsmHideArchived => 'アーカイブを非表示';
 
   @override
   String get tsmShowArchived => 'アーカイブを表示';
@@ -2037,7 +2037,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String tsmHeaderSubtitle(Object count) {
-    return '$count 件のスレッド · 長押し／ハンドルをドラッグで並び替え、ダブルクリック／右クリックでメニュー';
+    return '$count 件のスレッド · 長押しまたはハンドルをドラッグして並び替え、ダブルクリックまたは右クリックでメニューを表示';
   }
 
   @override
@@ -2052,7 +2052,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmDeleteSelectedButton => '選択を削除';
 
   @override
-  String get tsmEmptyState => 'まだスレッドセッションがありません';
+  String get tsmEmptyState => 'スレッドセッションがまだありません';
 
   @override
   String get tsmCancel => 'キャンセル';
@@ -2062,24 +2062,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsThreadSessionManagementSubtitle =>
-      '各スレッドのタイトル、作成/更新日時、ストレージ使用量、メッセージ内訳、トークン統計を表示します。ドラッグでの並び替え、複数選択削除、ダブルクリック/右クリックでの名前変更/エクスポート/削除メニューに対応。ダイアログの開閉アニメーションはグローバル設定に従います。';
+      'すべてのスレッドのタイトル、作成・更新時刻、ストレージ使用量、メッセージ構成、トークン統計を確認できます。ドラッグでの並べ替え、複数選択での削除、ダブルクリックまたは右クリックメニューでの名称変更・エクスポート・削除に対応します。ダイアログの開閉アニメーションはグローバル設定のダイアログアニメーションに従います。';
 
   @override
-  String get settingsThreadSessionManagementOpen => 'マネージャーを開く';
+  String get settingsThreadSessionManagementOpen => '管理画面を開く';
 
   @override
   String get settingsMessageGatewayTitle => 'メッセージゲートウェイ';
 
   @override
   String get settingsMessageGatewayDescription =>
-      'メッセージゲートウェイのルーティング、変換、スロットリングを設定します。詳細なオプションは今後のリリースで追加される予定で、現在はプレースホルダーです。';
+      'メッセージゲートウェイのルーティング、変換、スロットリングを設定します。具体的な項目は今後のバージョンで追加予定で、現状はプレースホルダーです。';
 
   @override
   String get settingsMessageGatewayComingSoon => '近日公開';
 
   @override
   String get settingsMessageGatewayComingSoonSubtitle =>
-      'メッセージゲートウェイの詳細設定は次回のイテレーションで提供予定です。';
+      'メッセージゲートウェイの詳細設定は次のイテレーションで提供予定です。';
 
   @override
   String get tsmRowUnknown => '不明';
@@ -2097,7 +2097,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tsmRowMessages => 'メッセージ';
 
   @override
-  String get tsmRowToken => 'Token';
+  String get tsmRowToken => 'トークン';
 
   @override
   String get tsmRowByKind => '種類別';
