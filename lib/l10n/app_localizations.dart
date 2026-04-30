@@ -2539,7 +2539,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMaxRecentErrorsBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。'**
+  /// **'AI 会话状态中保留的最近错误记录条数。默认 15；范围 0~1000。'**
   String get aiMaxRecentErrorsBody;
 
   /// No description provided for @aiMaxRecentErrorsSave.
@@ -2569,7 +2569,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMaxPlanHistoryEntriesBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。'**
+  /// **'Plan 模式下 plan_history 保留的最大条目数。默认 15；范围 0~1000。'**
   String get aiMaxPlanHistoryEntriesBody;
 
   /// No description provided for @aiMaxPlanHistoryEntriesSave.
@@ -2659,7 +2659,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiMaxToolOutputCharsBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。'**
+  /// **'默认 150000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。'**
   String get aiMaxToolOutputCharsBody;
 
   /// No description provided for @aiMaxToolOutputCharsSave.
@@ -2899,7 +2899,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAttachmentMaxTextRawBytesBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 2097152（2MB）。调整以适配你的网络与附件需求。'**
+  /// **'默认 1597152（2MB）。调整以适配你的网络与附件需求。'**
   String get aiAttachmentMaxTextRawBytesBody;
 
   /// No description provided for @aiAttachmentMaxTextRawBytesSave.
@@ -2929,7 +2929,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiAttachmentMaxPdfRawBytesBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 2097152（2MB）。调整以适配你的网络与附件需求。'**
+  /// **'默认 1597152（2MB）。调整以适配你的网络与附件需求。'**
   String get aiAttachmentMaxPdfRawBytesBody;
 
   /// No description provided for @aiAttachmentMaxPdfRawBytesSave.
@@ -3019,7 +3019,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiFallbackTitleMaxCharactersBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 20。调整以匹配会话标题派生策略。'**
+  /// **'默认 15。调整以匹配会话标题派生策略。'**
   String get aiFallbackTitleMaxCharactersBody;
 
   /// No description provided for @aiFallbackTitleMaxCharactersSave.
@@ -3049,7 +3049,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiGeneratedTitleMaxCharactersBody.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'默认 20。调整以匹配会话标题派生策略。'**
+  /// **'默认 15。调整以匹配会话标题派生策略。'**
   String get aiGeneratedTitleMaxCharactersBody;
 
   /// No description provided for @aiGeneratedTitleMaxCharactersSave.

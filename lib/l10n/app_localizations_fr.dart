@@ -1398,7 +1398,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      'Defaults to 200000. Truncates tool results above this length so the API context never overflows.';
+      'Defaults to 150000. Truncates tool results above this length so the API context never overflows.';
 
   @override
   String get aiMaxToolOutputCharsSave => 'Save Limit';
@@ -1540,7 +1540,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      'Defaults to 2097152 (2MB). Tune for your network or attachment needs.';
+      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
 
   @override
   String get aiAttachmentMaxTextRawBytesSave => 'Save';
@@ -1557,7 +1557,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      'Defaults to 2097152 (2MB). Tune for your network or attachment needs.';
+      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
 
   @override
   String get aiAttachmentMaxPdfRawBytesSave => 'Save';
@@ -1611,7 +1611,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiFallbackTitleMaxCharactersBody =>
-      'Defaults to 20. Tune session title derivation.';
+      'Defaults to 15. Tune session title derivation.';
 
   @override
   String get aiFallbackTitleMaxCharactersSave => 'Save';
@@ -1629,7 +1629,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aiGeneratedTitleMaxCharactersBody =>
-      'Defaults to 20. Tune session title derivation.';
+      'Defaults to 15. Tune session title derivation.';
 
   @override
   String get aiGeneratedTitleMaxCharactersSave => 'Save';

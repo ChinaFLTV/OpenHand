@@ -1262,7 +1262,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiMaxRecentErrorsLabel => '会话错误记录保留上限';
 
   @override
-  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。';
+  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 15；范围 0~1000。';
 
   @override
   String get aiMaxRecentErrorsSave => '保存上限';
@@ -1278,7 +1278,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiMaxPlanHistoryEntriesBody =>
-      'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。';
+      'Plan 模式下 plan_history 保留的最大条目数。默认 15；范围 0~1000。';
 
   @override
   String get aiMaxPlanHistoryEntriesSave => '保存上限';
@@ -1326,7 +1326,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      '默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
+      '默认 150000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
 
   @override
   String get aiMaxToolOutputCharsSave => '保存上限';
@@ -1452,7 +1452,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
 
   @override
   String get aiAttachmentMaxTextRawBytesSave => '保存';
@@ -1468,7 +1468,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
 
   @override
   String get aiAttachmentMaxPdfRawBytesSave => '保存';
@@ -1515,7 +1515,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiFallbackTitleMaxCharactersLabel => '回退标题最大字符数';
 
   @override
-  String get aiFallbackTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+  String get aiFallbackTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
 
   @override
   String get aiFallbackTitleMaxCharactersSave => '保存';
@@ -1530,7 +1530,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiGeneratedTitleMaxCharactersLabel => '自动标题最大字符数';
 
   @override
-  String get aiGeneratedTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+  String get aiGeneratedTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
 
   @override
   String get aiGeneratedTitleMaxCharactersSave => '保存';
@@ -3267,7 +3267,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiMaxRecentErrorsLabel => '会话错误记录保留上限';
 
   @override
-  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 20；范围 0~1000。';
+  String get aiMaxRecentErrorsBody => 'AI 会话状态中保留的最近错误记录条数。默认 15；范围 0~1000。';
 
   @override
   String get aiMaxRecentErrorsSave => '保存上限';
@@ -3283,7 +3283,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiMaxPlanHistoryEntriesBody =>
-      'Plan 模式下 plan_history 保留的最大条目数。默认 20；范围 0~1000。';
+      'Plan 模式下 plan_history 保留的最大条目数。默认 15；范围 0~1000。';
 
   @override
   String get aiMaxPlanHistoryEntriesSave => '保存上限';
@@ -3331,7 +3331,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      '默认 200000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
+      '默认 150000。单次工具调用结果若超过这个字符数会截断，避免 Context 溢出。';
 
   @override
   String get aiMaxToolOutputCharsSave => '保存上限';
@@ -3457,7 +3457,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
 
   @override
   String get aiAttachmentMaxTextRawBytesSave => '保存';
@@ -3473,7 +3473,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      '默认 2097152（2MB）。调整以适配你的网络与附件需求。';
+      '默认 1597152（2MB）。调整以适配你的网络与附件需求。';
 
   @override
   String get aiAttachmentMaxPdfRawBytesSave => '保存';
@@ -3520,7 +3520,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiFallbackTitleMaxCharactersLabel => '回退标题最大字符数';
 
   @override
-  String get aiFallbackTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+  String get aiFallbackTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
 
   @override
   String get aiFallbackTitleMaxCharactersSave => '保存';
@@ -3535,7 +3535,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aiGeneratedTitleMaxCharactersLabel => '自动标题最大字符数';
 
   @override
-  String get aiGeneratedTitleMaxCharactersBody => '默认 20。调整以匹配会话标题派生策略。';
+  String get aiGeneratedTitleMaxCharactersBody => '默认 15。调整以匹配会话标题派生策略。';
 
   @override
   String get aiGeneratedTitleMaxCharactersSave => '保存';
@@ -5461,7 +5461,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      '默认 2097152（2MB）。調整以適配你的網路與附件需求。';
+      '默认 1597152（2MB）。調整以適配你的網路與附件需求。';
 
   @override
   String get aiAttachmentMaxTextRawBytesSave => '儲存';
@@ -5477,7 +5477,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      '默认 2097152（2MB）。調整以適配你的網路與附件需求。';
+      '默认 1597152（2MB）。調整以適配你的網路與附件需求。';
 
   @override
   String get aiAttachmentMaxPdfRawBytesSave => '儲存';
@@ -5524,7 +5524,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiFallbackTitleMaxCharactersLabel => '回退標題最大字元數';
 
   @override
-  String get aiFallbackTitleMaxCharactersBody => '默认 20。調整以符合會話標題派生策略。';
+  String get aiFallbackTitleMaxCharactersBody => '默认 15。調整以符合會話標題派生策略。';
 
   @override
   String get aiFallbackTitleMaxCharactersSave => '儲存';
@@ -5539,7 +5539,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aiGeneratedTitleMaxCharactersLabel => '自動標題最大字元數';
 
   @override
-  String get aiGeneratedTitleMaxCharactersBody => '默认 20。調整以符合會話標題派生策略。';
+  String get aiGeneratedTitleMaxCharactersBody => '默认 15。調整以符合會話標題派生策略。';
 
   @override
   String get aiGeneratedTitleMaxCharactersSave => '儲存';

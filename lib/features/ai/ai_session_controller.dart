@@ -107,7 +107,7 @@ class AiSessionController extends ChangeNotifier {
        _userHooksExecutor = userHooksExecutor;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';
   static const String _autoTitleSystemPrompt =
-      'Generate a concise chat title. Return a single title only. Keep it within 20 characters. No quotes. No markdown.\n'
+      'Generate a concise chat title. Return a single title only. Keep it within 15 characters/words. No quotes. No markdown.\n'
       'Summarize the first user request into a clear, specific, human-friendly thread title.\n'
       'Prefer concrete task names or topic names over vague summaries.\n'
       'Avoid titles that are too short, generic, or hard to understand, such as "帮助", "问题", "优化", "定位", "Help", "Question", or "Bug".\n'
@@ -207,8 +207,8 @@ class AiSessionController extends ChangeNotifier {
 
   // Group D — 标题相关字段已改为 mutable static 以便由 runtime context 在
   // 启动 / 设置变更时下放。在单进程内仅由 _captureLatestRuntimeContext 写入。
-  static int _fallbackTitleMaxCharacters = 20;
-  static int _generatedTitleMaxCharacters = 20;
+  static int _fallbackTitleMaxCharacters = 15;
+  static int _generatedTitleMaxCharacters = 15;
   static int _minimumMeaningfulTitleCharacters = 4;
   static int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
@@ -5243,12 +5243,23 @@ class AiSessionController extends ChangeNotifier {
     await _commitSessionLocked(updatedSession);
   }
 
+  // Total attempts (preferred + retries) before falling back to a
+  // content-derived title. The user-facing contract is "retry 3 times".
+  static const int _autoTitleMaxAttempts = 3;
+
   List<AiModelConfig> _autoTitleRequestModels(AiModelConfig model) {
     final preferredModel = _preferredAutoTitleModel(model);
-    if (preferredModel.modelId == model.modelId) {
-      return <AiModelConfig>[model];
+    final base = preferredModel.modelId == model.modelId
+        ? <AiModelConfig>[model]
+        : <AiModelConfig>[preferredModel, model];
+    // Pad to _autoTitleMaxAttempts by repeating the last entry so the caller
+    // always performs at least 3 explicit network attempts before falling
+    // back to deriving the title from the user's content.
+    final result = <AiModelConfig>[...base];
+    while (result.length < _autoTitleMaxAttempts) {
+      result.add(result.last);
     }
-    return <AiModelConfig>[preferredModel, model];
+    return result;
   }
 
   AiModelConfig _preferredAutoTitleModel(AiModelConfig model) {

@@ -1034,79 +1034,138 @@ class _AnimatedSessionTitleText extends StatefulWidget {
       _AnimatedSessionTitleTextState();
 }
 
-class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText> {
-  // On initial mount we render a plain [Text] to avoid the considerable
-  // cost of AnimatedSwitcher + ClipRect + FadeTransition + SlideTransition +
-  // ScaleTransition + CurvedAnimations being instantiated for every thread
-  // tile when the sidebar first paints.  The animated reveal is only
-  // engaged after the title actually changes at runtime (e.g. auto-title
-  // generation or explicit rename), which is the scenario that motivated
-  // the animation in the first place.
+/// Pool of glyphs sampled during the scramble phase. Mixes Latin / digit /
+/// CJK fragments so a Chinese title still looks like it is "decoding" rather
+/// than briefly turning into a row of `XYZ`.
+const String _kSessionTitleScramblePool =
+    '①②③◆◇◎◉☆★✦✧✪✺❖✿❃❀❄❅❆⌘⌥⌦⏣⌬⎔⏃⏄⏅⏆⏇⏈⏉⏊⏋⏌⏍⏎⏏⏐⏑⏒⏓⏔⏕⏖⏗⏘⏙⏚⏛⏜⏝⏞⏟⏠⏡⏢';
+const String _kSessionTitleScrambleAscii =
+    'abcdefghijklmnopqrstuvwxyz0123456789#@*+~?<>/\\|';
+
+class _AnimatedSessionTitleTextState extends State<_AnimatedSessionTitleText>
+    with SingleTickerProviderStateMixin {
+  // On initial mount we render a plain [Text] to avoid spinning up an
+  // AnimationController for every sidebar tile when the list first paints.
+  // Real animation only engages after the title actually changes (auto-title
+  // generation, explicit rename, etc.), which is the scenario the user wants
+  // to feel "magical".
   bool _animatedOnce = false;
+  AnimationController? _controller;
+  // Keeps the final settled glyphs so each repaint stays cheap once the
+  // scramble phase has completed (no more setState ticks needed).
+  String? _settledText;
+  // Stable random salt per animation run so glyph noise doesn't visibly
+  // flicker between adjacent frames in the same reveal.
+  int _scrambleSalt = 0;
 
   @override
   void didUpdateWidget(covariant _AnimatedSessionTitleText oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_animatedOnce && oldWidget.text != widget.text) {
+    if (oldWidget.text != widget.text) {
       _animatedOnce = true;
+      _settledText = null;
+      _scrambleSalt = DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
+      _controller ??= AnimationController(
+        vsync: this,
+        duration: _sessionTitleRevealAnimationDuration,
+      )..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() {
+            _settledText = widget.text;
+          });
+        }
+      });
+      _controller!
+        ..stop()
+        ..forward(from: 0);
     }
   }
 
   @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final textWidget = Text(
-      widget.text,
-      key: ValueKey<String>(widget.text),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: widget.style,
-    );
-    if (!_animatedOnce) {
-      return textWidget;
+    if (!_animatedOnce || _controller == null) {
+      return Text(
+        widget.text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: widget.style,
+      );
     }
-    return AnimatedSwitcher(
-      duration: _sessionTitleRevealAnimationDuration,
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.centerLeft,
-          children: <Widget>[
-            ...previousChildren,
-            ...?(currentChild == null ? null : <Widget>[currentChild]),
-          ],
+    return AnimatedBuilder(
+      animation: _controller!,
+      builder: (context, _) {
+        final t = Curves.easeOutCubic.transform(
+          _controller!.value.clamp(0.0, 1.0),
         );
-      },
-      transitionBuilder: (child, animation) {
-        final curved = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        );
-        final slide =
-            Tween<Offset>(
-              begin: const Offset(0, 0.35),
-              end: Offset.zero,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-                reverseCurve: Curves.easeInCubic,
-              ),
-            );
-        final scale = Tween<double>(begin: 0.96, end: 1).animate(curved);
-        return ClipRect(
-          child: FadeTransition(
-            opacity: curved,
-            child: SlideTransition(
-              position: slide,
-              child: ScaleTransition(scale: scale, child: child),
+        final settled = _settledText;
+        final displayText = settled ?? _composeScrambledText(t);
+        // Light scale + fade for a Q-bouncy reveal. ElasticOut overshoot
+        // is intentionally gentle (1.04 → 1.0) to avoid layout jitter on
+        // narrow sidebar tiles.
+        final scale = 1.0 + (1.0 - t) * 0.06;
+        final fade = (0.55 + 0.45 * t).clamp(0.0, 1.0);
+        return Opacity(
+          opacity: fade,
+          child: Transform.scale(
+            scale: scale,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              displayText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: widget.style,
             ),
           ),
         );
       },
-      child: textWidget,
     );
+  }
+
+  /// Builds an interpolated string where each codepoint of [widget.text] is
+  /// either revealed (target glyph) or replaced by a random glyph from the
+  /// scramble pool. Reveal order is left-to-right, lock-in time per index
+  /// = `index / length` of the target, so longer titles still settle by the
+  /// end of the animation while short ones snap quickly.
+  String _composeScrambledText(double t) {
+    final target = widget.text;
+    if (target.isEmpty) {
+      return '';
+    }
+    final runes = target.runes.toList(growable: false);
+    final length = runes.length;
+    final buffer = StringBuffer();
+    for (var i = 0; i < length; i++) {
+      final revealAt = (i + 1) / length;
+      // Each position locks in slightly before its proportional slot so the
+      // last char doesn't dangle scrambled at t=0.99.
+      if (t >= revealAt - 0.05) {
+        buffer.writeCharCode(runes[i]);
+        continue;
+      }
+      buffer.write(_glyphForScramble(i, t, runes[i]));
+    }
+    return buffer.toString();
+  }
+
+  String _glyphForScramble(int index, double t, int targetRune) {
+    // Choose pool by target rune category so a CJK title scrambles with
+    // CJK-compatible glyphs (avoid jarring Latin during a Chinese reveal).
+    final pool = (targetRune >= 0x4E00 && targetRune <= 0x9FFF)
+        ? _kSessionTitleScramblePool
+        : _kSessionTitleScrambleAscii;
+    // Cheap deterministic shuffle keyed by salt + index + frame band so the
+    // glyph changes ~10 times per second without expensive Random.
+    final frameBand = (t * 18).floor();
+    final hash = (_scrambleSalt ^ (index * 2654435761) ^ (frameBand * 40503)) &
+        0x7fffffff;
+    final pick = hash % pool.length;
+    return pool[pick];
   }
 }
 

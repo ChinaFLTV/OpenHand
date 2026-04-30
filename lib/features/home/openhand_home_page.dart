@@ -166,7 +166,7 @@ const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   milliseconds: 220,
 );
 const Duration _sessionTitleRevealAnimationDuration = Duration(
-  milliseconds: 420,
+  milliseconds: 720,
 );
 const Duration _planTimelineRevealAnimationDuration = Duration(
   milliseconds: 260,

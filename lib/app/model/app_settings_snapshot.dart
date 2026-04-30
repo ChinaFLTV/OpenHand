@@ -293,10 +293,10 @@ class AppSettingsSnapshot {
   static const int defaultAiChatMaxStreamLineBufferBytes = 4 * 1024 * 1024;
   static const int minAiChatMaxStreamLineBufferBytes = 4 * 1024;
   static const int maxAiChatMaxStreamLineBufferBytes = 1024 * 1024 * 1024;
-  static const int defaultAiFallbackTitleMaxCharacters = 20;
+  static const int defaultAiFallbackTitleMaxCharacters = 15;
   static const int minAiFallbackTitleMaxCharacters = 4;
   static const int maxAiFallbackTitleMaxCharacters = 200;
-  static const int defaultAiGeneratedTitleMaxCharacters = 20;
+  static const int defaultAiGeneratedTitleMaxCharacters = 15;
   static const int minAiGeneratedTitleMaxCharacters = 4;
   static const int maxAiGeneratedTitleMaxCharacters = 200;
   static const int defaultAiMinimumMeaningfulTitleCharacters = 4;
