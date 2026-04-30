@@ -1186,39 +1186,6 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   },
                 ),
                 const SizedBox(width: 10),
-                Tooltip(
-                  message: widget.attachmentsEnabled
-                      ? _localizedText(
-                          context,
-                          zh: '选择附件（最多 $aiMessageAttachmentLimit 个，支持图片、文本、代码、表格和 PDF）',
-                          en: 'Choose attachments (up to $aiMessageAttachmentLimit; images, text, code, spreadsheets, and PDF)',
-                        )
-                      : _localizedText(
-                          context,
-                          zh: '当前模型不支持附件',
-                          en: 'The selected model does not support attachments',
-                        ),
-                  child: OutlinedButton.icon(
-                    onPressed: widget.attachmentsEnabled
-                        ? widget.onPickAttachments
-                        : null,
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 52),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    icon: const Icon(Icons.attach_file_rounded),
-                    label: Text(
-                      widget.pendingAttachments.isEmpty
-                          ? _localizedText(context, zh: '附件', en: 'Attach')
-                          : _localizedText(
-                              context,
-                              zh: '附件 ${widget.pendingAttachments.length}',
-                              en: 'Files ${widget.pendingAttachments.length}',
-                            ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 _ComposerFullAccessModeButton(
                   fullAccess: widget.fullAccessPermission,
                   enabled: true,
@@ -1253,6 +1220,46 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
           ),
         ),
+        // Compact "+" button for picking attachments. Lives just left of the
+        // expand/collapse toggle so the affordance mirrors the right-side
+        // creation-mode button (which carries the mode-semantic icon below).
+        Tooltip(
+          message: widget.attachmentsEnabled
+              ? _localizedText(
+                  context,
+                  zh:
+                      '添加附件（最多 $aiMessageAttachmentLimit 个，单文件 ≤10MB；支持图片、文本、代码、表格和 PDF）',
+                  en:
+                      'Add attachments (up to $aiMessageAttachmentLimit, ≤10MB each; images, text, code, spreadsheets, PDF)',
+                )
+              : _localizedText(
+                  context,
+                  zh: '当前模型不支持附件',
+                  en: 'The selected model does not support attachments',
+                ),
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: FilledButton(
+              onPressed: widget.attachmentsEnabled
+                  ? () => unawaited(widget.onPickAttachments())
+                  : null,
+              style: FilledButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(52, 52),
+                backgroundColor: widget.attachmentsEnabled
+                    ? colorScheme.surfaceContainerHighest
+                    : colorScheme.surfaceContainerHigh,
+                foregroundColor: widget.attachmentsEnabled
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                side: BorderSide(color: colorScheme.outlineVariant),
+              ),
+              child: const Icon(Icons.add_rounded),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
         Tooltip(
           message: _localizedText(
             context,
@@ -1720,7 +1727,7 @@ class _ComposerCreationModeButton extends StatefulWidget {
 class _ComposerCreationModeButtonState
     extends State<_ComposerCreationModeButton> {
   IconData _iconForMode(_CreationMode mode) => switch (mode) {
-    _CreationMode.none => Icons.add_rounded,
+    _CreationMode.none => Icons.tune_rounded,
     _CreationMode.image => Icons.image_outlined,
     _CreationMode.video => Icons.videocam_outlined,
     _CreationMode.audio => Icons.audiotrack_outlined,
@@ -1769,7 +1776,7 @@ class _ComposerCreationModeButtonState
     final colorScheme = Theme.of(context).colorScheme;
     final isActive = widget.creationMode != _CreationMode.none;
     return Tooltip(
-      message: _localizedText(context, zh: '创建', en: 'Create'),
+      message: _localizedText(context, zh: '模式', en: 'Mode'),
       child: SizedBox(
         width: 52,
         height: 52,

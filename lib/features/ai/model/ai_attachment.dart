@@ -21,6 +21,11 @@ enum AiAttachmentKind {
 
 const String aiSessionMessageAttachmentsMetadataKey = 'attachments';
 const int aiMessageAttachmentLimit = 20;
+/// Maximum size in bytes for any single attachment a user adds via the
+/// composer (paste / file picker). 10 MB matches the user-facing contract
+/// "每个附件的尺寸不超过 10MB". The cap is enforced at pick time so
+/// oversize files never reach the per-protocol encoding pipeline.
+const int aiMessageAttachmentMaxFileBytes = 10 * 1024 * 1024;
 
 List<String> aiAttachmentPickerExtensions() {
   final extensions = <String>{

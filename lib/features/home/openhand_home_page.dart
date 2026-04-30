@@ -3564,6 +3564,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         .read<SettingsController>()
         .aiImageSizeLimitBytes;
     var addedCount = 0;
+    var oversizedCount = 0;
     for (final file in pickedFiles) {
       final path = file.path.trim();
       if (path.isEmpty || existingPaths.contains(path)) {
@@ -3571,6 +3572,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (nextAttachments.length >= aiMessageAttachmentLimit) {
         break;
+      }
+      // Hard 10MB per-file cap (raw on-disk bytes). Enforced before any
+      // image-editor or temp-file step so we never copy oversize files.
+      try {
+        final stat = await File(path).stat();
+        if (stat.size > aiMessageAttachmentMaxFileBytes) {
+          oversizedCount += 1;
+          continue;
+        }
+      } catch (_) {
+        // Couldn't stat — skip silently, the downstream service will
+        // surface a clearer error if it cannot read the file at all.
+        continue;
       }
       var resolvedPath = path;
       if (aiAttachmentKindForPath(path) == AiAttachmentKind.image) {
@@ -3617,6 +3631,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (!mounted) {
       return;
+    }
+    if (oversizedCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '已忽略 $oversizedCount 个超出 10MB 单文件上限的附件。',
+              en: 'Ignored $oversizedCount file(s) exceeding the 10MB per-attachment limit.',
+            ),
+          ),
+        ),
+      );
     }
     if (addedCount == 0) {
       return;
