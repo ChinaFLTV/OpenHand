@@ -762,6 +762,13 @@ class _SafeMarkdownBody extends StatefulWidget {
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
 }
 
+// Markdown bodies above this size get a one-frame delayed parse: on the
+// first frame we paint a plain-text placeholder so the transcript reveal /
+// scroll lands instantly, then upgrade to the rich Markdown widget tree on
+// the next frame. Smaller bodies (<= 2 KB) parse synchronously since the
+// cost is negligible and the swap would otherwise produce a visible flicker.
+const int _markdownDeferredParseThresholdChars = 2 * 1024;
+
 class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     implements MarkdownBuilderDelegate {
   List<Widget>? _children;
@@ -771,6 +778,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   bool? _lastSelectable;
   String? _lastBuilderSignature;
   String? _lastParseKey;
+  bool _deferredParseScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -778,7 +786,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final themeSignature = _computeThemeSignature();
     if (_children == null || _lastThemeSignature != themeSignature) {
       _lastThemeSignature = themeSignature;
-      _parseMarkdown();
+      _parseMarkdownMaybeDeferred(initial: _children == null);
     }
   }
 
@@ -790,13 +798,13 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         _lastSelectable != widget.selectable ||
         _lastBuilderSignature != builderSignature ||
         _lastParseKey != widget.parseKey) {
-      _parseMarkdown();
+      _parseMarkdownMaybeDeferred(initial: false);
       return;
     }
     final themeSignature = _computeThemeSignature();
     if (_lastThemeSignature != themeSignature) {
       _lastThemeSignature = themeSignature;
-      _parseMarkdown();
+      _parseMarkdownMaybeDeferred(initial: false);
     }
   }
 
@@ -804,6 +812,50 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   void dispose() {
     _disposeRecognizers();
     super.dispose();
+  }
+
+  /// Decides whether to parse synchronously or defer to the next frame.
+  ///
+  /// On the FIRST mount of a non-trivial body we paint a cheap plain-text
+  /// stand-in immediately and queue the real parse via
+  /// `addPostFrameCallback`. This unblocks the frame that mounts a freshly
+  /// opened transcript, which may contain a dozen+ such bubbles all
+  /// competing for parse time. Subsequent updates parse synchronously to
+  /// avoid mid-conversation flicker.
+  void _parseMarkdownMaybeDeferred({required bool initial}) {
+    if (initial &&
+        widget.data.length > _markdownDeferredParseThresholdChars &&
+        widget.data.length <= _markdownPlainTextSkipThresholdChars &&
+        !_canRenderMarkdownAsPlainText(widget.data)) {
+      _renderPlainTextPlaceholder();
+      if (!_deferredParseScheduled) {
+        _deferredParseScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          _deferredParseScheduled = false;
+          setState(_parseMarkdown);
+        });
+      }
+      return;
+    }
+    _parseMarkdown();
+  }
+
+  void _renderPlainTextPlaceholder() {
+    final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
+      Theme.of(context),
+    ).merge(widget.styleSheet);
+    final normalizedSource = _sanitizeMarkdownSource(
+      widget.data.isEmpty ? ' ' : widget.data,
+    );
+    _disposeRecognizers();
+    _children = <Widget>[
+      widget.selectable
+          ? SelectableText(normalizedSource, style: effectiveStyleSheet.p)
+          : Text(normalizedSource, style: effectiveStyleSheet.p),
+    ];
   }
 
   void _parseMarkdown() {

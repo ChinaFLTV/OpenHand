@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -138,7 +139,10 @@ enum AppSection {
 }
 
 const double _desktopNavigationWidth = 352;
-const double _contentPaneGap = 18;
+// Equalised with the SafeArea outer inset (20 px) so the horizontal gutter
+// between the navigation pane and the workspace pane visually matches the
+// padding to the window's top / bottom / left / right edges.
+const double _contentPaneGap = 20;
 const double _sideBySideLayoutMinWidth = 980;
 const double _stackedNavigationMinHeight = 280;
 const double _stackedNavigationMaxHeight = 360;
@@ -155,9 +159,17 @@ const double _composerMaxHeight = 440;
 const double _autoFollowDistanceThreshold = 32;
 const double _autoFollowAnimatedDistanceThreshold = 8;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
-const int _transcriptInitialWindowSize = 30;
+// First-open jank mitigation: when a session is freshly opened we only
+// materialise the most recent N display messages instead of the previous 30.
+// Each bubble triggers a synchronous markdown parse + (potentially) code
+// highlighting on its first build, so halving the eager window roughly
+// halves the worst-case first-frame cost. Older messages remain a single
+// scroll/tap away via the "load earlier" affordance.
+const int _transcriptInitialWindowSize = 14;
 const int _transcriptWindowIncrement = 25;
-const int _transcriptWindowingThreshold = 40;
+// Kick windowing in earlier so medium-sized sessions (20-40 msgs) also get
+// the cheap first-paint path; the user can expand on demand.
+const int _transcriptWindowingThreshold = 20;
 const int _resumeAutoFollowStabilizationFrameCount = 2;
 // Number of post-layout frames to wait before revealing the freshly switched
 // transcript. Frame-driven gating replaces the former fixed 750 ms wall-clock
@@ -1998,34 +2010,45 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _selectedSection == AppSection.workspace) {
       return;
     }
-    final activationGeneration = ++_sessionActivationGeneration;
-    await _awaitEndOfFrame();
-    if (!mounted || activationGeneration != _sessionActivationGeneration) {
-      return;
+    // Devtools / Timeline marker: lets us measure first-open latency on
+    // real sessions without sprinkling debug prints. Pairs with the
+    // `openhand.boot.*` markers in main.dart.
+    developer.Timeline.startSync(
+      'openhand.session.open',
+      arguments: <String, Object?>{'sessionId': sessionId},
+    );
+    try {
+      final activationGeneration = ++_sessionActivationGeneration;
+      await _awaitEndOfFrame();
+      if (!mounted || activationGeneration != _sessionActivationGeneration) {
+        return;
+      }
+      await sessionController.selectSession(sessionId);
+      if (!mounted || activationGeneration != _sessionActivationGeneration) {
+        return;
+      }
+      await _awaitEndOfFrame();
+      if (!mounted || activationGeneration != _sessionActivationGeneration) {
+        return;
+      }
+      if (sessionController.currentSessionId != sessionId) {
+        return;
+      }
+      final session = sessionController.currentSession;
+      if (session != null) {
+        _tryRestoreSessionModel(session);
+      }
+      if (_selectedSection != AppSection.workspace) {
+        setState(() {
+          _selectedSection = AppSection.workspace;
+        });
+      }
+      _clearPendingAutoFollowState();
+      _armAutoFollowToBottom();
+      _scheduleScrollToBottom(force: true);
+    } finally {
+      developer.Timeline.finishSync();
     }
-    await sessionController.selectSession(sessionId);
-    if (!mounted || activationGeneration != _sessionActivationGeneration) {
-      return;
-    }
-    await _awaitEndOfFrame();
-    if (!mounted || activationGeneration != _sessionActivationGeneration) {
-      return;
-    }
-    if (sessionController.currentSessionId != sessionId) {
-      return;
-    }
-    final session = sessionController.currentSession;
-    if (session != null) {
-      _tryRestoreSessionModel(session);
-    }
-    if (_selectedSection != AppSection.workspace) {
-      setState(() {
-        _selectedSection = AppSection.workspace;
-      });
-    }
-    _clearPendingAutoFollowState();
-    _armAutoFollowToBottom();
-    _scheduleScrollToBottom(force: true);
   }
 
   /// Attempts to restore the model selection from the session's persisted
@@ -5326,7 +5349,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         height: stackedNavigationHeight,
                         child: leftPane,
                       ),
-                      const SizedBox(height: 16),
+                      // Match the horizontal pane gap and SafeArea outer
+                      // inset so the spacing between stacked panes is
+                      // visually consistent with every other gutter.
+                      const SizedBox(height: _contentPaneGap),
                       Expanded(child: rightPane),
                     ],
                   );

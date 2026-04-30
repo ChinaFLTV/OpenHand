@@ -1737,10 +1737,12 @@ class _HardnessSessionPaneState extends State<HardnessSessionPane> {
         child: ListView.builder(
           controller: _feedController,
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-          // Phase cards are tall + carry tool-trace / markdown subtrees;
-          // a generous cache reduces rebuild churn while scrolling near
-          // the fold.
-          cacheExtent: 1000,
+          // Phase cards are tall + carry tool-trace / markdown subtrees.
+          // 2026-05-01: lowered 1000 → 400 to stop pre-building two extra
+          // off-screen phase cards (each runs synchronous markdown / code
+          // highlight passes) when the dashboard first opens; the smaller
+          // cache still absorbs short scroll movements without re-layout.
+          cacheExtent: 400,
           // +1 if awaiting approval (for the approval banner).
           itemCount:
               logs.length +

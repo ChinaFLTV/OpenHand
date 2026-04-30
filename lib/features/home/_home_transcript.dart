@@ -132,7 +132,28 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   void initState() {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
-    _replaceRenderEntries(_visibleMessagesForWindow());
+    // First-open jank fix: when the user picks an existing thread for the
+    // first time, the workspace pane and the transcript both mount in the
+    // same frame. Materialising N message render entries (each later mounts
+    // a heavy `_MessageBubble` with markdown / code-highlight passes)
+    // synchronously inside this same frame is the dominant ANR source the
+    // user reported. We mirror the `didUpdateWidget` (session-switch) path:
+    // start with an empty list so the shell can paint immediately, then
+    // build the visible window on the next frame so the heavy bubble work
+    // does not bottleneck the first paint. Tiny sessions (< 6 visible
+    // messages) skip the defer to avoid an unnecessary blank frame.
+    final initialVisible = _visibleMessagesForWindow();
+    if (initialVisible.length <= 5) {
+      _replaceRenderEntries(initialVisible, animate: false);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_renderEntries.isNotEmpty) return;
+        setState(() {
+          _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
+        });
+      });
+    }
     _syncVisibleError();
     // Immediately jump to the bottom on the first rendered frame, before the
     // parent's postFrameCallback chain fires. This prevents the user from ever
@@ -218,6 +239,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
   }) {
+    developer.Timeline.startSync(
+      'openhand.session.materialize',
+      arguments: <String, Object?>{'count': visibleMessages.length},
+    );
     final previousIds = animate && _initialBuildDone
         ? _renderEntries.where((e) => !e.exiting).map((e) => e.id).toSet()
         : null;
@@ -229,6 +254,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ),
     ];
     _initialBuildDone = true;
+    developer.Timeline.finishSync();
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
@@ -585,7 +611,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               // Slightly larger cache so quick scrolls reuse already-laid
               // out bubbles instead of rebuilding them from scratch; tuned
               // alongside `addAutomaticKeepAlives: true` above.
-              cacheExtent: 800,
+              // Lowered from 800 → 320: the previous value pre-built ~5
+              // extra bubble subtrees beyond the viewport on every session
+              // open, each running a synchronous markdown parse on its
+              // first frame and dominating first-open frame budgets on
+              // large sessions. 320 still covers small fling overshoots
+              // without re-laying-out neighbours.
+              cacheExtent: 320,
               physics: const OpenHandBouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
