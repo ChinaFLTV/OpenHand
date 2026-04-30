@@ -2045,6 +2045,13 @@ class _ComposerAttachmentChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    if (attachment.kind == AiAttachmentKind.image) {
+      return _ComposerImageThumbChip(
+        attachment: attachment,
+        onTap: onTap,
+        onRemove: onRemove,
+      );
+    }
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -2086,6 +2093,102 @@ class _ComposerAttachmentChip extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Square thumbnail chip dedicated to image attachments. Click-to-preview is
+/// inherited from `_openComposerAttachment` which routes images through the
+/// shared `_ImagePreviewDialog` used by message bubbles.
+class _ComposerImageThumbChip extends StatelessWidget {
+  const _ComposerImageThumbChip({
+    required this.attachment,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final _ComposerAttachmentDraft attachment;
+  final VoidCallback? onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    const double size = 64;
+    return Tooltip(
+      message: '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+      waitDuration: const Duration(milliseconds: 400),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onTap,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colorScheme.outlineVariant),
+                      color: colorScheme.surfaceContainerHighest,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.file(
+                      File(attachment.filePath),
+                      fit: BoxFit.cover,
+                      cacheWidth: 192,
+                      gaplessPlayback: true,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            size: 24,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: -6,
+              right: -6,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onRemove,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colorScheme.outlineVariant),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

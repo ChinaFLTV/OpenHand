@@ -5,8 +5,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -14,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:highlight/highlight.dart' as highlight;
 import 'package:markdown/markdown.dart' as md;
+import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:sqflite_common/sqlite_api.dart';
@@ -1657,6 +1657,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _selectedSection != AppSection.workspace ||
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
+    }
+    // Cmd/Ctrl+V image paste: probe the OS clipboard for image bytes in
+    // parallel with the platform's text-paste path. If image bytes are
+    // present we add them as an attachment; if only text is on the
+    // clipboard the TextField's normal paste continues unaffected.
+    if (event.logicalKey == LogicalKeyboardKey.keyV) {
+      final hw = HardwareKeyboard.instance;
+      final hasModifier = Platform.isMacOS
+          ? hw.isMetaPressed
+          : hw.isControlPressed;
+      if (hasModifier &&
+          !hw.isShiftPressed &&
+          !hw.isAltPressed) {
+        unawaited(_tryPasteImageFromClipboard());
+        // Intentionally fall through (return ignored) so the TextField can
+        // still paste text if the clipboard happens to carry both.
+      }
     }
     // Escape dismisses the @ mention overlay if it is showing.
     if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -3502,6 +3519,87 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _selectedModelSupportsAttachments(AiModelConfig? model) {
     if (model == null) return false;
     return model.resolvedSupportsAttachments;
+  }
+
+  /// Attempts to pull an image off the OS clipboard (Cmd/Ctrl+V) and add it
+  /// to the composer's pending attachments. Silently no-ops if the clipboard
+  /// holds no image, the active model rejects attachments, the 20-slot or
+  /// 10MB caps are exhausted, or the platform plugin is unavailable.
+  Future<void> _tryPasteImageFromClipboard() async {
+    if (!mounted) {
+      return;
+    }
+    final selectedModel = context.read<SettingsController>().selectedAiModel;
+    if (selectedModel == null ||
+        !_selectedModelSupportsAttachments(selectedModel)) {
+      return;
+    }
+    if (_pendingAttachments.length >= aiMessageAttachmentLimit) {
+      return;
+    }
+    Uint8List? bytes;
+    try {
+      bytes = await Pasteboard.image;
+    } catch (error, stack) {
+      silentLog('home', 'pasteboard.image', error, stack);
+      return;
+    }
+    if (bytes == null || bytes.isEmpty) {
+      return;
+    }
+    if (bytes.lengthInBytes > aiMessageAttachmentMaxFileBytes) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _localizedText(
+              context,
+              zh: '剪贴板图片超出 10MB 单文件上限，已忽略。',
+              en:
+                  'Clipboard image exceeds the 10MB per-attachment limit and was ignored.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    String tempPath;
+    try {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'openhand_paste_',
+      );
+      final ts = DateTime.now().toIso8601String().replaceAll(
+        RegExp(r'[^0-9]'),
+        '',
+      );
+      final tempFile = File(p.join(tempDir.path, 'pasted_$ts.png'));
+      await tempFile.writeAsBytes(bytes, flush: true);
+      tempPath = tempFile.path;
+    } catch (error, stack) {
+      silentLog('home', 'pasteboard.write_temp', error, stack);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    _ComposerAttachmentDraft draft;
+    try {
+      draft = await _ComposerAttachmentDraft.fromPath(tempPath);
+    } catch (error, stack) {
+      silentLog('home', 'pasteboard.draft', error, stack);
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _pendingAttachments = List<_ComposerAttachmentDraft>.from(
+        _pendingAttachments,
+      )..add(draft);
+      _composerCollapsed = false;
+    });
   }
 
   Future<void> _pickComposerAttachments() async {
