@@ -189,8 +189,12 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final colorScheme = theme.colorScheme;
     final log = widget.log;
     final isZh = widget.isZh;
-    final settingsController = Provider.of<SettingsController?>(context);
-    final aiModels = settingsController?.aiModels ?? const <AiModelConfig>[];
+    // `context.select` so this card only rebuilds when the cached `aiModels`
+    // reference actually changes, not on every unrelated SettingsController
+    // notification (theme tweaks, animation settings, hardness toggles…).
+    final aiModels = context.select<SettingsController?, List<AiModelConfig>>(
+      (controller) => controller?.aiModels ?? const <AiModelConfig>[],
+    );
 
     final isRunning = log.status == HardnessPhaseStatus.running;
     final isPaused = log.status == HardnessPhaseStatus.paused;

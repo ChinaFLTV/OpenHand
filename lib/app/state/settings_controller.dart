@@ -321,11 +321,23 @@ class SettingsController extends ChangeNotifier {
   String get settingsFilePath => _store.settingsFilePath;
   String get displaySettingsFilePath =>
       OpenHandPaths.shortenHomePath(_store.settingsFilePath);
+  // Cached unmodifiable views: returning a fresh `List.unmodifiable` from the
+  // getter on every call breaks `context.select` deduplication (each `==`
+  // check sees a brand-new list reference) and makes downstream widgets that
+  // only depend on these slices rebuild on every unrelated controller
+  // notification (which fire frequently during streaming). The cached views
+  // are invalidated through `_invalidateAiModelsView` /
+  // `_invalidateRecentModelSelectionsView` from every mutation site so the
+  // visible state remains correct.
+  List<AiModelConfig>? _cachedAiModelsView;
+  List<RecentModelSelection>? _cachedRecentModelSelectionsView;
+
   List<AiModelConfig> get aiModels =>
-      List<AiModelConfig>.unmodifiable(_aiModels);
+      _cachedAiModelsView ??= List<AiModelConfig>.unmodifiable(_aiModels);
   String? get selectedAiModelId => _selectedAiModelId;
   List<RecentModelSelection> get recentModelSelections =>
-      List<RecentModelSelection>.unmodifiable(_recentModelSelections);
+      _cachedRecentModelSelectionsView ??=
+          List<RecentModelSelection>.unmodifiable(_recentModelSelections);
   Map<OpenHandShortcutAction, List<int>> get shortcutBindings =>
       _cloneShortcutBindings(_shortcutBindings);
   DialogAnimationSettings get dialogAnimationSettings =>
@@ -1189,10 +1201,12 @@ class SettingsController extends ChangeNotifier {
       }
       final nextSelectedModelId = _selectedAiModelId ?? normalizedValue.id;
       _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       _recentModelSelections = _sanitizeRecentModelSelections(
         _recentModelSelections,
         updatedModels,
       );
+      _cachedRecentModelSelectionsView = null;
       _selectedAiModelId =
           updatedModels.any((item) => item.id == nextSelectedModelId)
           ? nextSelectedModelId
@@ -1208,10 +1222,12 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       _recentModelSelections = _sanitizeRecentModelSelections(
         _recentModelSelections,
         updatedModels,
       );
+      _cachedRecentModelSelectionsView = null;
       if (_selectedAiModelId == id) {
         _selectedAiModelId = _aiModels.isEmpty ? null : _aiModels.first.id;
       }
@@ -1232,6 +1248,7 @@ class SettingsController extends ChangeNotifier {
       final model = updatedModels.removeAt(fromIndex);
       updatedModels.insert(toIndex, model);
       _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       return _MutationDisposition.apply;
     });
   }
@@ -1271,6 +1288,7 @@ class SettingsController extends ChangeNotifier {
         ]),
       );
       _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       _selectedAiModelId = providerConfigId;
       return _MutationDisposition.apply;
     });
@@ -1304,10 +1322,12 @@ class SettingsController extends ChangeNotifier {
         modelId: normalizedModelId,
       );
       _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       _recentModelSelections = _sanitizeRecentModelSelections(
         _recentModelSelections,
         updatedModels,
       );
+      _cachedRecentModelSelectionsView = null;
       return _MutationDisposition.apply;
     });
   }
@@ -1339,6 +1359,7 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _recentModelSelections = sanitized;
+      _cachedRecentModelSelectionsView = null;
       return _MutationDisposition.apply;
     });
   }
@@ -1835,11 +1856,13 @@ class SettingsController extends ChangeNotifier {
     _aiDefaultSessionMode = snapshot.aiDefaultSessionMode;
     _aiDefaultFullAccessPermission = snapshot.aiDefaultFullAccessPermission;
     _aiModels = List<AiModelConfig>.from(snapshot.aiModels);
+    _cachedAiModelsView = null;
     _selectedAiModelId = snapshot.selectedAiModelId;
     _recentModelSelections = _sanitizeRecentModelSelections(
       snapshot.recentModelSelections,
       _aiModels,
     );
+    _cachedRecentModelSelectionsView = null;
     _shortcutBindings = _cloneShortcutBindings(snapshot.shortcutBindings);
     _dialogAnimationSettings = snapshot.dialogAnimationSettings;
     _menuAnimationSettings = snapshot.menuAnimationSettings;

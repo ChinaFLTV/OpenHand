@@ -499,17 +499,24 @@ class _PulsingDotState extends State<_PulsingDot>
 
   @override
   Widget build(BuildContext context) {
+    // Bake the pulsing opacity into the BoxDecoration color rather than
+    // wrapping the dot in `Opacity` \u2014 `Opacity` always allocates a
+    // saveLayer (offscreen pass) which is wasted overhead for a 6-8 px
+    // circle that has no children to composite. Painting a translucent
+    // colour does the same job in a single fill call per frame.
     return AnimatedBuilder(
       animation: _controller,
-      builder: (context, child) {
-        final opacity = 0.35 + _controller.value * 0.65;
-        return Opacity(opacity: opacity, child: child);
+      builder: (context, _) {
+        final opacity = (0.35 + _controller.value * 0.65).clamp(0.0, 1.0);
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: opacity),
+            shape: BoxShape.circle,
+          ),
+        );
       },
-      child: Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
-      ),
     );
   }
 }

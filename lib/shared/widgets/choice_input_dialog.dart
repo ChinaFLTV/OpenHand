@@ -194,9 +194,12 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final confirm = widget.confirmLabel ?? _localized(zh: '确定', en: 'Confirm');
     final cancel = widget.cancelLabel ?? _localized(zh: '取消', en: 'Cancel');
 
-    final media = MediaQuery.of(context);
-    final maxDialogWidth = media.size.width.clamp(280.0, 560.0);
-    final maxContentHeight = media.size.height * 0.7;
+    // `MediaQuery.sizeOf` only depends on the `size` aspect, so this dialog
+    // does not rebuild on unrelated MediaQuery changes (text scale, viewInsets,
+    // padding, etc.).
+    final mediaSize = MediaQuery.sizeOf(context);
+    final maxDialogWidth = mediaSize.width.clamp(280.0, 560.0);
+    final maxContentHeight = mediaSize.height * 0.7;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),

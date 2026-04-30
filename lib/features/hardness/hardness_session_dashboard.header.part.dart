@@ -338,8 +338,11 @@ class _HeSessionMetadataDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final logs = orchestrator.phaseLogs;
-    final settingsController = Provider.of<SettingsController?>(context);
-    final aiModels = settingsController?.aiModels ?? const <AiModelConfig>[];
+    // `context.select` so the header only rebuilds when the cached aiModels
+    // reference changes, not on every unrelated SettingsController notify.
+    final aiModels = context.select<SettingsController?, List<AiModelConfig>>(
+      (controller) => controller?.aiModels ?? const <AiModelConfig>[],
+    );
 
     final totalPhases = HardnessPhase.values.length;
     final completedPhases = logs

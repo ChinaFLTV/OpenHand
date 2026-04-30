@@ -116,7 +116,9 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   ) {
     final menuContent = capturedThemes.wrap(_PopupMenuContent<T>(route: this));
 
-    final mediaQuery = MediaQuery.of(context);
+    // `paddingOf` only subscribes to padding changes; full `MediaQuery.of`
+    // would rebuild this overlay on unrelated viewInsets / textScale events.
+    final mediaPadding = MediaQuery.paddingOf(context);
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
@@ -130,7 +132,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
               position,
               itemSizes,
               Directionality.of(context),
-              mediaQuery.padding,
+              mediaPadding,
             ),
             child: menuContent,
           );
