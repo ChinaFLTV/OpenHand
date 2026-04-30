@@ -3500,7 +3500,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   bool _selectedModelSupportsAttachments(AiModelConfig? model) {
-    return model != null;
+    if (model == null) return false;
+    return model.resolvedSupportsAttachments;
   }
 
   Future<void> _pickComposerAttachments() async {

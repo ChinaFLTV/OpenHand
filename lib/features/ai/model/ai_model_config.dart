@@ -167,6 +167,7 @@ class AiModelProfile {
     this.maxOutputLength,
     this.maxThinkingLength,
     this.capabilities = const <AiModelCapability>{},
+    this.supportsAttachments,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -180,6 +181,7 @@ class AiModelProfile {
       maxOutputLength: _readNullablePositiveInt(json['max_output_length']),
       maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
       capabilities: _parseCapabilities(json['capabilities']),
+      supportsAttachments: json['supports_attachments'] as bool?,
     );
   }
 
@@ -204,6 +206,11 @@ class AiModelProfile {
   /// Creative capabilities this model supports. Empty set = use defaults.
   final Set<AiModelCapability> capabilities;
 
+  /// Explicit “supports attachments” toggle. `null` = inherit from catalog
+  /// / heuristics (image-modality or multimodal flag enables attachments).
+  /// `true` / `false` = user override.
+  final bool? supportsAttachments;
+
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
       displayName != null ||
@@ -214,7 +221,8 @@ class AiModelProfile {
       maxSummaryLength != null ||
       maxOutputLength != null ||
       maxThinkingLength != null ||
-      capabilities.isNotEmpty;
+      capabilities.isNotEmpty ||
+      supportsAttachments != null;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -233,6 +241,8 @@ class AiModelProfile {
     int? maxThinkingLength,
     bool clearMaxThinkingLength = false,
     Set<AiModelCapability>? capabilities,
+    bool? supportsAttachments,
+    bool clearSupportsAttachments = false,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -254,6 +264,9 @@ class AiModelProfile {
           ? null
           : maxThinkingLength ?? this.maxThinkingLength,
       capabilities: capabilities ?? this.capabilities,
+      supportsAttachments: clearSupportsAttachments
+          ? null
+          : supportsAttachments ?? this.supportsAttachments,
     );
   }
 
@@ -274,6 +287,8 @@ class AiModelProfile {
         'capabilities': capabilities
             .map((c) => c.storageValue)
             .toList(growable: false),
+      if (supportsAttachments != null)
+        'supports_attachments': supportsAttachments,
     };
   }
 
@@ -408,6 +423,27 @@ class AiModelConfig {
   /// Returns the [AiModelProfile] for the given [id], or an empty default.
   AiModelProfile profileFor(String id) {
     return modelProfiles[id.trim()] ?? const AiModelProfile();
+  }
+
+  /// Resolves whether the *current* model accepts user-uploaded attachments.
+  ///
+  /// Resolution order:
+  /// 1. Explicit user override on the per-model profile (`supportsAttachments`).
+  /// 2. Heuristic: `isMultimodal == true` or the resolved supported modalities
+  ///    include [AiModelModality.image].
+  /// 3. Default `true` — most providers can accept text-style attachments
+  ///    (PDF, code, spreadsheets) inlined into the prompt regardless of
+  ///    vision capability; image attachments will simply be rejected by the
+  ///    adapter when the model truly can't ingest them.
+  bool get resolvedSupportsAttachments {
+    final profile = profileFor(modelId);
+    final explicit = profile.supportsAttachments;
+    if (explicit != null) return explicit;
+    if (profile.isMultimodal == true) return true;
+    if (profile.supportedModalities.contains(AiModelModality.image)) {
+      return true;
+    }
+    return true;
   }
 
   String get normalizedBaseUrl => _normalizeBaseUrl(baseUrl);

@@ -1094,6 +1094,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   late final TextEditingController _maxOutputLengthController;
   late final TextEditingController _maxThinkingLengthController;
   bool? _isMultimodal;
+  bool? _supportsAttachments;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
 
@@ -1129,6 +1130,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     if (hasExisting) {
       // User already configured — use their saved values.
       _isMultimodal = p.isMultimodal;
+      _supportsAttachments = p.supportsAttachments;
       _supportedModalities = Set<AiModelModality>.of(p.supportedModalities);
       _capabilities = Set<AiModelCapability>.of(p.capabilities);
     } else {
@@ -1141,6 +1143,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         _displayNameController.text = catalog.displayName ?? widget.modelId;
         _descriptionController.text = catalog.description ?? '';
         _isMultimodal = catalog.isMultimodal;
+        _supportsAttachments = catalog.supportsAttachments;
         _supportedModalities = Set<AiModelModality>.of(
           catalog.supportedModalities,
         );
@@ -1158,6 +1161,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         }
       } else {
         _isMultimodal = null; // auto-detect
+        _supportsAttachments = null; // auto-detect
         _supportedModalities = _inferModalities();
         _capabilities = _inferCapabilities();
       }
@@ -1231,6 +1235,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       maxOutputLength: _parsePositiveInt(_maxOutputLengthController.text),
       maxThinkingLength: _parsePositiveInt(_maxThinkingLengthController.text),
       capabilities: _capabilities,
+      supportsAttachments: _supportsAttachments,
     );
     Navigator.of(context).pop(profile);
   }
@@ -1318,6 +1323,39 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     label: Text(_localizedText(zh: '否', en: 'No')),
                     selected: _isMultimodal == false,
                     onSelected: (_) => setState(() => _isMultimodal = false),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Supports attachments toggle (tri-state). Drives whether the
+              // composer's attachment button is enabled for sessions using
+              // this model.
+              _buildSectionHeader(
+                _localizedText(zh: '支持附件', en: 'Supports Attachments'),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: <Widget>[
+                  ChoiceChip(
+                    label: Text(_localizedText(zh: '自动检测', en: 'Auto-detect')),
+                    selected: _supportsAttachments == null,
+                    onSelected: (_) =>
+                        setState(() => _supportsAttachments = null),
+                  ),
+                  ChoiceChip(
+                    label: Text(_localizedText(zh: '是', en: 'Yes')),
+                    selected: _supportsAttachments == true,
+                    onSelected: (_) =>
+                        setState(() => _supportsAttachments = true),
+                  ),
+                  ChoiceChip(
+                    label: Text(_localizedText(zh: '否', en: 'No')),
+                    selected: _supportsAttachments == false,
+                    onSelected: (_) =>
+                        setState(() => _supportsAttachments = false),
                   ),
                 ],
               ),
