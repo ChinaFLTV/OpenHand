@@ -237,7 +237,7 @@ class MemoryView extends StatelessWidget {
         switch (item.kind) {
           case _MemoryDisplayItemKind.profile:
             final entry = item.entry!;
-            return AppearOnce(
+            return SettingsAwareAppearOnce(
               key: ValueKey<String>('memory-profile-appear-${entry.id}'),
               child: RepaintBoundary(
                 child: _MemoryEntryCard(
@@ -259,7 +259,7 @@ class MemoryView extends StatelessWidget {
             );
           case _MemoryDisplayItemKind.autoLearned:
             final entry = item.entry!;
-            return AppearOnce(
+            return SettingsAwareAppearOnce(
               key: ValueKey<String>('memory-auto-learned-appear-${entry.id}'),
               child: RepaintBoundary(
                 child: _MemoryEntryCard(
@@ -280,7 +280,7 @@ class MemoryView extends StatelessWidget {
             );
           case _MemoryDisplayItemKind.regular:
             final entry = item.entry!;
-            return AppearOnce(
+            return SettingsAwareAppearOnce(
               key: ValueKey<String>('memory-entry-appear-${entry.id}'),
               child: RepaintBoundary(
                 child: _MemoryEntryCard(

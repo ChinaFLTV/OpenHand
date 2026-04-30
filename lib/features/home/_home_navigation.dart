@@ -153,7 +153,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       final heIsNew = _threadAppear.shouldAnimate(heKey);
       _threadAppear.markSeen(heKey);
       final heDisplayed = heIsNew
-          ? AppearOnce(
+          ? SettingsAwareAppearOnce(
               key: ValueKey<String>('he-thread-appear-${record.id}'),
               child: built,
             )
@@ -226,7 +226,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
       final aiIsNew = _threadAppear.shouldAnimate(aiKey);
       _threadAppear.markSeen(aiKey);
       final aiDisplayed = aiIsNew
-          ? AppearOnce(
+          ? SettingsAwareAppearOnce(
               key: ValueKey<String>('ai-thread-appear-$sessionId'),
               child: built,
             )

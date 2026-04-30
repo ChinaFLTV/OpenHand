@@ -217,6 +217,9 @@ class SettingsStore {
       'menu_animation_settings': snapshot.menuAnimationSettings.toJson(),
       'page_animation_settings': snapshot.pageAnimationSettings.toJson(),
       'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
+      'chip_animation_settings': snapshot.chipAnimationSettings.toJson(),
+      'list_item_animation_settings':
+          snapshot.listItemAnimationSettings.toJson(),
       'builtin_tool_configs': snapshot.builtinToolConfigs
           .map((item) => item.toJson())
           .toList(growable: false),
@@ -760,6 +763,33 @@ class SettingsStore {
       }
     }
 
+    // Chip (capsule) and list-item channels — newer additions, no
+    // legacy migration needed; just read with defaults.
+    const chipAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.springScale,
+      exitStyle: DialogAnimationStyle.fadeScale,
+      durationMs: 320,
+      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+    );
+    var chipAnimationSettings = chipAnimationDefault;
+    final rawChipAnim = json['chip_animation_settings'];
+    if (rawChipAnim is Map<String, dynamic>) {
+      chipAnimationSettings = DialogAnimationSettings.fromJson(rawChipAnim);
+    }
+    const listItemAnimationDefault = DialogAnimationSettings(
+      entranceStyle: DialogAnimationStyle.slideUp,
+      exitStyle: DialogAnimationStyle.fade,
+      durationMs: 320,
+      curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+    );
+    var listItemAnimationSettings = listItemAnimationDefault;
+    final rawListItemAnim = json['list_item_animation_settings'];
+    if (rawListItemAnim is Map<String, dynamic>) {
+      listItemAnimationSettings = DialogAnimationSettings.fromJson(
+        rawListItemAnim,
+      );
+    }
+
     // Builtin tool configs.
     final rawBuiltinToolConfigs = json['builtin_tool_configs'];
     var builtinToolConfigs = AiBuiltinToolConfig.defaults();
@@ -915,6 +945,8 @@ class SettingsStore {
       menuAnimationSettings: menuAnimationSettings,
       pageAnimationSettings: pageAnimationSettings,
       panelAnimationSettings: panelAnimationSettings,
+      chipAnimationSettings: chipAnimationSettings,
+      listItemAnimationSettings: listItemAnimationSettings,
       builtinToolConfigs: builtinToolConfigs,
       telemetryDebugEnabled: telemetryDebugEnabled,
       telemetryCaptureRawPayload: telemetryCaptureRawPayload,

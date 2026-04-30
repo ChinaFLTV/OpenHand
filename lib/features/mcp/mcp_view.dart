@@ -249,7 +249,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       separatorBuilder: (context, index) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final server = servers[index];
-        return AppearOnce(
+        return SettingsAwareAppearOnce(
           key: ValueKey<String>('mcp-server-appear-${server.name}'),
           child: RepaintBoundary(
             child: Selector<

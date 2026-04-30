@@ -166,7 +166,7 @@ class InstructionsView extends StatelessWidget {
         return Padding(
           key: ValueKey(entry.id),
           padding: const EdgeInsets.only(bottom: 12),
-          child: AppearOnce(
+          child: SettingsAwareAppearOnce(
             child: RepaintBoundary(
               child: _InstructionCard(
                 entry: entry,

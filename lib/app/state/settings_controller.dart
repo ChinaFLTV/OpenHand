@@ -109,6 +109,8 @@ class SettingsController extends ChangeNotifier {
        _menuAnimationSettings = snapshot.menuAnimationSettings,
        _pageAnimationSettings = snapshot.pageAnimationSettings,
        _panelAnimationSettings = snapshot.panelAnimationSettings,
+       _chipAnimationSettings = snapshot.chipAnimationSettings,
+       _listItemAnimationSettings = snapshot.listItemAnimationSettings,
        _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
          snapshot.builtinToolConfigs,
        ),
@@ -200,6 +202,8 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings _menuAnimationSettings;
   DialogAnimationSettings _pageAnimationSettings;
   DialogAnimationSettings _panelAnimationSettings;
+  DialogAnimationSettings _chipAnimationSettings;
+  DialogAnimationSettings _listItemAnimationSettings;
   List<AiBuiltinToolConfig> _builtinToolConfigs;
   bool _telemetryDebugEnabled;
   bool _telemetryCaptureRawPayload;
@@ -329,6 +333,9 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings get menuAnimationSettings => _menuAnimationSettings;
   DialogAnimationSettings get pageAnimationSettings => _pageAnimationSettings;
   DialogAnimationSettings get panelAnimationSettings => _panelAnimationSettings;
+  DialogAnimationSettings get chipAnimationSettings => _chipAnimationSettings;
+  DialogAnimationSettings get listItemAnimationSettings =>
+      _listItemAnimationSettings;
   List<AiBuiltinToolConfig> get builtinToolConfigs =>
       List<AiBuiltinToolConfig>.unmodifiable(_builtinToolConfigs);
   bool get telemetryDebugEnabled => _telemetryDebugEnabled;
@@ -1463,6 +1470,30 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  Future<bool> updateChipAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_chipAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _chipAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateListItemAnimationSettings(
+    DialogAnimationSettings value,
+  ) async {
+    return _commitMutation(() {
+      if (_listItemAnimationSettings == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _listItemAnimationSettings = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   Future<bool> updateTelemetryDebugEnabled(bool value) async {
     return _commitMutation(() {
       if (_telemetryDebugEnabled == value) {
@@ -1722,6 +1753,8 @@ class SettingsController extends ChangeNotifier {
       menuAnimationSettings: _menuAnimationSettings,
       pageAnimationSettings: _pageAnimationSettings,
       panelAnimationSettings: _panelAnimationSettings,
+      chipAnimationSettings: _chipAnimationSettings,
+      listItemAnimationSettings: _listItemAnimationSettings,
       builtinToolConfigs: List<AiBuiltinToolConfig>.from(_builtinToolConfigs),
       telemetryDebugEnabled: _telemetryDebugEnabled,
       telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
@@ -1812,6 +1845,8 @@ class SettingsController extends ChangeNotifier {
     _menuAnimationSettings = snapshot.menuAnimationSettings;
     _pageAnimationSettings = snapshot.pageAnimationSettings;
     _panelAnimationSettings = snapshot.panelAnimationSettings;
+    _chipAnimationSettings = snapshot.chipAnimationSettings;
+    _listItemAnimationSettings = snapshot.listItemAnimationSettings;
     _builtinToolConfigs = List<AiBuiltinToolConfig>.from(
       snapshot.builtinToolConfigs,
     );

@@ -17,6 +17,12 @@ enum DialogAnimationStyle {
   /// Slide down from the top with fade.
   slideDown('slide_down', 'Slide Down', '顶部下滑'),
 
+  /// Slide in from the left with fade — perfect for in-row chips.
+  slideLeft('slide_left', 'Slide Left', '左侧滑入'),
+
+  /// Slide in from the right with fade — perfect for in-row chips.
+  slideRight('slide_right', 'Slide Right', '右侧滑入'),
+
   /// Expands from center outward (scale + fade).
   expand('expand', 'Expand', '中心展开'),
 
@@ -24,7 +30,13 @@ enum DialogAnimationStyle {
   rotateScale('rotate_scale', 'Rotate & Scale', '旋转缩放'),
 
   /// Elastic / bouncy scale entrance.
-  elastic('elastic', 'Elastic', '弹性动画');
+  elastic('elastic', 'Elastic', '弹性动画'),
+
+  /// Spring scale — Q-bouncy overshoot scale entrance with fade.
+  springScale('spring_scale', 'Spring Scale', '弹簧缩放'),
+
+  /// 3D X-axis flip with fade — cinematic card flip.
+  flipX('flip_x', 'Flip X', 'X 轴翻转');
 
   const DialogAnimationStyle(this.storageValue, this.labelEn, this.labelZh);
 

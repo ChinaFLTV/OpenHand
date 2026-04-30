@@ -132,6 +132,24 @@ Widget _buildTransition({
   required DialogAnimationSettings settings,
   required Widget child,
 }) {
+  return buildAnimationStyleTransition(
+    animation: animation,
+    settings: settings,
+    child: child,
+  );
+}
+
+/// Public, shared transition builder so non-dialog surfaces (chips,
+/// list-item entrances/exits, tooltips, ...) can reuse the same library
+/// of styles as the dialog system. The forward/reverse style is picked
+/// based on the controller's status: while running forward (or already
+/// completed) we use [DialogAnimationSettings.entranceStyle], otherwise
+/// the [DialogAnimationSettings.exitStyle].
+Widget buildAnimationStyleTransition({
+  required Animation<double> animation,
+  required DialogAnimationSettings settings,
+  required Widget child,
+}) {
   final forward =
       animation.status == AnimationStatus.forward ||
       animation.status == AnimationStatus.completed;
@@ -163,6 +181,16 @@ Widget _buildTransition({
       beginOffset: const Offset(0, -0.15),
       child: child,
     ),
+    DialogAnimationStyle.slideLeft => _SlideTransition(
+      animation: curved,
+      beginOffset: const Offset(-0.25, 0),
+      child: child,
+    ),
+    DialogAnimationStyle.slideRight => _SlideTransition(
+      animation: curved,
+      beginOffset: const Offset(0.25, 0),
+      child: child,
+    ),
     DialogAnimationStyle.expand => _ExpandTransition(
       animation: curved,
       child: child,
@@ -174,6 +202,14 @@ Widget _buildTransition({
     DialogAnimationStyle.elastic => _ElasticTransition(
       animation: animation,
       curve: curveData,
+      child: child,
+    ),
+    DialogAnimationStyle.springScale => _SpringScaleTransition(
+      animation: animation,
+      child: child,
+    ),
+    DialogAnimationStyle.flipX => _FlipXTransition(
+      animation: curved,
       child: child,
     ),
   };
@@ -296,6 +332,70 @@ class _ElasticTransition extends StatelessWidget {
     return FadeTransition(
       opacity: opacity,
       child: ScaleTransition(scale: scale, child: child),
+    );
+  }
+}
+
+/// Q-bouncy spring scale: easeOutBack overshoot on entrance + slight
+/// fade window. Reverse uses easeInBack so exit also feels springy.
+class _SpringScaleTransition extends StatelessWidget {
+  const _SpringScaleTransition({required this.animation, required this.child});
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final opacity = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.0, 0.50, curve: Curves.easeOutCubic),
+      reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+    );
+    final scale = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInBack,
+      ),
+    );
+    return FadeTransition(
+      opacity: opacity,
+      child: ScaleTransition(
+        scale: scale,
+        alignment: Alignment.center,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// 3D card-flip on the X axis with fade — useful for chip / list-item
+/// "appear" feels when something switches in/out of place.
+class _FlipXTransition extends StatelessWidget {
+  const _FlipXTransition({required this.animation, required this.child});
+  final Animation<double> animation;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, c) {
+        final t = animation.value;
+        // -pi/2 → 0 ; clamp opacity so the back-face moment isn't visible.
+        final angle = (1.0 - t) * 1.5708;
+        final matrix = Matrix4.identity()
+          ..setEntry(3, 2, 0.0015)
+          ..rotateX(angle);
+        return Opacity(
+          opacity: t.clamp(0.0, 1.0),
+          child: Transform(
+            transform: matrix,
+            alignment: Alignment.center,
+            child: c,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

@@ -540,6 +540,12 @@ class _SettingsViewState extends State<SettingsView> {
           _PanelAnimationSettingsSection(
             settingsController: settingsController,
           ),
+          _ChipAnimationSettingsSection(
+            settingsController: settingsController,
+          ),
+          _ListItemAnimationSettingsSection(
+            settingsController: settingsController,
+          ),
         ],
       ),
       _SettingsSection.shortcuts => _SettingsGroupCard(

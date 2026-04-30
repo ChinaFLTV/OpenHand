@@ -880,54 +880,70 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             AiSendPhase.idle => l10n.composerSend,
           };
 
+    final chipAnim = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (c) => c.chipAnimationSettings,
+        );
     final expandedContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_selectedSkill != null) ...[
-          _SelectedSkillChip(
-            skill: _selectedSkill!,
-            onRemoved: _clearSelectedSkill,
+          AnimatedRemovableChip(
+            key: ValueKey('skill:${_selectedSkill!.manifestPath}'),
+            settings: chipAnim,
+            collapseAxis: Axis.vertical,
+            onRemove: _clearSelectedSkill,
+            builder: (ctx, requestRemove) => _SelectedSkillChip(
+              skill: _selectedSkill!,
+              onRemoved: requestRemove,
+            ),
           ),
           const SizedBox(height: 10),
         ],
         if (widget.editingMessageId != null) ...[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: colorScheme.secondaryContainer,
-              borderRadius: _borderRadius999,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.edit_outlined,
-                  size: 16,
-                  color: colorScheme.onSecondaryContainer,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _localizedText(
-                    context,
-                    zh: '正在编辑历史消息',
-                    en: 'Editing Previous Message',
-                  ),
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () {
-                    widget.onCancelEditing();
-                  },
-                  child: Icon(
-                    Icons.close_rounded,
+          AnimatedRemovableChip(
+            key: ValueKey<String>('editing:${widget.editingMessageId}'),
+            settings: chipAnim,
+            collapseAxis: Axis.vertical,
+            onRemove: () {
+              widget.onCancelEditing();
+            },
+            builder: (ctx, requestRemove) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.secondaryContainer,
+                borderRadius: _borderRadius999,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.edit_outlined,
                     size: 16,
                     color: colorScheme.onSecondaryContainer,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    _localizedText(
+                      context,
+                      zh: '正在编辑历史消息',
+                      en: 'Editing Previous Message',
+                    ),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: requestRemove,
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: colorScheme.onSecondaryContainer,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 10),
@@ -941,7 +957,14 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               final msg = widget.queuedMessages[index];
               final isFirst = index == 0;
               final isLast = index == widget.queuedMessages.length - 1;
-              return Padding(
+              return AnimatedRemovableChip(
+                key: ValueKey<String>(
+                  'queued:$index:${identityHashCode(msg)}',
+                ),
+                settings: chipAnim,
+                collapseAxis: Axis.vertical,
+                onRemove: () => widget.onRemoveQueuedMessage(index),
+                builder: (ctx, requestRemove) => Padding(
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1071,7 +1094,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       ),
                       const SizedBox(width: 4),
                       IconButton(
-                        onPressed: () => widget.onRemoveQueuedMessage(index),
+                        onPressed: requestRemove,
                         icon: Icon(
                           Icons.close_rounded,
                           size: 14,
@@ -1089,6 +1112,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     ],
                   ),
                 ),
+              ),
               );
             },
           ),
@@ -2020,6 +2044,9 @@ class _ReorderableAttachmentWrapState
 
   @override
   Widget build(BuildContext context) {
+    final chipAnim = context.select<SettingsController, DialogAnimationSettings>(
+      (c) => c.chipAnimationSettings,
+    );
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -2069,21 +2096,30 @@ class _ReorderableAttachmentWrapState
                   onRemove: () {},
                 ),
               ),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                transform: isHovering
-                    ? (Matrix4.identity()..scaleByDouble(1.05, 1.05, 1.0, 1.0))
-                    : Matrix4.identity(),
-                transformAlignment: Alignment.center,
-                child: Opacity(
-                  opacity: isDragging ? 0.3 : 1.0,
-                  child: _ComposerAttachmentChip(
-                    attachment: attachment,
-                    onRemove: () => widget.onRemove(attachment.filePath),
-                    onTap: () => widget.onTap(attachment),
-                  ),
-                ),
+              child: AnimatedRemovableChip(
+                key: ValueKey('attachment:${attachment.filePath}'),
+                settings: chipAnim,
+                collapseAxis: Axis.horizontal,
+                onRemove: () => widget.onRemove(attachment.filePath),
+                builder: (context, requestRemove) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    transform: isHovering
+                        ? (Matrix4.identity()
+                          ..scaleByDouble(1.05, 1.05, 1.0, 1.0))
+                        : Matrix4.identity(),
+                    transformAlignment: Alignment.center,
+                    child: Opacity(
+                      opacity: isDragging ? 0.3 : 1.0,
+                      child: _ComposerAttachmentChip(
+                        attachment: attachment,
+                        onRemove: requestRemove,
+                        onTap: () => widget.onTap(attachment),
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -2285,6 +2321,9 @@ class _ReorderableProjectReferenceWrapState
 
   @override
   Widget build(BuildContext context) {
+    final chipAnim = context.select<SettingsController, DialogAnimationSettings>(
+      (c) => c.chipAnimationSettings,
+    );
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -2328,18 +2367,25 @@ class _ReorderableProjectReferenceWrapState
                 opacity: 0.3,
                 child: _ProjectReferenceChip(item: ref, onRemove: () {}),
               ),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOutCubic,
-                transform: isHovering
-                    ? (Matrix4.identity()..scaleByDouble(1.05, 1.05, 1.0, 1.0))
-                    : Matrix4.identity(),
-                transformAlignment: Alignment.center,
-                child: Opacity(
-                  opacity: isDragging ? 0.3 : 1.0,
-                  child: _ProjectReferenceChip(
-                    item: ref,
-                    onRemove: () => widget.onRemove(ref.path),
+              child: AnimatedRemovableChip(
+                key: ValueKey('projref:${ref.path}'),
+                settings: chipAnim,
+                collapseAxis: Axis.horizontal,
+                onRemove: () => widget.onRemove(ref.path),
+                builder: (context, requestRemove) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  transform: isHovering
+                      ? (Matrix4.identity()
+                        ..scaleByDouble(1.05, 1.05, 1.0, 1.0))
+                      : Matrix4.identity(),
+                  transformAlignment: Alignment.center,
+                  child: Opacity(
+                    opacity: isDragging ? 0.3 : 1.0,
+                    child: _ProjectReferenceChip(
+                      item: ref,
+                      onRemove: requestRemove,
+                    ),
                   ),
                 ),
               ),
@@ -3101,6 +3147,52 @@ class _SkillPickerTransition extends StatelessWidget {
           child: ScaleTransition(
             alignment: Alignment.bottomLeft,
             scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.slideLeft:
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(-0.08, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.slideRight:
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.08, 0),
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.springScale:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.6, end: 1.0).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutBack,
+                reverseCurve: Curves.easeInBack,
+              ),
+            ),
+            child: child,
+          ),
+        );
+      case DialogAnimationStyle.flipX:
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            alignment: Alignment.bottomLeft,
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(animation),
             child: child,
           ),
         );

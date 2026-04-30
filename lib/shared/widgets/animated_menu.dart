@@ -376,6 +376,52 @@ Widget _buildMenuTransition(
         child: child,
       ),
     ),
+    DialogAnimationStyle.slideLeft => FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(-0.08, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideRight => FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.08, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.springScale => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+        reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.6, end: 1.0).animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack,
+            reverseCurve: Curves.easeInBack,
+          ),
+        ),
+        alignment: Alignment.topLeft,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.flipX => FadeTransition(
+      opacity: curved,
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.85, end: 1.0).animate(curved),
+        alignment: Alignment.topLeft,
+        child: child,
+      ),
+    ),
   };
 }
 

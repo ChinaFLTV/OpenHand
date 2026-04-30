@@ -93,6 +93,24 @@ class AppSettingsSnapshot {
         durationMs: 600,
         curve: DialogAnimationCurve.easeInOutCubicEmphasized,
       ),
+      // 2026-05-01: chip = capsule entrance/exit (composer skill /
+      // attachment / @-reference / queued-message chips). Q-bouncy
+      // spring-scale + emphasized curve so X-close feels delightful.
+      chipAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.springScale,
+        exitStyle: DialogAnimationStyle.fadeScale,
+        durationMs: 320,
+        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+      ),
+      // List-item entrance for sidebar threads, instructions / hooks /
+      // crons / memory / mcp tiles. Defaults map to the existing
+      // `AppearOnce` rhythm (320ms emphasized fade-and-slide).
+      listItemAnimationSettings: const DialogAnimationSettings(
+        entranceStyle: DialogAnimationStyle.slideUp,
+        exitStyle: DialogAnimationStyle.fade,
+        durationMs: 320,
+        curve: DialogAnimationCurve.easeInOutCubicEmphasized,
+      ),
       builtinToolConfigs: AiBuiltinToolConfig.defaults(),
       telemetryDebugEnabled: false,
       telemetryCaptureRawPayload: true,
@@ -162,6 +180,8 @@ class AppSettingsSnapshot {
     required this.menuAnimationSettings,
     required this.pageAnimationSettings,
     required this.panelAnimationSettings,
+    required this.chipAnimationSettings,
+    required this.listItemAnimationSettings,
     required this.builtinToolConfigs,
     required this.telemetryDebugEnabled,
     required this.telemetryCaptureRawPayload,
@@ -435,6 +455,8 @@ class AppSettingsSnapshot {
   final DialogAnimationSettings menuAnimationSettings;
   final DialogAnimationSettings pageAnimationSettings;
   final DialogAnimationSettings panelAnimationSettings;
+  final DialogAnimationSettings chipAnimationSettings;
+  final DialogAnimationSettings listItemAnimationSettings;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final bool telemetryDebugEnabled;
   final bool telemetryCaptureRawPayload;
@@ -536,6 +558,8 @@ class AppSettingsSnapshot {
     DialogAnimationSettings? menuAnimationSettings,
     DialogAnimationSettings? pageAnimationSettings,
     DialogAnimationSettings? panelAnimationSettings,
+    DialogAnimationSettings? chipAnimationSettings,
+    DialogAnimationSettings? listItemAnimationSettings,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
     bool? telemetryDebugEnabled,
     bool? telemetryCaptureRawPayload,
@@ -653,6 +677,10 @@ class AppSettingsSnapshot {
           pageAnimationSettings ?? this.pageAnimationSettings,
       panelAnimationSettings:
           panelAnimationSettings ?? this.panelAnimationSettings,
+      chipAnimationSettings:
+          chipAnimationSettings ?? this.chipAnimationSettings,
+      listItemAnimationSettings:
+          listItemAnimationSettings ?? this.listItemAnimationSettings,
       builtinToolConfigs: builtinToolConfigs ?? this.builtinToolConfigs,
       telemetryDebugEnabled:
           telemetryDebugEnabled ?? this.telemetryDebugEnabled,

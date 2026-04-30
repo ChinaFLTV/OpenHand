@@ -1,5 +1,9 @@
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:provider/provider.dart';
+
+import '../../app/model/dialog_animation_settings.dart';
+import '../../app/state/settings_controller.dart';
 
 /// One-shot, ticker-self-disposing entrance animation wrapper.
 ///
@@ -181,5 +185,62 @@ class _AppearTranslateRender extends RenderProxyBox {
     final value = _animation.value.clamp(0.0, 1.0);
     final dy = (1 - value) * _slideOffset;
     super.paint(context, offset + Offset(0, dy));
+  }
+}
+
+/// Lightweight wrapper that reads the global
+/// `listItemAnimationSettings` from [SettingsController] and either
+/// passes [child] through (if the user has set the channel's entrance
+/// style to `none`) or wraps it with an [AppearOnce] using the
+/// configured duration.
+///
+/// The slide direction is also inferred from the channel's entrance
+/// style: `slideUp` (default) keeps the existing 12px translate-from-
+/// below feel; `slideDown` flips to translate-from-above; any other
+/// style falls back to a pure fade (no translate).
+///
+/// Use this around list-item subtrees that should benefit from the
+/// "List Item Animation" panel in Settings.
+class SettingsAwareAppearOnce extends StatelessWidget {
+  const SettingsAwareAppearOnce({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (c) => c.listItemAnimationSettings,
+        );
+    if (settings.entranceStyle == DialogAnimationStyle.none) {
+      return child;
+    }
+    final double slide;
+    switch (settings.entranceStyle) {
+      case DialogAnimationStyle.slideUp:
+        slide = 12.0;
+        break;
+      case DialogAnimationStyle.slideDown:
+        slide = -12.0;
+        break;
+      case DialogAnimationStyle.fade:
+      case DialogAnimationStyle.fadeScale:
+      case DialogAnimationStyle.expand:
+      case DialogAnimationStyle.elastic:
+      case DialogAnimationStyle.springScale:
+      case DialogAnimationStyle.flipX:
+      case DialogAnimationStyle.rotateScale:
+      case DialogAnimationStyle.slideLeft:
+      case DialogAnimationStyle.slideRight:
+        slide = 0.0;
+        break;
+      case DialogAnimationStyle.none:
+        return child;
+    }
+    return AppearOnce(
+      duration: settings.duration,
+      slideOffset: slide,
+      child: child,
+    );
   }
 }

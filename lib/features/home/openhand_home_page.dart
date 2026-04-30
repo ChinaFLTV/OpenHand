@@ -35,6 +35,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_palette.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/data/database_service.dart';
+import '../../shared/widgets/animated_appearance.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
@@ -362,6 +363,72 @@ Widget _buildPanelTransition({
           reverseCurve: Curves.easeInCubic,
         ),
         maxYOffset: 24,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideLeft => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 0,
+        maxXOffset: -28,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.slideRight => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: 0,
+        maxXOffset: 28,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.springScale => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: safeAnimation,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+        reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+      ),
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutBack,
+          reverseCurve: Curves.easeInBack,
+        ),
+        maxYOffset: 16,
+        child: child,
+      ),
+    ),
+    DialogAnimationStyle.flipX => FadeTransition(
+      opacity: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: _PaintOffsetTransition(
+        animation: CurvedAnimation(
+          parent: safeAnimation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        ),
+        maxYOffset: -18,
         child: child,
       ),
     ),

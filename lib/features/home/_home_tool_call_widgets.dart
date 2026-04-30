@@ -42,7 +42,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
-    return AppearOnce(
+    return SettingsAwareAppearOnce(
       child: ClipRect(
         child: AnimatedSize(
           duration: const Duration(milliseconds: 220),
