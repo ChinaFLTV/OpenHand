@@ -145,10 +145,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       if (!mounted) return;
 
       if (result.isSuccess) {
-        final sorted = AiModelConfig.normalizeModelIds(<String>[
-          ..._availableModelIds,
-          ...result.modelIds,
-        ]);
+        // 2026-05-01: Scan replaces — never diffs. Users explicitly tap
+        // "Scan models" to get a fresh authoritative list from the
+        // provider; merging with previously cached IDs surfaces stale
+        // models that were deprecated upstream and confuses the picker.
+        // The freshly scanned list becomes the new source of truth; if
+        // the previously active model is missing from it, we drop the
+        // active selection rather than keep dangling state.
+        final sorted = AiModelConfig.normalizeModelIds(result.modelIds);
         setState(() {
           _availableModelIds = sorted;
           _isScanning = false;
@@ -158,10 +162,18 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                   en: 'No models found from this provider.',
                 )
               : null;
-          // Auto-select first model if none currently selected.
-          if (_activeModelId == null && sorted.isNotEmpty) {
+          // Reconcile active selection against the freshly scanned list:
+          // - If the previously active model is still present, keep it.
+          // - Otherwise, fall back to the first scanned model (or null).
+          final previousActive = _activeModelId;
+          if (previousActive != null && sorted.contains(previousActive)) {
+            // Keep selection.
+          } else if (sorted.isNotEmpty) {
             _activeModelId = sorted.first;
             _modelIdController.text = sorted.first;
+          } else {
+            _activeModelId = null;
+            _modelIdController.text = '';
           }
         });
       } else {

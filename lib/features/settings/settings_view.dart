@@ -86,6 +86,21 @@ class SettingsView extends StatefulWidget {
   State<SettingsView> createState() => _SettingsViewState();
 }
 
+/// Public launcher for the AI model editor dialog so non-settings surfaces
+/// (e.g. the composer's quick-edit gear button) can re-use the exact same
+/// editor without copying its UI. Returns `true` when the user saved a
+/// change, otherwise `false`.
+Future<bool> showAiModelEditorDialog(
+  BuildContext context, {
+  AiModelConfig? initialModel,
+}) async {
+  final submitted = await showAnimatedDialog<bool>(
+    context: context,
+    builder: (dialogContext) => _AiModelEditorDialog(initialModel: initialModel),
+  );
+  return submitted == true;
+}
+
 class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _skillsPathController;
   late final FocusNode _skillsPathFocusNode;

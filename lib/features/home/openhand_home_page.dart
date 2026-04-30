@@ -144,7 +144,14 @@ const double _stackedNavigationMaxHeight = 360;
 const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
-const double _autoFollowDistanceThreshold = 96;
+// 2026-05-01: Tightened from 96 → 32 px so the "user is at bottom" detector
+// only fires when the viewport is genuinely pinned to the latest message.
+// 96 px caused subtle resume-on-glance regressions: a single accidental wheel
+// tick that left the user 60 px above bottom would still be treated as "at
+// bottom", silently re-arming auto-follow against the user's intent. 32 px
+// is small enough to require a deliberate scroll-to-bottom gesture but large
+// enough to absorb sub-pixel rounding from animated layout settles.
+const double _autoFollowDistanceThreshold = 32;
 const double _autoFollowAnimatedDistanceThreshold = 8;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
 const int _transcriptInitialWindowSize = 30;
@@ -163,7 +170,11 @@ const int _transcriptPreparationFrameBudget = 3;
 // has not finished within this window we reveal the transcript anyway.
 const Duration _transcriptPreparationMaxWait = Duration(milliseconds: 320);
 const Duration _transcriptMessageDeleteAnimationDuration = Duration(
-  milliseconds: 220,
+  // 2026-05-01: Bumped 220 → 320 ms so the collapse + fade can use the
+  // Material 3 emphasized curve without feeling clipped. Pairs with the
+  // softer scale-shrink + larger upward translate inside the exit
+  // builder for a cohesive "settle out" feel.
+  milliseconds: 320,
 );
 const Duration _sessionTitleRevealAnimationDuration = Duration(
   milliseconds: 720,
@@ -1450,6 +1461,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!_autoFollowEnabled) {
       return;
     }
+    // 2026-05-01: Don't re-arm auto-follow mid-gesture.
+    //
+    // ScrollController listeners fire on every pixel change, including
+    // updates emitted while the user is still actively dragging. Mirroring
+    // the tighter contract enforced in `_handleMessageScrollNotification`,
+    // we now require the user to finish the gesture (no in-progress drag)
+    // before this redundant fallback path may flip `_shouldAutoFollowMessages`
+    // back on. Programmatic scrolls don't go through here either way
+    // because we early-return on `_programmaticAutoFollowScrollInProgress`
+    // upstream.
+    if (_userScrollInProgress) {
+      return;
+    }
     if (!_shouldAutoFollowMessages) {
       _shouldAutoFollowMessages = true;
     }
@@ -1518,7 +1542,23 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (_pendingForcedScrollToBottom || _queuedForcedScrollToBottom)) {
       _scheduleScrollToBottom(force: true, animated: true);
     }
-    if (isNearBottom && _autoFollowEnabled) {
+    // 2026-05-01: Resume gating tightened.
+    //
+    // Previously this branch re-armed `_shouldAutoFollowMessages` on
+    // EVERY scroll notification whose pixels happened to land within the
+    // 96 px bottom window — including transient ScrollUpdateNotifications
+    // emitted while the user was still actively dragging. The result was
+    // that a momentary swipe down toward (but not to) the bottom would
+    // silently resume auto-follow, contradicting the user's mental model
+    // that "I have to actively park at the bottom to resume".
+    //
+    // The new contract requires *both*:
+    //   1. The viewport pixel position settled within the bottom window.
+    //   2. The notification is a terminal scroll-end (or an idle
+    //      UserScrollNotification), proving the user finished the gesture.
+    // Programmatic scrolls are excluded because the early-return at the
+    // top of this method skips them entirely.
+    if (isNearBottom && _autoFollowEnabled && userScrollEnded) {
       _shouldAutoFollowMessages = true;
     }
     _syncAutoFollowPausedState();

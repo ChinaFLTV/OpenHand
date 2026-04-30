@@ -790,7 +790,10 @@ class _TranscriptAnimatedMessageEntry extends StatefulWidget {
 class _TranscriptAnimatedMessageEntryState
     extends State<_TranscriptAnimatedMessageEntry>
     with SingleTickerProviderStateMixin {
-  static const _entranceDuration = Duration(milliseconds: 420);
+  // 2026-05-01: Bumped 420→520 ms so the entrance has room to breathe;
+  // pairs with a softer overshoot curve below for a more "Q弹" feel
+  // without straying into wobble territory.
+  static const _entranceDuration = Duration(milliseconds: 520);
 
   AnimationController? _entranceCtrl;
   Animation<double>? _opacity;
@@ -805,24 +808,40 @@ class _TranscriptAnimatedMessageEntryState
         duration: _entranceDuration,
         vsync: this,
       );
+      // Opacity: front-loaded so the bubble materializes ~halfway through
+      // the entrance, then dwells fully visible while the elastic scale
+      // settles. easeOutQuint lands the alpha sooner than easeOut, which
+      // makes the subsequent overshoot feel like polish rather than
+      // "still arriving".
       _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(
           parent: _entranceCtrl!,
-          curve: const Interval(0.0, 0.55, curve: Curves.easeOut),
+          curve: const Interval(0.0, 0.45, curve: Curves.easeOutQuint),
         ),
       );
-      _scale = Tween<double>(begin: 0.94, end: 1.0).animate(
+      // Scale: Curves.easeOutBack overshoots ~10 %, but we soften the
+      // effect by starting closer to the resting size (0.96 instead of
+      // 0.94) so the springy moment is gentle and never reads as
+      // "jiggle". Alignment is set to .topCenter at the consumer site.
+      _scale = Tween<double>(begin: 0.96, end: 1.0).animate(
         CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutBack),
       );
-      _slide = Tween<Offset>(begin: const Offset(0.0, 0.04), end: Offset.zero)
+      // Slide: a touch deeper (0.04 → 0.06 fractional height) and uses
+      // `easeInOutCubicEmphasized` (the Material 3 emphasized curve) so the
+      // upward glide decelerates with the same characteristic feel as
+      // panel transitions elsewhere in OpenHand.
+      _slide = Tween<Offset>(begin: const Offset(0.0, 0.06), end: Offset.zero)
           .animate(
-            CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutCubic),
+            CurvedAnimation(
+              parent: _entranceCtrl!,
+              curve: Curves.easeInOutCubicEmphasized,
+            ),
           );
       // Tear down the entrance animation as soon as it finishes so the
       // ticker stops driving rebuilds for every still-mounted entry.
       // With long sessions (1k+ messages) and a `cacheExtent` that keeps
       // the most recently scrolled tiles alive, leaving the controller
-      // ticking after the one-shot 420ms reveal contributes a measurable
+      // ticking after the one-shot reveal contributes a measurable
       // baseline cost to subsequent frames.
       _entranceCtrl!.addStatusListener(_onEntranceStatus);
       _entranceCtrl!.forward();
@@ -869,11 +888,19 @@ class _TranscriptAnimatedMessageEntryState
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 1, end: 0),
         duration: _transcriptMessageDeleteAnimationDuration,
-        curve: Curves.easeInOutCubic,
+        // 2026-05-01: easeInOutCubic → easeInOutCubicEmphasized for
+        // Material 3 cohesion with the rest of the panel transitions.
+        curve: Curves.easeInOutCubicEmphasized,
         onEnd: widget.onExitCompleted,
         builder: (context, value, child) {
           final clampedValue = value.clamp(0.0, 1.0);
           final exitProgress = 1 - clampedValue;
+          // A subtle scale-down (1.0 → 0.96) layered onto the existing
+          // height collapse + fade gives the bubble a "settle into the
+          // void" feel rather than a sudden cut. Translate has been
+          // bumped 8 → 14 px to read as a deliberate lift while the
+          // height collapses underneath.
+          final shrink = 1.0 - 0.04 * Curves.easeInCubic.transform(exitProgress);
           return ClipRect(
             child: Align(
               alignment: Alignment.topCenter,
@@ -883,9 +910,13 @@ class _TranscriptAnimatedMessageEntryState
                 child: Transform.translate(
                   offset: Offset(
                     0,
-                    -8 * Curves.easeOutCubic.transform(exitProgress),
+                    -14 * Curves.easeOutCubic.transform(exitProgress),
                   ),
-                  child: child,
+                  child: Transform.scale(
+                    scale: shrink,
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
                 ),
               ),
             ),

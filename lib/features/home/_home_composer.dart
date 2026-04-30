@@ -829,6 +829,17 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     });
   }
 
+  /// Opens the shared AI model editor dialog pre-filled with the currently
+  /// selected provider configuration. Mirrors the gear button shown next to
+  /// each model capsule in Settings → AI Model Providers.
+  Future<void> _openSelectedModelEditor(BuildContext btnContext) async {
+    final selected = widget.selectedModel;
+    if (selected == null) {
+      return;
+    }
+    await showAiModelEditorDialog(btnContext, initialModel: selected);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -1169,19 +1180,71 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               children: [
                 Builder(
                   builder: (btnContext) {
-                    return OutlinedButton.icon(
-                      onPressed: widget.availableModels.isEmpty
-                          ? null
-                          : () => _showModelMenu(btnContext),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 52),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      icon: const Icon(Icons.hub_outlined),
-                      label: Text(
-                        selectedModelLabel,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    final hasSelection = widget.selectedModel != null;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: widget.availableModels.isEmpty
+                              ? null
+                              : () => _showModelMenu(btnContext),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 52),
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 16,
+                              end: 12,
+                            ),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadiusDirectional.horizontal(
+                                start: Radius.circular(26),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.hub_outlined),
+                          label: Text(
+                            selectedModelLabel,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Quick-edit gear: opens the same editor dialog used
+                        // in Settings → AI Model Providers, pre-filled with
+                        // the currently selected model. This shortens the
+                        // "tweak temperature mid-chat" flow from 4 taps
+                        // (open settings → providers → row → edit) to 1.
+                        Tooltip(
+                          message: _localizedText(
+                            context,
+                            zh: '编辑当前模型配置',
+                            en: 'Edit selected model configuration',
+                          ),
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: hasSelection
+                                  ? () => unawaited(
+                                      _openSelectedModelEditor(btnContext),
+                                    )
+                                  : null,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(40, 52),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadiusDirectional.horizontal(
+                                        end: Radius.circular(26),
+                                      ),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.tune_rounded,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),

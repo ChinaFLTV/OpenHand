@@ -19,8 +19,14 @@ class AppearOnce extends StatefulWidget {
   const AppearOnce({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 220),
-    this.slideOffset = 8.0,
+    // 2026-05-01: 220 → 320 ms with a slightly larger default slide. The
+    // tool-call chip / sidebar tile / memory entry consumers all wanted a
+    // softer arrival — the previous 220 ms felt punchy in the transcript
+    // where it sits next to the 520 ms _TranscriptAnimatedMessageEntry
+    // entrance. Aligning the durations gives a single rhythm to the
+    // whole "new content has appeared" idiom.
+    this.duration = const Duration(milliseconds: 320),
+    this.slideOffset = 12.0,
   });
 
   final Widget child;
@@ -45,7 +51,13 @@ class _AppearOnceState extends State<AppearOnce>
     super.initState();
     final ctrl = AnimationController(duration: widget.duration, vsync: this);
     _opacity = CurvedAnimation(parent: ctrl, curve: Curves.easeOut);
-    _translate = CurvedAnimation(parent: ctrl, curve: Curves.easeOutCubic);
+    // 2026-05-01: easeOutCubic → easeInOutCubicEmphasized so the slide-up
+    // matches the Material 3 emphasized motion used by the transcript
+    // bubble entrance and by panel transitions in openhand_home_page.dart.
+    _translate = CurvedAnimation(
+      parent: ctrl,
+      curve: Curves.easeInOutCubicEmphasized,
+    );
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;
     ctrl.forward();
