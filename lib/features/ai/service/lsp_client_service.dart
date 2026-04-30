@@ -1701,6 +1701,7 @@ class _AiLspSession {
 
   final AiLspBackendResolution backend;
   Process? _process;
+  StreamSubscription<String>? _stdoutSubscription;
   int _nextId = 1;
   final Map<int, Completer<Object?>> _pendingRequests =
       <int, Completer<Object?>>{};
@@ -1747,7 +1748,12 @@ class _AiLspSession {
       workingDirectory: backend.rootPath,
       environment: environment,
     );
-    _process!.stdout.transform(utf8.decoder).listen(_onData);
+    // Store the subscription so shutdown() can cancel it; otherwise the
+    // listener stays attached after the process is killed and `_onData` may
+    // still fire into a session whose buffers/maps have already been cleared,
+    // and the underlying stream is never released.
+    _stdoutSubscription =
+        _process!.stdout.transform(utf8.decoder).listen(_onData);
     // Drain stderr so the LSP server is not blocked writing diagnostics.
     // Surface any drain failures in debug builds to aid troubleshooting —
     // they are silently swallowed otherwise.
@@ -2390,6 +2396,20 @@ class _AiLspSession {
     }
     _process = null;
     process.kill();
+    final stdoutSubscription = _stdoutSubscription;
+    _stdoutSubscription = null;
+    if (stdoutSubscription != null) {
+      try {
+        await stdoutSubscription.cancel();
+      } catch (error, stack) {
+        silentLog(
+          'lsp_client_service',
+          'cancel LSP stdout subscription',
+          error,
+          stack,
+        );
+      }
+    }
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {
         completer.completeError(StateError('LSP session shut down'));

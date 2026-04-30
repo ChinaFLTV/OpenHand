@@ -237,47 +237,59 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       _selectedTab = null;
     });
 
-    List<String> windows = [];
-    if (Platform.isMacOS) {
-      final appName = terminal == 'iTerm2' ? 'iTerm' : terminal;
-      windows = await _fetchMacOSAppleScript(
-        'try\ntell application "$appName" to get name of every window\nend try',
-      );
-    }
-
-    if (!mounted || _fetchSequence != currentFetchId) return;
-
-    if (windows.isEmpty) {
-      await Future.delayed(const Duration(milliseconds: 150));
-      windows = List.generate(
-        10,
-        (index) => '${_loc(context, zh: '窗口', en: 'Window')} ${index + 1}',
-      );
-    }
-
-    final seen = <String, int>{};
-    for (var i = 0; i < windows.length; i++) {
-      final name = windows[i];
-      if (seen.containsKey(name)) {
-        final currentCount = seen[name]! + 1;
-        seen[name] = currentCount;
-        windows[i] = '$name ($currentCount)';
-      } else {
-        seen[name] = 1;
+    var clearedLoading = false;
+    try {
+      List<String> windows = [];
+      if (Platform.isMacOS) {
+        final appName = terminal == 'iTerm2' ? 'iTerm' : terminal;
+        windows = await _fetchMacOSAppleScript(
+          'try\ntell application "$appName" to get name of every window\nend try',
+        );
       }
-    }
 
-    setState(() {
-      _windows = windows;
-      _selectedWindow = _windows.firstOrNull;
-    });
+      if (!mounted || _fetchSequence != currentFetchId) return;
 
-    if (_selectedWindow != null) {
-      await _updateTabsForWindowInternal(_selectedWindow!, currentFetchId);
-    } else {
+      if (windows.isEmpty) {
+        await Future.delayed(const Duration(milliseconds: 150));
+        windows = List.generate(
+          10,
+          (index) => '${_loc(context, zh: '窗口', en: 'Window')} ${index + 1}',
+        );
+      }
+
+      final seen = <String, int>{};
+      for (var i = 0; i < windows.length; i++) {
+        final name = windows[i];
+        if (seen.containsKey(name)) {
+          final currentCount = seen[name]! + 1;
+          seen[name] = currentCount;
+          windows[i] = '$name ($currentCount)';
+        } else {
+          seen[name] = 1;
+        }
+      }
+
       setState(() {
-        _isLoading = false;
+        _windows = windows;
+        _selectedWindow = _windows.firstOrNull;
       });
+
+      if (_selectedWindow != null) {
+        // _updateTabsForWindowInternal owns clearing _isLoading on success/early-return.
+        clearedLoading = true;
+        await _updateTabsForWindowInternal(_selectedWindow!, currentFetchId);
+      }
+    } finally {
+      // Guarantee the loader flag settles for the LATEST fetch even if
+      // osascript throws or an unexpected early-return path is taken.
+      if (!clearedLoading &&
+          mounted &&
+          _fetchSequence == currentFetchId &&
+          _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -291,7 +303,17 @@ class _MachineExpertDialogState extends State<MachineExpertDialog> {
       _selectedTab = null;
     });
 
-    await _updateTabsForWindowInternal(window, currentFetchId);
+    try {
+      await _updateTabsForWindowInternal(window, currentFetchId);
+    } finally {
+      if (mounted &&
+          _fetchSequence == currentFetchId &&
+          _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _updateTabsForWindowInternal(String window, int fetchId) async {
