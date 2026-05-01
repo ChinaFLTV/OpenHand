@@ -413,36 +413,54 @@ const String _defaultDeveloperInstructions = '''
 ''';
 
 const String _defaultCompressionSummaryInstructions = '''
-Compress older conversation context into a high-signal checkpoint that can safely replace original messages.
+Compress older conversation context into a high-signal checkpoint that can safely replace original messages without losing recoverable state.
 
-# Preserve
+# Preserve (Do Not Drop)
 
-- User objective, confirmed constraints, environment details
-- Important file paths, commands, IDs, versions
-- Decisions and concrete assistant outcomes for future work
-- Active plans, todo state, pending approvals, blockers
-- Tool failures, denials, timeouts, validation results
-- Generated artifacts and unresolved questions
+| Category | Content |
+|----------|---------|
+| **Objective** | User goal, constraints, success criteria |
+| **Confirmed Context** | Environment, paths, IDs, versions, conventions verified by tool calls |
+| **Key Decisions** | Architecture or design choices with rationale |
+| **Code Changes** | Files modified/created with brief description and key line numbers |
+| **Tool Outcomes** | Failures, denials, timeouts, validation results — keep the real outcome verbatim where it drives next steps |
+| **Plan State** | Active todos (pending / in-progress / completed), pending approvals, blockers |
+| **Build & Test** | Commands run, exit codes, known failures |
+| **Git State** | Branch, uncommitted file list (don't expand the full diff) |
+| **Open Questions** | Unresolved items requiring user input |
+| **Risks / Caveats** | Known limitations, edge cases, fragile assumptions |
+
+# Remove
+
+- Repetitive searches with the same conclusion
+- Verbose tool output already summarised elsewhere
+- Exploratory reads of files that turned out irrelevant
+- Low-signal chatter, filler, redundant restatements
 
 # Output Format
 
-Return Markdown only. Use these sections when relevant:
+Return Markdown only. Emit the sections that have content; skip empty ones:
 
+```markdown
 ## Objective
 ## Confirmed Context
 ## Key Decisions
-## Current Plan State
-## Important Artifacts
+## Code Changes
+## Tool Outcomes
+## Current Plan
+## Build & Test
+## Git State
 ## Open Questions
-## Risks Or Caveats
+## Risks
+```
 
 # Rules
 
-- Merge overlapping details; remove filler
-- Prefer stable facts over transient chatter
-- Distinguish confirmed facts from guesses or open questions
-- If earlier checkpoint exists, incorporate forward (no verbatim repetition)
-- Keep result concise but complete enough for safe continuation
+1. Merge overlapping details; do not paraphrase the same fact twice.
+2. Prefer stable facts over transient chatter.
+3. Distinguish confirmed facts from guesses or open questions.
+4. If an earlier checkpoint exists, incorporate it forward — do **not** re-paste it verbatim.
+5. Keep the result concise but complete enough that the next turn can resume without re-running discovery tools already covered by Focus Context.
 ''';
 
 // ── Hardness Engineering fallback prompts ─────────────────────────────────────
@@ -465,9 +483,76 @@ Construct comprehensive prompts for each role CLI. Escalate failures. Maintain l
 ''';
 
 const String _hardnessCompressionSummaryInstructions = '''
-Preserve: session config (working dir, persistence dir, CLI assignments, task), current phase/agent state,
-persistence file paths created, outstanding failures, and the latest execution plan content.
-Format as a structured Hardness Engineering Session Summary.
+# Hardness Engineering - 压缩摘要指令
+
+在压缩 Hardness Engineering 会话历史时，请保留以下信息，并确保压缩后的摘要全文使用简体中文。只有代码、命令、路径、文件名、模型名、CLI 名称、`PASS` / `FAIL` 等技术标识可以保留原文。
+
+## 必须保留（绝不能压缩掉）
+
+1. **会话配置**：原始 `[HARDNESS_CONFIG]` 块中的以下内容：
+   - 工作目录
+   - 持久化目录
+   - 所有角色的 CLI / 模型分配
+   - 原始任务描述
+
+2. **当前阶段与代理状态**：压缩发生时的阶段与角色
+
+3. **持久化文件引用**：本次会话中写入的所有文件路径：
+   - 已创建的计划文件
+   - 已创建的反馈文件
+   - 已创建的交接文件
+   - 已创建的 lesson 文件
+
+4. **未解决的失败项**：任何尚未解决的错误消息或 CLI 失败
+
+5. **最新计划**：当前执行计划的完整内容（或该文件的路径引用）
+
+## 压缩格式
+
+```markdown
+# Hardness Engineering 会话摘要
+
+## 配置
+- 工作目录：{path}
+- 持久化目录：{path}
+- 调查者：{cli} / {model}
+- 规划者：{cli} / {model}
+- 实施者：{cli} / {model}
+- 验收者：{cli} / {model}
+
+## 原始任务
+{task description}
+
+## 当前状态
+- 阶段：{current_phase}
+- 最近活跃角色：{role} ({agent_id})
+- 已完成步骤：{list of completed plan steps}
+- 待完成步骤：{list of remaining plan steps}
+
+## 本次会话已创建的持久化文件
+- 计划：{list of plan file paths}
+- 反馈：{list of feedback file paths}
+- 交接：{list of handoff file paths}
+- Lessons：{list of lesson file paths}
+
+## 当前成果
+{brief description of what has been accomplished}
+
+## 未解决问题
+{any unresolved failures or blockers}
+```
+
+---
+
+## 漏保护补充清单（HE 长会话压缩必保留）
+
+以下条目一旦在压缩时被丢掉，下一轮无法继续推进或会重蹈覆辙——**禁止**概括为"曾出现若干异常"：
+
+1. **CLI 失败但未产 lesson 的轮次**：CLI 退出非 0、超时、被 deny-list 拦截、或验收 FAIL 但 lesson 文件尚未写入的事件，必须逐条保留 `轮次 / 角色 / CLI / 失败现象 / 决议状态`，并显式标注"未闭环"。
+2. **未确认的写命令**：deny-list 命中后用户尚未确认/拒绝的命令字面值与轮次编号——下一轮必须先恢复对话再决策。
+3. **未结束的交接**：handoff 文件已生成但未被下游角色读入，或交接文档与最新计划版本不匹配的情形。
+4. **角色独立性破例**：若 reviewing 阶段曾被迫读取实施者的内部推理（例如复制粘贴）也应保留事实陈述，避免后续轮次错以为始终保持了独立。
+5. **当前活跃 BashBackground / 子进程**：若编排过程中起了任何宿主侧后台进程，记录其 `id` + 启动命令 + 用途 + 是否已 stop。
 ''';
 
 // ── Hermes Talker fallback prompts ────────────────────────────────────────────
