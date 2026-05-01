@@ -192,7 +192,10 @@ const Duration _transcriptMessageDeleteAnimationDuration = Duration(
   // Material 3 emphasized curve without feeling clipped. Pairs with the
   // softer scale-shrink + larger upward translate inside the exit
   // builder for a cohesive "settle out" feel.
-  milliseconds: 320,
+  // 2026-05-04: 320 → 440 ms to give the new Q弹 anticipation phase
+  // (brief scale-up before collapse) the runway it needs without
+  // feeling rushed.
+  milliseconds: 440,
 );
 const Duration _sessionTitleRevealAnimationDuration = Duration(
   milliseconds: 720,

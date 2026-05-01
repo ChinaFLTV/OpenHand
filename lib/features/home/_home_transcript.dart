@@ -971,32 +971,49 @@ class _TranscriptAnimatedMessageEntryState
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 1, end: 0),
         duration: _transcriptMessageDeleteAnimationDuration,
-        // 2026-05-01: easeInOutCubic → easeInOutCubicEmphasized for
-        // Material 3 cohesion with the rest of the panel transitions.
-        curve: Curves.easeInOutCubicEmphasized,
+        // 2026-05-04: Q弹退场 — 前 18% 阶段保留 1.0 高度并轻微"鼓"出
+        // (1.0 → 1.06)，其后 82% 才真正开始 height/opacity 折叠 +
+        // 收缩到 0.86。这种 "anticipation → release" 的两段式节奏让
+        // 退场读起来像气球泄气而非生硬截断。曲线在 builder 内部
+        // 分阶段计算，TweenAnimationBuilder 走线性即可。
         onEnd: widget.onExitCompleted,
         builder: (context, value, child) {
           final clampedValue = value.clamp(0.0, 1.0);
           final exitProgress = 1 - clampedValue;
-          // A subtle scale-down (1.0 → 0.96) layered onto the existing
-          // height collapse + fade gives the bubble a "settle into the
-          // void" feel rather than a sudden cut. Translate has been
-          // bumped 8 → 14 px to read as a deliberate lift while the
-          // height collapses underneath.
-          final shrink = 1.0 - 0.04 * Curves.easeInCubic.transform(exitProgress);
+          // Anticipation 阶段（前 18%）：高度保持，仅放大 1.0 → 1.06；
+          // Collapse 阶段（后 82%）：高度从 1 → 0、缩放从 1.06 → 0.86、
+          // 透明度从 1 → 0。
+          const anticipateEnd = 0.18;
+          double heightFactor;
+          double opacity;
+          double scale;
+          double translateY;
+          if (exitProgress < anticipateEnd) {
+            final t = exitProgress / anticipateEnd; // 0 → 1
+            final eased = Curves.easeOutCubic.transform(t);
+            heightFactor = 1.0;
+            opacity = 1.0;
+            scale = 1.0 + 0.06 * eased;
+            translateY = -3 * eased;
+          } else {
+            final t = (exitProgress - anticipateEnd) / (1 - anticipateEnd);
+            final easedFold =
+                Curves.easeInOutCubicEmphasized.transform(t.clamp(0.0, 1.0));
+            heightFactor = (1.0 - easedFold).clamp(0.0, 1.0);
+            opacity = (1.0 - easedFold).clamp(0.0, 1.0);
+            scale = 1.06 - 0.20 * easedFold;
+            translateY = -3 - 14 * Curves.easeOutCubic.transform(t);
+          }
           return ClipRect(
             child: Align(
               alignment: Alignment.topCenter,
-              heightFactor: clampedValue,
+              heightFactor: heightFactor,
               child: Opacity(
-                opacity: clampedValue,
+                opacity: opacity,
                 child: Transform.translate(
-                  offset: Offset(
-                    0,
-                    -14 * Curves.easeOutCubic.transform(exitProgress),
-                  ),
+                  offset: Offset(0, translateY),
                   child: Transform.scale(
-                    scale: shrink,
+                    scale: scale,
                     alignment: Alignment.topCenter,
                     child: child,
                   ),
