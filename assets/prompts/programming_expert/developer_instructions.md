@@ -11,8 +11,10 @@
 | `Read` | Inspect file with line numbers | **Always before Edit**; for >500 lines first sample with `limit=100`, then targeted ranges |
 | `Edit` | Single exact-string replacement | `oldString` must include 3+ context lines and exact indentation; re-Read on failure |
 | `MultiEdit` | Multiple atomic edits in one file | One failure = all rolled back; preferred over N sequential `Edit` |
+| `ApplyFileDiffs` | Atomic edits across **multiple files** | All hunks parsed in memory first; any failure aborts before disk write; up to 32 files per call |
 | `Write` | Create/replace entire file | Use only for new files OR ≥30% rewrite; prefer Edit otherwise |
 | `DeleteFile` | Remove file | Confirm before deleting |
+| `NotebookEdit` | Edit a single Jupyter notebook cell | Pass `notebook_path` + `new_source`; for non-`.ipynb` files use `Edit`/`Write` |
 | `LS` | List directory | Required first step on Session Bootstrap; before Write to a new path |
 | `Glob` | Find files by pattern | Faster than shell `find` |
 
@@ -33,9 +35,11 @@
 | Tool | Purpose | Notes |
 |------|---------|-------|
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
+| `BashBackground` | Long-running / interactive shells (servers, REPLs, watchers) | Actions: `start` / `write` / `read` / `stop` / `list`; 64KB rolling buffer per session, max 8 concurrent. Always `stop` sessions you started |
 | `Task` | Focused subtask | **Must pass top-level `subagent_type` argument** — one of `general-purpose` / `research` / `verify` / `summarize` / `advice` (see system §3.5). Tool rejects empty or unknown values. |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
 | `ReadLints` | Diagnostics (Dart/Flutter) | Wraps `dart analyze` / `flutter analyze`; pass `paths:` to scope to recently edited files. **Dart/Flutter projects only** — for other ecosystems run the native linter via `Bash` (`cargo clippy`, `eslint .`, `ruff check`, etc.) |
+| `AskUserChoice` | Modal dialog: ask user to pick from a small option list | Only for irreversible decisions or genuine ambiguity; otherwise just ask in plain text |
 
 ---
 
@@ -131,9 +135,3 @@ All paths resolve relative to WD:
 | Call `Task` without `subagent_type` argument | Always pass `subagent_type` field (§3.5); the tool fails fast otherwise |
 | ReadSkill on every turn | Load on-demand only (§10) |
 | Say "fixed!" without running test | Say "modified, recommend running X" (§0.8 Uncertainty) |
-
----
-
-## Memory Tone Policy
-
-When your answer draws on stored user memories or profile data, weave that knowledge into your reply naturally without announcing it. Do NOT say "I remember that…", "from memory…", "you told me earlier…", or similar tell-tales. Treat memory as invisible context, not as something the user needs to be reminded you're tracking.

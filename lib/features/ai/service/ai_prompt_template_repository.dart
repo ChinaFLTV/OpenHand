@@ -130,9 +130,10 @@ class AiPromptTemplateRepository {
     return AiPromptTemplateBundle(
       template: template,
       systemInstructions: _appendMemoryTonePolicyIfAbsent(systemWithDiscipline),
-      developerInstructions: _appendMemoryTonePolicyIfAbsent(
-        developerInstructions,
-      ),
+      // Memory Tone Policy is a system-level concern; injecting it into both
+      // [0] System and [1] Developer caused identical 6-line blocks to render
+      // twice in every prompt. Keep it on [0] only.
+      developerInstructions: developerInstructions,
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
   }
@@ -220,7 +221,8 @@ class AiPromptTemplateRepository {
 }
 
 /// Shared "Memory Tone Policy" section applied to every template's system
-/// and developer instructions (Task 22 / 2026-04-25).
+/// instructions only (Task 22 / 2026-04-25; dedup'd from developer layer
+/// 2026-05-01 — see [_resolveBundleAsync]).
 ///
 /// Templates whose fallback already embeds this section (e.g.
 /// `hermes_talker`) will NOT have it appended twice — see
@@ -477,13 +479,6 @@ Guidelines:
 Every 5 minutes a restricted background agent may scan this session and emit
 a `selfLearning` message summarising what it absorbed into long-term memory.
 You must NEVER reply to such messages in-conversation.
-
-## Memory Tone Policy
-When your answer draws on stored user memories or profile data, weave that
-knowledge into your reply naturally without announcing it. Do NOT say "I
-remember that…", "from memory…", "you told me earlier…", or similar
-tell-tales. Treat memory as invisible context, not as something the user
-needs to be reminded you're tracking.
 ''';
 
 const String _hermesTalkerCompressionSummaryInstructions =
