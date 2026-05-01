@@ -166,40 +166,101 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             'first hop → direct@$hopHost:$hopPort');
       }
 
-      // DNS resolution (best-effort, may be skipped if proxy resolves remotely).
-      _log(_ProxyTestLogLevel.head, 'DNS', '────────  Lookup  ────────');
-      final dnsStart = _totalStopwatch.elapsedMilliseconds;
+      // ── Local network interfaces (split-tunnel diagnostic) ────────────
+      _log(_ProxyTestLogLevel.head, 'NIC',
+          '────────  Local Interfaces  ────────');
       try {
-        final addrs = await InternetAddress.lookup(hopHost)
-            .timeout(const Duration(seconds: 5));
-        final dnsMs = _totalStopwatch.elapsedMilliseconds - dnsStart;
-        if (addrs.isEmpty) {
-          _log(_ProxyTestLogLevel.warn, 'DNS',
-              '$hopHost → <no records>  (${dnsMs}ms)');
+        final ifaces = await NetworkInterface.list().timeout(
+          const Duration(seconds: 2),
+        );
+        if (ifaces.isEmpty) {
+          _log(_ProxyTestLogLevel.warn, 'NIC',
+              '<no active non-loopback interfaces detected>');
         } else {
-          for (final addr in addrs.take(4)) {
-            _log(_ProxyTestLogLevel.ok, 'DNS',
-                '$hopHost → ${addr.address}  (${addr.type.name})');
+          for (final iface in ifaces) {
+            final v4 = iface.addresses
+                .where((a) => a.type == InternetAddressType.IPv4)
+                .map((a) => a.address)
+                .toList();
+            final v6 = iface.addresses
+                .where((a) => a.type == InternetAddressType.IPv6)
+                .map((a) => a.address)
+                .toList();
+            _log(_ProxyTestLogLevel.info, 'NIC',
+                '${iface.name}  v4=[${v4.join(",")}]  v6=[${v6.length} addr]');
           }
-          if (addrs.length > 4) {
-            _log(_ProxyTestLogLevel.debug, 'DNS',
-                '… and ${addrs.length - 4} more record${addrs.length - 4 == 1 ? "" : "s"}');
-          }
-          _log(_ProxyTestLogLevel.info, 'DNS', 'lookup elapsed = ${dnsMs}ms');
         }
-      } on TimeoutException {
-        _log(_ProxyTestLogLevel.err, 'DNS',
-            'lookup timed out after 5000 ms');
       } catch (e) {
-        _log(_ProxyTestLogLevel.err, 'DNS', 'lookup failed: $e');
+        _log(_ProxyTestLogLevel.warn, 'NIC', 'enumeration failed: $e');
+      }
+
+      // ── DNS resolution: A + AAAA separately ──────────────────────────
+      _log(_ProxyTestLogLevel.head, 'DNS',
+          '────────  Lookup ($hopHost)  ────────');
+      InternetAddress? selectedAddr;
+      for (final family in const <InternetAddressType>[
+        InternetAddressType.IPv4,
+        InternetAddressType.IPv6,
+      ]) {
+        final famName = family == InternetAddressType.IPv4 ? 'A' : 'AAAA';
+        final dnsStart = _totalStopwatch.elapsedMilliseconds;
+        try {
+          final addrs = await InternetAddress.lookup(hopHost, type: family)
+              .timeout(const Duration(seconds: 5));
+          final dnsMs = _totalStopwatch.elapsedMilliseconds - dnsStart;
+          if (addrs.isEmpty) {
+            _log(_ProxyTestLogLevel.debug, 'DNS',
+                '$famName → <none>  (${dnsMs}ms)');
+          } else {
+            for (final addr in addrs.take(4)) {
+              _log(_ProxyTestLogLevel.ok, 'DNS',
+                  '$famName → ${addr.address}  (${dnsMs}ms)');
+            }
+            if (addrs.length > 4) {
+              _log(_ProxyTestLogLevel.debug, 'DNS',
+                  '… +${addrs.length - 4} more $famName record${addrs.length - 4 == 1 ? "" : "s"}');
+            }
+            selectedAddr ??= addrs.first;
+          }
+        } on TimeoutException {
+          _log(_ProxyTestLogLevel.warn, 'DNS',
+              '$famName lookup timed out (5000ms)');
+        } catch (e) {
+          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName lookup failed: $e');
+        }
+      }
+      if (selectedAddr != null) {
+        final preferredFamily = selectedAddr.type == InternetAddressType.IPv6
+            ? 'IPv6 (AAAA)'
+            : 'IPv4 (A)';
+        _log(_ProxyTestLogLevel.info, 'DNS',
+            'preferred family = $preferredFamily  (first answer)');
+        // Reverse DNS (PTR) for selected address.
+        try {
+          final ptr = await selectedAddr
+              .reverse()
+              .timeout(const Duration(seconds: 3));
+          _log(_ProxyTestLogLevel.ok, 'PTR',
+              '${selectedAddr.address} ← ${ptr.host}');
+        } on TimeoutException {
+          _log(_ProxyTestLogLevel.debug, 'PTR',
+              '${selectedAddr.address} ← <timeout 3000ms>');
+        } catch (e) {
+          _log(_ProxyTestLogLevel.debug, 'PTR',
+              '${selectedAddr.address} ← <unavailable: $e>');
+        }
+      } else {
+        _log(_ProxyTestLogLevel.warn, 'DNS', 'no usable address resolved');
       }
 
       // Raw TCP probe
-      _log(_ProxyTestLogLevel.head, 'TCP', '────────  Socket Connect  ────────');
+      _log(_ProxyTestLogLevel.head, 'TCP',
+          '────────  Socket Connect  ────────');
       final tcpStart = _totalStopwatch.elapsedMilliseconds;
       try {
         final socket = await Socket.connect(hopHost, hopPort,
-            timeout: const Duration(seconds: 6));
+                timeout: const Duration(seconds: 6))
+            .timeout(const Duration(seconds: 6));
         final tcpMs = _totalStopwatch.elapsedMilliseconds - tcpStart;
         _log(_ProxyTestLogLevel.ok, 'TCP',
             'handshake ok  remote=${socket.remoteAddress.address}:${socket.remotePort}  local=${socket.address.address}:${socket.port}  rtt=${tcpMs}ms');
@@ -212,6 +273,50 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         _log(_ProxyTestLogLevel.err, 'TCP',
             'connect timed out after 6000 ms');
         rethrow;
+      }
+
+      // ── TLS handshake (only if we go directly to an HTTPS target) ────
+      // For a proxied request the TLS handshake happens against the
+      // *target* after a CONNECT tunnel which we cannot easily observe
+      // from outside HttpClient; so we only run a stand-alone SecureSocket
+      // probe in the direct-to-https case.
+      if (!useProxy && uri.scheme == 'https') {
+        _log(_ProxyTestLogLevel.head, 'TLS',
+            '────────  SecureSocket Handshake  ────────');
+        final tlsStart = _totalStopwatch.elapsedMilliseconds;
+        try {
+          final secure = await SecureSocket.connect(
+            hopHost,
+            hopPort,
+            timeout: const Duration(seconds: 8),
+            supportedProtocols: const <String>['h2', 'http/1.1'],
+          );
+          final tlsMs = _totalStopwatch.elapsedMilliseconds - tlsStart;
+          _log(_ProxyTestLogLevel.ok, 'TLS',
+              'handshake ok  alpn=${secure.selectedProtocol ?? "<none>"}  rtt=${tlsMs}ms');
+          final cert = secure.peerCertificate;
+          if (cert != null) {
+            _log(_ProxyTestLogLevel.info, 'TLS', 'cert.subject = ${cert.subject.replaceAll("\n", " / ").trim()}');
+            _log(_ProxyTestLogLevel.info, 'TLS', 'cert.issuer  = ${cert.issuer.replaceAll("\n", " / ").trim()}');
+            _log(_ProxyTestLogLevel.debug, 'TLS',
+                'cert.validity = ${cert.startValidity.toIso8601String()} → ${cert.endValidity.toIso8601String()}');
+          } else {
+            _log(_ProxyTestLogLevel.warn, 'TLS',
+                'peerCertificate = <null>  (unexpected)');
+          }
+          await secure.close();
+        } on HandshakeException catch (e) {
+          _log(_ProxyTestLogLevel.err, 'TLS',
+              'handshake failed: ${e.message}');
+          rethrow;
+        } on TimeoutException {
+          _log(_ProxyTestLogLevel.err, 'TLS',
+              'handshake timed out after 8000 ms');
+          rethrow;
+        }
+      } else if (useProxy && uri.scheme == 'https') {
+        _log(_ProxyTestLogLevel.debug, 'TLS',
+            'skipped — TLS handshake will tunnel through proxy CONNECT (observed via HTTP step)');
       }
 
       // Real HTTP request via HttpClient (handles TLS + CONNECT/forward proxy semantics).
