@@ -729,7 +729,7 @@ class HardnessOrchestrator extends ChangeNotifier {
       if (_isDisposed) return;
       _recordUnhandledPhaseError(activeLog, e);
       _status = HardnessOrchestratorStatus.failed;
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyOrchestratorError(e);
     }
 
     _currentPhase = null;
@@ -974,7 +974,7 @@ class HardnessOrchestrator extends ChangeNotifier {
     } catch (e) {
       if (_isDisposed) return;
       _recordUnhandledPhaseError(freshLog, e);
-      _errorMessage = e.toString();
+      _errorMessage = _friendlyOrchestratorError(e);
     }
 
     // Determine overall status from all phase logs.
@@ -1057,6 +1057,29 @@ class HardnessOrchestrator extends ChangeNotifier {
         log.status == HardnessPhaseStatus.paused) {
       log.status = HardnessPhaseStatus.failed;
     }
+  }
+
+  /// 把 orchestrator 顶层 catch 拿到的未识别异常翻译成 header 错误栏
+  /// 上的简短中英双语标题 + Raw，使 ProcessException / TimeoutException
+  /// / FormatException / FileSystem 错误能立刻定位类别，详细栈仍然写
+  /// 进 phase log。
+  String _friendlyOrchestratorError(Object error) {
+    final raw = error.toString();
+    if (error is ProcessException) {
+      return '进程启动失败 / Failed to start process: '
+          '${error.executable}\n原始错误：$raw';
+    }
+    if (error is TimeoutException) {
+      return '执行超时 / Operation timed out\n原始错误：$raw';
+    }
+    if (error is FormatException) {
+      return '解析输出失败 / Failed to parse output\n原始错误：$raw';
+    }
+    if (raw.startsWith('FileSystemException') ||
+        raw.startsWith('PathNotFoundException')) {
+      return '文件系统错误 / Filesystem error\n原始错误：$raw';
+    }
+    return raw;
   }
 
   bool _shouldGatePhaseEntry(int index, HardnessPhase phase) {
