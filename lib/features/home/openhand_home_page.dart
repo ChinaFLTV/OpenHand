@@ -1614,7 +1614,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     final userScrolledAwayFromBottom = !isNearBottom && explicitUserScroll;
-    if (userScrolledAwayFromBottom) {
+    // 2026-05-02: Honor the user's mental model — "any deliberate upward
+    // scroll while a new message could arrive should pause auto-follow,
+    // even if I'm only a few pixels above the floor". Without this, a
+    // tiny manual upward nudge that lands within the 32 px tolerance
+    // window leaves the transcript silently re-following the next chunk
+    // and yanks the viewport away from the line the user just stopped
+    // at. We detect the gesture via the `UserScrollNotification.direction
+    // == reverse` signal (vertical list: reverse = pixels decreasing =
+    // user revealing earlier content) and require strictly-positive
+    // distance-to-bottom so a true bottom-pin scroll-end isn't treated
+    // as a pause request.
+    final userScrolledUpwardFromBottom =
+        notification is UserScrollNotification &&
+        notification.direction == ScrollDirection.reverse &&
+        distanceToBottom > 0;
+    if (userScrolledAwayFromBottom || userScrolledUpwardFromBottom) {
       _shouldAutoFollowMessages = false;
       _clearPendingAutoFollowState();
       _syncAutoFollowPausedState();
