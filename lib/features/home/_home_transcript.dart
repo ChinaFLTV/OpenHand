@@ -160,12 +160,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   // 2026-05-04 (调优): 阈值 4 → 3 让三连发的工具调用也能享受
   // 涩流；首批 2 → 1 减少"先一股脑挤进 2 张然后才慢慢漏"的
   // 突兀感，改成"第一张到位后稳定地一张张追上来"；步长
-  // 70 → 120 ms 让节拍稍稍慢于 _MessageBubble 自身入场动画
-  // (≈90 ms elasticOut 主峰)，使每张卡片在落定后下一张才出现，
-  // 视觉上呈"踏点"节奏而非追尾。
+  // 70 → 120 → 150 ms：再放慢一档，给 elasticOut 主峰之外
+  // 后续的回弹收敛留够呼吸时间，每张卡片真正"安顿好"再让
+  // 下一张登场，整体观感从"踏点"升级为"从容落子"。
   static const int _dripStartChunkSize = 1;
   static const int _dripActivationThreshold = 3;
-  static const Duration _dripStepInterval = Duration(milliseconds: 120);
+  static const Duration _dripStepInterval = Duration(milliseconds: 150);
 
   @override
   void initState() {
