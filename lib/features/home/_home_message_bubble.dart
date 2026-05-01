@@ -1090,8 +1090,12 @@ class _ImagePreviewDialog extends StatelessWidget {
     final client = HttpClient()
       ..connectionTimeout = const Duration(seconds: 20);
     try {
-      final request = await client.getUrl(sourceUri);
-      final response = await request.close();
+      final request = await client
+          .getUrl(sourceUri)
+          .timeout(const Duration(seconds: 20));
+      final response = await request.close().timeout(
+            const Duration(seconds: 30),
+          );
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw HttpException(
           'HTTP ${response.statusCode} while downloading image.',
@@ -1108,7 +1112,12 @@ class _ImagePreviewDialog extends StatelessWidget {
 
       final output = File(destination).openWrite();
       try {
-        await output.addStream(response);
+        // Cap idle gap between TCP chunks at 30s and total body read at
+        // 5min so a malicious / stalled origin cannot hang the bubble
+        // forever.
+        await output
+            .addStream(response.timeout(const Duration(seconds: 30)))
+            .timeout(const Duration(minutes: 5));
         await output.flush();
       } finally {
         await output.close();
