@@ -740,5 +740,6 @@
   "proxyTestConsoleClose": "Fermer",
   "proxyTestConsoleRerun": "Relancer",
   "proxyTestConsoleMaximize": "Agrandir",
-  "proxyTestConsoleRestore": "Restaurer"
+  "proxyTestConsoleRestore": "Restaurer",
+  "proxyTestConsoleClear": "Effacer la console"
 }

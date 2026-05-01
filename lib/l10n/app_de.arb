@@ -740,5 +740,6 @@
   "proxyTestConsoleClose": "Schließen",
   "proxyTestConsoleRerun": "Erneut ausführen",
   "proxyTestConsoleMaximize": "Maximieren",
-  "proxyTestConsoleRestore": "Wiederherstellen"
+  "proxyTestConsoleRestore": "Wiederherstellen",
+  "proxyTestConsoleClear": "Konsole leeren"
 }

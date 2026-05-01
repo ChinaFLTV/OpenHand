@@ -2224,4 +2224,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get proxyTestConsoleRestore => '元のサイズに戻す';
+
+  @override
+  String get proxyTestConsoleClear => 'コンソールをクリア';
 }

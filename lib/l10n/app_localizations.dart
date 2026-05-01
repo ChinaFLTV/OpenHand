@@ -4131,6 +4131,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'还原'**
   String get proxyTestConsoleRestore;
+
+  /// No description provided for @proxyTestConsoleClear.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'清空终端'**
+  String get proxyTestConsoleClear;
 }
 
 class _AppLocalizationsDelegate

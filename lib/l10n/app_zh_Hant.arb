@@ -740,5 +740,6 @@
   "proxyTestConsoleClose": "關閉",
   "proxyTestConsoleRerun": "重新執行",
   "proxyTestConsoleMaximize": "最大化",
-  "proxyTestConsoleRestore": "還原"
+  "proxyTestConsoleRestore": "還原",
+  "proxyTestConsoleClear": "清空終端"
 }

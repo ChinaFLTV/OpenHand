@@ -904,5 +904,6 @@
   "proxyTestConsoleClose": "关闭",
   "proxyTestConsoleRerun": "重新运行",
   "proxyTestConsoleMaximize": "最大化",
-  "proxyTestConsoleRestore": "还原"
+  "proxyTestConsoleRestore": "还原",
+  "proxyTestConsoleClear": "清空终端"
 }

@@ -2250,4 +2250,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get proxyTestConsoleRestore => 'Wiederherstellen';
+
+  @override
+  String get proxyTestConsoleClear => 'Konsole leeren';
 }

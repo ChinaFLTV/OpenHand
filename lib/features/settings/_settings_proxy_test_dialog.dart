@@ -607,6 +607,16 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             ),
           ),
           IconButton(
+            tooltip: l10n.proxyTestConsoleClear,
+            // 2026-05-04: 清空按钮在运行中也可用 —— 用户场景里
+            // 经常想"看清楚刚发的请求"，把之前堆积的 trace 清掉
+            // 而保留正在跑的诊断；只清 _entries / _sectionDurations，
+            // 不重置 _totalStopwatch 也不打断流程，新增条目继续
+            // 按当前 elapsed 时间戳追加。
+            onPressed: _entries.isEmpty ? null : _clearConsole,
+            icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+          ),
+          IconButton(
             tooltip: l10n.proxyTestConsoleCopy,
             onPressed: _entries.isEmpty ? null : _copyLogs,
             icon: const Icon(Icons.copy_all_outlined, size: 20),
@@ -989,6 +999,16 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         ),
       ),
     );
+  }
+
+  void _clearConsole() {
+    if (_entries.isEmpty) return;
+    setState(() {
+      _entries.clear();
+      _sectionDurations.clear();
+      // 仅清显示，不动 _currentSectionTag / startMs：当前在跑的
+      // section 时长仍按真实计时累加，下一条 head 收尾时正常 finalize。
+    });
   }
 
   void _rerun() {

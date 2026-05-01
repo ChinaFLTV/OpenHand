@@ -740,5 +740,6 @@
   "proxyTestConsoleClose": "閉じる",
   "proxyTestConsoleRerun": "再実行",
   "proxyTestConsoleMaximize": "最大化",
-  "proxyTestConsoleRestore": "元のサイズに戻す"
+  "proxyTestConsoleRestore": "元のサイズに戻す",
+  "proxyTestConsoleClear": "コンソールをクリア"
 }
