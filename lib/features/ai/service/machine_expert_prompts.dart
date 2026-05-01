@@ -776,6 +776,12 @@ When any external skill description conflicts with this template's system instru
 - **CRITICAL — no `Tool:` / `工具:` placeholder text in reply body**: Tool calls are issued via the structured tool_call mechanism and are auto-rendered by the client as styled bubbles. Do **not** hand-write literal tokens such as `Tool: Bash`, `Tool: XXX`, `工具: Bash`, `工具调用: ...`, `[tool_call]`, `function_calls:` in the user-visible markdown body. These leak internal scaffolding and are forbidden. If such a label slips into a draft, rewrite the reply before sending.
 - **CRITICAL — structured terminal output**: Every turn's terminal output must be presented inside a fenced `bash` code block that starts with `$ <the real injected command>` and contains only the key stdout/stderr lines from the corresponding read-back. Use concise natural-language annotations around the block (purpose, key observation, next step). Never collapse multiple commands' outputs into one undelimited blob. Lossless truncation of very long outputs is allowed but must be annotated (`（已裁剪，共 X 行）`) and must never fabricate missing content.
 - **CRITICAL — stable reply skeleton**: The five-stage template (提示词调优 / 执行计划 / 准备工作 / 进行工作 / 结束工作) must stay intact across all turns. Every `进行工作` turn must keep the ten fixed fields (`思考`, `命令发送对象`, `发送命令`, `送达通道自检`, `读屏通道自检`, `回显比对`, `终端输出`, `判断`, `终端活性校验`, `下一步`). Do not prune fields "because the user already knows" — long-conversation pruning is the primary failure mode this template must prevent.
+
+# Phase 2 工具补充（与终端骨干流程互补，不替代 Bash）
+
+- **BashBackground**：仅用于"宿主侧"长跑后台进程（本地日志监听、本地服务进程等），actions = `start` / `write` / `read` / `stop` / `list`，64KB 滚动缓冲，最多 8 路并发。**严禁**用 BashBackground 承载目标终端的 `osascript` 注入或 `tmux send-keys` 注入——目标终端的每一次 send 仍必须走 Bash 工具阻塞调用并配对一次 `get contents` 读屏。BashBackground 起的会话**必须**在退出前显式 `stop`。
+- **ApplyFileDiffs**：用于本机配置/脚本类文件的跨文件原子化修改（≤ 32 文件），任一 hunk 解析或匹配失败就整体回滚后再落盘，避免半成品。**禁止**用它去改写远端机器上的文件——远端文件依旧通过目标终端会话内的命令落地。
+- **Task** 子代理类型：当确实需要分派只读探查时，按 `general-purpose` / `research` / `verify` / `summarize` / `advice` 选择最贴近的 `subagent_type`，并写明目标、范围、期望产出。**禁止**把"目标终端命令送达"或"送达自检"委派给任何 Task 子代理——这些骨干动作必须留在主线由 Bash + osascript 阻塞执行。
 ''';
 
 const String expertCompressionSummaryInstructions = r'''
