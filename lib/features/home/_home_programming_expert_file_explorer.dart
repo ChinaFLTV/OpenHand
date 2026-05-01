@@ -3017,7 +3017,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -3092,7 +3092,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -3201,7 +3201,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     } finally {
       if (identical(_pendingWorkspaceEditPreviewContext, previewContext)) {
         _pendingWorkspaceEditPreviewContext = null;
@@ -3448,7 +3448,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -3483,7 +3483,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -3861,7 +3861,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -4289,7 +4289,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -4343,7 +4343,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -4384,7 +4384,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -4425,7 +4425,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -4933,7 +4933,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (!mounted) {
         return;
       }
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -6207,7 +6207,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         return;
       }
       if (explicit) {
-        _showLspMessage(title: title, message: '$error');
+        _showLspMessage(title: title, message: _friendlyLspError(error));
       }
       _hideSignatureHelpOverlay();
     }
@@ -9406,7 +9406,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     } catch (error) {
       if (!mounted) return;
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -9457,7 +9457,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     } catch (error) {
       if (!mounted) return;
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -9546,7 +9546,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       }
     } catch (error) {
       if (!mounted) return;
-      _showLspMessage(title: title, message: '$error');
+      _showLspMessage(title: title, message: _friendlyLspError(error));
     }
   }
 
@@ -14525,4 +14525,36 @@ class _EditorTab extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 把 LSP 请求阶段抛出的常见异常翻译成更具操作性的中英双语文案，
+/// 避免在编辑器结果栏里直接展示 `TimeoutException: ...` 这种栈底信息。
+String _friendlyLspError(Object error) {
+  if (error is TimeoutException) {
+    return 'LSP 请求超时 / LSP request timed out\n'
+        '\n'
+        '原因 / Why:\n'
+        'LSP 服务器在限定时间内没有返回结果，可能是分析进程被大文件 / 索引重建 / 死锁卡住。\n'
+        '\n'
+        '建议 / Try:\n'
+        '· 等待索引完成后再试一次\n'
+        '· 重启 LSP 服务器 (设置 → 编辑器 → LSP)\n'
+        '· 关闭过大的工作区 / 减少打开的项目\n'
+        '· 升级或重新安装该语言的 LSP\n'
+        '\n'
+        '原始错误 / Raw:\n'
+        '$error';
+  }
+  if (error is UnsupportedError) {
+    return 'LSP 操作不支持 / Unsupported LSP operation\n\n'
+        '该 LSP 服务器对当前操作没有对应的能力声明，可能需要更换 / 升级语言服务器。\n\n'
+        '原始错误 / Raw:\n$error';
+  }
+  // StateError 通常来自 _resolutionErrorMessage(backend) 或 "too many
+  // pending requests" — 它们的 message 已经是用户可读的描述，直接透传
+  // 即可，避免重复包装一层。
+  if (error is StateError) {
+    return error.message;
+  }
+  return '$error';
 }
