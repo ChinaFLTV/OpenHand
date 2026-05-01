@@ -43,6 +43,11 @@ flutter:
   generate: true
   assets:
     - assets/prompts/
+    - assets/prompts/common/
+    - assets/prompts/default/
+    - assets/prompts/hardness_engineering/
+    - assets/prompts/hermes_talker/
+    - assets/prompts/programming_expert/
     - assets/branding/
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
