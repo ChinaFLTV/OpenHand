@@ -137,13 +137,14 @@ class AiPromptTemplateRepository {
     );
   }
 
-  /// Appends the shared v4 discipline block (Session Bootstrap / Diff-Thinking
-  /// / Verification Loop / Uncertainty Honesty / Atomic Change Discipline)
-  /// loaded from `assets/prompts/common/v4_discipline_en.md` when the target
-  /// instruction text does not already contain an Atomic Change Discipline
-  /// marker (English or Chinese). Templates that ship their own specialised
-  /// version (`programming_expert`, `hardness_engineering`, `machine_expert`)
-  /// are detected via marker presence and left untouched.
+  /// Appends the shared v4 discipline block (Uncertainty Honesty + Atomic
+  /// Change Discipline; English variant additionally covers Session Bootstrap
+  /// / Diff-Thinking / Verification Loop) loaded from
+  /// `assets/prompts/common/v4_discipline_{en,zh}.md` when the target
+  /// instruction text does not already contain a discipline marker. Templates
+  /// that ship their own specialised version (`programming_expert`,
+  /// `machine_expert`) are detected via marker presence and left untouched.
+  /// Language is inferred from the instructions' CJK-character ratio.
   Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
     final lower = instructions.toLowerCase();
     if (lower.contains('# atomic change discipline') ||
@@ -152,14 +153,39 @@ class AiPromptTemplateRepository {
         instructions.contains('不确定性诚实')) {
       return instructions;
     }
-    final snippet = await _loadTemplateSection(
-      'assets/prompts/common/v4_discipline_en.md',
-      '',
-    );
+    final useChinese = _looksLikeChinese(instructions);
+    final assetPath = useChinese
+        ? 'assets/prompts/common/v4_discipline_zh.md'
+        : 'assets/prompts/common/v4_discipline_en.md';
+    final snippet = await _loadTemplateSection(assetPath, '');
     if (snippet.isEmpty) {
       return instructions;
     }
     return '${instructions.trimRight()}\n\n$snippet\n';
+  }
+
+  /// Heuristic: treat instructions as Chinese when CJK characters make up
+  /// ≥15% of all non-whitespace characters. Threshold is intentionally low
+  /// because English-only templates have ~0% CJK while Chinese templates
+  /// (hardness_engineering, machine_expert) routinely exceed 40%.
+  bool _looksLikeChinese(String text) {
+    int cjk = 0;
+    int total = 0;
+    for (final rune in text.runes) {
+      if (rune == 0x20 || rune == 0x09 || rune == 0x0A || rune == 0x0D) {
+        continue;
+      }
+      total++;
+      if ((rune >= 0x4E00 && rune <= 0x9FFF) ||
+          (rune >= 0x3400 && rune <= 0x4DBF) ||
+          (rune >= 0xF900 && rune <= 0xFAFF)) {
+        cjk++;
+      }
+    }
+    if (total == 0) {
+      return false;
+    }
+    return cjk * 100 ~/ total >= 15;
   }
 
   Future<String> _loadTemplateSection(String assetPath, String fallback) async {

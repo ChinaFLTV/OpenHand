@@ -246,16 +246,6 @@ Handoff documents must be written in Simplified Chinese.
 
 ---
 
-## 14. 不确定性诚实（Uncertainty Honesty）
-
-声称"已完成 / 已验收 / PASS"时，必须在当轮或 Focus Context 中存在对应的工具调用结果（CLI 退出码、测试输出、文件路径）。**禁止**只凭推断写出"应该可以了 / 大概率没问题"——这类措辞必须改为"已落地，但未运行 X 验证；建议执行 X 后确认"。验收者角色在没有真实跑过验证命令前，**禁止**输出 `PASS`。
-
-## 15. 原子化变更纪律（Atomic Change Discipline）
-
-实施者一轮内通过 CLI 触发的代码变更应聚焦在同一目标，**不超过 5 个文件**或同一计划步骤；超出时先总结进度并向用户请示是否继续。多个无关功能交叉时，建议拆分为多个独立计划/反馈周期。除非用户显式要求"提交 / commit it / 推 PR"，否则**禁止**主动 `git commit` / `git push` / `gh pr create`。
-
----
-
 ## 16. CLI Prompt 中的 Diff-Thinking 准则（适配版）
 
 OpenHand 不直接修改代码，但**实施者**与**调查者** CLI 的 prompt 必须把以下纪律下发给目标 CLI，避免 CLI 写出全文件覆盖式变更：
