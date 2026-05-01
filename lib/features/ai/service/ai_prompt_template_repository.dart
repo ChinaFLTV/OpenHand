@@ -142,6 +142,27 @@ class AiPromptTemplateRepository {
       return fallback;
     }
   }
+
+  /// Loads the shared auto-title system prompt from
+  /// `assets/prompts/common/auto_title_system_prompt.md`. The
+  /// `{{MAX_TITLE_CHARACTERS}}` placeholder is substituted with
+  /// [maxTitleCharacters] so the prompt's hard length cap matches the
+  /// runtime constraint enforced after the model replies. Falls back to
+  /// [fallback] when the asset is missing or unreadable (debug builds, hot
+  /// reload before assets re-bundle, etc.).
+  Future<String> loadAutoTitleSystemPrompt({
+    required int maxTitleCharacters,
+    required String fallback,
+  }) async {
+    final raw = await _loadTemplateSection(
+      'assets/prompts/common/auto_title_system_prompt.md',
+      fallback,
+    );
+    return raw.replaceAll(
+      '{{MAX_TITLE_CHARACTERS}}',
+      maxTitleCharacters.toString(),
+    );
+  }
 }
 
 /// Shared "Memory Tone Policy" section applied to every template's system

@@ -143,6 +143,20 @@ String _deriveSessionTitle(
 
 String _sanitizeGeneratedTitle(String value) {
   var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  // 2026-05-01 Claude-Code-style prompt asks the model to wrap the title in
+  // `<title>...</title>` tags. Extract the first such match before any
+  // other sanitisation so wrapper text outside the tags (preambles like
+  // "Sure, here is the title:" — which would otherwise survive
+  // `_stripTitleWrappers`) cannot leak into the persisted title. Falls
+  // through to the legacy plain-text path when no tags are present, so
+  // older models / fallback prompts still produce a usable title.
+  final tagMatch = RegExp(
+    r'<title[^>]*>([\s\S]*?)<\/title>',
+    caseSensitive: false,
+  ).firstMatch(normalized);
+  if (tagMatch != null) {
+    normalized = tagMatch.group(1) ?? '';
+  }
   normalized = normalized.replaceAll(RegExp(r'[\n]+'), ' ');
   normalized = normalized.replaceAllMapped(
     RegExp(r'\[([^\]]+)\]\([^)]+\)'),
