@@ -54,6 +54,13 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   final Stopwatch _totalStopwatch = Stopwatch();
   late final AnimationController _cursorBlinkController;
 
+  // 2026-05-04 (UI \u8c03\u4f18): \u6bcf\u5f53\u4e00\u6761 head \u65e5\u5fd7\u51fa\u73b0\u65f6\u5c06\u4e0a\u4e00\u4e2a\u5c0f\u8282
+  // \u7684 tag \u4e0e\u8017\u65f6\u8bb0\u5165 _sectionDurations\uff0c\u4f9b\u9876\u90e8 chip \u5c55\u793a "\u70ed\u70b9
+  // \u8017\u65f6 = TAG (Xms)" \u4f7f\u7528\u3002
+  final Map<String, int> _sectionDurations = <String, int>{};
+  String? _currentSectionTag;
+  int _currentSectionStartMs = 0;
+
   bool _running = true;
   bool _finishedSucceeded = false;
   String? _finalSummary;
@@ -61,9 +68,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   @override
   void initState() {
     super.initState();
+    // 2026-05-04 (UI \u8c03\u4f18): \u5c06 blink \u5468\u671f\u4ece 900\u2192600 ms\uff0c\u8ba9\u7e41\u5fd9
+    // \u4e2d\u7684\u5149\u6807\u51fa\u73b0\u51fa "\u7e41\u5fd9" \u54cd\u5e94\u3002\u80cc\u666f\u4ece\u9ec4\u7eff\u8272\u8fc7\u5ea6
+    // \u5230\u9752\u9752\u7684\u8b66\u9192\u8272\uff0c\u8df3\u52a8\u8282\u594f\u4e2d\u5b8c\u6210"\u8272\u5f69+\u4eae\u5ea6"\u53cc\u91cd\u63d0\u793a\u3002
     _cursorBlinkController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 600),
     )..repeat(reverse: true);
     _totalStopwatch.start();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,13 +91,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   void _log(_ProxyTestLogLevel level, String tag, String body) {
     if (!mounted) return;
+    final nowMs = _totalStopwatch.elapsedMilliseconds;
+    if (level == _ProxyTestLogLevel.head) {
+      _finalizeCurrentSection(nowMs);
+      _currentSectionTag = tag;
+      _currentSectionStartMs = nowMs;
+    }
     setState(() {
       _entries.add(
         _ProxyTestLogEntry(
           level: level,
           tag: tag,
           body: body,
-          elapsedMs: _totalStopwatch.elapsedMilliseconds,
+          elapsedMs: nowMs,
         ),
       );
     });
@@ -99,6 +115,25 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         curve: Curves.easeOutCubic,
       );
     });
+  }
+
+  void _finalizeCurrentSection(int nowMs) {
+    final tag = _currentSectionTag;
+    if (tag == null) return;
+    final dur = nowMs - _currentSectionStartMs;
+    if (dur <= 0) return;
+    _sectionDurations[tag] = math.max(_sectionDurations[tag] ?? 0, dur);
+  }
+
+  MapEntry<String, int>? _slowestSection() {
+    if (_sectionDurations.isEmpty) return null;
+    MapEntry<String, int>? slowest;
+    for (final e in _sectionDurations.entries) {
+      if (slowest == null || e.value > slowest.value) {
+        slowest = e;
+      }
+    }
+    return slowest;
   }
 
   Future<void> _runDiagnostics() async {
@@ -374,6 +409,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       } catch (_) {}
     }
     _totalStopwatch.stop();
+    _finalizeCurrentSection(_totalStopwatch.elapsedMilliseconds);
     _log(
       ok ? _ProxyTestLogLevel.ok : _ProxyTestLogLevel.err,
       'DONE',
@@ -465,6 +501,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       statusColor = theme.colorScheme.error;
       statusText = l10n.proxyTestConsoleFailed;
     }
+    final slowest = _slowestSection();
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
       child: Row(
@@ -480,10 +517,36 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                   l10n.proxyTestConsoleTitle,
                   style: theme.textTheme.titleMedium,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  statusText,
-                  style: theme.textTheme.bodySmall?.copyWith(color: statusColor),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    Text(
+                      statusText,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: statusColor),
+                    ),
+                    if (_entries.isNotEmpty)
+                      _buildHeaderChip(
+                        theme: theme,
+                        icon: Icons.timer_outlined,
+                        label:
+                            'total ${_entries.last.elapsedMs}ms',
+                        tone: theme.colorScheme.secondaryContainer,
+                        fg: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    if (slowest != null && slowest.value > 0)
+                      _buildHeaderChip(
+                        theme: theme,
+                        icon: Icons.local_fire_department_outlined,
+                        label:
+                            'hot ${slowest.key} ${slowest.value}ms',
+                        tone: theme.colorScheme.tertiaryContainer,
+                        fg: theme.colorScheme.onTertiaryContainer,
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -492,6 +555,36 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             tooltip: l10n.proxyTestConsoleCopy,
             onPressed: _entries.isEmpty ? null : _copyLogs,
             icon: const Icon(Icons.copy_all_outlined, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderChip({
+    required ThemeData theme,
+    required IconData icon,
+    required String label,
+    required Color tone,
+    required Color fg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: tone,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: fg,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
           ),
         ],
       ),
@@ -523,20 +616,27 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Widget _buildBlinkingCursor() {
+    // 2026-05-04 (UI 调优): 双色 + 双频闪烁 — 控制器自身在
+    // 600 ms 内做 0→1 一次，颜色在绿色和琥珀色之间交替，
+    // 视觉上传递"正在工作"的活力，比单色淡入淡出更有"机器
+    // 在跑"的临场感。
     return AnimatedBuilder(
       animation: _cursorBlinkController,
       builder: (_, _) {
+        final t = _cursorBlinkController.value;
+        final color = Color.lerp(
+          const Color(0xFF8AE234), // green
+          const Color(0xFFFCD34D), // amber
+          t,
+        )!;
+        final opacity = 0.35 + 0.65 * t;
         return Padding(
           padding: const EdgeInsets.only(top: 4, left: 2),
           child: Row(
             children: <Widget>[
               Opacity(
-                opacity: _cursorBlinkController.value,
-                child: Container(
-                  width: 9,
-                  height: 16,
-                  color: const Color(0xFF8AE234),
-                ),
+                opacity: opacity,
+                child: Container(width: 9, height: 16, color: color),
               ),
             ],
           ),
@@ -555,27 +655,79 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       color: levelColor,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
-    return SelectionArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 1.5),
-        child: Text.rich(
-          TextSpan(
-            children: <InlineSpan>[
-              TextSpan(
-                text: '+${ts}s ',
-                style: textStyle.copyWith(color: const Color(0xFF6B7280)),
-              ),
-              TextSpan(
-                text: '${entry.tag.padRight(7)} │ ',
-                style: textStyle.copyWith(
-                  color: levelColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextSpan(text: entry.body, style: textStyle),
-            ],
+    final rowBody = Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        // 左侧色条：与 tag 同色，加强可视分组。
+        Container(
+          width: 3,
+          margin: const EdgeInsets.symmetric(vertical: 1.5),
+          decoration: BoxDecoration(
+            color: levelColor.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(1.5),
           ),
         ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.5),
+            child: Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: '+${ts}s ',
+                    style: textStyle.copyWith(color: const Color(0xFF6B7280)),
+                  ),
+                  TextSpan(
+                    text: '${entry.tag.padRight(7)} │ ',
+                    style: textStyle.copyWith(
+                      color: levelColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextSpan(text: entry.body, style: textStyle),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    // 入场动画：fade-in + 由下方 6px 上滑到位（200ms easeOutCubic），
+    // TweenAnimationBuilder 仅在条目首次挂载时由 0→1 一次性触发，
+    // 已挂载的旧条目重建时 begin 与 end 一致不会再次播放。
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<int>(identityHashCode(entry)),
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      builder: (_, t, child) {
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, (1 - t) * 6),
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onDoubleTap: () => _copyEntryLine(entry),
+        child: SelectionArea(child: rowBody),
+      ),
+    );
+  }
+
+  Future<void> _copyEntryLine(_ProxyTestLogEntry entry) async {
+    await Clipboard.setData(
+      ClipboardData(text: _formatEntryAsPlainText(entry)),
+    );
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.proxyTestConsoleCopied),
+        duration: const Duration(milliseconds: 1200),
       ),
     );
   }
@@ -616,19 +768,47 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           else
             const Spacer(),
           const SizedBox(width: 8),
+          if (!_running)
+            TextButton.icon(
+              onPressed: _rerun,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.proxyTestConsoleRerun),
+            ),
+          const SizedBox(width: 4),
           TextButton(
             onPressed: _running
                 ? null
                 : () => Navigator.of(context).pop(
-                      _ProxyTestOutcome(
-                        succeeded: _finishedSucceeded,
-                        summary: _finalSummary ?? '',
-                      ),
+                    _ProxyTestOutcome(
+                      succeeded: _finishedSucceeded,
+                      summary: _finalSummary ?? '',
                     ),
+                  ),
             child: Text(l10n.proxyTestConsoleClose),
           ),
         ],
       ),
     );
+  }
+
+  void _rerun() {
+    if (_running) return;
+    setState(() {
+      _entries.clear();
+      _sectionDurations.clear();
+      _currentSectionTag = null;
+      _currentSectionStartMs = 0;
+      _running = true;
+      _finishedSucceeded = false;
+      _finalSummary = null;
+    });
+    _totalStopwatch
+      ..reset()
+      ..start();
+    _cursorBlinkController.repeat(reverse: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _runDiagnostics();
+    });
   }
 }

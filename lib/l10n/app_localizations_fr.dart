@@ -2242,4 +2242,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClose => 'Fermer';
+
+  @override
+  String get proxyTestConsoleRerun => 'Relancer';
 }

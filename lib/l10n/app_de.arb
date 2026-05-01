@@ -737,5 +737,6 @@
   "proxyTestConsoleFailed": "Fertig: Probleme erkannt",
   "proxyTestConsoleCopy": "Protokoll kopieren",
   "proxyTestConsoleCopied": "Protokoll in Zwischenablage kopiert",
-  "proxyTestConsoleClose": "Schließen"
+  "proxyTestConsoleClose": "Schließen",
+  "proxyTestConsoleRerun": "Erneut ausführen"
 }

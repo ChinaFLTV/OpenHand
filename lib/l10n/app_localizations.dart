@@ -4113,6 +4113,12 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'关闭'**
   String get proxyTestConsoleClose;
+
+  /// No description provided for @proxyTestConsoleRerun.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新运行'**
+  String get proxyTestConsoleRerun;
 }
 
 class _AppLocalizationsDelegate

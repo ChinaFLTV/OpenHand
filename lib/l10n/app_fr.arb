@@ -737,5 +737,6 @@
   "proxyTestConsoleFailed": "Terminé : problèmes détectés",
   "proxyTestConsoleCopy": "Copier le journal",
   "proxyTestConsoleCopied": "Journal copié dans le presse-papiers",
-  "proxyTestConsoleClose": "Fermer"
+  "proxyTestConsoleClose": "Fermer",
+  "proxyTestConsoleRerun": "Relancer"
 }

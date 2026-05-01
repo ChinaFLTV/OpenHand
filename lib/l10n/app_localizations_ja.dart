@@ -2215,4 +2215,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClose => '閉じる';
+
+  @override
+  String get proxyTestConsoleRerun => '再実行';
 }

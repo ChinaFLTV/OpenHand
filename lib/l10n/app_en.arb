@@ -737,5 +737,6 @@
   "proxyTestConsoleFailed": "Done: issues detected",
   "proxyTestConsoleCopy": "Copy log",
   "proxyTestConsoleCopied": "Log copied to clipboard",
-  "proxyTestConsoleClose": "Close"
+  "proxyTestConsoleClose": "Close",
+  "proxyTestConsoleRerun": "Rerun"
 }
