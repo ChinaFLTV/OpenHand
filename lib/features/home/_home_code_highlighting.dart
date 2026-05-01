@@ -1257,13 +1257,12 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       setState(() {
         _isCleaning = false;
       });
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(isZh ? '清理缓存失败: $e' : 'Failed to clean cache: $e'),
-          ),
-        );
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      showFriendlyErrorSnackBar(
+        context,
+        message: '$e',
+        fallback: isZh ? '清理缓存失败' : 'Failed to clean cache',
+      );
     }
   }
 

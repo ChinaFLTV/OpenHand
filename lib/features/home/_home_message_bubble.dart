@@ -1022,12 +1022,10 @@ class _ImagePreviewDialog extends StatelessWidget {
       await _downloadRemoteImage(sourceUri, location.path);
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _localizedText(context, zh: '保存失败：$e', en: 'Save failed: $e'),
-          ),
-        ),
+      showFriendlyErrorSnackBar(
+        context,
+        message: '$e',
+        fallback: _localizedText(context, zh: '保存失败', en: 'Save failed'),
       );
     }
   }
