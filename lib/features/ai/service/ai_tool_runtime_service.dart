@@ -1941,7 +1941,13 @@ class AiToolRuntimeService {
           'Prefer `patch` (unique-match substring replace) over `edit` '
           '(full rewrite). `write_file`/`remove_file` are restricted to the '
           '{references, templates, scripts, assets} sub-directories of an '
-          'existing skill. Confirm with the user before calling `delete`.',
+          'existing skill. Confirm with the user before calling `delete`. '
+          'ANTI-FRAGMENTATION: before `create`, scan the existing skill '
+          'catalog; if any skill already covers — even partially — the '
+          'workflow you are about to save, you MUST extend it via `patch` '
+          'or `edit` instead of creating an overlapping sibling. Two skills '
+          'whose descriptions would trigger on the same request is a bug. '
+          'When unsure, do nothing rather than fragmenting the catalog.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -2012,7 +2018,20 @@ class AiToolRuntimeService {
           'Manage the user memory store (Hermes Talker self-learning only). '
           'Supported actions: `list` (optional tag filter), `append` '
           '(insert a new memory), `upsert_profile` (create or replace the '
-          'single user_profile entry), `update` (by id), `delete` (by id).',
+          'single user_profile entry), `update` (by id), `delete` (by id). '
+          'ANTI-FRAGMENTATION: before `append` or `upsert_profile`, call '
+          '`list` (or scan injected memory context) and prefer `update` to '
+          'fold the new fact into an existing related entry — two entries '
+          'with paraphrased titles is a bug. `upsert_profile` must be '
+          'dialectical: preserve correct existing fields, only add or '
+          'correct what genuinely changed (≤~30% growth per turn). `append` '
+          'is the last resort, justified only when the topic is orthogonal '
+          'to every existing entry AND has clear cross-conversation reuse '
+          'value (not "we just discussed X"). NEVER `delete` memories the '
+          'user authored manually — `delete` is only for collapsing your '
+          'own historical entries now fully superseded by an updated one. '
+          'A no-op is a valid outcome; skipping a save when the bar is not '
+          'met is correct behaviour.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
