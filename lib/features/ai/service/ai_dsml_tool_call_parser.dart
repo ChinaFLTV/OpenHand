@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:yaml/yaml.dart';
+
 import 'ai_protocol_adapter.dart';
 
 class AiDsmlToolCallExtractionResult {
@@ -206,7 +208,10 @@ final RegExp _dsmlLooseTagPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _dsmlAttributePattern = RegExp(
-  r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')""",
+  // 2026-05-03: tolerate unquoted attribute values
+  // (e.g. `<DSML:invoke name=Bash>`). Tries quoted forms first, then
+  // a bareword fallback that stops at whitespace / `>`.
+  r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""",
 );
 
 String _canonicalizeDsmlMarkup(String value) {
@@ -351,7 +356,7 @@ Map<String, String> _parseDsmlAttributes(String rawAttributes) {
     if (key.isEmpty) {
       continue;
     }
-    attributes[key] = match.group(2) ?? match.group(3) ?? '';
+    attributes[key] = match.group(2) ?? match.group(3) ?? match.group(4) ?? '';
   }
   return attributes;
 }
@@ -464,6 +469,34 @@ final RegExp _codeFenceEnvelopePattern = RegExp(
   caseSensitive: false,
 );
 
+// 2026-05-03: YAML code-fence envelope (```yaml ...```). Conservative:
+// the body MUST contain a top-level `name:` / `tool_name:` /
+// `function:` line; otherwise we leave the fence untouched (it's
+// almost certainly the user's own YAML content). The actual decode +
+// safety check happens in `_convertHashTagToolCalls`.
+final RegExp _codeFenceYamlEnvelopePattern = RegExp(
+  r'```\s*yaml[^\n]*\n([\s\S]*?)```',
+  caseSensitive: false,
+);
+final RegExp _yamlEnvelopeNameKeyPattern = RegExp(
+  r'^\s*(?:name|tool_name|function)\s*:',
+  multiLine: true,
+);
+
+// 2026-05-03: multi-segment hash envelope —
+//   ##invoke## name: Bash ##args## command: ls ##end##
+// The body contains an `##args##` separator (case-insensitive). We
+// rebuild it as YAML (`name: Bash\nargs:\n  command: ls`) and let the
+// renderer's YAML fallback take over.
+final RegExp _multiSegmentHashEnvelopePattern = RegExp(
+  r'##\s*invoke\s*##([\s\S]*?)##\s*end\s*##',
+  caseSensitive: false,
+);
+final RegExp _multiSegmentArgsSplitter = RegExp(
+  r'##\s*(?:args|arguments|parameters|input)\s*##',
+  caseSensitive: false,
+);
+
 // Line-prefix envelope: `TOOL_USE: {json}` / `OPENAI_FN: {json}` /
 // `TOOL_CALL: {json}` at the start of a line (or after a newline).
 // We capture a single brace-balanced JSON object that starts on the
@@ -509,6 +542,33 @@ String _convertHashTagToolCalls(String value) {
       (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
     );
   }
+  // 2026-05-03: YAML fence — convert ONLY when the body looks like an
+  // envelope (top-level `name`/`tool_name`/`function` key). Otherwise
+  // leave the original fence verbatim so we don't clobber unrelated
+  // YAML content.
+  if (current.contains('```') &&
+      _codeFenceYamlEnvelopePattern.hasMatch(current)) {
+    current = current.replaceAllMapped(_codeFenceYamlEnvelopePattern, (m) {
+      final body = m.group(1) ?? '';
+      if (!_yamlEnvelopeNameKeyPattern.hasMatch(body)) {
+        return m.group(0)!;
+      }
+      final dsml = _renderEnvelopeAsDsml(body);
+      return dsml.isEmpty ? m.group(0)! : dsml;
+    });
+  }
+  // 2026-05-03: multi-segment hash envelope (`##invoke## ... ##end##`).
+  // Rebuild as YAML so the YAML fallback parser handles the body.
+  if (current.contains('##invoke##') ||
+      RegExp(r'##\s*invoke\s*##', caseSensitive: false).hasMatch(current)) {
+    current = current.replaceAllMapped(_multiSegmentHashEnvelopePattern, (m) {
+      final body = (m.group(1) ?? '').trim();
+      if (body.isEmpty) return '';
+      final yamlBody = _multiSegmentBodyToYaml(body);
+      final dsml = _renderEnvelopeAsDsml(yamlBody);
+      return dsml; // falls through to '' on parse failure
+    });
+  }
   if (current.contains(':') || current.contains('=')) {
     if (_linePrefixEnvelopePattern.hasMatch(current)) {
       current = current.replaceAllMapped(
@@ -520,53 +580,130 @@ String _convertHashTagToolCalls(String value) {
   return current;
 }
 
+/// Convert a multi-segment-hash envelope body
+/// (`name: Bash ##args## command: ls`) into canonical YAML
+/// (`name: Bash\nargs:\n  command: ls`) so `_renderEnvelopeAsDsml`'s
+/// YAML fallback can parse it.
+String _multiSegmentBodyToYaml(String body) {
+  final split = body.split(_multiSegmentArgsSplitter);
+  if (split.length <= 1) {
+    // No args section — emit the body as-is (likely just `name: Bash`).
+    return body.trim();
+  }
+  final headPart = split.first.trim();
+  final argsPart = split.skip(1).join('\n').trim();
+  if (argsPart.isEmpty) {
+    return headPart;
+  }
+  // Indent each non-empty line of argsPart by two spaces so YAML reads
+  // it as a nested mapping under `args:`.
+  final indented = argsPart
+      .split(RegExp(r'\r?\n'))
+      .map((line) => line.isEmpty ? '' : '  $line')
+      .join('\n');
+  return '$headPart\nargs:\n$indented';
+}
+
 /// Decode a JSON envelope body and emit it as canonical
 /// `<DSML:invoke>...</DSML:invoke>` markup. Returns an empty string when
 /// the body is unparseable or missing a tool name (so the scaffolding
 /// is dropped from user-visible text rather than leaked).
 String _renderEnvelopeAsDsml(String rawBody) {
-  final raw = rawBody.trim();
+  final raw = _normalizeFullwidthJsonPunctuation(rawBody.trim());
   if (raw.isEmpty) {
     return '';
   }
+  Object? decoded;
   try {
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) {
-      return '';
-    }
-    final name = '${decoded['name'] ?? decoded['tool_name'] ?? decoded['function'] ?? ''}'.trim();
-    if (name.isEmpty) {
-      return '';
-    }
-    final argsRaw = decoded['input'] ??
-        decoded['arguments'] ??
-        decoded['parameters'] ??
-        decoded['args'] ??
-        decoded['inputs'];
-    final argsMap = argsRaw is Map
-        ? Map<String, Object?>.from(argsRaw)
-        : <String, Object?>{};
-    final buffer = StringBuffer()
-      ..write('<DSML:invoke name="')
-      ..write(_escapeDsmlAttributeValue(name))
-      ..write('">');
-    argsMap.forEach((key, val) {
-      final encoded = val is String ? val : jsonEncode(val);
-      buffer
-        ..write('<DSML:parameter name="')
-        ..write(_escapeDsmlAttributeValue(key))
-        ..write('">')
-        ..write(encoded)
-        ..write('</DSML:parameter>');
-    });
-    buffer.write('</DSML:invoke>');
-    return buffer.toString();
+    decoded = jsonDecode(raw);
   } catch (_) {
-    // Malformed JSON — drop the envelope entirely so it doesn't leak
-    // raw scaffolding into the visible bubble. The model will be
-    // re-prompted by the runtime when no tool call is dispatched.
+    decoded = null;
+  }
+  // 2026-05-03: fall back to YAML when JSON fails — covers YAML-shaped
+  // envelopes (`name: Bash\nargs:\n  command: ls`) emitted by some
+  // weaker fine-tunes. Only proceed when the YAML decode yields a Map
+  // with a `name`/`tool_name`/`function` key (otherwise we'd silently
+  // eat unrelated YAML content the user is showing).
+  if (decoded == null) {
+    try {
+      final yamlValue = loadYaml(raw);
+      decoded = _coerceYamlToPlain(yamlValue);
+    } catch (_) {
+      decoded = null;
+    }
+  }
+  if (decoded is! Map) {
     return '';
   }
+  final name = '${decoded['name'] ?? decoded['tool_name'] ?? decoded['function'] ?? ''}'.trim();
+  if (name.isEmpty) {
+    return '';
+  }
+  final argsRaw = decoded['input'] ??
+      decoded['arguments'] ??
+      decoded['parameters'] ??
+      decoded['args'] ??
+      decoded['inputs'];
+  final argsMap = argsRaw is Map
+      ? Map<String, Object?>.from(argsRaw)
+      : <String, Object?>{};
+  final buffer = StringBuffer()
+    ..write('<DSML:invoke name="')
+    ..write(_escapeDsmlAttributeValue(name))
+    ..write('">');
+  argsMap.forEach((key, val) {
+    final encoded = val is String ? val : jsonEncode(val);
+    buffer
+      ..write('<DSML:parameter name="')
+      ..write(_escapeDsmlAttributeValue(key))
+      ..write('">')
+      ..write(encoded)
+      ..write('</DSML:parameter>');
+  });
+  buffer.write('</DSML:invoke>');
+  return buffer.toString();
+}
+
+/// Normalize fullwidth JSON punctuation (`"` `"` `'` `'` `：` `，` `｛` `｝`)
+/// to ASCII so a `jsonDecode` first-pass can succeed. Conservative: only
+/// touches characters that have a deterministic ASCII equivalent and
+/// only inside contexts where the substitution can't break unicode
+/// strings (we apply to the *whole* body — string content with
+/// fullwidth quotes is already corrupted by the model and the
+/// substitution is the user's intent).
+String _normalizeFullwidthJsonPunctuation(String value) {
+  if (value.isEmpty) return value;
+  return value
+      .replaceAll('“', '"')
+      .replaceAll('”', '"')
+      .replaceAll('„', '"')
+      .replaceAll('‟', '"')
+      .replaceAll('＂', '"')
+      .replaceAll('‘', "'")
+      .replaceAll('’', "'")
+      .replaceAll('＇', "'")
+      .replaceAll('：', ':')
+      .replaceAll('，', ',')
+      .replaceAll('｛', '{')
+      .replaceAll('｝', '}')
+      .replaceAll('［', '[')
+      .replaceAll('］', ']');
+}
+
+/// `loadYaml` returns `YamlMap`/`YamlList` proxies; convert to a plain
+/// `Map<String, Object?>` / `List<Object?>` tree so existing
+/// `argsRaw is Map` checks succeed.
+Object? _coerceYamlToPlain(Object? value) {
+  if (value is YamlMap) {
+    return <String, Object?>{
+      for (final entry in value.entries)
+        entry.key.toString(): _coerceYamlToPlain(entry.value),
+    };
+  }
+  if (value is YamlList) {
+    return <Object?>[for (final item in value) _coerceYamlToPlain(item)];
+  }
+  return value;
 }
 
 String _escapeDsmlAttributeValue(String value) {
