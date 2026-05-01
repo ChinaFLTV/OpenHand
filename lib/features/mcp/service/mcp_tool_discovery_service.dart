@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../ai/service/ai_transport_diagnostic_messages.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
@@ -71,8 +72,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     } on TimeoutException {
       return McpToolCatalog(
         status: McpToolCatalogStatus.failed,
-        errorMessage:
-            'Tool scan timed out. The MCP server did not respond in time.',
+        errorMessage: _friendlyTimeoutMessage(
+          server,
+          stage: 'discover',
+          limit: _scanTimeout,
+        ),
         lastScannedAt: scannedAt,
       );
     } on McpToolDiscoveryException catch (error) {
@@ -84,7 +88,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     } catch (error) {
       return McpToolCatalog(
         status: McpToolCatalogStatus.failed,
-        errorMessage: '$error',
+        errorMessage: _friendlyMcpDiscoveryError(server, error),
         lastScannedAt: scannedAt,
       );
     }
@@ -106,8 +110,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     } on TimeoutException {
       return McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
-        errorMessage:
-            'Health check timed out. The MCP server did not respond in time.',
+        errorMessage: _friendlyTimeoutMessage(
+          server,
+          stage: 'health',
+          limit: _healthCheckTimeout,
+        ),
         lastCheckedAt: checkedAt,
       );
     } on McpToolDiscoveryException catch (error) {
@@ -119,7 +126,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     } catch (error) {
       return McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
-        errorMessage: '$error',
+        errorMessage: _friendlyMcpDiscoveryError(server, error),
         lastCheckedAt: checkedAt,
       );
     }
@@ -1853,4 +1860,78 @@ void _setHeaderIgnoreCase(
     headers.remove(existingKey);
   }
   headers[name] = value;
+}
+
+/// 把 MCP 服务发现 / 健康检查阶段的底层异常翻译成「现象 / 原因 / 建议」
+/// 三段式中英双语文案。HTTP / SSE 传输借用
+/// [AiTransportDiagnosticMessages]；stdio 传输有自己的 ProcessException
+/// 措辞 (强调命令名 / PATH / 可执行权限 / 依赖缺失)。
+String _friendlyMcpDiscoveryError(McpServer server, Object error) {
+  final label = 'MCP · ${server.name}';
+  if (error is HandshakeException) {
+    return AiTransportDiagnosticMessages.handshake(error, contextLabel: label);
+  }
+  if (error is TlsException) {
+    return AiTransportDiagnosticMessages.tls(error, contextLabel: label);
+  }
+  if (error is SocketException) {
+    return AiTransportDiagnosticMessages.socket(error, contextLabel: label);
+  }
+  if (error is http.ClientException) {
+    return AiTransportDiagnosticMessages.httpClient(
+      error,
+      contextLabel: label,
+    );
+  }
+  if (error is ProcessException) {
+    return AiTransportDiagnosticMessages.format(
+      title: 'MCP stdio launch failed · MCP 进程启动失败 [${server.name}]',
+      reason:
+          '尝试以子进程方式启动 MCP 服务时被操作系统拒绝：\n'
+          '  · 命令: ${error.executable}${error.arguments.isEmpty ? '' : ' ${error.arguments.join(' ')}'}\n'
+          '  · 退出 / errno: ${error.errorCode}\n'
+          '常见诱因：\n'
+          '  · 命令拼写错误 / 不在 PATH 上 (例如未安装 npx / node / uvx)\n'
+          '  · 可执行文件缺少执行权限 (chmod +x)\n'
+          '  · 依赖未安装 (例如 npm 包未 install / Python venv 未激活)\n'
+          '  · 沙盒 / SIP / Gatekeeper 拒绝该二进制运行',
+      try_:
+          '· 在终端单独运行该命令复现报错\n'
+          '· 检查 PATH 与可执行权限\n'
+          '· 重新安装该 MCP 工具的依赖\n'
+          '· 查看系统 console 是否有 Gatekeeper 拦截记录',
+      raw: error.message.isEmpty ? null : error.message,
+    );
+  }
+  return '$error';
+}
+
+/// MCP 阶段超时单独成函，标题带上 server.name 帮助用户在多服务面板
+/// 里快速定位。
+String _friendlyTimeoutMessage(
+  McpServer server, {
+  required String stage,
+  required Duration limit,
+}) {
+  final label = 'MCP · ${server.name}';
+  final stageLabel = switch (stage) {
+    'discover' => 'tool discovery / 工具扫描',
+    'health' => 'health check / 健康检查',
+    _ => stage,
+  };
+  return AiTransportDiagnosticMessages.format(
+    title: 'MCP timed out · MCP 超时 [${server.name}]',
+    reason:
+        '$stageLabel 在 ${limit.inSeconds} 秒内未完成。常见诱因：\n'
+        '  · stdio 服务进程启动慢 (npx / uvx 首次 cold start 拉镜像 / 依赖)\n'
+        '  · HTTP / SSE 服务被网络层 (代理 / 防火墙) 拦在中途\n'
+        '  · 服务自身内部死锁或在等待外部 API 响应\n'
+        '  · 该机器 CPU / IO 极度繁忙',
+    try_:
+        '· 等几秒后再试 (尤其 npx / uvx 首启会下载依赖)\n'
+        '· 在终端独立运行 server.command 验证启动耗时\n'
+        '· 提高 MCP 扫描超时阈值或拆分配置\n'
+        '· 检查代理 / 防火墙是否拦截了出站 / 上游连接',
+    raw: label,
+  );
 }
