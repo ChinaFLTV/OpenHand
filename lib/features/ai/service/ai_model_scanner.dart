@@ -46,6 +46,19 @@ class AiModelScanner {
 
     try {
       return await _scanByProtocol(config, timeout: timeout);
+    } on HandshakeException catch (e) {
+      // Cloudflare 等 WAF 可能根据 JA3/JA4 TLS 指纹拒绝非浏览器
+      // 客户端，表现为 SSLV3_ALERT_HANDSHAKE_FAILURE。给出明确
+      // 诊断，并附上默认 fallback 模型 id 以便用户手动完成配置。
+      final fallback = _fallbackModelIdsForProtocol(config.protocolType);
+      return AiModelScanResult(
+        modelIds: fallback,
+        error:
+            'TLS handshake rejected by the server (${e.message}). '
+            'This provider likely blocks non-browser TLS clients via JA3 / Cloudflare WAF, '
+            'so model scanning and live chat from this app will not succeed for the same reason. '
+            'Consider switching to a different relay endpoint or add model IDs manually.',
+      );
     } on SocketException catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
@@ -71,6 +84,28 @@ class AiModelScanner {
         modelIds: const <String>[],
         error: 'Unexpected error: $e',
       );
+    }
+  }
+
+  /// 在扫描失败（比如被 WAF 拦截、或代理不提供 /v1/models）时，
+  /// 为常见协议返回一组该协议下使用者可能需要的主流模型 id，
+  /// 让用户从下拉选中而不是完全手输。
+  ///
+  /// 列表需保守：只架设“宕机递增选项”，不代表 OpenHand 背书或股补。
+  static List<String> _fallbackModelIdsForProtocol(
+    AiProtocolType protocolType,
+  ) {
+    switch (protocolType) {
+      case AiProtocolType.claude:
+        return const <String>[
+          'claude-sonnet-4-5',
+          'claude-opus-4-1',
+          'claude-haiku-4-5',
+          'claude-sonnet-4',
+          'claude-opus-4',
+        ];
+      default:
+        return const <String>[];
     }
   }
 
