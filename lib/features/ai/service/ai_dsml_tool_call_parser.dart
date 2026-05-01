@@ -148,10 +148,38 @@ final RegExp _dsmlTagPrefixPattern = RegExp(
   r'<\s*(/?)\s*[|｜]+\s*DSML\s*[|｜]+\s*',
   caseSensitive: false,
 );
+// 2026-05-03: full-width / multi-bracket DSML wrappers used by some weak
+// fine-tunes that don't produce protocol-native tool calls. Treat any
+// run of bracket-like opening characters (`<<`, `[`, `(`, `《`, `【`,
+// `「`, `『`, `〔`, `〘`) followed by `DSML` followed by closing
+// brackets as our prefix. The text *after* the closing bracket (which
+// may be `tool_calls`, `function_calls`, `invoke ...`, `parameter ...`)
+// is preserved by the caller.
+final RegExp _dsmlBracketWrapPattern = RegExp(
+  r'<\s*(/?)\s*[\[(《【「『〔〘<]+\s*DSML\s*[\])》】」』〕〙>]+\s*',
+  caseSensitive: false,
+);
 // 2026-05-03: some models emit `<DSML:tool_calls>` instead of the
 // canonical `<DSML:function_calls>`. Treat both as identical wrappers.
 final RegExp _dsmlToolCallsAliasPattern = RegExp(
   r'<(/?)DSML:tool_calls\b([^>]*)>',
+  caseSensitive: false,
+);
+// 2026-05-03: namespace-prefixed invoke/function_calls/parameter tags.
+// Covers `<functions.invoke …>`, `<tools.invoke …>`,
+// `<openai.invoke …>`, `<anthropic:invoke …>` and the like — anything
+// of the form `<{ns}{sep}{kind}>` where `kind` is one of our known
+// kinds and `ns` is an arbitrary identifier (case-insensitive).
+final RegExp _namespacedInvokePattern = RegExp(
+  r'<\s*(/?)\s*[A-Za-z_][\w-]*\s*[.:]\s*invoke\b([^>]*)>',
+  caseSensitive: false,
+);
+final RegExp _namespacedFunctionCallsPattern = RegExp(
+  r'<\s*(/?)\s*[A-Za-z_][\w-]*\s*[.:]\s*(?:function_calls|tool_calls)\s*>',
+  caseSensitive: false,
+);
+final RegExp _namespacedParameterPattern = RegExp(
+  r'<\s*(/?)\s*[A-Za-z_][\w-]*\s*[.:]\s*parameter\b([^>]*)>',
   caseSensitive: false,
 );
 final RegExp _dsmlFunctionCallsPattern = RegExp(
@@ -203,6 +231,14 @@ String _canonicalizeDsmlMarkup(String value) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
+  // 2026-05-03: full-width / multi-bracket DSML wrappers (e.g.
+  // `<【DSML】invoke …>`, `《DSML》tool_calls`, `<<DSML>>parameter …>`).
+  // Apply *before* the alias step so the suffix (`tool_calls`/etc.) is
+  // already canonicalized to `DSML:`.
+  normalized = normalized.replaceAllMapped(_dsmlBracketWrapPattern, (match) {
+    final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
+    return isClosing ? '</DSML:' : '<DSML:';
+  });
   // 2026-05-03: `<DSML:tool_calls>` -> `<DSML:function_calls>` so the
   // downstream sanitizer / extractor treats it the same as the canonical
   // group wrapper.
@@ -248,6 +284,28 @@ String _canonicalizeDsmlMarkup(String value) {
         return slash.isNotEmpty ? '</DSML:invoke>' : '<DSML:invoke$attrs>';
       })
       .replaceAllMapped(_antmlParameterTagPattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty
+            ? '</DSML:parameter>'
+            : '<DSML:parameter$attrs>';
+      });
+  // 2026-05-03: namespace-prefixed forms — `<functions.invoke …>`,
+  // `<tools:invoke …>`, `<openai.parameter …>`, etc. — get folded into
+  // canonical DSML so the same extractor / sanitizer pipeline applies.
+  normalized = normalized
+      .replaceAllMapped(_namespacedFunctionCallsPattern, (m) {
+        final slash = m.group(1) ?? '';
+        return slash.isNotEmpty
+            ? '</DSML:function_calls>'
+            : '<DSML:function_calls>';
+      })
+      .replaceAllMapped(_namespacedInvokePattern, (m) {
+        final slash = m.group(1) ?? '';
+        final attrs = m.group(2) ?? '';
+        return slash.isNotEmpty ? '</DSML:invoke>' : '<DSML:invoke$attrs>';
+      })
+      .replaceAllMapped(_namespacedParameterPattern, (m) {
         final slash = m.group(1) ?? '';
         final attrs = m.group(2) ?? '';
         return slash.isNotEmpty
@@ -363,56 +421,152 @@ final RegExp _hashTagToolCallDanglingPattern = RegExp(
   caseSensitive: false,
 );
 
+// 2026-05-03: additional JSON-envelope variants that surface in weaker
+// model output. Each pattern's group(1) captures the JSON body.
+//   - [TOOL_CALL] {...} [/TOOL_CALL]
+//   - [OPENAI_FN] {...} [/OPENAI_FN]
+//   - [TOOL_USE] {...} [/TOOL_USE]
+final List<RegExp> _bracketEnvelopePatterns = <RegExp>[
+  RegExp(
+    r'\[\s*TOOL[_-]?CALL\s*\]([\s\S]*?)\[\s*/\s*TOOL[_-]?CALL\s*\]',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\[\s*OPENAI[_-]?FN\s*\]([\s\S]*?)\[\s*/\s*OPENAI[_-]?FN\s*\]',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\[\s*TOOL[_-]?USE\s*\]([\s\S]*?)\[\s*/\s*TOOL[_-]?USE\s*\]',
+    caseSensitive: false,
+  ),
+  RegExp(
+    r'\[\s*FUNCTION[_-]?CALL\s*\]([\s\S]*?)\[\s*/\s*FUNCTION[_-]?CALL\s*\]',
+    caseSensitive: false,
+  ),
+];
+
+// Tag-wrapped JSON: <tool>{...}</tool>, <tool_call>{...}</tool_call>,
+// <function_call>{...}</function_call>, <openai_fn>{...}</openai_fn>,
+// <tool_use>{...}</tool_use>. Conservative: requires a balanced opening
+// and closing pair of the same name and a JSON object body.
+final RegExp _tagWrappedJsonEnvelopePattern = RegExp(
+  r'<\s*(tool_call|tool_use|tool|function_call|openai_fn|fn_call)\s*>\s*(\{[\s\S]*?\})\s*</\s*\1\s*>',
+  caseSensitive: false,
+);
+
+// Code-fence envelope: ```dsml / ```tool_call / ```tool_use /
+// ```openai_fn / ```function_call. We deliberately do NOT match
+// generic ```json fences — that would clobber legitimate JSON the
+// user is reading. Only fences whose info-string explicitly names a
+// tool envelope kind get converted.
+final RegExp _codeFenceEnvelopePattern = RegExp(
+  r'```\s*(?:dsml|tool[_-]?call|tool[_-]?use|openai[_-]?fn|function[_-]?call)[^\n]*\n([\s\S]*?)```',
+  caseSensitive: false,
+);
+
+// Line-prefix envelope: `TOOL_USE: {json}` / `OPENAI_FN: {json}` /
+// `TOOL_CALL: {json}` at the start of a line (or after a newline).
+// We capture a single brace-balanced JSON object that starts on the
+// same line. Greedy `\{...\}` is unsafe; use a counted alternative.
+final RegExp _linePrefixEnvelopePattern = RegExp(
+  r'(?:^|\n)[ \t]*(?:TOOL[_-]?USE|OPENAI[_-]?FN|TOOL[_-]?CALL|FUNCTION[_-]?CALL)\s*[:=]\s*(\{[\s\S]*?\})(?=\s*(?:\n[ \t]*\n|\n[A-Za-z<#`]|$))',
+  multiLine: true,
+  caseSensitive: false,
+);
+
 String _convertHashTagToolCalls(String value) {
-  if (!value.contains('##')) {
-    return value;
+  // 2026-05-03: extended from `##TOOL_CALL##` only to a family of
+  // envelope conventions emitted by weaker fine-tunes that haven't
+  // learned protocol-native tool calls.
+  var current = value;
+  if (current.contains('##') &&
+      _hashTagToolCallEnvelopePattern.hasMatch(current)) {
+    current = current.replaceAllMapped(
+      _hashTagToolCallEnvelopePattern,
+      (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
+    );
   }
-  if (!_hashTagToolCallEnvelopePattern.hasMatch(value)) {
-    return value;
+  if (current.contains('[')) {
+    for (final pattern in _bracketEnvelopePatterns) {
+      if (pattern.hasMatch(current)) {
+        current = current.replaceAllMapped(
+          pattern,
+          (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
+        );
+      }
+    }
   }
-  return value.replaceAllMapped(_hashTagToolCallEnvelopePattern, (match) {
-    final raw = (match.group(1) ?? '').trim();
-    if (raw.isEmpty) {
+  if (current.contains('<') && _tagWrappedJsonEnvelopePattern.hasMatch(current)) {
+    current = current.replaceAllMapped(
+      _tagWrappedJsonEnvelopePattern,
+      (m) => _renderEnvelopeAsDsml(m.group(2) ?? ''),
+    );
+  }
+  if (current.contains('```') &&
+      _codeFenceEnvelopePattern.hasMatch(current)) {
+    current = current.replaceAllMapped(
+      _codeFenceEnvelopePattern,
+      (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
+    );
+  }
+  if (current.contains(':') || current.contains('=')) {
+    if (_linePrefixEnvelopePattern.hasMatch(current)) {
+      current = current.replaceAllMapped(
+        _linePrefixEnvelopePattern,
+        (m) => '\n${_renderEnvelopeAsDsml(m.group(1) ?? '')}',
+      );
+    }
+  }
+  return current;
+}
+
+/// Decode a JSON envelope body and emit it as canonical
+/// `<DSML:invoke>...</DSML:invoke>` markup. Returns an empty string when
+/// the body is unparseable or missing a tool name (so the scaffolding
+/// is dropped from user-visible text rather than leaked).
+String _renderEnvelopeAsDsml(String rawBody) {
+  final raw = rawBody.trim();
+  if (raw.isEmpty) {
+    return '';
+  }
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
       return '';
     }
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        return '';
-      }
-      final name = '${decoded['name'] ?? decoded['tool_name'] ?? ''}'.trim();
-      if (name.isEmpty) {
-        return '';
-      }
-      final argsRaw = decoded['input'] ??
-          decoded['arguments'] ??
-          decoded['parameters'] ??
-          decoded['args'];
-      final argsMap = argsRaw is Map
-          ? Map<String, Object?>.from(argsRaw)
-          : <String, Object?>{};
-      final buffer = StringBuffer()
-        ..write('<DSML:invoke name="')
-        ..write(_escapeDsmlAttributeValue(name))
-        ..write('">');
-      argsMap.forEach((key, val) {
-        final encoded = val is String ? val : jsonEncode(val);
-        buffer
-          ..write('<DSML:parameter name="')
-          ..write(_escapeDsmlAttributeValue(key))
-          ..write('">')
-          ..write(encoded)
-          ..write('</DSML:parameter>');
-      });
-      buffer.write('</DSML:invoke>');
-      return buffer.toString();
-    } catch (_) {
-      // Malformed JSON — drop the envelope entirely so it doesn't leak
-      // raw scaffolding into the visible bubble. The model will be
-      // re-prompted by the runtime when no tool call is dispatched.
+    final name = '${decoded['name'] ?? decoded['tool_name'] ?? decoded['function'] ?? ''}'.trim();
+    if (name.isEmpty) {
       return '';
     }
-  });
+    final argsRaw = decoded['input'] ??
+        decoded['arguments'] ??
+        decoded['parameters'] ??
+        decoded['args'] ??
+        decoded['inputs'];
+    final argsMap = argsRaw is Map
+        ? Map<String, Object?>.from(argsRaw)
+        : <String, Object?>{};
+    final buffer = StringBuffer()
+      ..write('<DSML:invoke name="')
+      ..write(_escapeDsmlAttributeValue(name))
+      ..write('">');
+    argsMap.forEach((key, val) {
+      final encoded = val is String ? val : jsonEncode(val);
+      buffer
+        ..write('<DSML:parameter name="')
+        ..write(_escapeDsmlAttributeValue(key))
+        ..write('">')
+        ..write(encoded)
+        ..write('</DSML:parameter>');
+    });
+    buffer.write('</DSML:invoke>');
+    return buffer.toString();
+  } catch (_) {
+    // Malformed JSON — drop the envelope entirely so it doesn't leak
+    // raw scaffolding into the visible bubble. The model will be
+    // re-prompted by the runtime when no tool call is dispatched.
+    return '';
+  }
 }
 
 String _escapeDsmlAttributeValue(String value) {
