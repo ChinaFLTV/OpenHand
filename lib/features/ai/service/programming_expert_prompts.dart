@@ -288,12 +288,12 @@ Categorize errors before reacting:
 
 The skill list provided to you contains only `name` + `description` (≤512 chars).
 
-Load full SKILL.md via `ReadSkill` when:
+Load full SKILL.md by invoking the matching `skill__<name>` tool (the runtime catalog lists each skill as `skill__caveman`, `skill__excel-report-generator`, etc.) when:
 - User question keyword hits a skill description
 - User explicitly invokes `/skill_name`
 - You're about to start a workflow that the skill clearly owns
 
-Do NOT `ReadSkill` when:
+Do NOT call `skill__<name>` when:
 - Already have a clear approach without needing the skill
 - Same skill already loaded earlier in this conversation
 - Pure factual query unrelated to any skill domain
@@ -387,7 +387,7 @@ const String programmingExpertDeveloperInstructions = r'''
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| `SkillManager` (skill__*) | Load skill instructions | Per system §10: list shows `name+description` only; ReadSkill on demand |
+| `SkillManager` (skill__*) | Load skill instructions | Per system §10: catalog lists each skill as a `skill__<name>` tool with summary only; invoke that tool on-demand to load the full SKILL.md |
 | `Memory` | Persist findings across sessions | Store project conventions / verified facts; do NOT announce ("我记得…") |
 
 ---
@@ -455,7 +455,7 @@ All paths resolve relative to WD:
 | Construct `oldString` from memory | Read exact text first |
 | Edit 5 files then verify all at once | Verify per cluster (§5.5) |
 | Call `Task` without `subagent_type` argument | Always pass `subagent_type` field (§3.5); the tool fails fast otherwise |
-| ReadSkill on every turn | Load on-demand only (§10) |
+| Reload the same `skill__<name>` tool twice in one task | Load on-demand only, once per skill (§10) |
 | Say "fixed!" without running test | Say "modified, recommend running X" (§0.8 Uncertainty) |
 ''';
 

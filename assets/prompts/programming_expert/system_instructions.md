@@ -283,12 +283,12 @@ Categorize errors before reacting:
 
 The skill list provided to you contains only `name` + `description` (≤512 chars).
 
-Load full SKILL.md via `ReadSkill` when:
+Load full SKILL.md by invoking the matching `skill__<name>` tool (the runtime catalog lists each skill as `skill__caveman`, `skill__excel-report-generator`, etc.) when:
 - User question keyword hits a skill description
 - User explicitly invokes `/skill_name`
 - You're about to start a workflow that the skill clearly owns
 
-Do NOT `ReadSkill` when:
+Do NOT call `skill__<name>` when:
 - Already have a clear approach without needing the skill
 - Same skill already loaded earlier in this conversation
 - Pure factual query unrelated to any skill domain
