@@ -257,12 +257,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ? _renderEntries.where((e) => !e.exiting).map((e) => e.id).toSet()
         : null;
     // Per-batch stagger: when multiple new entries appear in a single
-    // frame, drip them in 80 ms apart (capped at 360 ms total) so the
+    // frame, drip them in 110 ms apart (capped at 1650 ms total) so the
     // entrance animations cascade rather than explode in parallel.
-    // 2026-05-03: 60→80 step / 240→360 cap so up to ~5 sibling entries
-    // get distinct waves before the tail collapses to the cap.
-    const staggerStep = Duration(milliseconds: 80);
-    const staggerCap = Duration(milliseconds: 360);
+    // 2026-05-04: 80→110 ms / 360→1650 ms — user feedback that batches
+    // of >5 new messages (typical for tool-call chains) still piled up
+    // visually under the previous 360 ms cap. With the new cap up to
+    // ~15 sibling entries each get a distinct entrance slot, matching
+    // the "一条一条地有序添加" expectation.
+    const staggerStep = Duration(milliseconds: 110);
+    const staggerCap = Duration(milliseconds: 1650);
     var newEntryOrdinal = 0;
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
