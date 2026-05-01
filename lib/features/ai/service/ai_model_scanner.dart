@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../app/support/system_proxy.dart';
 import '../model/ai_model_config.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
@@ -23,7 +24,7 @@ class AiModelScanResult {
 /// Scans an AI provider's API to discover available model IDs.
 class AiModelScanner {
   AiModelScanner({http.Client? httpClient})
-    : _httpClient = httpClient ?? http.Client();
+    : _httpClient = httpClient ?? SystemProxyResolver.instance.createHttpClient();
 
   final http.Client _httpClient;
 

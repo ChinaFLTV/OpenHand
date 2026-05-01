@@ -217,6 +217,16 @@ class SystemProxyResolver {
   http.Client createHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
   }) {
+    return IOClient(createRawHttpClient(connectionTimeout: connectionTimeout));
+  }
+
+  /// Builds a raw `dart:io` [HttpClient] configured with the resolver's
+  /// proxy + credentials. Useful for callers that need fine-grained
+  /// control (cancellation via `close(force: true)`, response stream
+  /// access, …) and can't use the higher-level `http.Client` wrapper.
+  HttpClient createRawHttpClient({
+    Duration connectionTimeout = const Duration(seconds: 15),
+  }) {
     final inner = HttpClient()
       ..connectionTimeout = connectionTimeout
       ..findProxy = findProxyFor;
@@ -239,7 +249,7 @@ class SystemProxyResolver {
         silentLog('system_proxy', 'addProxyCredentials', error, stack);
       }
     }
-    return IOClient(inner);
+    return inner;
   }
 }
 

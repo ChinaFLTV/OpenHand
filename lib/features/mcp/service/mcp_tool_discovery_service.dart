@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../ai/service/ai_transport_diagnostic_messages.dart';
 import '../model/mcp_server.dart';
@@ -37,7 +38,7 @@ class McpToolCallResult {
 
 class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   DefaultMcpToolDiscoveryService({http.Client? client})
-    : _client = client ?? http.Client();
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient();
 
   static const Duration _scanTimeout = Duration(seconds: 8);
   static const Duration _healthCheckTimeout = Duration(seconds: 6);

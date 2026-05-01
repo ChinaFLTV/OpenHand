@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/ai_creation_mode.dart';
 import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
@@ -84,7 +85,7 @@ class AiMediaGenerationException implements Exception {
 /// DALL·E 3's quality/style flags, …) without destabilising the chat path.
 class AiImageGenerationService {
   AiImageGenerationService({http.Client? client})
-    : _client = client ?? http.Client();
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient();
 
   final http.Client _client;
 

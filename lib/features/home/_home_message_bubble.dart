@@ -1103,8 +1103,9 @@ class _ImagePreviewDialog extends StatelessWidget {
       );
     }
 
-    final client = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 20);
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: const Duration(seconds: 20),
+    );
     try {
       final request = await client
           .getUrl(sourceUri)
@@ -2408,7 +2409,9 @@ Future<void> _downloadRemoteMedia(
       source.uri.toString(),
     );
   }
-  final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
+  final client = SystemProxyResolver.instance.createRawHttpClient(
+    connectionTimeout: const Duration(seconds: 20),
+  );
   var cancelled = false;
   cancelSignal?.whenComplete(() {
     cancelled = true;

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../model/ai_creation_mode.dart';
 import '../model/ai_model_config.dart';
@@ -184,7 +185,7 @@ class AiChatStreamingResponse {
 
 class AiChatService implements AiChatClient {
   AiChatService({http.Client? client, AiImageGenerationService? imageService})
-    : _client = client ?? http.Client(),
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
       _imageService = imageService ?? AiImageGenerationService(client: client);
 
   static const String _availabilityProbePrompt =

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../model/skill_market.dart';
 
 class SkillMarketException implements Exception {
@@ -19,7 +20,7 @@ class SkillMarketException implements Exception {
 
 class SkillMarketClient {
   SkillMarketClient({http.Client? httpClient})
-    : _client = httpClient ?? http.Client();
+    : _client = httpClient ?? SystemProxyResolver.instance.createHttpClient();
 
   static const String _host = 'api.skillhub.cn';
   static const int defaultPageSize = 24;
