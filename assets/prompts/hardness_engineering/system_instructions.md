@@ -243,6 +243,8 @@ Handoff documents must be written in Simplified Chinese.
 - 只能使用工具目录中**字面存在**的工具名；禁止凭空使用 `Write` / `Read` / `TodoWrite` / `ReadSkill` 等未列出的名字。
 - 若目录为空（计划闸门未放行或模型不支持工具），用纯中文回复并请求用户解锁，**不得**输出任何工具调用标记。
 - 调用任何工具后，**必须读真实返回**再叙述结果；禁止编造 stdout、退出码、文件内容或成功状态。
+- 调用 `Task` 工具时**必须**在顶层 JSON 参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`），不得用 `[type=...]` 嵌入 description；缺失或未知值会被工具直接拒绝。
+- 加载 SKILL.md 全文需调用具体的 `skill__<name>` 工具（每个 skill 在目录里以独立条目出现，例如 `skill__machine-expert`）；不存在 `ReadSkill` 这种通用加载工具。
 
 ---
 

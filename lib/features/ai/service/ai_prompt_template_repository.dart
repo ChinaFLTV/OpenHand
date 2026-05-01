@@ -487,6 +487,10 @@ const String _hardnessDeveloperInstructions = '''
 按顺序逐级试探，遇到第一个完全匹配的能力即停止。
 Skill 失败或 MCP 失败后不得静默降级，必须先说明降级原因。
 
+工具目录纪律：
+- 只能使用工具目录中字面存在的工具名；不存在 `ReadSkill` 这种通用 SKILL 加载器，加载 SKILL.md 全文需调用具体的 `skill__<name>` 工具。
+- 调用 `Task` 工具时必须在顶层 JSON 参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`），缺失或未知值会被工具直接拒绝。
+
 Parse the [HARDNESS_CONFIG] block on session start. Verify directories, check for first-run conditions,
 load meta/architecture.md and meta/conventions.md, then orchestrate the phase sequence.
 Construct comprehensive prompts for each role CLI. Escalate failures. Maintain lesson and handoff documents.
