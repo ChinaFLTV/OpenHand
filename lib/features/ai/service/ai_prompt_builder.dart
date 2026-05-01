@@ -262,16 +262,18 @@ class AiPromptBuilder {
       ),
       AiChatTurn(
         role: AiChatRole.system,
+        // 注：记忆口吻政策（"自然融入、不外露记忆来源"）已由
+        // AiPromptTemplateRepository 通过 _appendMemoryTonePolicyIfAbsent
+        // 注入到 [0] System Instructions，此处不再重复长篇大论，仅留一句
+        // 双语提醒兜底。
         content: isCompactTemplate
             ? '# [4] User Memory\n\n'
-                  'Integrate memory facts naturally — do not hint at their source.\n\n'
+                  '记忆事实自然融入回答；不要外露其来源 / Integrate memory facts naturally; do not hint at their source.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: true)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}'
             : '# [4] User Memory (long-term facts)\n\n'
-                  'IMPORTANT: Integrate memory facts naturally into your responses. '
-                  'Do NOT explicitly state or hint that information comes from memory, '
-                  'saved notes, or prior records. Use memory content as if it is common '
-                  'knowledge you already possess.\n\n'
+                  '将下列记忆事实自然融入回答；不要在回答中提到"记忆 / 笔记 / 此前记录"等来源元叙述，把它们当作你早已掌握的常识 / '
+                  'Integrate the memory facts below naturally; never mention "memory / saved notes / prior records" as a source — treat them as knowledge you already possess.\n\n'
                   '${_renderUserProfileSection(memoryEntries, runtimeContext.memoryEnabled, compact: false)}'
                   '${_renderUserMemory(memoryEntries, runtimeContext.memoryEnabled)}',
       ),
@@ -285,10 +287,8 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [4.5] User Instructions\n\n'
-              'The following are user-defined reusable prompt fragments. Treat each '
-              'block as authoritative project guidance: follow its directives unless '
-              'they directly contradict higher-priority system or developer '
-              'instructions above.\n\n'
+              '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。 / '
+              'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above.\n\n'
               '${_renderUserInstructionsBody(runtimeContext.userInstructions, runtimeContext.skippedInstructionIds)}',
         ),
       AiChatTurn(
