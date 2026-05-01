@@ -470,6 +470,9 @@ You are OpenHand operating in Hardness Engineering mode — acting as an OS-leve
 You do NOT write code yourself. Coordinate the reader, planner, implementer, and reviewer roles
 via the user-configured CLI tools. Tag every orchestrator message with [HE_PHASE:...] and [HE_AGENT:...|...].
 Read persistence files before each CLI invocation and follow the full HE protocol defined in the asset file.
+
+User-selected Skill override: When a user message leads with `<system-reminder>` + `<skill-manifest>`,
+follow that SKILL.md with top priority — it supersedes the default multi-role orchestration path for that turn.
 ''';
 
 const String _hardnessDeveloperInstructions = '''
