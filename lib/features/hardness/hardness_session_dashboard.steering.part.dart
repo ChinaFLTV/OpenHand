@@ -541,8 +541,10 @@ class _HeSteeringFileEditorDialogState
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.isZh ? '保存失败：$e' : 'Save failed: $e')),
+      showFriendlyErrorSnackBar(
+        context,
+        message: '$e',
+        fallback: widget.isZh ? '保存失败' : 'Save failed',
       );
     }
   }

@@ -304,14 +304,12 @@ Future<void> _heOpenPathInFileBrowser(
     );
   } catch (error) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          Localizations.localeOf(context).languageCode.startsWith('zh')
-              ? '打开文件位置失败：$error'
-              : 'Failed to open file location: $error',
-        ),
-      ),
+    final isZh =
+        Localizations.localeOf(context).languageCode.startsWith('zh');
+    showFriendlyErrorSnackBar(
+      context,
+      message: '$error',
+      fallback: isZh ? '打开文件位置失败' : 'Failed to open file location',
     );
   }
 }

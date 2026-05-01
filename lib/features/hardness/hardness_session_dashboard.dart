@@ -18,6 +18,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
+import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/model/ai_model_config.dart';
