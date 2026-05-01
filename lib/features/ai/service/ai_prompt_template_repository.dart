@@ -124,14 +124,42 @@ class AiPromptTemplateRepository {
       '$assetDirectory/compression_summary_instructions.md',
       compressionFallback,
     );
+    final systemWithDiscipline = await _appendV4DisciplineIfAbsent(
+      systemInstructions,
+    );
     return AiPromptTemplateBundle(
       template: template,
-      systemInstructions: _appendMemoryTonePolicyIfAbsent(systemInstructions),
+      systemInstructions: _appendMemoryTonePolicyIfAbsent(systemWithDiscipline),
       developerInstructions: _appendMemoryTonePolicyIfAbsent(
         developerInstructions,
       ),
       compressionSummaryInstructions: compressionSummaryInstructions,
     );
+  }
+
+  /// Appends the shared v4 discipline block (Session Bootstrap / Diff-Thinking
+  /// / Verification Loop / Uncertainty Honesty / Atomic Change Discipline)
+  /// loaded from `assets/prompts/common/v4_discipline_en.md` when the target
+  /// instruction text does not already contain an Atomic Change Discipline
+  /// marker (English or Chinese). Templates that ship their own specialised
+  /// version (`programming_expert`, `hardness_engineering`, `machine_expert`)
+  /// are detected via marker presence and left untouched.
+  Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
+    final lower = instructions.toLowerCase();
+    if (lower.contains('# atomic change discipline') ||
+        lower.contains('## atomic change discipline') ||
+        instructions.contains('原子化变更纪律') ||
+        instructions.contains('不确定性诚实')) {
+      return instructions;
+    }
+    final snippet = await _loadTemplateSection(
+      'assets/prompts/common/v4_discipline_en.md',
+      '',
+    );
+    if (snippet.isEmpty) {
+      return instructions;
+    }
+    return '${instructions.trimRight()}\n\n$snippet\n';
   }
 
   Future<String> _loadTemplateSection(String assetPath, String fallback) async {
