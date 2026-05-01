@@ -11,6 +11,7 @@ import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_transport_diagnostic_messages.dart';
 
 enum _GeneratedMediaKind {
   image('image', 'Image'),
@@ -1962,214 +1963,39 @@ class _PolledMediaResult {
 /// `AiChatService._ChatErrorMessages`、`AiModelScanner._ScanErrorMessages`
 /// 保持一致的「现象 / 原因 / 建议」三段式中英双语风格。文案中会带上
 /// 媒体类型 (image / video / audio)，便于用户直观判断哪一条流水线失败。
+/// Thin shim around [AiTransportDiagnosticMessages] that injects the media
+/// kind label into the title suffix (e.g. `[Image (image)]`).
 class _MediaErrorMessages {
   _MediaErrorMessages._();
 
-  static String _kindLabel(_GeneratedMediaKind kind) =>
+  static String _label(_GeneratedMediaKind kind) =>
       '${kind.displayName} (${kind.storageValue})';
 
-  static String handshake(_GeneratedMediaKind kind, HandshakeException e) {
-    final detail = e.message.trim();
-    return _format(
-      title:
-          'TLS handshake rejected · TLS 握手被拒绝 [${_kindLabel(kind)}]',
-      reason:
-          '${kind.displayName} 接口尚未到达业务层，TLS 握手就被服务端 / 中间设备拒绝。常见原因：\n'
-          '  · Cloudflare / WAF 通过 JA3 / JA4 指纹封锁了非浏览器 TLS 客户端\n'
-          '  · 服务端要求强制 TLS 1.3，本地链路被中间盒降级\n'
-          '  · 系统时间偏差过大导致证书被判定为未生效 / 已过期\n'
-          '  · 客户端与服务端无可协商的加密套件',
-      try_:
-          '· 切换到其他可访问的中转或直连官方 endpoint\n'
-          '· 检查本机系统时间是否准确\n'
-          '· 通过 curl 等工具复现，确认是否被 WAF 拦截',
-      raw: detail.isEmpty ? null : detail,
-    );
-  }
+  static String handshake(_GeneratedMediaKind kind, HandshakeException e) =>
+      AiTransportDiagnosticMessages.handshake(e, contextLabel: _label(kind));
 
-  static String tls(_GeneratedMediaKind kind, TlsException e) {
-    return _format(
-      title: 'TLS error · TLS 协议错误 [${_kindLabel(kind)}]',
-      reason:
-          '${kind.displayName} 接口的 TLS 通道异常：${e.message}\n'
-          '常见诱因：\n'
-          '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
-          '  · 中间存在 HTTPS 拦截 (公司防火墙 / 抓包工具)\n'
-          '  · 本机根证书库过旧未包含目标 CA',
-      try_: '· 在浏览器打开同一 URL 检查证书是否报警\n· 关闭抓包工具 / 公司代理后再试\n· 联系中转方确认证书链',
-    );
-  }
+  static String tls(_GeneratedMediaKind kind, TlsException e) =>
+      AiTransportDiagnosticMessages.tls(e, contextLabel: _label(kind));
 
-  static String socket(_GeneratedMediaKind kind, SocketException e) {
-    final msg = e.message.toLowerCase();
-    String reason;
-    String suggest;
-    if (msg.contains('failed host lookup') || msg.contains('no address')) {
-      reason =
-          '主机名 DNS 解析失败。可能的原因：\n'
-          '  · Base URL 写错或多/少了协议前缀\n'
-          '  · 本机 DNS 配置异常或网络无外网\n'
-          '  · 域名被运营商屏蔽 / 劫持';
-      suggest = '· 复核 Base URL\n· 在终端执行 `ping`/`nslookup` 验证\n· 切换网络 / VPN';
-    } else if (msg.contains('connection refused')) {
-      reason = 'TCP 连接被服务端主动拒绝。可能服务未启动 / 端口写错 / 防火墙拦截。';
-      suggest = '· 确认 Base URL 中端口与服务端实际端口一致\n· 暂停本机防火墙再试';
-    } else if (msg.contains('network is unreachable') ||
-        msg.contains('no route to host')) {
-      reason = '本机当前无法到达目标网络 (network unreachable / no route to host)。';
-      suggest = '· 检查 Wi-Fi / 蜂窝 / 有线连接\n· 内网目标请确认 VPN 已连通';
-    } else if (msg.contains('timed out') || msg.contains('timeout')) {
-      reason =
-          'TCP 连接超时。常见诱因：\n'
-          '  · 跨境弱网 / 中间链路丢包\n'
-          '  · 服务端被防火墙静默丢包\n'
-          '  · 端口被运营商屏蔽';
-      suggest = '· 切换网络后重试\n· traceroute / mtr 定位卡点';
-    } else {
-      reason = '底层 socket 抛出错误：${e.message}';
-      suggest = '· 重试或更换网络环境';
-    }
-    return _format(
-      title: 'Network error · 网络层错误 [${_kindLabel(kind)}]',
-      reason: reason,
-      try_: suggest,
-      raw: e.osError == null ? e.message : '${e.message} (${e.osError})',
-    );
-  }
+  static String socket(_GeneratedMediaKind kind, SocketException e) =>
+      AiTransportDiagnosticMessages.socket(e, contextLabel: _label(kind));
 
-  static String httpClient(_GeneratedMediaKind kind, http.ClientException e) {
-    return _format(
-      title:
-          'HTTP client error · HTTP 客户端错误 [${_kindLabel(kind)}]',
-      reason: 'HTTP 客户端在处理 ${kind.displayName} 请求 / 响应阶段失败：${e.message}\n'
-          '通常意味着连接中断、响应被截断、或服务端关闭连接。',
-      try_: '· 稍后重试\n· 检查网络稳定性\n· 联系中转方确认服务状态',
-    );
-  }
+  static String httpClient(_GeneratedMediaKind kind, http.ClientException e) =>
+      AiTransportDiagnosticMessages.httpClient(e, contextLabel: _label(kind));
 
-  static String timeout(_GeneratedMediaKind kind, Duration limit) {
-    return _format(
-      title: 'Request timed out · 请求超时 [${_kindLabel(kind)}]',
-      reason:
-          '${kind.displayName} 任务在 ${limit.inSeconds} 秒内未能完成。常见诱因：\n'
-          '  · 跨境网络延迟过高\n'
-          '  · 服务端处理慢 / 队列拥塞 (视频生成尤其明显)\n'
-          '  · 中间代理在传输中卡死',
-      try_: '· 稍后重试\n· 切换网络或中转\n· 缩短 prompt / 降低分辨率 / 缩短时长',
-    );
-  }
+  static String timeout(_GeneratedMediaKind kind, Duration limit) =>
+      AiTransportDiagnosticMessages.timeout(limit, contextLabel: _label(kind));
 
   static String httpStatus(
     _GeneratedMediaKind kind,
     int code, {
     String serverMessage = '',
     String contextHint = '',
-  }) {
-    String title;
-    String reason;
-    String suggest;
-    final ctx = contextHint.trim();
-    final ctxSuffix = ctx.isEmpty ? '' : ' · $ctx';
-    switch (code) {
-      case 400:
-        title = 'Bad request (400) · 请求被拒$ctxSuffix';
-        reason = '服务端拒绝处理本次 ${kind.displayName} 请求 (400)。'
-            '请求体可能不符合该协议规范，或参数 (size / duration / voice 等) 超出允许范围。';
-        suggest = '· 复核 Base URL 与协议是否匹配\n· 调整尺寸 / 时长 / 音色等参数后重试';
-        break;
-      case 401:
-        title = 'Authentication failed (401) · 鉴权失败$ctxSuffix';
-        reason = '服务端返回 401 Unauthorized：身份令牌缺失或已失效。';
-        suggest = '· 确认 API Key / Token 已正确粘贴，无前后空格\n· 在中转方控制台重新生成令牌';
-        break;
-      case 403:
-        title = 'Forbidden (403) · 访问被拒$ctxSuffix';
-        reason =
-            '服务端返回 403 Forbidden：当前令牌无权访问 ${kind.displayName} 模型，或 IP 不在允许地区，或触发了 WAF / 风控。';
-        suggest = '· 在中转方控制台确认账号余额、模型权限\n· 切换网络 / VPN 后重试';
-        break;
-      case 404:
-        title = 'Endpoint not found (404) · 端点不存在$ctxSuffix';
-        reason = '服务端返回 404 Not Found：${kind.displayName} 接口路径错误，或所选模型在该中转尚未上架。';
-        suggest = '· 复核 Base URL 与模型 ID\n· 在中转方控制台查看可用 ${kind.displayName} 模型列表';
-        break;
-      case 408:
-        title = 'Server timeout (408) · 服务端超时$ctxSuffix';
-        reason = '服务端在收到 ${kind.displayName} 请求头后超时关闭连接 (408)。';
-        suggest = '· 稍后重试\n· 切换网络后再试';
-        break;
-      case 413:
-        title = 'Payload too large (413) · 请求体过大$ctxSuffix';
-        reason = '请求体超过中转 / 上游允许的最大尺寸 (413)。多发生于 prompt 过长或参考图过大。';
-        suggest = '· 缩减 prompt / 参考素材体积\n· 拆分为多次任务';
-        break;
-      case 429:
-        title = 'Rate limited (429) · 触发限流$ctxSuffix';
-        reason = '服务端返回 429 Too Many Requests：${kind.displayName} 任务调用过于频繁或额度已用尽。';
-        suggest = '· 稍等几分钟后重试\n· 在中转方控制台确认配额 / 余额';
-        break;
-      case 500:
-        title = 'Server error (500) · 服务端内部错误$ctxSuffix';
-        reason = '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。';
-        suggest = '· 稍后重试\n· 联系中转方查看服务状态';
-        break;
-      case 502:
-        title = 'Bad gateway (502) · 网关异常$ctxSuffix';
-        reason =
-            '服务端返回 502 Bad Gateway：中转无法从上游 (OpenAI / Qwen / MiniMax 等) 取得 ${kind.displayName} 响应。';
-        suggest = '· 稍后重试\n· 联系中转方确认上游通路';
-        break;
-      case 503:
-        title = 'Service unavailable (503) · 服务不可用$ctxSuffix';
-        reason = '服务端返回 503 Service Unavailable：${kind.displayName} 服务在维护或被熔断。';
-        suggest = '· 稍后重试\n· 关注中转方公告';
-        break;
-      case 504:
-        title = 'Gateway timeout (504) · 网关超时$ctxSuffix';
-        reason = '服务端返回 504 Gateway Timeout：中转访问上游 ${kind.displayName} 接口时超时。';
-        suggest = '· 稍后重试\n· 切换中转或简化 prompt';
-        break;
-      default:
-        if (code >= 500) {
-          title = 'Server error ($code) · 服务端错误$ctxSuffix';
-          reason = '${kind.displayName} 服务端返回 $code，多为中转 / 上游故障。';
-          suggest = '· 稍后重试\n· 联系中转方排查';
-        } else if (code >= 400) {
-          title = 'Client error ($code) · 客户端请求被拒$ctxSuffix';
-          reason = '${kind.displayName} 服务端返回 $code，请求未通过协议或鉴权校验。';
-          suggest = '· 复核 Base URL / token / 自定义 header';
-        } else {
-          title = 'Unexpected status ($code) · 非预期响应$ctxSuffix';
-          reason = '${kind.displayName} 服务端返回非 2xx 状态码 $code。';
-          suggest = '· 联系中转方排查';
-        }
-    }
-    final trimmedServer = serverMessage.trim();
-    return _format(
-      title: title,
-      reason: reason,
-      try_: suggest,
-      raw: trimmedServer.isEmpty ? null : trimmedServer,
-    );
-  }
-
-  static String _format({
-    required String title,
-    required String reason,
-    required String try_,
-    String? raw,
-  }) {
-    final buf = StringBuffer()
-      ..writeln(title)
-      ..writeln('原因 / Why:')
-      ..writeln(reason)
-      ..writeln('建议 / Try:')
-      ..write(try_);
-    if (raw != null && raw.isNotEmpty) {
-      buf
-        ..writeln()
-        ..write('服务端原文 / Server says: $raw');
-    }
-    return buf.toString();
-  }
+  }) =>
+      AiTransportDiagnosticMessages.httpStatus(
+        code,
+        serverMessage: serverMessage,
+        contextLabel: _label(kind),
+        contextHint: contextHint,
+      );
 }

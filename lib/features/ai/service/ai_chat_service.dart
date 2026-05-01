@@ -13,6 +13,7 @@ import '../model/ai_token_usage.dart';
 import 'ai_dsml_tool_call_parser.dart';
 import 'ai_image_generation_service.dart';
 import 'ai_protocol_adapter.dart';
+import 'ai_transport_diagnostic_messages.dart';
 
 abstract class AiChatClient {
   Future<AiChatCompletion> sendMessage({
@@ -381,7 +382,7 @@ class AiChatService implements AiChatClient {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorMessage = adapter.extractErrorMessage(response.body);
         throw AiChatException(
-          _ChatErrorMessages.httpStatus(
+          AiTransportDiagnosticMessages.httpStatus(
             response.statusCode,
             serverMessage: errorMessage,
           ),
@@ -421,15 +422,15 @@ class AiChatService implements AiChatClient {
         throw AiChatException(error.message);
       }
     } on TimeoutException {
-      throw AiChatException(_ChatErrorMessages.timeout(timeout));
+      throw AiChatException(AiTransportDiagnosticMessages.timeout(timeout));
     } on HandshakeException catch (error) {
-      throw AiChatException(_ChatErrorMessages.handshake(error));
+      throw AiChatException(AiTransportDiagnosticMessages.handshake(error));
     } on TlsException catch (error) {
-      throw AiChatException(_ChatErrorMessages.tls(error));
+      throw AiChatException(AiTransportDiagnosticMessages.tls(error));
     } on SocketException catch (error) {
-      throw AiChatException(_ChatErrorMessages.socket(error));
+      throw AiChatException(AiTransportDiagnosticMessages.socket(error));
     } on http.ClientException catch (error) {
-      throw AiChatException(_ChatErrorMessages.httpClient(error));
+      throw AiChatException(AiTransportDiagnosticMessages.httpClient(error));
     }
   }
 
@@ -554,15 +555,15 @@ class AiChatService implements AiChatClient {
         streamedResponse = firstResult as http.StreamedResponse;
       }
     } on TimeoutException {
-      throw AiChatException(_ChatErrorMessages.timeout(timeout));
+      throw AiChatException(AiTransportDiagnosticMessages.timeout(timeout));
     } on HandshakeException catch (error) {
-      throw AiChatException(_ChatErrorMessages.handshake(error));
+      throw AiChatException(AiTransportDiagnosticMessages.handshake(error));
     } on TlsException catch (error) {
-      throw AiChatException(_ChatErrorMessages.tls(error));
+      throw AiChatException(AiTransportDiagnosticMessages.tls(error));
     } on SocketException catch (error) {
-      throw AiChatException(_ChatErrorMessages.socket(error));
+      throw AiChatException(AiTransportDiagnosticMessages.socket(error));
     } on http.ClientException catch (error) {
-      throw AiChatException(_ChatErrorMessages.httpClient(error));
+      throw AiChatException(AiTransportDiagnosticMessages.httpClient(error));
     }
     _debugAiStreamLog(
       'model=${model.modelId} stream_connected status=${streamedResponse.statusCode} url=${streamedResponse.request?.url ?? blueprint.url}',
@@ -573,7 +574,7 @@ class AiChatService implements AiChatClient {
       final errorBody = await streamedResponse.stream.bytesToString();
       final errorMessage = adapter.extractErrorMessage(errorBody);
       throw AiChatException(
-        _ChatErrorMessages.httpStatus(
+        AiTransportDiagnosticMessages.httpStatus(
           streamedResponse.statusCode,
           serverMessage: errorMessage,
         ),
@@ -1915,205 +1916,4 @@ int? _readInt(Object? value) {
   }
   final coercedValue = parsedDouble.toInt();
   return parsedDouble == coercedValue ? coercedValue : null;
-}
-
-/// 集中收敛 Chat / Stream 调用阶段的错误文案。理念与
-/// `AiModelScanner._ScanErrorMessages` 一致：以「现象 / 原因 / 建议」
-/// 三段式中英双语呈现，避免直接抛出 BoringSSL / dart:io 内部错误码
-/// 让用户摸不着头脑。所有方法返回纯文本，由 [AiChatException]
-/// 包装后在 UI 层渲染。
-class _ChatErrorMessages {
-  _ChatErrorMessages._();
-
-  static String handshake(HandshakeException e) {
-    final detail = e.message.trim();
-    return _format(
-      title: 'TLS handshake rejected · TLS 握手被拒绝',
-      reason:
-          '请求未到达业务层，TLS 握手就被服务端 / 中间设备拒绝。常见原因：\n'
-          '  · Cloudflare / WAF 通过 JA3 / JA4 指纹封锁了非浏览器 TLS 客户端\n'
-          '  · 服务端要求强制 TLS 1.3，本地链路被中间盒降级\n'
-          '  · 系统时间偏差过大导致证书被判定为未生效 / 已过期\n'
-          '  · 客户端与服务端无可协商的加密套件',
-      try_:
-          '· 切换其他可访问的中转 / 直连官方 endpoint\n'
-          '· 检查本机系统时间是否准确\n'
-          '· 通过 curl 等工具复现，确认是否被 WAF 拦截',
-      raw: detail.isEmpty ? null : detail,
-    );
-  }
-
-  static String tls(TlsException e) {
-    return _format(
-      title: 'TLS error · TLS 协议错误',
-      reason:
-          'TLS 通道异常：${e.message}\n'
-          '常见诱因：\n'
-          '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
-          '  · 中间存在 HTTPS 拦截 (公司防火墙 / 抓包工具)\n'
-          '  · 本机根证书库过旧未包含目标 CA',
-      try_: '· 在浏览器打开同一 URL 检查证书是否报警\n· 关闭抓包工具 / 公司代理后再试\n· 联系中转方确认证书链',
-    );
-  }
-
-  static String socket(SocketException e) {
-    final msg = e.message.toLowerCase();
-    String reason;
-    String suggest;
-    if (msg.contains('failed host lookup') || msg.contains('no address')) {
-      reason =
-          '主机名 DNS 解析失败。可能的原因：\n'
-          '  · Base URL 写错或多/少了协议前缀\n'
-          '  · 本机 DNS 配置异常或网络无外网\n'
-          '  · 域名被运营商屏蔽 / 劫持';
-      suggest = '· 复核 Base URL\n· 在终端执行 `ping`/`nslookup` 验证\n· 切换网络 / VPN';
-    } else if (msg.contains('connection refused')) {
-      reason = 'TCP 连接被服务端主动拒绝。可能服务未启动 / 端口写错 / 防火墙拦截。';
-      suggest = '· 确认 Base URL 中端口与服务端实际端口一致\n· 暂停本机防火墙再试';
-    } else if (msg.contains('network is unreachable') ||
-        msg.contains('no route to host')) {
-      reason = '本机当前无法到达目标网络 (network unreachable / no route to host)。';
-      suggest = '· 检查 Wi-Fi / 蜂窝 / 有线连接\n· 内网目标请确认 VPN 已连通';
-    } else if (msg.contains('timed out') || msg.contains('timeout')) {
-      reason =
-          'TCP 连接超时。常见诱因：\n'
-          '  · 跨境弱网 / 中间链路丢包\n'
-          '  · 服务端被防火墙静默丢包\n'
-          '  · 端口被运营商屏蔽';
-      suggest = '· 切换网络后重试\n· traceroute / mtr 定位卡点';
-    } else {
-      reason = '底层 socket 抛出错误：${e.message}';
-      suggest = '· 重试或更换网络环境';
-    }
-    return _format(
-      title: 'Network error · 网络层错误',
-      reason: reason,
-      try_: suggest,
-      raw: e.osError == null ? e.message : '${e.message} (${e.osError})',
-    );
-  }
-
-  static String httpClient(http.ClientException e) {
-    return _format(
-      title: 'HTTP client error · HTTP 客户端错误',
-      reason: 'HTTP 客户端在处理请求 / 响应阶段失败：${e.message}\n通常意味着连接中断、响应被截断、或服务端关闭连接。',
-      try_: '· 稍后重试\n· 检查网络稳定性\n· 联系中转方确认服务状态',
-    );
-  }
-
-  static String timeout(Duration limit) {
-    return _format(
-      title: 'Request timed out · 请求超时',
-      reason:
-          '本次调用在 ${limit.inSeconds} 秒内未能完成。常见诱因：\n'
-          '  · 跨境网络延迟过高\n'
-          '  · 服务端处理慢 / 队列拥塞\n'
-          '  · 中间代理在传输中卡死',
-      try_: '· 稍后重试\n· 切换网络或中转\n· 缩短上下文长度后再发送',
-    );
-  }
-
-  static String httpStatus(int code, {String serverMessage = ''}) {
-    String title;
-    String reason;
-    String suggest;
-    switch (code) {
-      case 400:
-        title = 'Bad request (400) · 请求被拒';
-        reason = '服务端拒绝处理本次请求 (400)。请求体可能不符合该协议规范，或附件 / 参数超出允许范围。';
-        suggest = '· 复核 Base URL 与协议是否匹配\n· 缩减消息长度 / 附件数量后重试';
-        break;
-      case 401:
-        title = 'Authentication failed (401) · 鉴权失败';
-        reason = '服务端返回 401 Unauthorized：身份令牌缺失或已失效。';
-        suggest = '· 确认 API Key / Token 已正确粘贴，无前后空格\n· 在中转方控制台重新生成令牌';
-        break;
-      case 403:
-        title = 'Forbidden (403) · 访问被拒';
-        reason = '服务端返回 403 Forbidden：当前令牌无权访问该模型，或 IP 不在允许地区，或触发了 WAF / 风控。';
-        suggest = '· 在中转方控制台确认账号余额与权限\n· 切换网络 / VPN 后重试';
-        break;
-      case 404:
-        title = 'Endpoint not found (404) · 端点不存在';
-        reason = '服务端返回 404 Not Found：Base URL 路径错误，或所选模型在该中转尚未上架。';
-        suggest = '· 复核 Base URL 与模型 ID\n· 在中转方控制台查看可用模型列表';
-        break;
-      case 408:
-        title = 'Server timeout (408) · 服务端超时';
-        reason = '服务端在收到请求头后超时关闭连接 (408)。';
-        suggest = '· 稍后重试\n· 切换网络后再试';
-        break;
-      case 413:
-        title = 'Payload too large (413) · 请求体过大';
-        reason = '请求体超过中转 / 上游允许的最大尺寸 (413)。多发生于附件较多或上下文过长的场景。';
-        suggest = '· 删减附件数量 / 大小\n· 缩短上下文 / 摘要旧消息后再发送';
-        break;
-      case 429:
-        title = 'Rate limited (429) · 触发限流';
-        reason = '服务端返回 429 Too Many Requests：调用过于频繁或额度已用尽。';
-        suggest = '· 稍等几分钟后重试\n· 在中转方控制台确认配额 / 余额';
-        break;
-      case 500:
-        title = 'Server error (500) · 服务端内部错误';
-        reason = '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。';
-        suggest = '· 稍后重试\n· 联系中转方查看服务状态';
-        break;
-      case 502:
-        title = 'Bad gateway (502) · 网关异常';
-        reason = '服务端返回 502 Bad Gateway：中转无法从上游 (Anthropic / OpenAI 等) 取得有效响应。';
-        suggest = '· 稍后重试\n· 联系中转方确认上游通路';
-        break;
-      case 503:
-        title = 'Service unavailable (503) · 服务不可用';
-        reason = '服务端返回 503 Service Unavailable：服务在维护或被熔断。';
-        suggest = '· 稍后重试\n· 关注中转方公告';
-        break;
-      case 504:
-        title = 'Gateway timeout (504) · 网关超时';
-        reason = '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超时。';
-        suggest = '· 稍后重试\n· 切换中转或缩短上下文后再试';
-        break;
-      default:
-        if (code >= 500) {
-          title = 'Server error ($code) · 服务端错误';
-          reason = '服务端返回 $code，多为中转 / 上游故障。';
-          suggest = '· 稍后重试\n· 联系中转方排查';
-        } else if (code >= 400) {
-          title = 'Client error ($code) · 客户端请求被拒';
-          reason = '服务端返回 $code，请求未通过协议或鉴权校验。';
-          suggest = '· 复核 Base URL / token / 自定义 header';
-        } else {
-          title = 'Unexpected status ($code) · 非预期响应';
-          reason = '服务端返回非 2xx 状态码 $code。';
-          suggest = '· 联系中转方排查';
-        }
-    }
-    final trimmedServer = serverMessage.trim();
-    return _format(
-      title: title,
-      reason: reason,
-      try_: suggest,
-      raw: trimmedServer.isEmpty ? null : trimmedServer,
-    );
-  }
-
-  static String _format({
-    required String title,
-    required String reason,
-    required String try_,
-    String? raw,
-  }) {
-    final buf = StringBuffer()
-      ..writeln(title)
-      ..writeln('原因 / Why:')
-      ..writeln(reason)
-      ..writeln('建议 / Try:')
-      ..write(try_);
-    if (raw != null && raw.isNotEmpty) {
-      buf
-        ..writeln()
-        ..write('服务端原文 / Server says: $raw');
-    }
-    return buf.toString();
-  }
 }
