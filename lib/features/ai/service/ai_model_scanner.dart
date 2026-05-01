@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../model/ai_model_config.dart';
+import 'ai_transport_diagnostic_messages.dart';
 
 /// Result of a model scan attempt.
 class AiModelScanResult {
@@ -575,52 +576,30 @@ class AiModelScanner {
 /// 「现象 / 原因 / 建议」三段，避免直接抛出 BoringSSL / Dart 内部
 /// 错误码导致的困惑。所有文案都做成中英双语，因为该字段会原样
 /// 渲染在设置页提示条里，并未再走 ARB l10n。
+/// Scanner 错误文案统一收口；多数 transport 层情况复用
+/// [AiTransportDiagnosticMessages]，仅保留 /models 扫描场景特有的措辞
+/// (例如 404 / 405 推荐「在「手动添加模型 ID」处录入」)。
 class _ScanErrorMessages {
   _ScanErrorMessages._();
 
-  /// 底层 BoringSSL 抛出的 [HandshakeException]，最常见于 Cloudflare /
-  /// 等 WAF 通过 JA3 / JA4 指纹拦截非浏览器 TLS 握手，或客户端 TLS 版本
-  /// / 加密套件不匹配。
-  static String handshake(HandshakeException e) {
-    final detail = e.message.trim();
-    return _format(
-      title: 'TLS handshake rejected · TLS 握手被拒绝',
-      reason:
-          'The server closed the connection before we could send a request. '
-          '该错误来自 TLS 层而非业务层，常见诱因：\n'
-          '  · Cloudflare / WAF 通过 JA3/JA4 TLS 指纹封锁了非浏览器客户端\n'
-          '  · 中转域名要求强制 TLS 1.3 而本地链路被中间设备降级\n'
-          '  · 系统时间偏差过大导致证书未生效或已过期\n'
-          '  · 客户端与服务端无可协商的加密套件 (cipher suite mismatch)',
-      try_:
-          '· 换用其他可访问的中转 / 直接使用 Anthropic 官方 endpoint\n'
-          '· 在「手动添加模型 ID」处输入熟悉的模型名继续配置\n'
-          '· 检查本机系统时间是否正确\n'
-          '· 通过抓包确认服务端是否对该域名启用了 JA3 拦截',
-      raw: detail.isEmpty ? null : detail,
-    );
-  }
+  static String handshake(HandshakeException e) =>
+      AiTransportDiagnosticMessages.handshake(e);
 
-  /// 其他 [TlsException] 子类（证书校验失败等），通常是中间人代理或
-  /// 服务端证书问题。
-  static String tls(TlsException e) {
-    return _format(
-      title: 'TLS error · TLS 协议错误',
-      reason:
-          'TLS 通道建立失败 ${e.message}\n'
-          '常见诱因：\n'
-          '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
-          '  · 中间存在 HTTPS 拦截 / 代理 (公司防火墙、抓包工具)\n'
-          '  · 本地根证书库过旧未包含目标 CA',
-      try_:
-          '· 在浏览器打开同一 URL 检查证书是否报警\n'
-          '· 如果使用了抓包工具或公司代理，请退出后再试\n'
-          '· 联系中转方确认证书链是否正确部署',
-    );
-  }
+  static String tls(TlsException e) =>
+      AiTransportDiagnosticMessages.tls(e);
 
-  /// [SocketException] —— 网络层问题，可细分为 DNS / 拒绝连接 / 不可达 /
-  /// 连接超时等多种情况。
+  static String timeout(Duration limit) =>
+      AiTransportDiagnosticMessages.timeout(limit);
+
+  static String http(HttpException e) =>
+      AiTransportDiagnosticMessages.format(
+        title: 'HTTP protocol error · HTTP 协议错误',
+        reason:
+            'HTTP 客户端在解析响应阶段失败：${e.message}\n'
+            '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
+        try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
+      );
+
   static String socket(SocketException e) {
     final msg = e.message.toLowerCase();
     String reason;
@@ -665,7 +644,7 @@ class _ScanErrorMessages {
       reason = '底层 socket 抛出错误：${e.message}';
       suggest = '· 确认网络可用并复核 Base URL\n· 必要时联系中转方排查链路';
     }
-    return _format(
+    return AiTransportDiagnosticMessages.format(
       title: 'Network error · 网络层错误',
       reason: reason,
       try_: suggest,
@@ -673,31 +652,6 @@ class _ScanErrorMessages {
     );
   }
 
-  /// HTTP 协议层异常（如非法响应行、协议不匹配）。
-  static String http(HttpException e) {
-    return _format(
-      title: 'HTTP protocol error · HTTP 协议错误',
-      reason:
-          'HTTP 客户端在解析响应阶段失败：${e.message}\n'
-          '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
-      try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
-    );
-  }
-
-  /// 调用整体超时（[TimeoutException]）。
-  static String timeout(Duration limit) {
-    return _format(
-      title: 'Request timed out · 请求超时',
-      reason:
-          '本次扫描在 ${limit.inSeconds} 秒内未能完成。可能的原因：\n'
-          '  · 跨境网络延迟过高或链路抖动\n'
-          '  · 服务端正在处理大量并发请求\n'
-          '  · 中间代理在传输中卡死',
-      try_: '· 稍后重试\n· 在「手动添加模型 ID」处直接录入模型名\n· 切换网络或中转重试',
-    );
-  }
-
-  /// HTTP 状态码格式化。`isAuth=true` 表示这是 401/403 鉴权类。
   static String httpStatus(int code, {bool isAuth = false, String? hint}) {
     String title;
     String reason;
@@ -786,50 +740,39 @@ class _ScanErrorMessages {
           suggest = '· 联系中转方排查';
         }
     }
-    return _format(
+    return AiTransportDiagnosticMessages.format(
       title: title,
       reason: reason,
       try_: hint == null ? suggest : '$suggest\n· $hint',
     );
   }
 
-  /// JSON 解析失败 —— 多半是中转返回了 HTML 错误页或纯文本。
-  static String formatError(String detail) {
-    return _format(
-      title: 'Unexpected response format · 响应格式异常',
-      reason:
-          '服务端虽返回了 200，但响应体不是合法 JSON：$detail\n'
-          '通常意味着中转返回了 HTML 错误页 / Cloudflare 验证页 / 纯文本错误提示。',
-      try_: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
-    );
-  }
+  static String formatError(String detail) =>
+      AiTransportDiagnosticMessages.format(
+        title: 'Unexpected response format · 响应格式异常',
+        reason:
+            '服务端虽返回了 200，但响应体不是合法 JSON：$detail\n'
+            '通常意味着中转返回了 HTML 错误页 / Cloudflare 验证页 / 纯文本错误提示。',
+        try_: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
+      );
 
-  /// 兜底未识别异常。
-  static String unexpected(Object error) {
-    return _format(
-      title: 'Unexpected error · 未识别错误',
-      reason: '$error',
-      try_: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
-    );
-  }
+  static String unexpected(Object error) =>
+      AiTransportDiagnosticMessages.format(
+        title: 'Unexpected error · 未识别错误',
+        reason: '$error',
+        try_: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
+      );
 
   static String _format({
     required String title,
     required String reason,
     required String try_,
     String? raw,
-  }) {
-    final buf = StringBuffer()
-      ..writeln(title)
-      ..writeln('原因 / Why:')
-      ..writeln(reason)
-      ..writeln('建议 / Try:')
-      ..write(try_);
-    if (raw != null && raw.isNotEmpty) {
-      buf
-        ..writeln()
-        ..write('原始报文 / Raw: $raw');
-    }
-    return buf.toString();
-  }
+  }) =>
+      AiTransportDiagnosticMessages.format(
+        title: title,
+        reason: reason,
+        try_: try_,
+        raw: raw,
+      );
 }
