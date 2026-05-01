@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/system_proxy.dart';
+
 import '../../mcp/model/mcp_server.dart';
 import '../../mcp/model/mcp_tool.dart';
 import '../../mcp/service/mcp_tool_discovery_service.dart';
@@ -190,7 +192,7 @@ class AiToolRuntimeService {
        _hookService = hookService,
        _mcpToolService = mcpToolService,
        _backgroundChatClient = backgroundChatClient,
-       _httpClient = httpClient ?? http.Client(),
+       _httpClient = httpClient ?? SystemProxyResolver.instance.createHttpClient(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileTracker = fileTrackerService ?? AiFileTrackerService(),
        _fileHistory = fileHistoryService ?? AiFileHistoryService() {

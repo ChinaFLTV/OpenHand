@@ -138,8 +138,20 @@ final RegExp _trailingIncompleteDsmlPattern = RegExp(
   caseSensitive: false,
 );
 
+// 2026-05-03: widened to `[|｜]+` (was `[|｜]\s*` = exactly one) so we
+// match doubled-pipe variants like `<｜｜DSML｜｜...>` emitted by some
+// fine-tunes (observed: deepseek-style `<｜｜DSML｜｜tool_calls>`,
+// `<｜｜DSML｜｜invoke name="…">`, `<｜｜DSML｜｜parameter …>`). Without
+// this, canonicalization no-ops on the doubled form and the raw markup
+// leaks straight into the user-visible bubble.
 final RegExp _dsmlTagPrefixPattern = RegExp(
-  r'<\s*(/?)\s*[|｜]\s*DSML\s*[|｜]\s*',
+  r'<\s*(/?)\s*[|｜]+\s*DSML\s*[|｜]+\s*',
+  caseSensitive: false,
+);
+// 2026-05-03: some models emit `<DSML:tool_calls>` instead of the
+// canonical `<DSML:function_calls>`. Treat both as identical wrappers.
+final RegExp _dsmlToolCallsAliasPattern = RegExp(
+  r'<(/?)DSML:tool_calls\b([^>]*)>',
   caseSensitive: false,
 );
 final RegExp _dsmlFunctionCallsPattern = RegExp(
@@ -181,10 +193,24 @@ String _canonicalizeDsmlMarkup(String value) {
       .replaceAll('<｜DSML｜', '<DSML:')
       .replaceAll('</｜DSML｜', '</DSML:')
       .replaceAll('<｜dsml｜', '<DSML:')
-      .replaceAll('</｜dsml｜', '</DSML:');
+      .replaceAll('</｜dsml｜', '</DSML:')
+      // 2026-05-03: doubled fullwidth pipes (deepseek-style envelope).
+      .replaceAll('<｜｜DSML｜｜', '<DSML:')
+      .replaceAll('</｜｜DSML｜｜', '</DSML:')
+      .replaceAll('<｜｜dsml｜｜', '<DSML:')
+      .replaceAll('</｜｜dsml｜｜', '</DSML:');
   normalized = normalized.replaceAllMapped(_dsmlTagPrefixPattern, (match) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
+  });
+  // 2026-05-03: `<DSML:tool_calls>` -> `<DSML:function_calls>` so the
+  // downstream sanitizer / extractor treats it the same as the canonical
+  // group wrapper.
+  normalized = normalized.replaceAllMapped(_dsmlToolCallsAliasPattern, (m) {
+    final slash = m.group(1) ?? '';
+    return slash.isNotEmpty
+        ? '</DSML:function_calls>'
+        : '<DSML:function_calls>';
   });
   // Canonicalize raw (non-DSML) function_calls / invoke / parameter tags that
   // low-intelligence models sometimes emit verbatim instead of using the DSML

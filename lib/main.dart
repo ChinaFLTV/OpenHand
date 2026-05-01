@@ -13,6 +13,7 @@ import 'app/openhand_app.dart';
 import 'app/state/settings_controller.dart';
 import 'app/support/app_runtime_context.dart';
 import 'app/support/silent_log.dart';
+import 'app/support/system_proxy.dart';
 import 'features/ai/ai_session_controller.dart';
 import 'features/ai/service/ai_chat_service.dart';
 import 'features/ai/service/ai_claude_hook_service.dart';
@@ -142,6 +143,10 @@ Future<void> _bootstrap() async {
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
   final hooksControllerFuture = HooksController.create();
+  // 2026-05-03: kick off system-proxy detection in parallel with the
+  // controllers — internal HTTP clients (WebSearch / WebFetch) consult
+  // SystemProxyResolver lazily, so this is purely best-effort.
+  final systemProxyFuture = SystemProxyResolver.instance.initialize();
 
   developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
@@ -197,6 +202,9 @@ Future<void> _bootstrap() async {
   memoryControllerHandle = memoryController;
   final aiSessionController = await aiSessionControllerFuture;
   developer.Timeline.finishSync();
+  // Make sure system-proxy detection has resolved before the user can
+  // hit WebSearch/WebFetch. Best-effort — failures fall back to DIRECT.
+  unawaited(systemProxyFuture);
 
   // 2026-04-25 Hermes Talker — bootstrap the self-learning scheduler + runner
   // and register the `agent` cron handler so the system-managed
