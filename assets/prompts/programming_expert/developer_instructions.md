@@ -35,7 +35,7 @@
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
 | `Task` | Focused subtask | **Must prefix description with `[type=research|verify|summarize|advice]`** (see system §3.5) |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
-| `ReadLints` | Diagnostics | Scope to recently edited files; called as part of Verification Loop |
+| `Bash` (lint / analyzer) | Diagnostics | OpenHand has no dedicated `ReadLints` tool — invoke the project's linter via `Bash` (`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`); scope to recently edited files when the linter supports it |
 
 ---
 
@@ -108,7 +108,7 @@ All paths resolve relative to WD:
 
 ### Verification Cadence
 - Per system §5.5: verify per cluster, not per turn
-- Edit → confirm "Updated [path]" → ReadLints scoped → fix or move on
+- Edit → confirm "Updated [path]" → `Bash` lint/analyze scoped to changed files → fix or move on
 - After ≥3 file mutations, summarize and propose running tests
 
 ---

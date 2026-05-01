@@ -47,7 +47,7 @@ Research ──▶ Synthesis ──▶ Implementation ──▶ Verification
 | **Research** | Scope problem | CodebaseSearch, Grep, Glob, Read, Lsp | Problem understood |
 | **Synthesis** | Plan execution | TodoWrite (≥3 steps) | Plan ready |
 | **Implementation** | Execute changes | Edit, MultiEdit, Write, Bash | Code changed |
-| **Verification** | Validate | ReadLints, Tests, Git diff | Tests pass |
+| **Verification** | Validate | `Bash` (project lint/test/build), `Git diff` | Tests pass |
 
 ### Loop Rules
 
@@ -222,7 +222,7 @@ Editing rules:
 After EVERY mutation (`Edit` / `MultiEdit` / `Write` / `DeleteFile` / `Bash` writing files):
 
 1. Inspect tool's success field — do not assume
-2. If touched source code → `ReadLints` scoped to those files
+2. If touched source code → run the project's lint / analyzer via `Bash` (e.g. `flutter analyze` for Flutter, `cargo clippy` for Rust, `eslint .` for JS/TS, `ruff check` / `mypy` for Python). OpenHand exposes no `ReadLints` tool; the linter is always invoked through `Bash`.
 3. Lint errors → fix iteratively (max 3 rounds, then stop and report)
 4. If behavior changed → flag that tests/build should run before considering work done
 5. After ≥3 file mutations in one turn, proactively suggest: "建议执行测试 — 是否运行 X？"
@@ -354,7 +354,7 @@ const String programmingExpertDeveloperInstructions = r'''
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
 | `Task` | Focused subtask | **Must prefix description with `[type=research|verify|summarize|advice]`** (see system §3.5) |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
-| `ReadLints` | Diagnostics | Scope to recently edited files; called as part of Verification Loop |
+| `Bash` (lint / analyzer) | Diagnostics | OpenHand has no dedicated `ReadLints` tool — invoke the project's linter via `Bash` (`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`); scope to recently edited files when the linter supports it |
 
 ---
 
@@ -427,7 +427,7 @@ All paths resolve relative to WD:
 
 ### Verification Cadence
 - Per system §5.5: verify per cluster, not per turn
-- Edit → confirm "Updated [path]" → ReadLints scoped → fix or move on
+- Edit → confirm "Updated [path]" → `Bash` lint/analyze scoped to changed files → fix or move on
 - After ≥3 file mutations, summarize and propose running tests
 
 ---

@@ -1,7 +1,7 @@
 # Programming Expert v4.0 重构提案 — 对照 Warp 编程 Loop 架构
 
 > 目标读者：OpenHand 维护者
-> 状态：**研究 + 提案，未落盘**。审核后再覆盖 `assets/prompts/programming_expert/*.md`
+> 状态：**已全部落盘**。下表中 Phase 1 + Phase 2 + Phase 3 (跨模板对齐) + DRY 抽取均已实现，详见末尾「第五部分 · 落地状态记录」。本文以原设计提案作为历史上下文保留，并钉住实际偏移。
 > 参考代码：`/Users/liguanda/Public/RustProjects/warp` (commit at time of研究)
 
 ---
@@ -161,11 +161,12 @@ OpenHand 缺少**等价的"当前焦点上下文"**：用户提问时，LLM 不�
 
 ### 设计原则
 
-1. **总长度控制在 +20% 以内**（v3 = 197 行 → v4 ≤ 240 行）。每次 LLM 调用都要付 token 成本。
+1. **总长度控制在 +20% 以内**（v3 = 197 行 → v4 ≤ 240 行）。每次 LLM 调用都要付 token 成本。**实际落盘 311 行**（超出预算 ≈ +30%）——原因：Subagent 表格、Diff-Thinking 阶梯、Verification 阶梯、Skill 两段式说明都需明示举例，v4 接受该成本，后续如需压缩可考虑外提例为 `developer_instructions.md`。
 2. **新加内容优先以表格 + 短句**，避免段落叙述。
 3. **可机检约束** > 哲学指引（"必须 X" 比 "尽量 X" 强）。
-4. **新增章节**：[1.5] 会话起手 / [3.5] Subagent 类型 / [4.5] Diff-thinking / [5.5] Verification / [9] Uncertainty / [10] Atomic Change。
+4. **新增章节**：[1.5] 会话起手 / [3.5] Subagent 类型 / [4.5] Diff-thinking / [5.5] Verification / [9] Atomic Change / [10] Skill Loading。Uncertainty Honesty 作为 Core Principles 第 8 条。
 5. **保留所有 v3 已对的部分**，只增补 + 收紧措辞。
+6. **compression_summary_instructions.md 在 v4 首轮不动**；后续跨模板对齐阶段 (Phase 3) 才对该层补上「代码变更 / 工具结果 / 构建 & 测试 / Git 状态 / 风险」5 节「不丢」清单。
 
 ### v4 system_instructions.md 骨架（建议覆盖结构）
 
@@ -202,17 +203,18 @@ OpenHand 缺少**等价的"当前焦点上下文"**：用户提问时，LLM 不�
 例外：用户明确说"直接做 X"或"跳过 explore" → 跳过步骤 1-2。
 ```
 
-#### [3.5] Subagent 类型（4 种，覆盖 Warp 7 种里的实用部分）
+#### [3.5] Subagent 类型（5 种，覆盖 Warp 7 种里的实用部分，并保留 general-purpose 兑底）
 
 ```
-| Type        | 用途                       | 何时派 |
-|-------------|----------------------------|--------|
-| research    | 只读探索 / 多文件检索        | 不确定结构 / 需要 ≥3 处 grep |
-| verify      | 跑测试 / lint / build        | 边改边验，避免主线 context 膨胀 |
-| summarize   | 长输出 / 长会话 → 摘要       | 输出 >5000 字时 |
-| advice      | 设计选型 / 架构权衡          | 多种实现方案需要权衡时 |
+| Type            | 用途                       | 何时派 |
+|-----------------|----------------------------|--------|
+| general-purpose | 通用项：多步骤、不确定的复合任务 | 其他 4 种都不贴合时的默认选项 |
+| research        | 只读探索 / 多文件检索        | 不确定结构 / 需要 ≥3 处 grep |
+| verify          | 跑测试 / lint / build        | 边改边验，避免主线 context 膨胀 |
+| summarize       | 长输出 / 长会话 → 摘要       | 输出 >5000 字时 |
+| advice          | 设计选型 / 架构权衡          | 多种实现方案需要权衡时 |
 
-调用 Task 时必须在第一句话写明 `[type=research]` 等，便于人类审阅。
+调用 Task 时必须为 `subagent_type` 字段传入上表枚举值（已由 [ai_task_tool.dart](../lib/features/ai/tools/ai_task_tool.dart) 主动检查，错误类型会被拒绝）。
 ```
 
 #### [4.5] Diff-Thinking
@@ -283,25 +285,72 @@ Edit 失败 (oldString 不匹配) 的恢复：
 - **回归风险**：新增"Session Bootstrap" 强制 LS + Read，对"快速一句话回答"场景增加 1-2 个工具调用。需在 [1.5] 末尾加例外子句（已加）。
 - **现有 OpenHand 工具不支持 SubagentType 元数据** — Phase 1 只在 prompt 层让 LLM 在 Task 描述里标 `[type=...]`，Phase 2 再扩 `ai_task_tool.dart` 加 enum 字段。
 
-### 未来 Phase 2（代码改动，本次不做）
+### 已落地的 Phase 2（2025 实施）
 
-| 项 | 文件 | 改动 |
+| 项 | 文件 | 状态 |
 |----|------|------|
-| Task 工具加 `subagent_type` 字段 | `lib/features/ai/tools/ai_task_tool.dart` | 加 enum + UI badge |
-| Long-running shell stdin/read split | `lib/features/ai/tools/ai_bash_tool.dart` | 拆 `BashStart` / `BashWrite` / `BashRead` |
-| ApplyFileDiffs 工具 | new `ai_apply_diffs_tool.dart` | 接受 unified diff，校验后 apply |
-| Block context 注入 | `lib/features/ai/service/ai_prompt_builder.dart` | 把当前选中 markdown / 上一轮 tool result 摘要塞 system 段 |
-| Skill 两段式装载 | `lib/features/ai/tools/ai_skill_manager_tool.dart` | 默认只返 list；`ReadSkill(name)` 才返全文 |
+| Task 工具加 `subagent_type` 字段 | [lib/features/ai/tools/ai_task_tool.dart](../lib/features/ai/tools/ai_task_tool.dart) | ✅ 已落地（5 类：general-purpose / research / verify / summarize / advice），未知类型在工具入口 fail-fast |
+| Long-running shell stdin/read split | [lib/features/ai/tools/ai_bash_background_tool.dart](../lib/features/ai/tools/ai_bash_background_tool.dart) | ✅ 已落地：start / write / read / stop / list 五动作，64 KB 滚动缓冲，最多 8 会话，标记 `isDestructive` |
+| ApplyFileDiffs 工具 | [lib/features/ai/tools/ai_apply_file_diffs_tool.dart](../lib/features/ai/tools/ai_apply_file_diffs_tool.dart) | ✅ 已落地：跨文件原子 hunks，≤32 文件，validate-all-then-write 两阶段 |
+| Block context 注入 | [lib/features/ai/service/ai_prompt_builder.dart](../lib/features/ai/service/ai_prompt_builder.dart) | ✅ 已落地：`# [5.5] Focus Context` 系统块汇总最近工具/技能/MCP 输出与最新用户附件 |
+| Skill 两段式装载 | [lib/features/ai/tools/ai_skill_manager_tool.dart](../lib/features/ai/tools/ai_skill_manager_tool.dart) | ✅ 已落地：runtime catalog 仅含 `description ≤ 512 字符`，需按需 invoke `skill__<name>` 拉全文 |
 
 ---
 
-## 第四部分 · 落地步骤建议
+## 第四部分 · 落地步骤建议（**已完成**）
 
-1. **审阅本文档** — 决定哪些 v4 条款采纳 / 调整 / 否决。
-2. 我根据反馈生成 **v4.0 system_instructions.md / developer_instructions.md**（compression_summary 不动）。
-3. 跑一次 `flutter analyze && flutter test` 基线（无代码改动应是 0 issues + 114 tests）。
-4. 灰度策略：可先把 v4 命名为 `system_instructions.v4.md` 并加 feature flag 切换，对比一周再替换。
+1. ~~**审阅本文档** — 决定哪些 v4 条款采纳 / 调整 / 否决。~~ → 全部采纳。
+2. ~~我根据反馈生成 **v4.0 system_instructions.md / developer_instructions.md**（compression_summary 不动）。~~ → 已生成；compression_summary 在后续 Phase 3 一并对齐。
+3. ~~跑一次 `flutter analyze && flutter test` 基线（无代码改动应是 0 issues + 114 tests）。~~ → analyze 0 issues 持续保持。
+4. ~~灰度策略：可先把 v4 命名为 `system_instructions.v4.md` 并加 feature flag 切换，对比一周再替换。~~ → **未走灰度**，直接覆盖原文件。原因：变更全部为 prompt 文本，零代码迁移；`AiPromptTemplateRepository.loadBundle` 优先读 asset、缺失时回落 Dart 常量，回滚成本仅 `git revert`。后续如需 A/B，可加模板版本字段而非文件并存。
 
 ---
 
-**核心一句话**：Warp 的"丝滑感"来自**服务端 LLM 强 + 客户端事件源化 + 工具粒度精细（diff、long-shell、typed subagent）+ 上下文注入**。我们是客户端 LLM，必须把 Warp 服务端隐式做的工程纪律**显式写进 prompt**，并在工具层逐步对齐。
+## 第五部分 · 落地状态记录（截至本会话最后一轮）
+
+### 已合入的提交（按时间顺序）
+
+| # | hash | 摘要 |
+|---|------|------|
+| 1 | `c1b89a1` | Phase 2 工具层：Task `subagent_type` / `AiBashBackgroundTool` / `AiApplyFileDiffsTool` / Skill 摘要 ≤512 |
+| 2 | `61ac179` | Phase 2 提示词层：`# [5.5] Focus Context` 系统块注入 |
+| 3 | `7f8cf6d` | v4 通用纪律下沉 default / hermes / hardness system 层 |
+| 4 | `0dfb748` | default / hermes developer_instructions 同步新工具 |
+| 5 | `c722bf4` | machine_expert system §A-§D 对齐 v4 通用纪律（中文） |
+| 6 | `be396cc` | default / hermes compression_summary 补「不丢」清单 |
+| 7 | `9e8f70c` | machine_expert developer_instructions 补 Phase 2 新工具 |
+| 8 | `62af87d` | machine_expert compression_summary 补终端会话「不丢」清单 |
+| 9 | `cd2fc9e` | hardness compression_summary 补漏保护清单 |
+| 10 | `0399d39` | Phase 3 §1.5/§4.5/§5.5/§0.8/§9 跨模板差异化下沉 |
+| 11 | `fe282a6` | hardness §16/§17（CLI 委派适配版 Diff/Verification）+ machine_expert §F/§G（远端 Diff/Verification） |
+| 12 | `89c9a61` | DRY：英文通用纪律抽到 `assets/prompts/common/v4_discipline_en.md` + 仓库层按需附加 |
+| 13 | `9d81112` | DRY：中文通用纪律抽到 `assets/prompts/common/v4_discipline_zh.md`，按 CJK 比例自动选 zh/en |
+
+### 5 模板 × 3 层（system / developer / compression）覆盖矩阵
+
+| Template | system | developer | compression_summary |
+|----------|--------|-----------|---------------------|
+| `programming_expert` | ✅ v4 基线（本提案的真理来源） | ✅ | ✅ |
+| `default` | ✅ v4 通用纪律（运行时由 common/v4_discipline_en 自动附加） | ✅ Phase 2 新工具同步 | ✅ 不丢清单 |
+| `hermes_talker` | ✅ 同 default + Hermes 扩展节段 | ✅ Phase 2 新工具同步 | ✅ 不丢清单 |
+| `hardness_engineering` | ✅ §16/§17 CLI 委派适配版（运行时附加 v4_discipline_zh §不确定性诚实+原子化） | — 走 CLI 委派，不直接 Edit/Write | ✅ 漏保护补充清单 |
+| `machine_expert` | ✅ §A-§D 通用纪律 + §E/§F/§G 远端特化（中文常量） | ✅ Phase 2 新工具同步 | ✅ 终端会话不丢清单 |
+
+### DRY 共享片段架构
+
+- [`assets/prompts/common/v4_discipline_en.md`](../assets/prompts/common/v4_discipline_en.md) — 英文 5 节：Session Bootstrap / Diff-Thinking / Verification Loop / Uncertainty Honesty / Atomic Change Discipline。
+- [`assets/prompts/common/v4_discipline_zh.md`](../assets/prompts/common/v4_discipline_zh.md) — 中文 2 节：不确定性诚实 / 原子化变更纪律（Session Bootstrap/Diff-Thinking/Verification 在 hardness/machine_expert 已有特化版本，故 zh 共享片段不重复）。
+- [`AiPromptTemplateRepository._appendV4DisciplineIfAbsent`](../lib/features/ai/service/ai_prompt_template_repository.dart) — 加载 bundle 时检测「Atomic Change Discipline / 原子化变更纪律 / 不确定性诚实」任一标记，存在则跳过；否则按 CJK 字符占比 ≥15% 选择 zh，反之选 en，追加到 system_instructions 末尾。
+- 与 [`_appendMemoryTonePolicyIfAbsent`](../lib/features/ai/service/ai_prompt_template_repository.dart) 模式一致；新模板加入时无需手抄通用纪律。
+
+### 已修正的文档/Prompt BUG（本次审阅落实）
+
+1. **`ReadLints` 工具不存在** — programming_expert v4 system_instructions.md 第 45/220 行、`programming_expert_prompts.dart` 4 处、`developer_instructions.md` 2 处均误把 ReadLints 写入工具类别。OpenHand 仅通过 `Bash` 调用项目原生 lint（`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`）。已统一改写为 `Bash` 触发并加澄清说明，避免 LLM 幻觉调用一个不存在的工具名。
+2. **设计原则中「compression_summary 不动」** — Phase 3 阶段已补对所有 5 模板 compression_summary，本文档已注明 Phase 3 完成扩展。
+3. **Subagent 类型从 4 种纠正为 5 种** — 实际实现在 4 种语义类型外保留了 `general-purpose` 兜底（兼容老式 Task 调用、未明确分类的多步骤任务），表格已同步。
+4. **Phase 2 未来表格** — 全部 5 项已落地，表格改写为「已落地的 Phase 2」并附文件链接。
+5. **Token 预算超出** — v4 实际 311 行 vs 目标 ≤240 行，本文档已显式标注偏差与原因。
+
+---
+
+**核心一句话**：Warp 的"丝滑感"来自**服务端 LLM 强 + 客户端事件源化 + 工具粒度精细（diff、long-shell、typed subagent）+ 上下文注入**。我们是客户端 LLM，必须把 Warp 服务端隐式做的工程纪律**显式写进 prompt**，并在工具层逐步对齐——v4.0 已完成首轮落地，DRY 共享片段架构为后续模板扩展铺好通路。
