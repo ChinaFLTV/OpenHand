@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import 'hardness_cli_catalog.dart';
 
@@ -271,12 +272,35 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
           'with administrator privileges';
 
       try {
-        final result = await Process.run('osascript', [
-          '-e',
-          appleScript,
-        ]).timeout(const Duration(minutes: 5));
+        // Use the safe subprocess wrapper: `Process.run(...).timeout(...)`
+        // is a TRAP — Future.timeout only abandons the Dart future while the
+        // underlying osascript child keeps running and continues sending
+        // Apple Events to other GUI apps. On macOS this corrupts the host
+        // process's IMK input context, observed as "every TextField in the
+        // app silently refuses input/paste" plus
+        // `error messaging the mach port for IMKCFRunLoopWakeUpReliable`
+        // console spam. The wrapper does Process.start + concurrent stdio
+        // drain + hard SIGKILL on timeout so the child cannot leak.
+        // Timeout is generous because `with administrator privileges` opens
+        // the system auth prompt which the user may take a while to answer.
+        final result = await runProcessWithTimeout(
+          'osascript',
+          ['-e', appleScript],
+          timeout: const Duration(minutes: 5),
+          tag: 'hardness_cli_install_dialog',
+        );
 
         if (!mounted || _cancelled) return;
+
+        if (result == null) {
+          // Timed out (child SIGKILLed) or failed to launch.
+          setState(() {
+            _running = false;
+            _success = false;
+          });
+          _appendLine('✗ 管理员授权对话框超时或启动失败，已强制结束 osascript 子进程');
+          return;
+        }
 
         final stdout = result.stdout as String;
         final stderr = (result.stderr as String).trim();
