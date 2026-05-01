@@ -738,5 +738,7 @@
   "proxyTestConsoleCopy": "Copier le journal",
   "proxyTestConsoleCopied": "Journal copié dans le presse-papiers",
   "proxyTestConsoleClose": "Fermer",
-  "proxyTestConsoleRerun": "Relancer"
+  "proxyTestConsoleRerun": "Relancer",
+  "proxyTestConsoleMaximize": "Agrandir",
+  "proxyTestConsoleRestore": "Restaurer"
 }

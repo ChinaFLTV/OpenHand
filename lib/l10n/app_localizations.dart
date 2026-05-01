@@ -4119,6 +4119,18 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'重新运行'**
   String get proxyTestConsoleRerun;
+
+  /// No description provided for @proxyTestConsoleMaximize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最大化'**
+  String get proxyTestConsoleMaximize;
+
+  /// No description provided for @proxyTestConsoleRestore.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'还原'**
+  String get proxyTestConsoleRestore;
 }
 
 class _AppLocalizationsDelegate

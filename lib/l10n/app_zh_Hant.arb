@@ -738,5 +738,7 @@
   "proxyTestConsoleCopy": "複製日誌",
   "proxyTestConsoleCopied": "日誌已複製到剪貼簿",
   "proxyTestConsoleClose": "關閉",
-  "proxyTestConsoleRerun": "重新執行"
+  "proxyTestConsoleRerun": "重新執行",
+  "proxyTestConsoleMaximize": "最大化",
+  "proxyTestConsoleRestore": "還原"
 }

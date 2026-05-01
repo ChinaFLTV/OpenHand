@@ -2244,4 +2244,10 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get proxyTestConsoleRerun => 'Erneut ausführen';
+
+  @override
+  String get proxyTestConsoleMaximize => 'Maximieren';
+
+  @override
+  String get proxyTestConsoleRestore => 'Wiederherstellen';
 }

@@ -738,5 +738,7 @@
   "proxyTestConsoleCopy": "Protokoll kopieren",
   "proxyTestConsoleCopied": "Protokoll in Zwischenablage kopiert",
   "proxyTestConsoleClose": "Schließen",
-  "proxyTestConsoleRerun": "Erneut ausführen"
+  "proxyTestConsoleRerun": "Erneut ausführen",
+  "proxyTestConsoleMaximize": "Maximieren",
+  "proxyTestConsoleRestore": "Wiederherstellen"
 }

@@ -738,5 +738,7 @@
   "proxyTestConsoleCopy": "ログをコピー",
   "proxyTestConsoleCopied": "ログをクリップボードにコピーしました",
   "proxyTestConsoleClose": "閉じる",
-  "proxyTestConsoleRerun": "再実行"
+  "proxyTestConsoleRerun": "再実行",
+  "proxyTestConsoleMaximize": "最大化",
+  "proxyTestConsoleRestore": "元のサイズに戻す"
 }

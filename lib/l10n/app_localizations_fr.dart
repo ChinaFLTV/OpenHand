@@ -2245,4 +2245,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proxyTestConsoleRerun => 'Relancer';
+
+  @override
+  String get proxyTestConsoleMaximize => 'Agrandir';
+
+  @override
+  String get proxyTestConsoleRestore => 'Restaurer';
 }

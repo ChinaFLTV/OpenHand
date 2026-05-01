@@ -2218,4 +2218,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get proxyTestConsoleRerun => '再実行';
+
+  @override
+  String get proxyTestConsoleMaximize => '最大化';
+
+  @override
+  String get proxyTestConsoleRestore => '元のサイズに戻す';
 }

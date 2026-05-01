@@ -65,6 +65,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   bool _finishedSucceeded = false;
   String? _finalSummary;
 
+  // 2026-05-04 (UI 调优 v2):
+  // - _hiddenLevels：底部 mini 过滤器开关，被点选的 level 会从
+  //   控制台 ListView 中过滤掉（仍写入 _entries，仅渲染遮蔽）。
+  //   head 永远不被过滤——它是阶段锚点，藏掉会让整个时序错乱。
+  // - _maximized：header 上的最大化按钮切换；最大化时弹窗几乎
+  //   占满屏幕，便于看长 trace。
+  // - _slowSectionThresholdMs：≥ 此值的 section head 会在文本后
+  //   缀上 ⚠ ms 警告标。50 ms 是经验阈值——DNS / TCP / TLS 握手
+  //   单段如果超过这个量级，基本就是网络/代理路径异常的信号。
+  final Set<_ProxyTestLogLevel> _hiddenLevels = <_ProxyTestLogLevel>{};
+  bool _maximized = false;
+  static const int _slowSectionThresholdMs = 50;
+
   @override
   void initState() {
     super.initState();
@@ -461,10 +474,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mediaSize = MediaQuery.sizeOf(context);
-    final w = math.min(840.0, mediaSize.width - 48);
-    final h = math.min(560.0, mediaSize.height - 96);
+    final w = _maximized
+        ? mediaSize.width - 24
+        : math.min(840.0, mediaSize.width - 48);
+    final h = _maximized
+        ? mediaSize.height - 32
+        : math.min(560.0, mediaSize.height - 96);
     return Dialog(
-      insetPadding: const EdgeInsets.all(24),
+      insetPadding: EdgeInsets.all(_maximized ? 12 : 24),
       child: ConstrainedBox(
         // 2026-05-04 (Bug 修复): 将 maxHeight 升级为 tight 高度
         // ——`Column(mainAxisSize: min)` + 内部 `Expanded` 在
@@ -482,7 +499,17 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             _buildHeader(context),
-            const Divider(height: 1),
+            // 2026-05-04 (UI 调优 v2): 顶部薄进度条 — 运行中显示
+            // 一条 indeterminate LinearProgressIndicator (高度 2)
+            // 紧贴在 header 下面，给"还在跑"加一个细水长流的视
+            // 觉提示，光标负责"在打字"，进度条负责"长流程感"。
+            if (_running)
+              const SizedBox(
+                height: 2,
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            else
+              const Divider(height: 1),
             Expanded(child: _buildConsole(context)),
             const Divider(height: 1),
             _buildFooter(context, l10n),
@@ -495,25 +522,31 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Widget _buildHeader(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    // 2026-05-04 (UI 调优 v2): 把状态色从主题 primary/error 改为
+    // 显式的绿/红/琥珀，避免 primary 在某些主题下表现成粉/紫导
+    // 致"看不出成功失败"。
+    const successColor = Color(0xFF22C55E); // green-500
+    const errorColor = Color(0xFFEF4444); // red-500
+    const runningColor = Color(0xFFFACC15); // amber-400
     final IconData statusIcon;
     final Color statusColor;
     final String statusText;
     if (_running) {
       statusIcon = Icons.sync;
-      statusColor = theme.colorScheme.primary;
+      statusColor = runningColor;
       statusText = l10n.proxyTestConsoleRunning;
     } else if (_finishedSucceeded) {
       statusIcon = Icons.check_circle;
-      statusColor = theme.colorScheme.primary;
+      statusColor = successColor;
       statusText = l10n.proxyTestConsoleSucceeded;
     } else {
       statusIcon = Icons.error;
-      statusColor = theme.colorScheme.error;
+      statusColor = errorColor;
       statusText = l10n.proxyTestConsoleFailed;
     }
     final slowest = _slowestSection();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+      padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
       child: Row(
         children: <Widget>[
           Icon(statusIcon, color: statusColor, size: 22),
@@ -562,6 +595,18 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             ),
           ),
           IconButton(
+            tooltip: _maximized
+                ? l10n.proxyTestConsoleRestore
+                : l10n.proxyTestConsoleMaximize,
+            onPressed: () => setState(() => _maximized = !_maximized),
+            icon: Icon(
+              _maximized
+                  ? Icons.close_fullscreen
+                  : Icons.open_in_full,
+              size: 18,
+            ),
+          ),
+          IconButton(
             tooltip: l10n.proxyTestConsoleCopy,
             onPressed: _entries.isEmpty ? null : _copyLogs,
             icon: const Icon(Icons.copy_all_outlined, size: 20),
@@ -605,6 +650,16 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF101218) : const Color(0xFF1B1F27);
+    // 2026-05-04 (UI 调优 v2): 过滤器仅遮蔽 info / ok / warn / err
+    // / debug 这五种数据行；head 永远不被过滤——它是阶段锚点，藏
+    // 掉会让整个时序错乱。
+    final visible = _entries
+        .where(
+          (e) =>
+              e.level == _ProxyTestLogLevel.head ||
+              !_hiddenLevels.contains(e.level),
+        )
+        .toList(growable: false);
     return Container(
       color: bg,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -613,12 +668,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         thumbVisibility: true,
         child: ListView.builder(
           controller: _scrollController,
-          itemCount: _entries.length + (_running ? 1 : 0),
+          itemCount: visible.length + (_running ? 1 : 0),
           itemBuilder: (ctx, i) {
-            if (i == _entries.length) {
+            if (i == visible.length) {
               return _buildBlinkingCursor();
             }
-            return _buildEntryRow(_entries[i]);
+            return _buildEntryRow(visible[i]);
           },
         ),
       ),
@@ -665,6 +720,27 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       color: levelColor,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
+    // 2026-05-04 (UI 调优 v2):
+    // - level 背景：err / warn 微弱色块 (alpha 0.08 / 0.06)，
+    //   让眼睛在长 trace 中能"一扫就找到红黄"。
+    // - head 行：上下加一根 1px 细分隔线 + 比 err/warn 更显眼的
+    //   bg (alpha 0.12)，作为阶段锥型分段。
+    // - hover：MouseRegion 鼠标悬停时背景再加一层 0.06 白色，叠
+    //   在已有 level bg 之上，是体验细节而不是结构信息。
+    // - ≥ 50 ms 的 head：在 body 后缀拼一个 ⚠ Xms，肉眼一眼看到
+    //   慢段。
+    final isHead = entry.level == _ProxyTestLogLevel.head;
+    final levelBg = switch (entry.level) {
+      _ProxyTestLogLevel.head => const Color(0xFF7DD3FC).withValues(alpha: 0.12),
+      _ProxyTestLogLevel.err => const Color(0xFFFCA5A5).withValues(alpha: 0.08),
+      _ProxyTestLogLevel.warn => const Color(0xFFFCD34D).withValues(alpha: 0.06),
+      _ => Colors.transparent,
+    };
+    final headSlowMs =
+        isHead ? (_sectionDurations[entry.tag] ?? 0) : 0;
+    final headSlowMark =
+        headSlowMs >= _slowSectionThresholdMs ? '  ⚠ ${headSlowMs}ms' : '';
+
     final rowBody = IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -700,10 +776,27 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                       text: '${entry.tag.padRight(7)} │ ',
                       style: textStyle.copyWith(
                         color: levelColor,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: isHead
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                       ),
                     ),
-                    TextSpan(text: entry.body, style: textStyle),
+                    TextSpan(
+                      text: entry.body,
+                      style: textStyle.copyWith(
+                        fontWeight: isHead
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                    if (headSlowMark.isNotEmpty)
+                      TextSpan(
+                        text: headSlowMark,
+                        style: textStyle.copyWith(
+                          color: const Color(0xFFFCD34D),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -711,6 +804,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           ),
         ],
       ),
+    );
+    final decorated = _ProxyHoverableRow(
+      baseColor: levelBg,
+      hoverColor: Colors.white.withValues(alpha: 0.06),
+      isHead: isHead,
+      headBorderColor: const Color(0xFF7DD3FC).withValues(alpha: 0.30),
+      onDoubleTap: () => _copyEntryLine(entry),
+      child: SelectionArea(child: rowBody),
     );
     // 入场动画：fade-in + 由下方 6px 上滑到位（200ms easeOutCubic），
     // TweenAnimationBuilder 仅在条目首次挂载时由 0→1 一次性触发，
@@ -729,11 +830,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           ),
         );
       },
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onDoubleTap: () => _copyEntryLine(entry),
-        child: SelectionArea(child: rowBody),
-      ),
+      child: decorated,
     );
   }
 
@@ -771,41 +868,138 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 
   Widget _buildFooter(BuildContext context, AppLocalizations l10n) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (_finalSummary != null)
-            Expanded(
-              child: Text(
-                _finalSummary!,
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+          // 2026-05-04 (UI 调优 v2): 底部 mini 过滤器 — 4 个等级
+          // chip (info/ok/warn/err)，被 untoggled 后该 level 的
+          // 行从 ListView 中过滤掉。head/debug 不进过滤器：head
+          // 是阶段锚不能藏，debug 默认就极少出现，没必要加按钮。
+          Row(
+            children: <Widget>[
+              Icon(
+                Icons.filter_list,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            )
-          else
-            const Spacer(),
-          const SizedBox(width: 8),
-          if (!_running)
-            TextButton.icon(
-              onPressed: _rerun,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: Text(l10n.proxyTestConsoleRerun),
-            ),
-          const SizedBox(width: 4),
-          TextButton(
-            onPressed: _running
-                ? null
-                : () => Navigator.of(context).pop(
-                    _ProxyTestOutcome(
-                      succeeded: _finishedSucceeded,
-                      summary: _finalSummary ?? '',
-                    ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: <Widget>[
+                    _buildLevelFilterChip(_ProxyTestLogLevel.info, 'info'),
+                    _buildLevelFilterChip(_ProxyTestLogLevel.ok, 'ok'),
+                    _buildLevelFilterChip(_ProxyTestLogLevel.warn, 'warn'),
+                    _buildLevelFilterChip(_ProxyTestLogLevel.err, 'err'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: <Widget>[
+              if (_finalSummary != null)
+                Expanded(
+                  child: Text(
+                    _finalSummary!,
+                    style: theme.textTheme.bodySmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-            child: Text(l10n.proxyTestConsoleClose),
+                )
+              else
+                const Spacer(),
+              const SizedBox(width: 8),
+              if (!_running)
+                TextButton.icon(
+                  onPressed: _rerun,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(l10n.proxyTestConsoleRerun),
+                ),
+              const SizedBox(width: 4),
+              TextButton(
+                onPressed: _running
+                    ? null
+                    : () => Navigator.of(context).pop(
+                        _ProxyTestOutcome(
+                          succeeded: _finishedSucceeded,
+                          summary: _finalSummary ?? '',
+                        ),
+                      ),
+                child: Text(l10n.proxyTestConsoleClose),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLevelFilterChip(_ProxyTestLogLevel level, String label) {
+    final visible = !_hiddenLevels.contains(level);
+    final levelColor = _colorFor(level);
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (visible) {
+            _hiddenLevels.add(level);
+          } else {
+            _hiddenLevels.remove(level);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: visible
+              ? levelColor.withValues(alpha: 0.16)
+              : theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: visible
+                ? levelColor.withValues(alpha: 0.45)
+                : theme.colorScheme.outlineVariant
+                    .withValues(alpha: 0.4),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(
+              visible ? Icons.visibility : Icons.visibility_off,
+              size: 12,
+              color: visible
+                  ? levelColor
+                  : theme.colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: visible
+                    ? levelColor
+                    : theme.colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.6),
+                decoration: visible ? null : TextDecoration.lineThrough,
+                fontFeatures: const <FontFeature>[
+                  FontFeature.tabularFigures(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -829,5 +1023,69 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       if (!mounted) return;
       _runDiagnostics();
     });
+  }
+}
+
+/// 单条日志行的悬停高亮 + 双击复制 + head 段分隔线包装。
+///
+/// 拆成独立 StatefulWidget 是为了让 hover 状态局部化：直接放到
+/// `_buildEntryRow` 里需要每行单独一个 setState 索引，rebuild 整
+/// 个 ListView 性能差也容易过度刷新。这里只 rebuild 自身。
+class _ProxyHoverableRow extends StatefulWidget {
+  const _ProxyHoverableRow({
+    required this.baseColor,
+    required this.hoverColor,
+    required this.isHead,
+    required this.headBorderColor,
+    required this.onDoubleTap,
+    required this.child,
+  });
+
+  final Color baseColor;
+  final Color hoverColor;
+  final bool isHead;
+  final Color headBorderColor;
+  final VoidCallback onDoubleTap;
+  final Widget child;
+
+  @override
+  State<_ProxyHoverableRow> createState() => _ProxyHoverableRowState();
+}
+
+class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.text,
+      onEnter: (_) {
+        if (!_hover) setState(() => _hover = true);
+      },
+      onExit: (_) {
+        if (_hover) setState(() => _hover = false);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onDoubleTap: widget.onDoubleTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: _hover
+                ? Color.alphaBlend(widget.hoverColor, widget.baseColor)
+                : widget.baseColor,
+            border: widget.isHead
+                ? Border(
+                    top: BorderSide(color: widget.headBorderColor),
+                    bottom: BorderSide(
+                      color: widget.headBorderColor,
+                    ),
+                  )
+                : null,
+          ),
+          child: widget.child,
+        ),
+      ),
+    );
   }
 }

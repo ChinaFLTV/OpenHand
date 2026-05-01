@@ -738,5 +738,7 @@
   "proxyTestConsoleCopy": "Copy log",
   "proxyTestConsoleCopied": "Log copied to clipboard",
   "proxyTestConsoleClose": "Close",
-  "proxyTestConsoleRerun": "Rerun"
+  "proxyTestConsoleRerun": "Rerun",
+  "proxyTestConsoleMaximize": "Maximize",
+  "proxyTestConsoleRestore": "Restore"
 }
