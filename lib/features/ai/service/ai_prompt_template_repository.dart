@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../model/ai_thread_template.dart';
 import 'machine_expert_prompts.dart';
 import 'programming_expert_prompts.dart';
@@ -193,7 +194,13 @@ class AiPromptTemplateRepository {
     try {
       final content = (await _loader(assetPath)).trim();
       return content.isEmpty ? fallback : content;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog(
+        'ai_prompt_template_repository',
+        '_loadTemplateSection: failed to load asset $assetPath; using Dart fallback',
+        error,
+        stack,
+      );
       return fallback;
     }
   }
