@@ -474,48 +474,56 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mediaSize = MediaQuery.sizeOf(context);
-    final w = _maximized
-        ? mediaSize.width - 24
-        : math.min(840.0, mediaSize.width - 48);
-    final h = _maximized
-        ? mediaSize.height - 32
-        : math.min(560.0, mediaSize.height - 96);
-    return Dialog(
-      insetPadding: EdgeInsets.all(_maximized ? 12 : 24),
-      child: ConstrainedBox(
-        // 2026-05-04 (Bug 修复): 将 maxHeight 升级为 tight 高度
-        // ——`Column(mainAxisSize: min)` + 内部 `Expanded` 在
-        // 仅给 maxHeight (loose) 时，Column 会按 min 收缩到非
-        // Expanded 子项的总高，Expanded 拿到 0 高度，控制台
-        // 整片为空（用户反馈"终端啥也没有"）。改用 minHeight
-        // == maxHeight + MainAxisSize.max，保证 Expanded 永远
-        // 拿到 (h - header - footer) 的可视高度。
-        constraints: BoxConstraints(
-          maxWidth: w,
-          minHeight: h,
-          maxHeight: h,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            _buildHeader(context),
-            // 2026-05-04 (UI 调优 v2): 顶部薄进度条 — 运行中显示
-            // 一条 indeterminate LinearProgressIndicator (高度 2)
-            // 紧贴在 header 下面，给"还在跑"加一个细水长流的视
-            // 觉提示，光标负责"在打字"，进度条负责"长流程感"。
-            if (_running)
-              const SizedBox(
-                height: 2,
-                child: LinearProgressIndicator(minHeight: 2),
-              )
-            else
-              const Divider(height: 1),
-            Expanded(child: _buildConsole(context)),
-            const Divider(height: 1),
-            _buildFooter(context, l10n),
-          ],
-        ),
-      ),
+    // 2026-05-04 (UI 调优 v3): 最大化 / 还原的尺寸切换走
+    // TweenAnimationBuilder 平滑过渡 —— easeOutBack 会在末段
+    // 略微回弹 ~9%，配上 380ms duration 给出"Q 弹丝滑"的手感，
+    // 避免 setState 切 _maximized 后 ConstrainedBox 直接跳变
+    // 带来的生硬感。t∈[0,1]：0=还原态，1=最大化态，所有尺寸量
+    // (w/h/insetPadding) 都做 lerp。
+    final wMin = math.min(840.0, mediaSize.width - 48);
+    final hMin = math.min(560.0, mediaSize.height - 96);
+    final wMax = mediaSize.width - 24;
+    final hMax = mediaSize.height - 32;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutBack,
+      builder: (context, t, _) {
+        // easeOutBack 末段会越过 1 再回弹；clamp 到 [0,1] 之外
+        // 时若直接 lerp 会让窗口短暂超过屏幕（被 ParentData
+        // 截断成抖动）。clamp 到 [0, 1.06] 留一点弹性；外层
+        // ConstrainedBox 自身 max 会再次兜底。
+        final tt = t.clamp(0.0, 1.06);
+        final w = ui.lerpDouble(wMin, wMax, tt)!;
+        final h = ui.lerpDouble(hMin, hMax, tt)!;
+        final inset = ui.lerpDouble(24, 12, tt.clamp(0.0, 1.0))!;
+        return Dialog(
+          insetPadding: EdgeInsets.all(inset),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: w,
+              minHeight: h,
+              maxHeight: h,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _buildHeader(context),
+                if (_running)
+                  const SizedBox(
+                    height: 2,
+                    child: LinearProgressIndicator(minHeight: 2),
+                  )
+                else
+                  const Divider(height: 1),
+                Expanded(child: _buildConsole(context)),
+                const Divider(height: 1),
+                _buildFooter(context, l10n),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
