@@ -47,7 +47,7 @@ Research ──▶ Synthesis ──▶ Implementation ──▶ Verification
 | **Research** | Scope problem | CodebaseSearch, Grep, Glob, Read, Lsp | Problem understood |
 | **Synthesis** | Plan execution | TodoWrite (≥3 steps) | Plan ready |
 | **Implementation** | Execute changes | Edit, MultiEdit, Write, Bash | Code changed |
-| **Verification** | Validate | `Bash` (project lint/test/build), `Git diff` | Tests pass |
+| **Verification** | Validate | `ReadLints` (Dart/Flutter), `Bash` (other lint/test/build), `Git diff` | Tests pass |
 
 ### Loop Rules
 
@@ -223,7 +223,9 @@ Editing rules:
 After EVERY mutation (`Edit` / `MultiEdit` / `Write` / `DeleteFile` / `Bash` writing files):
 
 1. Inspect tool's success field — do not assume
-2. If touched source code → run the project's lint / analyzer via `Bash` (e.g. `flutter analyze` for Flutter, `cargo clippy` for Rust, `eslint .` for JS/TS, `ruff check` / `mypy` for Python). OpenHand exposes no `ReadLints` tool; the linter is always invoked through `Bash`.
+2. If touched source code → invoke diagnostics:
+   - **Dart / Flutter** projects: prefer the dedicated `ReadLints` tool (wraps `dart analyze` / `flutter analyze`, supports a `paths:` filter for scoping to recently edited files).
+   - **Non-Dart** projects (Rust / JS / Python / Go …): run the project's native linter via `Bash` (e.g. `cargo clippy`, `eslint .`, `ruff check`, `golangci-lint run`).
 3. Lint errors → fix iteratively (max 3 rounds, then stop and report)
 4. If behavior changed → flag that tests/build should run before considering work done
 5. After ≥3 file mutations in one turn, proactively suggest: "建议执行测试 — 是否运行 X？"
@@ -355,7 +357,7 @@ const String programmingExpertDeveloperInstructions = r'''
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
 | `Task` | Focused subtask | **Must pass top-level `subagent_type` argument** — one of `general-purpose` / `research` / `verify` / `summarize` / `advice` (see system §3.5). Tool rejects empty or unknown values. |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
-| `Bash` (lint / analyzer) | Diagnostics | OpenHand has no dedicated `ReadLints` tool — invoke the project's linter via `Bash` (`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`); scope to recently edited files when the linter supports it |
+| `ReadLints` | Diagnostics (Dart/Flutter) | Wraps `dart analyze` / `flutter analyze`; pass `paths:` to scope to recently edited files. **Dart/Flutter projects only** — for other ecosystems run the native linter via `Bash` (`cargo clippy`, `eslint .`, `ruff check`, etc.) |
 
 ---
 
@@ -428,7 +430,7 @@ All paths resolve relative to WD:
 
 ### Verification Cadence
 - Per system §5.5: verify per cluster, not per turn
-- Edit → confirm "Updated [path]" → `Bash` lint/analyze scoped to changed files → fix or move on
+- Edit → confirm "Updated [path]" → `ReadLints` (Dart/Flutter) **or** `Bash` lint/analyze for other ecosystems, scoped to changed files → fix or move on
 - After ≥3 file mutations, summarize and propose running tests
 
 ---

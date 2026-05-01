@@ -35,7 +35,7 @@
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
 | `Task` | Focused subtask | **Must pass top-level `subagent_type` argument** — one of `general-purpose` / `research` / `verify` / `summarize` / `advice` (see system §3.5). Tool rejects empty or unknown values. |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
-| `Bash` (lint / analyzer) | Diagnostics | OpenHand has no dedicated `ReadLints` tool — invoke the project's linter via `Bash` (`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`); scope to recently edited files when the linter supports it |
+| `ReadLints` | Diagnostics (Dart/Flutter) | Wraps `dart analyze` / `flutter analyze`; pass `paths:` to scope to recently edited files. **Dart/Flutter projects only** — for other ecosystems run the native linter via `Bash` (`cargo clippy`, `eslint .`, `ruff check`, etc.) |
 
 ---
 
@@ -108,7 +108,7 @@ All paths resolve relative to WD:
 
 ### Verification Cadence
 - Per system §5.5: verify per cluster, not per turn
-- Edit → confirm "Updated [path]" → `Bash` lint/analyze scoped to changed files → fix or move on
+- Edit → confirm "Updated [path]" → `ReadLints` (Dart/Flutter) **or** `Bash` lint/analyze for other ecosystems, scoped to changed files → fix or move on
 - After ≥3 file mutations, summarize and propose running tests
 
 ---

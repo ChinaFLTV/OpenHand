@@ -232,7 +232,7 @@ OpenHand 缺少**等价的"当前焦点上下文"**：用户提问时，LLM 不�
 ```
 每次 Edit/Write/MultiEdit 后必须：
 1. 读取工具返回字段确认 success（不要假设）
-2. 若改的是源码 → ReadLints scope 到这些文件
+2. 若改的是源码 → 对 Dart/Flutter 项目优先用 ReadLints 工具（包装 dart/flutter analyze，支持 paths 范围过滤）；其他生态走 Bash 调用原生 linter。
 3. 若 lint 报错 → 修，最多 3 轮
 4. 若涉及行为改变 → 提示需要跑测试/构建（在 [10] Atomic Change 提交前）
 
@@ -345,7 +345,8 @@ Edit 失败 (oldString 不匹配) 的恢复：
 
 ### 已修正的文档/Prompt BUG（本次审阅落实）
 
-1. **`ReadLints` 工具不存在** — programming_expert v4 system_instructions.md 第 45/220 行、`programming_expert_prompts.dart` 4 处、`developer_instructions.md` 2 处均误把 ReadLints 写入工具类别。OpenHand 仅通过 `Bash` 调用项目原生 lint（`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`）。已统一改写为 `Bash` 触发并加澄清说明，避免 LLM 幻觉调用一个不存在的工具名。
+1. **`ReadLints` 范围说明缺失** — `AiReadLintsTool` 实际包装 `dart analyze` / `flutter analyze`，仅适用 Dart/Flutter 项目。原 6 处提示词仅将其列为通用 Verification 工具，没有说明生态限制，导致 LLM 在 Rust/JS/Python 项目里也尝试调用。已補充为「优先 ReadLints（Dart/Flutter） 、其他生态过 Bash 调用原生 linter」双路径表述。
+   - 反思：本代理二轮审阅第一轮误判「ReadLints 工具不存在」并提交了错误修改，随后由三轮代码层扫描发现 `lib/features/ai/tools/ai_read_lints_tool.dart` + `ai_tool_registry.dart` 中的 `register(AiReadLintsTool())` 后回滚。到实现为准，到文档为辅。
 2. **设计原则中「compression_summary 不动」** — Phase 3 阶段已补对所有 5 模板 compression_summary，本文档已注明 Phase 3 完成扩展。
 3. **Subagent 类型从 4 种纠正为 5 种** — 实际实现在 4 种语义类型外保留了 `general-purpose` 兜底（兼容老式 Task 调用、未明确分类的多步骤任务），表格已同步。
 4. **Phase 2 未来表格** — 全部 5 项已落地，表格改写为「已落地的 Phase 2」并附文件链接。
