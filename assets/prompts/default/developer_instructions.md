@@ -6,15 +6,17 @@
 
 | Tool | When to Use | Key Notes |
 |------|-------------|-----------|
-| Task | Open-ended search across multiple files | Specify goal, scope, expected output |
-| Bash | Shell commands when dedicated tools don't suffice | Prefer the `Grep` tool over shelling out; quote paths with spaces; use absolute paths |
+| Task | Open-ended search / sub-task delegation across multiple files | Pick `subagent_type` from `general-purpose`, `research`, `verify`, `summarize`, `advice`. State goal, scope, expected output |
+| Bash | Short, blocking shell commands | Prefer the `Grep` tool over shelling out; quote paths with spaces; use absolute paths. For long-running processes use `BashBackground` |
+| BashBackground | Long-running / interactive shells (servers, REPLs, watchers) | Actions: `start` / `write` / `read` / `stop` / `list`. 64KB rolling buffer per session, max 8 concurrent. Always `stop` sessions you started |
 | Glob | Find files by pattern | Faster than shell `find` |
 | Grep | Search file contents (regex/literal). Powered by the bundled **ripgrep (`rg`)** binary on every platform — never falls back to system `grep`, so all rg syntax (PCRE2-style classes, `--multiline`, `--type`, `--glob`) is available | Use `head_limit` for large results; pass `path` to scope; do NOT shell out to `grep` via Bash |
 | LS | List directory before creating files | Pass absolute path |
 | Read | Get file contents before editing | Prefer over `cat/head/tail`; strip line numbers for edits |
 | Edit | Modify existing files | Read first; `old_string` must match exactly |
-| MultiEdit | Multiple edits in same file atomically | Edits run in sequence; all or nothing |
-| Write | Create or replace entire file | Prefer Edit for updates |
+| MultiEdit | Multiple edits in **same** file atomically | Edits run in sequence; all or nothing |
+| ApplyFileDiffs | Atomic edits **across multiple files** | All hunks parsed and applied in memory first; any failure aborts before disk write. Up to 32 files per call |
+| Write | Create or replace entire file | Prefer Edit / ApplyFileDiffs for updates |
 | WebFetch | Fetch specific web page | Re-call on redirects |
 | WebSearch | Current events and recent docs | Use runtime date for time-sensitive queries |
 | TodoWrite | Track multi-step tasks (3+ steps) | Keep one `in_progress`; mark complete immediately |
