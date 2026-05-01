@@ -516,3 +516,72 @@ List<String> _splitTitleSourceLine(String value) {
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
 }
+
+/// 把会话持久化阶段 (load / delete / save) 抛出的底层异常翻译成
+/// 「现象 / 原因 / 建议」三段式中英双语文案，避免直接把 sqflite
+/// `DatabaseException` 或 `FileSystemException.toString()` 透传给用户。
+///
+/// 调用方按操作语义传入 [operation]：
+///   · 'load'   → 加载会话历史
+///   · 'delete' → 删除会话
+///   · 'save'   → 保存会话变更
+String _friendlyAiSessionPersistenceError(
+  Object error, {
+  required String operation,
+}) {
+  final raw = error.toString();
+  final operationZh = switch (operation) {
+    'load' => '加载会话历史',
+    'delete' => '删除会话',
+    'save' => '保存会话',
+    _ => operation,
+  };
+  final operationEn = switch (operation) {
+    'load' => 'load conversation history',
+    'delete' => 'delete conversation',
+    'save' => 'save conversation',
+    _ => operation,
+  };
+  // sqflite DatabaseException 通过 toString 暴露 "DatabaseException(...)"
+  // 前缀；FileSystemException / PathExistsException 同理。
+  final isDb = raw.startsWith('DatabaseException');
+  final isFs =
+      raw.startsWith('FileSystemException') ||
+      raw.startsWith('PathExistsException') ||
+      raw.startsWith('PathNotFoundException');
+  if (!isDb && !isFs) {
+    return raw;
+  }
+  final reasonZh = isDb
+      ? '本地 sqlite 数据库拒绝执行该操作。常见诱因：\n'
+            '  · 数据库文件被其他 OpenHand 实例 / 工具占用 (database is locked)\n'
+            '  · 磁盘已满 / 空间不足\n'
+            '  · 数据库文件损坏或 schema 与当前版本不兼容\n'
+            '  · 唯一约束 / 外键冲突 (sort_order, primary key)'
+      : '本地文件系统拒绝执行该操作。常见诱因：\n'
+            '  · 路径不存在或父目录被删除\n'
+            '  · 当前进程对该路径无读写权限\n'
+            '  · 路径被其他进程独占 / 加锁\n'
+            '  · 磁盘已满';
+  final tryZh = isDb
+      ? '· 关闭其他 OpenHand 进程后重试 (sqlite 单写)\n'
+            '· 检查 Application Support 目录磁盘空间\n'
+            '· 必要时备份并删除 openhand.db 让程序重建\n'
+            '· 重启应用后再执行该操作'
+      : '· 检查路径是否存在并可写\n'
+            '· 检查磁盘剩余空间\n'
+            '· 关闭可能占用该文件的外部程序\n'
+            '· 重启应用后再次尝试';
+  final buffer = StringBuffer()
+    ..writeln('$operationZh失败 / Failed to $operationEn')
+    ..writeln()
+    ..writeln('原因 / Why:')
+    ..writeln(reasonZh)
+    ..writeln()
+    ..writeln('建议 / Try:')
+    ..writeln(tryZh)
+    ..writeln()
+    ..writeln('原始错误 / Raw:')
+    ..write(raw);
+  return buffer.toString();
+}

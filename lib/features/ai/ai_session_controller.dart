@@ -665,7 +665,10 @@ class AiSessionController extends ChangeNotifier {
         _setSessions(const <AiSession>[]);
         _currentSessionId = null;
         _editingMessageId = null;
-        _lastErrorMessage = '$error';
+        _lastErrorMessage = _friendlyAiSessionPersistenceError(
+          error,
+          operation: 'load',
+        );
       } finally {
         _isLoading = false;
         notifyListeners();
@@ -1142,7 +1145,10 @@ class AiSessionController extends ChangeNotifier {
         _lastErrorMessagesBySession
           ..clear()
           ..addAll(previousLastErrorMessagesBySession);
-        _lastErrorMessage = '$error';
+        _lastErrorMessage = _friendlyAiSessionPersistenceError(
+          error,
+          operation: 'delete',
+        );
         notifyListeners();
         return false;
       }
@@ -5611,7 +5617,10 @@ class AiSessionController extends ChangeNotifier {
       }
       _setSessions(restoredSessions);
       _persistenceIssues = previousIssues;
-      _lastErrorMessage = '$error';
+      _lastErrorMessage = _friendlyAiSessionPersistenceError(
+        error,
+        operation: 'save',
+      );
       notifyListeners();
       return false;
     }
