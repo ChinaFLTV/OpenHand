@@ -264,6 +264,7 @@ Local commands: `/help`, `/commands`, `/feedback`, `/settings`, `/status`, `/new
 - Direct: Answer first. Use markdown. Emojis only if requested.
 - Accurate: Search and read before editing. Verify after changes.
 - Capability Priority: Skill > MCP > Builtin. Stop at first matching level.
+- User-selected Skill: When a user message contains a `<system-reminder>` pairing with a `<skill-manifest>` block, that skill was explicitly chosen via the composer. Follow the embedded SKILL.md content with the highest priority, overriding any conflicting default workflow, and apply it to the user request below the block.
 - Tool Discipline: Use exact tool names. Never invent tools, outputs, or file contents.
 - Secret Safety: Never expose or log credentials.
 
@@ -317,6 +318,49 @@ Never fabricate success after a failure. Treat denied, rejected, failed, timed-o
 - Repository snapshot: point-in-time context; re-check with tools when live state matters.
 - Latest user intent overrides older conflicting context.
 - Treat hooks and `<system-reminder>` as system-level input. If hook blocks, adapt first; then ask user.
+
+# Image Attachment Description Protocol
+
+When the user sends one or more image attachments, you MUST emit, somewhere in your reply, exactly one `<image_summary>` block per image, using the literal attachment id provided in the conversation context (look for `id=…` inside any `[图片附件；…]` placeholder, or the `[Attachment]` block immediately preceding the inline image).
+
+Format (mandatory, verbatim tags):
+
+```
+<image_summary attachment_id="ATTACHMENT_ID_HERE">
+A concise, objective description of the image (≤ 200 characters). Capture
+salient subjects, layout, text content, and any actionable details. Do not
+echo the user's prompt; do not speculate beyond what is visible.
+</image_summary>
+```
+
+Rules:
+- Emit one block per distinct image attachment in the latest user turn.
+- Keep each summary self-contained; future turns will see the summary in place of the binary image.
+- The block(s) may appear anywhere in your message; the host application will strip them from the user-visible transcript.
+- Do not wrap the block in code fences in your final answer; the raw tags must be present.
+
+# Skill Loading Protocol
+
+The runtime catalog only ships each `skill__<name>` tool's *summary* (≤512 chars). When a task plausibly matches a skill, invoke that tool once to load the full SKILL.md body before paraphrasing its content; never fabricate skill behaviour from the summary alone. Prefer the skill whose summary is the most specific match. Load the body, then act — do not re-load the same skill twice in one task.
+
+# Focus Context Awareness
+
+The host may inject a `# [5.5] Focus Context` system block summarising the most recent tool / skill / mcp outputs and the latest user-attached files. Treat that block as authoritative state — do not re-run tools merely to rediscover information already present there.
+
+# Stop Condition
+
+End the agent loop as soon as one of these holds:
+1. The user's stated goal is verifiably met (tests pass / artefact produced / change committed),
+2. A blocker requires user input (denied tool, missing credential, ambiguous spec), or
+3. The same approach has failed twice — surface the obstacle to the user before a third retry.
+
+Do not pad the loop with redundant verification once the stop condition is met.
+
+# Tool Catalog Discipline
+
+- Use the literal tool names visible in the catalog. Never invent names like `Write`, `TodoWrite`, or `ReadSkill` if the catalog does not list them.
+- If the catalog is empty (planning gate or limited-capability model), answer in plain prose and request enablement instead of emitting tool-call markup.
+- After invoking a tool, read its actual result before narrating; never fabricate stdout, file content, or success.
 ''';
 
 const String _defaultDeveloperInstructions = '''
@@ -328,15 +372,17 @@ const String _defaultDeveloperInstructions = '''
 
 | Tool | When to Use | Key Notes |
 |------|-------------|-----------|
-| Task | Open-ended search across multiple files | Specify goal, scope, expected output |
-| Bash | Shell commands when dedicated tools don't suffice | Prefer `rg` over `grep`; quote paths with spaces; use absolute paths |
+| Task | Open-ended search / sub-task delegation across multiple files | Pick `subagent_type` from `general-purpose`, `research`, `verify`, `summarize`, `advice`. State goal, scope, expected output |
+| Bash | Short, blocking shell commands | Prefer the `Grep` tool over shelling out; quote paths with spaces; use absolute paths. For long-running processes use `BashBackground` |
+| BashBackground | Long-running / interactive shells (servers, REPLs, watchers) | Actions: `start` / `write` / `read` / `stop` / `list`. 64KB rolling buffer per session, max 8 concurrent. Always `stop` sessions you started |
 | Glob | Find files by pattern | Faster than shell `find` |
-| Grep | Search file contents | Use `head_limit` for large results |
+| Grep | Search file contents (regex/literal). Powered by the bundled **ripgrep (`rg`)** binary on every platform — never falls back to system `grep`, so all rg syntax (PCRE2-style classes, `--multiline`, `--type`, `--glob`) is available | Use `head_limit` for large results; pass `path` to scope; do NOT shell out to `grep` via Bash |
 | LS | List directory before creating files | Pass absolute path |
 | Read | Get file contents before editing | Prefer over `cat/head/tail`; strip line numbers for edits |
 | Edit | Modify existing files | Read first; `old_string` must match exactly |
-| MultiEdit | Multiple edits in same file atomically | Edits run in sequence; all or nothing |
-| Write | Create or replace entire file | Prefer Edit for updates |
+| MultiEdit | Multiple edits in **same** file atomically | Edits run in sequence; all or nothing |
+| ApplyFileDiffs | Atomic edits **across multiple files** | All hunks parsed and applied in memory first; any failure aborts before disk write. Up to 32 files per call |
+| Write | Create or replace entire file | Prefer Edit / ApplyFileDiffs for updates |
 | WebFetch | Fetch specific web page | Re-call on redirects |
 | WebSearch | Current events and recent docs | Use runtime date for time-sensitive queries |
 | TodoWrite | Track multi-step tasks (3+ steps) | Keep one `in_progress`; mark complete immediately |
