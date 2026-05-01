@@ -606,6 +606,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               size: 18,
             ),
           ),
+          // 2026-05-04: 三个 header IconButton 之间各夹 6px SizedBox
+          // 视觉间隙，避免在窄宽度下挤成一团；IconButton 自带 8px
+          // tap padding，加 6 后总间距约 14px，触觉上是"分开但仍是
+          // 一个工具组"的感觉。
+          const SizedBox(width: 6),
           IconButton(
             tooltip: l10n.proxyTestConsoleClear,
             // 2026-05-04: 清空按钮在运行中也可用 —— 用户场景里
@@ -616,6 +621,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             onPressed: _entries.isEmpty ? null : _clearConsole,
             icon: const Icon(Icons.cleaning_services_outlined, size: 18),
           ),
+          const SizedBox(width: 6),
           IconButton(
             tooltip: l10n.proxyTestConsoleCopy,
             onPressed: _entries.isEmpty ? null : _copyLogs,

@@ -106,30 +106,27 @@ abstract final class OpenHandTheme {
       ),
       chipTheme: baseTheme.chipTheme.copyWith(
         backgroundColor: colorScheme.surfaceContainerHigh,
-        selectedColor: colorScheme.secondaryContainer,
-        // 2026-05-04: 仅设置 backgroundColor / selectedColor 不够 ——
-        // ChoiceChip / FilterChip 在 selected 状态下的 label/勾标
-        // 默认会落回 baseTheme（M3 默认 onSurfaceVariant /主题
-        // primary），与我们在 selectedColor 改用的
-        // secondaryContainer 配色脱节，肉眼看就是"按下后的高亮
-        // 跟主题不搭"。这里把 secondaryLabelStyle 与 checkmark
-        // 都拉到 onSecondaryContainer，再用 WidgetStateBorderSide
-        // 让 selected 边框升一级到 secondary 主色，整体保持
-        // M3 secondary 容器调性。
+        selectedColor: colorScheme.primaryContainer,
+        // 2026-05-05: 选中态统一对齐全局 highlight（= colorScheme.primary，
+        // 即 sidebar 高亮 / 主操作按钮 / 输入框聚焦边框的同色系）。早期
+        // 用 secondaryContainer，在 expressive 调度下会偏到互补色（橄
+        // 榄主色 → 粉/淡紫 secondary），与应用其它"被选中/激活"控件
+        // 的橄榄绿不一致。这里改成 primaryContainer + onPrimaryContainer，
+        // 边框升一级到 primary，整体收回到主色调性。
         labelStyle: TextStyle(
           color: colorScheme.onSurface,
           fontWeight: FontWeight.w500,
         ),
         secondaryLabelStyle: TextStyle(
-          color: colorScheme.onSecondaryContainer,
+          color: colorScheme.onPrimaryContainer,
           fontWeight: FontWeight.w600,
         ),
-        checkmarkColor: colorScheme.onSecondaryContainer,
+        checkmarkColor: colorScheme.onPrimaryContainer,
         iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
         side: WidgetStateBorderSide.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return BorderSide(
-              color: colorScheme.secondary.withValues(alpha: 0.55),
+              color: colorScheme.primary.withValues(alpha: 0.55),
             );
           }
           return BorderSide(color: palette.outlineSoft);
