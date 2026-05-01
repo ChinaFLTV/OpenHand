@@ -667,8 +667,9 @@ class AiPromptBuilder {
         ..writeln('```xml')
         ..writeln('<DSML:function_calls>')
         ..writeln('  <DSML:invoke name="ExactToolName">')
-        ..writeln('    <DSML:parameter name="key1">value1</DSML:parameter>')
-        ..writeln('    <DSML:parameter name="key2">{"json":"ok"}</DSML:parameter>')
+        ..writeln('    <DSML:parameter name="stringKey">plain text</DSML:parameter>')
+        ..writeln('    <DSML:parameter name="arrayKey">[{"id":"1","status":"pending"}]</DSML:parameter>')
+        ..writeln('    <DSML:parameter name="objectKey">{"k":"v"}</DSML:parameter>')
         ..writeln('  </DSML:invoke>')
         ..writeln('</DSML:function_calls>')
         ..writeln('```')
@@ -677,9 +678,12 @@ class AiPromptBuilder {
           'Rules: (1) Use ONLY tool names listed above — do NOT invent names like '
           '`TodoWrite`, `u_TodoWrite` or wrap calls in `##TOOL_CALL##` markers. '
           '(2) Each parameter value is a STRING; pass JSON-encoded text for '
-          'object/array/number values. (3) Never wrap the DSML block in Markdown '
-          'code fences in the actual output. (4) Place the DSML block at the very '
-          'end of your reply with no text after `</DSML:function_calls>`.',
+          'object/array/number values. For an array parameter (e.g. `todos`), '
+          'emit the bare JSON array `[...]` directly — DO NOT wrap it as '
+          '`{"todos":[...]}` and DO NOT wrap the value in `<![CDATA[...]]>`. '
+          '(3) Never wrap the DSML block in Markdown code fences in the actual '
+          'output. (4) Place the DSML block at the very end of your reply with '
+          'no text after `</DSML:function_calls>`.',
         );
     }
     return buffer.toString().trimRight();

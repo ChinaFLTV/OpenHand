@@ -75,12 +75,51 @@ class AiToolUtils {
     for (final entry in rawExtracted.entries) {
       result.putIfAbsent(entry.key, () => entry.value);
     }
-    return result;
+    // 2026-05-02: tolerance — weaker models often over-wrap parameter
+    // payloads as `{key: {key: [...]}}` (e.g. `todos: {todos: [...]}`)
+    // when shoe-horning JSON into DSML parameters. Detect this single
+    // case and unwrap once so downstream tools see the canonical shape.
+    final unwrapped = <String, Object?>{};
+    var didUnwrap = false;
+    for (final entry in result.entries) {
+      final value = entry.value;
+      if (value is Map &&
+          value.length == 1 &&
+          value.keys.first.toString().toLowerCase() ==
+              entry.key.toLowerCase()) {
+        unwrapped[entry.key] = _coerceArgumentValue(value.values.first);
+        didUnwrap = true;
+      } else {
+        unwrapped[entry.key] = value;
+      }
+    }
+    return didUnwrap ? unwrapped : result;
   }
 
   static Object? _coerceArgumentValue(Object? value) {
     if (value is String) {
-      return _stripCdata(value);
+      final stripped = _stripCdata(value);
+      // 2026-05-02: tolerance — weaker models frequently emit JSON-shaped
+      // strings (`"[{...}, ...]"`, `"{\"todos\":[...]}"`) inside DSML
+      // parameter slots that the downstream tool expects to receive as
+      // a typed List/Map. When the trimmed payload begins with `[` or
+      // `{` and parses cleanly, lift it to its native shape so tools
+      // like TodoWrite don't reject the call on first try.
+      final trimmed = stripped.trim();
+      if (trimmed.length >= 2) {
+        final first = trimmed.codeUnitAt(0);
+        if (first == 0x7B /* { */ || first == 0x5B /* [ */) {
+          try {
+            final decoded = jsonDecode(trimmed);
+            if (decoded is List || decoded is Map) {
+              return _coerceArgumentValue(decoded);
+            }
+          } catch (_) {
+            // Not valid JSON — keep the original string.
+          }
+        }
+      }
+      return stripped;
     }
     if (value is Map) {
       final asMap = Map<String, Object?>.from(value);

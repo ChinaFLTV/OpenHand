@@ -16,27 +16,6 @@ class _TokenDial extends StatefulWidget {
 }
 
 class _TokenDialState extends State<_TokenDial> {
-  late int _previousTokens;
-  late int _previousCacheRead;
-
-  @override
-  void initState() {
-    super.initState();
-    _previousTokens = widget.totalTokens;
-    _previousCacheRead = widget.cacheReadTokens ?? 0;
-  }
-
-  @override
-  void didUpdateWidget(covariant _TokenDial oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.totalTokens != widget.totalTokens) {
-      _previousTokens = oldWidget.totalTokens;
-    }
-    if (oldWidget.cacheReadTokens != widget.cacheReadTokens) {
-      _previousCacheRead = oldWidget.cacheReadTokens ?? 0;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -78,16 +57,9 @@ class _TokenDialState extends State<_TokenDial> {
           ),
           const SizedBox(width: 6),
           if (hasCache) ...[
-            TweenAnimationBuilder<int>(
-              tween: IntTween(
-                begin: _previousCacheRead,
-                end: widget.cacheReadTokens ?? 0,
-              ),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) {
-                return Text('$value', style: cacheStyle);
-              },
+            _RollingNumber(
+              value: widget.cacheReadTokens ?? 0,
+              style: cacheStyle ?? const TextStyle(),
             ),
             const SizedBox(width: 4),
             Text('Cached', style: cacheStyle),
@@ -98,13 +70,9 @@ class _TokenDialState extends State<_TokenDial> {
               color: colorScheme.outlineVariant,
             ),
           ],
-          TweenAnimationBuilder<int>(
-            tween: IntTween(begin: _previousTokens, end: widget.totalTokens),
-            duration: const Duration(milliseconds: 800),
-            curve: Curves.easeOutCubic,
-            builder: (context, value, child) {
-              return Text('$value', style: numberStyle);
-            },
+          _RollingNumber(
+            value: widget.totalTokens,
+            style: numberStyle ?? const TextStyle(),
           ),
           const SizedBox(width: 6),
           Text(
@@ -114,6 +82,92 @@ class _TokenDialState extends State<_TokenDial> {
             style: labelStyle,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Odometer-style rolling number: each digit slot slides vertically when
+/// it changes, giving a Q-elastic 数字滚轮 feel without rebuilding the
+/// surrounding capsule. Comma thousand-separators are inserted between
+/// digit slots and remain static. Whole-number transitions feel snappier
+/// than rebuilding the entire `Text` with a fade because each slot's
+/// motion is independent and bounded to a single character cell.
+class _RollingNumber extends StatelessWidget {
+  const _RollingNumber({required this.value, required this.style});
+
+  final int value;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = _formatWithSeparators(value);
+    final children = <Widget>[];
+    for (var i = 0; i < formatted.length; i += 1) {
+      final ch = formatted[i];
+      if (ch == ',') {
+        children.add(Text(ch, style: style));
+      } else {
+        children.add(_RollingDigit(digit: ch, style: style));
+      }
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
+  }
+
+  static String _formatWithSeparators(int value) {
+    final raw = value.abs().toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < raw.length; i += 1) {
+      final remaining = raw.length - i;
+      if (i != 0 && remaining % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(raw[i]);
+    }
+    return value < 0 ? '-${buffer.toString()}' : buffer.toString();
+  }
+}
+
+class _RollingDigit extends StatelessWidget {
+  const _RollingDigit({required this.digit, required this.style});
+
+  final String digit;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    // Reserve a fixed cell width using a tabular '0' to prevent layout
+    // jitter as the digit changes (some font glyphs are slightly narrower).
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 360),
+      switchInCurve: Curves.easeOutBack,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final outgoing = animation.status == AnimationStatus.reverse;
+        final slide = Tween<Offset>(
+          begin: Offset(0, outgoing ? -0.6 : 0.6),
+          end: Offset.zero,
+        ).animate(animation);
+        return ClipRect(
+          child: SlideTransition(
+            position: slide,
+            child: FadeTransition(opacity: animation, child: child),
+          ),
+        );
+      },
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          alignment: Alignment.center,
+          children: <Widget>[
+            ...previousChildren,
+            if (currentChild != null) currentChild,
+          ],
+        );
+      },
+      child: Text(
+        digit,
+        key: ValueKey<String>(digit),
+        style: style.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
       ),
     );
   }
