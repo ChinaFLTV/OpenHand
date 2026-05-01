@@ -101,13 +101,32 @@ Future<void> _bootstrap() async {
   } catch (error, stackTrace) {
     debugPrint('Fatal: database initialization failed: $error\n$stackTrace');
     runApp(
-      const Directionality(
+      Directionality(
         textDirection: TextDirection.ltr,
-        child: Center(
-          child: Text(
-            'Database initialization failed.\n'
-            'Please check disk permissions and available space.',
-            textAlign: TextAlign.center,
+        child: ColoredBox(
+          color: const Color(0xFF1B1B1B),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                '数据库初始化失败 / Database initialization failed\n'
+                '\n'
+                '原因 / Why:\n'
+                '$error\n'
+                '\n'
+                '建议 / Try:\n'
+                '· 检查 Application Support 目录是否可写 / 是否被其他实例占用\n'
+                '· 检查磁盘剩余空间是否充足\n'
+                '· 退出其他 OpenHand 进程后再启动 (sqlite 不允许同库多写)\n'
+                '· 必要时备份并删除 openhand.db 让程序重新建库',
+                style: const TextStyle(
+                  color: Color(0xFFE0E0E0),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.left,
+              ),
+            ),
           ),
         ),
       ),
