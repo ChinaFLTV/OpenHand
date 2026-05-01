@@ -466,9 +466,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: w, maxHeight: h),
+        // 2026-05-04 (Bug 修复): 将 maxHeight 升级为 tight 高度
+        // ——`Column(mainAxisSize: min)` + 内部 `Expanded` 在
+        // 仅给 maxHeight (loose) 时，Column 会按 min 收缩到非
+        // Expanded 子项的总高，Expanded 拿到 0 高度，控制台
+        // 整片为空（用户反馈"终端啥也没有"）。改用 minHeight
+        // == maxHeight + MainAxisSize.max，保证 Expanded 永远
+        // 拿到 (h - header - footer) 的可视高度。
+        constraints: BoxConstraints(
+          maxWidth: w,
+          minHeight: h,
+          maxHeight: h,
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             _buildHeader(context),
@@ -655,43 +665,52 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       color: levelColor,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
-    final rowBody = Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        // 左侧色条：与 tag 同色，加强可视分组。
-        Container(
-          width: 3,
-          margin: const EdgeInsets.symmetric(vertical: 1.5),
-          decoration: BoxDecoration(
-            color: levelColor.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(1.5),
+    final rowBody = IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          // 左侧色条：与 tag 同色，加强可视分组。
+          // IntrinsicHeight 必须包住 Row 才能让色条 stretch 到
+          // 文本行的真实高度——ListView.builder 的 item 在 cross
+          // 轴 (Row 的 main 轴) 是宽度受限、在 main 轴 (Row 的
+          // cross 轴) 是高度无界，没有 IntrinsicHeight 兜底时
+          // CrossAxisAlignment.stretch 会让 Container 撑成无穷
+          // 高度并整行坍缩为 0，于是控制台终端区"什么都看不到"。
+          Container(
+            width: 3,
+            margin: const EdgeInsets.symmetric(vertical: 1.5),
+            decoration: BoxDecoration(
+              color: levelColor.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(1.5),
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 1.5),
-            child: Text.rich(
-              TextSpan(
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: '+${ts}s ',
-                    style: textStyle.copyWith(color: const Color(0xFF6B7280)),
-                  ),
-                  TextSpan(
-                    text: '${entry.tag.padRight(7)} │ ',
-                    style: textStyle.copyWith(
-                      color: levelColor,
-                      fontWeight: FontWeight.w600,
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 1.5),
+              child: Text.rich(
+                TextSpan(
+                  children: <InlineSpan>[
+                    TextSpan(
+                      text: '+${ts}s ',
+                      style:
+                          textStyle.copyWith(color: const Color(0xFF6B7280)),
                     ),
-                  ),
-                  TextSpan(text: entry.body, style: textStyle),
-                ],
+                    TextSpan(
+                      text: '${entry.tag.padRight(7)} │ ',
+                      style: textStyle.copyWith(
+                        color: levelColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextSpan(text: entry.body, style: textStyle),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
     // 入场动画：fade-in + 由下方 6px 上滑到位（200ms easeOutCubic），
     // TweenAnimationBuilder 仅在条目首次挂载时由 0→1 一次性触发，
