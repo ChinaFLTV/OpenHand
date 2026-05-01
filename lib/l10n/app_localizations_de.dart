@@ -2216,4 +2216,29 @@ class AppLocalizationsDe extends AppLocalizations {
   String proxyTestVerdictProxy(Object endpoint) {
     return 'Proxy $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid =>
+      'Test-URL ist ungültig (muss mit http:// oder https:// beginnen)';
+
+  @override
+  String get proxyTestConsoleTitle => 'Proxy-Verbindungsdiagnose';
+
+  @override
+  String get proxyTestConsoleRunning => 'Route wird geprüft…';
+
+  @override
+  String get proxyTestConsoleSucceeded => 'Fertig: Route in Ordnung';
+
+  @override
+  String get proxyTestConsoleFailed => 'Fertig: Probleme erkannt';
+
+  @override
+  String get proxyTestConsoleCopy => 'Protokoll kopieren';
+
+  @override
+  String get proxyTestConsoleCopied => 'Protokoll in Zwischenablage kopiert';
+
+  @override
+  String get proxyTestConsoleClose => 'Schließen';
 }

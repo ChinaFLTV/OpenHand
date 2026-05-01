@@ -2217,4 +2217,29 @@ class AppLocalizationsFr extends AppLocalizations {
   String proxyTestVerdictProxy(Object endpoint) {
     return 'proxy $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid =>
+      'L\'URL de test est invalide (doit commencer par http:// ou https://)';
+
+  @override
+  String get proxyTestConsoleTitle => 'Diagnostic de connectivité du proxy';
+
+  @override
+  String get proxyTestConsoleRunning => 'Sondage en cours…';
+
+  @override
+  String get proxyTestConsoleSucceeded => 'Terminé : route saine';
+
+  @override
+  String get proxyTestConsoleFailed => 'Terminé : problèmes détectés';
+
+  @override
+  String get proxyTestConsoleCopy => 'Copier le journal';
+
+  @override
+  String get proxyTestConsoleCopied => 'Journal copié dans le presse-papiers';
+
+  @override
+  String get proxyTestConsoleClose => 'Fermer';
 }

@@ -15,16 +15,25 @@ class _SystemProxySection extends StatefulWidget {
 }
 
 class _SystemProxySectionState extends State<_SystemProxySection> {
+  // 2026-05-04 (代理诊断): 测试 URL 的默认值，用户也可以在 UI 中
+  // 自由覆盖。Google generate_204 是历史最稳的"204 No Content"
+  // 探针：响应体只有 0 字节、不会被透明压缩、不会被 UA 鉴权拦截，
+  // 适合作为代理可用性的"心跳"端点。
+  static const String _defaultTestEndpoint =
+      'https://www.google.com/generate_204';
+
   late final TextEditingController _hostCtrl;
   late final TextEditingController _portCtrl;
   late final TextEditingController _userCtrl;
   late final TextEditingController _pwdCtrl;
   late final TextEditingController _exceptionsCtrl;
+  late final TextEditingController _testEndpointCtrl;
   late final FocusNode _hostFocus;
   late final FocusNode _portFocus;
   late final FocusNode _userFocus;
   late final FocusNode _pwdFocus;
   late final FocusNode _exceptionsFocus;
+  late final FocusNode _testEndpointFocus;
 
   bool _showPassword = false;
 
@@ -41,11 +50,13 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     _userCtrl = TextEditingController(text: proxy.username);
     _pwdCtrl = TextEditingController(text: proxy.password);
     _exceptionsCtrl = TextEditingController(text: proxy.exceptions.join('\n'));
+    _testEndpointCtrl = TextEditingController(text: _defaultTestEndpoint);
     _hostFocus = FocusNode();
     _portFocus = FocusNode();
     _userFocus = FocusNode();
     _pwdFocus = FocusNode();
     _exceptionsFocus = FocusNode();
+    _testEndpointFocus = FocusNode();
     widget.controller.addListener(_syncFromController);
   }
 
@@ -57,11 +68,13 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
     _userCtrl.dispose();
     _pwdCtrl.dispose();
     _exceptionsCtrl.dispose();
+    _testEndpointCtrl.dispose();
     _hostFocus.dispose();
     _portFocus.dispose();
     _userFocus.dispose();
     _pwdFocus.dispose();
     _exceptionsFocus.dispose();
+    _testEndpointFocus.dispose();
     super.dispose();
   }
 
@@ -148,54 +161,42 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   Future<void> _runConnectivityTest() async {
     if (_testing) return;
     final l10n = AppLocalizations.of(context)!;
+    final rawEndpoint = _testEndpointCtrl.text.trim().isEmpty
+        ? _defaultTestEndpoint
+        : _testEndpointCtrl.text.trim();
+    final uri = Uri.tryParse(rawEndpoint);
+    if (uri == null ||
+        !(uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https')) ||
+        uri.host.isEmpty) {
+      setState(() {
+        _testing = false;
+        _testSucceeded = false;
+        _testMessage = l10n.proxyTestEndpointInvalid;
+      });
+      return;
+    }
+
     setState(() {
       _testing = true;
       _testMessage = l10n.proxyTesting;
       _testSucceeded = false;
     });
 
-    const testUrl = 'https://www.google.com/generate_204';
-    final uri = Uri.parse(testUrl);
-    final resolver = SystemProxyResolver.instance;
-    final via = resolver.findProxyFor(uri);
-    final viaLabel = via.startsWith('PROXY ')
-        ? l10n.proxyTestVerdictProxy(via.substring('PROXY '.length).trim())
-        : l10n.proxyTestVerdictDirect;
+    final result = await showAnimatedDialog<_ProxyTestOutcome>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _ProxyTestConsoleDialog(
+        endpoint: uri,
+        proxySettings: widget.controller.proxySettings,
+      ),
+    );
 
-    final stopwatch = Stopwatch()..start();
-    http.Client? client;
-    try {
-      client = resolver.createHttpClient(
-        connectionTimeout: const Duration(seconds: 8),
-      );
-      final response = await client
-          .get(uri)
-          .timeout(const Duration(seconds: 12));
-      stopwatch.stop();
-      final ok = response.statusCode >= 200 && response.statusCode < 400;
-      if (!mounted) return;
-      setState(() {
-        _testing = false;
-        _testSucceeded = ok;
-        _testMessage = ok
-            ? l10n.proxyTestSuccess(
-                stopwatch.elapsedMilliseconds.toString(),
-                viaLabel,
-              )
-            : l10n.proxyTestFailure('HTTP ${response.statusCode}');
-      });
-    } catch (error, stack) {
-      stopwatch.stop();
-      silentLog('settings_proxy', 'connectivityTest', error, stack);
-      if (!mounted) return;
-      setState(() {
-        _testing = false;
-        _testSucceeded = false;
-        _testMessage = l10n.proxyTestFailure(error.toString());
-      });
-    } finally {
-      client?.close();
-    }
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _testSucceeded = result?.succeeded ?? false;
+      _testMessage = result?.summary ?? l10n.proxyTestFailure('cancelled');
+    });
   }
 
   @override
@@ -409,7 +410,13 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           ),
         ),
         const SizedBox(height: 16),
+        _SettingRowLabel(
+          label: l10n.proxyTestEndpointLabel,
+          description: l10n.proxyTestEndpointHint,
+        ),
+        const SizedBox(height: 8),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             FilledButton.tonalIcon(
               onPressed: _testing ? null : _runConnectivityTest,
@@ -423,21 +430,34 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
               label: Text(l10n.proxyTestButton),
             ),
             const SizedBox(width: 12),
-            if (_testMessage != null)
-              Expanded(
-                child: Text(
-                  _testMessage!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: _testing
-                        ? theme.colorScheme.onSurfaceVariant
-                        : (_testSucceeded
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.error),
-                  ),
+            Expanded(
+              child: TextField(
+                controller: _testEndpointCtrl,
+                focusNode: _testEndpointFocus,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: _defaultTestEndpoint,
                 ),
+                onSubmitted: (_) {
+                  if (!_testing) _runConnectivityTest();
+                },
               ),
+            ),
           ],
         ),
+        if (_testMessage != null) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            _testMessage!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: _testing
+                  ? theme.colorScheme.onSurfaceVariant
+                  : (_testSucceeded
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error),
+            ),
+          ),
+        ],
       ],
     );
   }

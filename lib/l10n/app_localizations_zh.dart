@@ -2095,6 +2095,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String proxyTestVerdictProxy(Object endpoint) {
     return '代理 $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid => '测试 URL 无效（需以 http:// 或 https:// 开头）';
+
+  @override
+  String get proxyTestConsoleTitle => '代理连通性诊断';
+
+  @override
+  String get proxyTestConsoleRunning => '正在执行链路探测…';
+
+  @override
+  String get proxyTestConsoleSucceeded => '诊断完成：链路畅通';
+
+  @override
+  String get proxyTestConsoleFailed => '诊断完成：发现问题';
+
+  @override
+  String get proxyTestConsoleCopy => '复制日志';
+
+  @override
+  String get proxyTestConsoleCopied => '日志已复制到剪贴板';
+
+  @override
+  String get proxyTestConsoleClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4188,6 +4212,30 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String proxyTestVerdictProxy(Object endpoint) {
     return '代理 $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid => '测试 URL 无效（需以 http:// 或 https:// 开头）';
+
+  @override
+  String get proxyTestConsoleTitle => '代理连通性诊断';
+
+  @override
+  String get proxyTestConsoleRunning => '正在执行链路探测…';
+
+  @override
+  String get proxyTestConsoleSucceeded => '诊断完成：链路畅通';
+
+  @override
+  String get proxyTestConsoleFailed => '诊断完成：发现问题';
+
+  @override
+  String get proxyTestConsoleCopy => '复制日志';
+
+  @override
+  String get proxyTestConsoleCopied => '日志已复制到剪贴板';
+
+  @override
+  String get proxyTestConsoleClose => '关闭';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6280,4 +6328,28 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String proxyTestVerdictProxy(Object endpoint) {
     return '代理 $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid => '測試 URL 無效（需以 http:// 或 https:// 開頭）';
+
+  @override
+  String get proxyTestConsoleTitle => '代理連通性診斷';
+
+  @override
+  String get proxyTestConsoleRunning => '正在執行鏈路探測…';
+
+  @override
+  String get proxyTestConsoleSucceeded => '診斷完成：鏈路暢通';
+
+  @override
+  String get proxyTestConsoleFailed => '診斷完成：發現問題';
+
+  @override
+  String get proxyTestConsoleCopy => '複製日誌';
+
+  @override
+  String get proxyTestConsoleCopied => '日誌已複製到剪貼簿';
+
+  @override
+  String get proxyTestConsoleClose => '關閉';
 }

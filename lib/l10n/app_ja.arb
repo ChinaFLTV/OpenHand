@@ -729,5 +729,13 @@
     "placeholders": {
       "endpoint": {}
     }
-  }
+  },
+  "proxyTestEndpointInvalid": "テスト URL が無効です（http:// または https:// で始まる必要があります）",
+  "proxyTestConsoleTitle": "プロキシ接続診断",
+  "proxyTestConsoleRunning": "ルートを調査中…",
+  "proxyTestConsoleSucceeded": "完了：ルートは正常",
+  "proxyTestConsoleFailed": "完了：問題を検出",
+  "proxyTestConsoleCopy": "ログをコピー",
+  "proxyTestConsoleCopied": "ログをクリップボードにコピーしました",
+  "proxyTestConsoleClose": "閉じる"
 }

@@ -2190,4 +2190,29 @@ class AppLocalizationsJa extends AppLocalizations {
   String proxyTestVerdictProxy(Object endpoint) {
     return 'プロキシ $endpoint 経由';
   }
+
+  @override
+  String get proxyTestEndpointInvalid =>
+      'テスト URL が無効です（http:// または https:// で始まる必要があります）';
+
+  @override
+  String get proxyTestConsoleTitle => 'プロキシ接続診断';
+
+  @override
+  String get proxyTestConsoleRunning => 'ルートを調査中…';
+
+  @override
+  String get proxyTestConsoleSucceeded => '完了：ルートは正常';
+
+  @override
+  String get proxyTestConsoleFailed => '完了：問題を検出';
+
+  @override
+  String get proxyTestConsoleCopy => 'ログをコピー';
+
+  @override
+  String get proxyTestConsoleCopied => 'ログをクリップボードにコピーしました';
+
+  @override
+  String get proxyTestConsoleClose => '閉じる';
 }

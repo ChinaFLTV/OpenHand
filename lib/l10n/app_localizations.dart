@@ -4065,6 +4065,54 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'代理 {endpoint}'**
   String proxyTestVerdictProxy(Object endpoint);
+
+  /// No description provided for @proxyTestEndpointInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试 URL 无效（需以 http:// 或 https:// 开头）'**
+  String get proxyTestEndpointInvalid;
+
+  /// No description provided for @proxyTestConsoleTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代理连通性诊断'**
+  String get proxyTestConsoleTitle;
+
+  /// No description provided for @proxyTestConsoleRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在执行链路探测…'**
+  String get proxyTestConsoleRunning;
+
+  /// No description provided for @proxyTestConsoleSucceeded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断完成：链路畅通'**
+  String get proxyTestConsoleSucceeded;
+
+  /// No description provided for @proxyTestConsoleFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'诊断完成：发现问题'**
+  String get proxyTestConsoleFailed;
+
+  /// No description provided for @proxyTestConsoleCopy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制日志'**
+  String get proxyTestConsoleCopy;
+
+  /// No description provided for @proxyTestConsoleCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'日志已复制到剪贴板'**
+  String get proxyTestConsoleCopied;
+
+  /// No description provided for @proxyTestConsoleClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get proxyTestConsoleClose;
 }
 
 class _AppLocalizationsDelegate

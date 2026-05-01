@@ -2209,4 +2209,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String proxyTestVerdictProxy(Object endpoint) {
     return 'proxy $endpoint';
   }
+
+  @override
+  String get proxyTestEndpointInvalid =>
+      'Test URL is invalid (must start with http:// or https://)';
+
+  @override
+  String get proxyTestConsoleTitle => 'Proxy Connectivity Diagnostic';
+
+  @override
+  String get proxyTestConsoleRunning => 'Probing route…';
+
+  @override
+  String get proxyTestConsoleSucceeded => 'Done: route healthy';
+
+  @override
+  String get proxyTestConsoleFailed => 'Done: issues detected';
+
+  @override
+  String get proxyTestConsoleCopy => 'Copy log';
+
+  @override
+  String get proxyTestConsoleCopied => 'Log copied to clipboard';
+
+  @override
+  String get proxyTestConsoleClose => 'Close';
 }

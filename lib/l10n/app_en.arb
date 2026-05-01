@@ -729,5 +729,13 @@
     "placeholders": {
       "endpoint": {}
     }
-  }
+  },
+  "proxyTestEndpointInvalid": "Test URL is invalid (must start with http:// or https://)",
+  "proxyTestConsoleTitle": "Proxy Connectivity Diagnostic",
+  "proxyTestConsoleRunning": "Probing route…",
+  "proxyTestConsoleSucceeded": "Done: route healthy",
+  "proxyTestConsoleFailed": "Done: issues detected",
+  "proxyTestConsoleCopy": "Copy log",
+  "proxyTestConsoleCopied": "Log copied to clipboard",
+  "proxyTestConsoleClose": "Close"
 }

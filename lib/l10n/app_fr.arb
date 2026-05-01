@@ -729,5 +729,13 @@
     "placeholders": {
       "endpoint": {}
     }
-  }
+  },
+  "proxyTestEndpointInvalid": "L'URL de test est invalide (doit commencer par http:// ou https://)",
+  "proxyTestConsoleTitle": "Diagnostic de connectivité du proxy",
+  "proxyTestConsoleRunning": "Sondage en cours…",
+  "proxyTestConsoleSucceeded": "Terminé : route saine",
+  "proxyTestConsoleFailed": "Terminé : problèmes détectés",
+  "proxyTestConsoleCopy": "Copier le journal",
+  "proxyTestConsoleCopied": "Journal copié dans le presse-papiers",
+  "proxyTestConsoleClose": "Fermer"
 }

@@ -729,5 +729,13 @@
     "placeholders": {
       "endpoint": {}
     }
-  }
+  },
+  "proxyTestEndpointInvalid": "Test-URL ist ungültig (muss mit http:// oder https:// beginnen)",
+  "proxyTestConsoleTitle": "Proxy-Verbindungsdiagnose",
+  "proxyTestConsoleRunning": "Route wird geprüft…",
+  "proxyTestConsoleSucceeded": "Fertig: Route in Ordnung",
+  "proxyTestConsoleFailed": "Fertig: Probleme erkannt",
+  "proxyTestConsoleCopy": "Protokoll kopieren",
+  "proxyTestConsoleCopied": "Protokoll in Zwischenablage kopiert",
+  "proxyTestConsoleClose": "Schließen"
 }

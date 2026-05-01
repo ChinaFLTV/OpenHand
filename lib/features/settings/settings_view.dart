@@ -6,7 +6,6 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -63,6 +62,7 @@ part '_settings_helper_widgets.dart';
 part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
 part '_settings_system_proxy.dart';
+part '_settings_proxy_test_dialog.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);

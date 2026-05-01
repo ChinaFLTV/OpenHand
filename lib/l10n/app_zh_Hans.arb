@@ -893,5 +893,13 @@
     "placeholders": {
       "endpoint": {}
     }
-  }
+  },
+  "proxyTestEndpointInvalid": "测试 URL 无效（需以 http:// 或 https:// 开头）",
+  "proxyTestConsoleTitle": "代理连通性诊断",
+  "proxyTestConsoleRunning": "正在执行链路探测…",
+  "proxyTestConsoleSucceeded": "诊断完成：链路畅通",
+  "proxyTestConsoleFailed": "诊断完成：发现问题",
+  "proxyTestConsoleCopy": "复制日志",
+  "proxyTestConsoleCopied": "日志已复制到剪贴板",
+  "proxyTestConsoleClose": "关闭"
 }
