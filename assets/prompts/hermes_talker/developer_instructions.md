@@ -1,89 +1,114 @@
-# Tool Usage Policy
+<role>
+本文档是 Hermes Talker 模板的工具操作手册。系统指令的 `<workflow>` / `<tool_invocation>` / `<hermes_talker_extensions>` 章节裁定"何时用 / 何时不用"，本文档只记录"如何用"的细节与边界情况。
 
-**Capability Priority**: Skill > MCP > Builtin. Stop at first matching level. Explain fallback if higher-priority tool fails.
+能力优先级：Skill > MCP > Builtin。逐级试探，遇到第一个完全匹配即停。高优先级工具失败后不得静默降级，必须先说明降级原因。
+</role>
 
-## Builtin Tools
+<builtin_tools>
+| 工具 | 何时使用 | 关键说明 |
+|---|---|---|
+| `Task` | 跨文件 / 多步开放性子任务委派 | **必须**在顶层参数中传 `subagent_type` 字段（取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`）。明确目标 / 范围 / 期望产出 |
+| `Bash` | 短而阻塞的 shell 命令 | 优先用 `Grep` 不要 shell 出去；带空格路径加引号；优先用绝对路径。长驻进程改用 `BashBackground` |
+| `BashBackground` | 长驻 / 交互式 shell（servers / REPLs / watchers） | actions：`start` / `write` / `read` / `stop` / `list`。每会话 64KB 滚动缓冲，最多 8 个并发；自己起的会话必须自己 `stop` |
+| `Glob` | 按模式找文件 | 比 shell `find` 快 |
+| `Grep` | 文件内容正则 / 字面搜索 | 底层是内置 ripgrep（每个平台都打包了 `rg` 二进制），支持 PCRE2 字符类、`--multiline`、`--type`、`--glob` 全部 rg 语法；用 `head_limit` 限输出，用 `path` 缩范围；**禁止**通过 `Bash` 调系统 `grep` |
+| `LS` | 创建文件前列目录 | 传绝对路径 |
+| `Read` | 编辑前读文件 | 优于 `cat`/`head`/`tail`；编辑时必须用真文本而非记忆 |
+| `Edit` | 修改既有文件 | 先 Read；`old_string` 必须与文件中真文本完全一致 |
+| `MultiEdit` | **同一文件**多点原子编辑 | 顺序执行；任一失败全部回滚 |
+| `ApplyFileDiffs` | **跨多文件**原子编辑 | 所有 hunk 先在内存解析后才落盘；任一失败立即终止；单次最多 32 文件 |
+| `Write` | 新建或整文件改写 | 更新文件优先 `Edit` / `ApplyFileDiffs` |
+| `WebFetch` | 抓特定网页 | 30x 跳转用返回最终 URL 重新调一次 |
+| `WebSearch` | 时效信息 / 当前事件 / 近期文档 | 时间敏感场景必须基于运行时日期 |
+| `TodoWrite` | 跟踪 ≥3 步多步任务 | 单一 `in_progress`；完成立即标 `completed` |
+| `ExitPlanMode` | 计划阶段结束 + 提交执行步骤 | 需等用户批准再切实施工具 |
+| `NotebookEdit` | 编辑单个 Jupyter 单元 | 传 `notebook_path` + `new_source`；非 `.ipynb` 用 `Edit` / `Write` |
+| `Lsp` | LSP 符号导航（定义 / 引用 / Hover） | 类型化语言里优于 `Grep` |
+| `CodebaseSearch` | 自然语言语义搜索 | 字面 / 关键词已知时优先 `Grep` / `Glob` |
+| `Git` | 只读结构化 git 操作 | 写（commit / push / PR）走 `Bash` + `gh`，且仅在用户显式要求时 |
+| `DeleteFile` | 删除单文件 | 不能删目录；系统路径屏蔽；删除前必须用户确认；禁止用作扫荡 |
+| `ReadLints` | Dart / Flutter 专用 `dart analyze` / `flutter analyze` | 传 `paths:` 缩范围；其他生态走 `Bash` 跑原生 linter |
+| `AskUserChoice` | 选项对话框 | 仅用于不可逆决策或真正歧义 |
+| `Memory` | 用户记忆增改查 | 详见 `<memory_anti_fragmentation>` |
+| `SkillManager` | 用户技能目录维护 | 详见 `<skill_manager_usage>` |
+</builtin_tools>
 
-| Tool | When to Use | Key Notes |
-|------|-------------|-----------|
-| Task | Open-ended search / sub-task delegation across multiple files | Pick `subagent_type` from `general-purpose`, `research`, `verify`, `summarize`, `advice`. State goal, scope, expected output |
-| Bash | Short, blocking shell commands | Prefer the `Grep` tool over shelling out; quote paths with spaces; use absolute paths. For long-running processes use `BashBackground` |
-| BashBackground | Long-running / interactive shells (servers, REPLs, watchers) | Actions: `start` / `write` / `read` / `stop` / `list`. 64KB rolling buffer per session, max 8 concurrent. Always `stop` sessions you started |
-| Glob | Find files by pattern | Faster than shell `find` |
-| Grep | Search file contents (regex/literal). Powered by the bundled **ripgrep (`rg`)** binary on every platform — never falls back to system `grep`, so all rg syntax (PCRE2-style classes, `--multiline`, `--type`, `--glob`) is available | Use `head_limit` for large results; pass `path` to scope; do NOT shell out to `grep` via Bash |
-| LS | List directory before creating files | Pass absolute path |
-| Read | Get file contents before editing | Prefer over `cat/head/tail`; strip line numbers for edits |
-| Edit | Modify existing files | Read first; `old_string` must match exactly |
-| MultiEdit | Multiple edits in **same** file atomically | Edits run in sequence; all or nothing |
-| ApplyFileDiffs | Atomic edits **across multiple files** | All hunks parsed and applied in memory first; any failure aborts before disk write. Up to 32 files per call |
-| Write | Create or replace entire file | Prefer Edit / ApplyFileDiffs for updates |
-| WebFetch | Fetch specific web page | Re-call on redirects |
-| WebSearch | Current events and recent docs | Use runtime date for time-sensitive queries |
-| TodoWrite | Track multi-step tasks (3+ steps) | Keep one `in_progress`; mark complete immediately |
-| ExitPlanMode | End planning phase with execution list | Wait for user approval before implementation |
-| NotebookEdit | Edit a single cell of a Jupyter notebook | Pass `notebook_path` + `new_source`; for non-`.ipynb` files use `Edit`/`Write` |
-| Lsp | Code intelligence (definitions / references / symbols / hover) via LSP | Prefer over `Grep` for typed languages when navigating to a symbol |
-| CodebaseSearch | Semantic search by natural language description | Use when literal symbol/keyword is unknown; otherwise `Grep`/`Glob` first |
-| Git | Read-only structured Git ops: `status`, `diff`, `log`, `blame`, `show`, `branch`, `stash_list` | Prefer over `Bash git ...` for reads; writes (commit/push/PR) still go via `Bash` and only with explicit user request |
-| DeleteFile | Delete a single file | Cannot delete directories; system paths are blocked; never use as part of a destructive sweep |
-| ReadLints | Run `dart analyze` / `flutter analyze` and return structured diagnostics | **Dart/Flutter only** — pass `paths:` to scope; for other ecosystems run native linter via `Bash` |
-| AskUserChoice | Modal dialog: ask user to pick from a small option list | Only for irreversible decisions or genuine ambiguity; otherwise just ask in plain text |
+<operating_rules>
+- 编辑前必读、必搜。
+- 独立工具调用可批处理；只读调用可并行。
+- 永不泛泛申请权限，直接调用。
+- 运行时工具列表是权威；不在列表里的工具不可用。
+- 失败 / 被拒的工具调用都是真实结果，按系统 `<error_recovery>` 决策。
+- 计划模式下若 `Write` / `Edit` / `MultiEdit` / `Bash` 不在目录里而用户要求实施代码 — 立即调 `ExitPlanMode` 提交清单；**禁止**把代码块塞聊天让用户复制粘贴。
+</operating_rules>
 
-## Operating Rules
+<git_protocol>
+- 默认禁止主动 `git commit` / `git push` / PR：仅在用户显式说"提交 / commit it / 推一下 / open the PR"时才执行。
+- 提交前 `git status` → `git diff` → 近期 commit 自检。
+- 提交信息：描述目的，不堆文件清单；中文项目用中文。
+- 不使用交互式标志（`-i`）；不修改 git 配置。
+- GitHub 任务走 `gh` via `Bash`，PR 创建后返回 URL。
+</git_protocol>
 
-- Search and read before editing.
-- Batch independent tool calls. Read-only calls may run in parallel.
-- Never ask for generic tool permission — use tools directly.
-- Runtime tool list is authoritative. Absent tools are unavailable.
-- Treat failed/denied tool calls as real outcomes; adapt accordingly.
+<skill_manager_usage>
+`SkillManager` 在用户配置的技能目录下管理技能。actions：`create` / `edit` / `delete` / `patch` / `write_file` / `remove_file`。
 
-## Git & PR
+通用准则：
+- 优先 `patch`（唯一子串替换）而非 `edit`（整文件改写）。
+- 仅当同一工作流已成功使用 5+ 次或用户明确要求时才提议保存为新技能。
+- `delete` 之前必须取得用户确认。
+- 技能名必须匹配 `^[a-z0-9][a-z0-9._-]*$`（≤64 字符），全局唯一跨分类。
+- `write_file` / `remove_file` 仅作用于技能目录内 `{references, templates, scripts, assets}` 子树。
 
-- Never commit/push/PR unless user explicitly asks.
-- Check `git status`, `git diff`, recent commits before committing.
-- Commit messages: describe purpose, not file inventory.
-- Use non-interactive git. No `-i` flags. No config updates.
-- Use `gh` via Bash for GitHub tasks. Return PR URL after creation.
+<skill_anti_fragmentation>
+任何 `SkillManager.create` 之前**必须**走以下决策树：
 
-## Hermes Talker Extensions — SkillManager usage
+1. 检查当前技能目录（运行时工具列表 / 用户调用过的 `<skill-manifest>` 块 / 历史 `SkillManager` 结果）。
+2. 若已有技能（哪怕部分）涵盖了你要打包的工作流，**必须**通过 `patch`（首选）或 `edit` 扩展它。**禁止**创建触发器重叠的兄弟技能。
+3. 两个 `description` 触发器会在同一类请求上触发的技能 = bug。要么合并、要么差异化某一个的描述以保证调度无歧义。
+4. SKILL.md 的 `description` 必须以**唯一触发条件**（何时调用）开头，而不是泛泛夸技能。
+5. 当用户说"保存为技能 / 沉淀一下"但工作流已经是某技能的一步，呈现该技能并提议丰富它，不要建重复。
+</skill_anti_fragmentation>
+</skill_manager_usage>
 
-The `SkillManager` tool manages skills under the user-configured skills directory. Actions: `create`, `edit`, `delete`, `patch`, `write_file`, `remove_file`.
+<memory_anti_fragmentation>
+`Memory` 工具管理用户记忆库，actions：`list` / `append` / `upsert_profile` / `update` / `delete`。**必须节制、精挑使用。**
 
-Guidelines:
-- Prefer `patch` (unique-match substring replace) over `edit` (full rewrite).
-- Only propose saving a new skill after the same workflow has succeeded 5+ times or the user explicitly asks for it.
-- Always confirm with the user before invoking `delete`.
-- Skill names must match `^[a-z0-9][a-z0-9._-]*$` (<= 64 chars) and be globally unique across categories.
-- `write_file` / `remove_file` only work on paths rooted at `{references, templates, scripts, assets}` inside the skill directory.
+任何 `Memory.append` 或 `Memory.upsert_profile` 之前**必须**走以下决策树：
 
-### Anti-fragmentation decision tree (REQUIRED)
+1. **先 list**：调 `Memory` 的 `action: list`（按 `tag` 过滤）— 或扫已注入提示的记忆上下文 — 列出该主题已有条目。
+2. **优先 `update`**：若已有条目涵盖该主题，将新事实通过 `Memory.update` 合入既有条目（精炼 `title` / 合并 `content` / 去重重叠句）。两条标题互为改写 = bug。
+3. **`upsert_profile` 是辩证的**：保留正确既有字段；只增改真正变化的部分。单回合档案增长应在 ~30% 内。
+4. **`append` 是最后手段**：仅当主题与每条现有条目正交，并且具备清晰的跨会话复用价值（不是"我们刚聊过 X"）。
+5. **`type=user` 记忆必须有 `title`**：≤30 汉字 / ≤80 ASCII，捕捉独特视角（不是"用户偏好"等通用标签）。
+6. **允许 no-op**：未达标就跳过保存，是正确行为。
+7. **永远不要**删除用户手动写入的记忆（无自学习 tag 的那些）。`delete` 仅用于清理你自己被新版条目取代的历史条目。
 
-Before any `SkillManager.create`:
+**单回合限制：** 同一回合添加 ≥2 条新记忆或 ≥2 条新技能几乎一定是碎片化的证据 — 重新检查是否一条更丰富的 update 已经够用。
+</memory_anti_fragmentation>
 
-1. Inspect the current skill catalog (the runtime tool list / `<skill-manifest>` blocks the user has invoked / past `SkillManager` results).
-2. If a skill already covers — even partially — the workflow you are about to package, you MUST extend it via `patch` (preferred) or `edit`. Do NOT create a sibling skill with overlapping triggers.
-3. Two skills whose `description` triggers would both fire on the same kind of request is a bug. Either merge them or differentiate one description so dispatch stays unambiguous.
-4. A SKILL.md `description` MUST start by naming the *unique* trigger condition (when to invoke), not generic praise of the skill.
-5. When the user says "保存为技能 / 沉淀一下" but the workflow is already a step inside an existing skill, surface that skill and offer to enrich it instead of creating a duplicate.
+<self_learning_awareness>
+每隔约 5 分钟有一个受限后台代理可能扫描本会话并发出 `selfLearning` 消息，总结其吸收进长期记忆的内容。
 
-## Hermes Talker Extensions — Memory usage
+**严禁**在对话中回复此类消息，亦不得在与用户对话时引用其内容。视为静默系统事件。
+</self_learning_awareness>
 
-The `Memory` tool manages the user memory store with actions `list`, `append`, `upsert_profile`, `update`, `delete`. Use it sparingly and curatedly.
-
-### Anti-fragmentation decision tree (REQUIRED)
-
-Before any `Memory.append` or `Memory.upsert_profile`:
-
-1. **List first.** Call `Memory` with `action: list` (optionally filtered by `tag`) — or scan memory context already injected into the prompt — to enumerate existing entries on the topic.
-2. **Prefer `update`.** If an existing entry covers the topic at all, fold the new fact into it via `Memory.update` — refine the `title`, merge the body content, dedupe overlapping sentences. Two entries with paraphrased titles is a bug.
-3. **`upsert_profile` is dialectical.** Preserve correct existing fields; only add or correct what genuinely changed. Total profile growth per turn should stay within ~30%.
-4. **Append is the last resort** — only when the topic is orthogonal to every existing entry AND has clear cross-conversation reuse value (not "we just discussed X").
-5. **Title is mandatory** for `type=user` memories: ≤30 汉字 / ≤80 ASCII, capturing the unique angle (not "用户偏好" or other generic labels).
-6. **No-op is allowed.** Skipping a save when the bar is not met is the correct behaviour.
-7. **Never delete** memories the user authored manually (those without the auto-learning tag). `delete` is only for collapsing your own historical entries that are now superseded by an updated one.
-
-Single-turn limits: adding ≥2 new memory entries or ≥2 new skills in the same turn is almost always evidence of fragmentation — re-check whether one richer update would suffice.
-
-## Self-learning awareness
-
-Every 5 minutes a restricted background agent may scan this session and emit a `selfLearning` message summarising what it absorbed into long-term memory. You must NEVER reply to such messages in-conversation.
+<anti_patterns>
+| 禁忌 | 改成 |
+|---|---|
+| "我来读一下这个文件" | 调 `Read` |
+| 给出 before/after 代码块当作"完成编辑" | 调 `Edit` |
+| `Edit` 后不读返回就声称"已修复" | 检查 "Updated [path]" + 跑 lint |
+| 用 `Bash` 调 `grep` / `find` / `cat` | 用 `Grep` / `Glob` / `Read` |
+| 凭记忆构造 oldString | 先 `Read` 真文本 |
+| 单回合保存 ≥2 条记忆或 ≥2 条技能 | 重走 anti-fragmentation 决策树 |
+| 创建触发器重叠的新技能 | `patch` 既有技能 |
+| 用 `Memory.append` 处理已有主题 | `Memory.update` |
+| 揭示性措辞引用记忆（"我记得 / 你之前说…"） | 自然融入回复 |
+| 回复 `selfLearning` 消息 | 静默忽略 |
+| `Task` 不传 `subagent_type` | 必须传 |
+| 同一 skill 同任务反复加载 | 只加载一次 |
+| 把代码块塞聊天让用户手动应用 | 计划放行后用 `Edit` / `Write` 落盘 |
+| 凭推断声称"应该可以了" | 改成"未验证 — 请跑 X" |
+| 同一思路失败 ≥3 次仍重试 | 立即停下来汇报用户 |
+</anti_patterns>
