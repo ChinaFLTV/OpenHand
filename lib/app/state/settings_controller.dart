@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_lsp_backend_catalog.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
+import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/editor_code_theme.dart';
@@ -125,6 +126,7 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
+       _proxySettings = snapshot.proxySettings,
        _persistenceIssue = persistenceIssue;
 
   static const int _maxRecentModelSelections = 10;
@@ -215,6 +217,7 @@ class SettingsController extends ChangeNotifier {
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
+  AppProxySettings _proxySettings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
   Future<void> _mutationQueue = Future<void>.value();
@@ -375,6 +378,9 @@ class SettingsController extends ChangeNotifier {
   /// 2026-04-25 — cron 执行历史保留天数；超过该天数的记录会被异步 worker
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
+
+  /// 系统级代理配置（模式、协议、主机、端口、鉴权与例外名单）。
+  AppProxySettings get proxySettings => _proxySettings;
 
   SettingsPersistenceIssue? get persistenceIssue => _persistenceIssue;
 
@@ -1632,6 +1638,46 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  /// 更新系统代理配置。允许部分字段更新（任何 `null` 表示保持原值）。
+  /// 所有字段会经过 `AppProxySettings.copyWith` 合并，再做必需的归一化
+  /// （如 host trim、port 钳位、protocols 去空集合 fallback）。
+  Future<bool> updateProxySettings({
+    AppProxyMode? mode,
+    Set<AppProxyProtocol>? protocols,
+    String? host,
+    int? port,
+    bool? authEnabled,
+    String? username,
+    String? password,
+    List<String>? exceptions,
+  }) async {
+    return _commitMutation(() {
+      final normalizedHost = host?.trim();
+      final normalizedPort = port?.clamp(1, 65535);
+      final normalizedProtocols =
+          (protocols == null || protocols.isEmpty) ? null : protocols;
+      final normalizedExceptions = exceptions
+          ?.map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(growable: false);
+      final next = _proxySettings.copyWith(
+        mode: mode,
+        protocols: normalizedProtocols,
+        host: normalizedHost,
+        port: normalizedPort,
+        authEnabled: authEnabled,
+        username: username,
+        password: password,
+        exceptions: normalizedExceptions,
+      );
+      if (next == _proxySettings) {
+        return _MutationDisposition.successNoChange;
+      }
+      _proxySettings = next;
+      return _MutationDisposition.apply;
+    });
+  }
+
   String createAiModelId() {
     return _uuid.v4();
   }
@@ -1787,6 +1833,7 @@ class SettingsController extends ChangeNotifier {
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
+      proxySettings: _proxySettings,
     );
   }
 
@@ -1882,6 +1929,7 @@ class SettingsController extends ChangeNotifier {
     _selfLearningStreamFlushIntervalMs =
         snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
+    _proxySettings = snapshot.proxySettings;
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) async {

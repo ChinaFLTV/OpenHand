@@ -14,6 +14,7 @@ import '../../features/ai/model/ai_deny_command_rule.dart';
 import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../model/app_language.dart';
+import '../model/app_proxy_settings.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/editor_code_theme.dart';
 import '../model/editor_indent.dart';
@@ -124,6 +125,7 @@ class AppSettingsSnapshot {
       telemetryCaptureRawPayload: true,
       telemetryCaptureEnvironment: false,
       telemetryMaxPayloadChars: defaultTelemetryMaxPayloadChars,
+      proxySettings: AppProxySettings.defaults(),
     );
   }
   const AppSettingsSnapshot({
@@ -202,7 +204,20 @@ class AppSettingsSnapshot {
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
-  });
+    AppProxySettings? proxySettings,
+  }) : proxySettings = proxySettings ?? const AppProxySettings(
+          mode: AppProxyMode.automatic,
+          protocols: <AppProxyProtocol>{
+            AppProxyProtocol.http,
+            AppProxyProtocol.https,
+          },
+          host: '',
+          port: 7890,
+          authEnabled: false,
+          username: '',
+          password: '',
+          exceptions: <String>[],
+        );
 
   /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
   static const int defaultSelfLearningConcurrency = 5;
@@ -504,6 +519,10 @@ class AppSettingsSnapshot {
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;
 
+  /// 系统级代理配置。`SystemProxyResolver` 会从此处读取生效模式与
+  /// 主机/端口/鉴权/例外名单。
+  final AppProxySettings proxySettings;
+
   AppSettingsSnapshot copyWith({
     ThemeMode? themeMode,
     OpenHandThemePreset? themePreset,
@@ -579,6 +598,7 @@ class AppSettingsSnapshot {
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
+    AppProxySettings? proxySettings,
     bool clearSelectedAiModelId = false,
   }) {
     return AppSettingsSnapshot(
@@ -709,6 +729,7 @@ class AppSettingsSnapshot {
           cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays:
           cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
+      proxySettings: proxySettings ?? this.proxySettings,
     );
   }
 }

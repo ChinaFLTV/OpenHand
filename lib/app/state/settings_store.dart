@@ -16,6 +16,7 @@ import '../../features/ai/model/ai_lsp_language_settings.dart';
 import '../../features/ai/model/ai_model_config.dart';
 import '../../shared/data/database_service.dart';
 import '../model/app_language.dart';
+import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
 import '../model/dialog_animation_settings.dart';
 import '../model/editor_code_theme.dart';
@@ -240,6 +241,7 @@ class SettingsStore {
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
+      'proxy': snapshot.proxySettings.toJson(),
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
           .toList(growable: false),
@@ -887,6 +889,8 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays;
 
+    final proxySettings = AppProxySettings.fromJson(json['proxy']);
+
     return AppSettingsSnapshot(
       themeMode: themeMode,
       themePreset: themePreset,
@@ -964,6 +968,7 @@ class SettingsStore {
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
+      proxySettings: proxySettings,
     );
   }
 }

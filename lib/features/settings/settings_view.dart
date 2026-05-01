@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/model/app_language.dart';
+import '../../app/model/app_proxy_settings.dart';
 import '../../app/model/app_settings_snapshot.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/model/editor_code_theme.dart';
@@ -59,6 +60,7 @@ part '_settings_builtin_tools.dart';
 part '_settings_helper_widgets.dart';
 part '_settings_user_profile.dart';
 part '_settings_data_cleanup.dart';
+part '_settings_system_proxy.dart';
 
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
@@ -77,6 +79,7 @@ enum _SettingsSection {
   hermesTalker,
   editor,
   appData,
+  system,
   about,
 }
 
@@ -357,6 +360,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.hermesTalker,
       _SettingsSection.editor,
       _SettingsSection.appData,
+      _SettingsSection.system,
       _SettingsSection.about,
     ];
 
@@ -636,6 +640,19 @@ class _SettingsViewState extends State<SettingsView> {
               'confirmation.',
         ),
         children: const [_DataCleanupSection()],
+      ),
+      _SettingsSection.system => _SettingsGroupCard(
+        title: _localizedText(context, zh: '系统', en: 'System'),
+        description: _localizedText(
+          context,
+          zh: '所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理'
+              '设置选择路由。保存后即时生效，无需重启。',
+          en:
+              'Every internal HTTP client (WebSearch / WebFetch, etc.) routes '
+              'through the proxy chosen here. Changes apply immediately, no '
+              'restart required.',
+        ),
+        children: [_SystemProxySection(controller: settingsController)],
       ),
       _SettingsSection.about => _SettingsGroupCard(
         title: l10n.aboutSectionTitle,

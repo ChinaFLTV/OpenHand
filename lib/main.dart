@@ -152,6 +152,16 @@ Future<void> _bootstrap() async {
   final settingsController = await settingsControllerFuture;
   final hooksController = await hooksControllerFuture;
   developer.Timeline.finishSync();
+  // 2026-05-03 — settings 加载完成后立刻把代理偏好同步给 resolver；
+  // 后续设置变更通过 listener 同步，全程不需要重启。
+  SystemProxyResolver.instance.applyManualConfig(
+    settingsController.proxySettings,
+  );
+  settingsController.addListener(() {
+    SystemProxyResolver.instance.applyManualConfig(
+      settingsController.proxySettings,
+    );
+  });
   // 2026-04-25 Hermes Talker — expose a late-bound MemoryController handle to
   // AiSessionController so the Memory builtin tool (self-learning sub-agent)
   // can reach the real controller once it finishes loading.
