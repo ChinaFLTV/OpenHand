@@ -107,7 +107,33 @@ abstract final class OpenHandTheme {
       chipTheme: baseTheme.chipTheme.copyWith(
         backgroundColor: colorScheme.surfaceContainerHigh,
         selectedColor: colorScheme.secondaryContainer,
-        side: BorderSide(color: palette.outlineSoft),
+        // 2026-05-04: 仅设置 backgroundColor / selectedColor 不够 ——
+        // ChoiceChip / FilterChip 在 selected 状态下的 label/勾标
+        // 默认会落回 baseTheme（M3 默认 onSurfaceVariant /主题
+        // primary），与我们在 selectedColor 改用的
+        // secondaryContainer 配色脱节，肉眼看就是"按下后的高亮
+        // 跟主题不搭"。这里把 secondaryLabelStyle 与 checkmark
+        // 都拉到 onSecondaryContainer，再用 WidgetStateBorderSide
+        // 让 selected 边框升一级到 secondary 主色，整体保持
+        // M3 secondary 容器调性。
+        labelStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: TextStyle(
+          color: colorScheme.onSecondaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+        checkmarkColor: colorScheme.onSecondaryContainer,
+        iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
+        side: WidgetStateBorderSide.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return BorderSide(
+              color: colorScheme.secondary.withValues(alpha: 0.55),
+            );
+          }
+          return BorderSide(color: palette.outlineSoft);
+        }),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       ),
