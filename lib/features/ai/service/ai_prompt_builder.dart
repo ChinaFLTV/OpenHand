@@ -298,6 +298,17 @@ class AiPromptBuilder {
             : '# [5] Recent Conversations Summary (past chats, titles + snippets)\n\n${_renderCompressionSummary(session, latestCompressionPoint)}',
       ),
       ...historyTurns,
+      // [5.5] Focus Context — last few tool outcomes + latest-user attachments,
+      // 仅在有信号时注入；用于在主 transcript 之外提供"刚才发生了什么"的高
+      // 优先级简报，等价于 Warp 的 block_context（命令 + 输出 + cwd）。
+      if (_renderFocusContext(
+        historyMessages: historyMessages,
+        latestUserMessage: latestUserMessage,
+      ) case final String focusContext when focusContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.5] Focus Context\n\n$focusContext',
+        ),
       ...latestUserTurns,
     ];
     final systemMessageCount = messages
@@ -1502,6 +1513,103 @@ class AiPromptBuilder {
       return 'No compressed conversation summary yet.';
     }
     return '### Thread\n- ${session.title}\n\n${latestCompressionPoint.content}';
+  }
+
+  /// Builds a compact "what just happened" digest for the LLM:
+  /// - the last up-to-3 tool / skill / mcp result messages from history
+  /// - any file paths and image attachments on the latest user message
+  ///
+  /// Returns an empty string when there is nothing salient to surface, so the
+  /// caller can skip injecting the system turn entirely.
+  String _renderFocusContext({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestUserMessage,
+  }) {
+    final lines = <String>[];
+
+    // Recent tool outcomes (most recent last).
+    final recentToolMessages = <AiSessionMessage>[];
+    for (var i = historyMessages.length - 1;
+        i >= 0 && recentToolMessages.length < 3;
+        i--) {
+      final message = historyMessages[i];
+      switch (message.kind) {
+        case AiSessionMessageKind.tool:
+        case AiSessionMessageKind.skill:
+        case AiSessionMessageKind.mcp:
+          recentToolMessages.add(message);
+        case AiSessionMessageKind.user:
+        case AiSessionMessageKind.assistant:
+        case AiSessionMessageKind.reasoning:
+        case AiSessionMessageKind.toolCall:
+        case AiSessionMessageKind.compressionPoint:
+        case AiSessionMessageKind.hook:
+        case AiSessionMessageKind.selfLearning:
+        case AiSessionMessageKind.status:
+          break;
+      }
+    }
+    if (recentToolMessages.isNotEmpty) {
+      lines.add('## Recent tool outcomes (most recent last)');
+      for (final message in recentToolMessages.reversed) {
+        final toolName =
+            '${message.metadata['tool_name'] ?? message.metadata['name'] ?? 'tool'}';
+        final status = '${message.metadata['status'] ?? ''}'.trim();
+        final command = '${message.metadata['command'] ?? ''}'.trim();
+        final pathHint = '${message.metadata['file_mutation_path'] ?? message.metadata['read_file_path'] ?? ''}'
+            .trim();
+        final snippet = _firstNonEmptyLine(message.content, 160);
+        final descriptor = <String>[
+          toolName,
+          if (status.isNotEmpty) 'status=$status',
+          if (command.isNotEmpty) 'cmd=${_truncate(command, 60)}',
+          if (pathHint.isNotEmpty) 'path=$pathHint',
+        ].join(' · ');
+        lines.add('- $descriptor');
+        if (snippet.isNotEmpty) {
+          lines.add('  └─ $snippet');
+        }
+      }
+    }
+
+    // Latest user message attachments / referenced paths.
+    if (latestUserMessage != null) {
+      final attachments = latestUserMessage.metadata['attachments'];
+      if (attachments is List && attachments.isNotEmpty) {
+        final descriptors = <String>[];
+        for (final raw in attachments) {
+          if (raw is! Map) continue;
+          final entry = Map<String, Object?>.from(raw);
+          final kind = '${entry['kind'] ?? entry['type'] ?? ''}'.trim();
+          final path = '${entry['path'] ?? entry['file_path'] ?? ''}'.trim();
+          if (path.isEmpty) continue;
+          descriptors.add(kind.isEmpty ? path : '$kind:$path');
+        }
+        if (descriptors.isNotEmpty) {
+          if (lines.isNotEmpty) lines.add('');
+          lines.add('## Latest user attachments');
+          for (final d in descriptors) {
+            lines.add('- $d');
+          }
+        }
+      }
+    }
+
+    return lines.isEmpty ? '' : lines.join('\n');
+  }
+
+  String _firstNonEmptyLine(String text, int maxChars) {
+    for (final raw in text.split('\n')) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) continue;
+      return _truncate(trimmed, maxChars);
+    }
+    return '';
+  }
+
+  String _truncate(String text, int maxChars) {
+    if (text.length <= maxChars) return text;
+    return '${text.substring(0, maxChars)}…';
   }
 
   String _promptHistoryStandaloneToolCallContent(AiSessionMessage message) {
