@@ -663,18 +663,25 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     return Container(
       color: bg,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        child: ListView.builder(
+      // 2026-05-04 (Bug 修复 v2): 把 SelectionArea 上提到整个
+      // 控制台层 — 早先每行单独包一层 SelectionArea，与
+      // ListView.builder 在 unbounded main-axis + 入场 fade
+      // 0 帧叠加时容易导致 SliverList 'child.hasSize' 断言。
+      // 整片包一次同样支持选中复制，且尺寸链路最稳。
+      child: SelectionArea(
+        child: Scrollbar(
           controller: _scrollController,
-          itemCount: visible.length + (_running ? 1 : 0),
-          itemBuilder: (ctx, i) {
-            if (i == visible.length) {
-              return _buildBlinkingCursor();
-            }
-            return _buildEntryRow(visible[i]);
-          },
+          thumbVisibility: true,
+          child: ListView.builder(
+            controller: _scrollController,
+            itemCount: visible.length + (_running ? 1 : 0),
+            itemBuilder: (ctx, i) {
+              if (i == visible.length) {
+                return _buildBlinkingCursor();
+              }
+              return _buildEntryRow(visible[i]);
+            },
+          ),
         ),
       ),
     );
@@ -720,15 +727,24 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       color: levelColor,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
-    // 2026-05-04 (UI 调优 v2):
-    // - level 背景：err / warn 微弱色块 (alpha 0.08 / 0.06)，
-    //   让眼睛在长 trace 中能"一扫就找到红黄"。
-    // - head 行：上下加一根 1px 细分隔线 + 比 err/warn 更显眼的
-    //   bg (alpha 0.12)，作为阶段锥型分段。
-    // - hover：MouseRegion 鼠标悬停时背景再加一层 0.06 白色，叠
-    //   在已有 level bg 之上，是体验细节而不是结构信息。
-    // - ≥ 50 ms 的 head：在 body 后缀拼一个 ⚠ Xms，肉眼一眼看到
-    //   慢段。
+    // 2026-05-04 (Bug 修复 v2):
+    //   旧实现把"左侧色条"做成 Row 的第一个 Container 子项，并
+    //   通过 `crossAxisAlignment: stretch` + 外层 IntrinsicHeight
+    //   让色条与文本同高。这套组合在 ListView.builder 的 unbounded
+    //   main-axis 下会触发 SliverList 'child.hasSize' 断言（特别
+    //   是在 fade-in TweenAnimationBuilder 的初始零帧 + opacity=0
+    //   状态时）。
+    //
+    //   修复策略：把色条挪到 _ProxyHoverableRow 的 AnimatedContainer
+    //   decoration.border.left 上 —— 边框会自动跟容器同高，无需
+    //   IntrinsicHeight；同时彻底去掉 Row + stretch，保留普通的
+    //   Padding > Text.rich 单元素结构，是 Flutter 在 SliverList
+    //   场景里最稳的尺寸路径。
+    //
+    //   level 背景：err / warn 微弱色块 (alpha 0.08 / 0.06)；
+    //   head 行：上下加 1px 浅蓝细分隔线 + bg alpha 0.12，作为阶段
+    //   分段；hover：MouseRegion 鼠标悬停时背景再加一层 0.06 白色；
+    //   ≥ 50 ms 的 head：在 body 后缀拼一个 ⚠ Xms。
     final isHead = entry.level == _ProxyTestLogLevel.head;
     final levelBg = switch (entry.level) {
       _ProxyTestLogLevel.head => const Color(0xFF7DD3FC).withValues(alpha: 0.12),
@@ -741,68 +757,38 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final headSlowMark =
         headSlowMs >= _slowSectionThresholdMs ? '  ⚠ ${headSlowMs}ms' : '';
 
-    final rowBody = IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          // 左侧色条：与 tag 同色，加强可视分组。
-          // IntrinsicHeight 必须包住 Row 才能让色条 stretch 到
-          // 文本行的真实高度——ListView.builder 的 item 在 cross
-          // 轴 (Row 的 main 轴) 是宽度受限、在 main 轴 (Row 的
-          // cross 轴) 是高度无界，没有 IntrinsicHeight 兜底时
-          // CrossAxisAlignment.stretch 会让 Container 撑成无穷
-          // 高度并整行坍缩为 0，于是控制台终端区"什么都看不到"。
-          Container(
-            width: 3,
-            margin: const EdgeInsets.symmetric(vertical: 1.5),
-            decoration: BoxDecoration(
-              color: levelColor.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(1.5),
+    final rowText = Padding(
+      padding: const EdgeInsets.fromLTRB(11, 1.5, 0, 1.5),
+      child: Text.rich(
+        TextSpan(
+          children: <InlineSpan>[
+            TextSpan(
+              text: '+${ts}s ',
+              style: textStyle.copyWith(color: const Color(0xFF6B7280)),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1.5),
-              child: Text.rich(
-                TextSpan(
-                  children: <InlineSpan>[
-                    TextSpan(
-                      text: '+${ts}s ',
-                      style:
-                          textStyle.copyWith(color: const Color(0xFF6B7280)),
-                    ),
-                    TextSpan(
-                      text: '${entry.tag.padRight(7)} │ ',
-                      style: textStyle.copyWith(
-                        color: levelColor,
-                        fontWeight: isHead
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                      ),
-                    ),
-                    TextSpan(
-                      text: entry.body,
-                      style: textStyle.copyWith(
-                        fontWeight: isHead
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                    if (headSlowMark.isNotEmpty)
-                      TextSpan(
-                        text: headSlowMark,
-                        style: textStyle.copyWith(
-                          color: const Color(0xFFFCD34D),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
+            TextSpan(
+              text: '${entry.tag.padRight(7)} │ ',
+              style: textStyle.copyWith(
+                color: levelColor,
+                fontWeight: isHead ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
-          ),
-        ],
+            TextSpan(
+              text: entry.body,
+              style: textStyle.copyWith(
+                fontWeight: isHead ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            if (headSlowMark.isNotEmpty)
+              TextSpan(
+                text: headSlowMark,
+                style: textStyle.copyWith(
+                  color: const Color(0xFFFCD34D),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+          ],
+        ),
       ),
     );
     final decorated = _ProxyHoverableRow(
@@ -810,8 +796,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       hoverColor: Colors.white.withValues(alpha: 0.06),
       isHead: isHead,
       headBorderColor: const Color(0xFF7DD3FC).withValues(alpha: 0.30),
+      leftBarColor: levelColor.withValues(alpha: 0.85),
       onDoubleTap: () => _copyEntryLine(entry),
-      child: SelectionArea(child: rowBody),
+      child: rowText,
     );
     // 入场动画：fade-in + 由下方 6px 上滑到位（200ms easeOutCubic），
     // TweenAnimationBuilder 仅在条目首次挂载时由 0→1 一次性触发，
@@ -1026,17 +1013,23 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   }
 }
 
-/// 单条日志行的悬停高亮 + 双击复制 + head 段分隔线包装。
+/// 单条日志行的悬停高亮 + 双击复制 + head 段分隔线 + 左侧色条包装。
 ///
 /// 拆成独立 StatefulWidget 是为了让 hover 状态局部化：直接放到
 /// `_buildEntryRow` 里需要每行单独一个 setState 索引，rebuild 整
 /// 个 ListView 性能差也容易过度刷新。这里只 rebuild 自身。
+///
+/// 左侧色条以 `Border(left: BorderSide)` 实现而不是单独 Container
+/// 子项 —— 边框跟随容器自身高度，避免 IntrinsicHeight + Row(stretch)
+/// 在 ListView.builder 的 unbounded main-axis 中触发 SliverList
+/// 'child.hasSize' 断言。
 class _ProxyHoverableRow extends StatefulWidget {
   const _ProxyHoverableRow({
     required this.baseColor,
     required this.hoverColor,
     required this.isHead,
     required this.headBorderColor,
+    required this.leftBarColor,
     required this.onDoubleTap,
     required this.child,
   });
@@ -1045,6 +1038,7 @@ class _ProxyHoverableRow extends StatefulWidget {
   final Color hoverColor;
   final bool isHead;
   final Color headBorderColor;
+  final Color leftBarColor;
   final VoidCallback onDoubleTap;
   final Widget child;
 
@@ -1057,6 +1051,7 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
 
   @override
   Widget build(BuildContext context) {
+    final leftSide = BorderSide(color: widget.leftBarColor, width: 3);
     return MouseRegion(
       cursor: SystemMouseCursors.text,
       onEnter: (_) {
@@ -1077,11 +1072,10 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow> {
             border: widget.isHead
                 ? Border(
                     top: BorderSide(color: widget.headBorderColor),
-                    bottom: BorderSide(
-                      color: widget.headBorderColor,
-                    ),
+                    bottom: BorderSide(color: widget.headBorderColor),
+                    left: leftSide,
                   )
-                : null,
+                : Border(left: leftSide),
           ),
           child: widget.child,
         ),
