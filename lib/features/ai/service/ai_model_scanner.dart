@@ -53,36 +53,37 @@ class AiModelScanner {
       final fallback = _fallbackModelIdsForProtocol(config.protocolType);
       return AiModelScanResult(
         modelIds: fallback,
-        error:
-            'TLS handshake rejected by the server (${e.message}). '
-            'This provider likely blocks non-browser TLS clients via JA3 / Cloudflare WAF, '
-            'so model scanning and live chat from this app will not succeed for the same reason. '
-            'Consider switching to a different relay endpoint or add model IDs manually.',
+        error: _ScanErrorMessages.handshake(e),
+      );
+    } on TlsException catch (e) {
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: _ScanErrorMessages.tls(e),
       );
     } on SocketException catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Network error: ${e.message}',
+        error: _ScanErrorMessages.socket(e),
       );
     } on HttpException catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'HTTP error: ${e.message}',
+        error: _ScanErrorMessages.http(e),
       );
     } on TimeoutException {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Request timed out.',
+      return AiModelScanResult(
+        modelIds: const <String>[],
+        error: _ScanErrorMessages.timeout(timeout),
       );
     } on FormatException catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Invalid response format: ${e.message}',
+        error: _ScanErrorMessages.formatError(e.message),
       );
     } catch (e) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Unexpected error: $e',
+        error: _ScanErrorMessages.unexpected(e),
       );
     }
   }
@@ -165,14 +166,16 @@ class AiModelScanner {
     if (response.statusCode == 401 || response.statusCode == 403) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error:
-            'Authentication failed (${response.statusCode}). Check your token.',
+        error: _ScanErrorMessages.httpStatus(
+          response.statusCode,
+          isAuth: true,
+        ),
       );
     }
     if (response.statusCode != 200) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Server returned status ${response.statusCode}.',
+        error: _ScanErrorMessages.httpStatus(response.statusCode),
       );
     }
 
@@ -213,7 +216,7 @@ class AiModelScanner {
     if (response.statusCode != 200) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Server returned status ${response.statusCode}.',
+        error: _ScanErrorMessages.httpStatus(response.statusCode),
       );
     }
 
@@ -272,22 +275,26 @@ class AiModelScanner {
       if (response.statusCode == 401 || response.statusCode == 403) {
         return AiModelScanResult(
           modelIds: const <String>[],
-          error:
-              'Authentication failed (${response.statusCode}). Check your API key.',
+          error: _ScanErrorMessages.httpStatus(
+            response.statusCode,
+            isAuth: true,
+          ),
         );
       }
       if (response.statusCode != 200) {
         return AiModelScanResult(
           modelIds: const <String>[],
-          error: 'Server returned status ${response.statusCode}.',
+          error: _ScanErrorMessages.httpStatus(response.statusCode),
         );
       }
 
       final json = jsonDecode(response.body);
       if (json is! Map<String, dynamic>) {
-        return const AiModelScanResult(
-          modelIds: <String>[],
-          error: 'Unexpected response format.',
+        return AiModelScanResult(
+          modelIds: const <String>[],
+          error: _ScanErrorMessages.formatError(
+            'expected a JSON object at $baseModelsUrl',
+          ),
         );
       }
 
@@ -362,9 +369,10 @@ class AiModelScanner {
         if (response.statusCode == 401 || response.statusCode == 403) {
           return AiModelScanResult(
             modelIds: const <String>[],
-            error:
-                'Authentication failed (${response.statusCode}). '
-                'Check your API key.',
+            error: _ScanErrorMessages.httpStatus(
+              response.statusCode,
+              isAuth: true,
+            ),
           );
         }
         if (response.statusCode != 200) {
@@ -372,18 +380,23 @@ class AiModelScanner {
           if (allIds.isNotEmpty) break;
           return AiModelScanResult(
             modelIds: const <String>[],
-            error:
-                'Server returned status ${response.statusCode}. '
-                'If using a proxy, it may not support model listing.',
+            error: _ScanErrorMessages.httpStatus(
+              response.statusCode,
+              hint:
+                  'If you are using a proxy / relay, it may not expose '
+                  'a /v1/models listing endpoint. Add model IDs manually below.',
+            ),
           );
         }
 
         final json = jsonDecode(response.body);
         if (json is! Map<String, dynamic>) {
           if (allIds.isNotEmpty) break;
-          return const AiModelScanResult(
-            modelIds: <String>[],
-            error: 'Unexpected response format.',
+          return AiModelScanResult(
+            modelIds: const <String>[],
+            error: _ScanErrorMessages.formatError(
+              'expected a JSON object at /v1/models',
+            ),
           );
         }
 
@@ -410,11 +423,16 @@ class AiModelScanner {
       }
 
       if (allIds.isEmpty) {
-        return const AiModelScanResult(
-          modelIds: <String>[],
-          error:
-              'No models returned. If using a proxy, it may not support '
-              'model listing. Please add model IDs manually.',
+        final fallback = _fallbackModelIdsForProtocol(config.protocolType);
+        return AiModelScanResult(
+          modelIds: fallback,
+          error: _ScanErrorMessages._format(
+            title: 'Empty model list · 未返回任何模型',
+            reason: '服务端 /v1/models 端点连通但返回了空列表。多数中转 代理不提供该接口，或者仅准许某一个账号调用后才返回。',
+            try_:
+                '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n'
+                '· 联系中转方确认 /v1/models 是否需要付费 / 鉴权',
+          ),
         );
       }
       allIds.sort();
@@ -424,12 +442,9 @@ class AiModelScanner {
         allIds.sort();
         return AiModelScanResult(modelIds: allIds);
       }
-      return AiModelScanResult(
-        modelIds: const <String>[],
-        error:
-            'Failed to scan Claude/Anthropic models ($e). '
-            'Please add model IDs manually.',
-      );
+      // 其他未后续被上层 try/on 处理的错误（比如 jsonDecode
+      // 报 FormatException）会随同 rethrow，由 scan() 顶层统一格式化。
+      rethrow;
     }
   }
 
@@ -450,14 +465,16 @@ class AiModelScanner {
     if (response.statusCode == 401 || response.statusCode == 403) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error:
-            'Authentication failed (${response.statusCode}). Check your API key.',
+        error: _ScanErrorMessages.httpStatus(
+          response.statusCode,
+          isAuth: true,
+        ),
       );
     }
     if (response.statusCode != 200) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: 'Server returned status ${response.statusCode}.',
+        error: _ScanErrorMessages.httpStatus(response.statusCode),
       );
     }
 
@@ -551,5 +568,268 @@ class AiModelScanner {
 
   void dispose() {
     _httpClient.close();
+  }
+}
+
+/// 集中收敛“扫描模型”阶段的错误文案，让用户在弹窗里一眼看清
+/// 「现象 / 原因 / 建议」三段，避免直接抛出 BoringSSL / Dart 内部
+/// 错误码导致的困惑。所有文案都做成中英双语，因为该字段会原样
+/// 渲染在设置页提示条里，并未再走 ARB l10n。
+class _ScanErrorMessages {
+  _ScanErrorMessages._();
+
+  /// 底层 BoringSSL 抛出的 [HandshakeException]，最常见于 Cloudflare /
+  /// 等 WAF 通过 JA3 / JA4 指纹拦截非浏览器 TLS 握手，或客户端 TLS 版本
+  /// / 加密套件不匹配。
+  static String handshake(HandshakeException e) {
+    final detail = e.message.trim();
+    return _format(
+      title: 'TLS handshake rejected · TLS 握手被拒绝',
+      reason:
+          'The server closed the connection before we could send a request. '
+          '该错误来自 TLS 层而非业务层，常见诱因：\n'
+          '  · Cloudflare / WAF 通过 JA3/JA4 TLS 指纹封锁了非浏览器客户端\n'
+          '  · 中转域名要求强制 TLS 1.3 而本地链路被中间设备降级\n'
+          '  · 系统时间偏差过大导致证书未生效或已过期\n'
+          '  · 客户端与服务端无可协商的加密套件 (cipher suite mismatch)',
+      try_:
+          '· 换用其他可访问的中转 / 直接使用 Anthropic 官方 endpoint\n'
+          '· 在「手动添加模型 ID」处输入熟悉的模型名继续配置\n'
+          '· 检查本机系统时间是否正确\n'
+          '· 通过抓包确认服务端是否对该域名启用了 JA3 拦截',
+      raw: detail.isEmpty ? null : detail,
+    );
+  }
+
+  /// 其他 [TlsException] 子类（证书校验失败等），通常是中间人代理或
+  /// 服务端证书问题。
+  static String tls(TlsException e) {
+    return _format(
+      title: 'TLS error · TLS 协议错误',
+      reason:
+          'TLS 通道建立失败 ${e.message}\n'
+          '常见诱因：\n'
+          '  · 服务端证书过期、域名不匹配或未由可信 CA 签发\n'
+          '  · 中间存在 HTTPS 拦截 / 代理 (公司防火墙、抓包工具)\n'
+          '  · 本地根证书库过旧未包含目标 CA',
+      try_:
+          '· 在浏览器打开同一 URL 检查证书是否报警\n'
+          '· 如果使用了抓包工具或公司代理，请退出后再试\n'
+          '· 联系中转方确认证书链是否正确部署',
+    );
+  }
+
+  /// [SocketException] —— 网络层问题，可细分为 DNS / 拒绝连接 / 不可达 /
+  /// 连接超时等多种情况。
+  static String socket(SocketException e) {
+    final msg = e.message.toLowerCase();
+    String reason;
+    String suggest;
+    if (msg.contains('failed host lookup') || msg.contains('no address')) {
+      reason =
+          '主机名无法解析 (DNS lookup failed)。可能的原因：\n'
+          '  · Base URL 输入了错别字或多余协议前缀\n'
+          '  · 本机 DNS 配置异常或当前网络无外网访问\n'
+          '  · 域名已被运营商 / 防火墙劫持或屏蔽';
+      suggest =
+          '· 复核 Base URL 是否完整 (含 https://)\n'
+          '· 在终端执行 `ping` / `nslookup` 验证域名解析\n'
+          '· 切换网络 (热点 / VPN) 后重试';
+    } else if (msg.contains('connection refused')) {
+      reason =
+          'TCP 连接被服务端主动拒绝 (connection refused)。可能的原因：\n'
+          '  · 端口号写错或服务并未在该端口监听\n'
+          '  · 服务进程已经停止 / 重启中\n'
+          '  · 本机防火墙或 SELinux 拦截了出站连接';
+      suggest =
+          '· 确认 Base URL 中的端口与服务端实际暴露端口一致\n'
+          '· 在服务端 `curl` 自身验证服务是否健康\n'
+          '· 暂时关闭本机 / 公司防火墙再试';
+    } else if (msg.contains('network is unreachable') ||
+        msg.contains('no route to host')) {
+      reason = '本机当前无法到达目标网络 (network unreachable / no route to host)。';
+      suggest =
+          '· 检查本机网络连接 (Wi-Fi / 蜂窝 / 有线)\n'
+          '· 如目标在内网，确认 VPN 已连通且路由表生效';
+    } else if (msg.contains('timed out') || msg.contains('timeout')) {
+      reason =
+          'TCP 连接超时。请求长时间没有任何响应，常见诱因：\n'
+          '  · 中间链路丢包严重 (跨境 / 弱网)\n'
+          '  · 服务端被防火墙静默丢包 (无 RST)\n'
+          '  · 端口被运营商屏蔽';
+      suggest =
+          '· 切换网络后重试\n'
+          '· 通过 traceroute / mtr 定位卡点\n'
+          '· 联系中转方确认服务可用性';
+    } else {
+      reason = '底层 socket 抛出错误：${e.message}';
+      suggest = '· 确认网络可用并复核 Base URL\n· 必要时联系中转方排查链路';
+    }
+    return _format(
+      title: 'Network error · 网络层错误',
+      reason: reason,
+      try_: suggest,
+      raw: e.osError == null ? e.message : '${e.message} (${e.osError})',
+    );
+  }
+
+  /// HTTP 协议层异常（如非法响应行、协议不匹配）。
+  static String http(HttpException e) {
+    return _format(
+      title: 'HTTP protocol error · HTTP 协议错误',
+      reason:
+          'HTTP 客户端在解析响应阶段失败：${e.message}\n'
+          '通常意味着服务端返回的并非合法 HTTP 报文，或响应被中间设备截断。',
+      try_: '· 复核 Base URL 是否指向了 HTTPS 端口\n· 联系中转方确认是否做了端口劫持',
+    );
+  }
+
+  /// 调用整体超时（[TimeoutException]）。
+  static String timeout(Duration limit) {
+    return _format(
+      title: 'Request timed out · 请求超时',
+      reason:
+          '本次扫描在 ${limit.inSeconds} 秒内未能完成。可能的原因：\n'
+          '  · 跨境网络延迟过高或链路抖动\n'
+          '  · 服务端正在处理大量并发请求\n'
+          '  · 中间代理在传输中卡死',
+      try_: '· 稍后重试\n· 在「手动添加模型 ID」处直接录入模型名\n· 切换网络或中转重试',
+    );
+  }
+
+  /// HTTP 状态码格式化。`isAuth=true` 表示这是 401/403 鉴权类。
+  static String httpStatus(int code, {bool isAuth = false, String? hint}) {
+    String title;
+    String reason;
+    String suggest;
+    switch (code) {
+      case 400:
+        title = 'Bad request (400) · 请求被拒';
+        reason =
+            '服务端拒绝处理本次请求 (400 Bad Request)。Base URL 或自定义 header 可能不符合该协议规范。';
+        suggest =
+            '· 确认 Base URL 与协议类型匹配 (例如 Claude 协议应指向 /v1)\n· 检查自定义 header 中是否有非法字符';
+        break;
+      case 401:
+        title = 'Authentication failed (401) · 鉴权失败';
+        reason = '服务端返回 401 Unauthorized：身份令牌缺失或已失效。';
+        suggest =
+            '· 确认 API Key / Token 已正确粘贴，无前后空格\n· 在中转方控制台重新生成令牌\n· 确认鉴权方式 (Bearer / X-API-Key) 与中转要求一致';
+        break;
+      case 403:
+        title = 'Forbidden (403) · 访问被拒';
+        reason =
+            '服务端返回 403 Forbidden。可能的原因：\n'
+            '  · 当前令牌不具备访问该模型 / 接口的权限\n'
+            '  · IP 地理位置不在中转方允许的区域\n'
+            '  · 触发了中转方的 WAF / 风控规则';
+        suggest =
+            '· 在中转方控制台确认账号余额与权限\n· 切换网络或地区后重试\n· 联系中转方支持核实账号状态';
+        break;
+      case 404:
+        title = 'Endpoint not found (404) · 端点不存在';
+        reason =
+            '服务端返回 404 Not Found：该 Base URL 下没有 /models 端点。多数中转 / 代理只转发 /v1/messages 而不暴露模型列表。';
+        suggest = '· 在「手动添加模型 ID」处直接录入希望使用的模型名\n· 确认 Base URL 是否需要去掉多余的 /v1 后缀';
+        break;
+      case 405:
+        title = 'Method not allowed (405) · 方法不被允许';
+        reason = '服务端不接受 GET 方法访问 /models。该端点可能仅暴露 POST 或不支持模型列表。';
+        suggest = '· 在「手动添加模型 ID」处录入模型名继续配置';
+        break;
+      case 408:
+        title = 'Server timeout (408) · 服务端超时';
+        reason = '服务端在收到请求头后超时关闭连接 (408 Request Timeout)。';
+        suggest = '· 稍后重试\n· 切换网络后再试';
+        break;
+      case 429:
+        title = 'Rate limited (429) · 触发限流';
+        reason = '服务端返回 429 Too Many Requests：当前账户调用过于频繁或额度已用尽。';
+        suggest = '· 稍等几分钟后重试\n· 在中转方控制台确认配额 / 余额\n· 升级套餐或更换 token';
+        break;
+      case 500:
+        title = 'Server error (500) · 服务端内部错误';
+        reason = '服务端返回 500 Internal Server Error：上游或中转方自身出现故障。';
+        suggest = '· 稍后重试\n· 联系中转方查看服务状态';
+        break;
+      case 502:
+        title = 'Bad gateway (502) · 网关异常';
+        reason = '服务端返回 502 Bad Gateway：中转无法从上游 (Anthropic / OpenAI 等) 取得有效响应。';
+        suggest = '· 稍后重试\n· 联系中转方确认上游通路';
+        break;
+      case 503:
+        title = 'Service unavailable (503) · 服务不可用';
+        reason = '服务端返回 503 Service Unavailable：服务在维护或被熔断。';
+        suggest = '· 稍后重试\n· 关注中转方公告';
+        break;
+      case 504:
+        title = 'Gateway timeout (504) · 网关超时';
+        reason = '服务端返回 504 Gateway Timeout：中转访问上游 LLM 时超过了时限。';
+        suggest = '· 稍后重试\n· 切换中转或网络后再试';
+        break;
+      default:
+        if (isAuth) {
+          title = 'Authentication failed ($code) · 鉴权失败';
+          reason = '服务端返回 $code，并提示鉴权失败。';
+          suggest = '· 检查 API Key / Token / 鉴权方式是否正确';
+        } else if (code >= 500) {
+          title = 'Server error ($code) · 服务端错误';
+          reason = '服务端返回 $code。多为中转 / 上游故障。';
+          suggest = '· 稍后重试\n· 联系中转方排查';
+        } else if (code >= 400) {
+          title = 'Client error ($code) · 客户端请求被拒';
+          reason = '服务端返回 $code。请求未通过协议或鉴权校验。';
+          suggest = '· 复核 Base URL / token / 自定义 header';
+        } else {
+          title = 'Unexpected status ($code) · 非预期响应';
+          reason = '服务端返回非 2xx 状态码 $code。';
+          suggest = '· 联系中转方排查';
+        }
+    }
+    return _format(
+      title: title,
+      reason: reason,
+      try_: hint == null ? suggest : '$suggest\n· $hint',
+    );
+  }
+
+  /// JSON 解析失败 —— 多半是中转返回了 HTML 错误页或纯文本。
+  static String formatError(String detail) {
+    return _format(
+      title: 'Unexpected response format · 响应格式异常',
+      reason:
+          '服务端虽返回了 200，但响应体不是合法 JSON：$detail\n'
+          '通常意味着中转返回了 HTML 错误页 / Cloudflare 验证页 / 纯文本错误提示。',
+      try_: '· 在浏览器直接打开该 URL 查看真实响应\n· 联系中转方确认 /models 是否真正提供 JSON 输出',
+    );
+  }
+
+  /// 兜底未识别异常。
+  static String unexpected(Object error) {
+    return _format(
+      title: 'Unexpected error · 未识别错误',
+      reason: '$error',
+      try_: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
+    );
+  }
+
+  static String _format({
+    required String title,
+    required String reason,
+    required String try_,
+    String? raw,
+  }) {
+    final buf = StringBuffer()
+      ..writeln(title)
+      ..writeln('原因 / Why:')
+      ..writeln(reason)
+      ..writeln('建议 / Try:')
+      ..write(try_);
+    if (raw != null && raw.isNotEmpty) {
+      buf
+        ..writeln()
+        ..write('原始报文 / Raw: $raw');
+    }
+    return buf.toString();
   }
 }
