@@ -1029,6 +1029,8 @@ class _SessionErrorBanner extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final presentation = _presentSessionError(context, error);
+    final rawMessage = error.message.trim();
+    final hasFullDetails = rawMessage.split('\n').length > 2;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 14),
@@ -1065,6 +1067,30 @@ class _SessionErrorBanner extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
+                if (hasFullDetails) ...[
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => showFriendlyErrorDetailsDialog(
+                        context,
+                        fullText: rawMessage,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.onErrorContainer,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: const Size(0, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.info_outline_rounded, size: 16),
+                      label: const Text('查看详情 / View details'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

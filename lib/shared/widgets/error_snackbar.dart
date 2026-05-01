@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'animated_dialog.dart';
 
@@ -39,12 +40,23 @@ void showFriendlyErrorSnackBar(
           ? SnackBarAction(
               label: '详情 / Details',
               onPressed: () {
-                _showErrorDetailsDialog(context, fullText: effective);
+                showFriendlyErrorDetailsDialog(context, fullText: effective);
               },
             )
           : null,
     ),
   );
+}
+
+/// 弹出可滚动 / 可选中 / 可一键复制的错误详情对话框。
+///
+/// 任何带有「现象 / 原因 / 建议」三段式诊断文案的 UI（SnackBar、会话气泡
+/// banner、设置页测试结果等）都可以共用同一个查看体验。
+void showFriendlyErrorDetailsDialog(
+  BuildContext context, {
+  required String fullText,
+}) {
+  _showErrorDetailsDialog(context, fullText: fullText);
 }
 
 void _showErrorDetailsDialog(
@@ -71,6 +83,22 @@ void _showErrorDetailsDialog(
           ),
         ),
         actions: <Widget>[
+          TextButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: fullText));
+              if (!dialogContext.mounted) return;
+              ScaffoldMessenger.of(dialogContext)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(
+                    content: Text('已复制到剪贴板 / Copied to clipboard'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+            },
+            icon: const Icon(Icons.copy_all_outlined, size: 18),
+            label: const Text('复制 / Copy'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('关闭 / Close'),
