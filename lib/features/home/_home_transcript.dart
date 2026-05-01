@@ -257,10 +257,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         ? _renderEntries.where((e) => !e.exiting).map((e) => e.id).toSet()
         : null;
     // Per-batch stagger: when multiple new entries appear in a single
-    // frame, drip them in 60 ms apart (capped at 240 ms total) so the
+    // frame, drip them in 80 ms apart (capped at 360 ms total) so the
     // entrance animations cascade rather than explode in parallel.
-    const staggerStep = Duration(milliseconds: 60);
-    const staggerCap = Duration(milliseconds: 240);
+    // 2026-05-03: 60→80 step / 240→360 cap so up to ~5 sibling entries
+    // get distinct waves before the tail collapses to the cap.
+    const staggerStep = Duration(milliseconds: 80);
+    const staggerCap = Duration(milliseconds: 360);
     var newEntryOrdinal = 0;
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
@@ -857,7 +859,9 @@ class _TranscriptAnimatedMessageEntryState
   // 2026-05-01: Bumped 420→520 ms so the entrance has room to breathe;
   // pairs with a softer overshoot curve below for a more "Q弹" feel
   // without straying into wobble territory.
-  static const _entranceDuration = Duration(milliseconds: 520);
+  // 2026-05-03: 520→620 ms to give Curves.elasticOut the runway it needs
+  // to settle without feeling rushed; pairs with the wider stagger.
+  static const _entranceDuration = Duration(milliseconds: 620);
 
   AnimationController? _entranceCtrl;
   Animation<double>? _opacity;
@@ -883,18 +887,20 @@ class _TranscriptAnimatedMessageEntryState
           curve: const Interval(0.0, 0.45, curve: Curves.easeOutQuint),
         ),
       );
-      // Scale: Curves.easeOutBack overshoots ~10 %, but we soften the
-      // effect by starting closer to the resting size (0.96 instead of
-      // 0.94) so the springy moment is gentle and never reads as
-      // "jiggle". Alignment is set to .topCenter at the consumer site.
-      _scale = Tween<double>(begin: 0.96, end: 1.0).animate(
-        CurvedAnimation(parent: _entranceCtrl!, curve: Curves.easeOutBack),
+      // Scale: Curves.elasticOut for the most pronounced Q弹 spring —
+      // explicitly user-requested ("最拉风格"). Starting at 0.92 (was
+      // 0.96) makes the contraction more visible before the elastic
+      // recoil. Alignment is set to .topCenter at the consumer site so
+      // the bounce reads as growth from the top edge rather than a
+      // recentre.
+      _scale = Tween<double>(begin: 0.92, end: 1.0).animate(
+        CurvedAnimation(parent: _entranceCtrl!, curve: Curves.elasticOut),
       );
       // Slide: a touch deeper (0.04 → 0.06 fractional height) and uses
       // `easeInOutCubicEmphasized` (the Material 3 emphasized curve) so the
       // upward glide decelerates with the same characteristic feel as
       // panel transitions elsewhere in OpenHand.
-      _slide = Tween<Offset>(begin: const Offset(0.0, 0.06), end: Offset.zero)
+      _slide = Tween<Offset>(begin: const Offset(0.0, 0.10), end: Offset.zero)
           .animate(
             CurvedAnimation(
               parent: _entranceCtrl!,
