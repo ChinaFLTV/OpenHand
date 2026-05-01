@@ -2007,6 +2007,64 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tsmRowByKind => '占比';
+
+  @override
+  String get proxySectionTitle => '系统';
+
+  @override
+  String get proxySectionBody =>
+      '所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理设置选择路由。保存后即时生效，无需重启。';
+
+  @override
+  String get proxyModeLabel => '代理模式';
+
+  @override
+  String get proxyModeBody =>
+      '决定 OpenHand 内置 HTTP 客户端（WebSearch / WebFetch 等）如何选择代理。';
+
+  @override
+  String get proxyModeDisabled => '无代理';
+
+  @override
+  String get proxyModeAutomatic => '自动发现代理（默认）';
+
+  @override
+  String get proxyModeManual => '手动配置代理';
+
+  @override
+  String get proxyProtocolsLabel => '代理协议';
+
+  @override
+  String get proxyProtocolsBody => '可多选，至少保留一个；取消所有协议时会自动恢复 HTTP + HTTPS。';
+
+  @override
+  String get proxyHostLabel => '服务器（IP 或主机名）';
+
+  @override
+  String get proxyPortLabel => '端口号';
+
+  @override
+  String get proxyAuthLabel => '开启代理服务器鉴权';
+
+  @override
+  String get proxyAuthBody => '开启后下面的用户名 / 密码字段才会被使用（HTTP Basic）。';
+
+  @override
+  String get proxyUsernameLabel => '用户名';
+
+  @override
+  String get proxyPasswordLabel => '密码';
+
+  @override
+  String get proxyExceptionsLabel => '忽略这些主机与域的代理设置';
+
+  @override
+  String get proxyExceptionsBody =>
+      '每行一条。支持：IP 地址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、域名（example.com 含子域）、glob（*.example.com）、正则（/^api\\d+\\.example\\.com\$/i）。localhost / 127.0.0.1 / ::1 始终走直连。';
+
+  @override
+  String get proxyExceptionsHint =>
+      '示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4012,6 +4070,64 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get tsmRowByKind => '占比';
+
+  @override
+  String get proxySectionTitle => '系统';
+
+  @override
+  String get proxySectionBody =>
+      '所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理设置选择路由。保存后即时生效，无需重启。';
+
+  @override
+  String get proxyModeLabel => '代理模式';
+
+  @override
+  String get proxyModeBody =>
+      '决定 OpenHand 内置 HTTP 客户端（WebSearch / WebFetch 等）如何选择代理。';
+
+  @override
+  String get proxyModeDisabled => '无代理';
+
+  @override
+  String get proxyModeAutomatic => '自动发现代理（默认）';
+
+  @override
+  String get proxyModeManual => '手动配置代理';
+
+  @override
+  String get proxyProtocolsLabel => '代理协议';
+
+  @override
+  String get proxyProtocolsBody => '可多选，至少保留一个；取消所有协议时会自动恢复 HTTP + HTTPS。';
+
+  @override
+  String get proxyHostLabel => '服务器（IP 或主机名）';
+
+  @override
+  String get proxyPortLabel => '端口号';
+
+  @override
+  String get proxyAuthLabel => '开启代理服务器鉴权';
+
+  @override
+  String get proxyAuthBody => '开启后下面的用户名 / 密码字段才会被使用（HTTP Basic）。';
+
+  @override
+  String get proxyUsernameLabel => '用户名';
+
+  @override
+  String get proxyPasswordLabel => '密码';
+
+  @override
+  String get proxyExceptionsLabel => '忽略这些主机与域的代理设置';
+
+  @override
+  String get proxyExceptionsBody =>
+      '每行一条。支持：IP 地址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、域名（example.com 含子域）、glob（*.example.com）、正则（/^api\\d+\\.example\\.com\$/i）。localhost / 127.0.0.1 / ::1 始终走直连。';
+
+  @override
+  String get proxyExceptionsHint =>
+      '示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6016,4 +6132,62 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tsmRowByKind => '佔比';
+
+  @override
+  String get proxySectionTitle => '系統';
+
+  @override
+  String get proxySectionBody =>
+      '所有 OpenHand 內建 HTTP 客戶端（WebSearch / WebFetch 等）將按此處代理設定選擇路由。儲存後即時生效，無需重啟。';
+
+  @override
+  String get proxyModeLabel => '代理模式';
+
+  @override
+  String get proxyModeBody =>
+      '決定 OpenHand 內建 HTTP 客戶端（WebSearch / WebFetch 等）如何選擇代理。';
+
+  @override
+  String get proxyModeDisabled => '無代理';
+
+  @override
+  String get proxyModeAutomatic => '自動偵測代理（預設）';
+
+  @override
+  String get proxyModeManual => '手動設定代理';
+
+  @override
+  String get proxyProtocolsLabel => '代理協定';
+
+  @override
+  String get proxyProtocolsBody => '可多選，至少保留一個；取消所有協定時會自動還原 HTTP + HTTPS。';
+
+  @override
+  String get proxyHostLabel => '伺服器（IP 或主機名稱）';
+
+  @override
+  String get proxyPortLabel => '埠號';
+
+  @override
+  String get proxyAuthLabel => '啟用代理伺服器驗證';
+
+  @override
+  String get proxyAuthBody => '啟用後下面的使用者名稱 / 密碼欄位才會被使用（HTTP Basic）。';
+
+  @override
+  String get proxyUsernameLabel => '使用者名稱';
+
+  @override
+  String get proxyPasswordLabel => '密碼';
+
+  @override
+  String get proxyExceptionsLabel => '忽略這些主機與網域的代理設定';
+
+  @override
+  String get proxyExceptionsBody =>
+      '每行一條。支援：IP 位址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、網域（example.com 含子網域）、glob（*.example.com）、正則（/^api\\d+\\.example\\.com\$/i）。localhost / 127.0.0.1 / ::1 永遠直連。';
+
+  @override
+  String get proxyExceptionsHint =>
+      '範例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }

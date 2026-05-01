@@ -642,16 +642,8 @@ class _SettingsViewState extends State<SettingsView> {
         children: const [_DataCleanupSection()],
       ),
       _SettingsSection.system => _SettingsGroupCard(
-        title: _localizedText(context, zh: '系统', en: 'System'),
-        description: _localizedText(
-          context,
-          zh: '所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理'
-              '设置选择路由。保存后即时生效，无需重启。',
-          en:
-              'Every internal HTTP client (WebSearch / WebFetch, etc.) routes '
-              'through the proxy chosen here. Changes apply immediately, no '
-              'restart required.',
-        ),
+        title: l10n.proxySectionTitle,
+        description: l10n.proxySectionBody,
         children: [_SystemProxySection(controller: settingsController)],
       ),
       _SettingsSection.about => _SettingsGroupCard(

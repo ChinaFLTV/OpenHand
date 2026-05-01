@@ -3909,6 +3909,114 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'占比'**
   String get tsmRowByKind;
+
+  /// No description provided for @proxySectionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'系统'**
+  String get proxySectionTitle;
+
+  /// No description provided for @proxySectionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'所有 OpenHand 内建 HTTP 客户端（WebSearch / WebFetch 等）将按此处代理设置选择路由。保存后即时生效，无需重启。'**
+  String get proxySectionBody;
+
+  /// No description provided for @proxyModeLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代理模式'**
+  String get proxyModeLabel;
+
+  /// No description provided for @proxyModeBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'决定 OpenHand 内置 HTTP 客户端（WebSearch / WebFetch 等）如何选择代理。'**
+  String get proxyModeBody;
+
+  /// No description provided for @proxyModeDisabled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无代理'**
+  String get proxyModeDisabled;
+
+  /// No description provided for @proxyModeAutomatic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动发现代理（默认）'**
+  String get proxyModeAutomatic;
+
+  /// No description provided for @proxyModeManual.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'手动配置代理'**
+  String get proxyModeManual;
+
+  /// No description provided for @proxyProtocolsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代理协议'**
+  String get proxyProtocolsLabel;
+
+  /// No description provided for @proxyProtocolsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可多选，至少保留一个；取消所有协议时会自动恢复 HTTP + HTTPS。'**
+  String get proxyProtocolsBody;
+
+  /// No description provided for @proxyHostLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'服务器（IP 或主机名）'**
+  String get proxyHostLabel;
+
+  /// No description provided for @proxyPortLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'端口号'**
+  String get proxyPortLabel;
+
+  /// No description provided for @proxyAuthLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启代理服务器鉴权'**
+  String get proxyAuthLabel;
+
+  /// No description provided for @proxyAuthBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启后下面的用户名 / 密码字段才会被使用（HTTP Basic）。'**
+  String get proxyAuthBody;
+
+  /// No description provided for @proxyUsernameLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户名'**
+  String get proxyUsernameLabel;
+
+  /// No description provided for @proxyPasswordLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'密码'**
+  String get proxyPasswordLabel;
+
+  /// No description provided for @proxyExceptionsLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'忽略这些主机与域的代理设置'**
+  String get proxyExceptionsLabel;
+
+  /// No description provided for @proxyExceptionsBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每行一条。支持：IP 地址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、域名（example.com 含子域）、glob（*.example.com）、正则（/^api\\d+\\.example\\.com\$/i）。localhost / 127.0.0.1 / ::1 始终走直连。'**
+  String get proxyExceptionsBody;
+
+  /// No description provided for @proxyExceptionsHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i'**
+  String get proxyExceptionsHint;
 }
 
 class _AppLocalizationsDelegate

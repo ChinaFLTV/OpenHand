@@ -2118,4 +2118,64 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tsmRowByKind => 'By kind';
+
+  @override
+  String get proxySectionTitle => 'System';
+
+  @override
+  String get proxySectionBody =>
+      'Every internal HTTP client (WebSearch / WebFetch, etc.) routes through the proxy chosen here. Changes apply immediately, no restart required.';
+
+  @override
+  String get proxyModeLabel => 'Proxy mode';
+
+  @override
+  String get proxyModeBody =>
+      'Controls how OpenHand internal HTTP clients (WebSearch / WebFetch, etc.) choose a proxy.';
+
+  @override
+  String get proxyModeDisabled => 'No proxy';
+
+  @override
+  String get proxyModeAutomatic => 'Auto-detect (default)';
+
+  @override
+  String get proxyModeManual => 'Manual';
+
+  @override
+  String get proxyProtocolsLabel => 'Protocols';
+
+  @override
+  String get proxyProtocolsBody =>
+      'Multi-select. At least one must remain; clearing all restores HTTP + HTTPS.';
+
+  @override
+  String get proxyHostLabel => 'Server (IP or hostname)';
+
+  @override
+  String get proxyPortLabel => 'Port';
+
+  @override
+  String get proxyAuthLabel => 'Enable proxy authentication';
+
+  @override
+  String get proxyAuthBody =>
+      'Username / password are only used when this is on (HTTP Basic).';
+
+  @override
+  String get proxyUsernameLabel => 'Username';
+
+  @override
+  String get proxyPasswordLabel => 'Password';
+
+  @override
+  String get proxyExceptionsLabel => 'Bypass proxy for these hosts and domains';
+
+  @override
+  String get proxyExceptionsBody =>
+      'One entry per line. Supports IP (127.0.0.1), IPv4 CIDR (192.168.0.0/16), domain (example.com matches subdomains), glob (*.example.com), and regex (/^api\\d+\\.example\\.com\$/i). localhost / 127.0.0.1 / ::1 are always direct.';
+
+  @override
+  String get proxyExceptionsHint =>
+      'e.g.\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }

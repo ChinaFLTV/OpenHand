@@ -2124,4 +2124,65 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get tsmRowByKind => 'Aufteilung';
+
+  @override
+  String get proxySectionTitle => 'System';
+
+  @override
+  String get proxySectionBody =>
+      'Alle internen HTTP-Clients (WebSearch / WebFetch usw.) verwenden den hier gewählten Proxy. Änderungen werden sofort übernommen, kein Neustart erforderlich.';
+
+  @override
+  String get proxyModeLabel => 'Proxy-Modus';
+
+  @override
+  String get proxyModeBody =>
+      'Legt fest, wie die internen HTTP-Clients (WebSearch / WebFetch usw.) einen Proxy auswählen.';
+
+  @override
+  String get proxyModeDisabled => 'Kein Proxy';
+
+  @override
+  String get proxyModeAutomatic => 'Automatisch erkennen (Standard)';
+
+  @override
+  String get proxyModeManual => 'Manuell';
+
+  @override
+  String get proxyProtocolsLabel => 'Protokolle';
+
+  @override
+  String get proxyProtocolsBody =>
+      'Mehrfachauswahl. Mindestens eines muss aktiv bleiben; bei Leerung wird HTTP + HTTPS wiederhergestellt.';
+
+  @override
+  String get proxyHostLabel => 'Server (IP oder Hostname)';
+
+  @override
+  String get proxyPortLabel => 'Port';
+
+  @override
+  String get proxyAuthLabel => 'Proxy-Authentifizierung aktivieren';
+
+  @override
+  String get proxyAuthBody =>
+      'Benutzername / Passwort werden nur verwendet, wenn aktiviert (HTTP Basic).';
+
+  @override
+  String get proxyUsernameLabel => 'Benutzername';
+
+  @override
+  String get proxyPasswordLabel => 'Passwort';
+
+  @override
+  String get proxyExceptionsLabel =>
+      'Proxy für diese Hosts und Domains umgehen';
+
+  @override
+  String get proxyExceptionsBody =>
+      'Ein Eintrag pro Zeile. Unterstützt: IP (127.0.0.1), IPv4-CIDR (192.168.0.0/16), Domain (example.com inkl. Subdomains), Glob (*.example.com) und Regex (/^api\\d+\\.example\\.com\$/i). localhost / 127.0.0.1 / ::1 immer direkt.';
+
+  @override
+  String get proxyExceptionsHint =>
+      'z. B.:\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }

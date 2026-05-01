@@ -2101,4 +2101,63 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tsmRowByKind => '種類別';
+
+  @override
+  String get proxySectionTitle => 'システム';
+
+  @override
+  String get proxySectionBody =>
+      'OpenHand のすべての内部 HTTP クライアント（WebSearch / WebFetch など）は、ここで選択したプロキシ設定に従ってルーティングされます。保存後すぐに反映され、再起動は不要です。';
+
+  @override
+  String get proxyModeLabel => 'プロキシモード';
+
+  @override
+  String get proxyModeBody =>
+      '内部 HTTP クライアント（WebSearch / WebFetch など）がプロキシをどのように選択するかを制御します。';
+
+  @override
+  String get proxyModeDisabled => 'プロキシなし';
+
+  @override
+  String get proxyModeAutomatic => '自動検出（既定）';
+
+  @override
+  String get proxyModeManual => '手動設定';
+
+  @override
+  String get proxyProtocolsLabel => 'プロトコル';
+
+  @override
+  String get proxyProtocolsBody =>
+      '複数選択可。最低 1 つは残す必要があります。すべて解除すると HTTP + HTTPS に戻ります。';
+
+  @override
+  String get proxyHostLabel => 'サーバー（IP またはホスト名）';
+
+  @override
+  String get proxyPortLabel => 'ポート';
+
+  @override
+  String get proxyAuthLabel => 'プロキシ認証を有効化';
+
+  @override
+  String get proxyAuthBody => '有効化したときのみ、下のユーザー名 / パスワードが使用されます（HTTP Basic）。';
+
+  @override
+  String get proxyUsernameLabel => 'ユーザー名';
+
+  @override
+  String get proxyPasswordLabel => 'パスワード';
+
+  @override
+  String get proxyExceptionsLabel => 'これらのホスト・ドメインではプロキシを無視';
+
+  @override
+  String get proxyExceptionsBody =>
+      '1 行に 1 件。対応：IP（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、ドメイン（example.com はサブドメインを含む）、glob（*.example.com）、正規表現（/^api\\d+\\.example\\.com\$/i）。localhost / 127.0.0.1 / ::1 は常に直接接続。';
+
+  @override
+  String get proxyExceptionsHint =>
+      '例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }

@@ -2125,4 +2125,65 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tsmRowByKind => 'Répartition';
+
+  @override
+  String get proxySectionTitle => 'Système';
+
+  @override
+  String get proxySectionBody =>
+      'Tous les clients HTTP internes (WebSearch / WebFetch, etc.) utilisent le proxy défini ici. Les modifications sont appliquées immédiatement, sans redémarrage.';
+
+  @override
+  String get proxyModeLabel => 'Mode proxy';
+
+  @override
+  String get proxyModeBody =>
+      'Détermine la façon dont les clients HTTP internes (WebSearch / WebFetch, etc.) choisissent un proxy.';
+
+  @override
+  String get proxyModeDisabled => 'Sans proxy';
+
+  @override
+  String get proxyModeAutomatic => 'Détection automatique (par défaut)';
+
+  @override
+  String get proxyModeManual => 'Manuel';
+
+  @override
+  String get proxyProtocolsLabel => 'Protocoles';
+
+  @override
+  String get proxyProtocolsBody =>
+      'Sélection multiple. Au moins un doit rester ; tout vider rétablit HTTP + HTTPS.';
+
+  @override
+  String get proxyHostLabel => 'Serveur (IP ou nom d’hôte)';
+
+  @override
+  String get proxyPortLabel => 'Port';
+
+  @override
+  String get proxyAuthLabel => 'Activer l’authentification du proxy';
+
+  @override
+  String get proxyAuthBody =>
+      'Le nom d’utilisateur / mot de passe ne servent que si activé (HTTP Basic).';
+
+  @override
+  String get proxyUsernameLabel => 'Nom d’utilisateur';
+
+  @override
+  String get proxyPasswordLabel => 'Mot de passe';
+
+  @override
+  String get proxyExceptionsLabel =>
+      'Ignorer le proxy pour ces hôtes et domaines';
+
+  @override
+  String get proxyExceptionsBody =>
+      'Une entrée par ligne. Prend en charge : IP (127.0.0.1), CIDR IPv4 (192.168.0.0/16), domaine (example.com inclut les sous-domaines), glob (*.example.com) et regex (/^api\\d+\\.example\\.com\$/i). localhost / 127.0.0.1 / ::1 toujours directs.';
+
+  @override
+  String get proxyExceptionsHint =>
+      'ex.\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
 }

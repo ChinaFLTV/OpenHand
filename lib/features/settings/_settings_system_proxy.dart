@@ -144,6 +144,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final proxy = widget.controller.proxySettings;
     final isManual = proxy.mode == AppProxyMode.manual;
     final disabledColor = theme.colorScheme.onSurface.withValues(alpha: 0.38);
@@ -152,14 +153,8 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingRowLabel(
-          label: _localizedText(context, zh: '代理模式', en: 'Proxy mode'),
-          description: _localizedText(
-            context,
-            zh: '决定 OpenHand 内置 HTTP 客户端（WebSearch / WebFetch 等）如何选择代理。',
-            en:
-                'Controls how OpenHand internal HTTP clients (WebSearch / '
-                'WebFetch, etc.) choose a proxy.',
-          ),
+          label: l10n.proxyModeLabel,
+          description: l10n.proxyModeBody,
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -167,27 +162,17 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           runSpacing: 8,
           children: <Widget>[
             ChoiceChip(
-              label: Text(
-                _localizedText(context, zh: '无代理', en: 'No proxy'),
-              ),
+              label: Text(l10n.proxyModeDisabled),
               selected: proxy.mode == AppProxyMode.disabled,
               onSelected: (_) => _setMode(AppProxyMode.disabled),
             ),
             ChoiceChip(
-              label: Text(
-                _localizedText(
-                  context,
-                  zh: '自动发现代理（默认）',
-                  en: 'Auto-detect (default)',
-                ),
-              ),
+              label: Text(l10n.proxyModeAutomatic),
               selected: proxy.mode == AppProxyMode.automatic,
               onSelected: (_) => _setMode(AppProxyMode.automatic),
             ),
             ChoiceChip(
-              label: Text(
-                _localizedText(context, zh: '手动配置代理', en: 'Manual'),
-              ),
+              label: Text(l10n.proxyModeManual),
               selected: proxy.mode == AppProxyMode.manual,
               onSelected: (_) => _setMode(AppProxyMode.manual),
             ),
@@ -202,18 +187,8 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _SettingRowLabel(
-                  label: _localizedText(
-                    context,
-                    zh: '代理协议',
-                    en: 'Protocols',
-                  ),
-                  description: _localizedText(
-                    context,
-                    zh: '可多选，至少保留一个；取消所有协议时会自动恢复 HTTP + HTTPS。',
-                    en:
-                        'Multi-select. At least one must remain; clearing all '
-                        'restores HTTP + HTTPS.',
-                  ),
+                  label: l10n.proxyProtocolsLabel,
+                  description: l10n.proxyProtocolsBody,
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -254,11 +229,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                         focusNode: _hostFocus,
                         enabled: isManual,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '服务器（IP 或主机名）',
-                            en: 'Server (IP or hostname)',
-                          ),
+                          labelText: l10n.proxyHostLabel,
                           hintText: '127.0.0.1',
                         ),
                         onSubmitted: (_) => _saveHost(),
@@ -276,11 +247,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                         enabled: isManual,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '端口号',
-                            en: 'Port',
-                          ),
+                          labelText: l10n.proxyPortLabel,
                           hintText: '7890',
                         ),
                         onSubmitted: (_) => _savePort(),
@@ -295,21 +262,9 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                 const SizedBox(height: 16),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    _localizedText(
-                      context,
-                      zh: '开启代理服务器鉴权',
-                      en: 'Enable proxy authentication',
-                    ),
-                  ),
+                  title: Text(l10n.proxyAuthLabel),
                   subtitle: Text(
-                    _localizedText(
-                      context,
-                      zh: '开启后下面的用户名 / 密码字段才会被使用（HTTP Basic）。',
-                      en:
-                          'Username / password are only used when this is on '
-                          '(HTTP Basic).',
-                    ),
+                    l10n.proxyAuthBody,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: isManual
                           ? theme.colorScheme.onSurfaceVariant
@@ -332,11 +287,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                             focusNode: _userFocus,
                             enabled: isManual && proxy.authEnabled,
                             decoration: InputDecoration(
-                              labelText: _localizedText(
-                                context,
-                                zh: '用户名',
-                                en: 'Username',
-                              ),
+                              labelText: l10n.proxyUsernameLabel,
                             ),
                             onSubmitted: (_) => _saveUsername(),
                             onTapOutside: (_) {
@@ -353,11 +304,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                             enabled: isManual && proxy.authEnabled,
                             obscureText: !_showPassword,
                             decoration: InputDecoration(
-                              labelText: _localizedText(
-                                context,
-                                zh: '密码',
-                                en: 'Password',
-                              ),
+                              labelText: l10n.proxyPasswordLabel,
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _showPassword
@@ -382,24 +329,8 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                 ),
                 const SizedBox(height: 16),
                 _SettingRowLabel(
-                  label: _localizedText(
-                    context,
-                    zh: '忽略这些主机与域的代理设置',
-                    en: 'Bypass proxy for these hosts and domains',
-                  ),
-                  description: _localizedText(
-                    context,
-                    zh: '每行一条。支持：IP 地址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、'
-                        '域名（example.com 含子域）、glob（*.example.com）、'
-                        '正则（/^api\\d+\\.example\\.com\$/i）。'
-                        'localhost / 127.0.0.1 / ::1 始终走直连。',
-                    en:
-                        'One entry per line. Supports IP (127.0.0.1), IPv4 '
-                        'CIDR (192.168.0.0/16), domain (example.com matches '
-                        'subdomains), glob (*.example.com), and regex '
-                        '(/^api\\d+\\.example\\.com\$/i). localhost / '
-                        '127.0.0.1 / ::1 are always direct.',
-                  ),
+                  label: l10n.proxyExceptionsLabel,
+                  description: l10n.proxyExceptionsBody,
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -409,13 +340,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   maxLines: 5,
                   minLines: 3,
                   decoration: InputDecoration(
-                    hintText: _localizedText(
-                      context,
-                      zh: '示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i',
-                      en:
-                          'e.g.\n*.local\n10.0.0.0/8\n'
-                          '/^api\\d+\\.example\\.com\$/i',
-                    ),
+                    hintText: l10n.proxyExceptionsHint,
                   ),
                   onTapOutside: (_) {
                     _exceptionsFocus.unfocus();
