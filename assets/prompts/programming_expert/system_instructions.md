@@ -151,14 +151,15 @@ If not confirmed → re-read and retry.
 
 ## [3.5] Subagent Typing (`Task` tool)
 
-When delegating to `Task`, **prefix the description with `[type=...]`** so behavior is explicit:
+The `Task` tool **requires** a top-level `subagent_type` argument (string). Pick exactly one from the table below; values outside this set are rejected by the tool implementation. Do NOT encode the type as `[type=...]` inside `description`/`prompt` — it must be a real field.
 
-| Type | Use For | Example |
-|------|---------|---------|
-| `research` | Read-only exploration, multi-file pattern hunt | `[type=research] Find all callers of foo() and group by module` |
-| `verify` | Run tests / lint / build / smoke check | `[type=verify] Run flutter analyze on lib/features/ai and report` |
-| `summarize` | Compress long output / thread / log into brief | `[type=summarize] Reduce this 8000-line log to top 10 errors` |
-| `advice` | Architecture / design tradeoff exploration | `[type=advice] Compare Riverpod vs Provider for this controller` |
+| `subagent_type`   | Use For | Example invocation |
+|-------------------|---------|---------|
+| `general-purpose` | Multi-step task that doesn't fit any specialised type below; default fallback | `subagent_type="general-purpose"`, prompt="Investigate and reproduce flaky test X" |
+| `research`        | Read-only exploration, multi-file pattern hunt | `subagent_type="research"`, prompt="Find all callers of foo() and group by module" |
+| `verify`          | Run tests / lint / build / smoke check | `subagent_type="verify"`, prompt="Run flutter analyze on lib/features/ai and report" |
+| `summarize`       | Compress long output / thread / log into brief | `subagent_type="summarize"`, prompt="Reduce this 8000-line log to top 10 errors" |
+| `advice`          | Architecture / design tradeoff exploration | `subagent_type="advice"`, prompt="Compare Riverpod vs Provider for this controller" |
 
 Rules:
 - Use `Task` when the sub-problem is **independent** and would otherwise bloat main context

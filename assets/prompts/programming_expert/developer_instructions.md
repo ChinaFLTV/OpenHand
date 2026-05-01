@@ -33,7 +33,7 @@
 | Tool | Purpose | Notes |
 |------|---------|-------|
 | `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
-| `Task` | Focused subtask | **Must prefix description with `[type=research|verify|summarize|advice]`** (see system §3.5) |
+| `Task` | Focused subtask | **Must pass top-level `subagent_type` argument** — one of `general-purpose` / `research` / `verify` / `summarize` / `advice` (see system §3.5). Tool rejects empty or unknown values. |
 | `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
 | `Bash` (lint / analyzer) | Diagnostics | OpenHand has no dedicated `ReadLints` tool — invoke the project's linter via `Bash` (`flutter analyze` / `cargo clippy` / `eslint .` / `ruff check`); scope to recently edited files when the linter supports it |
 
@@ -128,7 +128,7 @@ All paths resolve relative to WD:
 | Fabricate tool outputs | Report actual results only |
 | Construct `oldString` from memory | Read exact text first |
 | Edit 5 files then verify all at once | Verify per cluster (§5.5) |
-| Use `Task` without `[type=...]` prefix | Always tag subagent type (§3.5) |
+| Call `Task` without `subagent_type` argument | Always pass `subagent_type` field (§3.5); the tool fails fast otherwise |
 | ReadSkill on every turn | Load on-demand only (§10) |
 | Say "fixed!" without running test | Say "modified, recommend running X" (§0.8 Uncertainty) |
 
