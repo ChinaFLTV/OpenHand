@@ -24,6 +24,14 @@ class AiTaskTool extends AiTool {
   static const Map<String, String> _subagentDescriptions = <String, String>{
     'general-purpose':
         'General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks.',
+    'research':
+        'Read-only exploration agent. Use to map unfamiliar code, follow references, or gather facts across many files. Avoid writes; report findings.',
+    'verify':
+        'Verification agent. Run tests / lints / type checks / builds and return concise pass/fail with the smallest reproducer. Do not edit source files.',
+    'summarize':
+        'Summarization agent. Compress large outputs, transcripts, or multi-file reads into a structured digest preserving the parent agent\'s decision-relevant facts.',
+    'advice':
+        'Advice agent. Compare design alternatives, weigh trade-offs, and recommend an approach with explicit risks. Read-only.',
   };
 
   @override

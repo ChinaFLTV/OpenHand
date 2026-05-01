@@ -96,6 +96,7 @@ class AiResolvedTool {
 enum AiBuiltinToolKind {
   task,
   bash,
+  bashBackground,
   glob,
   grep,
   ls,
@@ -103,6 +104,7 @@ enum AiBuiltinToolKind {
   read,
   edit,
   multiEdit,
+  applyFileDiffs,
   write,
   notebookEdit,
   webFetch,
@@ -968,6 +970,7 @@ class AiToolRuntimeService {
     return switch (tool.builtinKind) {
       AiBuiltinToolKind.task => 'Task',
       AiBuiltinToolKind.bash => 'Bash',
+      AiBuiltinToolKind.bashBackground => 'BashBackground',
       AiBuiltinToolKind.glob => 'Glob',
       AiBuiltinToolKind.grep => 'Grep',
       AiBuiltinToolKind.ls => 'LS',
@@ -975,6 +978,7 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.read => 'Read',
       AiBuiltinToolKind.edit => 'Edit',
       AiBuiltinToolKind.multiEdit => 'MultiEdit',
+      AiBuiltinToolKind.applyFileDiffs => 'ApplyFileDiffs',
       AiBuiltinToolKind.write => 'Write',
       AiBuiltinToolKind.notebookEdit => 'NotebookEdit',
       AiBuiltinToolKind.webFetch => 'WebFetch',
@@ -1240,15 +1244,24 @@ class AiToolRuntimeService {
     );
   }
 
+  /// Phase-1 skill catalog cap (Warp parity, see `docs/programming_expert_redesign.md` §6).
+  /// The catalog only ships skill metadata; the full SKILL.md body is loaded
+  /// on-demand when the LLM invokes the per-skill `skill__<name>` tool.
+  static const int _skillCatalogDescriptionCap = 512;
+
   AiResolvedTool _buildSkillTool(LocalSkill skill, Set<String> takenNames) {
     final token = p.basename(skill.relativeDirectoryPath.trim()).isEmpty
         ? skill.name
         : p.basename(skill.relativeDirectoryPath.trim());
     final name = _safeToolName('skill', token, takenNames);
+    final rawSummary = skill.description.trim();
+    final summary = rawSummary.length > _skillCatalogDescriptionCap
+        ? '${rawSummary.substring(0, _skillCatalogDescriptionCap - 1).trimRight()}…'
+        : rawSummary;
     final description = [
       'Load and apply the local skill "${skill.name}".',
-      skill.description.trim(),
-      'Use this when the task matches the skill instead of loosely paraphrasing it.',
+      summary,
+      'Catalog shows summary only — invoke this tool to load the full SKILL.md body on demand.',
     ].where((item) => item.isNotEmpty).join(' ');
     return AiResolvedTool(
       name: name,
@@ -1345,7 +1358,12 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.task,
       name: 'Task',
       description:
-          'Launch a focused background subtask for research or reasoning. Available subagent_type values: general-purpose.',
+          'Launch a focused, stateless background sub-agent. Pick subagent_type to declare the goal: '
+          '`research` (read-only multi-file exploration), '
+          '`verify` (run tests/lints/builds and report pass/fail), '
+          '`summarize` (compress long output into a structured digest), '
+          '`advice` (compare design options and recommend), '
+          'or `general-purpose` (fallback). Each call is isolated; do not call Task or ExitPlanMode from within.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
@@ -1353,7 +1371,13 @@ class AiToolRuntimeService {
           'prompt': <String, Object?>{'type': 'string'},
           'subagent_type': <String, Object?>{
             'type': 'string',
-            'enum': <String>['general-purpose'],
+            'enum': <String>[
+              'general-purpose',
+              'research',
+              'verify',
+              'summarize',
+              'advice',
+            ],
           },
         },
         'required': <String>['description', 'prompt', 'subagent_type'],
@@ -1375,6 +1399,35 @@ class AiToolRuntimeService {
           'timeout': <String, Object?>{'type': 'integer'},
         },
         'required': <String>['cmd'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.bashBackground,
+      name: 'BashBackground',
+      description:
+          'Manage long-running background shell processes (dev servers, REPLs, watchers). '
+          'Pick `action`: '
+          '`start` (cmd + optional working_directory → returns a `handle`), '
+          '`write` (handle + input → send a line to the process stdin), '
+          '`read` (handle + optional max_bytes → drain new stdout/stderr since last read and report alive/exit_code), '
+          '`stop` (handle → SIGKILL), '
+          '`list` (no args → enumerate active sessions). '
+          'Use this instead of Bash when the command would block the agent loop indefinitely.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'action': <String, Object?>{
+            'type': 'string',
+            'enum': <String>['start', 'write', 'read', 'stop', 'list'],
+          },
+          'cmd': <String, Object?>{'type': 'string'},
+          'working_directory': <String, Object?>{'type': 'string'},
+          'handle': <String, Object?>{'type': 'string'},
+          'input': <String, Object?>{'type': 'string'},
+          'max_bytes': <String, Object?>{'type': 'integer'},
+        },
+        'required': <String>['action'],
         'additionalProperties': false,
       },
     ),
@@ -1598,6 +1651,47 @@ class AiToolRuntimeService {
           },
         },
         'required': <String>['file_path', 'edits'],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.applyFileDiffs,
+      name: 'ApplyFileDiffs',
+      description:
+          'Apply hunk-level edits across multiple files in one atomic call. '
+          'Use when a single logical change touches >1 file (rename, signature update, config sync). '
+          'Each diff has `file_path` + `hunks` (array of {old_string, new_string, replace_all?}). '
+          'Plans all hunks in memory first; if any hunk fails to match, no file is written. '
+          'file_path MUST be absolute. Up to 32 files per call.',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'diffs': <String, Object?>{
+            'type': 'array',
+            'items': <String, Object?>{
+              'type': 'object',
+              'properties': <String, Object?>{
+                'file_path': <String, Object?>{'type': 'string'},
+                'hunks': <String, Object?>{
+                  'type': 'array',
+                  'items': <String, Object?>{
+                    'type': 'object',
+                    'properties': <String, Object?>{
+                      'old_string': <String, Object?>{'type': 'string'},
+                      'new_string': <String, Object?>{'type': 'string'},
+                      'replace_all': <String, Object?>{'type': 'boolean'},
+                    },
+                    'required': <String>['old_string', 'new_string'],
+                    'additionalProperties': false,
+                  },
+                },
+              },
+              'required': <String>['file_path', 'hunks'],
+              'additionalProperties': false,
+            },
+          },
+        },
+        'required': <String>['diffs'],
         'additionalProperties': false,
       },
     ),

@@ -29,6 +29,7 @@ class _BuiltinToolTile extends StatelessWidget {
     return switch (kind) {
       AiBuiltinToolKind.task => Icons.task_alt_rounded,
       AiBuiltinToolKind.bash => Icons.terminal_rounded,
+      AiBuiltinToolKind.bashBackground => Icons.dvr_rounded,
       AiBuiltinToolKind.glob => Icons.folder_copy_outlined,
       AiBuiltinToolKind.grep => Icons.search_rounded,
       AiBuiltinToolKind.ls => Icons.list_alt_rounded,
@@ -36,6 +37,7 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.read => Icons.description_outlined,
       AiBuiltinToolKind.edit => Icons.edit_note_rounded,
       AiBuiltinToolKind.multiEdit => Icons.edit_attributes_rounded,
+      AiBuiltinToolKind.applyFileDiffs => Icons.difference_rounded,
       AiBuiltinToolKind.write => Icons.save_outlined,
       AiBuiltinToolKind.notebookEdit => Icons.book_outlined,
       AiBuiltinToolKind.webFetch => Icons.language_rounded,

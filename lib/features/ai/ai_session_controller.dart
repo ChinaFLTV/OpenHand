@@ -3595,9 +3595,11 @@ class AiSessionController extends ChangeNotifier {
             .analyzeWriteCommand(_toolCallCommand(toolCall))
             .isWrite;
       case null:
+      case AiBuiltinToolKind.bashBackground:
       case AiBuiltinToolKind.exitPlanMode:
       case AiBuiltinToolKind.edit:
       case AiBuiltinToolKind.multiEdit:
+      case AiBuiltinToolKind.applyFileDiffs:
       case AiBuiltinToolKind.write:
       case AiBuiltinToolKind.notebookEdit:
       case AiBuiltinToolKind.todoWrite:

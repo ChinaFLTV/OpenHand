@@ -49,11 +49,13 @@ HardnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.write ||
     AiBuiltinToolKind.edit ||
     AiBuiltinToolKind.multiEdit ||
+    AiBuiltinToolKind.applyFileDiffs ||
     AiBuiltinToolKind.notebookEdit ||
     AiBuiltinToolKind.deleteFile => HardnessToolCategory.filesystem,
     AiBuiltinToolKind.grep ||
     AiBuiltinToolKind.codebaseSearch => HardnessToolCategory.search,
-    AiBuiltinToolKind.bash => HardnessToolCategory.shell,
+    AiBuiltinToolKind.bash ||
+    AiBuiltinToolKind.bashBackground => HardnessToolCategory.shell,
     AiBuiltinToolKind.git => HardnessToolCategory.vcs,
     AiBuiltinToolKind.webFetch ||
     AiBuiltinToolKind.webSearch => HardnessToolCategory.web,

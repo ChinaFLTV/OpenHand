@@ -1,0 +1,265 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import '../service/ai_file_history_service.dart';
+import '../service/ai_file_tracker_service.dart';
+import '../service/ai_tool_runtime_service.dart';
+import 'ai_tool.dart';
+import 'ai_tool_execution_context.dart';
+import 'ai_tool_utils.dart';
+
+/// 跨文件批量 hunk 应用工具。把多个 MultiEdit 操作合成单次调用：
+/// 一次提交可以包含 N 个文件、每个文件 M 个 hunk。
+///
+/// 与 [AiMultiEditTool] 的差异：
+/// - MultiEdit 一次只能改 1 个文件；ApplyFileDiffs 改多个。
+/// - 计划阶段 → 写入阶段两段执行：任一文件的任一 hunk 不匹配，整体不写入。
+/// - 用于跨文件的小规模重构（重命名 / 接口签名调整 / 同步配置）。
+///
+/// 输入 schema：
+/// ```json
+/// {
+///   "diffs": [
+///     {
+///       "file_path": "lib/foo.dart",
+///       "hunks": [
+///         {"old_string": "...", "new_string": "...", "replace_all": false}
+///       ]
+///     }
+///   ]
+/// }
+/// ```
+class AiApplyFileDiffsTool extends AiTool {
+  @override
+  AiBuiltinToolKind get kind => AiBuiltinToolKind.applyFileDiffs;
+
+  @override
+  Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
+    final args = context.decodedArguments;
+    final startedAt = Stopwatch()..start();
+    final diffs = args['diffs'];
+    if (diffs is! List || diffs.isEmpty) {
+      return AiToolUtils.invalidResult(
+        'ApplyFileDiffs',
+        'ApplyFileDiffs requires a non-empty diffs array.',
+      );
+    }
+    if (diffs.length > 32) {
+      return AiToolUtils.invalidResult(
+        'ApplyFileDiffs',
+        'ApplyFileDiffs supports at most 32 files per call (got ${diffs.length}).',
+      );
+    }
+
+    final fileTracker =
+        context.metadata['file_tracker'] as AiFileTrackerService?;
+    final fileHistory =
+        context.metadata['file_history'] as AiFileHistoryService?;
+
+    // ── 阶段 1：解析 + 内存中应用所有 hunk，发现不匹配立即整体失败 ──
+    final plans = <_FileDiffPlan>[];
+    for (var i = 0; i < diffs.length; i++) {
+      final raw = diffs[i];
+      if (raw is! Map) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'diffs[$i] must be an object with file_path + hunks.',
+        );
+      }
+      final entry = Map<String, Object?>.from(raw);
+      final rawPath = '${entry['file_path'] ?? ''}'.trim();
+      if (rawPath.isEmpty) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'diffs[$i] missing file_path.',
+        );
+      }
+      final filePath = AiToolUtils.resolvePath(rawPath);
+      final hunks = entry['hunks'];
+      if (hunks is! List || hunks.isEmpty) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'diffs[$i] (file=$filePath) requires non-empty hunks array.',
+        );
+      }
+      final file = File(filePath);
+      final exists = await file.exists();
+
+      final readValidation = await AiToolUtils.validateReadBeforeMutation(
+        toolName: 'ApplyFileDiffs',
+        filePath: filePath,
+        previouslyReadFiles: context.previouslyReadFiles,
+        requireExistingFileRead: exists,
+        fileTracker: fileTracker,
+      );
+      if (readValidation != null) return readValidation;
+
+      String content;
+      if (exists) {
+        try {
+          content = await file.readAsString();
+        } on FormatException {
+          return AiToolUtils.invalidResult(
+            'ApplyFileDiffs',
+            'File does not appear to be a valid text file: $filePath',
+          );
+        }
+      } else {
+        content = '';
+      }
+      var creating = !exists;
+      var hunkIndex = 0;
+      for (final rawHunk in hunks) {
+        if (rawHunk is! Map) {
+          return AiToolUtils.invalidResult(
+            'ApplyFileDiffs',
+            'diffs[$i].hunks[$hunkIndex] must be an object.',
+          );
+        }
+        final hunk = Map<String, Object?>.from(rawHunk);
+        final oldString = '${hunk['old_string'] ?? ''}';
+        final newString = '${hunk['new_string'] ?? ''}';
+        final replaceAll = hunk['replace_all'] == true;
+        if (oldString.isEmpty && creating) {
+          content = newString;
+          creating = false;
+          hunkIndex += 1;
+          continue;
+        }
+        final replacement = AiToolUtils.replaceOnceOrAll(
+          content: content,
+          oldString: oldString,
+          newString: newString,
+          replaceAll: replaceAll,
+        );
+        if (!replacement.success) {
+          return AiToolUtils.invalidResult(
+            'ApplyFileDiffs',
+            'diffs[$i].hunks[$hunkIndex] failed for $filePath: ${replacement.errorMessage}',
+          );
+        }
+        content = replacement.content;
+        hunkIndex += 1;
+      }
+      plans.add(
+        _FileDiffPlan(
+          filePath: filePath,
+          file: file,
+          existed: exists,
+          newContent: content,
+          hunkCount: hunks.length,
+        ),
+      );
+    }
+
+    // ── 阶段 2：单文件确认 + 写入（任一确认拒绝则中止后续） ──
+    final results = <_FileDiffResult>[];
+    for (final plan in plans) {
+      final confirmation = await AiToolUtils.requestWriteConfirmation(
+        toolName: 'ApplyFileDiffs',
+        operationDescription:
+            'Apply ${plan.hunkCount} hunk${plan.hunkCount > 1 ? 's' : ''} to file',
+        targetPath: plan.filePath,
+        requireWriteConfirmation: context.requireWriteCommandConfirmation,
+        confirmWriteCommand: context.confirmWriteCommand,
+        cancelSignal: context.cancelSignal,
+        timeoutMs: context.metadata['write_confirmation_timeout_ms'] as int?,
+      );
+      if (confirmation != null) return confirmation;
+
+      String? versionId;
+      if (plan.existed) {
+        versionId = await AiToolUtils.saveFileVersionBeforeMutation(
+          filePath: plan.filePath,
+          sessionId: context.sessionId,
+          toolCallId: context.toolCall.id,
+          fileHistory: fileHistory,
+        );
+      }
+      await AiToolUtils.writeTextFileSafely(plan.file, plan.newContent);
+      await AiToolUtils.updateTrackerAfterMutation(
+        filePath: plan.filePath,
+        fileTracker: fileTracker,
+      );
+
+      // 写后读回校验
+      String verify;
+      try {
+        verify = await plan.file.readAsString();
+      } catch (e) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'File was written but verification read failed for ${plan.filePath}: $e',
+        );
+      }
+      if (verify != plan.newContent) {
+        return AiToolUtils.invalidResult(
+          'ApplyFileDiffs',
+          'Verification mismatch after write for ${plan.filePath}.',
+        );
+      }
+      results.add(
+        _FileDiffResult(
+          filePath: plan.filePath,
+          hunkCount: plan.hunkCount,
+          versionId: versionId,
+        ),
+      );
+    }
+
+    final lines = <String>[
+      'Applied ${results.length} file diff${results.length > 1 ? 's' : ''} (verified):',
+    ];
+    for (final r in results) {
+      lines.add(
+        '  - ${r.filePath} (${r.hunkCount} hunk${r.hunkCount > 1 ? 's' : ''})',
+      );
+    }
+    return AiToolUtils.simpleSuccessResult(
+      command: 'ApplyFileDiffs (${results.length} files)',
+      output: lines.join('\n'),
+      durationMs: startedAt.elapsedMilliseconds,
+      workingDirectory:
+          results.isEmpty ? null : p.dirname(results.first.filePath),
+      isWriteCommand: true,
+      metadata: <String, Object?>{
+        'tool_source': 'builtin',
+        'file_mutation_kind': 'apply_file_diffs',
+        'file_mutation_file_count': results.length,
+        'file_mutation_total_hunks':
+            results.fold<int>(0, (acc, r) => acc + r.hunkCount),
+        'file_mutation_paths': results.map((r) => r.filePath).toList(),
+        'file_mutation_version_ids': <String, String?>{
+          for (final r in results) r.filePath: r.versionId,
+        },
+      },
+    );
+  }
+}
+
+class _FileDiffPlan {
+  _FileDiffPlan({
+    required this.filePath,
+    required this.file,
+    required this.existed,
+    required this.newContent,
+    required this.hunkCount,
+  });
+  final String filePath;
+  final File file;
+  final bool existed;
+  final String newContent;
+  final int hunkCount;
+}
+
+class _FileDiffResult {
+  _FileDiffResult({
+    required this.filePath,
+    required this.hunkCount,
+    required this.versionId,
+  });
+  final String filePath;
+  final int hunkCount;
+  final String? versionId;
+}

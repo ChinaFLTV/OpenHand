@@ -6,7 +6,9 @@ import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_claude_hook_service.dart';
 import '../service/ai_tool_runtime_service.dart';
+import 'ai_apply_file_diffs_tool.dart';
 import 'ai_ask_user_choice_tool.dart';
+import 'ai_bash_background_tool.dart';
 import 'ai_bash_tool.dart';
 import 'ai_codebase_search_tool.dart';
 import 'ai_delete_file_tool.dart';
@@ -46,6 +48,7 @@ class AiToolRegistry {
       ..register(AiGrepTool())
       ..register(AiEditTool())
       ..register(AiMultiEditTool())
+      ..register(AiApplyFileDiffsTool())
       ..register(AiWriteTool())
       ..register(AiExitPlanModeTool())
       ..register(AiTodoWriteTool())
@@ -77,6 +80,9 @@ class AiToolRegistry {
     registry.register(
       AiBashTool(bashToolService: bashToolService, hookService: hookService),
     );
+
+    // BashBackground — 长跑后台子进程，独立于主 Bash 工具，不依赖外部服务。
+    registry.register(AiBashBackgroundTool());
 
     // SkillManager — 需要 skills directory provider (Hermes Talker builtin).
     // Only registered when a provider is wired; sessions where the user has
