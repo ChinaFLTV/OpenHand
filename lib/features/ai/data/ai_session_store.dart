@@ -181,21 +181,27 @@ class AiSessionStore {
 
   /// Default ordering for the sessions table.
   ///
-  /// Sessions whose `display_order` is NULL appear first, sorted by
-  /// `updated_at DESC` (newest first — the original sidebar behaviour).
-  /// Sessions with an explicit `display_order` then follow in ascending
-  /// Sessions with an explicit `display_order` are surfaced first (in
-  /// ascending order). Sessions that have never been manually reordered
-  /// fall back to recency: `updated_at DESC`, with `created_at DESC` as a
-  /// stable tiebreaker for sessions that were created in bulk and have
-  /// not yet been edited. This pairing lets the Thread Session
-  /// Management dialog persist a stable manual order while still keeping
-  /// untouched threads in their natural recency order on the sidebar.
+  /// Pinned sessions come first. Among the rest, sessions that have NEVER
+  /// been manually reordered (`display_order IS NULL`) are surfaced before
+  /// any manually-ordered ones, sorted by `updated_at DESC` so freshly
+  /// created threads land at the top of the sidebar — this is the original
+  /// sidebar behaviour and matches the user expectation that "the thread I
+  /// just opened sits at the top". Sessions that the user explicitly
+  /// reordered via the Thread Session Management dialog follow in their
+  /// stable `display_order ASC` sequence, with `updated_at DESC` /
+  /// `created_at DESC` as final tiebreakers.
+  ///
+  /// 2026-05-01 fix: previously this clause was `(display_order IS NULL)
+  /// ASC`, which placed manually-ordered sessions FIRST and pushed every
+  /// newly-created thread to the bottom of the list. Users reported that
+  /// brand-new sessions "disappeared" after a restart because they
+  /// scrolled off-screen below their dragged threads even though they
+  /// were correctly persisted in SQLite.
   static const String _sessionsOrderBy =
       'pinned DESC, '
-      '(display_order IS NULL) ASC, '
-      'display_order ASC, '
+      '(display_order IS NULL) DESC, '
       'updated_at DESC, '
+      'display_order ASC, '
       'created_at DESC';
 
   /// Persist a manual ordering of the supplied [orderedSessionIds]. The
