@@ -796,11 +796,17 @@ class AiSessionController extends ChangeNotifier {
     // fullAccessPermission from _sessions (which we just updated).
     try {
       await _store.save(updatedSession);
-    } catch (_) {
+    } catch (error, stack) {
       // Disk persistence failure does not prevent the in-memory update
       // from taking effect. The next successful _commitSessionLocked call
       // (e.g. from sendMessage) will propagate the correct permission to
       // disk via _mergeLiveSessionState.
+      silentLog(
+        'ai_session_controller',
+        'persist permission update',
+        error,
+        stack,
+      );
     }
     return true;
   }
@@ -1077,7 +1083,13 @@ class AiSessionController extends ChangeNotifier {
         bool stillExists;
         try {
           stillExists = await _store.exists(sessionId);
-        } catch (_) {
+        } catch (existsError, existsStack) {
+          silentLog(
+            'ai_session_controller',
+            'check session exists after delete failure',
+            existsError,
+            existsStack,
+          );
           stillExists = true;
         }
         if (!stillExists) {
@@ -5731,7 +5743,8 @@ class AiSessionController extends ChangeNotifier {
         cwd: OpenHandPaths.applicationDirectoryPath(),
         payload: payload,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'run claude-style hook $eventName', error, stack);
       return;
     }
   }
@@ -5767,7 +5780,8 @@ class AiSessionController extends ChangeNotifier {
         sessionId: sessionId,
         payload: enrichedPayload,
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'execute user hook ${event.name}', error, stack);
       return;
     }
     if (result.hookResults.isEmpty) return;
@@ -6749,19 +6763,22 @@ class AiSessionController extends ChangeNotifier {
     Map<String, String> env;
     try {
       env = Map<String, String>.from(Platform.environment);
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'read Platform.environment', error, stack);
       env = <String, String>{};
     }
     String? operatingSystemVersion;
     try {
       operatingSystemVersion = Platform.operatingSystemVersion;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'read Platform.operatingSystemVersion', error, stack);
       operatingSystemVersion = null;
     }
     int? numberOfProcessors;
     try {
       numberOfProcessors = Platform.numberOfProcessors;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_session_controller', 'read Platform.numberOfProcessors', error, stack);
       numberOfProcessors = null;
     }
     return <String, Object?>{

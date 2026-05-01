@@ -2099,7 +2099,6 @@ class _ReorderableAttachmentWrapState
               child: AnimatedRemovableChip(
                 key: ValueKey('attachment:${attachment.filePath}'),
                 settings: chipAnim,
-                collapseAxis: Axis.horizontal,
                 onRemove: () => widget.onRemove(attachment.filePath),
                 builder: (context, requestRemove) {
                   return AnimatedContainer(
@@ -2370,7 +2369,6 @@ class _ReorderableProjectReferenceWrapState
               child: AnimatedRemovableChip(
                 key: ValueKey('projref:${ref.path}'),
                 settings: chipAnim,
-                collapseAxis: Axis.horizontal,
                 onRemove: () => widget.onRemove(ref.path),
                 builder: (context, requestRemove) => AnimatedContainer(
                   duration: const Duration(milliseconds: 200),

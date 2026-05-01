@@ -138,7 +138,10 @@ enum AppSection {
   hardnessSession,
 }
 
-const double _desktopNavigationWidth = 352;
+// 2026-05-01: Narrowed the default desktop navigation pane by 25%
+// (352 -> 264). This keeps the pane clearly subordinate to the main
+// workspace while preserving the independent 20 px inter-pane gutter.
+const double _desktopNavigationWidth = 264;
 // Equalised with the SafeArea outer inset (20 px) so the horizontal gutter
 // between the navigation pane and the workspace pane visually matches the
 // padding to the window's top / bottom / left / right edges.

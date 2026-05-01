@@ -311,8 +311,13 @@ abstract class AiProtocolAdapter {
     final normalizedPath = pathParts.first.startsWith('/')
         ? pathParts.first.substring(1)
         : pathParts.first;
+    // Endpoint paths conventionally contain at most one `?`. If a caller
+    // accidentally embeds multiple `?` segments, treat the trailing ones
+    // as additional query pairs (the HTTP spec only honours the first
+    // `?` as the query delimiter; subsequent `?` are literal characters
+    // inside the query string), and stitch them with `&`.
     final endpointQuery = pathParts.length > 1
-        ? pathParts.sublist(1).join('?')
+        ? pathParts.sublist(1).join('&')
         : '';
     final baseUri = Uri.parse(baseUrl);
     final baseSegments = baseUri.pathSegments
@@ -653,10 +658,27 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (id.isEmpty || name.isEmpty) {
             return null;
           }
+          // Some OpenAI-compatible providers return `arguments` already as a
+          // Map / List (rather than the spec's JSON-encoded string).  A bare
+          // `'$value'` would yield Dart's `{key: value}` debug form, which
+          // is not valid JSON and breaks downstream `_decodeToolArguments`.
+          // Mirror the Claude/Gemini adapters and JSON-encode whenever we
+          // get a structured value.
+          final argsValue = functionMap['arguments'];
+          final String arguments;
+          if (argsValue is String) {
+            arguments = argsValue;
+          } else if (argsValue == null) {
+            arguments = '';
+          } else if (argsValue is Map || argsValue is List) {
+            arguments = jsonEncode(argsValue);
+          } else {
+            arguments = '$argsValue';
+          }
           return AiToolCall(
             id: id,
             name: name,
-            arguments: '${functionMap['arguments'] ?? ''}',
+            arguments: arguments,
           );
         })
         .whereType<AiToolCall>()

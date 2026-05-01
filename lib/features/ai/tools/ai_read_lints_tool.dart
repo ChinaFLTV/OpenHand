@@ -1,7 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../service/ai_bash_tool_service.dart';
 import '../service/ai_tool_runtime_service.dart';
 import 'ai_tool.dart';
@@ -86,25 +89,62 @@ class AiReadLintsTool extends AiTool {
       }
     }
 
-    final result =
-        await Process.run(
-          executable,
-          analyzeArgs,
-          workingDirectory: workingDirectory,
-        ).timeout(
-          const Duration(seconds: 60),
-          onTimeout: () =>
-              ProcessResult(0, 124, '', 'Analysis timed out after 60 seconds'),
-        );
+    // Use Process.start so we can hard-kill the lingering analyzer on
+    // timeout — `Process.run(...).timeout(...)` only abandons the Dart
+    // future while `flutter analyze` keeps consuming CPU/disk for the
+    // remainder of its run.
+    Process? process;
+    var timedOut = false;
+    try {
+      process = await Process.start(
+        executable,
+        analyzeArgs,
+        workingDirectory: workingDirectory,
+      );
+    } on ProcessException catch (error, stack) {
+      silentLog('ai_read_lints_tool', 'spawn $executable', error, stack);
+      throw FormatException(
+        'Failed to launch "$executable analyze": ${error.message}',
+      );
+    }
 
-    final stdout = (result.stdout as String).trimRight();
-    final stderr = (result.stderr as String).trimRight();
+    final stdoutFuture = process.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join();
+    final stderrFuture = process.stderr
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join();
+
+    final exitCode = await process.exitCode.timeout(
+      const Duration(seconds: 60),
+      onTimeout: () {
+        timedOut = true;
+        process?.kill(ProcessSignal.sigkill);
+        return 124;
+      },
+    );
+
+    final stdoutText = await stdoutFuture.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () => '',
+    );
+    final stderrText = await stderrFuture.timeout(
+      const Duration(seconds: 1),
+      onTimeout: () => '',
+    );
+
+    if (timedOut) {
+      return 'Analysis timed out after 60 seconds (analyzer process killed)';
+    }
+
+    final stdout = stdoutText.trimRight();
+    final stderr = stderrText.trimRight();
 
     // dart/flutter analyze returns exit code 0 for success, non-zero for issues found
     // Both cases are valid — we want to show the diagnostics
     final combined = <String>[];
     if (stdout.isNotEmpty) combined.add(stdout);
-    if (stderr.isNotEmpty && result.exitCode != 0) combined.add(stderr);
+    if (stderr.isNotEmpty && exitCode != 0) combined.add(stderr);
 
     final output = combined.join('\n').trimRight();
     if (output.isEmpty) return '(no diagnostics found — all clean)';

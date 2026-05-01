@@ -587,9 +587,20 @@ class AiToolRuntimeService {
     //     （TimeoutException / 抛出异常 / status=failed/timed_out）的情况
     //     重跑——但跳过 invalid_arguments / 已被用户拒绝执行等"非瞬时"失败。
     final builtinCfg = resolvedTool.builtinConfig;
-    final timeoutDuration = builtinCfg != null
-        ? Duration(seconds: builtinCfg.effectiveTimeoutSeconds)
-        : null;
+    // MCP servers can become unresponsive (network hang, server crash, slow
+    // remote tool). Without a guard, `_executeMcpTool` would await the
+    // server response indefinitely and freeze the entire turn. Apply a
+    // generous default cap so MCP tools, like builtins, surface a
+    // `timed_out` status instead of hanging.
+    const defaultMcpTimeout = Duration(seconds: 120);
+    final Duration? timeoutDuration;
+    if (builtinCfg != null) {
+      timeoutDuration = Duration(seconds: builtinCfg.effectiveTimeoutSeconds);
+    } else if (resolvedTool.source == AiRuntimeToolSource.mcp) {
+      timeoutDuration = defaultMcpTimeout;
+    } else {
+      timeoutDuration = null;
+    }
     final maxRetries = builtinCfg?.effectiveMaxRetries ?? 0;
     Future<AiToolExecutionResult> dispatchOnce() async {
       return switch (resolvedTool.source) {
@@ -638,10 +649,11 @@ class AiToolRuntimeService {
 
     Future<AiToolExecutionResult> dispatchWithTimeout() async {
       final f = dispatchOnce();
-      if (timeoutDuration == null) return f;
+      final localTimeout = timeoutDuration;
+      if (localTimeout == null) return f;
       try {
         return await f.timeout(
-          timeoutDuration,
+          localTimeout,
           onTimeout: () => AiToolExecutionResult(
             status: BashToolExecutionStatus.timedOut,
             command: resolvedTool.name,
@@ -649,10 +661,10 @@ class AiToolRuntimeService {
             stdout: '',
             stderr:
                 'Tool "${resolvedTool.name}" exceeded the configured '
-                '${timeoutDuration.inSeconds}s timeout.',
+                '${localTimeout.inSeconds}s timeout.',
             durationMs: rawExecutionStartedAt.elapsedMilliseconds,
             resultText:
-                'status: timed_out\nerror: tool exceeded ${timeoutDuration.inSeconds}s timeout',
+                'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
           ),
         );
       } on TimeoutException {
@@ -663,10 +675,10 @@ class AiToolRuntimeService {
           stdout: '',
           stderr:
               'Tool "${resolvedTool.name}" exceeded the configured '
-              '${timeoutDuration.inSeconds}s timeout.',
+              '${localTimeout.inSeconds}s timeout.',
           durationMs: rawExecutionStartedAt.elapsedMilliseconds,
           resultText:
-              'status: timed_out\nerror: tool exceeded ${timeoutDuration.inSeconds}s timeout',
+              'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
         );
       }
     }
@@ -751,19 +763,28 @@ class AiToolRuntimeService {
     if (rawResult.length <= maxToolOutputChars) {
       return result;
     }
-    final truncated = rawResult.substring(0, maxToolOutputChars);
     final notice =
         '\n\n[Output truncated: result exceeded the $maxToolOutputChars-character tool output budget. '
         'Only the first $maxToolOutputChars characters are included. '
         'Use more targeted commands or file offsets to read the remaining content.]';
+    // Reserve room for the notice so the final string never exceeds the
+    // declared budget. Floor at 100 chars of payload to keep something
+    // useful even if the configured budget is unusually small.
+    final payloadCap = maxToolOutputChars - notice.length < 100
+        ? 100
+        : maxToolOutputChars - notice.length;
+    final truncated = rawResult.substring(
+      0,
+      payloadCap < rawResult.length ? payloadCap : rawResult.length,
+    );
     final truncatedResult = '$truncated$notice';
-    // Keep stdout and stderr consistent with resultText: all are capped at maxToolOutputChars.
-    final truncatedStdout = result.stdout.length > maxToolOutputChars
-        ? '${result.stdout.substring(0, maxToolOutputChars)}$notice'
-        : result.stdout;
-    final truncatedStderr = result.stderr.length > maxToolOutputChars
-        ? '${result.stderr.substring(0, maxToolOutputChars)}$notice'
-        : result.stderr;
+    String capStream(String value) {
+      if (value.length <= maxToolOutputChars) return value;
+      final cap = payloadCap < value.length ? payloadCap : value.length;
+      return '${value.substring(0, cap)}$notice';
+    }
+    final truncatedStdout = capStream(result.stdout);
+    final truncatedStderr = capStream(result.stderr);
     return AiToolExecutionResult(
       status: result.status,
       command: result.command,

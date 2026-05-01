@@ -30,7 +30,7 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   sqflite_common: ^2.5.5
   webview_flutter: ^4.10.0
-  pasteboard: ^0.4.0
+  pasteboard: ^0.5.0
 
   intl: any
 dev_dependencies:
@@ -47,5 +47,6 @@ flutter:
 
 # Use system SQLite on macOS (avoids downloading from GitHub).
 hooks:
-  sqlite3:
-    source: system
+  user_defines:
+    sqlite3:
+      source: system

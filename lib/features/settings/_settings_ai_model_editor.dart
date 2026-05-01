@@ -246,7 +246,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
 
   Future<void> _editModelProfile(String modelId) async {
     final existing = _modelProfiles[modelId] ?? const AiModelProfile();
-    final result = await showDialog<AiModelProfile>(
+    final result = await showAnimatedDialog<AiModelProfile>(
       context: context,
       builder: (context) => _ModelProfileEditorDialog(
         modelId: modelId,

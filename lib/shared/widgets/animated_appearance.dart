@@ -172,7 +172,6 @@ class _AnimatedRemovableChipState extends State<AnimatedRemovableChip> {
     return AnimatedAppearance(
       settings: widget.settings,
       present: _present,
-      collapseSize: true,
       collapseAxis: widget.collapseAxis,
       onDismissed: widget.onRemove,
       child: widget.builder(context, _requestRemove),

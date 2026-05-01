@@ -361,7 +361,6 @@ class _SpringScaleTransition extends StatelessWidget {
       opacity: opacity,
       child: ScaleTransition(
         scale: scale,
-        alignment: Alignment.center,
         child: child,
       ),
     );

@@ -25,7 +25,7 @@ class _AnimationRestoreDefaultsSection extends StatelessWidget {
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(isZh ? '恢复默认' : 'Restore Defaults'),
           onPressed: () async {
-            final confirmed = await showDialog<bool>(
+            final confirmed = await showAnimatedDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
                 title: Text(isZh ? '恢复默认动画？' : 'Restore default animations?'),

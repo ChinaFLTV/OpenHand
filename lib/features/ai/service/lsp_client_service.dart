@@ -1002,21 +1002,53 @@ class AiLspClientService {
     if (_commandPathCache.containsKey(executable)) {
       return _commandPathCache[executable];
     }
+    // Bounded: a healthy `which`/`where` returns in milliseconds. The
+    // hard cap prevents a stuck PATH lookup (e.g. unresponsive network
+    // mount in PATH) from wedging LSP startup. We distinguish "timed out"
+    // (don't cache, allow retry next call) from "not found" (cache the
+    // null so we don't re-shell on every LSP request).
+    Process? process;
+    var timedOut = false;
     try {
-      final result = await Process.run(
+      process = await Process.start(
         Platform.isWindows ? 'where' : 'which',
         <String>[executable],
       );
-      if (result.exitCode == 0) {
-        final output = '${result.stdout ?? ''}'.trim();
-        if (output.isNotEmpty) {
-          final path = const LineSplitter().convert(output).first.trim();
-          _commandPathCache[executable] = path;
-          return path;
-        }
+    } on ProcessException catch (error, stack) {
+      silentLog('lsp_client_service', 'spawn which/where', error, stack);
+      _commandPathCache[executable] = null;
+      return null;
+    }
+    final stdoutFuture = process.stdout
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .join();
+    final exitCode = await process.exitCode.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        timedOut = true;
+        process?.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+    final output = await stdoutFuture
+        .timeout(const Duration(milliseconds: 200), onTimeout: () => '');
+    if (timedOut) {
+      // Slow PATH (network mount, fuse, etc.) — leave cache untouched
+      // so the next LSP startup retries.
+      silentLog(
+        'lsp_client_service',
+        'which/where timed out',
+        'executable=$executable',
+      );
+      return null;
+    }
+    if (exitCode == 0) {
+      final trimmed = output.trim();
+      if (trimmed.isNotEmpty) {
+        final path = const LineSplitter().convert(trimmed).first.trim();
+        _commandPathCache[executable] = path;
+        return path;
       }
-    } catch (error, stack) {
-      silentLog('lsp_client_service', 'resolve command path via which/where', error, stack);
     }
     _commandPathCache[executable] = null;
     return null;

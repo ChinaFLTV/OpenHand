@@ -73,6 +73,18 @@ class _NavigationPaneState extends State<_NavigationPane> {
     }
     final colorScheme = theme.colorScheme;
     _cachedDrawerTheme = theme.copyWith(
+      // Material's `Drawer` (the parent of `NavigationDrawer`) defaults to
+      // a fixed width of 304/360 px regardless of the surrounding
+      // constraints. Inside our resizable side-pane `Card` (which stretches
+      // to `_navigationWidthNotifier.value`, default 352 px), that fixed
+      // width leaves a band of empty Card to the right of the navigation
+      // tiles — visually inflating the gutter between the nav pane and
+      // the workspace pane to roughly twice the SafeArea outer inset.
+      // Force the drawer to fill its parent so the visible right edge of
+      // the navigation card lines up with the Card's clipped boundary.
+      drawerTheme: theme.drawerTheme.copyWith(
+        width: double.infinity,
+      ),
       navigationDrawerTheme: theme.navigationDrawerTheme.copyWith(
         indicatorColor: colorScheme.primaryContainer,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {

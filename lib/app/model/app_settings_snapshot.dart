@@ -1,3 +1,11 @@
+// 2026-05-01: app_settings_snapshot intentionally lists every field of
+// each `DialogAnimationSettings` literal so the parallel block of
+// `panelAnimationSettings` / `chipAnimationSettings` /
+// `listItemAnimationSettings` reads as self-documenting defaults. A few
+// of those values happen to coincide with the constructor defaults — that
+// equivalence is documentation, not noise.
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'package:flutter/material.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';

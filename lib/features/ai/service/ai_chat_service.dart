@@ -918,6 +918,13 @@ class AiChatService implements AiChatClient {
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
+    // Internal cancel signal so `cancel()` can release the wrapper even
+    // when the caller did not supply an external `cancelSignal`. The
+    // underlying `sendMessage` HTTP cannot actually be aborted (the
+    // `http.Client` API used here is non-cancellable), but at minimum
+    // we stop *waiting* on it and surface a cancelled result immediately
+    // so UI / controller code can move on.
+    final internalCancelCompleter = Completer<void>();
     var cancelled = false;
 
     void completeCancelled() {
@@ -925,6 +932,9 @@ class AiChatService implements AiChatClient {
         return;
       }
       cancelled = true;
+      if (!internalCancelCompleter.isCompleted) {
+        internalCancelCompleter.complete();
+      }
       if (!completer.isCompleted) {
         completer.complete(
           const AiChatStreamResult(
@@ -947,18 +957,24 @@ class AiChatService implements AiChatClient {
           creationRequest: creationRequest,
           timeout: timeout,
         );
-        final completion = cancelSignal == null
-            ? await completionFuture
-            : await Future.any(<Future<Object?>>[
-                completionFuture,
-                cancelSignal.then((_) => _cancelledStreamSentinel),
-              ]).then((value) {
-                if (identical(value, _cancelledStreamSentinel)) {
-                  completeCancelled();
-                  throw _SyntheticStreamCancelledException();
-                }
-                return value! as AiChatCompletion;
-              });
+        // Race the actual completion against (a) the caller's cancel
+        // signal, and (b) our internal signal raised by `cancel()`.
+        // Either branch resolves immediately so the synthetic stream
+        // wrapper can close even if the HTTP keeps running in the
+        // background.
+        final raceFutures = <Future<Object?>>[
+          completionFuture,
+          internalCancelCompleter.future.then((_) => _cancelledStreamSentinel),
+          if (cancelSignal != null)
+            cancelSignal.then((_) => _cancelledStreamSentinel),
+        ];
+        final completion = await Future.any(raceFutures).then((value) {
+          if (identical(value, _cancelledStreamSentinel)) {
+            completeCancelled();
+            throw _SyntheticStreamCancelledException();
+          }
+          return value! as AiChatCompletion;
+        });
         if (cancelled) {
           return;
         }

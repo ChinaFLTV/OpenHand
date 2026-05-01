@@ -1186,15 +1186,53 @@ class AiBashToolService {
     }
   }
 
-  /// Kill a process in a platform-safe way.  On Windows, [ProcessSignal.sigkill]
-  /// is not supported, so we fall back to the default [Process.kill] which
-  /// calls `TerminateProcess`.
+  /// Kill a process in a platform-safe way.
+  ///
+  /// On Windows, [ProcessSignal.sigkill] is not supported, so we fall back to
+  /// the default [Process.kill] which calls `TerminateProcess`.
+  ///
+  /// On POSIX, prefer a graceful shutdown: send SIGTERM first to give the
+  /// shell a chance to clean up its own children (importantly, GUI helpers
+  /// like `osascript` that own input-method state — see
+  /// `lib/app/support/safe_subprocess.dart` for the long story). After a
+  /// short grace period, escalate to SIGKILL if the process is still alive.
+  /// Both signals are best-effort; failures are intentionally swallowed
+  /// because the process may already have exited.
   static void _killProcess(Process process) {
     if (Platform.isWindows) {
-      process.kill();
-    } else {
-      process.kill(ProcessSignal.sigkill);
+      try {
+        process.kill();
+      } catch (_) {
+        // Process already exited; nothing to do.
+      }
+      return;
     }
+    var graceful = false;
+    try {
+      // Default signal is SIGTERM on POSIX; spelt out via the default to keep
+      // intent clear without tripping the redundant-argument lint.
+      graceful = process.kill();
+    } catch (_) {
+      graceful = false;
+    }
+    if (!graceful) {
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {
+        // Process already exited.
+      }
+      return;
+    }
+    // Race: if the child hasn't exited within the grace period, escalate.
+    final escalation = Timer(const Duration(milliseconds: 500), () {
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {
+        // Process already exited cleanly after SIGTERM.
+      }
+    });
+    // Cancel the escalation if the child exits cleanly first.
+    process.exitCode.then((_) => escalation.cancel()).ignore();
   }
 }
 

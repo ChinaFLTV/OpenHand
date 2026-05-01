@@ -1,3 +1,9 @@
+// 2026-05-01: the dialog-animation defaults block in this file mirrors
+// the documentation pattern used in `app_settings_snapshot.dart` — every
+// field is listed for parallel readability even when it equals the
+// constructor default.
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';

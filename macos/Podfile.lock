@@ -33,7 +33,7 @@ SPEC CHECKSUMS:
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
-  pasteboard: 278d8100149f940fb795d6b3a74f0720c890ecb7
+  pasteboard: b594eaf838d930b276d7a35a44a32b4f489170cb
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
 PODFILE CHECKSUM: d4f773fd08719828dfdcfc4a0d2a81358cec2365
