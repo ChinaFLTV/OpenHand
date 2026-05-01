@@ -1123,6 +1123,17 @@ _SessionErrorPresentation _presentSessionError(
           zh: '当前会话已提前结束。请重试或继续发送更具体的指令。',
           en: 'This session ended early. Retry the request or continue with a more specific instruction.',
         );
+  // Chat 系列 stage 直接使用底层 AiChatException 输出的「现象 / 原因 / 建议」
+  // 三段式中英诊断文案：第一行作为 banner 标题，其余多行作为正文，避免之前
+  // 一律展示通用兜底文案、丢失协议/网络层细节的问题。
+  if (_isStructuredChatErrorMessage(rawMessage) &&
+      const <String>{
+        'chat_request',
+        'chat_stream',
+        'chat_continuation_request',
+      }.contains(error.stage)) {
+    return _splitStructuredErrorMessage(rawMessage, fallbackTitle);
+  }
   return switch (error.stage) {
     'tool_loop' => _SessionErrorPresentation(
       title: _localizedText(
@@ -1186,6 +1197,46 @@ int? _extractConfiguredToolLoopLimit(String detail) {
     return null;
   }
   return int.tryParse(match.group(1) ?? '');
+}
+
+/// 判断 `error.message` 是否来自 AiChatService / AiImageGenerationService /
+/// AiModelScanner 抛出的「现象 / 原因 / 建议」三段式中英双语文案。三个
+/// helper (`_ChatErrorMessages` / `_MediaErrorMessages` / `_ScanErrorMessages`)
+/// 共用 `_format` 写出 `原因 / Why:` + `建议 / Try:` 两个固定锚点，匹配其中
+/// 任一即可识别为结构化文案。
+bool _isStructuredChatErrorMessage(String raw) {
+  if (raw.isEmpty) return false;
+  return raw.contains('原因 / Why:') || raw.contains('建议 / Try:');
+}
+
+/// 把结构化三段式文案拆成 banner 用的 (title, message) —— 第一非空行作为
+/// 标题，其余原样保留作为正文。当原文异常时退回 [fallbackTitle]。
+_SessionErrorPresentation _splitStructuredErrorMessage(
+  String raw,
+  String fallbackTitle,
+) {
+  final lines = raw.split('\n');
+  String title = fallbackTitle;
+  var headerIndex = -1;
+  for (var i = 0; i < lines.length; i++) {
+    final trimmed = lines[i].trim();
+    if (trimmed.isEmpty) continue;
+    title = trimmed;
+    headerIndex = i;
+    break;
+  }
+  if (headerIndex < 0) {
+    return _SessionErrorPresentation(title: fallbackTitle, message: raw);
+  }
+  final body = lines
+      .sublist(headerIndex + 1)
+      .join('\n')
+      .replaceFirst(RegExp(r'^\n+'), '')
+      .trimRight();
+  return _SessionErrorPresentation(
+    title: title,
+    message: body.isEmpty ? raw : body,
+  );
 }
 
 String _sessionErrorStageLabel(BuildContext context, String stage) {
