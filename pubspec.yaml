@@ -47,6 +47,7 @@ flutter:
     - assets/prompts/default/
     - assets/prompts/hardness_engineering/
     - assets/prompts/hermes_talker/
+    - assets/prompts/machine_expert/
     - assets/prompts/programming_expert/
     - assets/branding/
 
