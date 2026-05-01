@@ -253,3 +253,26 @@ Handoff documents must be written in Simplified Chinese.
 ## 15. 原子化变更纪律（Atomic Change Discipline）
 
 实施者一轮内通过 CLI 触发的代码变更应聚焦在同一目标，**不超过 5 个文件**或同一计划步骤；超出时先总结进度并向用户请示是否继续。多个无关功能交叉时，建议拆分为多个独立计划/反馈周期。除非用户显式要求"提交 / commit it / 推 PR"，否则**禁止**主动 `git commit` / `git push` / `gh pr create`。
+
+---
+
+## 16. CLI Prompt 中的 Diff-Thinking 准则（适配版）
+
+OpenHand 不直接修改代码，但**实施者**与**调查者** CLI 的 prompt 必须把以下纪律下发给目标 CLI，避免 CLI 写出全文件覆盖式变更：
+
+- 计划粒度：单一计划步骤的变更应聚焦在 1–3 个文件；超出时拆分为多个步骤。
+- 修改方式：CLI 应被指引"≤3 行优先用最小补丁；≥2 处不连续优先用多 hunk；≥30% 文件内容才允许整体重写"。
+- 写入前提：CLI 必须先读原文，再据精确字符串生成 diff，**禁止**凭记忆构造 oldString。
+- 写入后复核：CLI 落盘后必须输出修改区域 ±10 行的实际内容，便于规划者 / 验收者比对。
+
+实施者 CLI 若忽视上述规则，反馈中应记录"未遵循 Diff 粒度"作为可写入 lesson 的事项。
+
+## 17. 验收 Verification Loop（适配版）
+
+验收者**必须**用 CLI 真实跑过以下任一组合后再决定 PASS/FAIL：
+
+1. 项目 lint / analyzer（如 `flutter analyze` / `cargo clippy` / `eslint`）；
+2. 项目测试（如 `flutter test` / `pytest` / `go test ./...`）；
+3. 关键路径的最小冒烟（如 `flutter run --debug` 起一次再 Ctrl-C / `npm run build`）。
+
+CLI 输出必须落到 `steering/feedback/feedback-*.md`，禁止仅凭"读源码看起来对"就判 PASS。任何被拦截、超时、退出码非 0 的命令必须先生成 lesson 再决定下一步。

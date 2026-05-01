@@ -748,6 +748,26 @@ macOS 终端 AppleScript 最典型的伪造成功模式是：Bash 工具调用 `
 
 声称"已送达 / 已生效 / 命令执行成功 / 任务完成"时，必须在当轮存在配对的真实 Bash 工具调用证据（一次写命令 + 一次读屏，且回显比对通过）。**禁止**仅凭 `osascript` 退出码 0 就宣告成功——本模板已多处明确"write text 假成功"是常态故障模式。任何未配对真实读屏的描述必须改写为"已发起注入，但读屏未确认；正进入 §2.1.3 恢复流程"。在阻塞恢复阶段未出现可信新提示符前，**禁止**进入下一阶段或 `结束工作`。
 
+## F. 远端 Diff-Thinking（适配版）
+
+目标终端会话内的"文件改动"也要遵循 diff 粒度，禁止用大锤砸钉子：
+
+- ≤3 行变更 → `sed -i 's/OLD/NEW/'` 或单次 `printf "%s\n" >> file`；同时保留可逆备份（如 `cp file file.bak.$(date +%s)`）。
+- ≥2 处不连续 → 拼装一个临时 patch 文件后 `patch -p0 < /tmp/x.patch`，比多次 `sed` 更易回滚。
+- 整体重写（≤50 行小文件 或 ≥30% 内容变化）→ 完整 here-doc 写入并保留 `.bak`。
+- **绝不**凭记忆生成 `sed` 表达式：先 `grep -n 'pattern' file` 定位实际行/字符串，再据原文构造替换式。
+- 落盘后必须 `head -N` / `sed -n 'A,Bp'` / `diff -u file.bak file` 之一回看修改区，并把回看结果写进当轮"终端输出"字段。
+
+## G. 远端 Verification Loop（适配版）
+
+每一次"远端有写入"动作之后必须配套一次远端验证：
+
+1. 写配置（`/etc/...`、`.bashrc`、`systemd unit`）→ 紧跟一次 `cat` 或 `systemd-analyze verify`、`nginx -t`、`sshd -t` 等语义校验。
+2. 启停服务 → 紧跟 `systemctl status`、`ss -lntp | grep <port>`、`pgrep -af <name>` 等活性校验。
+3. 装包 / 改源 → 紧跟 `which <bin>` + `<bin> --version`，并比对预期版本。
+4. 任一步骤出现非预期输出，立即进入 §2.1.3 恢复流程；连续 3 次同一类失败必须先回报用户。
+
+
 ''';
 
 const String expertDeveloperInstructions = r'''
