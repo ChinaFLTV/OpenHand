@@ -869,5 +869,29 @@
   "proxyPasswordLabel": "密码",
   "proxyExceptionsLabel": "忽略这些主机与域的代理设置",
   "proxyExceptionsBody": "每行一条。支持：IP 地址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、域名（example.com 含子域）、glob（*.example.com）、正则（/^api\\d+\\.example\\.com$/i）。localhost / 127.0.0.1 / ::1 始终走直连。",
-  "proxyExceptionsHint": "示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i"
+  "proxyExceptionsHint": "示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i",
+  "proxyTestButton": "测试代理连通性",
+  "proxyTesting": "测试中…",
+  "proxyTestSuccess": "连通成功（{latency} ms，via {via}）",
+  "@proxyTestSuccess": {
+    "placeholders": {
+      "latency": {},
+      "via": {}
+    }
+  },
+  "proxyTestFailure": "连通失败：{reason}",
+  "@proxyTestFailure": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "proxyTestEndpointLabel": "测试 URL",
+  "proxyTestEndpointHint": "默认：https://www.google.com/generate_204",
+  "proxyTestVerdictDirect": "直连",
+  "proxyTestVerdictProxy": "代理 {endpoint}",
+  "@proxyTestVerdictProxy": {
+    "placeholders": {
+      "endpoint": {}
+    }
+  }
 }

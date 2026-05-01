@@ -2186,4 +2186,35 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get proxyExceptionsHint =>
       'ex.\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
+
+  @override
+  String get proxyTestButton => 'Tester la connectivité du proxy';
+
+  @override
+  String get proxyTesting => 'Test en cours…';
+
+  @override
+  String proxyTestSuccess(Object latency, Object via) {
+    return 'OK ($latency ms, via $via)';
+  }
+
+  @override
+  String proxyTestFailure(Object reason) {
+    return 'Échec : $reason';
+  }
+
+  @override
+  String get proxyTestEndpointLabel => 'URL de test';
+
+  @override
+  String get proxyTestEndpointHint =>
+      'Par défaut : https://www.google.com/generate_204';
+
+  @override
+  String get proxyTestVerdictDirect => 'direct';
+
+  @override
+  String proxyTestVerdictProxy(Object endpoint) {
+    return 'proxy $endpoint';
+  }
 }

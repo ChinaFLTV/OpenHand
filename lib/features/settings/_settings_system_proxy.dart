@@ -28,6 +28,10 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
 
   bool _showPassword = false;
 
+  bool _testing = false;
+  String? _testMessage;
+  bool _testSucceeded = false;
+
   @override
   void initState() {
     super.initState();
@@ -139,6 +143,59 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
         .where((e) => e.isNotEmpty)
         .toList(growable: false);
     await widget.controller.updateProxySettings(exceptions: lines);
+  }
+
+  Future<void> _runConnectivityTest() async {
+    if (_testing) return;
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _testing = true;
+      _testMessage = l10n.proxyTesting;
+      _testSucceeded = false;
+    });
+
+    const testUrl = 'https://www.google.com/generate_204';
+    final uri = Uri.parse(testUrl);
+    final resolver = SystemProxyResolver.instance;
+    final via = resolver.findProxyFor(uri);
+    final viaLabel = via.startsWith('PROXY ')
+        ? l10n.proxyTestVerdictProxy(via.substring('PROXY '.length).trim())
+        : l10n.proxyTestVerdictDirect;
+
+    final stopwatch = Stopwatch()..start();
+    http.Client? client;
+    try {
+      client = resolver.createHttpClient(
+        connectionTimeout: const Duration(seconds: 8),
+      );
+      final response = await client
+          .get(uri)
+          .timeout(const Duration(seconds: 12));
+      stopwatch.stop();
+      final ok = response.statusCode >= 200 && response.statusCode < 400;
+      if (!mounted) return;
+      setState(() {
+        _testing = false;
+        _testSucceeded = ok;
+        _testMessage = ok
+            ? l10n.proxyTestSuccess(
+                stopwatch.elapsedMilliseconds.toString(),
+                viaLabel,
+              )
+            : l10n.proxyTestFailure('HTTP ${response.statusCode}');
+      });
+    } catch (error, stack) {
+      stopwatch.stop();
+      silentLog('settings_proxy', 'connectivityTest', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _testing = false;
+        _testSucceeded = false;
+        _testMessage = l10n.proxyTestFailure(error.toString());
+      });
+    } finally {
+      client?.close();
+    }
   }
 
   @override
@@ -350,6 +407,36 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: <Widget>[
+            FilledButton.tonalIcon(
+              onPressed: _testing ? null : _runConnectivityTest,
+              icon: _testing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.network_check),
+              label: Text(l10n.proxyTestButton),
+            ),
+            const SizedBox(width: 12),
+            if (_testMessage != null)
+              Expanded(
+                child: Text(
+                  _testMessage!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: _testing
+                        ? theme.colorScheme.onSurfaceVariant
+                        : (_testSucceeded
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.error),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );

@@ -4017,6 +4017,54 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i'**
   String get proxyExceptionsHint;
+
+  /// No description provided for @proxyTestButton.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试代理连通性'**
+  String get proxyTestButton;
+
+  /// No description provided for @proxyTesting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试中…'**
+  String get proxyTesting;
+
+  /// No description provided for @proxyTestSuccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'连通成功（{latency} ms，via {via}）'**
+  String proxyTestSuccess(Object latency, Object via);
+
+  /// No description provided for @proxyTestFailure.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'连通失败：{reason}'**
+  String proxyTestFailure(Object reason);
+
+  /// No description provided for @proxyTestEndpointLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'测试 URL'**
+  String get proxyTestEndpointLabel;
+
+  /// No description provided for @proxyTestEndpointHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认：https://www.google.com/generate_204'**
+  String get proxyTestEndpointHint;
+
+  /// No description provided for @proxyTestVerdictDirect.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'直连'**
+  String get proxyTestVerdictDirect;
+
+  /// No description provided for @proxyTestVerdictProxy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代理 {endpoint}'**
+  String proxyTestVerdictProxy(Object endpoint);
 }
 
 class _AppLocalizationsDelegate

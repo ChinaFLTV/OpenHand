@@ -705,5 +705,29 @@
   "proxyPasswordLabel": "密碼",
   "proxyExceptionsLabel": "忽略這些主機與網域的代理設定",
   "proxyExceptionsBody": "每行一條。支援：IP 位址（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、網域（example.com 含子網域）、glob（*.example.com）、正則（/^api\\d+\\.example\\.com$/i）。localhost / 127.0.0.1 / ::1 永遠直連。",
-  "proxyExceptionsHint": "範例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i"
+  "proxyExceptionsHint": "範例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i",
+  "proxyTestButton": "測試代理連通性",
+  "proxyTesting": "測試中…",
+  "proxyTestSuccess": "連通成功（{latency} ms，via {via}）",
+  "@proxyTestSuccess": {
+    "placeholders": {
+      "latency": {},
+      "via": {}
+    }
+  },
+  "proxyTestFailure": "連通失敗：{reason}",
+  "@proxyTestFailure": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "proxyTestEndpointLabel": "測試 URL",
+  "proxyTestEndpointHint": "預設：https://www.google.com/generate_204",
+  "proxyTestVerdictDirect": "直連",
+  "proxyTestVerdictProxy": "代理 {endpoint}",
+  "@proxyTestVerdictProxy": {
+    "placeholders": {
+      "endpoint": {}
+    }
+  }
 }

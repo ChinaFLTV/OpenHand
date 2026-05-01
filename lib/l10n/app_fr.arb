@@ -705,5 +705,29 @@
   "proxyPasswordLabel": "Mot de passe",
   "proxyExceptionsLabel": "Ignorer le proxy pour ces hôtes et domaines",
   "proxyExceptionsBody": "Une entrée par ligne. Prend en charge : IP (127.0.0.1), CIDR IPv4 (192.168.0.0/16), domaine (example.com inclut les sous-domaines), glob (*.example.com) et regex (/^api\\d+\\.example\\.com$/i). localhost / 127.0.0.1 / ::1 toujours directs.",
-  "proxyExceptionsHint": "ex.\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i"
+  "proxyExceptionsHint": "ex.\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i",
+  "proxyTestButton": "Tester la connectivité du proxy",
+  "proxyTesting": "Test en cours…",
+  "proxyTestSuccess": "OK ({latency} ms, via {via})",
+  "@proxyTestSuccess": {
+    "placeholders": {
+      "latency": {},
+      "via": {}
+    }
+  },
+  "proxyTestFailure": "Échec : {reason}",
+  "@proxyTestFailure": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "proxyTestEndpointLabel": "URL de test",
+  "proxyTestEndpointHint": "Par défaut : https://www.google.com/generate_204",
+  "proxyTestVerdictDirect": "direct",
+  "proxyTestVerdictProxy": "proxy {endpoint}",
+  "@proxyTestVerdictProxy": {
+    "placeholders": {
+      "endpoint": {}
+    }
+  }
 }

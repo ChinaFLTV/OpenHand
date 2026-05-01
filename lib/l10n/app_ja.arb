@@ -705,5 +705,29 @@
   "proxyPasswordLabel": "パスワード",
   "proxyExceptionsLabel": "これらのホスト・ドメインではプロキシを無視",
   "proxyExceptionsBody": "1 行に 1 件。対応：IP（127.0.0.1）、IPv4 CIDR（192.168.0.0/16）、ドメイン（example.com はサブドメインを含む）、glob（*.example.com）、正規表現（/^api\\d+\\.example\\.com$/i）。localhost / 127.0.0.1 / ::1 は常に直接接続。",
-  "proxyExceptionsHint": "例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i"
+  "proxyExceptionsHint": "例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com$/i",
+  "proxyTestButton": "プロキシ接続をテスト",
+  "proxyTesting": "テスト中…",
+  "proxyTestSuccess": "成功（{latency} ms、{via} 経由）",
+  "@proxyTestSuccess": {
+    "placeholders": {
+      "latency": {},
+      "via": {}
+    }
+  },
+  "proxyTestFailure": "失敗：{reason}",
+  "@proxyTestFailure": {
+    "placeholders": {
+      "reason": {}
+    }
+  },
+  "proxyTestEndpointLabel": "テスト URL",
+  "proxyTestEndpointHint": "既定：https://www.google.com/generate_204",
+  "proxyTestVerdictDirect": "直接接続",
+  "proxyTestVerdictProxy": "プロキシ {endpoint} 経由",
+  "@proxyTestVerdictProxy": {
+    "placeholders": {
+      "endpoint": {}
+    }
+  }
 }

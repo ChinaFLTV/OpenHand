@@ -2065,6 +2065,36 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get proxyExceptionsHint =>
       '示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
+
+  @override
+  String get proxyTestButton => '测试代理连通性';
+
+  @override
+  String get proxyTesting => '测试中…';
+
+  @override
+  String proxyTestSuccess(Object latency, Object via) {
+    return '连通成功（$latency ms，via $via）';
+  }
+
+  @override
+  String proxyTestFailure(Object reason) {
+    return '连通失败：$reason';
+  }
+
+  @override
+  String get proxyTestEndpointLabel => '测试 URL';
+
+  @override
+  String get proxyTestEndpointHint => '默认：https://www.google.com/generate_204';
+
+  @override
+  String get proxyTestVerdictDirect => '直连';
+
+  @override
+  String proxyTestVerdictProxy(Object endpoint) {
+    return '代理 $endpoint';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4128,6 +4158,36 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   @override
   String get proxyExceptionsHint =>
       '示例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
+
+  @override
+  String get proxyTestButton => '测试代理连通性';
+
+  @override
+  String get proxyTesting => '测试中…';
+
+  @override
+  String proxyTestSuccess(Object latency, Object via) {
+    return '连通成功（$latency ms，via $via）';
+  }
+
+  @override
+  String proxyTestFailure(Object reason) {
+    return '连通失败：$reason';
+  }
+
+  @override
+  String get proxyTestEndpointLabel => '测试 URL';
+
+  @override
+  String get proxyTestEndpointHint => '默认：https://www.google.com/generate_204';
+
+  @override
+  String get proxyTestVerdictDirect => '直连';
+
+  @override
+  String proxyTestVerdictProxy(Object endpoint) {
+    return '代理 $endpoint';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6190,4 +6250,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get proxyExceptionsHint =>
       '範例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
+
+  @override
+  String get proxyTestButton => '測試代理連通性';
+
+  @override
+  String get proxyTesting => '測試中…';
+
+  @override
+  String proxyTestSuccess(Object latency, Object via) {
+    return '連通成功（$latency ms，via $via）';
+  }
+
+  @override
+  String proxyTestFailure(Object reason) {
+    return '連通失敗：$reason';
+  }
+
+  @override
+  String get proxyTestEndpointLabel => '測試 URL';
+
+  @override
+  String get proxyTestEndpointHint => '預設：https://www.google.com/generate_204';
+
+  @override
+  String get proxyTestVerdictDirect => '直連';
+
+  @override
+  String proxyTestVerdictProxy(Object endpoint) {
+    return '代理 $endpoint';
+  }
 }

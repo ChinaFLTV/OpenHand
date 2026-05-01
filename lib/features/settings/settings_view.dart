@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -22,6 +23,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/state/settings_store.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';

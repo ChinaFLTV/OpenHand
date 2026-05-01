@@ -2160,4 +2160,34 @@ class AppLocalizationsJa extends AppLocalizations {
   @override
   String get proxyExceptionsHint =>
       '例：\n*.local\n10.0.0.0/8\n/^api\\d+\\.example\\.com\$/i';
+
+  @override
+  String get proxyTestButton => 'プロキシ接続をテスト';
+
+  @override
+  String get proxyTesting => 'テスト中…';
+
+  @override
+  String proxyTestSuccess(Object latency, Object via) {
+    return '成功（$latency ms、$via 経由）';
+  }
+
+  @override
+  String proxyTestFailure(Object reason) {
+    return '失敗：$reason';
+  }
+
+  @override
+  String get proxyTestEndpointLabel => 'テスト URL';
+
+  @override
+  String get proxyTestEndpointHint => '既定：https://www.google.com/generate_204';
+
+  @override
+  String get proxyTestVerdictDirect => '直接接続';
+
+  @override
+  String proxyTestVerdictProxy(Object endpoint) {
+    return 'プロキシ $endpoint 経由';
+  }
 }
