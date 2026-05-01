@@ -509,8 +509,25 @@ class _HeSteeringFileEditorDialogState
       _controller.addListener(_onEdit);
     } catch (e) {
       if (!mounted) return;
+      final raw = e.toString();
+      final isMissing =
+          raw.startsWith('PathNotFoundException') ||
+          raw.contains('No such file or directory');
+      final isFs = raw.startsWith('FileSystemException');
+      String friendly;
+      if (isMissing) {
+        friendly = widget.isZh
+            ? '文件已不存在或路径已被移动。\n原始错误：$raw'
+            : 'File no longer exists or has been moved.\nRaw: $raw';
+      } else if (isFs) {
+        friendly = widget.isZh
+            ? '读取文件失败 (可能是权限不足 / 编码异常 / 磁盘错误)。\n原始错误：$raw'
+            : 'Failed to read file (permission, encoding, or disk error).\nRaw: $raw';
+      } else {
+        friendly = raw;
+      }
       setState(() {
-        _error = e.toString();
+        _error = friendly;
         _loading = false;
       });
     }

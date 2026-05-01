@@ -1451,8 +1451,13 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
       });
     } catch (e) {
       if (!mounted) return;
+      final isZh = Localizations.localeOf(context).languageCode.startsWith(
+        'zh',
+      );
       setState(() {
-        _errorMessage = e.toString();
+        _errorMessage = isZh
+            ? 'HTML 预览加载失败 (WebView 初始化或写临时文件出错)。\n原始错误：$e'
+            : 'HTML preview failed to load (WebView init or temp file write).\nRaw: $e';
         _isLoading = false;
       });
     }

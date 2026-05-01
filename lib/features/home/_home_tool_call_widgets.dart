@@ -1030,7 +1030,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = _friendlyFileDiffError(e, isZh: widget.isZh);
         _loading = false;
       });
     }
@@ -3388,4 +3388,22 @@ String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
   }
   final days = diff.inDays;
   return _localizedText(context, zh: '$days天前', en: '${days}d ago');
+}
+
+/// 把文件差异预览加载失败的常见 dart:io 异常翻译成中英双语简短文案，
+/// 替代直接 `e.toString()` 把 `FileSystemException(...)` 暴露给用户。
+String _friendlyFileDiffError(Object error, {required bool isZh}) {
+  final raw = error.toString();
+  if (raw.startsWith('PathNotFoundException') ||
+      raw.contains('No such file or directory')) {
+    return isZh
+        ? '文件已不存在或路径已被移动。\n原始错误：$raw'
+        : 'File no longer exists or has been moved.\nRaw: $raw';
+  }
+  if (raw.startsWith('FileSystemException')) {
+    return isZh
+        ? '文件系统操作失败 (可能是权限不足 / 磁盘已满 / 路径被占用)。\n原始错误：$raw'
+        : 'Filesystem operation failed (permission, disk space, or lock).\nRaw: $raw';
+  }
+  return raw;
 }
