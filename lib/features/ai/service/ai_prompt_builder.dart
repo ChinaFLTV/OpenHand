@@ -1271,14 +1271,21 @@ class AiPromptBuilder {
                 FileSystemEntityType.file &&
             File(storagePath).existsSync();
         final detailText = summaryText.isNotEmpty ? summaryText : promptText;
+        // Always expose the attachment id so the assistant can emit a matching
+        // <image_summary attachment_id="..."> block per the prompt contract.
+        // The `id=...` token mirrors the format used inside historical
+        // `[图片附件；图片元数据：{id=...,...}]` placeholders.
+        final idLine = 'id=${attachment.id}';
         if (detailText.isNotEmpty) {
-          parts.add(AiChatContentPart.text('[Attachment]\n$detailText'));
+          parts.add(
+            AiChatContentPart.text('[Attachment]\n$idLine\n$detailText'),
+          );
         }
         if (!hasLocalImageFile) {
           if (detailText.isEmpty) {
             parts.add(
               AiChatContentPart.text(
-                '[Attachment]\nImage attachment: ${attachment.name} is unavailable in local storage.',
+                '[Attachment]\n$idLine\nImage attachment: ${attachment.name} is unavailable in local storage.',
               ),
             );
           }
@@ -1294,7 +1301,7 @@ class AiPromptBuilder {
           if (detailText.isEmpty) {
             parts.add(
               AiChatContentPart.text(
-                '[Attachment]\nImage attachment: ${attachment.name}.\n$modelWarning',
+                '[Attachment]\n$idLine\nImage attachment: ${attachment.name}.\n$modelWarning',
               ),
             );
           } else {
