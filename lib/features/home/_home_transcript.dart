@@ -138,6 +138,29 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       const <_TranscriptRenderEntry>[];
   bool _initialBuildDone = false;
 
+  // 2026-05-04: Incremental tail materialization.
+  //
+  // When several new tail messages arrive in the same frame (typical for
+  // multi-tool plans where 5–15 cards stream in within ~100 ms) building
+  // every `_MessageBubble` synchronously inside one frame is the dominant
+  // ANR source: each card may parse markdown, code-highlight, attach
+  // image previews, etc. Spreading materialization over multiple frames
+  // breaks that single-frame budget into bite-sized chunks the raster
+  // thread can absorb without dropping past the 60 fps line.
+  //
+  // Mechanics: `_materializedTailLimit` caps how many display messages
+  // (counted from `_windowStartIndex`) `_visibleMessagesForWindow` will
+  // expose. `_dripTimer` ticks every 70 ms, increments the limit by 1
+  // and re-syncs render entries. Once the limit reaches the visible
+  // tail's true length the limit clears and the timer stops. New
+  // messages that arrive mid-drip are picked up automatically because
+  // each tick re-reads `widget.session.displayMessages.length`.
+  int? _materializedTailLimit;
+  Timer? _dripTimer;
+  static const int _dripStartChunkSize = 2;
+  static const int _dripActivationThreshold = 4;
+  static const Duration _dripStepInterval = Duration(milliseconds: 70);
+
   @override
   void initState() {
     super.initState();
@@ -202,6 +225,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       _syncWindowStartIndex(forceReset: true);
       _renderEntries = const <_TranscriptRenderEntry>[];
       _initialBuildDone = false;
+      _stopIncrementalDrip();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (_renderEntries.isNotEmpty) return;
@@ -242,7 +266,62 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStartIndex = _windowStartIndex
         .clamp(0, displayMessages.length)
         .toInt();
-    return displayMessages.sublist(clampedWindowStartIndex);
+    final tail = displayMessages.sublist(clampedWindowStartIndex);
+    final cap = _materializedTailLimit;
+    if (cap != null && cap < tail.length) {
+      return tail.sublist(0, cap);
+    }
+    return tail;
+  }
+
+  int _fullVisibleTailCount() {
+    final displayMessages = widget.session.displayMessages;
+    final clampedWindowStartIndex = _windowStartIndex
+        .clamp(0, displayMessages.length)
+        .toInt();
+    return displayMessages.length - clampedWindowStartIndex;
+  }
+
+  /// Begins (or refreshes) an incremental drip that grows
+  /// `_materializedTailLimit` from [initialLimit] one step at a time
+  /// every [_dripStepInterval] until it reaches the full visible tail
+  /// length. Safe to call repeatedly — re-arms the timer rather than
+  /// stacking timers.
+  void _beginIncrementalDrip(int initialLimit) {
+    final fullCount = _fullVisibleTailCount();
+    if (initialLimit >= fullCount) {
+      _stopIncrementalDrip();
+      return;
+    }
+    _materializedTailLimit = math.max(0, initialLimit);
+    _dripTimer?.cancel();
+    _dripTimer = Timer.periodic(_dripStepInterval, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        _dripTimer = null;
+        _materializedTailLimit = null;
+        return;
+      }
+      final latestFull = _fullVisibleTailCount();
+      final current = _materializedTailLimit ?? latestFull;
+      final next = current + 1;
+      if (next >= latestFull) {
+        _materializedTailLimit = null;
+        timer.cancel();
+        _dripTimer = null;
+      } else {
+        _materializedTailLimit = next;
+      }
+      setState(() {
+        _replaceRenderEntries(_visibleMessagesForWindow());
+      });
+    });
+  }
+
+  void _stopIncrementalDrip() {
+    _dripTimer?.cancel();
+    _dripTimer = null;
+    _materializedTailLimit = null;
   }
 
   void _replaceRenderEntries(
@@ -292,6 +371,44 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   void _syncRenderEntries({bool forceReset = false}) {
+    // 2026-05-04: Bulk-arrival drip — when the diff is about to materialize
+    // many new bubbles in one shot (typical for tool-call plans where
+    // 5–15 cards stream back within a single frame) we shrink
+    // `_visibleMessagesForWindow` via `_materializedTailLimit` and let
+    // a 70 ms-per-step periodic timer grow the cap one message at a
+    // time. Each tick re-invokes `_replaceRenderEntries`, so new
+    // entries flow in one-by-one and the markdown / code-highlight /
+    // image-decode work is spread across frames instead of piling up
+    // in one synchronous build pass.
+    if (!forceReset && _renderEntries.isNotEmpty) {
+      final fullDisplayMessages = widget.session.displayMessages;
+      final clampedStart = _windowStartIndex
+          .clamp(0, fullDisplayMessages.length)
+          .toInt();
+      final fullTailLength = fullDisplayMessages.length - clampedStart;
+      final activeIdSet = <String>{
+        for (final entry in _renderEntries)
+          if (!entry.exiting) entry.id,
+      };
+      var newAdditions = 0;
+      for (var i = clampedStart; i < fullDisplayMessages.length; i++) {
+        if (!activeIdSet.contains(fullDisplayMessages[i].id)) {
+          newAdditions++;
+        }
+      }
+      if (newAdditions >= _dripActivationThreshold) {
+        final initialLimit = math.min(
+          activeIdSet.length + _dripStartChunkSize,
+          fullTailLength,
+        );
+        _materializedTailLimit = initialLimit;
+        _beginIncrementalDrip(initialLimit);
+      } else {
+        _stopIncrementalDrip();
+      }
+    } else {
+      _stopIncrementalDrip();
+    }
     final visibleMessages = _visibleMessagesForWindow();
     if (forceReset || _renderEntries.isEmpty) {
       _replaceRenderEntries(visibleMessages, animate: false);
@@ -369,6 +486,13 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return true;
   }
 
+  @override
+  void dispose() {
+    _dripTimer?.cancel();
+    _dripTimer = null;
+    super.dispose();
+  }
+
   void _handleRenderEntryExitCompleted(String messageId) {
     if (!mounted) {
       return;
@@ -420,6 +544,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         0,
         _windowStartIndex - _transcriptWindowIncrement,
       );
+      _stopIncrementalDrip();
       _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
       _loadingOlderMessages = false;
     });
