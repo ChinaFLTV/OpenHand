@@ -25,6 +25,7 @@ import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_allow_command_rule.dart';
@@ -3528,24 +3529,26 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(
+      showFriendlyErrorSnackBar(
         context,
-        l10n.aiModelTestFailure(
+        message: l10n.aiModelTestFailure(
           model.providerLabel,
           _normalizeAiModelTestMessage(error.message, l10n.chatRequestFailed),
         ),
+        fallback: l10n.chatRequestFailed,
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(
+      showFriendlyErrorSnackBar(
         context,
-        l10n.aiModelTestFailure(
+        message: l10n.aiModelTestFailure(
           model.providerLabel,
           _normalizeAiModelTestMessage('$error', l10n.chatRequestFailed),
         ),
+        fallback: l10n.chatRequestFailed,
       );
     } finally {
       service.dispose();
@@ -3605,7 +3608,15 @@ class _SettingsViewState extends State<SettingsView> {
   }
 
   String _normalizeAiModelTestMessage(String raw, String fallback) {
-    final normalized = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    // 保留换行，仅压缩单行内连续空格。这样上游传下来的
+    // 「现象 / 原因 / 建议」三段式中英双语文案能进入下游 SnackBar
+    // 与「详情 / Details」对话框，避免原本的多行诊断全部被推成
+    // 一句读不顺的长句。
+    final lines = raw
+        .split('\n')
+        .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+        .where((line) => line.isNotEmpty);
+    final normalized = lines.join('\n').trim();
     return normalized.isEmpty ? fallback : normalized;
   }
 
