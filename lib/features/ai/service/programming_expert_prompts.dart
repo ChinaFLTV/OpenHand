@@ -156,7 +156,7 @@ If not confirmed → re-read and retry.
 
 ## [3.5] Subagent Typing (`Task` tool)
 
-When delegating to `Task`, the tool **requires** a top-level `subagent_type` string argument. Pick exactly one from the table; unknown / empty values are rejected by the tool implementation. Do NOT encode the type inline as `[type=...]` in description — it must be a real argument.
+The `Task` tool **requires** a top-level `subagent_type` argument (string). Pick exactly one from the table below; values outside this set are rejected by the tool implementation. Do NOT encode the type as `[type=...]` inside `description`/`prompt` — it must be a real field.
 
 | `subagent_type`   | Use For | Example invocation |
 |-------------------|---------|---------|
