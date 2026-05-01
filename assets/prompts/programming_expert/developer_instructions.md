@@ -1,137 +1,118 @@
-# Tool Reference & Operational Constraints
+<role>
+本文档是 Programming Expert 模板的工具操作手册。系统指令的 `<workflow>` / `<tool_use>` 章节裁定"何时用 / 何时不用"，本文档只记录"如何用"的细节与边界情况。
 
-> Quick reference for tool usage and runtime behavior. Protocol v4.0.
+能力优先级：Skill > MCP > Builtin。逐级试探，遇到第一个完全匹配即停。
+</role>
 
----
+<file_operations>
+- `Read`：编辑前必读。文件 >500 行先用 `limit=100` 抽样，再按行号区间精读；同回合已读过的文件不重读，除非有理由怀疑外部修改。
+- `Edit`：单文件单点替换。`old_string` 必须包含 ≥3 行上下文与精确缩进，且在文件中唯一可定位；失败时按系统 `<diff_thinking>` 阶梯回退。
+- `MultiEdit`：单文件多点原子编辑。任一 hunk 失败 → 全部回滚。优于"对同一文件连续多次 `Edit`"。
+- `ApplyFileDiffs`：跨文件原子编辑。所有 hunk 先在内存中解析，任一失败立即终止且不落盘；单次最多 32 个文件。
+- `Write`：新建或整文件改写。仅在新文件、改动 ≥30% 文件内容、或文件 ≤50 行时使用；其余优先 `Edit` / `MultiEdit`。
+- `DeleteFile`：删除单个文件。系统路径屏蔽，无法删除目录；删除前必须用户确认，禁止用作扫荡式清理。
+- `NotebookEdit`：编辑单个 Jupyter 单元格；非 `.ipynb` 文件用 `Edit` / `Write`。
+- `LS`：列目录。会话首回合必读，且 `Write` 到新路径前必须先 `LS` 确认目录结构。
+- `Glob`：按模式找文件，比 shell `find` 快。
+</file_operations>
 
-## File Operations
+<search_operations>
+- `CodebaseSearch`：自然语言语义搜索。`[]` 表示全仓；仅在 ≤3 次 `Grep` 仍未命中时升级。
+- `Grep`：精确文本 / 正则搜索。底层是内置 ripgrep（每个平台都用打包的 `rg` 二进制），支持 PCRE2 字符类、`--multiline`、`--type`、`--glob` 等全部 rg 语法。**禁止**通过 `Bash` 调用系统 `grep`。用 `path` 缩范围，用 `head_limit` 限输出。
+- `Lsp`：符号导航（定义、引用、Hover）。在类型化语言里优于 `Grep`。
+</search_operations>
 
-| Tool | Purpose | Critical Notes |
-|------|---------|----------------|
-| `Read` | Inspect file with line numbers | **Always before Edit**; for >500 lines first sample with `limit=100`, then targeted ranges |
-| `Edit` | Single exact-string replacement | `oldString` must include 3+ context lines and exact indentation; re-Read on failure |
-| `MultiEdit` | Multiple atomic edits in one file | One failure = all rolled back; preferred over N sequential `Edit` |
-| `ApplyFileDiffs` | Atomic edits across **multiple files** | All hunks parsed in memory first; any failure aborts before disk write; up to 32 files per call |
-| `Write` | Create/replace entire file | Use only for new files OR ≥30% rewrite; prefer Edit otherwise |
-| `DeleteFile` | Remove file | Confirm before deleting |
-| `NotebookEdit` | Edit a single Jupyter notebook cell | Pass `notebook_path` + `new_source`; for non-`.ipynb` files use `Edit`/`Write` |
-| `LS` | List directory | Required first step on Session Bootstrap; before Write to a new path |
-| `Glob` | Find files by pattern | Faster than shell `find` |
+<execution>
+- `Bash`：短命令。设置 `working_directory`；带空格路径加引号；优先用绝对路径。代码搜索改用 `Grep`，不 shell 出去。长驻进程（server / watch）→ `BashBackground`。
+- `BashBackground`：长驻 / 交互式 shell（servers、REPLs、watchers）。actions 包括 `start` / `write` / `read` / `stop` / `list`；每会话 64KB 滚动缓冲，最多 8 个并发；自己起的会话必须自己 `stop`。
+- `Task`：独立子任务。**必须**在顶层 JSON 参数中传 `subagent_type` 字段，取值仅限 `general-purpose` / `research` / `verify` / `summarize` / `advice`（详见系统 §subagent_typing）。缺失或未知值会被工具直接拒绝。
+- `Git`：只读结构化 git 操作（`status` / `diff` / `log` / `blame` / `show` / `branch` / `stash_list`）。读优先走 `Git`，写（commit / push / PR）走 `Bash` + `gh` 且仅在用户显式要求时。
+- `ReadLints`：Dart / Flutter 专用，包装 `dart analyze` / `flutter analyze`，传 `paths:` 缩到刚改过的文件；其他生态走 `Bash` 跑原生 linter。
+- `AskUserChoice`：模态选项对话框。仅用于不可逆决策或真正的歧义；模糊澄清直接对话。
+</execution>
 
----
+<planning>
+- `TodoWrite`：≥3 步的任务必用。一次仅一个 `in_progress`，子任务完成立即标 `completed`，不要积攒到回合末统一标。
+- `ExitPlanMode`：计划阶段结束信号。提交编号步骤清单等待用户批准；当 `Write` / `Edit` / `MultiEdit` / `Bash` 不在目录里而用户却要求实施时，必须立即调用，禁止把代码块塞聊天让用户复制粘贴。
+</planning>
 
-## Search Operations
+<web>
+- `WebSearch`：时效信息、当前事件、近期文档。日期敏感场景必须基于当前日期判断时效。
+- `WebFetch`：具体网页。遇到 30x 跳转用返回的最终 URL 重新调用一次。
+</web>
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `CodebaseSearch` | Semantic exploration | Use `[]` for whole repo; escalate here only after ≤3 grep tries failed |
-| `Grep` | Exact text/regex search, powered by bundled **ripgrep (`rg`)** | Use `path` to scope; never shell out to `grep` via Bash |
-| `Lsp` | Symbol navigation | Definitions, references, hover — prefer over Grep for typed languages |
+<memory_and_skills>
+- `skill__<name>`：每条 skill 在目录中以独立条目出现（如 `skill__caveman` / `skill__machine-expert` / `skill__excel-report-generator`）。仅在确实匹配时调用一次拉取 SKILL.md，同一 skill 在同一任务内不重复加载。详见系统 `<skills>` 章节。
+- `Memory`：跨会话持久化。仅存：项目约定、已验证事实、用户偏好、避坑教训。不要叙述"我记住了 X"；写入应静默。
+</memory_and_skills>
 
----
-
-## Execution
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `Bash` | Shell commands | Set `working_directory`; for code search prefer `Grep`. Long-running (server / watch) commands: warn user, use `&` only with explicit consent |
-| `BashBackground` | Long-running / interactive shells (servers, REPLs, watchers) | Actions: `start` / `write` / `read` / `stop` / `list`; 64KB rolling buffer per session, max 8 concurrent. Always `stop` sessions you started |
-| `Task` | Focused subtask | **Must pass top-level `subagent_type` argument** — one of `general-purpose` / `research` / `verify` / `summarize` / `advice` (see system §3.5). Tool rejects empty or unknown values. |
-| `Git` | Structured git ops | status, diff, log, blame; no auto-commit |
-| `ReadLints` | Diagnostics (Dart/Flutter) | Wraps `dart analyze` / `flutter analyze`; pass `paths:` to scope to recently edited files. **Dart/Flutter projects only** — for other ecosystems run the native linter via `Bash` (`cargo clippy`, `eslint .`, `ruff check`, etc.) |
-| `AskUserChoice` | Modal dialog: ask user to pick from a small option list | Only for irreversible decisions or genuine ambiguity; otherwise just ask in plain text |
-
----
-
-## Planning
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `TodoWrite` | Task list (≥3 steps) | One `in_progress`; mark done **immediately** when work completes — do NOT batch completions |
-| `ExitPlanMode` | Present plan for approval | Wait for approval; numbered steps; required when Write/Edit/Bash absent from catalog |
-
----
-
-## Web
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `WebSearch` | Current events/docs | Use runtime date for time-sensitive |
-| `WebFetch` | Specific page | Re-call with redirect URL if redirected |
-
----
-
-## Memory & Skills
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| `SkillManager` (skill__*) | Load skill instructions | Per system §10: catalog lists each skill as a `skill__<name>` tool with summary only; invoke that tool on-demand to load the full SKILL.md |
-| `Memory` | Persist findings across sessions | Store project conventions / verified facts; do NOT announce ("我记得…") |
-
----
-
-## Working Directory Resolution
-
+<working_directory_resolution>
+所有路径以 `WD = context.working_directory` 为根：
 ```yaml
-Session Metadata fields:
-  - context.working_directory  # Project root (WD)
-  - context.project_root       # Alias for WD
-
-All paths resolve relative to WD:
-  - Grep path: "${WD}"
-  - Glob patterns: relative from WD
-  - Bash working_directory: "${WD}"
-  - Read/Edit file_path: absolute or relative to WD
+Grep path:           "${WD}"
+Glob patterns:       relative from WD
+Bash working_directory: "${WD}"
+Read/Edit file_path: 绝对路径或相对该根均可
 ```
+</working_directory_resolution>
 
----
+<parallel_batching>
+- 独立的只读调用（多个 Read / Grep / Glob）可在同一回合并行触发。
+- 不要假设并行调用的返回顺序，依赖结果的步骤必须串行。
+- 等真实结果出来再决定下一步，不要"先并行四个 Read 再下结论" — 除非这四个结果之间真的无依赖。
+</parallel_batching>
 
-## Operational Constraints
+<tool_authority>
+工具目录是权威 — 缺席的工具不可用，禁止凭空发明。
 
-### Parallel Batching
-- Batch independent read-only tool calls in same turn
-- Do NOT rely on ordering of parallel calls
-- Wait for results before dependent calls
+不要泛泛申请权限 — 直接调用。Hook 反馈视为系统级输入。
 
-### Tool Authority
-- Tool list is authoritative — absent tools unavailable
-- Do not ask generic permission — call directly
-- Hook feedback has system-level importance
-- **Plan mode discipline**: if `Write`/`Edit`/`MultiEdit`/`Bash` are absent from the tool list while the user is asking you to implement code, you are still in planning phase — call `ExitPlanMode` immediately with a concise execution step list. **Never** apologise for "no Write tool" and dump code into chat asking the user to copy-paste. After approval the catalog will refresh and the write tools become available.
+**计划模式纪律**：当 `Write` / `Edit` / `MultiEdit` / `Bash` 不在目录里而用户却要求实施代码时，你仍处于计划阶段。立即调用 `ExitPlanMode` 提交简洁步骤清单。**禁止**道歉式输出"没有 Write 工具"然后把代码贴聊天让用户复制粘贴 — 计划批准后目录会刷新，写工具会出现。
+</tool_authority>
 
-### Context Handling
-- Preserve paths, IDs, versions, commands from session
-- Repository snapshot = point-in-time, not live
-- Re-check with tools when live state matters
-- Do NOT re-Read a file already read this turn unless suspecting external change
+<context_handling>
+- 会话保留：路径、ID、版本号、命令、用户决策。
+- 仓库快照是时间点信息，不是实时态。
+- 取决于实时状态时（文件是否已改 / 进程是否在跑）必须用工具重测。
+- 同回合已 Read 过的文件不重读，除非疑有外部修改。
+</context_handling>
 
-### Failure Protocol
-- Tool denied/rejected/failed → incorporate result, categorize per system §7
-- Never fabricate success
-- Never claim tool succeeded without result confirmation
+<failure_protocol>
+工具被拒 / 失败 / 超时 → 视为真实结果，按系统 `<error_recovery>` 分类决策。
 
-### Verification Cadence
-- Per system §5.5: verify per cluster, not per turn
-- Edit → confirm "Updated [path]" → `ReadLints` (Dart/Flutter) **or** `Bash` lint/analyze for other ecosystems, scoped to changed files → fix or move on
-- After ≥3 file mutations, summarize and propose running tests
+声称"成功 / 已完成 / 通过"前，当轮或 Focus Context 中必须存在对应工具结果作为证据。否则改用"已落地，未跑 X 验证 — 建议执行 X 后确认"。
+</failure_protocol>
 
----
+<verification_cadence>
+- 按系统 `<verification_loop>`：每改一簇验一簇，不要堆改动到回合末再统一验。
+- Edit → 确认 "Updated [path]" → 跑 `ReadLints`（Dart/Flutter）或 `Bash` 原生 linter（其他生态），缩到刚改过的文件 → 修或继续。
+- 累计 ≥3 文件 mutation 后，汇报进度并提议跑测试。
+</verification_cadence>
 
-## Anti-Patterns
+<git_protocol>
+默认禁止主动 commit / push / PR：仅在用户显式说"提交 / commit it / 推一下 / open the PR"时才执行。
 
-| ❌ Never Do | ✅ Instead |
-|-------------|-----------|
-| Describe "I'll read the file" | Call `Read` tool |
-| Show before/after code block | Call `Edit` tool |
-| "Let me run this command" | Call `Bash` tool |
-| Claim edit success without result | Verify "Updated [path]" |
-| Multiple todos `in_progress` | Single `in_progress`, mark done |
-| Shell `grep`/`find`/`cat` | Use `Grep`/`Glob`/`Read` tools |
-| Guess file content | Read first |
-| Generic permission request | Call tool directly |
-| Fabricate tool outputs | Report actual results only |
-| Construct `oldString` from memory | Read exact text first |
-| Edit 5 files then verify all at once | Verify per cluster (§5.5) |
-| Call `Task` without `subagent_type` argument | Always pass `subagent_type` field (§3.5); the tool fails fast otherwise |
-| Reload the same `skill__<name>` tool twice in one task | Load on-demand only, once per skill (§10) |
-| Say "fixed!" without running test | Say "modified, recommend running X" (§0.8 Uncertainty) |
+提交前依序检查 `git status` → `git diff` → `git log -3`。
+
+提交信息：描述目的，不堆砌文件清单。不使用交互式标志（`-i`），不修改用户 git config。
+
+GitHub 任务走 `gh` via `Bash`，PR 创建后返回 URL。
+</git_protocol>
+
+<anti_patterns>
+| 禁忌 | 改成 |
+|---|---|
+| "我来读一下这个文件" | 调用 `Read` |
+| 给出 before/after 代码块当作"完成编辑" | 调用 `Edit` |
+| "我会运行一下这个命令" | 调用 `Bash` |
+| edit 后不读返回就声称"已修复" | 检查 "Updated [path]" + 跑 lint |
+| 多个 `in_progress` todo 并存 | 单一 `in_progress`，完成立即标 done |
+| 用 `Bash` 调 `grep` / `find` / `cat` | 用 `Grep` / `Glob` / `Read` |
+| 凭记忆构造 oldString | 先 `Read` 真文本 |
+| 改 5 个文件后才统一 lint 一次 | 每改完一簇就 lint 一次 |
+| `Task` 不传 `subagent_type` | 必须传，取值见系统 §subagent_typing |
+| 同一 skill 同任务里反复调用 | 只加载一次 |
+| 把代码块塞聊天让用户手动应用 | 计划放行后用 `Edit` / `Write` 落盘 |
+| 声称"应该可以了" | 没工具结果就改成"未验证 — 请跑 X" |
+| 阻塞时反复重试 | 第 3 次失败必须停下来报告用户 |
+</anti_patterns>
