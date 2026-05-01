@@ -43,6 +43,7 @@ import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/appear_tracker.dart';
 import '../../shared/widgets/choice_input_dialog.dart';
+import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/export_config_dialog.dart';
 import '../../shared/widgets/export_progress_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
@@ -2177,8 +2178,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!created) {
       final l10n = AppLocalizations.of(context)!;
       final errorMessage = sessionController.lastErrorMessage;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
+      showFriendlyErrorSnackBar(
+        context,
+        message: errorMessage,
+        fallback: l10n.chatRequestFailed,
       );
       return false;
     }
@@ -3062,8 +3065,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final l10n = AppLocalizations.of(context)!;
     final errorMessage = sessionController.lastErrorMessage;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
+    showFriendlyErrorSnackBar(
+      context,
+      message: errorMessage,
+      fallback: l10n.chatRequestFailed,
     );
   }
 
@@ -3103,8 +3108,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final l10n = AppLocalizations.of(context)!;
     final errorMessage = sessionController.lastErrorMessage;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
+    showFriendlyErrorSnackBar(
+      context,
+      message: errorMessage,
+      fallback: l10n.chatRequestFailed,
     );
   }
 
@@ -3578,8 +3585,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         final errorMessage = sessionController.lastErrorMessageForSession(
           targetSessionId,
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage ?? l10n.chatRequestFailed)),
+        showFriendlyErrorSnackBar(
+          context,
+          message: errorMessage,
+          fallback: l10n.chatRequestFailed,
         );
         return;
       }
