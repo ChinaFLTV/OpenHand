@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -6,6 +7,7 @@ import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
+import '../service/ai_transport_diagnostic_messages.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
@@ -136,11 +138,12 @@ class AiWebSearchTool extends AiTool {
       );
     } catch (error) {
       final errorMessage = '$error';
-      return AiToolUtils.looksLikeTimeoutMessage(errorMessage)
-          ? timedOutResult(
-              'WebSearch timed out while retrieving search results.',
-            )
-          : failedResult(errorMessage);
+      if (AiToolUtils.looksLikeTimeoutMessage(errorMessage)) {
+        return timedOutResult(
+          'WebSearch timed out while retrieving search results.',
+        );
+      }
+      return failedResult(_friendlySearchTransportError(error));
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final errorDetails = AiToolUtils.truncateContent(
@@ -148,9 +151,11 @@ class AiWebSearchTool extends AiTool {
         400,
       );
       return failedResult(
-        errorDetails.isEmpty
-            ? 'WebSearch failed with HTTP ${response.statusCode}.'
-            : 'WebSearch failed with HTTP ${response.statusCode}: $errorDetails',
+        AiTransportDiagnosticMessages.httpStatus(
+          response.statusCode,
+          contextLabel: 'WebSearch',
+          serverMessage: errorDetails,
+        ),
       );
     }
     final html = response.body;
@@ -323,4 +328,34 @@ class _SearchResult {
   final String title;
   final String url;
   final String snippet;
+}
+
+/// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语
+/// 文本，给 LLM 足够上下文以便后续回复用户。
+String _friendlySearchTransportError(Object error) {
+  if (error is HandshakeException) {
+    return AiTransportDiagnosticMessages.handshake(
+      error,
+      contextLabel: 'WebSearch',
+    );
+  }
+  if (error is TlsException) {
+    return AiTransportDiagnosticMessages.tls(
+      error,
+      contextLabel: 'WebSearch',
+    );
+  }
+  if (error is SocketException) {
+    return AiTransportDiagnosticMessages.socket(
+      error,
+      contextLabel: 'WebSearch',
+    );
+  }
+  if (error is http.ClientException) {
+    return AiTransportDiagnosticMessages.httpClient(
+      error,
+      contextLabel: 'WebSearch',
+    );
+  }
+  return '$error';
 }

@@ -9,6 +9,7 @@ import '../service/ai_bash_tool_service.dart';
 import '../service/ai_chat_service.dart';
 import '../service/ai_protocol_adapter.dart';
 import '../service/ai_tool_runtime_service.dart';
+import '../service/ai_transport_diagnostic_messages.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'ai_tool_utils.dart';
@@ -203,7 +204,7 @@ class AiWebFetchTool extends AiTool {
           errorMessage: 'WebFetch timed out while retrieving the URL.',
         );
       } catch (error) {
-        return _FetchResult(errorMessage: '$error');
+        return _FetchResult(errorMessage: _friendlyFetchTransportError(error));
       }
       if (_isRedirect(response.statusCode)) {
         final location = (response.headers['location'] ?? '').trim();
@@ -241,7 +242,8 @@ class AiWebFetchTool extends AiTool {
         _discard(response);
         return _FetchResult(
           errorMessage:
-              'WebFetch failed with HTTP ${response.statusCode} for $currentUri.',
+              'WebFetch failed for $currentUri:\n'
+              '${AiTransportDiagnosticMessages.httpStatus(response.statusCode, contextLabel: 'WebFetch')}',
         );
       }
       final bodyBytes = await _readBody(response, cancelSignal: cancelSignal);
@@ -395,4 +397,31 @@ class _BodyReadResult {
   final List<int>? bytes;
   final String? errorMessage;
   final bool cancelled;
+}
+
+/// 把底层 dart:io / http 异常转换成「现象 / 原因 / 建议」三段式中英双语
+/// 文本，给 LLM 足够上下文以便后续回复用户。
+String _friendlyFetchTransportError(Object error) {
+  if (error is HandshakeException) {
+    return AiTransportDiagnosticMessages.handshake(
+      error,
+      contextLabel: 'WebFetch',
+    );
+  }
+  if (error is TlsException) {
+    return AiTransportDiagnosticMessages.tls(error, contextLabel: 'WebFetch');
+  }
+  if (error is SocketException) {
+    return AiTransportDiagnosticMessages.socket(
+      error,
+      contextLabel: 'WebFetch',
+    );
+  }
+  if (error is http.ClientException) {
+    return AiTransportDiagnosticMessages.httpClient(
+      error,
+      contextLabel: 'WebFetch',
+    );
+  }
+  return '$error';
 }
