@@ -256,9 +256,25 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            // 2026-05-02: Smoothly interpolate bubble height as the
+            // assistant streams in tokens / metadata grows. Without this
+            // AnimatedSize wrapper, every chunk that lengthens the
+            // markdown body bumps the bubble's intrinsic height in a
+            // single frame, which feels rigid against the rest of the
+            // app's motion design. A short 200ms easeOutCubic gives a
+            // Q-elastic settle without lagging behind fast streams: when
+            // chunks arrive faster than the duration, the framework
+            // simply re-targets the running animation. ClipRect prevents
+            // the inner column from briefly painting outside the
+            // (slightly smaller) animated outer bounds.
+            child: ClipRect(
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 if (isCompressionPoint)
                   _MessageMetaRow(
                     icon: Icons.summarize_rounded,
@@ -410,6 +426,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     textColor: textColor,
                   ),
               ],
+            ),
+              ),
             ),
           ),
         ),

@@ -423,14 +423,87 @@ class _PlanTimelineData {
   }
 }
 
-class _SessionPlanTimelineBar extends StatelessWidget {
+class _SessionPlanTimelineBar extends StatefulWidget {
   const _SessionPlanTimelineBar({required this.data, this.onVisibilityToggle});
 
   final _PlanTimelineData data;
   final VoidCallback? onVisibilityToggle;
 
   @override
+  State<_SessionPlanTimelineBar> createState() =>
+      _SessionPlanTimelineBarState();
+}
+
+class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
+  final ScrollController _stepsScrollController = ScrollController();
+  // Per-step keys so we can locate the "current" chip's RenderBox after
+  // layout and animate it into the horizontal centre of the strip.
+  final Map<int, GlobalKey> _stepKeys = <int, GlobalKey>{};
+  int? _lastCenteredCurrentIndex;
+
+  GlobalKey _stepKeyAt(int index) =>
+      _stepKeys.putIfAbsent(index, () => GlobalKey());
+
+  int? _resolveCurrentStepIndex() {
+    for (var i = 0; i < widget.data.steps.length; i += 1) {
+      if (widget.data.steps[i].state == _PlanTimelineStepState.current) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  void _scheduleCenterCurrentStep({required bool animated}) {
+    final currentIndex = _resolveCurrentStepIndex();
+    if (currentIndex == null) {
+      _lastCenteredCurrentIndex = null;
+      return;
+    }
+    if (_lastCenteredCurrentIndex == currentIndex) {
+      return;
+    }
+    _lastCenteredCurrentIndex = currentIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = _stepKeys[currentIndex];
+      final chipContext = key?.currentContext;
+      if (chipContext == null) return;
+      // Prefer Scrollable.ensureVisible with alignment=0.5 so the
+      // horizontal scroller settles with the chip centred. The Q-elastic
+      // feel comes from the elasticOut curve (overshoot + settle).
+      Scrollable.ensureVisible(
+        chipContext,
+        alignment: 0.5,
+        duration: animated
+            ? const Duration(milliseconds: 520)
+            : Duration.zero,
+        curve: animated ? Curves.easeOutCubic : Curves.linear,
+      );
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleCenterCurrentStep(animated: false);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SessionPlanTimelineBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleCenterCurrentStep(animated: true);
+  }
+
+  @override
+  void dispose() {
+    _stepsScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final data = widget.data;
+    final onVisibilityToggle = widget.onVisibilityToggle;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final statusColor = data.awaitingApproval
@@ -540,7 +613,7 @@ class _SessionPlanTimelineBar extends StatelessWidget {
                   label: _localizedText(context, zh: '收起计划', en: 'Hide Plan'),
                   icon: Icons.unfold_less_rounded,
                   color: statusColor,
-                  onTap: onVisibilityToggle!,
+                  onTap: onVisibilityToggle,
                 ),
                 const SizedBox(width: 12),
               ],
@@ -565,15 +638,19 @@ class _SessionPlanTimelineBar extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
+            controller: _stepsScrollController,
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
             child: Row(
               children: [
                 for (var index = 0; index < data.steps.length; index++)
-                  _SessionPlanTimelineStepChip(
-                    index: index,
-                    step: data.steps[index],
-                    isLast: index == data.steps.length - 1,
+                  KeyedSubtree(
+                    key: _stepKeyAt(index),
+                    child: _SessionPlanTimelineStepChip(
+                      index: index,
+                      step: data.steps[index],
+                      isLast: index == data.steps.length - 1,
+                    ),
                   ),
               ],
             ),

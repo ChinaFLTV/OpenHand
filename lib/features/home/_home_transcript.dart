@@ -49,11 +49,19 @@ class _TranscriptRenderEntry {
     required this.message,
     this.exiting = false,
     this.entering = false,
+    this.entranceDelay = Duration.zero,
   });
 
   final AiSessionMessage message;
   final bool exiting;
   final bool entering;
+  // 2026-05-02: When several new bubbles arrive in the same frame
+  // (e.g. multi-tool plan dispatch streaming back several tool_call /
+  // tool_result / reasoning messages at once), running every entrance
+  // animation in parallel made the transcript feel chaotic and dropped
+  // frames. Each new entering entry now carries an incremental delay
+  // so neighbours visibly stagger in instead of erupting simultaneously.
+  final Duration entranceDelay;
 
   String get id => message.id;
 
@@ -61,11 +69,13 @@ class _TranscriptRenderEntry {
     AiSessionMessage? message,
     bool? exiting,
     bool? entering,
+    Duration? entranceDelay,
   }) {
     return _TranscriptRenderEntry(
       message: message ?? this.message,
       exiting: exiting ?? this.exiting,
       entering: entering ?? this.entering,
+      entranceDelay: entranceDelay ?? this.entranceDelay,
     );
   }
 }
@@ -246,12 +256,31 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final previousIds = animate && _initialBuildDone
         ? _renderEntries.where((e) => !e.exiting).map((e) => e.id).toSet()
         : null;
+    // Per-batch stagger: when multiple new entries appear in a single
+    // frame, drip them in 60 ms apart (capped at 240 ms total) so the
+    // entrance animations cascade rather than explode in parallel.
+    const staggerStep = Duration(milliseconds: 60);
+    const staggerCap = Duration(milliseconds: 240);
+    var newEntryOrdinal = 0;
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
-        _TranscriptRenderEntry(
-          message: message,
-          entering: previousIds != null && !previousIds.contains(message.id),
-        ),
+        () {
+          final entering =
+              previousIds != null && !previousIds.contains(message.id);
+          final delay = entering
+              ? Duration(
+                  milliseconds: math.min(
+                    staggerCap.inMilliseconds,
+                    staggerStep.inMilliseconds * newEntryOrdinal++,
+                  ),
+                )
+              : Duration.zero;
+          return _TranscriptRenderEntry(
+            message: message,
+            entering: entering,
+            entranceDelay: delay,
+          );
+        }(),
     ];
     _initialBuildDone = true;
     developer.Timeline.finishSync();
@@ -711,6 +740,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                   key: ValueKey<String>('transcript-entry-${message.id}'),
                   entering: entry.entering,
                   exiting: entry.exiting,
+                  entranceDelay: entry.entranceDelay,
                   bottomSpacing: messageIndex == _renderEntries.length - 1
                       ? 0
                       : 14,
@@ -806,6 +836,7 @@ class _TranscriptAnimatedMessageEntry extends StatefulWidget {
     required this.bottomSpacing,
     required this.onExitCompleted,
     required this.child,
+    this.entranceDelay = Duration.zero,
   });
 
   final bool entering;
@@ -813,6 +844,7 @@ class _TranscriptAnimatedMessageEntry extends StatefulWidget {
   final double bottomSpacing;
   final VoidCallback onExitCompleted;
   final Widget child;
+  final Duration entranceDelay;
 
   @override
   State<_TranscriptAnimatedMessageEntry> createState() =>
@@ -876,7 +908,17 @@ class _TranscriptAnimatedMessageEntryState
       // ticking after the one-shot reveal contributes a measurable
       // baseline cost to subsequent frames.
       _entranceCtrl!.addStatusListener(_onEntranceStatus);
-      _entranceCtrl!.forward();
+      if (widget.entranceDelay == Duration.zero) {
+        _entranceCtrl!.forward();
+      } else {
+        // Fire-and-forget: by the time the delay elapses we may already
+        // have been disposed (rapid scroll / session switch), so guard
+        // both the controller and `mounted`.
+        Future<void>.delayed(widget.entranceDelay, () {
+          if (!mounted) return;
+          _entranceCtrl?.forward();
+        });
+      }
     }
   }
 
