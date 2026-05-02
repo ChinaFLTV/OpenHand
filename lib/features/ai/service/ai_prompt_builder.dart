@@ -45,6 +45,8 @@ class AiPromptBuilder {
   static const int _contextBudgetWarningBufferTokens = 20000;
   static const int _contextBudgetErrorBufferTokens = 20000;
   static const int _contextBudgetManualCompactBufferTokens = 3000;
+  static const int _checkpointPromptMaxChars = 40000;
+  static const int _checkpointPromptEdgeChars = 18000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -1058,7 +1060,7 @@ class AiPromptBuilder {
         .join('\n');
     final previousCheckpointText = previousCompressionPoint == null
         ? 'No earlier checkpoint.'
-        : previousCompressionPoint.content;
+        : _boundedCheckpointPromptView(previousCompressionPoint.content);
     final compressionSystemContent = _compressionSystemInstructionsForTemplate(
       template,
     );
@@ -1754,7 +1756,25 @@ $identity''';
     if (latestCompressionPoint == null) {
       return 'No compressed conversation summary yet.';
     }
-    return '### Thread\n- ${session.title}\n\n${latestCompressionPoint.content}';
+    return '### Thread\n- ${session.title}\n\n${_boundedCheckpointPromptView(latestCompressionPoint.content)}';
+  }
+
+  String _boundedCheckpointPromptView(String content) {
+    final trimmed = content.trim();
+    if (trimmed.length <= _checkpointPromptMaxChars) {
+      return trimmed;
+    }
+    final head = trimmed.substring(0, _checkpointPromptEdgeChars).trimRight();
+    final tail = trimmed
+        .substring(trimmed.length - _checkpointPromptEdgeChars)
+        .trimLeft();
+    final omitted = trimmed.length - head.length - tail.length;
+    return '''$head
+
+[checkpoint_middle_omitted]
+This durable checkpoint is ${trimmed.length} characters. The middle $omitted characters were omitted from this prompt view to keep post-compact context bounded. Preserve concrete facts from the visible head/tail; if exact omitted detail is needed, inspect the persisted session checkpoint.
+
+$tail''';
   }
 
   /// Builds a compact "what just happened" digest for the LLM:

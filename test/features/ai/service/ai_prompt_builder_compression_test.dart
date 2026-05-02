@@ -234,6 +234,55 @@ void main() {
       ]),
     );
   });
+
+  test('bounds oversized checkpoint in compression prompts', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final head = List<String>.filled(23000, 'H').join();
+    final tail = List<String>.filled(23000, 'T').join();
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-long',
+      content: '${head}MIDDLE_SHOULD_BE_OMITTED$tail',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final session = _session(
+      template: template,
+      now: now,
+      messages: <AiSessionMessage>[
+        checkpoint,
+        AiSessionMessage.user(id: 'u1', content: 'continue', createdAt: now),
+      ],
+    );
+
+    final prompt = const AiPromptBuilder().buildCompressionPrompt(
+      templateBundle: bundle,
+      template: template,
+      session: session,
+      runtimeContext: _runtimeContext(),
+      messagesToCompress: session.messages.skip(1).toList(growable: false),
+      previousCompressionPoint: checkpoint,
+    );
+    final promptText = prompt.last.content;
+
+    expect(promptText, contains('[checkpoint_middle_omitted]'));
+    expect(promptText, isNot(contains('MIDDLE_SHOULD_BE_OMITTED')));
+    expect(promptText, contains('HHHH'));
+    expect(promptText, contains('TTTT'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {
