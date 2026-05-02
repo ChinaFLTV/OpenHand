@@ -123,6 +123,24 @@ class _SessionToolbar extends StatelessWidget {
                               icon: Icons.update_rounded,
                               label: _formatDateTime(session.updatedAt),
                             ),
+                            if (_isInputCacheLocked(context, session)) ...[
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: _localizedText(
+                                  context,
+                                  zh: '已锁定服务商与模型以保证缓存命中',
+                                  en: 'Provider & model locked to ensure cache hit',
+                                ),
+                                child: _ToolbarPill(
+                                  icon: Icons.lock_outline_rounded,
+                                  label: _localizedText(
+                                    context,
+                                    zh: '模型已锁定',
+                                    en: 'Model Locked',
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (context
                                 .watch<SettingsController>()
                                 .telemetryDebugEnabled) ...[
@@ -1713,4 +1731,15 @@ String _composerModeTooltip(
     zh: '当前为计划模式，会先规划，再在获得确认后执行。点击切换到聊天模式。',
     en: 'Plan mode is active. It plans first, then executes after approval. Click to switch to chat mode.',
   );
+}
+
+/// 2026-05-01 — 输入缓存锁定判断。
+///
+/// 当全局设置中『启用输入缓存』开启，且当前 session 已经至少完成 1 轮
+/// assistant 回复（保证缓存已经被服务端写入），即认为本轮起服务商/模型不应
+/// 再被切换，否则会让 cache_control 锁定的前缀失效。
+bool _isInputCacheLocked(BuildContext context, AiSession session) {
+  final settings = context.watch<SettingsController>();
+  if (!settings.aiInputCacheEnabled) return false;
+  return session.statistics.assistantMessageCount > 0;
 }
