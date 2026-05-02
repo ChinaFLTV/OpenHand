@@ -76,8 +76,10 @@ class AppSettingsSnapshot {
       aiChatMaxStreamLineBufferBytes: defaultAiChatMaxStreamLineBufferBytes,
       aiFallbackTitleMaxCharacters: defaultAiFallbackTitleMaxCharacters,
       aiGeneratedTitleMaxCharacters: defaultAiGeneratedTitleMaxCharacters,
-      aiMinimumMeaningfulTitleCharacters: defaultAiMinimumMeaningfulTitleCharacters,
-      aiMinimumMeaningfulLatinTitleWords: defaultAiMinimumMeaningfulLatinTitleWords,
+      aiMinimumMeaningfulTitleCharacters:
+          defaultAiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords:
+          defaultAiMinimumMeaningfulLatinTitleWords,
       aiMaxSkillContentLength: defaultAiMaxSkillContentLength,
       aiMaxWorkspaceDocumentCharacters: defaultAiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes: defaultAiImageSizeLimitBytes,
@@ -218,19 +220,21 @@ class AppSettingsSnapshot {
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
     this.reduceMotion = false,
     AppProxySettings? proxySettings,
-  }) : proxySettings = proxySettings ?? const AppProxySettings(
-          mode: AppProxyMode.automatic,
-          protocols: <AppProxyProtocol>{
-            AppProxyProtocol.http,
-            AppProxyProtocol.https,
-          },
-          host: '',
-          port: 7890,
-          authEnabled: false,
-          username: '',
-          password: '',
-          exceptions: <String>[],
-        );
+  }) : proxySettings =
+           proxySettings ??
+           const AppProxySettings(
+             mode: AppProxyMode.automatic,
+             protocols: <AppProxyProtocol>{
+               AppProxyProtocol.http,
+               AppProxyProtocol.https,
+             },
+             host: '',
+             port: 7890,
+             authEnabled: false,
+             username: '',
+             password: '',
+             exceptions: <String>[],
+           );
 
   /// Default and bounds for Hermes Talker self-learning concurrency (Task 21).
   static const int defaultSelfLearningConcurrency = 5;
@@ -250,6 +254,20 @@ class AppSettingsSnapshot {
   static const int maxCronAutoCleanupRetentionDays = 365;
 
   static const int defaultAiMessageCompressionThresholdChars = 12000;
+  static const int minAiMessageCompressionThresholdChars = 2000;
+  static const int maxAiMessageCompressionThresholdChars = 1000000;
+
+  static int normalizeAiMessageCompressionThresholdChars(int value) {
+    if (value <= 0) {
+      return defaultAiMessageCompressionThresholdChars;
+    }
+    return value
+        .clamp(
+          minAiMessageCompressionThresholdChars,
+          maxAiMessageCompressionThresholdChars,
+        )
+        .toInt();
+  }
 
   /// 2026-04-27 — 工具调用输出进入 conversation history 前的字符上限。
   /// 超过该上限的工具返回会被压缩为结构化摘要（受影响文件路径
@@ -258,6 +276,18 @@ class AppSettingsSnapshot {
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
   static const int minAiToolResultCompressionThresholdChars = 256;
   static const int maxAiToolResultCompressionThresholdChars = 65536;
+
+  static int normalizeAiToolResultCompressionThresholdChars(int value) {
+    if (value <= 0) {
+      return defaultAiToolResultCompressionThresholdChars;
+    }
+    return value
+        .clamp(
+          minAiToolResultCompressionThresholdChars,
+          maxAiToolResultCompressionThresholdChars,
+        )
+        .toInt();
+  }
 
   /// 2026-04-27 — 压缩摘要首尾片段窗口（字符）。越大保留越多 raw
   /// 上下文，但会占用更多 tokens。0 表示不保留首尾片段。
@@ -722,15 +752,15 @@ class AppSettingsSnapshot {
       aiToolResultCompressionMaxPathHits:
           aiToolResultCompressionMaxPathHits ??
           this.aiToolResultCompressionMaxPathHits,
-      aiInputCacheEnabled:
-          aiInputCacheEnabled ?? this.aiInputCacheEnabled,
+      aiInputCacheEnabled: aiInputCacheEnabled ?? this.aiInputCacheEnabled,
       aiInputCacheUpdateMode:
           aiInputCacheUpdateMode ?? this.aiInputCacheUpdateMode,
       aiInputCacheUpdateInterval:
           aiInputCacheUpdateInterval ?? this.aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount:
           aiInputCacheBreakpointCount ?? this.aiInputCacheBreakpointCount,
-      aiInputCacheBreakpointPositions: aiInputCacheBreakpointPositions ??
+      aiInputCacheBreakpointPositions:
+          aiInputCacheBreakpointPositions ??
           this.aiInputCacheBreakpointPositions,
       aiBudgetUsdPerSession:
           aiBudgetUsdPerSession ?? this.aiBudgetUsdPerSession,
@@ -750,7 +780,8 @@ class AppSettingsSnapshot {
       aiMaxToolOutputChars: aiMaxToolOutputChars ?? this.aiMaxToolOutputChars,
       aiWriteConfirmationTimeoutMs:
           aiWriteConfirmationTimeoutMs ?? this.aiWriteConfirmationTimeoutMs,
-      aiFastPathWriteAnalysisThreshold: aiFastPathWriteAnalysisThreshold ??
+      aiFastPathWriteAnalysisThreshold:
+          aiFastPathWriteAnalysisThreshold ??
           this.aiFastPathWriteAnalysisThreshold,
       aiMaxHookTextCharacters:
           aiMaxHookTextCharacters ?? this.aiMaxHookTextCharacters,
@@ -771,12 +802,21 @@ class AppSettingsSnapshot {
           aiAttachmentMaxImageRawBytes ?? this.aiAttachmentMaxImageRawBytes,
       aiChatMaxStreamLineBufferBytes:
           aiChatMaxStreamLineBufferBytes ?? this.aiChatMaxStreamLineBufferBytes,
-      aiFallbackTitleMaxCharacters: aiFallbackTitleMaxCharacters ?? this.aiFallbackTitleMaxCharacters,
-      aiGeneratedTitleMaxCharacters: aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
-      aiMinimumMeaningfulTitleCharacters: aiMinimumMeaningfulTitleCharacters ?? this.aiMinimumMeaningfulTitleCharacters,
-      aiMinimumMeaningfulLatinTitleWords: aiMinimumMeaningfulLatinTitleWords ?? this.aiMinimumMeaningfulLatinTitleWords,
-      aiMaxSkillContentLength: aiMaxSkillContentLength ?? this.aiMaxSkillContentLength,
-      aiMaxWorkspaceDocumentCharacters: aiMaxWorkspaceDocumentCharacters ?? this.aiMaxWorkspaceDocumentCharacters,
+      aiFallbackTitleMaxCharacters:
+          aiFallbackTitleMaxCharacters ?? this.aiFallbackTitleMaxCharacters,
+      aiGeneratedTitleMaxCharacters:
+          aiGeneratedTitleMaxCharacters ?? this.aiGeneratedTitleMaxCharacters,
+      aiMinimumMeaningfulTitleCharacters:
+          aiMinimumMeaningfulTitleCharacters ??
+          this.aiMinimumMeaningfulTitleCharacters,
+      aiMinimumMeaningfulLatinTitleWords:
+          aiMinimumMeaningfulLatinTitleWords ??
+          this.aiMinimumMeaningfulLatinTitleWords,
+      aiMaxSkillContentLength:
+          aiMaxSkillContentLength ?? this.aiMaxSkillContentLength,
+      aiMaxWorkspaceDocumentCharacters:
+          aiMaxWorkspaceDocumentCharacters ??
+          this.aiMaxWorkspaceDocumentCharacters,
       aiImageSizeLimitBytes:
           aiImageSizeLimitBytes ?? this.aiImageSizeLimitBytes,
       aiWriteCommandConfirmationEnabled:
@@ -825,7 +865,8 @@ class AppSettingsSnapshot {
       selfLearningEnabled: selfLearningEnabled ?? this.selfLearningEnabled,
       selfLearningConcurrency:
           selfLearningConcurrency ?? this.selfLearningConcurrency,
-      selfLearningStreamFlushIntervalMs: selfLearningStreamFlushIntervalMs ??
+      selfLearningStreamFlushIntervalMs:
+          selfLearningStreamFlushIntervalMs ??
           this.selfLearningStreamFlushIntervalMs,
       showSelfLearningMessages:
           showSelfLearningMessages ?? this.showSelfLearningMessages,

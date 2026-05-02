@@ -286,7 +286,8 @@ class AiPromptBuilder {
       ).isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
-          content: '# [4.5] User Instructions\n\n'
+          content:
+              '# [4.5] User Instructions\n\n'
               '以下是用户预设的可复用指令片段，视为权威项目级指引：除非与上方更高优先级的系统 / 开发者指令直接冲突，否则必须遵循。 / '
               'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above.\n\n'
               '${_renderUserInstructionsBody(runtimeContext.userInstructions, runtimeContext.skippedInstructionIds)}',
@@ -302,9 +303,10 @@ class AiPromptBuilder {
       // 仅在有信号时注入；用于在主 transcript 之外提供"刚才发生了什么"的高
       // 优先级简报，等价于 Warp 的 block_context（命令 + 输出 + cwd）。
       if (_renderFocusContext(
-        historyMessages: historyMessages,
-        latestUserMessage: latestUserMessage,
-      ) case final String focusContext when focusContext.isNotEmpty)
+            historyMessages: historyMessages,
+            latestUserMessage: latestUserMessage,
+          )
+          case final String focusContext when focusContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
@@ -645,11 +647,7 @@ class AiPromptBuilder {
         // and rely solely on the system-prompt catalog; the previous
         // ultra-compact 80-char form caused the model to deny the existence
         // of tools like Write/Edit on the very first turn.
-        _renderToolEntry(
-          buffer,
-          tool,
-          compact: compact,
-        );
+        _renderToolEntry(buffer, tool, compact: compact);
       }
     }
     if (useDsmlToolCalls && visibleTools.isNotEmpty) {
@@ -667,9 +665,15 @@ class AiPromptBuilder {
         ..writeln('```xml')
         ..writeln('<DSML:function_calls>')
         ..writeln('  <DSML:invoke name="ExactToolName">')
-        ..writeln('    <DSML:parameter name="stringKey">plain text</DSML:parameter>')
-        ..writeln('    <DSML:parameter name="arrayKey">[{"id":"1","status":"pending"}]</DSML:parameter>')
-        ..writeln('    <DSML:parameter name="objectKey">{"k":"v"}</DSML:parameter>')
+        ..writeln(
+          '    <DSML:parameter name="stringKey">plain text</DSML:parameter>',
+        )
+        ..writeln(
+          '    <DSML:parameter name="arrayKey">[{"id":"1","status":"pending"}]</DSML:parameter>',
+        )
+        ..writeln(
+          '    <DSML:parameter name="objectKey">{"k":"v"}</DSML:parameter>',
+        )
         ..writeln('  </DSML:invoke>')
         ..writeln('</DSML:function_calls>')
         ..writeln('```')
@@ -856,13 +860,9 @@ class AiPromptBuilder {
     final previousCheckpointText = previousCompressionPoint == null
         ? 'No earlier checkpoint.'
         : previousCompressionPoint.content;
-    // For programming_expert, use a minimal system identity instead of the
-    // full system_instructions to save ~500 tokens per compression.  The
-    // compression task only needs summarization guidance, not tool policies,
-    // search strategy, Git rules, etc.
-    final compressionSystemContent = isProgrammingExpert
-        ? 'You are OpenHand Programming Expert. Summarize the conversation transcript for a long-running coding session checkpoint.'
-        : templateBundle.systemInstructions;
+    final compressionSystemContent = _compressionSystemInstructionsForTemplate(
+      template,
+    );
     return <AiChatTurn>[
       AiChatTurn(
         role: AiChatRole.system,
@@ -880,6 +880,27 @@ class AiPromptBuilder {
             '# Compression Task Payload\n\n```json\n${const JsonEncoder.withIndent('  ').convert(payload)}\n```\n\n## Previous Checkpoint\n\n$previousCheckpointText\n\n## Messages To Compress\n\n$transcript',
       ),
     ];
+  }
+
+  String _compressionSystemInstructionsForTemplate(AiThreadTemplate template) {
+    final identity = switch (template.id) {
+      'machine_expert' =>
+        'You are OpenHand Machine Expert. Produce a relay-safe terminal interaction checkpoint.',
+      'hardness_engineering' =>
+        'You are OpenHand Hardness Engineering. Produce a relay-safe orchestration checkpoint.',
+      'programming_expert' =>
+        'You are OpenHand Programming Expert. Produce a relay-safe coding checkpoint.',
+      'hermes_talker' =>
+        'You are OpenHand Hermes Talker. Produce a relay-safe assistant checkpoint.',
+      _ => 'You are OpenHand. Produce a relay-safe conversation checkpoint.',
+    };
+    return '''CRITICAL: Respond with TEXT ONLY. Do not call tools.
+
+- Use only the previous checkpoint and transcript in the task payload.
+- Do not invent facts, tool results, files, commands, or user intent.
+- Follow the compression developer instructions exactly.
+
+$identity''';
   }
 
   List<AiChatTurn> _mapHistoryMessages(
@@ -936,10 +957,7 @@ class AiPromptBuilder {
         );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(
-            _attachReasoningToAssistantTurns(
-              mappedGroup.turns,
-              roundReasoning,
-            ),
+            _attachReasoningToAssistantTurns(mappedGroup.turns, roundReasoning),
           );
         }
         index = mappedGroup.nextIndex;
@@ -958,9 +976,7 @@ class AiPromptBuilder {
         lastConsumerIndex: lastConsumerIndex,
       );
       if (mapped.isNotEmpty) {
-        turns.addAll(
-          _attachReasoningToAssistantTurns(mapped, roundReasoning),
-        );
+        turns.addAll(_attachReasoningToAssistantTurns(mapped, roundReasoning));
       }
       index += 1;
     }
@@ -976,7 +992,8 @@ class AiPromptBuilder {
     }
     return turns
         .map(
-          (turn) => turn.role == AiChatRole.assistant &&
+          (turn) =>
+              turn.role == AiChatRole.assistant &&
                   (turn.reasoningContent == null ||
                       turn.reasoningContent!.isEmpty)
               ? turn.copyWith(reasoningContent: reasoning)
@@ -1118,8 +1135,7 @@ class AiPromptBuilder {
           content: _promptHistoryToolResultContent(
             toolMessage,
             compressionConfig,
-            isFreshUnconsumedResult:
-                toolMessageIndex > lastConsumerIndex,
+            isFreshUnconsumedResult: toolMessageIndex > lastConsumerIndex,
           ),
         ),
       );
@@ -1494,7 +1510,9 @@ class AiPromptBuilder {
       final entry = visible[i];
       final body = entry.body.trim();
       if (body.isEmpty) continue;
-      final name = entry.name.trim().isEmpty ? 'Instruction' : entry.name.trim();
+      final name = entry.name.trim().isEmpty
+          ? 'Instruction'
+          : entry.name.trim();
       buf.writeln('## ${i + 1}. $name (v${entry.version})');
       if (entry.description.trim().isNotEmpty) {
         buf.writeln('_${entry.description.trim()}_');
@@ -1540,9 +1558,11 @@ class AiPromptBuilder {
 
     // Recent tool outcomes (most recent last).
     final recentToolMessages = <AiSessionMessage>[];
-    for (var i = historyMessages.length - 1;
-        i >= 0 && recentToolMessages.length < 3;
-        i--) {
+    for (
+      var i = historyMessages.length - 1;
+      i >= 0 && recentToolMessages.length < 3;
+      i--
+    ) {
       final message = historyMessages[i];
       switch (message.kind) {
         case AiSessionMessageKind.tool:
@@ -1567,8 +1587,9 @@ class AiPromptBuilder {
             '${message.metadata['tool_name'] ?? message.metadata['name'] ?? 'tool'}';
         final status = '${message.metadata['status'] ?? ''}'.trim();
         final command = '${message.metadata['command'] ?? ''}'.trim();
-        final pathHint = '${message.metadata['file_mutation_path'] ?? message.metadata['read_file_path'] ?? ''}'
-            .trim();
+        final pathHint =
+            '${message.metadata['file_mutation_path'] ?? message.metadata['read_file_path'] ?? ''}'
+                .trim();
         final snippet = _firstNonEmptyLine(message.content, 160);
         final descriptor = <String>[
           toolName,
@@ -1693,10 +1714,7 @@ class AiPromptBuilder {
       // 提炼受影响文件路径 + 行号 + 工具自述目的（purpose/intent/goal/
       // description/reason），保留首尾片段作为结构性补充信息，避免
       // conversation history 被海量原文淹没。
-      return _compressGenericToolResultContent(
-        message,
-        compressionConfig,
-      );
+      return _compressGenericToolResultContent(message, compressionConfig);
     }
     final metadata = message.metadata;
     final toolName = '${metadata['tool_name'] ?? ''}'.trim();
@@ -1945,9 +1963,7 @@ class AiPromptBuilder {
     final headTail = compressionConfig.headTailWindowChars;
     final head = headTail <= 0
         ? ''
-        : original
-              .substring(0, math.min(original.length, headTail))
-              .trim();
+        : original.substring(0, math.min(original.length, headTail)).trim();
     final tailStart = math.max(0, original.length - headTail);
     final tail = headTail <= 0 ? '' : original.substring(tailStart).trim();
     final lines = <String>[
@@ -1989,9 +2005,7 @@ class AiPromptBuilder {
           for (final key in purposeKeys) {
             final value = '${decoded[key] ?? ''}'.trim();
             if (value.isNotEmpty) {
-              return value.length > 240
-                  ? '${value.substring(0, 240)}…'
-                  : value;
+              return value.length > 240 ? '${value.substring(0, 240)}…' : value;
             }
           }
         }
@@ -2006,10 +2020,7 @@ class AiPromptBuilder {
     r'(?:[A-Za-z]:[\\/]|/|\.{1,2}/)?[\w./\\\-]+\.[A-Za-z0-9]{1,8}(?::\d+(?:[-:]\d+)?)?',
   );
 
-  List<String> _extractFilePathLineHits(
-    String text, {
-    required int maxHits,
-  }) {
+  List<String> _extractFilePathLineHits(String text, {required int maxHits}) {
     final seen = <String>{};
     final hits = <String>[];
     for (final match in _filePathLineRegExp.allMatches(text)) {

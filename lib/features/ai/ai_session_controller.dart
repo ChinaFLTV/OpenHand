@@ -251,6 +251,7 @@ class AiSessionController extends ChangeNotifier {
         return _imageGenerationTimeout;
     }
   }
+
   static const Duration _autoTitleRetryWaitTimeout = Duration(seconds: 45);
   static const Duration _autoTitleRetryPollInterval = Duration(
     milliseconds: 250,
@@ -885,7 +886,12 @@ class AiSessionController extends ChangeNotifier {
       await _store.save(updatedSession);
       persisted = true;
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'persist metadata patch', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'persist metadata patch',
+        error,
+        stack,
+      );
     }
     if (kDebugMode) {
       debugPrint(
@@ -930,7 +936,12 @@ class AiSessionController extends ChangeNotifier {
     try {
       await _store.save(updatedSession);
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'persist self-learning append', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'persist self-learning append',
+        error,
+        stack,
+      );
     }
     return id;
   }
@@ -993,7 +1004,12 @@ class AiSessionController extends ChangeNotifier {
     try {
       await _store.save(updatedSession);
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'persist self-learning update', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'persist self-learning update',
+        error,
+        stack,
+      );
     }
     return true;
   }
@@ -1034,7 +1050,12 @@ class AiSessionController extends ChangeNotifier {
     try {
       await _store.save(updatedSession);
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'persist last-used model', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'persist last-used model',
+        error,
+        stack,
+      );
     }
     return true;
   }
@@ -1221,12 +1242,7 @@ class AiSessionController extends ChangeNotifier {
       try {
         await _store.setSessionPinned(sessionId, pinned);
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'setSessionPinned',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', 'setSessionPinned', error, stack);
         return false;
       }
       // Refresh in-memory order so the sidebar picks up the new sort
@@ -1256,12 +1272,7 @@ class AiSessionController extends ChangeNotifier {
       try {
         await _store.setSessionArchived(sessionId, archived);
       } catch (error, stack) {
-        silentLog(
-          'ai_session_controller',
-          'setSessionArchived',
-          error,
-          stack,
-        );
+        silentLog('ai_session_controller', 'setSessionArchived', error, stack);
         return false;
       }
       try {
@@ -2218,8 +2229,7 @@ class AiSessionController extends ChangeNotifier {
             mode: runtimeContext.aiInputCacheUpdateMode,
             updateInterval: runtimeContext.aiInputCacheUpdateInterval,
             breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
-            breakpointPositions:
-                runtimeContext.aiInputCacheBreakpointPositions,
+            breakpointPositions: runtimeContext.aiInputCacheBreakpointPositions,
           ),
         );
       } catch (error) {
@@ -2965,7 +2975,8 @@ class AiSessionController extends ChangeNotifier {
             !didCancelStream &&
             !workingSession.awaitingPlanApproval) {
           _truncationContinuationCount += 1;
-          if (_truncationContinuationCount <= _effectiveMaxTruncationContinuations) {
+          if (_truncationContinuationCount <=
+              _effectiveMaxTruncationContinuations) {
             _debugSessionLog(
               workingSession.id,
               'auto_continue_truncated round=${toolRoundCount + 1} '
@@ -4968,22 +4979,54 @@ class AiSessionController extends ChangeNotifier {
               discardedMessages.length,
         },
       );
-      final compressionPrompt = _promptBuilder.buildCompressionPrompt(
-        templateBundle: templateBundle,
-        template: template,
-        session: session,
-        runtimeContext: runtimeContext,
-        messagesToCompress: messagesToCompress,
-        previousCompressionPoint: previousCompressionPoint,
-      );
-      final completion = await _chatClient.sendMessage(
-        model: model,
-        messages: compressionPrompt,
-        timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
-      );
+      var retryMessagesToCompress = messagesToCompress;
+      var retryDiscardedMessages = discardedMessages;
+      var promptTooLongRetryCount = 0;
+      late List<AiChatTurn> compressionPrompt;
+      late AiChatCompletion completion;
+      for (;;) {
+        compressionPrompt = _promptBuilder.buildCompressionPrompt(
+          templateBundle: templateBundle,
+          template: template,
+          session: session,
+          runtimeContext: runtimeContext,
+          messagesToCompress: retryMessagesToCompress,
+          previousCompressionPoint: previousCompressionPoint,
+        );
+        try {
+          completion = await _chatClient.sendMessage(
+            model: model,
+            messages: compressionPrompt,
+            timeout: Duration(seconds: runtimeContext.responseTimeoutSeconds),
+          );
+          break;
+        } catch (error) {
+          if (!_looksLikeCompressionPromptTooLong(error) ||
+              retryMessagesToCompress.length <= 1 ||
+              promptTooLongRetryCount >= 3) {
+            rethrow;
+          }
+          promptTooLongRetryCount += 1;
+          final dropCount = math.min(
+            retryMessagesToCompress.length - 1,
+            math.max(1, (retryMessagesToCompress.length * 0.2).ceil()),
+          );
+          retryDiscardedMessages = <AiSessionMessage>[
+            ...retryDiscardedMessages,
+            ...retryMessagesToCompress.take(dropCount),
+          ];
+          retryMessagesToCompress = retryMessagesToCompress
+              .skip(dropCount)
+              .toList(growable: false);
+          _debugSessionLog(
+            session.id,
+            'compression_prompt_too_long_retry attempt=$promptTooLongRetryCount dropped=$dropCount remaining=${retryMessagesToCompress.length}',
+          );
+        }
+      }
       final sourceMessages = <AiSessionMessage>[
         if (previousCompressionPoint != null) ...[previousCompressionPoint],
-        ...messagesToCompress,
+        ...retryMessagesToCompress,
       ];
       final sourceCharacterCount = sourceMessages.fold<int>(
         0,
@@ -4991,7 +5034,10 @@ class AiSessionController extends ChangeNotifier {
       );
       final checkpoint = AiSessionMessage.compressionPoint(
         id: _idGenerator(),
-        content: completion.reply,
+        content: _buildCompressionCheckpointContent(
+          summary: completion.reply,
+          discardedMessages: retryDiscardedMessages,
+        ),
         createdAt: _clock().toUtc(),
         modelId: model.id,
         modelLabel: model.displayName,
@@ -5000,16 +5046,17 @@ class AiSessionController extends ChangeNotifier {
           'source_message_ids': sourceMessages
               .map((message) => message.id)
               .toList(growable: false),
-          'compressed_message_ids': messagesToCompress
+          'compressed_message_ids': retryMessagesToCompress
               .map((message) => message.id)
               .toList(growable: false),
           'previous_checkpoint_message_id': previousCompressionPoint?.id,
           'trigger_threshold_chars': threshold,
-          'discarded_message_ids_due_to_context_limit': discardedMessages
+          'discarded_message_ids_due_to_context_limit': retryDiscardedMessages
               .map((message) => message.id)
               .toList(growable: false),
           'discarded_message_count_due_to_context_limit':
-              discardedMessages.length,
+              retryDiscardedMessages.length,
+          'prompt_too_long_retry_count': promptTooLongRetryCount,
           'source_character_count': sourceCharacterCount,
           'retained_message_ids_after_checkpoint': retainedMessages
               .map((message) => message.id)
@@ -5019,7 +5066,7 @@ class AiSessionController extends ChangeNotifier {
           'summary_model_max_context_tokens': model.maxContextTokens,
         },
       );
-      final anchorMessageId = messagesToCompress.last.id;
+      final anchorMessageId = retryMessagesToCompress.last.id;
       final insertionIndex = session.messages.indexWhere(
         (message) => message.id == anchorMessageId,
       );
@@ -5066,9 +5113,10 @@ class AiSessionController extends ChangeNotifier {
           trigger: 'auto',
           payload: <String, Object?>{
             'checkpoint_message_id': checkpoint.id,
-            'messages_to_compress_count': messagesToCompress.length,
+            'messages_to_compress_count': retryMessagesToCompress.length,
             'discarded_message_count_due_to_context_limit':
-                discardedMessages.length,
+                retryDiscardedMessages.length,
+            'prompt_too_long_retry_count': promptTooLongRetryCount,
           },
         );
       }
@@ -5088,6 +5136,42 @@ class AiSessionController extends ChangeNotifier {
       await _commitSessionLocked(erroredSession);
       return erroredSession;
     }
+  }
+
+  bool _looksLikeCompressionPromptTooLong(Object error) {
+    final text = '$error'.toLowerCase();
+    return text.contains('prompt too long') ||
+        text.contains('context length') ||
+        text.contains('context window') ||
+        text.contains('maximum context') ||
+        (text.contains('token') && text.contains('exceed'));
+  }
+
+  String _buildCompressionCheckpointContent({
+    required String summary,
+    required List<AiSessionMessage> discardedMessages,
+  }) {
+    final trimmedSummary = summary.trim();
+    if (discardedMessages.isEmpty) {
+      return trimmedSummary;
+    }
+    final countsByKind = <String, int>{};
+    for (final message in discardedMessages) {
+      countsByKind.update(
+        message.kind.storageValue,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final kindSummary = countsByKind.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    final firstAt = discardedMessages.first.createdAt.toIso8601String();
+    final lastAt = discardedMessages.last.createdAt.toIso8601String();
+    return '''## Context Gap
+- ${discardedMessages.length} older messages were not included in the summary because the compression prompt exceeded the model context. Range: $firstAt to $lastAt. Kinds: $kindSummary.
+
+$trimmedSummary''';
   }
 
   Future<_PreparedUserTurn> _prepareUserTurn({
@@ -5237,10 +5321,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final autoTitleSystemPrompt = await _resolveAutoTitleSystemPrompt();
     final promptMessages = <AiChatTurn>[
-      AiChatTurn(
-        role: AiChatRole.system,
-        content: autoTitleSystemPrompt,
-      ),
+      AiChatTurn(role: AiChatRole.system, content: autoTitleSystemPrompt),
       AiChatTurn(
         role: AiChatRole.user,
         content: '<description>\n$sourceContent\n</description>',
@@ -5915,7 +5996,12 @@ class AiSessionController extends ChangeNotifier {
         payload: payload,
       );
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'run claude-style hook $eventName', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'run claude-style hook $eventName',
+        error,
+        stack,
+      );
       return;
     }
   }
@@ -5952,7 +6038,12 @@ class AiSessionController extends ChangeNotifier {
         payload: enrichedPayload,
       );
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'execute user hook ${event.name}', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'execute user hook ${event.name}',
+        error,
+        stack,
+      );
       return;
     }
     if (result.hookResults.isEmpty) return;
@@ -6935,21 +7026,36 @@ class AiSessionController extends ChangeNotifier {
     try {
       env = Map<String, String>.from(Platform.environment);
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'read Platform.environment', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'read Platform.environment',
+        error,
+        stack,
+      );
       env = <String, String>{};
     }
     String? operatingSystemVersion;
     try {
       operatingSystemVersion = Platform.operatingSystemVersion;
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'read Platform.operatingSystemVersion', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'read Platform.operatingSystemVersion',
+        error,
+        stack,
+      );
       operatingSystemVersion = null;
     }
     int? numberOfProcessors;
     try {
       numberOfProcessors = Platform.numberOfProcessors;
     } catch (error, stack) {
-      silentLog('ai_session_controller', 'read Platform.numberOfProcessors', error, stack);
+      silentLog(
+        'ai_session_controller',
+        'read Platform.numberOfProcessors',
+        error,
+        stack,
+      );
       numberOfProcessors = null;
     }
     return <String, Object?>{

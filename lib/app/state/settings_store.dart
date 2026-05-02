@@ -181,25 +181,34 @@ class SettingsStore {
       'ai_max_recent_errors': snapshot.aiMaxRecentErrors,
       'ai_max_plan_history_entries': snapshot.aiMaxPlanHistoryEntries,
       'ai_max_truncation_continuations': snapshot.aiMaxTruncationContinuations,
-      'ai_estimated_characters_per_token': snapshot.aiEstimatedCharactersPerToken,
+      'ai_estimated_characters_per_token':
+          snapshot.aiEstimatedCharactersPerToken,
       'ai_max_tool_output_chars': snapshot.aiMaxToolOutputChars,
       'ai_write_confirmation_timeout_ms': snapshot.aiWriteConfirmationTimeoutMs,
-      'ai_fast_path_write_analysis_threshold': snapshot.aiFastPathWriteAnalysisThreshold,
+      'ai_fast_path_write_analysis_threshold':
+          snapshot.aiFastPathWriteAnalysisThreshold,
       'ai_max_hook_text_characters': snapshot.aiMaxHookTextCharacters,
       'ai_web_fetch_max_response_bytes': snapshot.aiWebFetchMaxResponseBytes,
       'ai_web_fetch_max_redirects': snapshot.aiWebFetchMaxRedirects,
       'ai_web_fetch_max_cache_entries': snapshot.aiWebFetchMaxCacheEntries,
-      'ai_attachment_max_inline_image_dimension': snapshot.aiAttachmentMaxInlineImageDimension,
+      'ai_attachment_max_inline_image_dimension':
+          snapshot.aiAttachmentMaxInlineImageDimension,
       'ai_attachment_max_text_raw_bytes': snapshot.aiAttachmentMaxTextRawBytes,
       'ai_attachment_max_pdf_raw_bytes': snapshot.aiAttachmentMaxPdfRawBytes,
-      'ai_attachment_max_image_raw_bytes': snapshot.aiAttachmentMaxImageRawBytes,
-      'ai_chat_max_stream_line_buffer_bytes': snapshot.aiChatMaxStreamLineBufferBytes,
+      'ai_attachment_max_image_raw_bytes':
+          snapshot.aiAttachmentMaxImageRawBytes,
+      'ai_chat_max_stream_line_buffer_bytes':
+          snapshot.aiChatMaxStreamLineBufferBytes,
       'ai_fallback_title_max_characters': snapshot.aiFallbackTitleMaxCharacters,
-      'ai_generated_title_max_characters': snapshot.aiGeneratedTitleMaxCharacters,
-      'ai_minimum_meaningful_title_characters': snapshot.aiMinimumMeaningfulTitleCharacters,
-      'ai_minimum_meaningful_latin_title_words': snapshot.aiMinimumMeaningfulLatinTitleWords,
+      'ai_generated_title_max_characters':
+          snapshot.aiGeneratedTitleMaxCharacters,
+      'ai_minimum_meaningful_title_characters':
+          snapshot.aiMinimumMeaningfulTitleCharacters,
+      'ai_minimum_meaningful_latin_title_words':
+          snapshot.aiMinimumMeaningfulLatinTitleWords,
       'ai_max_skill_content_length': snapshot.aiMaxSkillContentLength,
-      'ai_max_workspace_document_characters': snapshot.aiMaxWorkspaceDocumentCharacters,
+      'ai_max_workspace_document_characters':
+          snapshot.aiMaxWorkspaceDocumentCharacters,
       'ai_sequential_tool_round_limit': snapshot.aiSequentialToolRoundLimit,
       'ai_image_size_limit_bytes': snapshot.aiImageSizeLimitBytes,
       'ai_write_command_confirmation_enabled':
@@ -232,8 +241,8 @@ class SettingsStore {
       'page_animation_settings': snapshot.pageAnimationSettings.toJson(),
       'panel_animation_settings': snapshot.panelAnimationSettings.toJson(),
       'chip_animation_settings': snapshot.chipAnimationSettings.toJson(),
-      'list_item_animation_settings':
-          snapshot.listItemAnimationSettings.toJson(),
+      'list_item_animation_settings': snapshot.listItemAnimationSettings
+          .toJson(),
       'builtin_tool_configs': snapshot.builtinToolConfigs
           .map((item) => item.toJson())
           .toList(growable: false),
@@ -336,14 +345,16 @@ class SettingsStore {
       };
     }
     final aiMessageCompressionThresholdChars =
-        json['ai_message_compression_threshold_chars'] is int &&
-            (json['ai_message_compression_threshold_chars'] as int) > 0
-        ? json['ai_message_compression_threshold_chars'] as int
+        json['ai_message_compression_threshold_chars'] is int
+        ? AppSettingsSnapshot.normalizeAiMessageCompressionThresholdChars(
+            json['ai_message_compression_threshold_chars'] as int,
+          )
         : AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars;
     final aiToolResultCompressionThresholdChars =
-        json['ai_tool_result_compression_threshold_chars'] is int &&
-            (json['ai_tool_result_compression_threshold_chars'] as int) > 0
-        ? json['ai_tool_result_compression_threshold_chars'] as int
+        json['ai_tool_result_compression_threshold_chars'] is int
+        ? AppSettingsSnapshot.normalizeAiToolResultCompressionThresholdChars(
+            json['ai_tool_result_compression_threshold_chars'] as int,
+          )
         : AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars;
     final aiToolResultCompressionEnabled =
         json['ai_tool_result_compression_enabled'] is bool
@@ -351,7 +362,8 @@ class SettingsStore {
         : true;
     final aiToolResultCompressionHeadTailWindowChars =
         json['ai_tool_result_compression_head_tail_window_chars'] is int &&
-            (json['ai_tool_result_compression_head_tail_window_chars'] as int) >=
+            (json['ai_tool_result_compression_head_tail_window_chars']
+                    as int) >=
                 AppSettingsSnapshot
                     .minAiToolResultCompressionHeadTailWindowChars
         ? (json['ai_tool_result_compression_head_tail_window_chars'] as int)
@@ -371,35 +383,34 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
           )
         : AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits;
-    final aiInputCacheEnabled =
-        json['ai_input_cache_enabled'] is bool
-            ? json['ai_input_cache_enabled'] as bool
-            : AppSettingsSnapshot.defaultAiInputCacheEnabled;
+    final aiInputCacheEnabled = json['ai_input_cache_enabled'] is bool
+        ? json['ai_input_cache_enabled'] as bool
+        : AppSettingsSnapshot.defaultAiInputCacheEnabled;
     final aiInputCacheUpdateMode =
         json['ai_input_cache_update_mode'] is String &&
-                AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(
-                  json['ai_input_cache_update_mode'] as String,
-                )
-            ? json['ai_input_cache_update_mode'] as String
-            : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
+            AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(
+              json['ai_input_cache_update_mode'] as String,
+            )
+        ? json['ai_input_cache_update_mode'] as String
+        : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
     final aiInputCacheUpdateInterval =
         json['ai_input_cache_update_interval'] is int &&
-                (json['ai_input_cache_update_interval'] as int) >=
-                    AppSettingsSnapshot.minAiInputCacheUpdateInterval
-            ? (json['ai_input_cache_update_interval'] as int).clamp(
-                AppSettingsSnapshot.minAiInputCacheUpdateInterval,
-                AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
-              )
-            : AppSettingsSnapshot.defaultAiInputCacheUpdateInterval;
+            (json['ai_input_cache_update_interval'] as int) >=
+                AppSettingsSnapshot.minAiInputCacheUpdateInterval
+        ? (json['ai_input_cache_update_interval'] as int).clamp(
+            AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+            AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+          )
+        : AppSettingsSnapshot.defaultAiInputCacheUpdateInterval;
     final aiInputCacheBreakpointCount =
         json['ai_input_cache_breakpoint_count'] is int &&
-                (json['ai_input_cache_breakpoint_count'] as int) >=
-                    AppSettingsSnapshot.minAiInputCacheBreakpointCount
-            ? (json['ai_input_cache_breakpoint_count'] as int).clamp(
-                AppSettingsSnapshot.minAiInputCacheBreakpointCount,
-                AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
-              )
-            : AppSettingsSnapshot.defaultAiInputCacheBreakpointCount;
+            (json['ai_input_cache_breakpoint_count'] as int) >=
+                AppSettingsSnapshot.minAiInputCacheBreakpointCount
+        ? (json['ai_input_cache_breakpoint_count'] as int).clamp(
+            AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+            AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+          )
+        : AppSettingsSnapshot.defaultAiInputCacheBreakpointCount;
     // 2026-05-04 — 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
     // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
     final List<double> aiInputCacheBreakpointPositions = () {
@@ -505,7 +516,8 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiMaxHookTextCharacters,
           )
         : AppSettingsSnapshot.defaultAiMaxHookTextCharacters;
-    final aiWebFetchMaxResponseBytes = json['ai_web_fetch_max_response_bytes'] is int
+    final aiWebFetchMaxResponseBytes =
+        json['ai_web_fetch_max_response_bytes'] is int
         ? (json['ai_web_fetch_max_response_bytes'] as int).clamp(
             AppSettingsSnapshot.minAiWebFetchMaxResponseBytes,
             AppSettingsSnapshot.maxAiWebFetchMaxResponseBytes,
@@ -517,61 +529,71 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiWebFetchMaxRedirects,
           )
         : AppSettingsSnapshot.defaultAiWebFetchMaxRedirects;
-    final aiWebFetchMaxCacheEntries = json['ai_web_fetch_max_cache_entries'] is int
+    final aiWebFetchMaxCacheEntries =
+        json['ai_web_fetch_max_cache_entries'] is int
         ? (json['ai_web_fetch_max_cache_entries'] as int).clamp(
             AppSettingsSnapshot.minAiWebFetchMaxCacheEntries,
             AppSettingsSnapshot.maxAiWebFetchMaxCacheEntries,
           )
         : AppSettingsSnapshot.defaultAiWebFetchMaxCacheEntries;
-    final aiAttachmentMaxInlineImageDimension = json['ai_attachment_max_inline_image_dimension'] is int
+    final aiAttachmentMaxInlineImageDimension =
+        json['ai_attachment_max_inline_image_dimension'] is int
         ? (json['ai_attachment_max_inline_image_dimension'] as int).clamp(
             AppSettingsSnapshot.minAiAttachmentMaxInlineImageDimension,
             AppSettingsSnapshot.maxAiAttachmentMaxInlineImageDimension,
           )
         : AppSettingsSnapshot.defaultAiAttachmentMaxInlineImageDimension;
-    final aiAttachmentMaxTextRawBytes = json['ai_attachment_max_text_raw_bytes'] is int
+    final aiAttachmentMaxTextRawBytes =
+        json['ai_attachment_max_text_raw_bytes'] is int
         ? (json['ai_attachment_max_text_raw_bytes'] as int).clamp(
             AppSettingsSnapshot.minAiAttachmentMaxTextRawBytes,
             AppSettingsSnapshot.maxAiAttachmentMaxTextRawBytes,
           )
         : AppSettingsSnapshot.defaultAiAttachmentMaxTextRawBytes;
-    final aiAttachmentMaxPdfRawBytes = json['ai_attachment_max_pdf_raw_bytes'] is int
+    final aiAttachmentMaxPdfRawBytes =
+        json['ai_attachment_max_pdf_raw_bytes'] is int
         ? (json['ai_attachment_max_pdf_raw_bytes'] as int).clamp(
             AppSettingsSnapshot.minAiAttachmentMaxPdfRawBytes,
             AppSettingsSnapshot.maxAiAttachmentMaxPdfRawBytes,
           )
         : AppSettingsSnapshot.defaultAiAttachmentMaxPdfRawBytes;
-    final aiAttachmentMaxImageRawBytes = json['ai_attachment_max_image_raw_bytes'] is int
+    final aiAttachmentMaxImageRawBytes =
+        json['ai_attachment_max_image_raw_bytes'] is int
         ? (json['ai_attachment_max_image_raw_bytes'] as int).clamp(
             AppSettingsSnapshot.minAiAttachmentMaxImageRawBytes,
             AppSettingsSnapshot.maxAiAttachmentMaxImageRawBytes,
           )
         : AppSettingsSnapshot.defaultAiAttachmentMaxImageRawBytes;
-    final aiChatMaxStreamLineBufferBytes = json['ai_chat_max_stream_line_buffer_bytes'] is int
+    final aiChatMaxStreamLineBufferBytes =
+        json['ai_chat_max_stream_line_buffer_bytes'] is int
         ? (json['ai_chat_max_stream_line_buffer_bytes'] as int).clamp(
             AppSettingsSnapshot.minAiChatMaxStreamLineBufferBytes,
             AppSettingsSnapshot.maxAiChatMaxStreamLineBufferBytes,
           )
         : AppSettingsSnapshot.defaultAiChatMaxStreamLineBufferBytes;
-    final aiFallbackTitleMaxCharacters = json['ai_fallback_title_max_characters'] is int
+    final aiFallbackTitleMaxCharacters =
+        json['ai_fallback_title_max_characters'] is int
         ? (json['ai_fallback_title_max_characters'] as int).clamp(
             AppSettingsSnapshot.minAiFallbackTitleMaxCharacters,
             AppSettingsSnapshot.maxAiFallbackTitleMaxCharacters,
           )
         : AppSettingsSnapshot.defaultAiFallbackTitleMaxCharacters;
-    final aiGeneratedTitleMaxCharacters = json['ai_generated_title_max_characters'] is int
+    final aiGeneratedTitleMaxCharacters =
+        json['ai_generated_title_max_characters'] is int
         ? (json['ai_generated_title_max_characters'] as int).clamp(
             AppSettingsSnapshot.minAiGeneratedTitleMaxCharacters,
             AppSettingsSnapshot.maxAiGeneratedTitleMaxCharacters,
           )
         : AppSettingsSnapshot.defaultAiGeneratedTitleMaxCharacters;
-    final aiMinimumMeaningfulTitleCharacters = json['ai_minimum_meaningful_title_characters'] is int
+    final aiMinimumMeaningfulTitleCharacters =
+        json['ai_minimum_meaningful_title_characters'] is int
         ? (json['ai_minimum_meaningful_title_characters'] as int).clamp(
             AppSettingsSnapshot.minAiMinimumMeaningfulTitleCharacters,
             AppSettingsSnapshot.maxAiMinimumMeaningfulTitleCharacters,
           )
         : AppSettingsSnapshot.defaultAiMinimumMeaningfulTitleCharacters;
-    final aiMinimumMeaningfulLatinTitleWords = json['ai_minimum_meaningful_latin_title_words'] is int
+    final aiMinimumMeaningfulLatinTitleWords =
+        json['ai_minimum_meaningful_latin_title_words'] is int
         ? (json['ai_minimum_meaningful_latin_title_words'] as int).clamp(
             AppSettingsSnapshot.minAiMinimumMeaningfulLatinTitleWords,
             AppSettingsSnapshot.maxAiMinimumMeaningfulLatinTitleWords,
@@ -583,7 +605,8 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiMaxSkillContentLength,
           )
         : AppSettingsSnapshot.defaultAiMaxSkillContentLength;
-    final aiMaxWorkspaceDocumentCharacters = json['ai_max_workspace_document_characters'] is int
+    final aiMaxWorkspaceDocumentCharacters =
+        json['ai_max_workspace_document_characters'] is int
         ? (json['ai_max_workspace_document_characters'] as int).clamp(
             AppSettingsSnapshot.minAiMaxWorkspaceDocumentCharacters,
             AppSettingsSnapshot.maxAiMaxWorkspaceDocumentCharacters,
@@ -935,14 +958,15 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultSelfLearningConcurrency;
 
-    final rawSelfLearningFlushMs = json['self_learning_stream_flush_interval_ms'];
+    final rawSelfLearningFlushMs =
+        json['self_learning_stream_flush_interval_ms'];
     final selfLearningStreamFlushIntervalMs =
         (rawSelfLearningFlushMs is int && rawSelfLearningFlushMs > 0)
-            ? rawSelfLearningFlushMs.clamp(
-                AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
-                AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
-              )
-            : AppSettingsSnapshot.defaultSelfLearningStreamFlushIntervalMs;
+        ? rawSelfLearningFlushMs.clamp(
+            AppSettingsSnapshot.minSelfLearningStreamFlushIntervalMs,
+            AppSettingsSnapshot.maxSelfLearningStreamFlushIntervalMs,
+          )
+        : AppSettingsSnapshot.defaultSelfLearningStreamFlushIntervalMs;
 
     final showSelfLearningMessages = json['show_self_learning_messages'] is bool
         ? json['show_self_learning_messages'] as bool

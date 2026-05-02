@@ -713,6 +713,15 @@ class HardnessApiPhaseRunner {
       );
       return null;
     }
+    final validationError = _validateHandoffDocument(handoffDocContent);
+    if (validationError != null) {
+      emit('⚠ 交接文档结构不完整：$validationError — 退化为截断模式继续执行');
+      _trimConversationFallback(
+        conversation,
+        contextWindowTokens: contextWindowTokens,
+      );
+      return null;
+    }
 
     // ── Step 2: Persist the handoff document ─────────────────────────────
     _handoffSessionCounter++;
@@ -896,6 +905,27 @@ $phasePrompt
     }
   }
 
+  String? _validateHandoffDocument(String content) {
+    final normalized = content.trim();
+    if (normalized.length < 120) {
+      return '内容过短';
+    }
+    const requiredHeadings = <String>[
+      '# Hardness Engineering 交接文档',
+      '## 原始任务',
+      '## 当前进展',
+      '## 未完成事项',
+      '## 已知问题与风险',
+    ];
+    final missing = requiredHeadings
+        .where((heading) => !normalized.contains(heading))
+        .toList(growable: false);
+    if (missing.isNotEmpty) {
+      return '缺少 ${missing.join('、')}';
+    }
+    return null;
+  }
+
   Map<String, dynamic> _tryDecodeJsonMap(String raw) {
     try {
       final trimmed = raw.trim();
@@ -906,7 +936,12 @@ $phasePrompt
       if (decoded is Map<String, dynamic>) return decoded;
       if (decoded is Map) return Map<String, dynamic>.from(decoded);
     } catch (error, stack) {
-      silentLog('hardness_api_phase_runner', 'decode JSON payload', error, stack);
+      silentLog(
+        'hardness_api_phase_runner',
+        'decode JSON payload',
+        error,
+        stack,
+      );
     }
     return const <String, dynamic>{};
   }

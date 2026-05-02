@@ -62,7 +62,8 @@ class SettingsController extends ChangeNotifier {
        _aiInputCacheUpdateMode = snapshot.aiInputCacheUpdateMode,
        _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval,
        _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount,
-       _aiInputCacheBreakpointPositions = snapshot.aiInputCacheBreakpointPositions,
+       _aiInputCacheBreakpointPositions =
+           snapshot.aiInputCacheBreakpointPositions,
        _aiBudgetUsdPerSession = snapshot.aiBudgetUsdPerSession,
        _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
@@ -87,10 +88,13 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiChatMaxStreamLineBufferBytes,
        _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters,
        _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters,
-       _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters,
-       _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords,
+       _aiMinimumMeaningfulTitleCharacters =
+           snapshot.aiMinimumMeaningfulTitleCharacters,
+       _aiMinimumMeaningfulLatinTitleWords =
+           snapshot.aiMinimumMeaningfulLatinTitleWords,
        _aiMaxSkillContentLength = snapshot.aiMaxSkillContentLength,
-       _aiMaxWorkspaceDocumentCharacters = snapshot.aiMaxWorkspaceDocumentCharacters,
+       _aiMaxWorkspaceDocumentCharacters =
+           snapshot.aiMaxWorkspaceDocumentCharacters,
        _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit,
        _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes,
        _aiWriteCommandConfirmationEnabled =
@@ -330,8 +334,10 @@ class SettingsController extends ChangeNotifier {
   int get aiChatMaxStreamLineBufferBytes => _aiChatMaxStreamLineBufferBytes;
   int get aiFallbackTitleMaxCharacters => _aiFallbackTitleMaxCharacters;
   int get aiGeneratedTitleMaxCharacters => _aiGeneratedTitleMaxCharacters;
-  int get aiMinimumMeaningfulTitleCharacters => _aiMinimumMeaningfulTitleCharacters;
-  int get aiMinimumMeaningfulLatinTitleWords => _aiMinimumMeaningfulLatinTitleWords;
+  int get aiMinimumMeaningfulTitleCharacters =>
+      _aiMinimumMeaningfulTitleCharacters;
+  int get aiMinimumMeaningfulLatinTitleWords =>
+      _aiMinimumMeaningfulLatinTitleWords;
   int get aiMaxSkillContentLength => _aiMaxSkillContentLength;
   int get aiMaxWorkspaceDocumentCharacters => _aiMaxWorkspaceDocumentCharacters;
   int get aiSequentialToolRoundLimit => _aiSequentialToolRoundLimit;
@@ -398,7 +404,8 @@ class SettingsController extends ChangeNotifier {
   int get selfLearningConcurrency => _selfLearningConcurrency;
 
   /// 自学习卡片流式输出后台刷新（持久化）间隔，毫秒。
-  int get selfLearningStreamFlushIntervalMs => _selfLearningStreamFlushIntervalMs;
+  int get selfLearningStreamFlushIntervalMs =>
+      _selfLearningStreamFlushIntervalMs;
 
   /// Whether self-learning cards are rendered in the chat transcript.
   /// Independent of [selfLearningEnabled] which only controls the
@@ -598,9 +605,8 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiMessageCompressionThresholdChars(int value) async {
-    final normalizedValue = value <= 0
-        ? AppSettingsSnapshot.defaultAiMessageCompressionThresholdChars
-        : value;
+    final normalizedValue =
+        AppSettingsSnapshot.normalizeAiMessageCompressionThresholdChars(value);
     return _commitMutation(() {
       if (_aiMessageCompressionThresholdChars == normalizedValue) {
         return _MutationDisposition.successNoChange;
@@ -611,12 +617,10 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> updateAiToolResultCompressionThresholdChars(int value) async {
-    final clamped = value <= 0
-        ? AppSettingsSnapshot.defaultAiToolResultCompressionThresholdChars
-        : value.clamp(
-            AppSettingsSnapshot.minAiToolResultCompressionThresholdChars,
-            AppSettingsSnapshot.maxAiToolResultCompressionThresholdChars,
-          );
+    final clamped =
+        AppSettingsSnapshot.normalizeAiToolResultCompressionThresholdChars(
+          value,
+        );
     return _commitMutation(() {
       if (_aiToolResultCompressionThresholdChars == clamped) {
         return _MutationDisposition.successNoChange;
@@ -642,10 +646,8 @@ class SettingsController extends ChangeNotifier {
     final clamped = value < 0
         ? AppSettingsSnapshot.defaultAiToolResultCompressionHeadTailWindowChars
         : value.clamp(
-            AppSettingsSnapshot
-                .minAiToolResultCompressionHeadTailWindowChars,
-            AppSettingsSnapshot
-                .maxAiToolResultCompressionHeadTailWindowChars,
+            AppSettingsSnapshot.minAiToolResultCompressionHeadTailWindowChars,
+            AppSettingsSnapshot.maxAiToolResultCompressionHeadTailWindowChars,
           );
     return _commitMutation(() {
       if (_aiToolResultCompressionHeadTailWindowChars == clamped) {
@@ -685,8 +687,8 @@ class SettingsController extends ChangeNotifier {
   Future<bool> updateAiInputCacheUpdateMode(String value) async {
     final normalized =
         AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(value)
-            ? value
-            : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
+        ? value
+        : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
     return _commitMutation(() {
       if (_aiInputCacheUpdateMode == normalized) {
         return _MutationDisposition.successNoChange;
@@ -1809,8 +1811,9 @@ class SettingsController extends ChangeNotifier {
     return _commitMutation(() {
       final normalizedHost = host?.trim();
       final normalizedPort = port?.clamp(1, 65535);
-      final normalizedProtocols =
-          (protocols == null || protocols.isEmpty) ? null : protocols;
+      final normalizedProtocols = (protocols == null || protocols.isEmpty)
+          ? null
+          : protocols;
       final normalizedExceptions = exceptions
           ?.map((e) => e.trim())
           .where((e) => e.isNotEmpty)
@@ -1818,8 +1821,9 @@ class SettingsController extends ChangeNotifier {
       String? normalizedTestEndpoint;
       if (testEndpoint != null) {
         final trimmed = testEndpoint.trim();
-        normalizedTestEndpoint =
-            trimmed.isEmpty ? AppProxySettings.defaultTestEndpoint : trimmed;
+        normalizedTestEndpoint = trimmed.isEmpty
+            ? AppProxySettings.defaultTestEndpoint
+            : trimmed;
       }
       final next = _proxySettings.copyWith(
         mode: mode,
@@ -1955,8 +1959,7 @@ class SettingsController extends ChangeNotifier {
       aiWebFetchMaxResponseBytes: _aiWebFetchMaxResponseBytes,
       aiWebFetchMaxRedirects: _aiWebFetchMaxRedirects,
       aiWebFetchMaxCacheEntries: _aiWebFetchMaxCacheEntries,
-      aiAttachmentMaxInlineImageDimension:
-          _aiAttachmentMaxInlineImageDimension,
+      aiAttachmentMaxInlineImageDimension: _aiAttachmentMaxInlineImageDimension,
       aiAttachmentMaxTextRawBytes: _aiAttachmentMaxTextRawBytes,
       aiAttachmentMaxPdfRawBytes: _aiAttachmentMaxPdfRawBytes,
       aiAttachmentMaxImageRawBytes: _aiAttachmentMaxImageRawBytes,
@@ -2045,22 +2048,27 @@ class SettingsController extends ChangeNotifier {
     _aiEstimatedCharactersPerToken = snapshot.aiEstimatedCharactersPerToken;
     _aiMaxToolOutputChars = snapshot.aiMaxToolOutputChars;
     _aiWriteConfirmationTimeoutMs = snapshot.aiWriteConfirmationTimeoutMs;
-    _aiFastPathWriteAnalysisThreshold = snapshot.aiFastPathWriteAnalysisThreshold;
+    _aiFastPathWriteAnalysisThreshold =
+        snapshot.aiFastPathWriteAnalysisThreshold;
     _aiMaxHookTextCharacters = snapshot.aiMaxHookTextCharacters;
     _aiWebFetchMaxResponseBytes = snapshot.aiWebFetchMaxResponseBytes;
     _aiWebFetchMaxRedirects = snapshot.aiWebFetchMaxRedirects;
     _aiWebFetchMaxCacheEntries = snapshot.aiWebFetchMaxCacheEntries;
-    _aiAttachmentMaxInlineImageDimension = snapshot.aiAttachmentMaxInlineImageDimension;
+    _aiAttachmentMaxInlineImageDimension =
+        snapshot.aiAttachmentMaxInlineImageDimension;
     _aiAttachmentMaxTextRawBytes = snapshot.aiAttachmentMaxTextRawBytes;
     _aiAttachmentMaxPdfRawBytes = snapshot.aiAttachmentMaxPdfRawBytes;
     _aiAttachmentMaxImageRawBytes = snapshot.aiAttachmentMaxImageRawBytes;
     _aiChatMaxStreamLineBufferBytes = snapshot.aiChatMaxStreamLineBufferBytes;
     _aiFallbackTitleMaxCharacters = snapshot.aiFallbackTitleMaxCharacters;
     _aiGeneratedTitleMaxCharacters = snapshot.aiGeneratedTitleMaxCharacters;
-    _aiMinimumMeaningfulTitleCharacters = snapshot.aiMinimumMeaningfulTitleCharacters;
-    _aiMinimumMeaningfulLatinTitleWords = snapshot.aiMinimumMeaningfulLatinTitleWords;
+    _aiMinimumMeaningfulTitleCharacters =
+        snapshot.aiMinimumMeaningfulTitleCharacters;
+    _aiMinimumMeaningfulLatinTitleWords =
+        snapshot.aiMinimumMeaningfulLatinTitleWords;
     _aiMaxSkillContentLength = snapshot.aiMaxSkillContentLength;
-    _aiMaxWorkspaceDocumentCharacters = snapshot.aiMaxWorkspaceDocumentCharacters;
+    _aiMaxWorkspaceDocumentCharacters =
+        snapshot.aiMaxWorkspaceDocumentCharacters;
     _aiSequentialToolRoundLimit = snapshot.aiSequentialToolRoundLimit;
     _aiImageSizeLimitBytes = snapshot.aiImageSizeLimitBytes;
     _aiWriteCommandConfirmationEnabled =

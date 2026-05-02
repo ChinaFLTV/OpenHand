@@ -148,9 +148,12 @@ class AiPromptTemplateRepository {
   /// `machine_expert`) are detected via marker presence and left untouched.
   /// Language is inferred from the instructions' CJK-character ratio.
   Future<String> _appendV4DisciplineIfAbsent(String instructions) async {
-    final lower = instructions.toLowerCase();
-    if (lower.contains('# atomic change discipline') ||
-        lower.contains('## atomic change discipline') ||
+    final hasDisciplineMarker = RegExp(
+      r'^#{1,6}\s+atomic\s+change\s+discipline\b',
+      caseSensitive: false,
+      multiLine: true,
+    ).hasMatch(instructions);
+    if (hasDisciplineMarker ||
         instructions.contains('原子化变更纪律') ||
         instructions.contains('不确定性诚实')) {
       return instructions;
@@ -254,7 +257,6 @@ String _appendMemoryTonePolicyIfAbsent(String instructions) {
   }
   return '${instructions.trimRight()}\n$_memoryTonePolicySection';
 }
-
 
 // ── Emergency fallback prompts ────────────────────────────────────────────────
 //

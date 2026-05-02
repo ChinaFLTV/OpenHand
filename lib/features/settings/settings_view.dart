@@ -110,7 +110,8 @@ Future<bool> showAiModelEditorDialog(
 }) async {
   final submitted = await showAnimatedDialog<bool>(
     context: context,
-    builder: (dialogContext) => _AiModelEditorDialog(initialModel: initialModel),
+    builder: (dialogContext) =>
+        _AiModelEditorDialog(initialModel: initialModel),
   );
   return submitted == true;
 }
@@ -317,8 +318,9 @@ class _SettingsViewState extends State<SettingsView> {
       _aiInputCacheBreakpointCountController.text =
           aiInputCacheBreakpointCountText;
     }
-    final aiBudgetUsdPerSessionText =
-        _formatBudgetUsd(settingsController.aiBudgetUsdPerSession);
+    final aiBudgetUsdPerSessionText = _formatBudgetUsd(
+      settingsController.aiBudgetUsdPerSession,
+    );
     if (!_aiBudgetUsdPerSessionFocusNode.hasFocus &&
         _aiBudgetUsdPerSessionController.text != aiBudgetUsdPerSessionText) {
       _aiBudgetUsdPerSessionController.text = aiBudgetUsdPerSessionText;
@@ -634,9 +636,7 @@ class _SettingsViewState extends State<SettingsView> {
           _PanelAnimationSettingsSection(
             settingsController: settingsController,
           ),
-          _ChipAnimationSettingsSection(
-            settingsController: settingsController,
-          ),
+          _ChipAnimationSettingsSection(settingsController: settingsController),
           _ListItemAnimationSettingsSection(
             settingsController: settingsController,
           ),
@@ -644,7 +644,9 @@ class _SettingsViewState extends State<SettingsView> {
       ),
       _SettingsSection.shortcuts => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsShortcuts,
-        description: AppLocalizations.of(context)!.settingsConfigureKeyCombinationsForCommonActions,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsConfigureKeyCombinationsForCommonActions,
         children: [_buildShortcutsSection(context, settingsController)],
       ),
       _SettingsSection.ai => _SettingsGroupCard(
@@ -654,7 +656,9 @@ class _SettingsViewState extends State<SettingsView> {
       ),
       _SettingsSection.builtinTools => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsBuiltInTools,
-        description: AppLocalizations.of(context)!.settingsManageTheBuiltInAiTools,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsManageTheBuiltInAiTools,
         children: [_buildBuiltinToolsSection(context, settingsController)],
       ),
       _SettingsSection.mcp => _SettingsGroupCard(
@@ -674,22 +678,30 @@ class _SettingsViewState extends State<SettingsView> {
       ),
       _SettingsSection.crons => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsCrons,
-        description: AppLocalizations.of(context)!.settingsControlsRetentionAndColdStartCleanup,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsControlsRetentionAndColdStartCleanup,
         children: [_buildCronsSection(context, settingsController)],
       ),
       _SettingsSection.hermesTalker => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsHermesTalker,
-        description: AppLocalizations.of(context)!.settingsConfigureHermesTalkerSelfLearningEvery,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsConfigureHermesTalkerSelfLearningEvery,
         children: [_buildHermesTalkerSection(context, settingsController)],
       ),
       _SettingsSection.editor => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsEditor,
-        description: AppLocalizations.of(context)!.settingsManagePerLanguageLspBackendsInstall,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsManagePerLanguageLspBackendsInstall,
         children: [_buildEditorSection(context, settingsController)],
       ),
       _SettingsSection.appData => _SettingsGroupCard(
         title: AppLocalizations.of(context)!.settingsAppData,
-        description: AppLocalizations.of(context)!.settingsManageTheLocalFilesAndDatabase,
+        description: AppLocalizations.of(
+          context,
+        )!.settingsManageTheLocalFilesAndDatabase,
         children: const [_DataCleanupSection()],
       ),
       _SettingsSection.system => _SettingsGroupCard(
@@ -807,7 +819,9 @@ class _SettingsViewState extends State<SettingsView> {
     final toolResultCompressionEnabledControl = Align(
       alignment: Alignment.centerLeft,
       child: Switch(
-        key: const ValueKey<String>('settingsToolResultCompressionEnabledSwitch'),
+        key: const ValueKey<String>(
+          'settingsToolResultCompressionEnabledSwitch',
+        ),
         value: settingsController.aiToolResultCompressionEnabled,
         onChanged: (value) async {
           await settingsController.updateAiToolResultCompressionEnabled(value);
@@ -903,10 +917,10 @@ class _SettingsViewState extends State<SettingsView> {
           ],
           decoration: InputDecoration(
             labelText: l10n.aiWriteToolSummaryMaxCharsLabel,
-            hintText: '${AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars}',
+            hintText:
+                '${AppSettingsSnapshot.defaultAiWriteToolSummaryMaxChars}',
           ),
-          onSubmitted: (value) =>
-              _saveWriteToolSummaryMaxChars(context, value),
+          onSubmitted: (value) => _saveWriteToolSummaryMaxChars(context, value),
         ),
         const SizedBox(height: 12),
         Align(
@@ -937,7 +951,9 @@ class _SettingsViewState extends State<SettingsView> {
             FilteringTextInputFormatter.digitsOnly,
           ],
           decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.settingsPerResponseToolCallLimit,
+            labelText: AppLocalizations.of(
+              context,
+            )!.settingsPerResponseToolCallLimit,
             hintText:
                 '${AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit}',
           ),
@@ -968,7 +984,9 @@ class _SettingsViewState extends State<SettingsView> {
             FilteringTextInputFormatter.digitsOnly,
           ],
           decoration: InputDecoration(
-            labelText: AppLocalizations.of(context)!.settingsSequentialToolRoundLimit,
+            labelText: AppLocalizations.of(
+              context,
+            )!.settingsSequentialToolRoundLimit,
             hintText:
                 '${AppSettingsSnapshot.defaultAiSequentialToolRoundLimit}',
           ),
@@ -1013,10 +1031,8 @@ class _SettingsViewState extends State<SettingsView> {
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
             key: const ValueKey<String>('settingsMaxRecentErrorsSaveButton'),
-            onPressed: () => _saveMaxRecentErrors(
-              context,
-              _maxRecentErrorsController.text,
-            ),
+            onPressed: () =>
+                _saveMaxRecentErrors(context, _maxRecentErrorsController.text),
             icon: const Icon(Icons.save_outlined),
             label: Text(l10n.aiMaxRecentErrorsSave),
           ),
@@ -1172,12 +1188,16 @@ class _SettingsViewState extends State<SettingsView> {
       children: [
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsSessionSettings,
-          description: AppLocalizations.of(context)!.settingsConfigureDefaultBehaviourForNewSessions,
+          description: AppLocalizations.of(
+            context,
+          )!.settingsConfigureDefaultBehaviourForNewSessions,
           child: Column(
             children: [
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsSendTimeoutS,
-                subtitle: AppLocalizations.of(context)!.settingsMaximumWaitTimeToEstablishThe,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsMaximumWaitTimeToEstablishThe,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1189,7 +1209,9 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.settingsSendTimeoutS,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.settingsSendTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiConnectTimeoutSeconds}',
                       ),
@@ -1217,7 +1239,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsResponseTimeoutS,
-                subtitle: AppLocalizations.of(context)!.settingsMaximumWaitForACompleteResponse,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsMaximumWaitForACompleteResponse,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1229,7 +1253,9 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.settingsResponseTimeoutS,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.settingsResponseTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiResponseTimeoutSeconds}',
                       ),
@@ -1257,7 +1283,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
-                subtitle: AppLocalizations.of(context)!.settingsMaximumIdleWaitBetweenStreamChunks,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsMaximumIdleWaitBetweenStreamChunks,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1269,7 +1297,9 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
+                        labelText: AppLocalizations.of(
+                          context,
+                        )!.settingsStreamIdleTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds}',
                       ),
@@ -1297,7 +1327,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsAutoTitle,
-                subtitle: AppLocalizations.of(context)!.settingsWhenEnabledATitleIsAutomatically,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsWhenEnabledATitleIsAutomatically,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1310,7 +1342,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsDefaultSessionMode,
-                subtitle: AppLocalizations.of(context)!.settingsDefaultInteractionModeForNewSessions,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefaultInteractionModeForNewSessions,
                 control: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
@@ -1347,7 +1381,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsDefaultFullAccess,
-                subtitle: AppLocalizations.of(context)!.settingsWhenEnabledNewSessionsStartIn,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsWhenEnabledNewSessionsStartIn,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1360,7 +1396,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsUserProfile,
-                subtitle: AppLocalizations.of(context)!.settingsMaintainAGlobalUserProfileLanguage,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsMaintainAGlobalUserProfileLanguage,
                 control: const Align(
                   alignment: Alignment.centerLeft,
                   child: _UserProfileSettingsButton(),
@@ -1368,19 +1406,21 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!
-                    .settingsThreadSessionManagementTitle,
-                subtitle: AppLocalizations.of(context)!
-                    .settingsThreadSessionManagementSubtitle,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsThreadSessionManagementTitle,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsThreadSessionManagementSubtitle,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: FilledButton.tonalIcon(
-                    onPressed: () =>
-                        showThreadSessionManagementDialog(context),
+                    onPressed: () => showThreadSessionManagementDialog(context),
                     icon: const Icon(Icons.dynamic_feed_outlined),
                     label: Text(
-                      AppLocalizations.of(context)!
-                          .settingsThreadSessionManagementOpen,
+                      AppLocalizations.of(
+                        context,
+                      )!.settingsThreadSessionManagementOpen,
                     ),
                   ),
                 ),
@@ -1391,7 +1431,9 @@ class _SettingsViewState extends State<SettingsView> {
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsModelProviderManagement,
-          description: AppLocalizations.of(context)!.settingsAddSelectTestAndMaintainModel,
+          description: AppLocalizations.of(
+            context,
+          )!.settingsAddSelectTestAndMaintainModel,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1425,9 +1467,7 @@ class _SettingsViewState extends State<SettingsView> {
                         const SizedBox(height: 14),
                     itemBuilder: (context, index) {
                       return AppearOnce(
-                        key: ValueKey<String>(
-                          'ai-model-${aiModels[index].id}',
-                        ),
+                        key: ValueKey<String>('ai-model-${aiModels[index].id}'),
                         child: _AiModelTile(
                           model: aiModels[index],
                           isSelected:
@@ -1445,14 +1485,10 @@ class _SettingsViewState extends State<SettingsView> {
                             context,
                             initialModel: aiModels[index],
                           ),
-                          onMoveUp: () => settingsController.moveAiModel(
-                            index,
-                            index - 1,
-                          ),
-                          onMoveDown: () => settingsController.moveAiModel(
-                            index,
-                            index + 1,
-                          ),
+                          onMoveUp: () =>
+                              settingsController.moveAiModel(index, index - 1),
+                          onMoveDown: () =>
+                              settingsController.moveAiModel(index, index + 1),
                           onDelete: () =>
                               _confirmDeleteAiModel(context, aiModels[index]),
                           onActiveModelChanged: (modelId) =>
@@ -1476,14 +1512,20 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsCompressionTrigger,
-                subtitle: AppLocalizations.of(context)!.settingsOnceTheUncompressedHistoryInA,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsOnceTheUncompressedHistoryInA,
                 control: compressionControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsToolCallOutputCompressionThreshold,
-                subtitle: AppLocalizations.of(context)!.settingsWhenAToolCallReturnsMore,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsToolCallOutputCompressionThreshold,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsWhenAToolCallReturnsMore,
                 control: toolResultCompressionControl,
                 controlMaxWidth: 360,
               ),
@@ -1517,15 +1559,23 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsPerResponseToolCallLimit,
-                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo40IfOneAssistant,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsPerResponseToolCallLimit,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefaultsTo40IfOneAssistant,
                 control: toolCallLimitControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsSequentialToolRoundLimit,
-                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo24RoundsIfThe,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsSequentialToolRoundLimit,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefaultsTo24RoundsIfThe,
                 control: sequentialToolRoundLimitControl,
                 controlMaxWidth: 360,
               ),
@@ -1560,7 +1610,9 @@ class _SettingsViewState extends State<SettingsView> {
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsImageSizeLimit,
-                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo1mbImageAttachmentsLarger,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefaultsTo1mbImageAttachmentsLarger,
                 control: imageSizeLimitControl,
                 controlMaxWidth: 360,
               ),
@@ -1570,13 +1622,17 @@ class _SettingsViewState extends State<SettingsView> {
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsCostControl,
-          description: AppLocalizations.of(context)!.settingsReduceTokenCostsByFreezingThe,
+          description: AppLocalizations.of(
+            context,
+          )!.settingsReduceTokenCostsByFreezingThe,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsEnableInputCache,
-                subtitle: AppLocalizations.of(context)!.settingsDisabledByDefaultWhenEnabledEvery,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDisabledByDefaultWhenEnabledEvery,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1585,8 +1641,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     value: settingsController.aiInputCacheEnabled,
                     onChanged: (value) async {
-                      await settingsController
-                          .updateAiInputCacheEnabled(value);
+                      await settingsController.updateAiInputCacheEnabled(value);
                     },
                   ),
                 ),
@@ -1594,8 +1649,12 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsCacheBreakpointUpdateMode,
-                subtitle: AppLocalizations.of(context)!.settingsChooseTheSlidingUnitForThe,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsCacheBreakpointUpdateMode,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsChooseTheSlidingUnitForThe,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: DropdownButton<String>(
@@ -1605,29 +1664,35 @@ class _SettingsViewState extends State<SettingsView> {
                     value: settingsController.aiInputCacheUpdateMode,
                     onChanged: (value) async {
                       if (value == null) return;
-                      await settingsController
-                          .updateAiInputCacheUpdateMode(value);
+                      await settingsController.updateAiInputCacheUpdateMode(
+                        value,
+                      );
                     },
                     items: <DropdownMenuItem<String>>[
                       DropdownMenuItem<String>(
                         value: AppSettingsSnapshot
                             .aiInputCacheUpdateModeAllMessages,
                         child: Text(
-                          AppLocalizations.of(context)!.settingsByMessageCountUserAssistant,
+                          AppLocalizations.of(
+                            context,
+                          )!.settingsByMessageCountUserAssistant,
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: AppSettingsSnapshot
                             .aiInputCacheUpdateModeUserMessages,
                         child: Text(
-                          AppLocalizations.of(context)!.settingsByUserMessageCountOnly,
+                          AppLocalizations.of(
+                            context,
+                          )!.settingsByUserMessageCountOnly,
                         ),
                       ),
                       DropdownMenuItem<String>(
-                        value: AppSettingsSnapshot
-                            .aiInputCacheUpdateModeTokens,
+                        value: AppSettingsSnapshot.aiInputCacheUpdateModeTokens,
                         child: Text(
-                          AppLocalizations.of(context)!.settingsByAccumulatedTokens,
+                          AppLocalizations.of(
+                            context,
+                          )!.settingsByAccumulatedTokens,
                         ),
                       ),
                     ],
@@ -1637,8 +1702,12 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsCacheBreakpointUpdateInterval,
-                subtitle: AppLocalizations.of(context)!.settingsDefault10MeaningDependsOnThe,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsCacheBreakpointUpdateInterval,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefault10MeaningDependsOnThe,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1671,9 +1740,7 @@ class _SettingsViewState extends State<SettingsView> {
                           _aiInputCacheUpdateIntervalController.text,
                         ),
                         icon: const Icon(Icons.save_rounded),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSave,
-                        ),
+                        label: Text(AppLocalizations.of(context)!.settingsSave),
                       ),
                     ),
                   ],
@@ -1682,8 +1749,12 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsCacheBreakpointCount,
-                subtitle: AppLocalizations.of(context)!.settingsDefault4Range14Anthropic,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsCacheBreakpointCount,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsDefault4Range14Anthropic,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1716,9 +1787,7 @@ class _SettingsViewState extends State<SettingsView> {
                           _aiInputCacheBreakpointCountController.text,
                         ),
                         icon: const Icon(Icons.save_rounded),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSave,
-                        ),
+                        label: Text(AppLocalizations.of(context)!.settingsSave),
                       ),
                     ),
                   ],
@@ -1729,8 +1798,9 @@ class _SettingsViewState extends State<SettingsView> {
               _buildAiInputCacheBreakpointPositionsRow(context),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title:
-                    AppLocalizations.of(context)!.settingsAiBudgetUsdPerSession,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsAiBudgetUsdPerSession,
                 subtitle: AppLocalizations.of(
                   context,
                 )!.settingsAiBudgetUsdPerSessionBody,
@@ -1747,9 +1817,7 @@ class _SettingsViewState extends State<SettingsView> {
                         decimal: true,
                       ),
                       inputFormatters: <TextInputFormatter>[
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[0-9.]'),
-                        ),
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                       ],
                       decoration: const InputDecoration(hintText: '0'),
                       onSubmitted: (value) =>
@@ -1767,9 +1835,7 @@ class _SettingsViewState extends State<SettingsView> {
                           _aiBudgetUsdPerSessionController.text,
                         ),
                         icon: const Icon(Icons.save_rounded),
-                        label: Text(
-                          AppLocalizations.of(context)!.settingsSave,
-                        ),
+                        label: Text(AppLocalizations.of(context)!.settingsSave),
                       ),
                     ),
                   ],
@@ -1782,13 +1848,19 @@ class _SettingsViewState extends State<SettingsView> {
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsCommandSafety,
-          description: AppLocalizations.of(context)!.settingsControlWriteCommandConfirmationForBash,
+          description: AppLocalizations.of(
+            context,
+          )!.settingsControlWriteCommandConfirmationForBash,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ResponsiveSettingRow(
-                title: AppLocalizations.of(context)!.settingsWriteCommandConfirmation,
-                subtitle: AppLocalizations.of(context)!.settingsEnabledByDefaultWhenTheAi,
+                title: AppLocalizations.of(
+                  context,
+                )!.settingsWriteCommandConfirmation,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsEnabledByDefaultWhenTheAi,
                 control: Switch(
                   value: settingsController.aiWriteCommandConfirmationEnabled,
                   onChanged: (value) async {
@@ -1808,7 +1880,9 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!.settingsMatchingWriteLikeBashCommandsSkip,
+                AppLocalizations.of(
+                  context,
+                )!.settingsMatchingWriteLikeBashCommandsSkip,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -1817,16 +1891,18 @@ class _SettingsViewState extends State<SettingsView> {
               FilledButton.icon(
                 onPressed: () => _showAllowCommandRuleDialog(context),
                 icon: const Icon(Icons.verified_outlined),
-                label: Text(
-                  AppLocalizations.of(context)!.settingsAddAllowRule,
-                ),
+                label: Text(AppLocalizations.of(context)!.settingsAddAllowRule),
               ),
               const SizedBox(height: 16),
               if (allowCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.verified_user_outlined,
-                  title: AppLocalizations.of(context)!.settingsNoAllowRulesConfigured,
-                  body: AppLocalizations.of(context)!.settingsAddARuleToLetMatching,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.settingsNoAllowRulesConfigured,
+                  body: AppLocalizations.of(
+                    context,
+                  )!.settingsAddARuleToLetMatching,
                 )
               else
                 SizedBox(
@@ -1861,7 +1937,9 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 8),
               Text(
-                AppLocalizations.of(context)!.settingsMatchingBashCommandsAreBlockedBefore,
+                AppLocalizations.of(
+                  context,
+                )!.settingsMatchingBashCommandsAreBlockedBefore,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -1870,16 +1948,18 @@ class _SettingsViewState extends State<SettingsView> {
               FilledButton.icon(
                 onPressed: () => _showDenyCommandRuleDialog(context),
                 icon: const Icon(Icons.block_rounded),
-                label: Text(
-                  AppLocalizations.of(context)!.settingsAddRule,
-                ),
+                label: Text(AppLocalizations.of(context)!.settingsAddRule),
               ),
               const SizedBox(height: 16),
               if (denyCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.rule_folder_outlined,
-                  title: AppLocalizations.of(context)!.settingsNoDenyRulesConfigured,
-                  body: AppLocalizations.of(context)!.settingsAddARuleToBlockMatching,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.settingsNoDenyRulesConfigured,
+                  body: AppLocalizations.of(
+                    context,
+                  )!.settingsAddARuleToBlockMatching,
                 )
               else
                 SizedBox(
@@ -1900,8 +1980,7 @@ class _SettingsViewState extends State<SettingsView> {
                             context,
                             initialRule: rule,
                           ),
-                          onDelete: () =>
-                              _deleteDenyCommandRule(context, rule),
+                          onDelete: () => _deleteDenyCommandRule(context, rule),
                         ),
                       );
                     },
@@ -1922,13 +2001,17 @@ class _SettingsViewState extends State<SettingsView> {
   ) {
     return _SettingsSubsectionCard(
       title: AppLocalizations.of(context)!.settingsTelemetry,
-      description: AppLocalizations.of(context)!.settingsWhenEnabledOpenhandCapturesRawAi,
+      description: AppLocalizations.of(
+        context,
+      )!.settingsWhenEnabledOpenhandCapturesRawAi,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ResponsiveSettingRow(
             title: AppLocalizations.of(context)!.settingsDebugMode,
-            subtitle: AppLocalizations.of(context)!.settingsOffByDefaultWhenEnabledEvery,
+            subtitle: AppLocalizations.of(
+              context,
+            )!.settingsOffByDefaultWhenEnabledEvery,
             control: Switch(
               key: const ValueKey<String>('settingsTelemetryDebugSwitch'),
               value: settingsController.telemetryDebugEnabled,
@@ -1945,7 +2028,9 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 18),
           _ResponsiveSettingRow(
             title: AppLocalizations.of(context)!.settingsCaptureRawPayload,
-            subtitle: AppLocalizations.of(context)!.settingsEnabledByDefaultOnlyActiveWhen,
+            subtitle: AppLocalizations.of(
+              context,
+            )!.settingsEnabledByDefaultOnlyActiveWhen,
             control: Switch(
               key: const ValueKey<String>('settingsTelemetryRawPayloadSwitch'),
               value: settingsController.telemetryCaptureRawPayload,
@@ -1964,7 +2049,9 @@ class _SettingsViewState extends State<SettingsView> {
           const SizedBox(height: 18),
           _ResponsiveSettingRow(
             title: AppLocalizations.of(context)!.settingsCaptureEnvironment,
-            subtitle: AppLocalizations.of(context)!.settingsOffByDefaultOnlyActiveWhen,
+            subtitle: AppLocalizations.of(
+              context,
+            )!.settingsOffByDefaultOnlyActiveWhen,
             control: Switch(
               key: const ValueKey<String>(
                 'settingsTelemetryCaptureEnvironmentSwitch',
@@ -1995,7 +2082,9 @@ class _SettingsViewState extends State<SettingsView> {
     const actions = OpenHandShortcutAction.values;
     return _SettingsSubsectionCard(
       title: AppLocalizations.of(context)!.settingsShortcutBindings,
-      description: AppLocalizations.of(context)!.settingsClickRecordThenPressTheNew,
+      description: AppLocalizations.of(
+        context,
+      )!.settingsClickRecordThenPressTheNew,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
         child: PrimaryScrollController.none(
@@ -2113,8 +2202,12 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ResponsiveSettingRow(
-          title: AppLocalizations.of(context)!.settingsAutoCleanupExecutionHistory,
-          subtitle: AppLocalizations.of(context)!.settingsOnEveryColdStartAnAsync,
+          title: AppLocalizations.of(
+            context,
+          )!.settingsAutoCleanupExecutionHistory,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.settingsOnEveryColdStartAnAsync,
           control: Switch(
             value: enabled,
             onChanged: (value) async {
@@ -2127,7 +2220,9 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         Text(
-          AppLocalizations.of(context)!.settingsRetentionWindowRetentionDayS(retention),
+          AppLocalizations.of(
+            context,
+          )!.settingsRetentionWindowRetentionDayS(retention),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2146,7 +2241,9 @@ class _SettingsViewState extends State<SettingsView> {
               : null,
         ),
         Text(
-          AppLocalizations.of(context)!.settingsRangeMinrMaxrDaysDefault7(minR, maxR),
+          AppLocalizations.of(
+            context,
+          )!.settingsRangeMinrMaxrDaysDefault7(minR, maxR),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -2171,7 +2268,9 @@ class _SettingsViewState extends State<SettingsView> {
       children: [
         _ResponsiveSettingRow(
           title: AppLocalizations.of(context)!.settingsEnableSelfLearning,
-          subtitle: AppLocalizations.of(context)!.settingsWhenOffTheSchedulerSkipsEvery,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.settingsWhenOffTheSchedulerSkipsEvery,
           control: Switch(
             value: enabled,
             onChanged: (value) async {
@@ -2185,7 +2284,9 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         Text(
-          AppLocalizations.of(context)!.settingsConcurrentWorkersConcurrency(concurrency),
+          AppLocalizations.of(
+            context,
+          )!.settingsConcurrentWorkersConcurrency(concurrency),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2204,15 +2305,16 @@ class _SettingsViewState extends State<SettingsView> {
               : null,
         ),
         Text(
-          AppLocalizations.of(context)!.settingsCapsHowManySessionsCanBe(minC, maxC),
+          AppLocalizations.of(
+            context,
+          )!.settingsCapsHowManySessionsCanBe(minC, maxC),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 18),
         Text(
-          AppLocalizations.of(context)!
-              .selfLearningFlushIntervalLabel(flushMs),
+          AppLocalizations.of(context)!.selfLearningFlushIntervalLabel(flushMs),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2220,9 +2322,9 @@ class _SettingsViewState extends State<SettingsView> {
           max: maxFlushMs.toDouble(),
           divisions: ((maxFlushMs - minFlushMs) ~/ 100),
           value: flushMs.toDouble().clamp(
-                minFlushMs.toDouble(),
-                maxFlushMs.toDouble(),
-              ),
+            minFlushMs.toDouble(),
+            maxFlushMs.toDouble(),
+          ),
           label: '${flushMs}ms',
           onChanged: (value) async {
             final saved = await settingsController
@@ -2232,8 +2334,9 @@ class _SettingsViewState extends State<SettingsView> {
           },
         ),
         Text(
-          AppLocalizations.of(context)!
-              .selfLearningFlushIntervalHelper(minFlushMs, maxFlushMs),
+          AppLocalizations.of(
+            context,
+          )!.selfLearningFlushIntervalHelper(minFlushMs, maxFlushMs),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -2241,7 +2344,9 @@ class _SettingsViewState extends State<SettingsView> {
         const SizedBox(height: 18),
         _ResponsiveSettingRow(
           title: AppLocalizations.of(context)!.settingsShowSelfLearningMessages,
-          subtitle: AppLocalizations.of(context)!.settingsWhenOffSelfLearningCardsAre,
+          subtitle: AppLocalizations.of(
+            context,
+          )!.settingsWhenOffSelfLearningCardsAre,
           control: Switch(
             value: settingsController.showSelfLearningMessages,
             onChanged: (value) async {
@@ -2359,7 +2464,11 @@ class _SettingsViewState extends State<SettingsView> {
       children: [
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsToolCatalogOverview,
-          description: AppLocalizations.of(context)!.settingsSortedLengthBuiltInToolsEnabledcount(sorted.length, enabledCount),
+          description: AppLocalizations.of(context)!
+              .settingsSortedLengthBuiltInToolsEnabledcount(
+                sorted.length,
+                enabledCount,
+              ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2373,9 +2482,7 @@ class _SettingsViewState extends State<SettingsView> {
                       settingsController,
                     ),
                     icon: const Icon(Icons.restart_alt_rounded),
-                    label: Text(
-                      AppLocalizations.of(context)!.settingsResetAll,
-                    ),
+                    label: Text(AppLocalizations.of(context)!.settingsResetAll),
                   ),
                   OutlinedButton.icon(
                     onPressed: () {
@@ -2405,8 +2512,12 @@ class _SettingsViewState extends State<SettingsView> {
               if (sorted.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.build_circle_outlined,
-                  title: AppLocalizations.of(context)!.settingsNoBuiltInToolConfigurations,
-                  body: AppLocalizations.of(context)!.settingsClickResetAllToRestoreThe,
+                  title: AppLocalizations.of(
+                    context,
+                  )!.settingsNoBuiltInToolConfigurations,
+                  body: AppLocalizations.of(
+                    context,
+                  )!.settingsClickResetAllToRestoreThe,
                 )
               else
                 ConstrainedBox(
@@ -2538,11 +2649,11 @@ class _SettingsViewState extends State<SettingsView> {
       builder: (dialogContext) {
         return AlertDialog(
           icon: const Icon(Icons.delete_outline_rounded),
-          title: Text(
-            AppLocalizations.of(context)!.settingsDeleteCustomTool,
-          ),
+          title: Text(AppLocalizations.of(context)!.settingsDeleteCustomTool),
           content: Text(
-            AppLocalizations.of(context)!.settingsAreYouSureYouWantTo(config.effectiveName),
+            AppLocalizations.of(
+              context,
+            )!.settingsAreYouSureYouWantTo(config.effectiveName),
           ),
           actions: [
             TextButton(
@@ -2671,8 +2782,11 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.skillOperationFailed,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.skillOperationFailed,
+        kind: _SettingsSnackKind.error,
+      );
     }
   }
 
@@ -2803,7 +2917,9 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
+        AppLocalizations.of(
+          context,
+        )!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -2836,7 +2952,9 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
+        AppLocalizations.of(
+          context,
+        )!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -2869,7 +2987,9 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
+        AppLocalizations.of(
+          context,
+        )!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -2899,8 +3019,11 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiCompressionThresholdInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiCompressionThresholdInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -2915,9 +3038,13 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _compressionThresholdController.text = '$parsedValue';
-    _showSnackBar(context, l10n.aiCompressionThresholdSaved,
-        kind: _SettingsSnackKind.success);
+    _compressionThresholdController.text =
+        '${context.read<SettingsController>().aiMessageCompressionThresholdChars}';
+    _showSnackBar(
+      context,
+      l10n.aiCompressionThresholdSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveToolResultCompressionThreshold(
@@ -2927,8 +3054,11 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiToolResultCompressionThresholdInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiToolResultCompressionThresholdInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -2945,8 +3075,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionThresholdController.text =
         '${context.read<SettingsController>().aiToolResultCompressionThresholdChars}';
-    _showSnackBar(context, l10n.aiToolResultCompressionThresholdSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiToolResultCompressionThresholdSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveToolResultCompressionHeadTailWindow(
@@ -2956,10 +3089,7 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
-      _showSnackBar(
-        context,
-        l10n.aiToolResultCompressionHeadTailWindowInvalid,
-      );
+      _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowInvalid);
       return;
     }
     final saved = await context
@@ -2976,8 +3106,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionHeadTailWindowController.text =
         '${context.read<SettingsController>().aiToolResultCompressionHeadTailWindowChars}';
-    _showSnackBar(context, l10n.aiToolResultCompressionHeadTailWindowSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiToolResultCompressionHeadTailWindowSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveToolResultCompressionMaxPathHits(
@@ -2987,8 +3120,11 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue < 0 || parsedValue > 200) {
-      _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiToolResultCompressionMaxPathHitsInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3005,8 +3141,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _toolResultCompressionMaxPathHitsController.text =
         '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
-    _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiToolResultCompressionMaxPathHitsSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveAiInputCacheUpdateInterval(
@@ -3019,7 +3158,12 @@ class _SettingsViewState extends State<SettingsView> {
         parsedValue > AppSettingsSnapshot.maxAiInputCacheUpdateInterval) {
       _showSnackBar(
         context,
-        AppLocalizations.of(context)!.settingsPleaseEnterAnIntegerBetweenAppsettingssn(AppSettingsSnapshot.minAiInputCacheUpdateInterval, AppSettingsSnapshot.maxAiInputCacheUpdateInterval),
+        AppLocalizations.of(
+          context,
+        )!.settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+          AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+          AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+        ),
       );
       return;
     }
@@ -3051,7 +3195,12 @@ class _SettingsViewState extends State<SettingsView> {
         parsedValue > AppSettingsSnapshot.maxAiInputCacheBreakpointCount) {
       _showSnackBar(
         context,
-        AppLocalizations.of(context)!.settingsPleaseEnterAnIntegerBetweenAppsettingssn2(AppSettingsSnapshot.minAiInputCacheBreakpointCount, AppSettingsSnapshot.maxAiInputCacheBreakpointCount),
+        AppLocalizations.of(
+          context,
+        )!.settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+          AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+          AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+        ),
       );
       return;
     }
@@ -3129,24 +3278,21 @@ class _SettingsViewState extends State<SettingsView> {
     // 缺省 = 均匀铺开。例如 count=4 → [0.25, 0.5, 0.75]。
     final List<double> values = (raw.length == thumbCount)
         ? List<double>.from(raw)
-        : List<double>.generate(
-            thumbCount,
-            (i) => (i + 1) / count,
-          );
+        : List<double>.generate(thumbCount, (i) => (i + 1) / count);
     final liveKey = ValueKey<int>(thumbCount);
     return _ResponsiveSettingRow(
       title: AppLocalizations.of(context)!.settingsCacheBreakpointPositions,
-      subtitle: AppLocalizations.of(context)!.settingsDragTheThumbcountThumbsToPosition(thumbCount),
+      subtitle: AppLocalizations.of(
+        context,
+      )!.settingsDragTheThumbcountThumbsToPosition(thumbCount),
       control: PromptCacheBreakpointBar(
         key: liveKey,
         initialValues: List<double>.unmodifiable(values),
         thumbCount: thumbCount,
         onCommit: (positions) =>
             _saveAiInputCacheBreakpointPositions(context, positions),
-        onReset: () => _saveAiInputCacheBreakpointPositions(
-          context,
-          const <double>[],
-        ),
+        onReset: () =>
+            _saveAiInputCacheBreakpointPositions(context, const <double>[]),
       ),
       controlMaxWidth: 460,
     );
@@ -3177,8 +3323,11 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = int.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue < 0 || parsedValue > 8192) {
-      _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiWriteToolSummaryMaxCharsInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3195,8 +3344,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _writeToolSummaryMaxCharsController.text =
         '${context.read<SettingsController>().aiWriteToolSummaryMaxChars}';
-    _showSnackBar(context, l10n.aiWriteToolSummaryMaxCharsSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiWriteToolSummaryMaxCharsSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveToolCallLimit(BuildContext context, String rawValue) async {
@@ -3258,14 +3410,20 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Future<void> _saveMaxRecentErrors(BuildContext context, String rawValue) async {
+  Future<void> _saveMaxRecentErrors(
+    BuildContext context,
+    String rawValue,
+  ) async {
     final l10n = AppLocalizations.of(context)!;
     final parsed = int.tryParse(rawValue.trim());
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxRecentErrors ||
         parsed > AppSettingsSnapshot.maxAiMaxRecentErrors) {
-      _showSnackBar(context, l10n.aiMaxRecentErrorsInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiMaxRecentErrorsInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3280,8 +3438,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxRecentErrorsController.text =
         '${context.read<SettingsController>().aiMaxRecentErrors}';
-    _showSnackBar(context, l10n.aiMaxRecentErrorsSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiMaxRecentErrorsSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveMaxPlanHistoryEntries(
@@ -3293,8 +3454,11 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxPlanHistoryEntries ||
         parsed > AppSettingsSnapshot.maxAiMaxPlanHistoryEntries) {
-      _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiMaxPlanHistoryEntriesInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3309,8 +3473,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxPlanHistoryEntriesController.text =
         '${context.read<SettingsController>().aiMaxPlanHistoryEntries}';
-    _showSnackBar(context, l10n.aiMaxPlanHistoryEntriesSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiMaxPlanHistoryEntriesSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveMaxTruncationContinuations(
@@ -3322,8 +3489,11 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiMaxTruncationContinuations ||
         parsed > AppSettingsSnapshot.maxAiMaxTruncationContinuations) {
-      _showSnackBar(context, l10n.aiMaxTruncationContinuationsInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiMaxTruncationContinuationsInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3338,8 +3508,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _maxTruncationContinuationsController.text =
         '${context.read<SettingsController>().aiMaxTruncationContinuations}';
-    _showSnackBar(context, l10n.aiMaxTruncationContinuationsSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiMaxTruncationContinuationsSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _saveEstimatedCharactersPerToken(
@@ -3351,8 +3524,11 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsed == null ||
         parsed < AppSettingsSnapshot.minAiEstimatedCharactersPerToken ||
         parsed > AppSettingsSnapshot.maxAiEstimatedCharactersPerToken) {
-      _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiEstimatedCharactersPerTokenInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final saved = await context
@@ -3367,8 +3543,11 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _estimatedCharactersPerTokenController.text =
         '${context.read<SettingsController>().aiEstimatedCharactersPerToken}';
-    _showSnackBar(context, l10n.aiEstimatedCharactersPerTokenSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiEstimatedCharactersPerTokenSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   /// Renders [bytes] as a human-friendly MB value used by the limit field.
@@ -3391,8 +3570,11 @@ class _SettingsViewState extends State<SettingsView> {
     final l10n = AppLocalizations.of(context)!;
     final parsedValue = double.tryParse(rawValue.trim());
     if (parsedValue == null || parsedValue <= 0) {
-      _showSnackBar(context, l10n.aiImageSizeLimitInvalid,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.aiImageSizeLimitInvalid,
+        kind: _SettingsSnackKind.error,
+      );
       return;
     }
     final bytes = (parsedValue * 1024 * 1024).round();
@@ -3413,8 +3595,11 @@ class _SettingsViewState extends State<SettingsView> {
         .read<SettingsController>()
         .aiImageSizeLimitBytes;
     _imageSizeLimitController.text = _formatImageSizeLimitInput(effectiveBytes);
-    _showSnackBar(context, l10n.aiImageSizeLimitSaved,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiImageSizeLimitSaved,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _showDenyCommandRuleDialog(
@@ -3451,7 +3636,9 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      (initialRule == null ? AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen : AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen2),
+      (initialRule == null
+          ? AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen
+          : AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen2),
     );
   }
 
@@ -3463,9 +3650,7 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(
-            AppLocalizations.of(context)!.settingsDeleteDenyRule,
-          ),
+          title: Text(AppLocalizations.of(context)!.settingsDeleteDenyRule),
           content: Text(rule.pattern),
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -3534,7 +3719,9 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      (initialRule == null ? AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen : AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen2),
+      (initialRule == null
+          ? AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen
+          : AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen2),
     );
   }
 
@@ -3546,9 +3733,7 @@ class _SettingsViewState extends State<SettingsView> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(
-            AppLocalizations.of(context)!.settingsDeleteAllowRule,
-          ),
+          title: Text(AppLocalizations.of(context)!.settingsDeleteAllowRule),
           content: Text(rule.pattern),
           actions: [
             OpenHandDialogActionButton.secondary(
@@ -3606,8 +3791,11 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.memoryOperationFailed,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.memoryOperationFailed,
+        kind: _SettingsSnackKind.error,
+      );
     }
   }
 
@@ -3627,8 +3815,11 @@ class _SettingsViewState extends State<SettingsView> {
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, l10n.mcpOperationFailed,
-          kind: _SettingsSnackKind.error);
+      _showSnackBar(
+        context,
+        l10n.mcpOperationFailed,
+        kind: _SettingsSnackKind.error,
+      );
     }
   }
 
@@ -3647,8 +3838,11 @@ class _SettingsViewState extends State<SettingsView> {
     if (!context.mounted || submitted != true) {
       return;
     }
-    _showSnackBar(context, l10n.aiModelSaveSuccess,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiModelSaveSuccess,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   Future<void> _testAiModel(AiModelConfig model) async {
@@ -3665,8 +3859,11 @@ class _SettingsViewState extends State<SettingsView> {
         return;
       }
       final l10n = AppLocalizations.of(context)!;
-      _showSnackBar(context, l10n.aiModelTestSuccess(model.providerLabel),
-          kind: _SettingsSnackKind.success);
+      _showSnackBar(
+        context,
+        l10n.aiModelTestSuccess(model.providerLabel),
+        kind: _SettingsSnackKind.success,
+      );
     } on AiChatException catch (error) {
       if (!mounted) {
         return;
@@ -3742,14 +3939,20 @@ class _SettingsViewState extends State<SettingsView> {
       _showPersistenceFailureSnackBar(context);
       return;
     }
-    _showSnackBar(context, l10n.aiModelDeleteSuccess,
-        kind: _SettingsSnackKind.success);
+    _showSnackBar(
+      context,
+      l10n.aiModelDeleteSuccess,
+      kind: _SettingsSnackKind.success,
+    );
   }
 
   void _showPersistenceFailureSnackBar(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    _showSnackBar(context, l10n.settingsPersistenceSaveFailedBody,
-        kind: _SettingsSnackKind.error);
+    _showSnackBar(
+      context,
+      l10n.settingsPersistenceSaveFailedBody,
+      kind: _SettingsSnackKind.error,
+    );
   }
 
   String _normalizeAiModelTestMessage(String raw, String fallback) {
@@ -3841,13 +4044,27 @@ class _SettingsViewState extends State<SettingsView> {
     OpenHandShortcutAction action,
   ) {
     return switch (action) {
-      OpenHandShortcutAction.sendMessage => AppLocalizations.of(context)!.settingsSendMessage,
-      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(context)!.settingsCollapseOrExpandComposer,
-      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(context)!.settingsPreviousModel,
-      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(context)!.settingsNextModel,
-      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(context)!.settingsToggleAutoFollow,
-      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(context)!.settingsPreviousSession,
-      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(context)!.settingsNextSession,
+      OpenHandShortcutAction.sendMessage => AppLocalizations.of(
+        context,
+      )!.settingsSendMessage,
+      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(
+        context,
+      )!.settingsCollapseOrExpandComposer,
+      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(
+        context,
+      )!.settingsPreviousModel,
+      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(
+        context,
+      )!.settingsNextModel,
+      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(
+        context,
+      )!.settingsToggleAutoFollow,
+      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(
+        context,
+      )!.settingsPreviousSession,
+      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(
+        context,
+      )!.settingsNextSession,
     };
   }
 
@@ -3856,21 +4073,49 @@ class _SettingsViewState extends State<SettingsView> {
     EditorShortcutAction action,
   ) {
     return switch (action) {
-      EditorShortcutAction.saveFile => AppLocalizations.of(context)!.settingsSaveFile,
-      EditorShortcutAction.triggerCompletion => AppLocalizations.of(context)!.settingsTriggerCompletion,
-      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(context)!.settingsShowSignatureHelp,
+      EditorShortcutAction.saveFile => AppLocalizations.of(
+        context,
+      )!.settingsSaveFile,
+      EditorShortcutAction.triggerCompletion => AppLocalizations.of(
+        context,
+      )!.settingsTriggerCompletion,
+      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(
+        context,
+      )!.settingsShowSignatureHelp,
       EditorShortcutAction.find => AppLocalizations.of(context)!.settingsFind,
-      EditorShortcutAction.replace => AppLocalizations.of(context)!.settingsFindAndReplace,
-      EditorShortcutAction.goToLine => AppLocalizations.of(context)!.settingsGoToLine,
-      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(context)!.settingsDocumentSymbols,
-      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(context)!.settingsWorkspaceSymbols,
-      EditorShortcutAction.goToDefinition => AppLocalizations.of(context)!.settingsGoToDefinition,
-      EditorShortcutAction.findReferences => AppLocalizations.of(context)!.settingsFindReferences,
-      EditorShortcutAction.goToImplementation => AppLocalizations.of(context)!.settingsGoToImplementation,
-      EditorShortcutAction.showHoverInfo => AppLocalizations.of(context)!.settingsShowHoverInfo,
-      EditorShortcutAction.renameSymbol => AppLocalizations.of(context)!.settingsRenameSymbol,
-      EditorShortcutAction.showCodeActions => AppLocalizations.of(context)!.settingsCodeActions,
-      EditorShortcutAction.formatDocument => AppLocalizations.of(context)!.settingsFormatDocument,
+      EditorShortcutAction.replace => AppLocalizations.of(
+        context,
+      )!.settingsFindAndReplace,
+      EditorShortcutAction.goToLine => AppLocalizations.of(
+        context,
+      )!.settingsGoToLine,
+      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(
+        context,
+      )!.settingsDocumentSymbols,
+      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(
+        context,
+      )!.settingsWorkspaceSymbols,
+      EditorShortcutAction.goToDefinition => AppLocalizations.of(
+        context,
+      )!.settingsGoToDefinition,
+      EditorShortcutAction.findReferences => AppLocalizations.of(
+        context,
+      )!.settingsFindReferences,
+      EditorShortcutAction.goToImplementation => AppLocalizations.of(
+        context,
+      )!.settingsGoToImplementation,
+      EditorShortcutAction.showHoverInfo => AppLocalizations.of(
+        context,
+      )!.settingsShowHoverInfo,
+      EditorShortcutAction.renameSymbol => AppLocalizations.of(
+        context,
+      )!.settingsRenameSymbol,
+      EditorShortcutAction.showCodeActions => AppLocalizations.of(
+        context,
+      )!.settingsCodeActions,
+      EditorShortcutAction.formatDocument => AppLocalizations.of(
+        context,
+      )!.settingsFormatDocument,
     };
   }
 
@@ -3879,13 +4124,27 @@ class _SettingsViewState extends State<SettingsView> {
     OpenHandShortcutAction action,
   ) {
     return switch (action) {
-      OpenHandShortcutAction.sendMessage => AppLocalizations.of(context)!.settingsDefaultsToCtrlEnterAndTriggers,
-      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(context)!.settingsDefaultsToCtrlPForQuickly,
-      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(context)!.settingsDefaultsToCtrlLeftAndWraps,
-      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(context)!.settingsDefaultsToCtrlRightAndWraps,
-      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(context)!.settingsDefaultsToCtrlSForToggling,
-      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(context)!.settingsDefaultsToCtrlUpAndWraps,
-      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(context)!.settingsDefaultsToCtrlDownAndWraps,
+      OpenHandShortcutAction.sendMessage => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlEnterAndTriggers,
+      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlPForQuickly,
+      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlLeftAndWraps,
+      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlRightAndWraps,
+      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlSForToggling,
+      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlUpAndWraps,
+      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToCtrlDownAndWraps,
     };
   }
 
@@ -3897,26 +4156,59 @@ class _SettingsViewState extends State<SettingsView> {
       defaultEditorShortcutBindings()[action] ?? const <int>[],
     );
     return switch (action) {
-      EditorShortcutAction.saveFile => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndSavesThe(defaultLabel),
-      EditorShortcutAction.triggerCompletion => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndOpensThe(defaultLabel),
-      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsMethod(defaultLabel),
-      EditorShortcutAction.find => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe(defaultLabel),
-      EditorShortcutAction.replace => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe2(defaultLabel),
-      EditorShortcutAction.goToLine => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe3(defaultLabel),
-      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe4(defaultLabel),
-      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe5(defaultLabel),
-      EditorShortcutAction.goToDefinition => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndJumpsTo(defaultLabel),
-      EditorShortcutAction.findReferences => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndFindsReferences(defaultLabel),
-      EditorShortcutAction.goToImplementation => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndJumpsTo2(defaultLabel),
-      EditorShortcutAction.showHoverInfo => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsType(defaultLabel),
-      EditorShortcutAction.renameSymbol => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndStartsRename(defaultLabel),
-      EditorShortcutAction.showCodeActions => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsAvailable(defaultLabel),
-      EditorShortcutAction.formatDocument => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndFormatsThe(defaultLabel),
+      EditorShortcutAction.saveFile => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndSavesThe(defaultLabel),
+      EditorShortcutAction.triggerCompletion => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndOpensThe(defaultLabel),
+      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndShowsMethod(defaultLabel),
+      EditorShortcutAction.find => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndTogglesThe(defaultLabel),
+      EditorShortcutAction.replace => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndTogglesThe2(defaultLabel),
+      EditorShortcutAction.goToLine => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndTogglesThe3(defaultLabel),
+      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndTogglesThe4(defaultLabel),
+      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndTogglesThe5(defaultLabel),
+      EditorShortcutAction.goToDefinition => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndJumpsTo(defaultLabel),
+      EditorShortcutAction.findReferences => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndFindsReferences(defaultLabel),
+      EditorShortcutAction.goToImplementation => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndJumpsTo2(defaultLabel),
+      EditorShortcutAction.showHoverInfo => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndShowsType(defaultLabel),
+      EditorShortcutAction.renameSymbol => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndStartsRename(defaultLabel),
+      EditorShortcutAction.showCodeActions => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndShowsAvailable(defaultLabel),
+      EditorShortcutAction.formatDocument => AppLocalizations.of(
+        context,
+      )!.settingsDefaultsToDefaultlabelAndFormatsThe(defaultLabel),
     };
   }
 
-  void _showSnackBar(BuildContext context, String message,
-      {_SettingsSnackKind kind = _SettingsSnackKind.info}) {
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    _SettingsSnackKind kind = _SettingsSnackKind.info,
+  }) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
