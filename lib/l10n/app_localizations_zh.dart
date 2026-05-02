@@ -2149,6 +2149,48 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tokenPopupCostTotal => '总计';
+
+  @override
+  String get tokenDialUnit => 'Token';
+
+  @override
+  String get tokenDialTotal => '总计';
+
+  @override
+  String get tokenPopupInputHeading => '输入';
+
+  @override
+  String get tokenPopupPrompt => 'Prompt';
+
+  @override
+  String get tokenPopupCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCacheWrite => 'Cache 写入';
+
+  @override
+  String get tokenPopupOutputHeading => '输出';
+
+  @override
+  String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupGrandTotal => '总计';
+
+  @override
+  String get tokenPopupCacheHit => 'Cache 命中率';
+
+  @override
+  String get tokenPopupSessionHeading => '会话累计';
+
+  @override
+  String get tokenPopupMessages => '消息总数';
+
+  @override
+  String get tokenPopupPromptBuilds => 'Prompt 构建';
+
+  @override
+  String get tokenPopupPromptChars => 'Prompt 字符';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4296,6 +4338,48 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get tokenPopupCostTotal => '总计';
+
+  @override
+  String get tokenDialUnit => 'Token';
+
+  @override
+  String get tokenDialTotal => '总计';
+
+  @override
+  String get tokenPopupInputHeading => '输入';
+
+  @override
+  String get tokenPopupPrompt => 'Prompt';
+
+  @override
+  String get tokenPopupCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCacheWrite => 'Cache 写入';
+
+  @override
+  String get tokenPopupOutputHeading => '输出';
+
+  @override
+  String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupGrandTotal => '总计';
+
+  @override
+  String get tokenPopupCacheHit => 'Cache 命中率';
+
+  @override
+  String get tokenPopupSessionHeading => '会话累计';
+
+  @override
+  String get tokenPopupMessages => '消息总数';
+
+  @override
+  String get tokenPopupPromptBuilds => 'Prompt 构建';
+
+  @override
+  String get tokenPopupPromptChars => 'Prompt 字符';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6442,4 +6526,46 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tokenPopupCostTotal => '總計';
+
+  @override
+  String get tokenDialUnit => 'Token';
+
+  @override
+  String get tokenDialTotal => '總計';
+
+  @override
+  String get tokenPopupInputHeading => '輸入';
+
+  @override
+  String get tokenPopupPrompt => 'Prompt';
+
+  @override
+  String get tokenPopupCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCacheWrite => 'Cache 寫入';
+
+  @override
+  String get tokenPopupOutputHeading => '輸出';
+
+  @override
+  String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupGrandTotal => '總計';
+
+  @override
+  String get tokenPopupCacheHit => 'Cache 命中率';
+
+  @override
+  String get tokenPopupSessionHeading => '會話累計';
+
+  @override
+  String get tokenPopupMessages => '訊息總數';
+
+  @override
+  String get tokenPopupPromptBuilds => 'Prompt 構建';
+
+  @override
+  String get tokenPopupPromptChars => 'Prompt 字元';
 }

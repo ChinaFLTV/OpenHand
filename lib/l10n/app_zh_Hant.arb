@@ -747,5 +747,19 @@
   "tokenPopupCostOutput": "輸出",
   "tokenPopupCostCacheRead": "Cache 命中",
   "tokenPopupCostCacheWrite": "Cache 寫入",
-  "tokenPopupCostTotal": "總計"
+  "tokenPopupCostTotal": "總計",
+  "tokenDialUnit": "Token",
+  "tokenDialTotal": "總計",
+  "tokenPopupInputHeading": "輸入",
+  "tokenPopupPrompt": "Prompt",
+  "tokenPopupCacheRead": "Cache 命中",
+  "tokenPopupCacheWrite": "Cache 寫入",
+  "tokenPopupOutputHeading": "輸出",
+  "tokenPopupCompletion": "Completion",
+  "tokenPopupGrandTotal": "總計",
+  "tokenPopupCacheHit": "Cache 命中率",
+  "tokenPopupSessionHeading": "會話累計",
+  "tokenPopupMessages": "訊息總數",
+  "tokenPopupPromptBuilds": "Prompt 構建",
+  "tokenPopupPromptChars": "Prompt 字元"
 }

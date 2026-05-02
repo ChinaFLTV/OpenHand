@@ -747,5 +747,19 @@
   "tokenPopupCostOutput": "出力",
   "tokenPopupCostCacheRead": "キャッシュ読込",
   "tokenPopupCostCacheWrite": "キャッシュ書込",
-  "tokenPopupCostTotal": "合計"
+  "tokenPopupCostTotal": "合計",
+  "tokenDialUnit": "Token",
+  "tokenDialTotal": "合計",
+  "tokenPopupInputHeading": "入力",
+  "tokenPopupPrompt": "Prompt",
+  "tokenPopupCacheRead": "キャッシュ読込",
+  "tokenPopupCacheWrite": "キャッシュ書込",
+  "tokenPopupOutputHeading": "出力",
+  "tokenPopupCompletion": "Completion",
+  "tokenPopupGrandTotal": "合計",
+  "tokenPopupCacheHit": "キャッシュ命中率",
+  "tokenPopupSessionHeading": "セッション",
+  "tokenPopupMessages": "メッセージ数",
+  "tokenPopupPromptBuilds": "プロンプト生成",
+  "tokenPopupPromptChars": "プロンプト文字数"
 }

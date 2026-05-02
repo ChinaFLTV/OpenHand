@@ -747,5 +747,19 @@
   "tokenPopupCostOutput": "Output",
   "tokenPopupCostCacheRead": "Cache read",
   "tokenPopupCostCacheWrite": "Cache write",
-  "tokenPopupCostTotal": "Total"
+  "tokenPopupCostTotal": "Total",
+  "tokenDialUnit": "Token",
+  "tokenDialTotal": "Total",
+  "tokenPopupInputHeading": "Input",
+  "tokenPopupPrompt": "Prompt",
+  "tokenPopupCacheRead": "Cache Read",
+  "tokenPopupCacheWrite": "Cache Write",
+  "tokenPopupOutputHeading": "Output",
+  "tokenPopupCompletion": "Completion",
+  "tokenPopupGrandTotal": "Total",
+  "tokenPopupCacheHit": "Cache Hit",
+  "tokenPopupSessionHeading": "Session",
+  "tokenPopupMessages": "Messages",
+  "tokenPopupPromptBuilds": "Prompt Builds",
+  "tokenPopupPromptChars": "Prompt Chars"
 }

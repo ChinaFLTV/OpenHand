@@ -178,8 +178,8 @@ class _TokenDialState extends State<_TokenDial>
                 const SizedBox(width: 6),
                 Text(
                   hasCache
-                      ? _localizedText(context, zh: '总计', en: 'Total')
-                      : _localizedText(context, zh: 'Token', en: 'Token'),
+                      ? AppLocalizations.of(context)!.tokenDialTotal
+                      : AppLocalizations.of(context)!.tokenDialUnit,
                   style: labelStyle,
                 ),
               ],
@@ -259,48 +259,36 @@ class _TokenDialPopup extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              _localizedText(context, zh: '输入', en: 'INPUT').toUpperCase(),
+              AppLocalizations.of(context)!.tokenPopupInputHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
             _PopupRow(
-              label: _localizedText(context, zh: 'Prompt', en: 'Prompt'),
+              label: AppLocalizations.of(context)!.tokenPopupPrompt,
               value: promptTokens,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
             _PopupRow(
-              label: _localizedText(
-                context,
-                zh: 'Cache 命中',
-                en: 'Cache Read',
-              ),
+              label: AppLocalizations.of(context)!.tokenPopupCacheRead,
               value: cacheRead,
               keyStyle: keyStyle,
               valueStyle: cacheValueStyle,
             ),
             _PopupRow(
-              label: _localizedText(
-                context,
-                zh: 'Cache 写入',
-                en: 'Cache Write',
-              ),
+              label: AppLocalizations.of(context)!.tokenPopupCacheWrite,
               value: cacheWrite,
               keyStyle: keyStyle,
               valueStyle: cacheValueStyle,
             ),
             const SizedBox(height: 10),
             Text(
-              _localizedText(context, zh: '输出', en: 'OUTPUT').toUpperCase(),
+              AppLocalizations.of(context)!.tokenPopupOutputHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
             _PopupRow(
-              label: _localizedText(
-                context,
-                zh: 'Completion',
-                en: 'Completion',
-              ),
+              label: AppLocalizations.of(context)!.tokenPopupCompletion,
               value: completionTokens,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
@@ -311,7 +299,7 @@ class _TokenDialPopup extends StatelessWidget {
               color: colorScheme.outlineVariant.withValues(alpha: 0.4),
             ),
             _PopupRow(
-              label: _localizedText(context, zh: '总计', en: 'Total'),
+              label: AppLocalizations.of(context)!.tokenPopupGrandTotal,
               value: total,
               keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w700),
               valueStyle: valueStyle?.copyWith(
@@ -322,11 +310,7 @@ class _TokenDialPopup extends StatelessWidget {
             if (cacheRead > 0 || cacheWrite > 0) ...[
               const SizedBox(height: 6),
               _PopupRow(
-                label: _localizedText(
-                  context,
-                  zh: 'Cache 命中率',
-                  en: 'Cache Hit',
-                ),
+                label: AppLocalizations.of(context)!.tokenPopupCacheHit,
                 value: (cacheHitRatio * 100).round(),
                 suffix: '%',
                 keyStyle: keyStyle,
@@ -335,32 +319,24 @@ class _TokenDialPopup extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             Text(
-              _localizedText(context, zh: '会话累计', en: 'SESSION').toUpperCase(),
+              AppLocalizations.of(context)!.tokenPopupSessionHeading.toUpperCase(),
               style: headStyle,
             ),
             const SizedBox(height: 6),
             _PopupRow(
-              label: _localizedText(context, zh: '消息总数', en: 'Messages'),
+              label: AppLocalizations.of(context)!.tokenPopupMessages,
               value: statistics.totalMessageCount,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
             _PopupRow(
-              label: _localizedText(
-                context,
-                zh: 'Prompt 构建',
-                en: 'Prompt Builds',
-              ),
+              label: AppLocalizations.of(context)!.tokenPopupPromptBuilds,
               value: statistics.promptBuildCount,
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
             _PopupRow(
-              label: _localizedText(
-                context,
-                zh: 'Prompt 字符',
-                en: 'Prompt Chars',
-              ),
+              label: AppLocalizations.of(context)!.tokenPopupPromptChars,
               value: statistics.totalPromptCharacters,
               keyStyle: keyStyle,
               valueStyle: valueStyle,

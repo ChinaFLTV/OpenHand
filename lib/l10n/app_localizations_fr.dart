@@ -2272,4 +2272,46 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tokenPopupCostTotal => 'Total';
+
+  @override
+  String get tokenDialUnit => 'Token';
+
+  @override
+  String get tokenDialTotal => 'Total';
+
+  @override
+  String get tokenPopupInputHeading => 'Entrée';
+
+  @override
+  String get tokenPopupPrompt => 'Prompt';
+
+  @override
+  String get tokenPopupCacheRead => 'Cache lu';
+
+  @override
+  String get tokenPopupCacheWrite => 'Cache écrit';
+
+  @override
+  String get tokenPopupOutputHeading => 'Sortie';
+
+  @override
+  String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupGrandTotal => 'Total';
+
+  @override
+  String get tokenPopupCacheHit => 'Taux de cache';
+
+  @override
+  String get tokenPopupSessionHeading => 'Session';
+
+  @override
+  String get tokenPopupMessages => 'Messages';
+
+  @override
+  String get tokenPopupPromptBuilds => 'Constructions de prompt';
+
+  @override
+  String get tokenPopupPromptChars => 'Caractères de prompt';
 }

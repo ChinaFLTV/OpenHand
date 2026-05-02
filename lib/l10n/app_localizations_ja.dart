@@ -2245,4 +2245,46 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tokenPopupCostTotal => '合計';
+
+  @override
+  String get tokenDialUnit => 'Token';
+
+  @override
+  String get tokenDialTotal => '合計';
+
+  @override
+  String get tokenPopupInputHeading => '入力';
+
+  @override
+  String get tokenPopupPrompt => 'Prompt';
+
+  @override
+  String get tokenPopupCacheRead => 'キャッシュ読込';
+
+  @override
+  String get tokenPopupCacheWrite => 'キャッシュ書込';
+
+  @override
+  String get tokenPopupOutputHeading => '出力';
+
+  @override
+  String get tokenPopupCompletion => 'Completion';
+
+  @override
+  String get tokenPopupGrandTotal => '合計';
+
+  @override
+  String get tokenPopupCacheHit => 'キャッシュ命中率';
+
+  @override
+  String get tokenPopupSessionHeading => 'セッション';
+
+  @override
+  String get tokenPopupMessages => 'メッセージ数';
+
+  @override
+  String get tokenPopupPromptBuilds => 'プロンプト生成';
+
+  @override
+  String get tokenPopupPromptChars => 'プロンプト文字数';
 }

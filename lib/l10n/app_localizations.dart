@@ -4173,6 +4173,90 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'总计'**
   String get tokenPopupCostTotal;
+
+  /// No description provided for @tokenDialUnit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token'**
+  String get tokenDialUnit;
+
+  /// No description provided for @tokenDialTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总计'**
+  String get tokenDialTotal;
+
+  /// No description provided for @tokenPopupInputHeading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入'**
+  String get tokenPopupInputHeading;
+
+  /// No description provided for @tokenPopupPrompt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt'**
+  String get tokenPopupPrompt;
+
+  /// No description provided for @tokenPopupCacheRead.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cache 命中'**
+  String get tokenPopupCacheRead;
+
+  /// No description provided for @tokenPopupCacheWrite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cache 写入'**
+  String get tokenPopupCacheWrite;
+
+  /// No description provided for @tokenPopupOutputHeading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出'**
+  String get tokenPopupOutputHeading;
+
+  /// No description provided for @tokenPopupCompletion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Completion'**
+  String get tokenPopupCompletion;
+
+  /// No description provided for @tokenPopupGrandTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总计'**
+  String get tokenPopupGrandTotal;
+
+  /// No description provided for @tokenPopupCacheHit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cache 命中率'**
+  String get tokenPopupCacheHit;
+
+  /// No description provided for @tokenPopupSessionHeading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话累计'**
+  String get tokenPopupSessionHeading;
+
+  /// No description provided for @tokenPopupMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息总数'**
+  String get tokenPopupMessages;
+
+  /// No description provided for @tokenPopupPromptBuilds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt 构建'**
+  String get tokenPopupPromptBuilds;
+
+  /// No description provided for @tokenPopupPromptChars.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt 字符'**
+  String get tokenPopupPromptChars;
 }
 
 class _AppLocalizationsDelegate

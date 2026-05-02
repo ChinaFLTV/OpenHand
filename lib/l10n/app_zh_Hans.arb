@@ -911,5 +911,19 @@
   "tokenPopupCostOutput": "输出",
   "tokenPopupCostCacheRead": "Cache 命中",
   "tokenPopupCostCacheWrite": "Cache 写入",
-  "tokenPopupCostTotal": "总计"
+  "tokenPopupCostTotal": "总计",
+  "tokenDialUnit": "Token",
+  "tokenDialTotal": "总计",
+  "tokenPopupInputHeading": "输入",
+  "tokenPopupPrompt": "Prompt",
+  "tokenPopupCacheRead": "Cache 命中",
+  "tokenPopupCacheWrite": "Cache 写入",
+  "tokenPopupOutputHeading": "输出",
+  "tokenPopupCompletion": "Completion",
+  "tokenPopupGrandTotal": "总计",
+  "tokenPopupCacheHit": "Cache 命中率",
+  "tokenPopupSessionHeading": "会话累计",
+  "tokenPopupMessages": "消息总数",
+  "tokenPopupPromptBuilds": "Prompt 构建",
+  "tokenPopupPromptChars": "Prompt 字符"
 }

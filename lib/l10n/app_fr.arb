@@ -747,5 +747,19 @@
   "tokenPopupCostOutput": "Sortie",
   "tokenPopupCostCacheRead": "Cache lu",
   "tokenPopupCostCacheWrite": "Cache écrit",
-  "tokenPopupCostTotal": "Total"
+  "tokenPopupCostTotal": "Total",
+  "tokenDialUnit": "Token",
+  "tokenDialTotal": "Total",
+  "tokenPopupInputHeading": "Entrée",
+  "tokenPopupPrompt": "Prompt",
+  "tokenPopupCacheRead": "Cache lu",
+  "tokenPopupCacheWrite": "Cache écrit",
+  "tokenPopupOutputHeading": "Sortie",
+  "tokenPopupCompletion": "Completion",
+  "tokenPopupGrandTotal": "Total",
+  "tokenPopupCacheHit": "Taux de cache",
+  "tokenPopupSessionHeading": "Session",
+  "tokenPopupMessages": "Messages",
+  "tokenPopupPromptBuilds": "Constructions de prompt",
+  "tokenPopupPromptChars": "Caractères de prompt"
 }
