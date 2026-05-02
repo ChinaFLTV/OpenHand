@@ -168,6 +168,10 @@ class AiModelProfile {
     this.maxThinkingLength,
     this.capabilities = const <AiModelCapability>{},
     this.supportsAttachments,
+    this.inputUsdPer1M,
+    this.outputUsdPer1M,
+    this.cacheReadUsdPer1M,
+    this.cacheWriteUsdPer1M,
   });
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
@@ -182,6 +186,12 @@ class AiModelProfile {
       maxThinkingLength: _readNullablePositiveInt(json['max_thinking_length']),
       capabilities: _parseCapabilities(json['capabilities']),
       supportsAttachments: json['supports_attachments'] as bool?,
+      inputUsdPer1M: _readNullableNonNegativeDouble(json['input_usd_per_1m']),
+      outputUsdPer1M: _readNullableNonNegativeDouble(json['output_usd_per_1m']),
+      cacheReadUsdPer1M:
+          _readNullableNonNegativeDouble(json['cache_read_usd_per_1m']),
+      cacheWriteUsdPer1M:
+          _readNullableNonNegativeDouble(json['cache_write_usd_per_1m']),
     );
   }
 
@@ -211,6 +221,16 @@ class AiModelProfile {
   /// `true` / `false` = user override.
   final bool? supportsAttachments;
 
+  /// 2026-05-04 — 成本控制：每百万 token 的价格（单位 USD）。
+  /// `null` = 未配置，成本推算将被跳过。由用户手动填入厄商官方
+  /// pricing 页的数据，应避免 LLM 凭空估算。
+  final double? inputUsdPer1M;
+  final double? outputUsdPer1M;
+  /// 缓存命中读取价（一般为输入价的 0.1–0.25）。
+  final double? cacheReadUsdPer1M;
+  /// 缓存创建写入价（一般为输入价的 1.25）。
+  final double? cacheWriteUsdPer1M;
+
   /// Whether user explicitly configured this profile (not just empty defaults).
   bool get hasUserOverrides =>
       displayName != null ||
@@ -222,7 +242,11 @@ class AiModelProfile {
       maxOutputLength != null ||
       maxThinkingLength != null ||
       capabilities.isNotEmpty ||
-      supportsAttachments != null;
+      supportsAttachments != null ||
+      inputUsdPer1M != null ||
+      outputUsdPer1M != null ||
+      cacheReadUsdPer1M != null ||
+      cacheWriteUsdPer1M != null;
 
   AiModelProfile copyWith({
     String? displayName,
@@ -243,6 +267,14 @@ class AiModelProfile {
     Set<AiModelCapability>? capabilities,
     bool? supportsAttachments,
     bool clearSupportsAttachments = false,
+    double? inputUsdPer1M,
+    bool clearInputUsdPer1M = false,
+    double? outputUsdPer1M,
+    bool clearOutputUsdPer1M = false,
+    double? cacheReadUsdPer1M,
+    bool clearCacheReadUsdPer1M = false,
+    double? cacheWriteUsdPer1M,
+    bool clearCacheWriteUsdPer1M = false,
   }) {
     return AiModelProfile(
       displayName: clearDisplayName ? null : displayName ?? this.displayName,
@@ -267,6 +299,18 @@ class AiModelProfile {
       supportsAttachments: clearSupportsAttachments
           ? null
           : supportsAttachments ?? this.supportsAttachments,
+      inputUsdPer1M: clearInputUsdPer1M
+          ? null
+          : inputUsdPer1M ?? this.inputUsdPer1M,
+      outputUsdPer1M: clearOutputUsdPer1M
+          ? null
+          : outputUsdPer1M ?? this.outputUsdPer1M,
+      cacheReadUsdPer1M: clearCacheReadUsdPer1M
+          ? null
+          : cacheReadUsdPer1M ?? this.cacheReadUsdPer1M,
+      cacheWriteUsdPer1M: clearCacheWriteUsdPer1M
+          ? null
+          : cacheWriteUsdPer1M ?? this.cacheWriteUsdPer1M,
     );
   }
 
@@ -289,6 +333,12 @@ class AiModelProfile {
             .toList(growable: false),
       if (supportsAttachments != null)
         'supports_attachments': supportsAttachments,
+      if (inputUsdPer1M != null) 'input_usd_per_1m': inputUsdPer1M,
+      if (outputUsdPer1M != null) 'output_usd_per_1m': outputUsdPer1M,
+      if (cacheReadUsdPer1M != null)
+        'cache_read_usd_per_1m': cacheReadUsdPer1M,
+      if (cacheWriteUsdPer1M != null)
+        'cache_write_usd_per_1m': cacheWriteUsdPer1M,
     };
   }
 
@@ -321,6 +371,19 @@ class AiModelProfile {
     final parsed = int.tryParse('${value ?? ''}'.trim());
     if (parsed == null || parsed <= 0) return null;
     return parsed;
+  }
+
+  static double? _readNullableNonNegativeDouble(Object? value) {
+    double? d;
+    if (value is double) {
+      d = value;
+    } else if (value is num) {
+      d = value.toDouble();
+    } else if (value is String) {
+      d = double.tryParse(value.trim());
+    }
+    if (d == null || !d.isFinite || d.isNaN || d < 0) return null;
+    return d;
   }
 }
 
