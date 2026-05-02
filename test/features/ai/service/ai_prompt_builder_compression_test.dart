@@ -11,6 +11,8 @@ import 'package:openhand/features/ai/model/ai_thread_template.dart';
 import 'package:openhand/features/ai/model/ai_token_usage.dart';
 import 'package:openhand/features/ai/service/ai_prompt_builder.dart';
 import 'package:openhand/features/ai/service/ai_prompt_template_repository.dart';
+import 'package:openhand/features/ai/service/ai_protocol_adapter.dart';
+import 'package:openhand/features/mcp/model/mcp_server.dart';
 import 'package:openhand/features/memory/model/user_memory_entry.dart';
 import 'package:openhand/features/skills/model/local_skill.dart';
 
@@ -614,6 +616,75 @@ void main() {
     expect(promptText, contains('- [in_progress] Patch prompt restore'));
     expect(rehydration['restored_channels'], contains('plan_context'));
   });
+
+  test('restores mcp context after compact', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-mcp-restore',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: '继续使用 MCP',
+      createdAt: now,
+    );
+    final messages = <AiSessionMessage>[checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(
+        availableMcpServers: const <McpServer>[
+          McpServer(
+            name: 'filesystem',
+            type: McpServerType.stdio,
+            enabled: true,
+            command: 'npx',
+            args: <String>['-y', '@modelcontextprotocol/server-filesystem'],
+          ),
+        ],
+      ),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+      availableTools: const <AiToolDefinition>[
+        AiToolDefinition(
+          name: 'mcp__filesystem__read_file',
+          description: 'MCP tool from server "filesystem". Read a file.',
+          parameters: <String, Object?>{'type': 'object'},
+        ),
+      ],
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.9] Restored MCP Context'));
+    expect(promptText, contains('filesystem (stdio, enabled=true)'));
+    expect(promptText, contains('mcp__filesystem__read_file'));
+    expect(rehydration['mcp_server_count'], 1);
+    expect(rehydration['mcp_tool_count'], 1);
+    expect(rehydration['restored_channels'], contains('mcp_context'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {
@@ -707,6 +778,7 @@ AiSession _session({
 
 AiSessionRuntimeContext _runtimeContext({
   List<LocalSkill> availableSkills = const <LocalSkill>[],
+  List<McpServer> availableMcpServers = const <McpServer>[],
 }) {
   return AiSessionRuntimeContext(
     localeTag: 'zh-Hans',
@@ -720,5 +792,6 @@ AiSessionRuntimeContext _runtimeContext({
     memoryEnabled: true,
     memoryEntries: const <UserMemoryEntry>[],
     availableSkills: availableSkills,
+    availableMcpServers: availableMcpServers,
   );
 }

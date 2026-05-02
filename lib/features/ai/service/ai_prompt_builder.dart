@@ -58,6 +58,8 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxSkillChars = 8000;
   static const int _postCompactRestoreTotalSkillChars = 20000;
   static const int _postCompactRestoreMaxPlanChars = 12000;
+  static const int _postCompactRestoreMaxMcpChars = 12000;
+  static const int _postCompactRestoreMaxMcpTools = 40;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -273,6 +275,11 @@ class AiPromptBuilder {
       session: session,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final restoredMcpContext = _renderPostCompactRestoredMcpContext(
+      runtimeContext: runtimeContext,
+      availableTools: availableTools,
+      latestCompressionPoint: latestCompressionPoint,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -369,6 +376,11 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.8] Restored Plan Context\n\n$restoredPlanContext',
+        ),
+      if (restoredMcpContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.9] Restored MCP Context\n\n$restoredMcpContext',
         ),
       ...latestUserTurns,
     ];
@@ -579,6 +591,8 @@ class AiPromptBuilder {
       if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
       if (session.planHistory.isNotEmpty) 'plan_history',
       if (_hasRestorablePlanContext(session)) 'plan_context',
+      if (mcpToolCount > 0 || runtimeContext.availableMcpServers.isNotEmpty)
+        'mcp_context',
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
     ];
@@ -595,6 +609,11 @@ class AiPromptBuilder {
       'builtin_tool_count': builtinToolCount,
       'skill_tool_count': skillToolCount,
       'mcp_tool_count': mcpToolCount,
+      'mcp_server_count': runtimeContext.availableMcpServers.length,
+      if (runtimeContext.availableMcpServers.isNotEmpty)
+        'mcp_server_names': runtimeContext.availableMcpServers
+            .map((server) => server.name)
+            .toList(growable: false),
       'memory_enabled': runtimeContext.memoryEnabled,
       'memory_entry_count': memoryEntries.length,
       'workspace_instruction_document_count':
@@ -2356,6 +2375,151 @@ $content
       lines.add('- [$status] $content');
     }
     return lines.join('\n');
+  }
+
+  String _renderPostCompactRestoredMcpContext({
+    required AiSessionRuntimeContext runtimeContext,
+    required List<AiToolDefinition> availableTools,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    if (latestCompressionPoint == null) {
+      return '';
+    }
+    final mcpTools = availableTools
+        .where((tool) => tool.name.trim().startsWith('mcp__'))
+        .toList(growable: false);
+    final servers = runtimeContext.availableMcpServers
+        .where((server) => server.name.trim().isNotEmpty)
+        .toList(growable: false);
+    if (mcpTools.isEmpty && servers.isEmpty) {
+      return '';
+    }
+
+    final serverTokens = servers
+        .map((server) => _normalizeMcpToolToken('mcp__${server.name}'))
+        .toSet();
+    final toolNamesByServerToken = <String, List<AiToolDefinition>>{};
+    for (final tool in mcpTools) {
+      final serverToken = _mcpServerTokenFromToolName(tool.name, serverTokens);
+      if (serverToken.isEmpty) {
+        continue;
+      }
+      toolNamesByServerToken.putIfAbsent(serverToken, () => []).add(tool);
+    }
+
+    final buffer = StringBuffer()
+      ..writeln(
+        'MCP context restored after compaction. The tool catalog remains authoritative; this section re-announces MCP servers and their currently visible tools.',
+      );
+
+    if (servers.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## MCP Servers');
+      for (final server in servers) {
+        final summary = server.summary.trim();
+        buffer.writeln(
+          '- ${server.name} (${server.type.storageValue}, enabled=${server.enabled})${summary.isEmpty ? '' : ': $summary'}',
+        );
+      }
+    }
+
+    if (mcpTools.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## MCP Tools');
+      var renderedToolCount = 0;
+      final renderedServerTokens = <String>{};
+      for (final server in servers) {
+        if (renderedToolCount >= _postCompactRestoreMaxMcpTools) {
+          break;
+        }
+        final serverToken = _normalizeMcpToolToken('mcp__${server.name}');
+        final tools = toolNamesByServerToken[serverToken];
+        if (tools == null || tools.isEmpty) {
+          continue;
+        }
+        renderedServerTokens.add(serverToken);
+        buffer
+          ..writeln()
+          ..writeln('### ${server.name}');
+        renderedToolCount += _renderMcpToolLines(
+          buffer,
+          tools,
+          _postCompactRestoreMaxMcpTools - renderedToolCount,
+        );
+      }
+
+      final ungroupedTools = <AiToolDefinition>[
+        for (final entry in toolNamesByServerToken.entries)
+          if (!renderedServerTokens.contains(entry.key)) ...entry.value,
+      ];
+      if (ungroupedTools.isNotEmpty &&
+          renderedToolCount < _postCompactRestoreMaxMcpTools) {
+        buffer
+          ..writeln()
+          ..writeln('### Other MCP Tools');
+        renderedToolCount += _renderMcpToolLines(
+          buffer,
+          ungroupedTools,
+          _postCompactRestoreMaxMcpTools - renderedToolCount,
+        );
+      }
+
+      final omitted = mcpTools.length - renderedToolCount;
+      if (omitted > 0) {
+        buffer.writeln('- [mcp_tools_truncated: omitted $omitted tools]');
+      }
+    }
+
+    return _truncateRestoredContextContent(
+      buffer.toString().trimRight(),
+      _postCompactRestoreMaxMcpChars,
+      'restored_mcp_truncated',
+    );
+  }
+
+  int _renderMcpToolLines(
+    StringBuffer buffer,
+    List<AiToolDefinition> tools,
+    int limit,
+  ) {
+    var rendered = 0;
+    for (final tool in tools) {
+      if (rendered >= limit) {
+        break;
+      }
+      final description = _firstNonEmptyLine(tool.description, 240);
+      buffer.writeln(
+        '- ${tool.name}${description.isEmpty ? '' : ': $description'}',
+      );
+      rendered += 1;
+    }
+    return rendered;
+  }
+
+  String _mcpServerTokenFromToolName(
+    String toolName,
+    Iterable<String> knownServerTokens,
+  ) {
+    for (final serverToken in knownServerTokens) {
+      if (toolName.startsWith('${serverToken}__')) {
+        return serverToken;
+      }
+    }
+    final parts = toolName.trim().split('__');
+    if (parts.length < 3 || parts.first != 'mcp') {
+      return '';
+    }
+    return 'mcp__${parts[1]}';
+  }
+
+  String _normalizeMcpToolToken(String value) {
+    final sanitized = value
+        .trim()
+        .replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return sanitized.isEmpty ? 'tool' : sanitized;
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {

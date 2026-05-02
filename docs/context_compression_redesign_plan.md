@@ -216,6 +216,7 @@ Hardness API phase runner 有独立交接压缩：
 | 真实文件内容恢复 | `ai_prompt_builder.dart` | checkpoint 后从最近 Read 文件锚点中恢复最多 5 个现存文本文件内容，按单文件/总字符预算注入 `[5.6] Restored File Context` |
 | Invoked Skill 恢复 | `ai_prompt_builder.dart` | checkpoint 后恢复最近调用过且当前仍可用的最多 3 个技能 manifest/default prompt，注入 `[5.7] Restored Skill Context` |
 | Plan Context 恢复 | `ai_prompt_builder.dart` | checkpoint 后恢复当前 plan mode、pending plan、最近 plan record 与 todos，按 12K 字符预算注入 `[5.8] Restored Plan Context` |
+| MCP Context 恢复 | `ai_prompt_builder.dart` | checkpoint 后复宣当前 MCP servers 与 MCP tool names/descriptions，按 40 工具/12K 字符预算注入 `[5.9] Restored MCP Context` |
 
 ## 5. OpenHand 目标架构
 
@@ -370,6 +371,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 11. **真实文件内容恢复**：在最新 checkpoint 存在时，Prompt Builder 会尝试从 checkpoint 之前最近 Read 过的文件里恢复最多 5 个仍存在的文本文件快照，并以 12K/文件、30K/总量预算注入 `[5.6] Restored File Context`；读取失败走 `silentLog`，不阻断 prompt 构建。
 12. **Invoked Skill 内容恢复**：对齐 Claude Code `createSkillAttachmentIfNeeded`，OpenHand 在 checkpoint 后从历史 skill 调用元数据里恢复最近 3 个仍在 `availableSkills` 中的技能 manifest/default prompt，并按 8K/技能、20K/总量预算注入 `[5.7] Restored Skill Context`。
 13. **Plan Context 内容恢复**：对齐 Claude Code `createPlanAttachmentIfNeeded` / plan mode attachment 的意图，OpenHand 在 checkpoint 后将当前 plan mode、审批状态、pending plan、最近 3 条 plan record 以及当前 todo 列表重注入 `[5.8] Restored Plan Context`，总量限制 12K 字符，避免压缩后模型丢失继续执行计划所需的结构状态。
+14. **MCP Context 复宣**：对齐 Claude Code `getMcpInstructionsDeltaAttachment` 的 post-compact 复宣策略，OpenHand 在 checkpoint 后额外注入 `[5.9] Restored MCP Context`，列出当前 MCP servers 与可见 MCP tools；由于 OpenHand 目前未持久保存 MCP InitializeResult.instructions，本阶段先恢复 server/tool 可见性，后续可扩展为真实 server instruction delta。
 
 ## 7. Prompt 维护准则
 
