@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
 import 'openhand_dialog_action_button.dart';
+import 'openhand_snack_bar.dart';
 
 /// Result returned by [showImageEditorDialog] when the user confirms.
 ///
@@ -173,6 +174,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   /// to confirm the user's action without an extra SnackBar.
   final ValueNotifier<int> _actionPulse = ValueNotifier<int>(0);
 
+  /// Increments after every successful SnackBar confirmation; drives the
+  /// green top-edge confirmation flash.
+  final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
+
+  /// Increments after every error SnackBar; drives the red top-edge
+  /// failure flash.
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
+
   void _firePulse() => _actionPulse.value = _actionPulse.value + 1;
 
   @override
@@ -185,6 +194,8 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   void dispose() {
     _watermarkController.dispose();
     _actionPulse.dispose();
+    _successPulse.dispose();
+    _errorPulse.dispose();
     _dismissProcessingOverlay();
     super.dispose();
   }
@@ -280,6 +291,28 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                     right: 0,
                     child: IgnorePointer(
                       child: HighlightPulse(signal: _actionPulse),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: HighlightPulse(
+                        signal: _successPulse,
+                        color: const Color(0xFF22C55E),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      child: HighlightPulse(
+                        signal: _errorPulse,
+                        color: const Color(0xFFEF4444),
+                      ),
                     ),
                   ),
                 ],
@@ -1108,18 +1141,25 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
   bool get _canResetAll =>
       _hasBakedChanges || _undoStack.isNotEmpty || _hasUnappliedEdits;
 
-  /// Shows a brief [SnackBar] notification at the bottom of the dialog.
+  /// Shows a brief [SnackBar] notification at the bottom of the dialog
+  /// using the green / red `OpenHandSnackBar` variants and pulses the
+  /// corresponding top-edge HighlightPulse.
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
-    final colorScheme = Theme.of(context).colorScheme;
-    _messengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? colorScheme.error : null,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: isError ? 4 : 2),
-      ),
-    );
+    final messengerContext = _messengerKey.currentContext ?? context;
+    final messengerState = _messengerKey.currentState;
+    if (messengerState == null) return;
+    if (isError) {
+      messengerState.showSnackBar(
+        OpenHandSnackBar.error(messengerContext, message),
+      );
+      _errorPulse.value = _errorPulse.value + 1;
+    } else {
+      messengerState.showSnackBar(
+        OpenHandSnackBar.success(messengerContext, message),
+      );
+      _successPulse.value = _successPulse.value + 1;
+    }
   }
 
   void _loadImage() {
