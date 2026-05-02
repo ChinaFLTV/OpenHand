@@ -63,7 +63,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               _ToolExecutionChip(
                 icon: Icons.folder_outlined,
                 label:
-                    '${_localizedText(context, zh: '目录', en: 'Dir')}: ${toolCall.workingDirectory}',
+                    '${AppLocalizations.of(context)!.tlCallDir}: ${toolCall.workingDirectory}',
               ),
             if (toolCall.status.isNotEmpty)
               _ToolExecutionChip(
@@ -74,19 +74,19 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               _ToolExecutionChip(
                 icon: Icons.timer_outlined,
                 label:
-                    '${_localizedText(context, zh: '耗时', en: 'Elapsed')}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
+                    '${AppLocalizations.of(context)!.tlCallElapsed}: ${_formatToolExecutionDuration(toolCall.durationMs)}',
               ),
             if (toolCall.exitCode != null)
               _ToolExecutionChip(
                 icon: Icons.flag_outlined,
                 label:
-                    '${_localizedText(context, zh: '退出码', en: 'Exit')}: ${toolCall.exitCode}',
+                    '${AppLocalizations.of(context)!.tlCallExit}: ${toolCall.exitCode}',
               ),
           ],
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '工具入参', en: 'Tool Input'),
+          title: AppLocalizations.of(context)!.tlCallToolInput,
           preview: toolCall.argumentsPreview,
           expanded: argumentsExpanded,
           onToggle: () {
@@ -99,18 +99,14 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
             children: [
               if (toolCall.command.isNotEmpty)
                 _ToolOutputPanel(
-                  label: _localizedText(context, zh: 'command', en: 'command'),
+                  label: AppLocalizations.of(context)!.tlCallCommand,
                   content: toolCall.formattedCommand,
                   theme: theme,
                   selectable: widget.selectable,
                 ),
               if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
               _ToolOutputPanel(
-                label: _localizedText(
-                  context,
-                  zh: 'arguments',
-                  en: 'arguments',
-                ),
+                label: AppLocalizations.of(context)!.tlCallArguments,
                 content: toolCall.formattedArguments,
                 theme: theme,
                 selectable: widget.selectable,
@@ -120,10 +116,10 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '结果输出', en: 'Tool Output'),
+          title: AppLocalizations.of(context)!.tlCallToolOutput,
           preview: toolCall.hasResultContent
               ? toolCall.resultPreview
-              : _localizedText(context, zh: '暂无输出', en: 'No output yet'),
+              : AppLocalizations.of(context)!.tlCallNoOutputYet,
           expanded: resultExpanded,
           onToggle: () {
             setState(() {
@@ -156,7 +152,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                 if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
                   const SizedBox(height: 10),
                 _ToolOutputPanel(
-                  label: _localizedText(context, zh: 'result', en: 'result'),
+                  label: AppLocalizations.of(context)!.tlCallResult,
                   content: toolCall.formattedResult,
                   theme: theme,
                   selectable: widget.selectable,
@@ -166,11 +162,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                   toolCall.stderr.isEmpty &&
                   !toolCall.showResultText)
                 Text(
-                  _localizedText(
-                    context,
-                    zh: '当前还没有工具输出。',
-                    en: 'There is no tool output yet.',
-                  ),
+                  AppLocalizations.of(context)!.tlCallThereIsNoToolOutputYet,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -403,11 +395,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     size: 14,
                   ),
                   label: Text(
-                    _localizedText(
-                      context,
-                      zh: _isWrapped ? '取消换行' : '自动换行',
-                      en: _isWrapped ? 'Unwrap' : 'Wrap Lines',
-                    ),
+                    (_isWrapped ? AppLocalizations.of(context)!.tlCallUnwrap : AppLocalizations.of(context)!.tlCallWrapLines),
                   ),
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -429,13 +417,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       size: 14,
                     ),
                     label: Text(
-                      _localizedText(
-                        context,
-                        zh: _isExpanded ? '查看压缩内容' : '查看完整内容',
-                        en: _isExpanded
-                            ? 'View Compressed Content'
-                            : 'View Full Content',
-                      ),
+                      (_isExpanded ? AppLocalizations.of(context)!.tlCallViewCompressedContent : AppLocalizations.of(context)!.tlCallViewFullContent),
                     ),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -452,11 +434,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                       onPressed: () => _showFullContentDialog(context),
                       icon: const Icon(Icons.open_in_new_rounded, size: 14),
                       label: Text(
-                        _localizedText(
-                          context,
-                          zh: '在弹窗里查看完整内容',
-                          en: 'View in Dialog',
-                        ),
+                        AppLocalizations.of(context)!.tlCallViewInDialog,
                       ),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -703,7 +681,7 @@ class _ToolContentFullDialogBodyState
     if (text.trim().isEmpty) {
       return Center(
         child: Text(
-          _localizedText(context, zh: '内容为空', en: 'Empty content'),
+          AppLocalizations.of(context)!.tlCallEmptyContent,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
@@ -820,38 +798,34 @@ class _FileMutationRow extends StatelessWidget {
       'write' => (
         Icons.add_circle_outline_rounded,
         const Color(0xFF4CAF50),
-        _localizedText(context, zh: '写入', en: 'Write'),
+        AppLocalizations.of(context)!.tlCallWrite,
       ),
       'edit' => (
         Icons.edit_outlined,
         colorScheme.primary,
-        _localizedText(context, zh: '编辑', en: 'Edit'),
+        AppLocalizations.of(context)!.tlCallEdit,
       ),
       'multi_edit' => (
         Icons.edit_note_outlined,
         colorScheme.primary,
         editCount is int && editCount > 1
-            ? _localizedText(
-                context,
-                zh: '多处编辑 ×$editCount',
-                en: 'Multi-edit ×$editCount',
-              )
-            : _localizedText(context, zh: '多处编辑', en: 'Multi-edit'),
+            ? AppLocalizations.of(context)!.tlCallMultiEditEditcount(editCount)
+            : AppLocalizations.of(context)!.tlCallMultiEdit,
       ),
       'notebook_edit' => (
         Icons.menu_book_outlined,
         colorScheme.tertiary,
-        _localizedText(context, zh: 'Notebook 编辑', en: 'Notebook Edit'),
+        AppLocalizations.of(context)!.tlCallNotebookEdit,
       ),
       'bash_write' => (
         Icons.terminal_rounded,
         const Color(0xFFF57F17),
-        _localizedText(context, zh: '命令写入', en: 'Bash Write'),
+        AppLocalizations.of(context)!.tlCallBashWrite,
       ),
       _ => (
         Icons.difference_rounded,
         colorScheme.onSurfaceVariant,
-        _localizedText(context, zh: '文件变更', en: 'File Changed'),
+        AppLocalizations.of(context)!.tlCallFileChanged,
       ),
     };
 
@@ -880,7 +854,7 @@ class _FileMutationRow extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                _localizedText(context, zh: '文件变动', en: 'Changed File'),
+                AppLocalizations.of(context)!.tlCallChangedFile,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -1557,7 +1531,7 @@ String _buildPrimaryChipLabel(
   if (category.isEmpty || category == display) {
     return display.isEmpty ? category : display;
   }
-  final genericCategory = _localizedText(context, zh: '工具', en: 'Tool');
+  final genericCategory = AppLocalizations.of(context)!.tlCallTool;
   if (category == genericCategory) {
     return display.isEmpty ? category : display;
   }
@@ -1576,7 +1550,7 @@ _ToolCallPresentation _toolCallPresentation(
   if (toolSource == 'skill' || normalizedToolName.startsWith('skill__')) {
     final skillName = '${message.metadata['skill_name'] ?? ''}'.trim();
     return _ToolCallPresentation(
-      categoryLabel: _localizedText(context, zh: '技能', en: 'Skill'),
+      categoryLabel: AppLocalizations.of(context)!.tlCallSkill,
       displayName: skillName.isEmpty ? rawToolName : skillName,
       icon: Icons.extension_rounded,
     );
@@ -1681,9 +1655,9 @@ _ToolCallPresentation _toolCallPresentation(
       icon: Icons.quiz_outlined,
     ),
     _ => _ToolCallPresentation(
-      categoryLabel: _localizedText(context, zh: '工具', en: 'Tool'),
+      categoryLabel: AppLocalizations.of(context)!.tlCallTool,
       displayName: rawToolName.isEmpty
-          ? _localizedText(context, zh: '工具', en: 'Tool')
+          ? AppLocalizations.of(context)!.tlCallTool
           : rawToolName,
       icon: Icons.build_circle_outlined,
     ),
@@ -2014,49 +1988,29 @@ String _toolCallStatusActionLabel(
   required bool isCommandLike,
 }) {
   return switch (status) {
-    '' => _localizedText(
-      context,
-      zh: isCommandLike ? '准备执行' : '准备调用',
-      en: 'Preparing',
-    ),
-    'running' => _localizedText(
-      context,
-      zh: isCommandLike ? '执行中' : '调用中',
-      en: 'Running',
-    ),
-    'cancelled' => _localizedText(context, zh: '已停止', en: 'Stopped'),
-    'success' => _localizedText(
-      context,
-      zh: isCommandLike ? '执行完成' : '调用完成',
-      en: 'Completed',
-    ),
-    'denied' => _localizedText(context, zh: '已拦截', en: 'Blocked'),
-    'rejected' => _localizedText(context, zh: '已拒绝', en: 'Rejected'),
-    'timed_out' => _localizedText(
-      context,
-      zh: isCommandLike ? '执行超时' : '调用超时',
-      en: 'Timed Out',
-    ),
-    'failed' => _localizedText(
-      context,
-      zh: isCommandLike ? '执行失败' : '调用失败',
-      en: 'Failed',
-    ),
-    'invalid_arguments' => _localizedText(context, zh: '参数无效', en: 'Invalid'),
-    _ => _localizedText(context, zh: '工具调用', en: 'Tool Call'),
+    '' => (isCommandLike ? AppLocalizations.of(context)!.tlCallPreparing : AppLocalizations.of(context)!.tlCallPreparingAlt),
+    'running' => (isCommandLike ? AppLocalizations.of(context)!.tlCallRunning : AppLocalizations.of(context)!.tlCallRunningAlt),
+    'cancelled' => AppLocalizations.of(context)!.tlCallStopped,
+    'success' => (isCommandLike ? AppLocalizations.of(context)!.tlCallCompleted : AppLocalizations.of(context)!.tlCallCompletedAlt),
+    'denied' => AppLocalizations.of(context)!.tlCallBlocked,
+    'rejected' => AppLocalizations.of(context)!.tlCallRejected,
+    'timed_out' => (isCommandLike ? AppLocalizations.of(context)!.tlCallTimedOut : AppLocalizations.of(context)!.tlCallTimedOutAlt),
+    'failed' => (isCommandLike ? AppLocalizations.of(context)!.tlCallFailed : AppLocalizations.of(context)!.tlCallFailedAlt),
+    'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
+    _ => AppLocalizations.of(context)!.tlCallToolCall,
   };
 }
 
 String _toolExecutionOutcomeLabel(BuildContext context, String status) {
   return switch (status) {
-    'running' => _localizedText(context, zh: '运行中', en: 'Running'),
-    'cancelled' => _localizedText(context, zh: '已停止', en: 'Stopped'),
-    'success' => _localizedText(context, zh: '执行成功', en: 'Succeeded'),
-    'denied' => _localizedText(context, zh: '已被禁止', en: 'Denied'),
-    'rejected' => _localizedText(context, zh: '用户拒绝', en: 'Rejected'),
-    'timed_out' => _localizedText(context, zh: '执行超时', en: 'Timed Out'),
-    'failed' => _localizedText(context, zh: '执行失败', en: 'Failed'),
-    'invalid_arguments' => _localizedText(context, zh: '参数无效', en: 'Invalid'),
+    'running' => AppLocalizations.of(context)!.tlCallRunning,
+    'cancelled' => AppLocalizations.of(context)!.tlCallStopped,
+    'success' => AppLocalizations.of(context)!.tlCallSucceeded,
+    'denied' => AppLocalizations.of(context)!.tlCallDenied,
+    'rejected' => AppLocalizations.of(context)!.tlCallRejected,
+    'timed_out' => AppLocalizations.of(context)!.tlCallTimedOut,
+    'failed' => AppLocalizations.of(context)!.tlCallFailed,
+    'invalid_arguments' => AppLocalizations.of(context)!.tlCallInvalid,
     _ => status,
   };
 }
@@ -2081,17 +2035,9 @@ String _toolExecutionPreviewText(
     return 'result · $resultLine';
   }
   if (_shouldSweepToolStatus(status)) {
-    return _localizedText(
-      context,
-      zh: '工具运行中，等待新的输出...',
-      en: 'Tool is running. Waiting for output...',
-    );
+    return AppLocalizations.of(context)!.tlCallToolIsRunningWaitingForOutput;
   }
-  return _localizedText(
-    context,
-    zh: '点击展开查看工具输出',
-    en: 'Expand to inspect tool output',
-  );
+  return AppLocalizations.of(context)!.tlCallExpandToInspectToolOutput;
 }
 
 String _lastNonEmptyToolOutputLine(String content) {
@@ -2222,11 +2168,7 @@ void _showMessageLinkOpenError(BuildContext context, Object error) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
-        _localizedText(
-          context,
-          zh: '打开文件位置失败：$error',
-          en: 'Failed to open file location: $error',
-        ),
+        AppLocalizations.of(context)!.tlCallFailedToOpenFileLocationError(error),
       ),
     ),
   );
@@ -2696,15 +2638,15 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                         ),
                         const SizedBox(height: 12),
                         _StatRow(
-                          _localizedText(context, zh: '类型', en: 'Type'),
+                          AppLocalizations.of(context)!.tlCallType,
                           stat.type.toString(),
                         ),
                         _StatRow(
-                          _localizedText(context, zh: '大小', en: 'Size'),
+                          AppLocalizations.of(context)!.tlCallSize,
                           '${stat.size} bytes',
                         ),
                         _StatRow(
-                          _localizedText(context, zh: '修改于', en: 'Modified'),
+                          AppLocalizations.of(context)!.tlCallModified,
                           '${stat.modified}',
                         ),
                       ],
@@ -2900,18 +2842,14 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
       context,
       widget.message.createdAt,
     );
-    final memoryCountLabel = _localizedText(
-      context,
-      zh: '${memoryItems.length} 条记忆已更新',
-      en: '${memoryItems.length} memories updated',
-    );
+    final memoryCountLabel = AppLocalizations.of(context)!.tlCallMemoryitemsLengthMemoriesUpdated(memoryItems.length);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SelfLearningHeaderRow(
           icon: Icons.psychology_alt_rounded,
-          label: _localizedText(context, zh: '自我学习', en: 'Self-Learning'),
+          label: AppLocalizations.of(context)!.tlCallSelfLearning,
           color: colorScheme.tertiary,
         ),
         const SizedBox(height: 10),
@@ -2922,11 +2860,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             if (profileItems.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.account_circle_outlined,
-                label: _localizedText(
-                  context,
-                  zh: '${profileItems.length} 项画像已更新',
-                  en: '${profileItems.length} profile changes',
-                ),
+                label: AppLocalizations.of(context)!.tlCallProfileitemsLengthProfileChanges(profileItems.length),
               ),
             _ToolExecutionChip(
               icon: Icons.memory_rounded,
@@ -2935,11 +2869,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             if (skillItems.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.extension_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '${skillItems.length} 个技能已更新',
-                  en: '${skillItems.length} skills updated',
-                ),
+                label: AppLocalizations.of(context)!.tlCallSkillitemsLengthSkillsUpdated(skillItems.length),
               ),
             _ToolExecutionChip(
               icon: Icons.schedule_rounded,
@@ -2948,17 +2878,13 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             if (metadata['nudge_recovered'] == true)
               _ToolExecutionChip(
                 icon: Icons.refresh_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '已纠正"光说不做"',
-                  en: 'Nudge recovered',
-                ),
+                label: AppLocalizations.of(context)!.tlCallNudgeRecovered,
               ),
           ],
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '用户画像变更', en: 'Profile Changes'),
+          title: AppLocalizations.of(context)!.tlCallProfileChanges,
           preview: _changeItemsPreview(context, profileItems),
           expanded: _profileChangesExpanded,
           onToggle: () {
@@ -2971,7 +2897,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '记忆变更', en: 'Memory Changes'),
+          title: AppLocalizations.of(context)!.tlCallMemoryChanges,
           preview: _changeItemsPreview(context, memoryItems),
           expanded: _memoriesExpanded,
           onToggle: () {
@@ -2984,7 +2910,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         ),
         const SizedBox(height: 10),
         _ExpandableToolSection(
-          title: _localizedText(context, zh: '技能变更', en: 'Skill Changes'),
+          title: AppLocalizations.of(context)!.tlCallSkillChanges,
           preview: _changeItemsPreview(context, skillItems),
           expanded: _skillsExpanded,
           onToggle: () {
@@ -2998,7 +2924,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (profileDiff.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: _localizedText(context, zh: '画像差异摘要', en: 'Profile Diff'),
+            title: AppLocalizations.of(context)!.tlCallProfileDiff,
             preview: profileDiff,
             expanded: _profileExpanded,
             onToggle: () {
@@ -3015,11 +2941,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (aiReasoning.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: _localizedText(
-              context,
-              zh: isStreaming ? 'AI 思考（生成中）' : 'AI 思考',
-              en: isStreaming ? 'AI Thinking (streaming)' : 'AI Thinking',
-            ),
+            title: (isStreaming ? AppLocalizations.of(context)!.tlCallAiThinkingStreaming : AppLocalizations.of(context)!.tlCallAiThinking),
             preview: _previewText(aiReasoning),
             expanded: _reasoningExpanded,
             onToggle: () {
@@ -3034,11 +2956,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
         if (aiResponse.isNotEmpty) ...[
           const SizedBox(height: 10),
           _ExpandableToolSection(
-            title: _localizedText(
-              context,
-              zh: isStreaming ? 'AI 响应（生成中）' : 'AI 响应',
-              en: isStreaming ? 'AI Response (streaming)' : 'AI Response',
-            ),
+            title: (isStreaming ? AppLocalizations.of(context)!.tlCallAiResponseStreaming : AppLocalizations.of(context)!.tlCallAiResponse),
             preview: _previewText(aiResponse),
             expanded: _responseExpanded,
             onToggle: () {
@@ -3215,7 +3133,7 @@ class _SelfLearningChangeList extends StatelessWidget {
     final theme = Theme.of(context);
     if (items.isEmpty) {
       return Text(
-        _localizedText(context, zh: '无变更', en: 'No changes'),
+        AppLocalizations.of(context)!.tlCallNoChanges,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontStyle: FontStyle.italic,
@@ -3259,7 +3177,7 @@ class _SelfLearningChangeTile extends StatelessWidget {
             children: [
               Text(
                 item.id.isEmpty
-                    ? _localizedText(context, zh: '(未命名)', en: '(unnamed)')
+                    ? AppLocalizations.of(context)!.tlCallUnnamed
                     : item.id,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -3348,18 +3266,14 @@ String _changeItemsPreview(
   List<_SelfLearningChangeItem> items,
 ) {
   if (items.isEmpty) {
-    return _localizedText(context, zh: '无变更', en: 'No changes');
+    return AppLocalizations.of(context)!.tlCallNoChanges;
   }
   final names = items
       .map((item) => item.id.isEmpty ? '—' : item.id)
       .take(3)
       .join(', ');
   final suffix = items.length > 3
-      ? _localizedText(
-          context,
-          zh: ' 等 ${items.length} 项',
-          en: ' and ${items.length - 3} more',
-        )
+      ? AppLocalizations.of(context)!.tlCallAndItemsLength3More(items.length - 3, items.length)
       : '';
   return '$names$suffix';
 }
@@ -3372,22 +3286,22 @@ String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
   final now = DateTime.now().toUtc();
   final diff = now.difference(createdAt.toUtc());
   if (diff.isNegative || diff.inSeconds < 5) {
-    return _localizedText(context, zh: '刚刚', en: 'just now');
+    return AppLocalizations.of(context)!.tlCallJustNow;
   }
   if (diff.inMinutes < 1) {
     final seconds = diff.inSeconds;
-    return _localizedText(context, zh: '$seconds秒前', en: '${seconds}s ago');
+    return AppLocalizations.of(context)!.tlCallSecondsSAgo(seconds);
   }
   if (diff.inHours < 1) {
     final minutes = diff.inMinutes;
-    return _localizedText(context, zh: '$minutes分钟前', en: '${minutes}m ago');
+    return AppLocalizations.of(context)!.tlCallMinutesMAgo(minutes);
   }
   if (diff.inDays < 1) {
     final hours = diff.inHours;
-    return _localizedText(context, zh: '$hours小时前', en: '${hours}h ago');
+    return AppLocalizations.of(context)!.tlCallHoursHAgo(hours);
   }
   final days = diff.inDays;
-  return _localizedText(context, zh: '$days天前', en: '${days}d ago');
+  return AppLocalizations.of(context)!.tlCallDaysDAgo(days);
 }
 
 /// 把文件差异预览加载失败的常见 dart:io 异常翻译成中英双语简短文案，

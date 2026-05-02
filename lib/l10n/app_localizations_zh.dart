@@ -2367,6 +2367,1835 @@ class AppLocalizationsZh extends AppLocalizations {
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
+
+  @override
+  String get mdlEdEnterAValidBaseUrlFirst => '请先输入有效的 Base URL';
+
+  @override
+  String get mdlEdNoModelsFoundFromThisProvider => '未从该提供商扫描到模型。';
+
+  @override
+  String get mdlEdProviderName => '提供商名称';
+
+  @override
+  String get mdlEdOptionalEGDeepseekLocalOllama => '可选，如 DeepSeek、本地 Ollama';
+
+  @override
+  String get mdlEdCurrentlyActiveModel => '当前活跃模型';
+
+  @override
+  String get mdlEdClickToSetAsActiveModel => '点击切换为活跃模型';
+
+  @override
+  String get mdlEdTapScanModelsToDiscoverModels => '点击「扫描模型」按钮自动发现可用模型，或手动添加。';
+
+  @override
+  String get mdlEdActiveModelId => '当前活跃模型 ID';
+
+  @override
+  String get mdlEdTheModelUsedForConversationsSelect =>
+      '当前用于对话的模型。可从上方列表选择或直接输入。';
+
+  @override
+  String get mdlEdMaxContextTokens => '最大上下文 Token 上限';
+
+  @override
+  String get mdlEdOptionalLimitsTheHistorySliceUsed => '可选。用于在压缩时限制历史切片大小。';
+
+  @override
+  String get mdlEdEnterAWholeNumberGreaterThan => '请输入大于 0 的整数';
+
+  @override
+  String get mdlEdRequestMethod => '请求方式';
+
+  @override
+  String get mdlEdOutputMode => '输出模式';
+
+  @override
+  String get mdlEdStreaming => '流式输出';
+
+  @override
+  String get mdlEdNonStreaming => '非流式输出';
+
+  @override
+  String get mdlEdMaxOutputTokens => '最大输出 Token 数';
+
+  @override
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset => '可选。不指定则使用适配器默认值。';
+
+  @override
+  String get mdlEdTemperature => '温度';
+
+  @override
+  String get mdlEd0020Default0 => '0.0 ~ 2.0，默认 0.7';
+
+  @override
+  String get mdlEdEnterANumberBetween00 => '请输入 0.0 到 2.0 之间的数值';
+
+  @override
+  String get mdlEdCustomHeaders => '自定义请求头';
+
+  @override
+  String get mdlEdAdd => '添加';
+
+  @override
+  String get mdlEdNoCustomHeadersTapAddTo => '暂无自定义请求头。点击「添加」按钮来添加。';
+
+  @override
+  String get mdlEdHeaderName => 'Header 名称';
+
+  @override
+  String get mdlEdHeaderValue => 'Header 值';
+
+  @override
+  String get mdlEdEditModelProfile => '编辑模型配置';
+
+  @override
+  String get mdlEdDisplayName => '显示名称';
+
+  @override
+  String get mdlEdOptionalShownInTheUi => '可选，用于界面展示';
+
+  @override
+  String get mdlEdDescription => '模型描述';
+
+  @override
+  String get mdlEdMultimodalSupport => '多模态支持';
+
+  @override
+  String get mdlEdAutoDetect => '自动检测';
+
+  @override
+  String get mdlEdYes => '是';
+
+  @override
+  String get mdlEdNo => '否';
+
+  @override
+  String get mdlEdSupportsAttachments => '支持附件';
+
+  @override
+  String get mdlEdSupportedModalities => '支持的模态';
+
+  @override
+  String get mdlEdText => '文本';
+
+  @override
+  String get mdlEdImage => '图片生成';
+
+  @override
+  String get mdlEdVideo => '视频生成';
+
+  @override
+  String get mdlEdAudio => '音频生成';
+
+  @override
+  String get mdlEdGenerationCapabilities => '生成能力';
+
+  @override
+  String get mdlEdPdf => 'PDF 生成';
+
+  @override
+  String get mdlEdPpt => 'PPT 生成';
+
+  @override
+  String get mdlEdTokenLimits => 'Token 限制';
+
+  @override
+  String get mdlEdContextLength => '上下文长度';
+
+  @override
+  String get mdlEdSummaryLength => '摘要长度';
+
+  @override
+  String get mdlEdOutputLength => '输出长度';
+
+  @override
+  String get mdlEdThinkingLength => '思考长度';
+
+  @override
+  String get mdlEdTokenPricingUsd1mTokensLeave =>
+      'Token 单价（USD / 1M tokens，留空表示未配置）';
+
+  @override
+  String get mdlEdInput => '输入价';
+
+  @override
+  String get mdlEdOutput => '输出价';
+
+  @override
+  String get mdlEdCacheRead => '缓存读取价';
+
+  @override
+  String get mdlEdCacheWrite => '缓存写入价';
+
+  @override
+  String get mdlEdReset => '重置';
+
+  @override
+  String get mdlEdCancel => '取消';
+
+  @override
+  String get mdlEdOk => '确定';
+
+  @override
+  String get tlCallDir => '目录';
+
+  @override
+  String get tlCallElapsed => '耗时';
+
+  @override
+  String get tlCallExit => '退出码';
+
+  @override
+  String get tlCallToolInput => '工具入参';
+
+  @override
+  String get tlCallCommand => 'command';
+
+  @override
+  String get tlCallArguments => 'arguments';
+
+  @override
+  String get tlCallToolOutput => '结果输出';
+
+  @override
+  String get tlCallNoOutputYet => '暂无输出';
+
+  @override
+  String get tlCallResult => 'result';
+
+  @override
+  String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
+
+  @override
+  String get tlCallViewInDialog => '在弹窗里查看完整内容';
+
+  @override
+  String get tlCallEmptyContent => '内容为空';
+
+  @override
+  String get tlCallWrite => '写入';
+
+  @override
+  String get tlCallEdit => '编辑';
+
+  @override
+  String get tlCallMultiEdit => '多处编辑';
+
+  @override
+  String get tlCallNotebookEdit => 'Notebook 编辑';
+
+  @override
+  String get tlCallBashWrite => '命令写入';
+
+  @override
+  String get tlCallFileChanged => '文件变更';
+
+  @override
+  String get tlCallChangedFile => '文件变动';
+
+  @override
+  String get tlCallTool => '工具';
+
+  @override
+  String get tlCallSkill => '技能';
+
+  @override
+  String get tlCallStopped => '已停止';
+
+  @override
+  String get tlCallBlocked => '已拦截';
+
+  @override
+  String get tlCallRejected => '用户拒绝';
+
+  @override
+  String get tlCallInvalid => '参数无效';
+
+  @override
+  String get tlCallToolCall => '工具调用';
+
+  @override
+  String get tlCallRunning => '运行中';
+
+  @override
+  String get tlCallSucceeded => '执行成功';
+
+  @override
+  String get tlCallDenied => '已被禁止';
+
+  @override
+  String get tlCallTimedOut => '执行超时';
+
+  @override
+  String get tlCallFailed => '执行失败';
+
+  @override
+  String get tlCallToolIsRunningWaitingForOutput => '工具运行中，等待新的输出...';
+
+  @override
+  String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
+
+  @override
+  String get tlCallType => '类型';
+
+  @override
+  String get tlCallSize => '大小';
+
+  @override
+  String get tlCallModified => '修改于';
+
+  @override
+  String get tlCallSelfLearning => '自我学习';
+
+  @override
+  String get tlCallNudgeRecovered => '已纠正\"光说不做\"';
+
+  @override
+  String get tlCallProfileChanges => '用户画像变更';
+
+  @override
+  String get tlCallMemoryChanges => '记忆变更';
+
+  @override
+  String get tlCallSkillChanges => '技能变更';
+
+  @override
+  String get tlCallProfileDiff => '画像差异摘要';
+
+  @override
+  String get tlCallNoChanges => '无变更';
+
+  @override
+  String get tlCallUnnamed => '(未命名)';
+
+  @override
+  String get tlCallJustNow => '刚刚';
+
+  @override
+  String get sessMetaMessages => '消息总数';
+
+  @override
+  String get sessMetaPromptBuilds => 'Prompt 构建';
+
+  @override
+  String get sessMetaCompressions => '压缩次数';
+
+  @override
+  String get sessMetaTotalTokens => '总 Token';
+
+  @override
+  String get sessMetaMode => '当前模式';
+
+  @override
+  String get sessMetaRuntimeTools => '运行工具';
+
+  @override
+  String get sessMetaPending => '未展示';
+
+  @override
+  String get sessMetaCurrentSessionMetadata => '当前会话元数据';
+
+  @override
+  String get sessMetaSessionOverview => '会话概览';
+
+  @override
+  String get sessMetaExtendedMetadata => '扩展元数据';
+
+  @override
+  String get sessMetaStatistics => '统计信息';
+
+  @override
+  String get sessMetaUser => '用户';
+
+  @override
+  String get sessMetaAssistant => '助手';
+
+  @override
+  String get sessMetaTool => '工具';
+
+  @override
+  String get sessMetaSkill => '技能';
+
+  @override
+  String get sessMetaCompression => '压缩';
+
+  @override
+  String get sessMetaEnvironment => '运行环境';
+
+  @override
+  String get sessMetaCommandPolicy => '命令策略';
+
+  @override
+  String get sessMetaPromptMetadataIsNotAvailableYet => '当前还没有可展示的 prompt 元数据。';
+
+  @override
+  String get sessMetaWriteConfirmation => '写命令确认';
+
+  @override
+  String get sessMetaRequired => '需要确认';
+
+  @override
+  String get sessMetaNotRequired => '无需确认';
+
+  @override
+  String get sessMetaAllowRules => '允许规则数';
+
+  @override
+  String get sessMetaThereAreNoSurfacedAllowCommand => '当前没有已上屏的允许命令规则。';
+
+  @override
+  String get sessMetaRuntimeOrchestration => '运行时编排';
+
+  @override
+  String get sessMetaStateSource => '状态来源';
+
+  @override
+  String get sessMetaGeneratedFromTheCurrentModelMcp =>
+      '根据当前模型、MCP/Skills 与 Plan 状态即时生成';
+
+  @override
+  String get sessMetaTheLastPersistedRuntimeSnapshot => '上一轮已落盘的运行时快照';
+
+  @override
+  String get sessMetaToolCatalogState => '工具目录状态';
+
+  @override
+  String get sessMetaGateReason => '门控原因';
+
+  @override
+  String get sessMetaRuntimeToolCount => '当前运行时工具数';
+
+  @override
+  String get sessMetaRefreshesNextRound => '等待下一轮刷新';
+
+  @override
+  String get sessMetaRuntimeNotices => '运行时 Notices';
+
+  @override
+  String get sessMetaCurrentRuntimeTools => '当前运行时工具';
+
+  @override
+  String get sessMetaTaskTracking => '任务跟踪';
+
+  @override
+  String get sessMetaCurrentTodos => '当前 Todo 数量';
+
+  @override
+  String get sessMetaPlanRecords => '计划记录数量';
+
+  @override
+  String get sessMetaTodowriteReminder => 'TodoWrite 强提醒';
+
+  @override
+  String get sessMetaTriggered => '已触发';
+
+  @override
+  String get sessMetaNotTriggered => '未触发';
+
+  @override
+  String get sessMetaUnavailable => '暂无数据';
+
+  @override
+  String get sessMetaReminderReason => '提醒原因';
+
+  @override
+  String get sessMetaPlanHistory => '计划历史';
+
+  @override
+  String get sessMetaRecentErrors => '最近异常';
+
+  @override
+  String get sessMetaThereAreNoSessionErrorsTo => '当前没有需要关注的会话异常。';
+
+  @override
+  String get sessMetaLastPromptMetadata => '最后一次 Prompt 元数据';
+
+  @override
+  String get sessMetaClose => '关闭';
+
+  @override
+  String get sessMetaPendingApproval => '待确认';
+
+  @override
+  String get sessMetaInProgress => '进行中';
+
+  @override
+  String get sessMetaCompleted => '已完成';
+
+  @override
+  String get sessMetaFailed => '失败';
+
+  @override
+  String get sessMetaCancelled => '已取消';
+
+  @override
+  String get sessMetaCreated => '创建';
+
+  @override
+  String get sessMetaUpdated => '更新';
+
+  @override
+  String get sessMetaErrorDetail => '错误细节';
+
+  @override
+  String get sessMetaPresented => '已展示';
+
+  @override
+  String get sessMetaThisSessionEndedEarlyRetryThe =>
+      '当前会话已提前结束。请重试或继续发送更具体的指令。';
+
+  @override
+  String get sessMetaToolCallsStoppedForSafety => '工具调用已安全停止';
+
+  @override
+  String get sessMetaOpenhandStoppedThisSessionForSafety =>
+      '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。';
+
+  @override
+  String get sessMetaResponseInterrupted => '回答已中断';
+
+  @override
+  String get sessMetaTheResponseWasInterruptedWhileStreaming =>
+      '本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。';
+
+  @override
+  String get sessMetaRequestFailed => '请求发送失败';
+
+  @override
+  String get sessMetaTheRequestFailedBeforeTheAssistant =>
+      '本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。';
+
+  @override
+  String get sessMetaContinuationFailed => '后续请求失败';
+
+  @override
+  String get sessMetaTheSessionFailedWhileRequestingThe =>
+      '本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。';
+
+  @override
+  String get sessMetaSafetyStop => '安全停止';
+
+  @override
+  String get sessMetaStreamError => '响应中断';
+
+  @override
+  String get sessMetaRequestError => '请求失败';
+
+  @override
+  String get sessMetaContinuationError => '后续请求失败';
+
+  @override
+  String get sessMetaToolExecutionError => '工具执行失败';
+
+  @override
+  String get sessMetaCompressionError => '历史压缩失败';
+
+  @override
+  String get sessMetaPromptBlocked => '提示词被拦截';
+
+  @override
+  String get sessMetaTitleGenerationError => '标题生成失败';
+
+  @override
+  String get sessMetaSessionError => '会话异常';
+
+  @override
+  String get auditNoData => '无数据';
+
+  @override
+  String get auditCopyJson => '复制 JSON';
+
+  @override
+  String get auditCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get auditMessageAudit => '消息审计';
+
+  @override
+  String get auditClose => '关闭';
+
+  @override
+  String get auditOverview => '基本信息';
+
+  @override
+  String get auditMessageId => '消息 ID';
+
+  @override
+  String get auditSessionId => '会话 ID';
+
+  @override
+  String get auditRole => '角色';
+
+  @override
+  String get auditKind => '类型';
+
+  @override
+  String get auditCharacterCount => '字符数';
+
+  @override
+  String get auditStreaming => '是否流式';
+
+  @override
+  String get auditDeleted => '是否已删除';
+
+  @override
+  String get auditHasError => '是否报错';
+
+  @override
+  String get auditTiming => '时间与耗时';
+
+  @override
+  String get auditStartedCreated => '开始/创建时间';
+
+  @override
+  String get auditEnded => '结束时间';
+
+  @override
+  String get auditDurationMs => '耗时 (ms)';
+
+  @override
+  String get auditModelTokens => '模型与 Token';
+
+  @override
+  String get auditModelId => '模型 ID';
+
+  @override
+  String get auditModelLabel => '模型标签';
+
+  @override
+  String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditPromptTokens => '输入 Token';
+
+  @override
+  String get auditCompletionTokens => '输出 Token';
+
+  @override
+  String get auditTokenBreakdown => 'Token 明细';
+
+  @override
+  String get auditError => '错误信息';
+
+  @override
+  String get auditContent => '消息内容';
+
+  @override
+  String get auditFullComposedPromptThatWasActually =>
+      '以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。';
+
+  @override
+  String get auditWaitingForComposedPromptInjectionAuto =>
+      '正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）';
+
+  @override
+  String get auditUserRawInput => '用户原始输入';
+
+  @override
+  String get auditStructuredPromptTurns => '结构化 Prompt Turns';
+
+  @override
+  String get auditNone => '无';
+
+  @override
+  String get auditPromptMetadata => 'Prompt Metadata';
+
+  @override
+  String get auditRequest => '请求参数';
+
+  @override
+  String get auditMethod => '方法';
+
+  @override
+  String get auditHeaders => '请求头';
+
+  @override
+  String get auditNotCapturedEnableSettingsAiTelemetry =>
+      '未捕获（请在设置 → AI → 遥测 中开启调试）';
+
+  @override
+  String get auditBodyQueryPath => '请求体 / Query / Path';
+
+  @override
+  String get auditRawAiResponse => '原始 AI 响应';
+
+  @override
+  String get auditExpandRawResponse => '展开查看原始响应';
+
+  @override
+  String get auditNotCapturedDebugDisabledOrResponse => '未捕获：调试未开启或模型未提供原始响应';
+
+  @override
+  String get auditAttachments => '附件';
+
+  @override
+  String get auditAttachmentList => '附件列表';
+
+  @override
+  String get auditNoAttachments => '无附件';
+
+  @override
+  String get auditFullMetadata => '完整元数据 (metadata)';
+
+  @override
+  String get auditMessageMetadata => '消息元数据';
+
+  @override
+  String get auditSessionEnvironment => '会话环境';
+
+  @override
+  String get auditEnvironmentSnapshot => '环境快照';
+
+  @override
+  String get auditAuditSnapshotCopied => '审计快照已复制';
+
+  @override
+  String get auditCopyAuditSnapshot => '复制审计快照';
+
+  @override
+  String get auditSessionMetadataSaved => '会话元数据已更新';
+
+  @override
+  String get auditSessionAudit => '会话审计';
+
+  @override
+  String get auditTemplate => '模板';
+
+  @override
+  String get auditCreatedAt => '创建时间';
+
+  @override
+  String get auditUpdatedAt => '更新时间';
+
+  @override
+  String get auditMessages => '消息数';
+
+  @override
+  String get auditLastModel => '最近模型';
+
+  @override
+  String get auditTitleEditable => '标题编辑';
+
+  @override
+  String get auditSessionTitle => '会话标题';
+
+  @override
+  String get auditSaveTitle => '保存标题';
+
+  @override
+  String get auditSessionMetadataEditableJson => '会话元数据 (可编辑 JSON)';
+
+  @override
+  String get auditSaveWritesBackThroughTheSession =>
+      '修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。';
+
+  @override
+  String get auditSaveMetadata => '保存元数据';
+
+  @override
+  String get auditRuntimePromptMetadataReadOnly => '运行时 Prompt 元数据 (只读)';
+
+  @override
+  String get auditUsefulForPromptConstructionTroubleshooti =>
+      '用于排查本轮消息拼装上下文；自动由系统写入。';
+
+  @override
+  String get auditLastPromptMetadata => 'last_prompt_metadata';
+
+  @override
+  String get auditNoRuntimePromptMetadataYet => '暂无运行时 Prompt 元数据';
+
+  @override
+  String get auditEnvironment => '会话环境';
+
+  @override
+  String get auditErrorList => '错误列表';
+
+  @override
+  String get auditNoErrorsRecorded => '暂无错误';
+
+  @override
+  String get auditTapARowToInspectA => '点击单条可打开消息审计弹窗；支持删除单条消息。';
+
+  @override
+  String get auditNoMessages => '暂无消息';
+
+  @override
+  String get auditAudit => '审计';
+
+  @override
+  String get auditDelete => '删除';
+
+  @override
+  String get progExpFESelectOpenedFile => '定位到已打开文件';
+
+  @override
+  String get progExpFEExpandSelected => '展开选中目录';
+
+  @override
+  String get progExpFECollapseAll => '全部折叠';
+
+  @override
+  String get progExpFETypeASymbolNameToSearch => '输入符号名后即可在当前工作区内跨文件搜索。';
+
+  @override
+  String get progExpFENoWorkspaceSymbolBackendIsAvailable =>
+      '当前文件没有可用的工作区符号后端。';
+
+  @override
+  String get progExpFENoMatchingWorkspaceSymbolsWereFound => '没有找到匹配的工作区符号。';
+
+  @override
+  String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha =>
+      '读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge =>
+      '当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。';
+
+  @override
+  String get progExpFENoLspSymbolBackendIsAvailable =>
+      '当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。';
+
+  @override
+  String get progExpFETheLspServerReturnedAnEmpty => 'LSP 已返回空符号列表。';
+
+  @override
+  String get progExpFEFetchingLspSymbolsFailedSoThe =>
+      '读取 LSP 符号失败，已回退到本地符号提取。';
+
+  @override
+  String get progExpFERenameSymbol => '重命名符号';
+
+  @override
+  String get progExpFEReviewTheDiffForThisRename => '先查看这次重命名将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFETheRenameWasCancelledAndNo => '已取消本次重命名，未写入任何修改。';
+
+  @override
+  String get progExpFETheSymbolAtTheCurrentCursor => '当前光标位置不支持重命名。';
+
+  @override
+  String get progExpFETheLanguageServerDidNotReturn => '语言服务器没有返回需要应用的修改。';
+
+  @override
+  String get progExpFECodeActions => '代码操作';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableAt => '当前光标位置没有可用的代码操作。';
+
+  @override
+  String get progExpFEReviewTheDiffFromThisCode => '先预览该代码操作将要写入的差异，再决定是否应用。';
+
+  @override
+  String get progExpFEIfTheLanguageServerCommandRequests =>
+      '如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。';
+
+  @override
+  String get progExpFETheCodeActionWasCancelledAnd => '已取消本次代码操作，未写入任何修改。';
+
+  @override
+  String get progExpFEExecutedTheLanguageServerCommand => '已执行语言服务器命令。';
+
+  @override
+  String get progExpFESomeLanguageServerRequestedEditsWere => '有语言服务器请求的修改被跳过。';
+
+  @override
+  String get progExpFEThisCodeActionDidNotReturn => '该代码操作没有返回可应用的编辑。';
+
+  @override
+  String get progExpFEQuickFix => '快速修复';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor => '当前诊断位置没有可用的快速修复。';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableFor => '当前诊断位置没有可用的代码操作。';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor2 => '当前诊断行没有可用的快速修复。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading =>
+      '当前文件尚未完成加载，暂时无法执行 LSP 操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge2 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading2 =>
+      '当前文件尚未完成加载，暂时无法执行文档级编辑操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge3 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。';
+
+  @override
+  String get progExpFEFormatDocument => '格式化文档';
+
+  @override
+  String get progExpFETheCurrentFileIsNotReady => '当前文件尚未准备好，稍后再试。';
+
+  @override
+  String get progExpFETheFormatterDidNotReturnAny => '格式化器没有返回可应用的修改。';
+
+  @override
+  String get progExpFEFormattingProducedTheSameContentSo =>
+      '格式化结果与当前内容一致，没有产生新的文本变更。';
+
+  @override
+  String get progExpFEGoToDefinition => '定义跳转';
+
+  @override
+  String get progExpFENoDefinitionWasFoundAtThe => '当前光标位置没有找到定义。';
+
+  @override
+  String get progExpFEMultipleDefinitionsWereFoundChooseA =>
+      '找到多个定义结果，请选择要跳转的位置。';
+
+  @override
+  String get progExpFEFindReferences => '引用查找';
+
+  @override
+  String get progExpFENoReferencesWereFoundAtThe => '当前光标位置没有找到引用。';
+
+  @override
+  String get progExpFEHoverInfo => '悬浮信息';
+
+  @override
+  String get progExpFEThereIsNoHoverInformationAt => '当前光标位置没有可显示的悬浮信息。';
+
+  @override
+  String get progExpFELspBackend => 'LSP 后端';
+
+  @override
+  String get progExpFEReResolveTheBackendForThe => '重新解析当前文件后端';
+
+  @override
+  String get progExpFEInspectBackendDetails => '查看后端详情';
+
+  @override
+  String get progExpFECloseEsc => '关闭 (Esc)';
+
+  @override
+  String get progExpFEToggleComment => '切换注释';
+
+  @override
+  String get progExpFEThisLanguageDoesNotHaveA => '当前语言暂未配置注释策略，无法执行注释切换。';
+
+  @override
+  String get progExpFEGoToImplementation => '跳转到实现';
+
+  @override
+  String get progExpFESignatureHelp => '参数信息';
+
+  @override
+  String get progExpFEThereIsNoSignatureHelpAvailable => '当前光标位置没有可显示的参数签名信息。';
+
+  @override
+  String get progExpFEPreviousMatch => '上一个结果';
+
+  @override
+  String get progExpFENextMatch => '下一个结果';
+
+  @override
+  String get progExpFEMatchCase => '区分大小写';
+
+  @override
+  String get progExpFEShowReplace => '显示替换';
+
+  @override
+  String get progExpFEReplaceCurrent => '替换当前结果';
+
+  @override
+  String get progExpFEReplaceAll => '全部替换';
+
+  @override
+  String get progExpFECurrentFileSymbols => '当前文件符号';
+
+  @override
+  String get progExpFEWorkspaceSymbols => '工作区符号';
+
+  @override
+  String get progExpFERefreshDiagnostics => '刷新诊断';
+
+  @override
+  String get progExpFESymbols => '符号';
+
+  @override
+  String get progExpFESymbolNavigationShiftCmdCtrlO =>
+      '符号导航 (Shift+Cmd/Ctrl+O)';
+
+  @override
+  String get progExpFEWorkspace => '全局符号';
+
+  @override
+  String get progExpFEWorkspaceSymbolSearchCmdCtrlT => '工作区符号搜索 (Cmd/Ctrl+T)';
+
+  @override
+  String get progExpFEShowDiagnosticsForTheCurrentFile => '显示当前文件诊断';
+
+  @override
+  String get progExpFEInspectTheLspBackendBoundTo => '查看当前文件绑定的 LSP 后端';
+
+  @override
+  String get progExpFEDef => '定义';
+
+  @override
+  String get progExpFEGoToDefinitionF12CmdCtrl => '定义跳转 (F12 / Cmd/Ctrl+B)';
+
+  @override
+  String get progExpFERefs => '引用';
+
+  @override
+  String get progExpFEFindReferencesShiftF12CmdCtrl =>
+      '引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)';
+
+  @override
+  String get progExpFEHover => '悬浮';
+
+  @override
+  String get progExpFEHoverInfoCmdCtrlI => '悬浮信息 (Cmd/Ctrl+I)';
+
+  @override
+  String get progExpFERename => '重命名';
+
+  @override
+  String get progExpFERenameSymbolF2 => '重命名符号 (F2)';
+
+  @override
+  String get progExpFEActions => '操作';
+
+  @override
+  String get progExpFECodeActionsCmdCtrl => '代码操作 (Cmd/Ctrl+.)';
+
+  @override
+  String get progExpFEFormat => '格式化';
+
+  @override
+  String get progExpFENoImplementationWasFoundAtThe => '当前光标位置没有找到实现。';
+
+  @override
+  String get progExpFEMultipleImplementationsFoundChooseATarge =>
+      '找到多个实现，请选择要跳转的位置。';
+
+  @override
+  String get progExpFERefactor => '重构';
+
+  @override
+  String get progExpFEReviewTheChangesBeforeApplying => '查看此次重构将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFESaveFile => '保存文件';
+
+  @override
+  String get progExpFECloseEditorReturnToSession => '关闭编辑器，返回会话';
+
+  @override
+  String get progExpFEShowQuickFixesForThisDiagnostic => '显示该诊断行的快速修复';
+
+  @override
+  String get progExpFELargeFilePerformanceModeIsActive =>
+      '已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。';
+
+  @override
+  String get progExpFEOpenFullEditorAnyway => '仍然打开完整编辑器';
+
+  @override
+  String get settingsShortcuts => '快捷键';
+
+  @override
+  String get settingsConfigureKeyCombinationsForCommonActions =>
+      '为常用操作配置组合键。当前最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsBuiltInTools => '内建工具';
+
+  @override
+  String get settingsCrons => '定时任务';
+
+  @override
+  String get settingsControlsRetentionAndColdStartCleanup =>
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+
+  @override
+  String get settingsHermesTalker => 'Hermes Talker';
+
+  @override
+  String get settingsConfigureHermesTalkerSelfLearningEvery =>
+      '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。';
+
+  @override
+  String get settingsEditor => '编辑器';
+
+  @override
+  String get settingsManagePerLanguageLspBackendsInstall =>
+      '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。';
+
+  @override
+  String get settingsAppData => '应用数据';
+
+  @override
+  String get settingsPerResponseToolCallLimit => '单轮工具调用上限';
+
+  @override
+  String get settingsSaveLimit => '保存上限';
+
+  @override
+  String get settingsSequentialToolRoundLimit => '连续工具轮次上限';
+
+  @override
+  String get settingsSessionSettings => '会话设置';
+
+  @override
+  String get settingsConfigureDefaultBehaviourForNewSessions =>
+      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+
+  @override
+  String get settingsSendTimeoutS => '发送超时（秒）';
+
+  @override
+  String get settingsMaximumWaitTimeToEstablishThe =>
+      '建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。';
+
+  @override
+  String get settingsSaveTimeout => '保存超时';
+
+  @override
+  String get settingsResponseTimeoutS => '响应超时（秒）';
+
+  @override
+  String get settingsMaximumWaitForACompleteResponse =>
+      '非流式请求等待完整响应的最大时间，默认 120 秒。';
+
+  @override
+  String get settingsStreamIdleTimeoutS => '等待超时（秒）';
+
+  @override
+  String get settingsMaximumIdleWaitBetweenStreamChunks =>
+      '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
+
+  @override
+  String get settingsAutoTitle => '自动标题';
+
+  @override
+  String get settingsWhenEnabledATitleIsAutomatically =>
+      '开启后，新会话发送首条消息时将自动生成会话标题。';
+
+  @override
+  String get settingsDefaultSessionMode => '默认会话模式';
+
+  @override
+  String get settingsDefaultInteractionModeForNewSessions =>
+      '新会话的默认交互模式：对话（Chat）或规划（Plan）。';
+
+  @override
+  String get settingsChat => '对话';
+
+  @override
+  String get settingsPlan => '规划';
+
+  @override
+  String get settingsDefaultFullAccess => '默认全访问权限';
+
+  @override
+  String get settingsWhenEnabledNewSessionsStartIn =>
+      '开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。';
+
+  @override
+  String get settingsUserProfile => '用户画像';
+
+  @override
+  String get settingsMaintainAGlobalUserProfileLanguage =>
+      '维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。';
+
+  @override
+  String get settingsModelProviderManagement => '模型提供商管理';
+
+  @override
+  String get settingsAddSelectTestAndMaintainModel =>
+      '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。';
+
+  @override
+  String get settingsCompressionTrigger => '压缩触发阈值';
+
+  @override
+  String get settingsOnceTheUncompressedHistoryInA =>
+      '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。';
+
+  @override
+  String get settingsToolCallOutputCompressionThreshold => '工具调用输出压缩阈值';
+
+  @override
+  String get settingsWhenAToolCallReturnsMore =>
+      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+
+  @override
+  String get settingsDefaultsTo40IfOneAssistant =>
+      '默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。';
+
+  @override
+  String get settingsDefaultsTo24RoundsIfThe =>
+      '默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。';
+
+  @override
+  String get settingsImageSizeLimit => '图片大小上限';
+
+  @override
+  String get settingsDefaultsTo1mbImageAttachmentsLarger =>
+      '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。';
+
+  @override
+  String get settingsCostControl => '成本控制';
+
+  @override
+  String get settingsReduceTokenCostsByFreezingThe =>
+      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+
+  @override
+  String get settingsEnableInputCache => '启用输入缓存';
+
+  @override
+  String get settingsDisabledByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+
+  @override
+  String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
+
+  @override
+  String get settingsChooseTheSlidingUnitForThe =>
+      '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。';
+
+  @override
+  String get settingsByMessageCountUserAssistant => '按消息条数 (user+assistant)';
+
+  @override
+  String get settingsByUserMessageCountOnly => '按用户消息条数';
+
+  @override
+  String get settingsByAccumulatedTokens => '按累计 tokens';
+
+  @override
+  String get settingsCacheBreakpointUpdateInterval => '缓存断点更新间隔';
+
+  @override
+  String get settingsDefault10MeaningDependsOnThe =>
+      '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。';
+
+  @override
+  String get settingsSave => '保存';
+
+  @override
+  String get settingsCacheBreakpointCount => '缓存断点数量';
+
+  @override
+  String get settingsDefault4Range14Anthropic =>
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+
+  @override
+  String get settingsCommandSafety => '命令安全';
+
+  @override
+  String get settingsControlWriteCommandConfirmationForBash =>
+      '控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。';
+
+  @override
+  String get settingsWriteCommandConfirmation => '写命令确认';
+
+  @override
+  String get settingsEnabledByDefaultWhenTheAi =>
+      '默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。';
+
+  @override
+  String get settingsAllowCommandList => '允许命令列表';
+
+  @override
+  String get settingsMatchingWriteLikeBashCommandsSkip =>
+      '匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。';
+
+  @override
+  String get settingsAddAllowRule => '新增允许规则';
+
+  @override
+  String get settingsNoAllowRulesConfigured => '当前没有允许命令规则';
+
+  @override
+  String get settingsAddARuleToLetMatching => '新增规则后，匹配到的写命令将跳过确认弹窗。';
+
+  @override
+  String get settingsDenyCommandList => '禁止命令列表';
+
+  @override
+  String get settingsMatchingBashCommandsAreBlockedBefore =>
+      '匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。';
+
+  @override
+  String get settingsAddRule => '新增规则';
+
+  @override
+  String get settingsNoDenyRulesConfigured => '当前没有禁止命令规则';
+
+  @override
+  String get settingsAddARuleToBlockMatching => '新增规则后，匹配到的 bash 命令会被直接拦截。';
+
+  @override
+  String get settingsTelemetry => '遥测';
+
+  @override
+  String get settingsWhenEnabledOpenhandCapturesRawAi =>
+      '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。';
+
+  @override
+  String get settingsDebugMode => '开启调试';
+
+  @override
+  String get settingsOffByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。';
+
+  @override
+  String get settingsCaptureRawPayload => '捕获原始响应';
+
+  @override
+  String get settingsEnabledByDefaultOnlyActiveWhen =>
+      '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。';
+
+  @override
+  String get settingsCaptureEnvironment => '捕获环境数据';
+
+  @override
+  String get settingsOffByDefaultOnlyActiveWhen =>
+      '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。';
+
+  @override
+  String get settingsShortcutBindings => '快捷键绑定';
+
+  @override
+  String get settingsClickRecordThenPressTheNew =>
+      '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';
+
+  @override
+  String get settingsOnEveryColdStartAnAsync =>
+      '应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。';
+
+  @override
+  String get settingsEnableSelfLearning => '启用自主学习';
+
+  @override
+  String get settingsWhenOffTheSchedulerSkipsEvery =>
+      '关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。';
+
+  @override
+  String get settingsShowSelfLearningMessages => '显示自我学习消息';
+
+  @override
+  String get settingsWhenOffSelfLearningCardsAre =>
+      '关闭后，对话中不再展示\"自我学习\"卡片（后台学习仍会运行）。默认开启。';
+
+  @override
+  String get settingsToolCatalogOverview => '工具目录总览';
+
+  @override
+  String get settingsResetAll => '重置全部';
+
+  @override
+  String get settingsEnableAll => '全部启用';
+
+  @override
+  String get settingsDisableAll => '全部禁用';
+
+  @override
+  String get settingsNoBuiltInToolConfigurations => '没有内建工具配置';
+
+  @override
+  String get settingsClickResetAllToRestoreThe => '点击\"重置全部\"恢复默认工具列表。';
+
+  @override
+  String get settingsResetBuiltInToolConfigs => '重置内建工具配置';
+
+  @override
+  String get settingsCancel => '取消';
+
+  @override
+  String get settingsReset => '重置';
+
+  @override
+  String get settingsDeleteCustomTool => '删除自定义工具';
+
+  @override
+  String get settingsDelete => '删除';
+
+  @override
+  String get settingsSendTimeoutSaved => '发送超时时间已保存。';
+
+  @override
+  String get settingsResponseTimeoutSaved => '响应超时时间已保存。';
+
+  @override
+  String get settingsStreamIdleTimeoutSaved => '等待超时时间已保存。';
+
+  @override
+  String get settingsCacheBreakpointUpdateIntervalSaved => '缓存断点更新间隔已保存';
+
+  @override
+  String get settingsCacheBreakpointCountSaved => '缓存断点数量已保存';
+
+  @override
+  String get settingsCacheBreakpointPositions => '缓存断点位置';
+
+  @override
+  String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+
+  @override
+  String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';
+
+  @override
+  String get settingsThePerResponseToolCallLimit => '单轮工具调用上限已保存。';
+
+  @override
+  String get settingsEnterASequentialToolRoundLimit => '请输入大于 0 的连续工具轮次上限。';
+
+  @override
+  String get settingsTheSequentialToolRoundLimitHas => '连续工具轮次上限已保存。';
+
+  @override
+  String get settingsDeleteDenyRule => '删除禁止命令规则';
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen => '禁止命令规则已删除。';
+
+  @override
+  String get settingsDeleteAllowRule => '删除允许命令规则';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen => '允许命令规则已删除。';
+
+  @override
+  String get settingsTheShortcutHasBeenUpdated => '快捷键已更新。';
+
+  @override
+  String get settingsTheEditorShortcutHasBeenUpdated => '编辑器快捷键已更新。';
+
+  @override
+  String get settingsSendMessage => '发送消息';
+
+  @override
+  String get settingsCollapseOrExpandComposer => '折叠或展开输入框';
+
+  @override
+  String get settingsPreviousModel => '上一个模型';
+
+  @override
+  String get settingsNextModel => '下一个模型';
+
+  @override
+  String get settingsToggleAutoFollow => '开关自动滚动';
+
+  @override
+  String get settingsPreviousSession => '上一个会话';
+
+  @override
+  String get settingsNextSession => '下一个会话';
+
+  @override
+  String get settingsSaveFile => '保存文件';
+
+  @override
+  String get settingsTriggerCompletion => '触发智能补全';
+
+  @override
+  String get settingsShowSignatureHelp => '显示签名帮助';
+
+  @override
+  String get settingsFind => '查找';
+
+  @override
+  String get settingsFindAndReplace => '查找替换';
+
+  @override
+  String get settingsGoToLine => '跳转到行';
+
+  @override
+  String get settingsDocumentSymbols => '文档符号';
+
+  @override
+  String get settingsWorkspaceSymbols => '全局符号';
+
+  @override
+  String get settingsGoToDefinition => '跳转到定义';
+
+  @override
+  String get settingsFindReferences => '查找引用';
+
+  @override
+  String get settingsGoToImplementation => '跳转到实现';
+
+  @override
+  String get settingsShowHoverInfo => '显示悬浮信息';
+
+  @override
+  String get settingsRenameSymbol => '重命名符号';
+
+  @override
+  String get settingsCodeActions => '代码操作';
+
+  @override
+  String get settingsFormatDocument => '格式化文档';
+
+  @override
+  String get settingsDefaultsToCtrlEnterAndTriggers =>
+      '默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。';
+
+  @override
+  String get settingsDefaultsToCtrlPForQuickly => '默认 Ctrl + P，用于快速折叠或展开输入框。';
+
+  @override
+  String get settingsDefaultsToCtrlLeftAndWraps =>
+      '默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。';
+
+  @override
+  String get settingsDefaultsToCtrlRightAndWraps =>
+      '默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。';
+
+  @override
+  String get settingsDefaultsToCtrlSForToggling => '默认 Ctrl + S，开关自动滚动模式。';
+
+  @override
+  String get settingsDefaultsToCtrlUpAndWraps => '默认 Ctrl + ↑，切换到上一个会话并支持绕圈。';
+
+  @override
+  String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
+
+  @override
+  String get auditDeleteMessage => '删除消息';
+
+  @override
+  String get auditDeleteThisMessageThisCannotBe => '确认删除该消息？此操作不可撤销。';
+
+  @override
+  String get auditCancel => '取消';
+
+  @override
+  String get settingsManageTheBuiltInAiTools =>
+      '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、Schema、优先级、排序、加载策略和其他参数。';
+
+  @override
+  String get settingsManageTheLocalFilesAndDatabase =>
+      '管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker 中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。';
+
+  @override
+  String get settingsThisWillRestoreAllBuiltIn =>
+      '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。';
+
+  @override
+  String get tlCallUnwrap => '取消换行';
+
+  @override
+  String get tlCallWrapLines => '自动换行';
+
+  @override
+  String get tlCallViewCompressedContent => '查看压缩内容';
+
+  @override
+  String get tlCallViewFullContent => '查看完整内容';
+
+  @override
+  String tlCallMultiEditEditcount(Object editCount) {
+    return '多处编辑 ×$editCount';
+  }
+
+  @override
+  String get tlCallPreparing => '准备执行';
+
+  @override
+  String get tlCallPreparingAlt => '准备调用';
+
+  @override
+  String get tlCallRunningAlt => '调用中';
+
+  @override
+  String get tlCallCompleted => '执行完成';
+
+  @override
+  String get tlCallCompletedAlt => '调用完成';
+
+  @override
+  String get tlCallTimedOutAlt => '调用超时';
+
+  @override
+  String get tlCallFailedAlt => '调用失败';
+
+  @override
+  String tlCallFailedToOpenFileLocationError(Object error) {
+    return '打开文件位置失败：$error';
+  }
+
+  @override
+  String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
+    return '$memoryItems_length 条记忆已更新';
+  }
+
+  @override
+  String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
+    return '$profileItems_length 项画像已更新';
+  }
+
+  @override
+  String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
+    return '$skillItems_length 个技能已更新';
+  }
+
+  @override
+  String get tlCallAiThinkingStreaming => 'AI 思考（生成中）';
+
+  @override
+  String get tlCallAiThinking => 'AI 思考';
+
+  @override
+  String get tlCallAiResponseStreaming => 'AI 响应（生成中）';
+
+  @override
+  String get tlCallAiResponse => 'AI 响应';
+
+  @override
+  String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
+    return ' 等 $items_length 项';
+  }
+
+  @override
+  String tlCallSecondsSAgo(Object seconds) {
+    return '$seconds秒前';
+  }
+
+  @override
+  String tlCallMinutesMAgo(Object minutes) {
+    return '$minutes分钟前';
+  }
+
+  @override
+  String tlCallHoursHAgo(Object hours) {
+    return '$hours小时前';
+  }
+
+  @override
+  String tlCallDaysDAgo(Object days) {
+    return '$days天前';
+  }
+
+  @override
+  String sessMetaPlanPlanindex(Object planIndex) {
+    return '计划 #$planIndex';
+  }
+
+  @override
+  String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
+    return ' 当前连续工具轮次上限为 $configuredLimit。';
+  }
+
+  @override
+  String auditInvalidJsonErrorMessage(Object error_message) {
+    return 'JSON 解析失败：$error_message';
+  }
+
+  @override
+  String auditSaveFailedError(Object error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String auditRecentErrorsSessionRecenterrorsLength(
+    Object session_recentErrors_length,
+  ) {
+    return '最近错误 ($session_recentErrors_length)';
+  }
+
+  @override
+  String auditMessagesSessionMessagesLength(Object session_messages_length) {
+    return '消息列表 ($session_messages_length)';
+  }
+
+  @override
+  String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
+    return '已应用 $edits_length 处格式化修改。';
+  }
+
+  @override
+  String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
+    return '格式化当前文件 ($formatShortcut)';
+  }
+
+  @override
+  String progExpFENoCodeactionkindRefactoringIsAvailableAt(
+    Object codeActionKind,
+  ) {
+    return '当前位置没有可用的\"$codeActionKind\"重构操作。';
+  }
+
+  @override
+  String get progExpFEHideFileBrowser => '隐藏文件浏览器';
+
+  @override
+  String get progExpFEShowFileBrowser => '显示文件浏览器';
+
+  @override
+  String settingsRetentionWindowRetentionDayS(Object retention) {
+    return '保留天数：$retention 天';
+  }
+
+  @override
+  String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
+    return '范围 $minR–$maxR 天，默认 7 天。下次冷启动时生效。';
+  }
+
+  @override
+  String settingsConcurrentWorkersConcurrency(Object concurrency) {
+    return '并发 Worker 数：$concurrency';
+  }
+
+  @override
+  String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
+    return '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。';
+  }
+
+  @override
+  String settingsSortedLengthBuiltInToolsEnabledcount(
+    Object sorted_length,
+    Object enabledCount,
+  ) {
+    return '当前共 $sorted_length 个内建工具，已启用 $enabledCount 个。可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。';
+  }
+
+  @override
+  String settingsAreYouSureYouWantTo(Object config_effectiveName) {
+    return '确定要删除 \"$config_effectiveName\" 吗？此操作不可撤销。';
+  }
+
+  @override
+  String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
+    return '请输入 $min–$max 之间的秒数。';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+    Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
+    Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheUpdateInterval 到 $AppSettingsSnapshot_maxAiInputCacheUpdateInterval 之间的整数';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+    Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
+    Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheBreakpointCount 到 $AppSettingsSnapshot_maxAiInputCacheBreakpointCount 之间的整数';
+  }
+
+  @override
+  String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
+    return '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。';
+  }
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen2 => '禁止命令规则已更新。';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen2 => '允许命令规则已更新。';
+
+  @override
+  String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，保存当前正在编辑的文件。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
+    return '默认 $defaultLabel，主动弹出智能补全候选列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前调用位置的方法签名、参数解释和文档摘要。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭查找面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭替换面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭跳转到行面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭当前文件的符号列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭全局符号检索面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号定义。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
+    return '默认 $defaultLabel，查找当前符号的引用位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号的实现位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前位置的类型或文档信息。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
+    return '默认 $defaultLabel，发起当前符号重命名。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
+    return '默认 $defaultLabel，显示可用的代码操作列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
+    return '默认 $defaultLabel，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。';
+  }
+
+  @override
+  String progExpFEResolvedLspBackendForCurrentFile(
+    Object lspName,
+    Object projLang,
+    Object fileLang,
+    Object modeLine,
+    Object sdkSourceLine,
+    Object lspSourceLine,
+    Object rootPath,
+    Object command,
+  ) {
+    return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4732,6 +6561,1835 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 项';
   }
+
+  @override
+  String get mdlEdEnterAValidBaseUrlFirst => '请先输入有效的 Base URL';
+
+  @override
+  String get mdlEdNoModelsFoundFromThisProvider => '未从该提供商扫描到模型。';
+
+  @override
+  String get mdlEdProviderName => '提供商名称';
+
+  @override
+  String get mdlEdOptionalEGDeepseekLocalOllama => '可选，如 DeepSeek、本地 Ollama';
+
+  @override
+  String get mdlEdCurrentlyActiveModel => '当前活跃模型';
+
+  @override
+  String get mdlEdClickToSetAsActiveModel => '点击切换为活跃模型';
+
+  @override
+  String get mdlEdTapScanModelsToDiscoverModels => '点击「扫描模型」按钮自动发现可用模型，或手动添加。';
+
+  @override
+  String get mdlEdActiveModelId => '当前活跃模型 ID';
+
+  @override
+  String get mdlEdTheModelUsedForConversationsSelect =>
+      '当前用于对话的模型。可从上方列表选择或直接输入。';
+
+  @override
+  String get mdlEdMaxContextTokens => '最大上下文 Token 上限';
+
+  @override
+  String get mdlEdOptionalLimitsTheHistorySliceUsed => '可选。用于在压缩时限制历史切片大小。';
+
+  @override
+  String get mdlEdEnterAWholeNumberGreaterThan => '请输入大于 0 的整数';
+
+  @override
+  String get mdlEdRequestMethod => '请求方式';
+
+  @override
+  String get mdlEdOutputMode => '输出模式';
+
+  @override
+  String get mdlEdStreaming => '流式输出';
+
+  @override
+  String get mdlEdNonStreaming => '非流式输出';
+
+  @override
+  String get mdlEdMaxOutputTokens => '最大输出 Token 数';
+
+  @override
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset => '可选。不指定则使用适配器默认值。';
+
+  @override
+  String get mdlEdTemperature => '温度';
+
+  @override
+  String get mdlEd0020Default0 => '0.0 ~ 2.0，默认 0.7';
+
+  @override
+  String get mdlEdEnterANumberBetween00 => '请输入 0.0 到 2.0 之间的数值';
+
+  @override
+  String get mdlEdCustomHeaders => '自定义请求头';
+
+  @override
+  String get mdlEdAdd => '添加';
+
+  @override
+  String get mdlEdNoCustomHeadersTapAddTo => '暂无自定义请求头。点击「添加」按钮来添加。';
+
+  @override
+  String get mdlEdHeaderName => 'Header 名称';
+
+  @override
+  String get mdlEdHeaderValue => 'Header 值';
+
+  @override
+  String get mdlEdEditModelProfile => '编辑模型配置';
+
+  @override
+  String get mdlEdDisplayName => '显示名称';
+
+  @override
+  String get mdlEdOptionalShownInTheUi => '可选，用于界面展示';
+
+  @override
+  String get mdlEdDescription => '模型描述';
+
+  @override
+  String get mdlEdMultimodalSupport => '多模态支持';
+
+  @override
+  String get mdlEdAutoDetect => '自动检测';
+
+  @override
+  String get mdlEdYes => '是';
+
+  @override
+  String get mdlEdNo => '否';
+
+  @override
+  String get mdlEdSupportsAttachments => '支持附件';
+
+  @override
+  String get mdlEdSupportedModalities => '支持的模态';
+
+  @override
+  String get mdlEdText => '文本';
+
+  @override
+  String get mdlEdImage => '图片生成';
+
+  @override
+  String get mdlEdVideo => '视频生成';
+
+  @override
+  String get mdlEdAudio => '音频生成';
+
+  @override
+  String get mdlEdGenerationCapabilities => '生成能力';
+
+  @override
+  String get mdlEdPdf => 'PDF 生成';
+
+  @override
+  String get mdlEdPpt => 'PPT 生成';
+
+  @override
+  String get mdlEdTokenLimits => 'Token 限制';
+
+  @override
+  String get mdlEdContextLength => '上下文长度';
+
+  @override
+  String get mdlEdSummaryLength => '摘要长度';
+
+  @override
+  String get mdlEdOutputLength => '输出长度';
+
+  @override
+  String get mdlEdThinkingLength => '思考长度';
+
+  @override
+  String get mdlEdTokenPricingUsd1mTokensLeave =>
+      'Token 单价（USD / 1M tokens，留空表示未配置）';
+
+  @override
+  String get mdlEdInput => '输入价';
+
+  @override
+  String get mdlEdOutput => '输出价';
+
+  @override
+  String get mdlEdCacheRead => '缓存读取价';
+
+  @override
+  String get mdlEdCacheWrite => '缓存写入价';
+
+  @override
+  String get mdlEdReset => '重置';
+
+  @override
+  String get mdlEdCancel => '取消';
+
+  @override
+  String get mdlEdOk => '确定';
+
+  @override
+  String get tlCallDir => '目录';
+
+  @override
+  String get tlCallElapsed => '耗时';
+
+  @override
+  String get tlCallExit => '退出码';
+
+  @override
+  String get tlCallToolInput => '工具入参';
+
+  @override
+  String get tlCallCommand => 'command';
+
+  @override
+  String get tlCallArguments => 'arguments';
+
+  @override
+  String get tlCallToolOutput => '结果输出';
+
+  @override
+  String get tlCallNoOutputYet => '暂无输出';
+
+  @override
+  String get tlCallResult => 'result';
+
+  @override
+  String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
+
+  @override
+  String get tlCallViewInDialog => '在弹窗里查看完整内容';
+
+  @override
+  String get tlCallEmptyContent => '内容为空';
+
+  @override
+  String get tlCallWrite => '写入';
+
+  @override
+  String get tlCallEdit => '编辑';
+
+  @override
+  String get tlCallMultiEdit => '多处编辑';
+
+  @override
+  String get tlCallNotebookEdit => 'Notebook 编辑';
+
+  @override
+  String get tlCallBashWrite => '命令写入';
+
+  @override
+  String get tlCallFileChanged => '文件变更';
+
+  @override
+  String get tlCallChangedFile => '文件变动';
+
+  @override
+  String get tlCallTool => '工具';
+
+  @override
+  String get tlCallSkill => '技能';
+
+  @override
+  String get tlCallStopped => '已停止';
+
+  @override
+  String get tlCallBlocked => '已拦截';
+
+  @override
+  String get tlCallRejected => '用户拒绝';
+
+  @override
+  String get tlCallInvalid => '参数无效';
+
+  @override
+  String get tlCallToolCall => '工具调用';
+
+  @override
+  String get tlCallRunning => '运行中';
+
+  @override
+  String get tlCallSucceeded => '执行成功';
+
+  @override
+  String get tlCallDenied => '已被禁止';
+
+  @override
+  String get tlCallTimedOut => '执行超时';
+
+  @override
+  String get tlCallFailed => '执行失败';
+
+  @override
+  String get tlCallToolIsRunningWaitingForOutput => '工具运行中，等待新的输出...';
+
+  @override
+  String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
+
+  @override
+  String get tlCallType => '类型';
+
+  @override
+  String get tlCallSize => '大小';
+
+  @override
+  String get tlCallModified => '修改于';
+
+  @override
+  String get tlCallSelfLearning => '自我学习';
+
+  @override
+  String get tlCallNudgeRecovered => '已纠正\"光说不做\"';
+
+  @override
+  String get tlCallProfileChanges => '用户画像变更';
+
+  @override
+  String get tlCallMemoryChanges => '记忆变更';
+
+  @override
+  String get tlCallSkillChanges => '技能变更';
+
+  @override
+  String get tlCallProfileDiff => '画像差异摘要';
+
+  @override
+  String get tlCallNoChanges => '无变更';
+
+  @override
+  String get tlCallUnnamed => '(未命名)';
+
+  @override
+  String get tlCallJustNow => '刚刚';
+
+  @override
+  String get sessMetaMessages => '消息总数';
+
+  @override
+  String get sessMetaPromptBuilds => 'Prompt 构建';
+
+  @override
+  String get sessMetaCompressions => '压缩次数';
+
+  @override
+  String get sessMetaTotalTokens => '总 Token';
+
+  @override
+  String get sessMetaMode => '当前模式';
+
+  @override
+  String get sessMetaRuntimeTools => '运行工具';
+
+  @override
+  String get sessMetaPending => '未展示';
+
+  @override
+  String get sessMetaCurrentSessionMetadata => '当前会话元数据';
+
+  @override
+  String get sessMetaSessionOverview => '会话概览';
+
+  @override
+  String get sessMetaExtendedMetadata => '扩展元数据';
+
+  @override
+  String get sessMetaStatistics => '统计信息';
+
+  @override
+  String get sessMetaUser => '用户';
+
+  @override
+  String get sessMetaAssistant => '助手';
+
+  @override
+  String get sessMetaTool => '工具';
+
+  @override
+  String get sessMetaSkill => '技能';
+
+  @override
+  String get sessMetaCompression => '压缩';
+
+  @override
+  String get sessMetaEnvironment => '运行环境';
+
+  @override
+  String get sessMetaCommandPolicy => '命令策略';
+
+  @override
+  String get sessMetaPromptMetadataIsNotAvailableYet => '当前还没有可展示的 prompt 元数据。';
+
+  @override
+  String get sessMetaWriteConfirmation => '写命令确认';
+
+  @override
+  String get sessMetaRequired => '需要确认';
+
+  @override
+  String get sessMetaNotRequired => '无需确认';
+
+  @override
+  String get sessMetaAllowRules => '允许规则数';
+
+  @override
+  String get sessMetaThereAreNoSurfacedAllowCommand => '当前没有已上屏的允许命令规则。';
+
+  @override
+  String get sessMetaRuntimeOrchestration => '运行时编排';
+
+  @override
+  String get sessMetaStateSource => '状态来源';
+
+  @override
+  String get sessMetaGeneratedFromTheCurrentModelMcp =>
+      '根据当前模型、MCP/Skills 与 Plan 状态即时生成';
+
+  @override
+  String get sessMetaTheLastPersistedRuntimeSnapshot => '上一轮已落盘的运行时快照';
+
+  @override
+  String get sessMetaToolCatalogState => '工具目录状态';
+
+  @override
+  String get sessMetaGateReason => '门控原因';
+
+  @override
+  String get sessMetaRuntimeToolCount => '当前运行时工具数';
+
+  @override
+  String get sessMetaRefreshesNextRound => '等待下一轮刷新';
+
+  @override
+  String get sessMetaRuntimeNotices => '运行时 Notices';
+
+  @override
+  String get sessMetaCurrentRuntimeTools => '当前运行时工具';
+
+  @override
+  String get sessMetaTaskTracking => '任务跟踪';
+
+  @override
+  String get sessMetaCurrentTodos => '当前 Todo 数量';
+
+  @override
+  String get sessMetaPlanRecords => '计划记录数量';
+
+  @override
+  String get sessMetaTodowriteReminder => 'TodoWrite 强提醒';
+
+  @override
+  String get sessMetaTriggered => '已触发';
+
+  @override
+  String get sessMetaNotTriggered => '未触发';
+
+  @override
+  String get sessMetaUnavailable => '暂无数据';
+
+  @override
+  String get sessMetaReminderReason => '提醒原因';
+
+  @override
+  String get sessMetaPlanHistory => '计划历史';
+
+  @override
+  String get sessMetaRecentErrors => '最近异常';
+
+  @override
+  String get sessMetaThereAreNoSessionErrorsTo => '当前没有需要关注的会话异常。';
+
+  @override
+  String get sessMetaLastPromptMetadata => '最后一次 Prompt 元数据';
+
+  @override
+  String get sessMetaClose => '关闭';
+
+  @override
+  String get sessMetaPendingApproval => '待确认';
+
+  @override
+  String get sessMetaInProgress => '进行中';
+
+  @override
+  String get sessMetaCompleted => '已完成';
+
+  @override
+  String get sessMetaFailed => '失败';
+
+  @override
+  String get sessMetaCancelled => '已取消';
+
+  @override
+  String get sessMetaCreated => '创建';
+
+  @override
+  String get sessMetaUpdated => '更新';
+
+  @override
+  String get sessMetaErrorDetail => '错误细节';
+
+  @override
+  String get sessMetaPresented => '已展示';
+
+  @override
+  String get sessMetaThisSessionEndedEarlyRetryThe =>
+      '当前会话已提前结束。请重试或继续发送更具体的指令。';
+
+  @override
+  String get sessMetaToolCallsStoppedForSafety => '工具调用已安全停止';
+
+  @override
+  String get sessMetaOpenhandStoppedThisSessionForSafety =>
+      '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。';
+
+  @override
+  String get sessMetaResponseInterrupted => '回答已中断';
+
+  @override
+  String get sessMetaTheResponseWasInterruptedWhileStreaming =>
+      '本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。';
+
+  @override
+  String get sessMetaRequestFailed => '请求发送失败';
+
+  @override
+  String get sessMetaTheRequestFailedBeforeTheAssistant =>
+      '本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。';
+
+  @override
+  String get sessMetaContinuationFailed => '后续请求失败';
+
+  @override
+  String get sessMetaTheSessionFailedWhileRequestingThe =>
+      '本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。';
+
+  @override
+  String get sessMetaSafetyStop => '安全停止';
+
+  @override
+  String get sessMetaStreamError => '响应中断';
+
+  @override
+  String get sessMetaRequestError => '请求失败';
+
+  @override
+  String get sessMetaContinuationError => '后续请求失败';
+
+  @override
+  String get sessMetaToolExecutionError => '工具执行失败';
+
+  @override
+  String get sessMetaCompressionError => '历史压缩失败';
+
+  @override
+  String get sessMetaPromptBlocked => '提示词被拦截';
+
+  @override
+  String get sessMetaTitleGenerationError => '标题生成失败';
+
+  @override
+  String get sessMetaSessionError => '会话异常';
+
+  @override
+  String get auditNoData => '无数据';
+
+  @override
+  String get auditCopyJson => '复制 JSON';
+
+  @override
+  String get auditCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get auditMessageAudit => '消息审计';
+
+  @override
+  String get auditClose => '关闭';
+
+  @override
+  String get auditOverview => '基本信息';
+
+  @override
+  String get auditMessageId => '消息 ID';
+
+  @override
+  String get auditSessionId => '会话 ID';
+
+  @override
+  String get auditRole => '角色';
+
+  @override
+  String get auditKind => '类型';
+
+  @override
+  String get auditCharacterCount => '字符数';
+
+  @override
+  String get auditStreaming => '是否流式';
+
+  @override
+  String get auditDeleted => '是否已删除';
+
+  @override
+  String get auditHasError => '是否报错';
+
+  @override
+  String get auditTiming => '时间与耗时';
+
+  @override
+  String get auditStartedCreated => '开始/创建时间';
+
+  @override
+  String get auditEnded => '结束时间';
+
+  @override
+  String get auditDurationMs => '耗时 (ms)';
+
+  @override
+  String get auditModelTokens => '模型与 Token';
+
+  @override
+  String get auditModelId => '模型 ID';
+
+  @override
+  String get auditModelLabel => '模型标签';
+
+  @override
+  String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditPromptTokens => '输入 Token';
+
+  @override
+  String get auditCompletionTokens => '输出 Token';
+
+  @override
+  String get auditTokenBreakdown => 'Token 明细';
+
+  @override
+  String get auditError => '错误信息';
+
+  @override
+  String get auditContent => '消息内容';
+
+  @override
+  String get auditFullComposedPromptThatWasActually =>
+      '以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。';
+
+  @override
+  String get auditWaitingForComposedPromptInjectionAuto =>
+      '正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）';
+
+  @override
+  String get auditUserRawInput => '用户原始输入';
+
+  @override
+  String get auditStructuredPromptTurns => '结构化 Prompt Turns';
+
+  @override
+  String get auditNone => '无';
+
+  @override
+  String get auditPromptMetadata => 'Prompt Metadata';
+
+  @override
+  String get auditRequest => '请求参数';
+
+  @override
+  String get auditMethod => '方法';
+
+  @override
+  String get auditHeaders => '请求头';
+
+  @override
+  String get auditNotCapturedEnableSettingsAiTelemetry =>
+      '未捕获（请在设置 → AI → 遥测 中开启调试）';
+
+  @override
+  String get auditBodyQueryPath => '请求体 / Query / Path';
+
+  @override
+  String get auditRawAiResponse => '原始 AI 响应';
+
+  @override
+  String get auditExpandRawResponse => '展开查看原始响应';
+
+  @override
+  String get auditNotCapturedDebugDisabledOrResponse => '未捕获：调试未开启或模型未提供原始响应';
+
+  @override
+  String get auditAttachments => '附件';
+
+  @override
+  String get auditAttachmentList => '附件列表';
+
+  @override
+  String get auditNoAttachments => '无附件';
+
+  @override
+  String get auditFullMetadata => '完整元数据 (metadata)';
+
+  @override
+  String get auditMessageMetadata => '消息元数据';
+
+  @override
+  String get auditSessionEnvironment => '会话环境';
+
+  @override
+  String get auditEnvironmentSnapshot => '环境快照';
+
+  @override
+  String get auditAuditSnapshotCopied => '审计快照已复制';
+
+  @override
+  String get auditCopyAuditSnapshot => '复制审计快照';
+
+  @override
+  String get auditSessionMetadataSaved => '会话元数据已更新';
+
+  @override
+  String get auditSessionAudit => '会话审计';
+
+  @override
+  String get auditTemplate => '模板';
+
+  @override
+  String get auditCreatedAt => '创建时间';
+
+  @override
+  String get auditUpdatedAt => '更新时间';
+
+  @override
+  String get auditMessages => '消息数';
+
+  @override
+  String get auditLastModel => '最近模型';
+
+  @override
+  String get auditTitleEditable => '标题编辑';
+
+  @override
+  String get auditSessionTitle => '会话标题';
+
+  @override
+  String get auditSaveTitle => '保存标题';
+
+  @override
+  String get auditSessionMetadataEditableJson => '会话元数据 (可编辑 JSON)';
+
+  @override
+  String get auditSaveWritesBackThroughTheSession =>
+      '修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。';
+
+  @override
+  String get auditSaveMetadata => '保存元数据';
+
+  @override
+  String get auditRuntimePromptMetadataReadOnly => '运行时 Prompt 元数据 (只读)';
+
+  @override
+  String get auditUsefulForPromptConstructionTroubleshooti =>
+      '用于排查本轮消息拼装上下文；自动由系统写入。';
+
+  @override
+  String get auditLastPromptMetadata => 'last_prompt_metadata';
+
+  @override
+  String get auditNoRuntimePromptMetadataYet => '暂无运行时 Prompt 元数据';
+
+  @override
+  String get auditEnvironment => '会话环境';
+
+  @override
+  String get auditErrorList => '错误列表';
+
+  @override
+  String get auditNoErrorsRecorded => '暂无错误';
+
+  @override
+  String get auditTapARowToInspectA => '点击单条可打开消息审计弹窗；支持删除单条消息。';
+
+  @override
+  String get auditNoMessages => '暂无消息';
+
+  @override
+  String get auditAudit => '审计';
+
+  @override
+  String get auditDelete => '删除';
+
+  @override
+  String get progExpFESelectOpenedFile => '定位到已打开文件';
+
+  @override
+  String get progExpFEExpandSelected => '展开选中目录';
+
+  @override
+  String get progExpFECollapseAll => '全部折叠';
+
+  @override
+  String get progExpFETypeASymbolNameToSearch => '输入符号名后即可在当前工作区内跨文件搜索。';
+
+  @override
+  String get progExpFENoWorkspaceSymbolBackendIsAvailable =>
+      '当前文件没有可用的工作区符号后端。';
+
+  @override
+  String get progExpFENoMatchingWorkspaceSymbolsWereFound => '没有找到匹配的工作区符号。';
+
+  @override
+  String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha =>
+      '读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge =>
+      '当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。';
+
+  @override
+  String get progExpFENoLspSymbolBackendIsAvailable =>
+      '当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。';
+
+  @override
+  String get progExpFETheLspServerReturnedAnEmpty => 'LSP 已返回空符号列表。';
+
+  @override
+  String get progExpFEFetchingLspSymbolsFailedSoThe =>
+      '读取 LSP 符号失败，已回退到本地符号提取。';
+
+  @override
+  String get progExpFERenameSymbol => '重命名符号';
+
+  @override
+  String get progExpFEReviewTheDiffForThisRename => '先查看这次重命名将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFETheRenameWasCancelledAndNo => '已取消本次重命名，未写入任何修改。';
+
+  @override
+  String get progExpFETheSymbolAtTheCurrentCursor => '当前光标位置不支持重命名。';
+
+  @override
+  String get progExpFETheLanguageServerDidNotReturn => '语言服务器没有返回需要应用的修改。';
+
+  @override
+  String get progExpFECodeActions => '代码操作';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableAt => '当前光标位置没有可用的代码操作。';
+
+  @override
+  String get progExpFEReviewTheDiffFromThisCode => '先预览该代码操作将要写入的差异，再决定是否应用。';
+
+  @override
+  String get progExpFEIfTheLanguageServerCommandRequests =>
+      '如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。';
+
+  @override
+  String get progExpFETheCodeActionWasCancelledAnd => '已取消本次代码操作，未写入任何修改。';
+
+  @override
+  String get progExpFEExecutedTheLanguageServerCommand => '已执行语言服务器命令。';
+
+  @override
+  String get progExpFESomeLanguageServerRequestedEditsWere => '有语言服务器请求的修改被跳过。';
+
+  @override
+  String get progExpFEThisCodeActionDidNotReturn => '该代码操作没有返回可应用的编辑。';
+
+  @override
+  String get progExpFEQuickFix => '快速修复';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor => '当前诊断位置没有可用的快速修复。';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableFor => '当前诊断位置没有可用的代码操作。';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor2 => '当前诊断行没有可用的快速修复。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading =>
+      '当前文件尚未完成加载，暂时无法执行 LSP 操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge2 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading2 =>
+      '当前文件尚未完成加载，暂时无法执行文档级编辑操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge3 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。';
+
+  @override
+  String get progExpFEFormatDocument => '格式化文档';
+
+  @override
+  String get progExpFETheCurrentFileIsNotReady => '当前文件尚未准备好，稍后再试。';
+
+  @override
+  String get progExpFETheFormatterDidNotReturnAny => '格式化器没有返回可应用的修改。';
+
+  @override
+  String get progExpFEFormattingProducedTheSameContentSo =>
+      '格式化结果与当前内容一致，没有产生新的文本变更。';
+
+  @override
+  String get progExpFEGoToDefinition => '定义跳转';
+
+  @override
+  String get progExpFENoDefinitionWasFoundAtThe => '当前光标位置没有找到定义。';
+
+  @override
+  String get progExpFEMultipleDefinitionsWereFoundChooseA =>
+      '找到多个定义结果，请选择要跳转的位置。';
+
+  @override
+  String get progExpFEFindReferences => '引用查找';
+
+  @override
+  String get progExpFENoReferencesWereFoundAtThe => '当前光标位置没有找到引用。';
+
+  @override
+  String get progExpFEHoverInfo => '悬浮信息';
+
+  @override
+  String get progExpFEThereIsNoHoverInformationAt => '当前光标位置没有可显示的悬浮信息。';
+
+  @override
+  String get progExpFELspBackend => 'LSP 后端';
+
+  @override
+  String get progExpFEReResolveTheBackendForThe => '重新解析当前文件后端';
+
+  @override
+  String get progExpFEInspectBackendDetails => '查看后端详情';
+
+  @override
+  String get progExpFECloseEsc => '关闭 (Esc)';
+
+  @override
+  String get progExpFEToggleComment => '切换注释';
+
+  @override
+  String get progExpFEThisLanguageDoesNotHaveA => '当前语言暂未配置注释策略，无法执行注释切换。';
+
+  @override
+  String get progExpFEGoToImplementation => '跳转到实现';
+
+  @override
+  String get progExpFESignatureHelp => '参数信息';
+
+  @override
+  String get progExpFEThereIsNoSignatureHelpAvailable => '当前光标位置没有可显示的参数签名信息。';
+
+  @override
+  String get progExpFEPreviousMatch => '上一个结果';
+
+  @override
+  String get progExpFENextMatch => '下一个结果';
+
+  @override
+  String get progExpFEMatchCase => '区分大小写';
+
+  @override
+  String get progExpFEShowReplace => '显示替换';
+
+  @override
+  String get progExpFEReplaceCurrent => '替换当前结果';
+
+  @override
+  String get progExpFEReplaceAll => '全部替换';
+
+  @override
+  String get progExpFECurrentFileSymbols => '当前文件符号';
+
+  @override
+  String get progExpFEWorkspaceSymbols => '工作区符号';
+
+  @override
+  String get progExpFERefreshDiagnostics => '刷新诊断';
+
+  @override
+  String get progExpFESymbols => '符号';
+
+  @override
+  String get progExpFESymbolNavigationShiftCmdCtrlO =>
+      '符号导航 (Shift+Cmd/Ctrl+O)';
+
+  @override
+  String get progExpFEWorkspace => '全局符号';
+
+  @override
+  String get progExpFEWorkspaceSymbolSearchCmdCtrlT => '工作区符号搜索 (Cmd/Ctrl+T)';
+
+  @override
+  String get progExpFEShowDiagnosticsForTheCurrentFile => '显示当前文件诊断';
+
+  @override
+  String get progExpFEInspectTheLspBackendBoundTo => '查看当前文件绑定的 LSP 后端';
+
+  @override
+  String get progExpFEDef => '定义';
+
+  @override
+  String get progExpFEGoToDefinitionF12CmdCtrl => '定义跳转 (F12 / Cmd/Ctrl+B)';
+
+  @override
+  String get progExpFERefs => '引用';
+
+  @override
+  String get progExpFEFindReferencesShiftF12CmdCtrl =>
+      '引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)';
+
+  @override
+  String get progExpFEHover => '悬浮';
+
+  @override
+  String get progExpFEHoverInfoCmdCtrlI => '悬浮信息 (Cmd/Ctrl+I)';
+
+  @override
+  String get progExpFERename => '重命名';
+
+  @override
+  String get progExpFERenameSymbolF2 => '重命名符号 (F2)';
+
+  @override
+  String get progExpFEActions => '操作';
+
+  @override
+  String get progExpFECodeActionsCmdCtrl => '代码操作 (Cmd/Ctrl+.)';
+
+  @override
+  String get progExpFEFormat => '格式化';
+
+  @override
+  String get progExpFENoImplementationWasFoundAtThe => '当前光标位置没有找到实现。';
+
+  @override
+  String get progExpFEMultipleImplementationsFoundChooseATarge =>
+      '找到多个实现，请选择要跳转的位置。';
+
+  @override
+  String get progExpFERefactor => '重构';
+
+  @override
+  String get progExpFEReviewTheChangesBeforeApplying => '查看此次重构将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFESaveFile => '保存文件';
+
+  @override
+  String get progExpFECloseEditorReturnToSession => '关闭编辑器，返回会话';
+
+  @override
+  String get progExpFEShowQuickFixesForThisDiagnostic => '显示该诊断行的快速修复';
+
+  @override
+  String get progExpFELargeFilePerformanceModeIsActive =>
+      '已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。';
+
+  @override
+  String get progExpFEOpenFullEditorAnyway => '仍然打开完整编辑器';
+
+  @override
+  String get settingsShortcuts => '快捷键';
+
+  @override
+  String get settingsConfigureKeyCombinationsForCommonActions =>
+      '为常用操作配置组合键。当前最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsBuiltInTools => '内建工具';
+
+  @override
+  String get settingsCrons => '定时任务';
+
+  @override
+  String get settingsControlsRetentionAndColdStartCleanup =>
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+
+  @override
+  String get settingsHermesTalker => 'Hermes Talker';
+
+  @override
+  String get settingsConfigureHermesTalkerSelfLearningEvery =>
+      '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。';
+
+  @override
+  String get settingsEditor => '编辑器';
+
+  @override
+  String get settingsManagePerLanguageLspBackendsInstall =>
+      '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。';
+
+  @override
+  String get settingsAppData => '应用数据';
+
+  @override
+  String get settingsPerResponseToolCallLimit => '单轮工具调用上限';
+
+  @override
+  String get settingsSaveLimit => '保存上限';
+
+  @override
+  String get settingsSequentialToolRoundLimit => '连续工具轮次上限';
+
+  @override
+  String get settingsSessionSettings => '会话设置';
+
+  @override
+  String get settingsConfigureDefaultBehaviourForNewSessions =>
+      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+
+  @override
+  String get settingsSendTimeoutS => '发送超时（秒）';
+
+  @override
+  String get settingsMaximumWaitTimeToEstablishThe =>
+      '建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。';
+
+  @override
+  String get settingsSaveTimeout => '保存超时';
+
+  @override
+  String get settingsResponseTimeoutS => '响应超时（秒）';
+
+  @override
+  String get settingsMaximumWaitForACompleteResponse =>
+      '非流式请求等待完整响应的最大时间，默认 120 秒。';
+
+  @override
+  String get settingsStreamIdleTimeoutS => '等待超时（秒）';
+
+  @override
+  String get settingsMaximumIdleWaitBetweenStreamChunks =>
+      '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
+
+  @override
+  String get settingsAutoTitle => '自动标题';
+
+  @override
+  String get settingsWhenEnabledATitleIsAutomatically =>
+      '开启后，新会话发送首条消息时将自动生成会话标题。';
+
+  @override
+  String get settingsDefaultSessionMode => '默认会话模式';
+
+  @override
+  String get settingsDefaultInteractionModeForNewSessions =>
+      '新会话的默认交互模式：对话（Chat）或规划（Plan）。';
+
+  @override
+  String get settingsChat => '对话';
+
+  @override
+  String get settingsPlan => '规划';
+
+  @override
+  String get settingsDefaultFullAccess => '默认全访问权限';
+
+  @override
+  String get settingsWhenEnabledNewSessionsStartIn =>
+      '开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。';
+
+  @override
+  String get settingsUserProfile => '用户画像';
+
+  @override
+  String get settingsMaintainAGlobalUserProfileLanguage =>
+      '维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。';
+
+  @override
+  String get settingsModelProviderManagement => '模型提供商管理';
+
+  @override
+  String get settingsAddSelectTestAndMaintainModel =>
+      '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。';
+
+  @override
+  String get settingsCompressionTrigger => '压缩触发阈值';
+
+  @override
+  String get settingsOnceTheUncompressedHistoryInA =>
+      '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。';
+
+  @override
+  String get settingsToolCallOutputCompressionThreshold => '工具调用输出压缩阈值';
+
+  @override
+  String get settingsWhenAToolCallReturnsMore =>
+      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+
+  @override
+  String get settingsDefaultsTo40IfOneAssistant =>
+      '默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。';
+
+  @override
+  String get settingsDefaultsTo24RoundsIfThe =>
+      '默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。';
+
+  @override
+  String get settingsImageSizeLimit => '图片大小上限';
+
+  @override
+  String get settingsDefaultsTo1mbImageAttachmentsLarger =>
+      '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。';
+
+  @override
+  String get settingsCostControl => '成本控制';
+
+  @override
+  String get settingsReduceTokenCostsByFreezingThe =>
+      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+
+  @override
+  String get settingsEnableInputCache => '启用输入缓存';
+
+  @override
+  String get settingsDisabledByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+
+  @override
+  String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
+
+  @override
+  String get settingsChooseTheSlidingUnitForThe =>
+      '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。';
+
+  @override
+  String get settingsByMessageCountUserAssistant => '按消息条数 (user+assistant)';
+
+  @override
+  String get settingsByUserMessageCountOnly => '按用户消息条数';
+
+  @override
+  String get settingsByAccumulatedTokens => '按累计 tokens';
+
+  @override
+  String get settingsCacheBreakpointUpdateInterval => '缓存断点更新间隔';
+
+  @override
+  String get settingsDefault10MeaningDependsOnThe =>
+      '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。';
+
+  @override
+  String get settingsSave => '保存';
+
+  @override
+  String get settingsCacheBreakpointCount => '缓存断点数量';
+
+  @override
+  String get settingsDefault4Range14Anthropic =>
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+
+  @override
+  String get settingsCommandSafety => '命令安全';
+
+  @override
+  String get settingsControlWriteCommandConfirmationForBash =>
+      '控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。';
+
+  @override
+  String get settingsWriteCommandConfirmation => '写命令确认';
+
+  @override
+  String get settingsEnabledByDefaultWhenTheAi =>
+      '默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。';
+
+  @override
+  String get settingsAllowCommandList => '允许命令列表';
+
+  @override
+  String get settingsMatchingWriteLikeBashCommandsSkip =>
+      '匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。';
+
+  @override
+  String get settingsAddAllowRule => '新增允许规则';
+
+  @override
+  String get settingsNoAllowRulesConfigured => '当前没有允许命令规则';
+
+  @override
+  String get settingsAddARuleToLetMatching => '新增规则后，匹配到的写命令将跳过确认弹窗。';
+
+  @override
+  String get settingsDenyCommandList => '禁止命令列表';
+
+  @override
+  String get settingsMatchingBashCommandsAreBlockedBefore =>
+      '匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。';
+
+  @override
+  String get settingsAddRule => '新增规则';
+
+  @override
+  String get settingsNoDenyRulesConfigured => '当前没有禁止命令规则';
+
+  @override
+  String get settingsAddARuleToBlockMatching => '新增规则后，匹配到的 bash 命令会被直接拦截。';
+
+  @override
+  String get settingsTelemetry => '遥测';
+
+  @override
+  String get settingsWhenEnabledOpenhandCapturesRawAi =>
+      '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。';
+
+  @override
+  String get settingsDebugMode => '开启调试';
+
+  @override
+  String get settingsOffByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。';
+
+  @override
+  String get settingsCaptureRawPayload => '捕获原始响应';
+
+  @override
+  String get settingsEnabledByDefaultOnlyActiveWhen =>
+      '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。';
+
+  @override
+  String get settingsCaptureEnvironment => '捕获环境数据';
+
+  @override
+  String get settingsOffByDefaultOnlyActiveWhen =>
+      '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。';
+
+  @override
+  String get settingsShortcutBindings => '快捷键绑定';
+
+  @override
+  String get settingsClickRecordThenPressTheNew =>
+      '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';
+
+  @override
+  String get settingsOnEveryColdStartAnAsync =>
+      '应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。';
+
+  @override
+  String get settingsEnableSelfLearning => '启用自主学习';
+
+  @override
+  String get settingsWhenOffTheSchedulerSkipsEvery =>
+      '关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。';
+
+  @override
+  String get settingsShowSelfLearningMessages => '显示自我学习消息';
+
+  @override
+  String get settingsWhenOffSelfLearningCardsAre =>
+      '关闭后，对话中不再展示\"自我学习\"卡片（后台学习仍会运行）。默认开启。';
+
+  @override
+  String get settingsToolCatalogOverview => '工具目录总览';
+
+  @override
+  String get settingsResetAll => '重置全部';
+
+  @override
+  String get settingsEnableAll => '全部启用';
+
+  @override
+  String get settingsDisableAll => '全部禁用';
+
+  @override
+  String get settingsNoBuiltInToolConfigurations => '没有内建工具配置';
+
+  @override
+  String get settingsClickResetAllToRestoreThe => '点击\"重置全部\"恢复默认工具列表。';
+
+  @override
+  String get settingsResetBuiltInToolConfigs => '重置内建工具配置';
+
+  @override
+  String get settingsCancel => '取消';
+
+  @override
+  String get settingsReset => '重置';
+
+  @override
+  String get settingsDeleteCustomTool => '删除自定义工具';
+
+  @override
+  String get settingsDelete => '删除';
+
+  @override
+  String get settingsSendTimeoutSaved => '发送超时时间已保存。';
+
+  @override
+  String get settingsResponseTimeoutSaved => '响应超时时间已保存。';
+
+  @override
+  String get settingsStreamIdleTimeoutSaved => '等待超时时间已保存。';
+
+  @override
+  String get settingsCacheBreakpointUpdateIntervalSaved => '缓存断点更新间隔已保存';
+
+  @override
+  String get settingsCacheBreakpointCountSaved => '缓存断点数量已保存';
+
+  @override
+  String get settingsCacheBreakpointPositions => '缓存断点位置';
+
+  @override
+  String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+
+  @override
+  String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';
+
+  @override
+  String get settingsThePerResponseToolCallLimit => '单轮工具调用上限已保存。';
+
+  @override
+  String get settingsEnterASequentialToolRoundLimit => '请输入大于 0 的连续工具轮次上限。';
+
+  @override
+  String get settingsTheSequentialToolRoundLimitHas => '连续工具轮次上限已保存。';
+
+  @override
+  String get settingsDeleteDenyRule => '删除禁止命令规则';
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen => '禁止命令规则已删除。';
+
+  @override
+  String get settingsDeleteAllowRule => '删除允许命令规则';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen => '允许命令规则已删除。';
+
+  @override
+  String get settingsTheShortcutHasBeenUpdated => '快捷键已更新。';
+
+  @override
+  String get settingsTheEditorShortcutHasBeenUpdated => '编辑器快捷键已更新。';
+
+  @override
+  String get settingsSendMessage => '发送消息';
+
+  @override
+  String get settingsCollapseOrExpandComposer => '折叠或展开输入框';
+
+  @override
+  String get settingsPreviousModel => '上一个模型';
+
+  @override
+  String get settingsNextModel => '下一个模型';
+
+  @override
+  String get settingsToggleAutoFollow => '开关自动滚动';
+
+  @override
+  String get settingsPreviousSession => '上一个会话';
+
+  @override
+  String get settingsNextSession => '下一个会话';
+
+  @override
+  String get settingsSaveFile => '保存文件';
+
+  @override
+  String get settingsTriggerCompletion => '触发智能补全';
+
+  @override
+  String get settingsShowSignatureHelp => '显示签名帮助';
+
+  @override
+  String get settingsFind => '查找';
+
+  @override
+  String get settingsFindAndReplace => '查找替换';
+
+  @override
+  String get settingsGoToLine => '跳转到行';
+
+  @override
+  String get settingsDocumentSymbols => '文档符号';
+
+  @override
+  String get settingsWorkspaceSymbols => '全局符号';
+
+  @override
+  String get settingsGoToDefinition => '跳转到定义';
+
+  @override
+  String get settingsFindReferences => '查找引用';
+
+  @override
+  String get settingsGoToImplementation => '跳转到实现';
+
+  @override
+  String get settingsShowHoverInfo => '显示悬浮信息';
+
+  @override
+  String get settingsRenameSymbol => '重命名符号';
+
+  @override
+  String get settingsCodeActions => '代码操作';
+
+  @override
+  String get settingsFormatDocument => '格式化文档';
+
+  @override
+  String get settingsDefaultsToCtrlEnterAndTriggers =>
+      '默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。';
+
+  @override
+  String get settingsDefaultsToCtrlPForQuickly => '默认 Ctrl + P，用于快速折叠或展开输入框。';
+
+  @override
+  String get settingsDefaultsToCtrlLeftAndWraps =>
+      '默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。';
+
+  @override
+  String get settingsDefaultsToCtrlRightAndWraps =>
+      '默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。';
+
+  @override
+  String get settingsDefaultsToCtrlSForToggling => '默认 Ctrl + S，开关自动滚动模式。';
+
+  @override
+  String get settingsDefaultsToCtrlUpAndWraps => '默认 Ctrl + ↑，切换到上一个会话并支持绕圈。';
+
+  @override
+  String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
+
+  @override
+  String get auditDeleteMessage => '删除消息';
+
+  @override
+  String get auditDeleteThisMessageThisCannotBe => '确认删除该消息？此操作不可撤销。';
+
+  @override
+  String get auditCancel => '取消';
+
+  @override
+  String get settingsManageTheBuiltInAiTools =>
+      '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、Schema、优先级、排序、加载策略和其他参数。';
+
+  @override
+  String get settingsManageTheLocalFilesAndDatabase =>
+      '管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker 中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。';
+
+  @override
+  String get settingsThisWillRestoreAllBuiltIn =>
+      '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。';
+
+  @override
+  String get tlCallUnwrap => '取消换行';
+
+  @override
+  String get tlCallWrapLines => '自动换行';
+
+  @override
+  String get tlCallViewCompressedContent => '查看压缩内容';
+
+  @override
+  String get tlCallViewFullContent => '查看完整内容';
+
+  @override
+  String tlCallMultiEditEditcount(Object editCount) {
+    return '多处编辑 ×$editCount';
+  }
+
+  @override
+  String get tlCallPreparing => '准备执行';
+
+  @override
+  String get tlCallPreparingAlt => '准备调用';
+
+  @override
+  String get tlCallRunningAlt => '调用中';
+
+  @override
+  String get tlCallCompleted => '执行完成';
+
+  @override
+  String get tlCallCompletedAlt => '调用完成';
+
+  @override
+  String get tlCallTimedOutAlt => '调用超时';
+
+  @override
+  String get tlCallFailedAlt => '调用失败';
+
+  @override
+  String tlCallFailedToOpenFileLocationError(Object error) {
+    return '打开文件位置失败：$error';
+  }
+
+  @override
+  String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
+    return '$memoryItems_length 条记忆已更新';
+  }
+
+  @override
+  String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
+    return '$profileItems_length 项画像已更新';
+  }
+
+  @override
+  String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
+    return '$skillItems_length 个技能已更新';
+  }
+
+  @override
+  String get tlCallAiThinkingStreaming => 'AI 思考（生成中）';
+
+  @override
+  String get tlCallAiThinking => 'AI 思考';
+
+  @override
+  String get tlCallAiResponseStreaming => 'AI 响应（生成中）';
+
+  @override
+  String get tlCallAiResponse => 'AI 响应';
+
+  @override
+  String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
+    return ' 等 $items_length 项';
+  }
+
+  @override
+  String tlCallSecondsSAgo(Object seconds) {
+    return '$seconds秒前';
+  }
+
+  @override
+  String tlCallMinutesMAgo(Object minutes) {
+    return '$minutes分钟前';
+  }
+
+  @override
+  String tlCallHoursHAgo(Object hours) {
+    return '$hours小时前';
+  }
+
+  @override
+  String tlCallDaysDAgo(Object days) {
+    return '$days天前';
+  }
+
+  @override
+  String sessMetaPlanPlanindex(Object planIndex) {
+    return '计划 #$planIndex';
+  }
+
+  @override
+  String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
+    return ' 当前连续工具轮次上限为 $configuredLimit。';
+  }
+
+  @override
+  String auditInvalidJsonErrorMessage(Object error_message) {
+    return 'JSON 解析失败：$error_message';
+  }
+
+  @override
+  String auditSaveFailedError(Object error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String auditRecentErrorsSessionRecenterrorsLength(
+    Object session_recentErrors_length,
+  ) {
+    return '最近错误 ($session_recentErrors_length)';
+  }
+
+  @override
+  String auditMessagesSessionMessagesLength(Object session_messages_length) {
+    return '消息列表 ($session_messages_length)';
+  }
+
+  @override
+  String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
+    return '已应用 $edits_length 处格式化修改。';
+  }
+
+  @override
+  String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
+    return '格式化当前文件 ($formatShortcut)';
+  }
+
+  @override
+  String progExpFENoCodeactionkindRefactoringIsAvailableAt(
+    Object codeActionKind,
+  ) {
+    return '当前位置没有可用的\"$codeActionKind\"重构操作。';
+  }
+
+  @override
+  String get progExpFEHideFileBrowser => '隐藏文件浏览器';
+
+  @override
+  String get progExpFEShowFileBrowser => '显示文件浏览器';
+
+  @override
+  String settingsRetentionWindowRetentionDayS(Object retention) {
+    return '保留天数：$retention 天';
+  }
+
+  @override
+  String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
+    return '范围 $minR–$maxR 天，默认 7 天。下次冷启动时生效。';
+  }
+
+  @override
+  String settingsConcurrentWorkersConcurrency(Object concurrency) {
+    return '并发 Worker 数：$concurrency';
+  }
+
+  @override
+  String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
+    return '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。';
+  }
+
+  @override
+  String settingsSortedLengthBuiltInToolsEnabledcount(
+    Object sorted_length,
+    Object enabledCount,
+  ) {
+    return '当前共 $sorted_length 个内建工具，已启用 $enabledCount 个。可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。';
+  }
+
+  @override
+  String settingsAreYouSureYouWantTo(Object config_effectiveName) {
+    return '确定要删除 \"$config_effectiveName\" 吗？此操作不可撤销。';
+  }
+
+  @override
+  String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
+    return '请输入 $min–$max 之间的秒数。';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+    Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
+    Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheUpdateInterval 到 $AppSettingsSnapshot_maxAiInputCacheUpdateInterval 之间的整数';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+    Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
+    Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheBreakpointCount 到 $AppSettingsSnapshot_maxAiInputCacheBreakpointCount 之间的整数';
+  }
+
+  @override
+  String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
+    return '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。';
+  }
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen2 => '禁止命令规则已更新。';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen2 => '允许命令规则已更新。';
+
+  @override
+  String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，保存当前正在编辑的文件。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
+    return '默认 $defaultLabel，主动弹出智能补全候选列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前调用位置的方法签名、参数解释和文档摘要。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭查找面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭替换面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭跳转到行面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭当前文件的符号列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭全局符号检索面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号定义。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
+    return '默认 $defaultLabel，查找当前符号的引用位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号的实现位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前位置的类型或文档信息。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
+    return '默认 $defaultLabel，发起当前符号重命名。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
+    return '默认 $defaultLabel，显示可用的代码操作列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
+    return '默认 $defaultLabel，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。';
+  }
+
+  @override
+  String progExpFEResolvedLspBackendForCurrentFile(
+    Object lspName,
+    Object projLang,
+    Object fileLang,
+    Object modeLine,
+    Object sdkSourceLine,
+    Object lspSourceLine,
+    Object rootPath,
+    Object command,
+  ) {
+    return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
+  }
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -7095,5 +10753,1834 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '已完成 $completed/$total 項';
+  }
+
+  @override
+  String get mdlEdEnterAValidBaseUrlFirst => '请先输入有效的 Base URL';
+
+  @override
+  String get mdlEdNoModelsFoundFromThisProvider => '未从该提供商扫描到模型。';
+
+  @override
+  String get mdlEdProviderName => '提供商名称';
+
+  @override
+  String get mdlEdOptionalEGDeepseekLocalOllama => '可选，如 DeepSeek、本地 Ollama';
+
+  @override
+  String get mdlEdCurrentlyActiveModel => '当前活跃模型';
+
+  @override
+  String get mdlEdClickToSetAsActiveModel => '点击切换为活跃模型';
+
+  @override
+  String get mdlEdTapScanModelsToDiscoverModels => '点击「扫描模型」按钮自动发现可用模型，或手动添加。';
+
+  @override
+  String get mdlEdActiveModelId => '当前活跃模型 ID';
+
+  @override
+  String get mdlEdTheModelUsedForConversationsSelect =>
+      '当前用于对话的模型。可从上方列表选择或直接输入。';
+
+  @override
+  String get mdlEdMaxContextTokens => '最大上下文 Token 上限';
+
+  @override
+  String get mdlEdOptionalLimitsTheHistorySliceUsed => '可选。用于在压缩时限制历史切片大小。';
+
+  @override
+  String get mdlEdEnterAWholeNumberGreaterThan => '请输入大于 0 的整数';
+
+  @override
+  String get mdlEdRequestMethod => '请求方式';
+
+  @override
+  String get mdlEdOutputMode => '输出模式';
+
+  @override
+  String get mdlEdStreaming => '流式输出';
+
+  @override
+  String get mdlEdNonStreaming => '非流式输出';
+
+  @override
+  String get mdlEdMaxOutputTokens => '最大输出 Token 数';
+
+  @override
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset => '可选。不指定则使用适配器默认值。';
+
+  @override
+  String get mdlEdTemperature => '温度';
+
+  @override
+  String get mdlEd0020Default0 => '0.0 ~ 2.0，默认 0.7';
+
+  @override
+  String get mdlEdEnterANumberBetween00 => '请输入 0.0 到 2.0 之间的数值';
+
+  @override
+  String get mdlEdCustomHeaders => '自定义请求头';
+
+  @override
+  String get mdlEdAdd => '添加';
+
+  @override
+  String get mdlEdNoCustomHeadersTapAddTo => '暂无自定义请求头。点击「添加」按钮来添加。';
+
+  @override
+  String get mdlEdHeaderName => 'Header 名称';
+
+  @override
+  String get mdlEdHeaderValue => 'Header 值';
+
+  @override
+  String get mdlEdEditModelProfile => '编辑模型配置';
+
+  @override
+  String get mdlEdDisplayName => '显示名称';
+
+  @override
+  String get mdlEdOptionalShownInTheUi => '可选，用于界面展示';
+
+  @override
+  String get mdlEdDescription => '模型描述';
+
+  @override
+  String get mdlEdMultimodalSupport => '多模态支持';
+
+  @override
+  String get mdlEdAutoDetect => '自动检测';
+
+  @override
+  String get mdlEdYes => '是';
+
+  @override
+  String get mdlEdNo => '否';
+
+  @override
+  String get mdlEdSupportsAttachments => '支持附件';
+
+  @override
+  String get mdlEdSupportedModalities => '支持的模态';
+
+  @override
+  String get mdlEdText => '文本';
+
+  @override
+  String get mdlEdImage => '图片生成';
+
+  @override
+  String get mdlEdVideo => '视频生成';
+
+  @override
+  String get mdlEdAudio => '音频生成';
+
+  @override
+  String get mdlEdGenerationCapabilities => '生成能力';
+
+  @override
+  String get mdlEdPdf => 'PDF 生成';
+
+  @override
+  String get mdlEdPpt => 'PPT 生成';
+
+  @override
+  String get mdlEdTokenLimits => 'Token 限制';
+
+  @override
+  String get mdlEdContextLength => '上下文长度';
+
+  @override
+  String get mdlEdSummaryLength => '摘要长度';
+
+  @override
+  String get mdlEdOutputLength => '输出长度';
+
+  @override
+  String get mdlEdThinkingLength => '思考长度';
+
+  @override
+  String get mdlEdTokenPricingUsd1mTokensLeave =>
+      'Token 单价（USD / 1M tokens，留空表示未配置）';
+
+  @override
+  String get mdlEdInput => '输入价';
+
+  @override
+  String get mdlEdOutput => '输出价';
+
+  @override
+  String get mdlEdCacheRead => '缓存读取价';
+
+  @override
+  String get mdlEdCacheWrite => '缓存写入价';
+
+  @override
+  String get mdlEdReset => '重置';
+
+  @override
+  String get mdlEdCancel => '取消';
+
+  @override
+  String get mdlEdOk => '确定';
+
+  @override
+  String get tlCallDir => '目录';
+
+  @override
+  String get tlCallElapsed => '耗时';
+
+  @override
+  String get tlCallExit => '退出码';
+
+  @override
+  String get tlCallToolInput => '工具入参';
+
+  @override
+  String get tlCallCommand => 'command';
+
+  @override
+  String get tlCallArguments => 'arguments';
+
+  @override
+  String get tlCallToolOutput => '结果输出';
+
+  @override
+  String get tlCallNoOutputYet => '暂无输出';
+
+  @override
+  String get tlCallResult => 'result';
+
+  @override
+  String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
+
+  @override
+  String get tlCallViewInDialog => '在弹窗里查看完整内容';
+
+  @override
+  String get tlCallEmptyContent => '内容为空';
+
+  @override
+  String get tlCallWrite => '写入';
+
+  @override
+  String get tlCallEdit => '编辑';
+
+  @override
+  String get tlCallMultiEdit => '多处编辑';
+
+  @override
+  String get tlCallNotebookEdit => 'Notebook 编辑';
+
+  @override
+  String get tlCallBashWrite => '命令写入';
+
+  @override
+  String get tlCallFileChanged => '文件变更';
+
+  @override
+  String get tlCallChangedFile => '文件变动';
+
+  @override
+  String get tlCallTool => '工具';
+
+  @override
+  String get tlCallSkill => '技能';
+
+  @override
+  String get tlCallStopped => '已停止';
+
+  @override
+  String get tlCallBlocked => '已拦截';
+
+  @override
+  String get tlCallRejected => '用户拒绝';
+
+  @override
+  String get tlCallInvalid => '参数无效';
+
+  @override
+  String get tlCallToolCall => '工具调用';
+
+  @override
+  String get tlCallRunning => '运行中';
+
+  @override
+  String get tlCallSucceeded => '执行成功';
+
+  @override
+  String get tlCallDenied => '已被禁止';
+
+  @override
+  String get tlCallTimedOut => '执行超时';
+
+  @override
+  String get tlCallFailed => '执行失败';
+
+  @override
+  String get tlCallToolIsRunningWaitingForOutput => '工具运行中，等待新的输出...';
+
+  @override
+  String get tlCallExpandToInspectToolOutput => '点击展开查看工具输出';
+
+  @override
+  String get tlCallType => '类型';
+
+  @override
+  String get tlCallSize => '大小';
+
+  @override
+  String get tlCallModified => '修改于';
+
+  @override
+  String get tlCallSelfLearning => '自我学习';
+
+  @override
+  String get tlCallNudgeRecovered => '已纠正\"光说不做\"';
+
+  @override
+  String get tlCallProfileChanges => '用户画像变更';
+
+  @override
+  String get tlCallMemoryChanges => '记忆变更';
+
+  @override
+  String get tlCallSkillChanges => '技能变更';
+
+  @override
+  String get tlCallProfileDiff => '画像差异摘要';
+
+  @override
+  String get tlCallNoChanges => '无变更';
+
+  @override
+  String get tlCallUnnamed => '(未命名)';
+
+  @override
+  String get tlCallJustNow => '刚刚';
+
+  @override
+  String get sessMetaMessages => '消息总数';
+
+  @override
+  String get sessMetaPromptBuilds => 'Prompt 构建';
+
+  @override
+  String get sessMetaCompressions => '压缩次数';
+
+  @override
+  String get sessMetaTotalTokens => '总 Token';
+
+  @override
+  String get sessMetaMode => '当前模式';
+
+  @override
+  String get sessMetaRuntimeTools => '运行工具';
+
+  @override
+  String get sessMetaPending => '未展示';
+
+  @override
+  String get sessMetaCurrentSessionMetadata => '当前会话元数据';
+
+  @override
+  String get sessMetaSessionOverview => '会话概览';
+
+  @override
+  String get sessMetaExtendedMetadata => '扩展元数据';
+
+  @override
+  String get sessMetaStatistics => '统计信息';
+
+  @override
+  String get sessMetaUser => '用户';
+
+  @override
+  String get sessMetaAssistant => '助手';
+
+  @override
+  String get sessMetaTool => '工具';
+
+  @override
+  String get sessMetaSkill => '技能';
+
+  @override
+  String get sessMetaCompression => '压缩';
+
+  @override
+  String get sessMetaEnvironment => '运行环境';
+
+  @override
+  String get sessMetaCommandPolicy => '命令策略';
+
+  @override
+  String get sessMetaPromptMetadataIsNotAvailableYet => '当前还没有可展示的 prompt 元数据。';
+
+  @override
+  String get sessMetaWriteConfirmation => '写命令确认';
+
+  @override
+  String get sessMetaRequired => '需要确认';
+
+  @override
+  String get sessMetaNotRequired => '无需确认';
+
+  @override
+  String get sessMetaAllowRules => '允许规则数';
+
+  @override
+  String get sessMetaThereAreNoSurfacedAllowCommand => '当前没有已上屏的允许命令规则。';
+
+  @override
+  String get sessMetaRuntimeOrchestration => '运行时编排';
+
+  @override
+  String get sessMetaStateSource => '状态来源';
+
+  @override
+  String get sessMetaGeneratedFromTheCurrentModelMcp =>
+      '根据当前模型、MCP/Skills 与 Plan 状态即时生成';
+
+  @override
+  String get sessMetaTheLastPersistedRuntimeSnapshot => '上一轮已落盘的运行时快照';
+
+  @override
+  String get sessMetaToolCatalogState => '工具目录状态';
+
+  @override
+  String get sessMetaGateReason => '门控原因';
+
+  @override
+  String get sessMetaRuntimeToolCount => '当前运行时工具数';
+
+  @override
+  String get sessMetaRefreshesNextRound => '等待下一轮刷新';
+
+  @override
+  String get sessMetaRuntimeNotices => '运行时 Notices';
+
+  @override
+  String get sessMetaCurrentRuntimeTools => '当前运行时工具';
+
+  @override
+  String get sessMetaTaskTracking => '任务跟踪';
+
+  @override
+  String get sessMetaCurrentTodos => '当前 Todo 数量';
+
+  @override
+  String get sessMetaPlanRecords => '计划记录数量';
+
+  @override
+  String get sessMetaTodowriteReminder => 'TodoWrite 强提醒';
+
+  @override
+  String get sessMetaTriggered => '已触发';
+
+  @override
+  String get sessMetaNotTriggered => '未触发';
+
+  @override
+  String get sessMetaUnavailable => '暂无数据';
+
+  @override
+  String get sessMetaReminderReason => '提醒原因';
+
+  @override
+  String get sessMetaPlanHistory => '计划历史';
+
+  @override
+  String get sessMetaRecentErrors => '最近异常';
+
+  @override
+  String get sessMetaThereAreNoSessionErrorsTo => '当前没有需要关注的会话异常。';
+
+  @override
+  String get sessMetaLastPromptMetadata => '最后一次 Prompt 元数据';
+
+  @override
+  String get sessMetaClose => '关闭';
+
+  @override
+  String get sessMetaPendingApproval => '待确认';
+
+  @override
+  String get sessMetaInProgress => '进行中';
+
+  @override
+  String get sessMetaCompleted => '已完成';
+
+  @override
+  String get sessMetaFailed => '失败';
+
+  @override
+  String get sessMetaCancelled => '已取消';
+
+  @override
+  String get sessMetaCreated => '创建';
+
+  @override
+  String get sessMetaUpdated => '更新';
+
+  @override
+  String get sessMetaErrorDetail => '错误细节';
+
+  @override
+  String get sessMetaPresented => '已展示';
+
+  @override
+  String get sessMetaThisSessionEndedEarlyRetryThe =>
+      '当前会话已提前结束。请重试或继续发送更具体的指令。';
+
+  @override
+  String get sessMetaToolCallsStoppedForSafety => '工具调用已安全停止';
+
+  @override
+  String get sessMetaOpenhandStoppedThisSessionForSafety =>
+      '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。';
+
+  @override
+  String get sessMetaResponseInterrupted => '回答已中断';
+
+  @override
+  String get sessMetaTheResponseWasInterruptedWhileStreaming =>
+      '本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。';
+
+  @override
+  String get sessMetaRequestFailed => '请求发送失败';
+
+  @override
+  String get sessMetaTheRequestFailedBeforeTheAssistant =>
+      '本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。';
+
+  @override
+  String get sessMetaContinuationFailed => '后续请求失败';
+
+  @override
+  String get sessMetaTheSessionFailedWhileRequestingThe =>
+      '本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。';
+
+  @override
+  String get sessMetaSafetyStop => '安全停止';
+
+  @override
+  String get sessMetaStreamError => '响应中断';
+
+  @override
+  String get sessMetaRequestError => '请求失败';
+
+  @override
+  String get sessMetaContinuationError => '后续请求失败';
+
+  @override
+  String get sessMetaToolExecutionError => '工具执行失败';
+
+  @override
+  String get sessMetaCompressionError => '历史压缩失败';
+
+  @override
+  String get sessMetaPromptBlocked => '提示词被拦截';
+
+  @override
+  String get sessMetaTitleGenerationError => '标题生成失败';
+
+  @override
+  String get sessMetaSessionError => '会话异常';
+
+  @override
+  String get auditNoData => '无数据';
+
+  @override
+  String get auditCopyJson => '复制 JSON';
+
+  @override
+  String get auditCopiedToClipboard => '已复制到剪贴板';
+
+  @override
+  String get auditMessageAudit => '消息审计';
+
+  @override
+  String get auditClose => '关闭';
+
+  @override
+  String get auditOverview => '基本信息';
+
+  @override
+  String get auditMessageId => '消息 ID';
+
+  @override
+  String get auditSessionId => '会话 ID';
+
+  @override
+  String get auditRole => '角色';
+
+  @override
+  String get auditKind => '类型';
+
+  @override
+  String get auditCharacterCount => '字符数';
+
+  @override
+  String get auditStreaming => '是否流式';
+
+  @override
+  String get auditDeleted => '是否已删除';
+
+  @override
+  String get auditHasError => '是否报错';
+
+  @override
+  String get auditTiming => '时间与耗时';
+
+  @override
+  String get auditStartedCreated => '开始/创建时间';
+
+  @override
+  String get auditEnded => '结束时间';
+
+  @override
+  String get auditDurationMs => '耗时 (ms)';
+
+  @override
+  String get auditModelTokens => '模型与 Token';
+
+  @override
+  String get auditModelId => '模型 ID';
+
+  @override
+  String get auditModelLabel => '模型标签';
+
+  @override
+  String get auditTotalTokens => '总 Token';
+
+  @override
+  String get auditPromptTokens => '输入 Token';
+
+  @override
+  String get auditCompletionTokens => '输出 Token';
+
+  @override
+  String get auditTokenBreakdown => 'Token 明细';
+
+  @override
+  String get auditError => '错误信息';
+
+  @override
+  String get auditContent => '消息内容';
+
+  @override
+  String get auditFullComposedPromptThatWasActually =>
+      '以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。';
+
+  @override
+  String get auditWaitingForComposedPromptInjectionAuto =>
+      '正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）';
+
+  @override
+  String get auditUserRawInput => '用户原始输入';
+
+  @override
+  String get auditStructuredPromptTurns => '结构化 Prompt Turns';
+
+  @override
+  String get auditNone => '无';
+
+  @override
+  String get auditPromptMetadata => 'Prompt Metadata';
+
+  @override
+  String get auditRequest => '请求参数';
+
+  @override
+  String get auditMethod => '方法';
+
+  @override
+  String get auditHeaders => '请求头';
+
+  @override
+  String get auditNotCapturedEnableSettingsAiTelemetry =>
+      '未捕获（请在设置 → AI → 遥测 中开启调试）';
+
+  @override
+  String get auditBodyQueryPath => '请求体 / Query / Path';
+
+  @override
+  String get auditRawAiResponse => '原始 AI 响应';
+
+  @override
+  String get auditExpandRawResponse => '展开查看原始响应';
+
+  @override
+  String get auditNotCapturedDebugDisabledOrResponse => '未捕获：调试未开启或模型未提供原始响应';
+
+  @override
+  String get auditAttachments => '附件';
+
+  @override
+  String get auditAttachmentList => '附件列表';
+
+  @override
+  String get auditNoAttachments => '无附件';
+
+  @override
+  String get auditFullMetadata => '完整元数据 (metadata)';
+
+  @override
+  String get auditMessageMetadata => '消息元数据';
+
+  @override
+  String get auditSessionEnvironment => '会话环境';
+
+  @override
+  String get auditEnvironmentSnapshot => '环境快照';
+
+  @override
+  String get auditAuditSnapshotCopied => '审计快照已复制';
+
+  @override
+  String get auditCopyAuditSnapshot => '复制审计快照';
+
+  @override
+  String get auditSessionMetadataSaved => '会话元数据已更新';
+
+  @override
+  String get auditSessionAudit => '会话审计';
+
+  @override
+  String get auditTemplate => '模板';
+
+  @override
+  String get auditCreatedAt => '创建时间';
+
+  @override
+  String get auditUpdatedAt => '更新时间';
+
+  @override
+  String get auditMessages => '消息数';
+
+  @override
+  String get auditLastModel => '最近模型';
+
+  @override
+  String get auditTitleEditable => '标题编辑';
+
+  @override
+  String get auditSessionTitle => '会话标题';
+
+  @override
+  String get auditSaveTitle => '保存标题';
+
+  @override
+  String get auditSessionMetadataEditableJson => '会话元数据 (可编辑 JSON)';
+
+  @override
+  String get auditSaveWritesBackThroughTheSession =>
+      '修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。';
+
+  @override
+  String get auditSaveMetadata => '保存元数据';
+
+  @override
+  String get auditRuntimePromptMetadataReadOnly => '运行时 Prompt 元数据 (只读)';
+
+  @override
+  String get auditUsefulForPromptConstructionTroubleshooti =>
+      '用于排查本轮消息拼装上下文；自动由系统写入。';
+
+  @override
+  String get auditLastPromptMetadata => 'last_prompt_metadata';
+
+  @override
+  String get auditNoRuntimePromptMetadataYet => '暂无运行时 Prompt 元数据';
+
+  @override
+  String get auditEnvironment => '会话环境';
+
+  @override
+  String get auditErrorList => '错误列表';
+
+  @override
+  String get auditNoErrorsRecorded => '暂无错误';
+
+  @override
+  String get auditTapARowToInspectA => '点击单条可打开消息审计弹窗；支持删除单条消息。';
+
+  @override
+  String get auditNoMessages => '暂无消息';
+
+  @override
+  String get auditAudit => '审计';
+
+  @override
+  String get auditDelete => '删除';
+
+  @override
+  String get progExpFESelectOpenedFile => '定位到已打开文件';
+
+  @override
+  String get progExpFEExpandSelected => '展开选中目录';
+
+  @override
+  String get progExpFECollapseAll => '全部折叠';
+
+  @override
+  String get progExpFETypeASymbolNameToSearch => '输入符号名后即可在当前工作区内跨文件搜索。';
+
+  @override
+  String get progExpFENoWorkspaceSymbolBackendIsAvailable =>
+      '当前文件没有可用的工作区符号后端。';
+
+  @override
+  String get progExpFENoMatchingWorkspaceSymbolsWereFound => '没有找到匹配的工作区符号。';
+
+  @override
+  String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha =>
+      '读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge =>
+      '当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。';
+
+  @override
+  String get progExpFENoLspSymbolBackendIsAvailable =>
+      '当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。';
+
+  @override
+  String get progExpFETheLspServerReturnedAnEmpty => 'LSP 已返回空符号列表。';
+
+  @override
+  String get progExpFEFetchingLspSymbolsFailedSoThe =>
+      '读取 LSP 符号失败，已回退到本地符号提取。';
+
+  @override
+  String get progExpFERenameSymbol => '重命名符号';
+
+  @override
+  String get progExpFEReviewTheDiffForThisRename => '先查看这次重命名将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFETheRenameWasCancelledAndNo => '已取消本次重命名，未写入任何修改。';
+
+  @override
+  String get progExpFETheSymbolAtTheCurrentCursor => '当前光标位置不支持重命名。';
+
+  @override
+  String get progExpFETheLanguageServerDidNotReturn => '语言服务器没有返回需要应用的修改。';
+
+  @override
+  String get progExpFECodeActions => '代码操作';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableAt => '当前光标位置没有可用的代码操作。';
+
+  @override
+  String get progExpFEReviewTheDiffFromThisCode => '先预览该代码操作将要写入的差异，再决定是否应用。';
+
+  @override
+  String get progExpFEIfTheLanguageServerCommandRequests =>
+      '如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。';
+
+  @override
+  String get progExpFETheCodeActionWasCancelledAnd => '已取消本次代码操作，未写入任何修改。';
+
+  @override
+  String get progExpFEExecutedTheLanguageServerCommand => '已执行语言服务器命令。';
+
+  @override
+  String get progExpFESomeLanguageServerRequestedEditsWere => '有语言服务器请求的修改被跳过。';
+
+  @override
+  String get progExpFEThisCodeActionDidNotReturn => '该代码操作没有返回可应用的编辑。';
+
+  @override
+  String get progExpFEQuickFix => '快速修复';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor => '当前诊断位置没有可用的快速修复。';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableFor => '当前诊断位置没有可用的代码操作。';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor2 => '当前诊断行没有可用的快速修复。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading =>
+      '当前文件尚未完成加载，暂时无法执行 LSP 操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge2 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading2 =>
+      '当前文件尚未完成加载，暂时无法执行文档级编辑操作。';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge3 =>
+      '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。';
+
+  @override
+  String get progExpFEFormatDocument => '格式化文档';
+
+  @override
+  String get progExpFETheCurrentFileIsNotReady => '当前文件尚未准备好，稍后再试。';
+
+  @override
+  String get progExpFETheFormatterDidNotReturnAny => '格式化器没有返回可应用的修改。';
+
+  @override
+  String get progExpFEFormattingProducedTheSameContentSo =>
+      '格式化结果与当前内容一致，没有产生新的文本变更。';
+
+  @override
+  String get progExpFEGoToDefinition => '定义跳转';
+
+  @override
+  String get progExpFENoDefinitionWasFoundAtThe => '当前光标位置没有找到定义。';
+
+  @override
+  String get progExpFEMultipleDefinitionsWereFoundChooseA =>
+      '找到多个定义结果，请选择要跳转的位置。';
+
+  @override
+  String get progExpFEFindReferences => '引用查找';
+
+  @override
+  String get progExpFENoReferencesWereFoundAtThe => '当前光标位置没有找到引用。';
+
+  @override
+  String get progExpFEHoverInfo => '悬浮信息';
+
+  @override
+  String get progExpFEThereIsNoHoverInformationAt => '当前光标位置没有可显示的悬浮信息。';
+
+  @override
+  String get progExpFELspBackend => 'LSP 后端';
+
+  @override
+  String get progExpFEReResolveTheBackendForThe => '重新解析当前文件后端';
+
+  @override
+  String get progExpFEInspectBackendDetails => '查看后端详情';
+
+  @override
+  String get progExpFECloseEsc => '关闭 (Esc)';
+
+  @override
+  String get progExpFEToggleComment => '切换注释';
+
+  @override
+  String get progExpFEThisLanguageDoesNotHaveA => '当前语言暂未配置注释策略，无法执行注释切换。';
+
+  @override
+  String get progExpFEGoToImplementation => '跳转到实现';
+
+  @override
+  String get progExpFESignatureHelp => '参数信息';
+
+  @override
+  String get progExpFEThereIsNoSignatureHelpAvailable => '当前光标位置没有可显示的参数签名信息。';
+
+  @override
+  String get progExpFEPreviousMatch => '上一个结果';
+
+  @override
+  String get progExpFENextMatch => '下一个结果';
+
+  @override
+  String get progExpFEMatchCase => '区分大小写';
+
+  @override
+  String get progExpFEShowReplace => '显示替换';
+
+  @override
+  String get progExpFEReplaceCurrent => '替换当前结果';
+
+  @override
+  String get progExpFEReplaceAll => '全部替换';
+
+  @override
+  String get progExpFECurrentFileSymbols => '当前文件符号';
+
+  @override
+  String get progExpFEWorkspaceSymbols => '工作区符号';
+
+  @override
+  String get progExpFERefreshDiagnostics => '刷新诊断';
+
+  @override
+  String get progExpFESymbols => '符号';
+
+  @override
+  String get progExpFESymbolNavigationShiftCmdCtrlO =>
+      '符号导航 (Shift+Cmd/Ctrl+O)';
+
+  @override
+  String get progExpFEWorkspace => '全局符号';
+
+  @override
+  String get progExpFEWorkspaceSymbolSearchCmdCtrlT => '工作区符号搜索 (Cmd/Ctrl+T)';
+
+  @override
+  String get progExpFEShowDiagnosticsForTheCurrentFile => '显示当前文件诊断';
+
+  @override
+  String get progExpFEInspectTheLspBackendBoundTo => '查看当前文件绑定的 LSP 后端';
+
+  @override
+  String get progExpFEDef => '定义';
+
+  @override
+  String get progExpFEGoToDefinitionF12CmdCtrl => '定义跳转 (F12 / Cmd/Ctrl+B)';
+
+  @override
+  String get progExpFERefs => '引用';
+
+  @override
+  String get progExpFEFindReferencesShiftF12CmdCtrl =>
+      '引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)';
+
+  @override
+  String get progExpFEHover => '悬浮';
+
+  @override
+  String get progExpFEHoverInfoCmdCtrlI => '悬浮信息 (Cmd/Ctrl+I)';
+
+  @override
+  String get progExpFERename => '重命名';
+
+  @override
+  String get progExpFERenameSymbolF2 => '重命名符号 (F2)';
+
+  @override
+  String get progExpFEActions => '操作';
+
+  @override
+  String get progExpFECodeActionsCmdCtrl => '代码操作 (Cmd/Ctrl+.)';
+
+  @override
+  String get progExpFEFormat => '格式化';
+
+  @override
+  String get progExpFENoImplementationWasFoundAtThe => '当前光标位置没有找到实现。';
+
+  @override
+  String get progExpFEMultipleImplementationsFoundChooseATarge =>
+      '找到多个实现，请选择要跳转的位置。';
+
+  @override
+  String get progExpFERefactor => '重构';
+
+  @override
+  String get progExpFEReviewTheChangesBeforeApplying => '查看此次重构将影响的差异，再决定是否应用。';
+
+  @override
+  String get progExpFESaveFile => '保存文件';
+
+  @override
+  String get progExpFECloseEditorReturnToSession => '关闭编辑器，返回会话';
+
+  @override
+  String get progExpFEShowQuickFixesForThisDiagnostic => '显示该诊断行的快速修复';
+
+  @override
+  String get progExpFELargeFilePerformanceModeIsActive =>
+      '已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。';
+
+  @override
+  String get progExpFEOpenFullEditorAnyway => '仍然打开完整编辑器';
+
+  @override
+  String get settingsShortcuts => '快捷键';
+
+  @override
+  String get settingsConfigureKeyCombinationsForCommonActions =>
+      '为常用操作配置组合键。当前最多支持同时按下 4 个按键。';
+
+  @override
+  String get settingsBuiltInTools => '内建工具';
+
+  @override
+  String get settingsCrons => '定时任务';
+
+  @override
+  String get settingsControlsRetentionAndColdStartCleanup =>
+      '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。';
+
+  @override
+  String get settingsHermesTalker => 'Hermes Talker';
+
+  @override
+  String get settingsConfigureHermesTalkerSelfLearningEvery =>
+      '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。';
+
+  @override
+  String get settingsEditor => '编辑器';
+
+  @override
+  String get settingsManagePerLanguageLspBackendsInstall =>
+      '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。';
+
+  @override
+  String get settingsAppData => '应用数据';
+
+  @override
+  String get settingsPerResponseToolCallLimit => '单轮工具调用上限';
+
+  @override
+  String get settingsSaveLimit => '保存上限';
+
+  @override
+  String get settingsSequentialToolRoundLimit => '连续工具轮次上限';
+
+  @override
+  String get settingsSessionSettings => '会话设置';
+
+  @override
+  String get settingsConfigureDefaultBehaviourForNewSessions =>
+      '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。';
+
+  @override
+  String get settingsSendTimeoutS => '发送超时（秒）';
+
+  @override
+  String get settingsMaximumWaitTimeToEstablishThe =>
+      '建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。';
+
+  @override
+  String get settingsSaveTimeout => '保存超时';
+
+  @override
+  String get settingsResponseTimeoutS => '响应超时（秒）';
+
+  @override
+  String get settingsMaximumWaitForACompleteResponse =>
+      '非流式请求等待完整响应的最大时间，默认 120 秒。';
+
+  @override
+  String get settingsStreamIdleTimeoutS => '等待超时（秒）';
+
+  @override
+  String get settingsMaximumIdleWaitBetweenStreamChunks =>
+      '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。';
+
+  @override
+  String get settingsAutoTitle => '自动标题';
+
+  @override
+  String get settingsWhenEnabledATitleIsAutomatically =>
+      '开启后，新会话发送首条消息时将自动生成会话标题。';
+
+  @override
+  String get settingsDefaultSessionMode => '默认会话模式';
+
+  @override
+  String get settingsDefaultInteractionModeForNewSessions =>
+      '新会话的默认交互模式：对话（Chat）或规划（Plan）。';
+
+  @override
+  String get settingsChat => '对话';
+
+  @override
+  String get settingsPlan => '规划';
+
+  @override
+  String get settingsDefaultFullAccess => '默认全访问权限';
+
+  @override
+  String get settingsWhenEnabledNewSessionsStartIn =>
+      '开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。';
+
+  @override
+  String get settingsUserProfile => '用户画像';
+
+  @override
+  String get settingsMaintainAGlobalUserProfileLanguage =>
+      '维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。';
+
+  @override
+  String get settingsModelProviderManagement => '模型提供商管理';
+
+  @override
+  String get settingsAddSelectTestAndMaintainModel =>
+      '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。';
+
+  @override
+  String get settingsCompressionTrigger => '压缩触发阈值';
+
+  @override
+  String get settingsOnceTheUncompressedHistoryInA =>
+      '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。';
+
+  @override
+  String get settingsToolCallOutputCompressionThreshold => '工具调用输出压缩阈值';
+
+  @override
+  String get settingsWhenAToolCallReturnsMore =>
+      '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。';
+
+  @override
+  String get settingsDefaultsTo40IfOneAssistant =>
+      '默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。';
+
+  @override
+  String get settingsDefaultsTo24RoundsIfThe =>
+      '默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。';
+
+  @override
+  String get settingsImageSizeLimit => '图片大小上限';
+
+  @override
+  String get settingsDefaultsTo1mbImageAttachmentsLarger =>
+      '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。';
+
+  @override
+  String get settingsCostControl => '成本控制';
+
+  @override
+  String get settingsReduceTokenCostsByFreezingThe =>
+      '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。';
+
+  @override
+  String get settingsEnableInputCache => '启用输入缓存';
+
+  @override
+  String get settingsDisabledByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。';
+
+  @override
+  String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
+
+  @override
+  String get settingsChooseTheSlidingUnitForThe =>
+      '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。';
+
+  @override
+  String get settingsByMessageCountUserAssistant => '按消息条数 (user+assistant)';
+
+  @override
+  String get settingsByUserMessageCountOnly => '按用户消息条数';
+
+  @override
+  String get settingsByAccumulatedTokens => '按累计 tokens';
+
+  @override
+  String get settingsCacheBreakpointUpdateInterval => '缓存断点更新间隔';
+
+  @override
+  String get settingsDefault10MeaningDependsOnThe =>
+      '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。';
+
+  @override
+  String get settingsSave => '保存';
+
+  @override
+  String get settingsCacheBreakpointCount => '缓存断点数量';
+
+  @override
+  String get settingsDefault4Range14Anthropic =>
+      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。';
+
+  @override
+  String get settingsCommandSafety => '命令安全';
+
+  @override
+  String get settingsControlWriteCommandConfirmationForBash =>
+      '控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。';
+
+  @override
+  String get settingsWriteCommandConfirmation => '写命令确认';
+
+  @override
+  String get settingsEnabledByDefaultWhenTheAi =>
+      '默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。';
+
+  @override
+  String get settingsAllowCommandList => '允许命令列表';
+
+  @override
+  String get settingsMatchingWriteLikeBashCommandsSkip =>
+      '匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。';
+
+  @override
+  String get settingsAddAllowRule => '新增允许规则';
+
+  @override
+  String get settingsNoAllowRulesConfigured => '当前没有允许命令规则';
+
+  @override
+  String get settingsAddARuleToLetMatching => '新增规则后，匹配到的写命令将跳过确认弹窗。';
+
+  @override
+  String get settingsDenyCommandList => '禁止命令列表';
+
+  @override
+  String get settingsMatchingBashCommandsAreBlockedBefore =>
+      '匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。';
+
+  @override
+  String get settingsAddRule => '新增规则';
+
+  @override
+  String get settingsNoDenyRulesConfigured => '当前没有禁止命令规则';
+
+  @override
+  String get settingsAddARuleToBlockMatching => '新增规则后，匹配到的 bash 命令会被直接拦截。';
+
+  @override
+  String get settingsTelemetry => '遥测';
+
+  @override
+  String get settingsWhenEnabledOpenhandCapturesRawAi =>
+      '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。';
+
+  @override
+  String get settingsDebugMode => '开启调试';
+
+  @override
+  String get settingsOffByDefaultWhenEnabledEvery =>
+      '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。';
+
+  @override
+  String get settingsCaptureRawPayload => '捕获原始响应';
+
+  @override
+  String get settingsEnabledByDefaultOnlyActiveWhen =>
+      '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。';
+
+  @override
+  String get settingsCaptureEnvironment => '捕获环境数据';
+
+  @override
+  String get settingsOffByDefaultOnlyActiveWhen =>
+      '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。';
+
+  @override
+  String get settingsShortcutBindings => '快捷键绑定';
+
+  @override
+  String get settingsClickRecordThenPressTheNew =>
+      '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。';
+
+  @override
+  String get settingsAutoCleanupExecutionHistory => '自动清理执行历史';
+
+  @override
+  String get settingsOnEveryColdStartAnAsync =>
+      '应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。';
+
+  @override
+  String get settingsEnableSelfLearning => '启用自主学习';
+
+  @override
+  String get settingsWhenOffTheSchedulerSkipsEvery =>
+      '关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。';
+
+  @override
+  String get settingsShowSelfLearningMessages => '显示自我学习消息';
+
+  @override
+  String get settingsWhenOffSelfLearningCardsAre =>
+      '关闭后，对话中不再展示\"自我学习\"卡片（后台学习仍会运行）。默认开启。';
+
+  @override
+  String get settingsToolCatalogOverview => '工具目录总览';
+
+  @override
+  String get settingsResetAll => '重置全部';
+
+  @override
+  String get settingsEnableAll => '全部启用';
+
+  @override
+  String get settingsDisableAll => '全部禁用';
+
+  @override
+  String get settingsNoBuiltInToolConfigurations => '没有内建工具配置';
+
+  @override
+  String get settingsClickResetAllToRestoreThe => '点击\"重置全部\"恢复默认工具列表。';
+
+  @override
+  String get settingsResetBuiltInToolConfigs => '重置内建工具配置';
+
+  @override
+  String get settingsCancel => '取消';
+
+  @override
+  String get settingsReset => '重置';
+
+  @override
+  String get settingsDeleteCustomTool => '删除自定义工具';
+
+  @override
+  String get settingsDelete => '删除';
+
+  @override
+  String get settingsSendTimeoutSaved => '发送超时时间已保存。';
+
+  @override
+  String get settingsResponseTimeoutSaved => '响应超时时间已保存。';
+
+  @override
+  String get settingsStreamIdleTimeoutSaved => '等待超时时间已保存。';
+
+  @override
+  String get settingsCacheBreakpointUpdateIntervalSaved => '缓存断点更新间隔已保存';
+
+  @override
+  String get settingsCacheBreakpointCountSaved => '缓存断点数量已保存';
+
+  @override
+  String get settingsCacheBreakpointPositions => '缓存断点位置';
+
+  @override
+  String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+
+  @override
+  String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';
+
+  @override
+  String get settingsThePerResponseToolCallLimit => '单轮工具调用上限已保存。';
+
+  @override
+  String get settingsEnterASequentialToolRoundLimit => '请输入大于 0 的连续工具轮次上限。';
+
+  @override
+  String get settingsTheSequentialToolRoundLimitHas => '连续工具轮次上限已保存。';
+
+  @override
+  String get settingsDeleteDenyRule => '删除禁止命令规则';
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen => '禁止命令规则已删除。';
+
+  @override
+  String get settingsDeleteAllowRule => '删除允许命令规则';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen => '允许命令规则已删除。';
+
+  @override
+  String get settingsTheShortcutHasBeenUpdated => '快捷键已更新。';
+
+  @override
+  String get settingsTheEditorShortcutHasBeenUpdated => '编辑器快捷键已更新。';
+
+  @override
+  String get settingsSendMessage => '发送消息';
+
+  @override
+  String get settingsCollapseOrExpandComposer => '折叠或展开输入框';
+
+  @override
+  String get settingsPreviousModel => '上一个模型';
+
+  @override
+  String get settingsNextModel => '下一个模型';
+
+  @override
+  String get settingsToggleAutoFollow => '开关自动滚动';
+
+  @override
+  String get settingsPreviousSession => '上一个会话';
+
+  @override
+  String get settingsNextSession => '下一个会话';
+
+  @override
+  String get settingsSaveFile => '保存文件';
+
+  @override
+  String get settingsTriggerCompletion => '触发智能补全';
+
+  @override
+  String get settingsShowSignatureHelp => '显示签名帮助';
+
+  @override
+  String get settingsFind => '查找';
+
+  @override
+  String get settingsFindAndReplace => '查找替换';
+
+  @override
+  String get settingsGoToLine => '跳转到行';
+
+  @override
+  String get settingsDocumentSymbols => '文档符号';
+
+  @override
+  String get settingsWorkspaceSymbols => '全局符号';
+
+  @override
+  String get settingsGoToDefinition => '跳转到定义';
+
+  @override
+  String get settingsFindReferences => '查找引用';
+
+  @override
+  String get settingsGoToImplementation => '跳转到实现';
+
+  @override
+  String get settingsShowHoverInfo => '显示悬浮信息';
+
+  @override
+  String get settingsRenameSymbol => '重命名符号';
+
+  @override
+  String get settingsCodeActions => '代码操作';
+
+  @override
+  String get settingsFormatDocument => '格式化文档';
+
+  @override
+  String get settingsDefaultsToCtrlEnterAndTriggers =>
+      '默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。';
+
+  @override
+  String get settingsDefaultsToCtrlPForQuickly => '默认 Ctrl + P，用于快速折叠或展开输入框。';
+
+  @override
+  String get settingsDefaultsToCtrlLeftAndWraps =>
+      '默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。';
+
+  @override
+  String get settingsDefaultsToCtrlRightAndWraps =>
+      '默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。';
+
+  @override
+  String get settingsDefaultsToCtrlSForToggling => '默认 Ctrl + S，开关自动滚动模式。';
+
+  @override
+  String get settingsDefaultsToCtrlUpAndWraps => '默认 Ctrl + ↑，切换到上一个会话并支持绕圈。';
+
+  @override
+  String get settingsDefaultsToCtrlDownAndWraps => '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。';
+
+  @override
+  String get auditDeleteMessage => '删除消息';
+
+  @override
+  String get auditDeleteThisMessageThisCannotBe => '确认删除该消息？此操作不可撤销。';
+
+  @override
+  String get auditCancel => '取消';
+
+  @override
+  String get settingsManageTheBuiltInAiTools =>
+      '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、Schema、优先级、排序、加载策略和其他参数。';
+
+  @override
+  String get settingsManageTheLocalFilesAndDatabase =>
+      '管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker 中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。';
+
+  @override
+  String get settingsThisWillRestoreAllBuiltIn =>
+      '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。';
+
+  @override
+  String get tlCallUnwrap => '取消换行';
+
+  @override
+  String get tlCallWrapLines => '自动换行';
+
+  @override
+  String get tlCallViewCompressedContent => '查看压缩内容';
+
+  @override
+  String get tlCallViewFullContent => '查看完整内容';
+
+  @override
+  String tlCallMultiEditEditcount(Object editCount) {
+    return '多处编辑 ×$editCount';
+  }
+
+  @override
+  String get tlCallPreparing => '准备执行';
+
+  @override
+  String get tlCallPreparingAlt => '准备调用';
+
+  @override
+  String get tlCallRunningAlt => '调用中';
+
+  @override
+  String get tlCallCompleted => '执行完成';
+
+  @override
+  String get tlCallCompletedAlt => '调用完成';
+
+  @override
+  String get tlCallTimedOutAlt => '调用超时';
+
+  @override
+  String get tlCallFailedAlt => '调用失败';
+
+  @override
+  String tlCallFailedToOpenFileLocationError(Object error) {
+    return '打开文件位置失败：$error';
+  }
+
+  @override
+  String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
+    return '$memoryItems_length 条记忆已更新';
+  }
+
+  @override
+  String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
+    return '$profileItems_length 项画像已更新';
+  }
+
+  @override
+  String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
+    return '$skillItems_length 个技能已更新';
+  }
+
+  @override
+  String get tlCallAiThinkingStreaming => 'AI 思考（生成中）';
+
+  @override
+  String get tlCallAiThinking => 'AI 思考';
+
+  @override
+  String get tlCallAiResponseStreaming => 'AI 响应（生成中）';
+
+  @override
+  String get tlCallAiResponse => 'AI 响应';
+
+  @override
+  String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
+    return ' 等 $items_length 项';
+  }
+
+  @override
+  String tlCallSecondsSAgo(Object seconds) {
+    return '$seconds秒前';
+  }
+
+  @override
+  String tlCallMinutesMAgo(Object minutes) {
+    return '$minutes分钟前';
+  }
+
+  @override
+  String tlCallHoursHAgo(Object hours) {
+    return '$hours小时前';
+  }
+
+  @override
+  String tlCallDaysDAgo(Object days) {
+    return '$days天前';
+  }
+
+  @override
+  String sessMetaPlanPlanindex(Object planIndex) {
+    return '计划 #$planIndex';
+  }
+
+  @override
+  String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
+    return ' 当前连续工具轮次上限为 $configuredLimit。';
+  }
+
+  @override
+  String auditInvalidJsonErrorMessage(Object error_message) {
+    return 'JSON 解析失败：$error_message';
+  }
+
+  @override
+  String auditSaveFailedError(Object error) {
+    return '保存失败：$error';
+  }
+
+  @override
+  String auditRecentErrorsSessionRecenterrorsLength(
+    Object session_recentErrors_length,
+  ) {
+    return '最近错误 ($session_recentErrors_length)';
+  }
+
+  @override
+  String auditMessagesSessionMessagesLength(Object session_messages_length) {
+    return '消息列表 ($session_messages_length)';
+  }
+
+  @override
+  String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
+    return '已应用 $edits_length 处格式化修改。';
+  }
+
+  @override
+  String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
+    return '格式化当前文件 ($formatShortcut)';
+  }
+
+  @override
+  String progExpFENoCodeactionkindRefactoringIsAvailableAt(
+    Object codeActionKind,
+  ) {
+    return '当前位置没有可用的\"$codeActionKind\"重构操作。';
+  }
+
+  @override
+  String get progExpFEHideFileBrowser => '隐藏文件浏览器';
+
+  @override
+  String get progExpFEShowFileBrowser => '显示文件浏览器';
+
+  @override
+  String settingsRetentionWindowRetentionDayS(Object retention) {
+    return '保留天数：$retention 天';
+  }
+
+  @override
+  String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
+    return '范围 $minR–$maxR 天，默认 7 天。下次冷启动时生效。';
+  }
+
+  @override
+  String settingsConcurrentWorkersConcurrency(Object concurrency) {
+    return '并发 Worker 数：$concurrency';
+  }
+
+  @override
+  String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
+    return '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。';
+  }
+
+  @override
+  String settingsSortedLengthBuiltInToolsEnabledcount(
+    Object sorted_length,
+    Object enabledCount,
+  ) {
+    return '当前共 $sorted_length 个内建工具，已启用 $enabledCount 个。可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。';
+  }
+
+  @override
+  String settingsAreYouSureYouWantTo(Object config_effectiveName) {
+    return '确定要删除 \"$config_effectiveName\" 吗？此操作不可撤销。';
+  }
+
+  @override
+  String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
+    return '请输入 $min–$max 之间的秒数。';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+    Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
+    Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheUpdateInterval 到 $AppSettingsSnapshot_maxAiInputCacheUpdateInterval 之间的整数';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+    Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
+    Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
+  ) {
+    return '请输入 $AppSettingsSnapshot_minAiInputCacheBreakpointCount 到 $AppSettingsSnapshot_maxAiInputCacheBreakpointCount 之间的整数';
+  }
+
+  @override
+  String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
+    return '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。';
+  }
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen2 => '禁止命令规则已更新。';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen2 => '允许命令规则已更新。';
+
+  @override
+  String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，保存当前正在编辑的文件。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
+    return '默认 $defaultLabel，主动弹出智能补全候选列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前调用位置的方法签名、参数解释和文档摘要。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭查找面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭替换面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭跳转到行面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭当前文件的符号列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
+    return '默认 $defaultLabel，打开或关闭全局符号检索面板。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号定义。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
+    return '默认 $defaultLabel，查找当前符号的引用位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
+    return '默认 $defaultLabel，跳转到当前符号的实现位置。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
+    return '默认 $defaultLabel，显示当前位置的类型或文档信息。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
+    return '默认 $defaultLabel，发起当前符号重命名。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
+    return '默认 $defaultLabel，显示可用的代码操作列表。';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
+    return '默认 $defaultLabel，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。';
+  }
+
+  @override
+  String progExpFEResolvedLspBackendForCurrentFile(
+    Object lspName,
+    Object projLang,
+    Object fileLang,
+    Object modeLine,
+    Object sdkSourceLine,
+    Object lspSourceLine,
+    Object rootPath,
+    Object command,
+  ) {
+    return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
   }
 }

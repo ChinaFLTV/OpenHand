@@ -42,32 +42,32 @@ class _SessionMetadataDialog extends StatelessWidget {
         .toList(growable: false);
     final summaryBlocks = <Widget>[
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: '消息总数', en: 'Messages'),
+        label: AppLocalizations.of(context)!.sessMetaMessages,
         value: '${statistics.totalMessageCount}',
       ),
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: 'Prompt 构建', en: 'Prompt Builds'),
+        label: AppLocalizations.of(context)!.sessMetaPromptBuilds,
         value: '${statistics.promptBuildCount}',
       ),
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: '压缩次数', en: 'Compressions'),
+        label: AppLocalizations.of(context)!.sessMetaCompressions,
         value: '${statistics.compressionRunCount}',
       ),
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: '总 Token', en: 'Total Tokens'),
+        label: AppLocalizations.of(context)!.sessMetaTotalTokens,
         value: '${statistics.totalTokens ?? 0}',
       ),
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: '当前模式', en: 'Mode'),
+        label: AppLocalizations.of(context)!.sessMetaMode,
         value: _runtimeModeLabel(context, runtimeStatus, compact: true),
       ),
       _MetadataSummaryTile(
-        label: _localizedText(context, zh: '运行工具', en: 'Runtime Tools'),
+        label: AppLocalizations.of(context)!.sessMetaRuntimeTools,
         value: !runtimeStatus.supportsToolCalls
             ? '-'
             : runtimeStatus.hasSnapshot && !runtimeStatus.stale
             ? '${runtimeStatus.toolCount}'
-            : _localizedText(context, zh: '待刷新', en: 'Pending'),
+            : AppLocalizations.of(context)!.sessMetaPending,
       ),
     ];
 
@@ -91,11 +91,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _localizedText(
-                            context,
-                            zh: '当前会话元数据',
-                            en: 'Current Session Metadata',
-                          ),
+                          AppLocalizations.of(context)!.sessMetaCurrentSessionMetadata,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -125,11 +121,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '会话概览',
-                          en: 'Session Overview',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaSessionOverview,
                         children: [
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
@@ -207,11 +199,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                           .isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _MetadataSection(
-                          title: _localizedText(
-                            context,
-                            zh: '扩展元数据',
-                            en: 'Extended Metadata',
-                          ),
+                          title: AppLocalizations.of(context)!.sessMetaExtendedMetadata,
                           children: session.metadata.entries
                               .where(
                                 (e) =>
@@ -233,11 +221,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ],
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '统计信息',
-                          en: 'Statistics',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaStatistics,
                         children: [
                           Wrap(
                             spacing: 10,
@@ -245,26 +229,26 @@ class _SessionMetadataDialog extends StatelessWidget {
                             children: [
                               _MetadataChip(
                                 label:
-                                    '${_localizedText(context, zh: '用户', en: 'User')} ${statistics.userMessageCount}',
+                                    '${AppLocalizations.of(context)!.sessMetaUser} ${statistics.userMessageCount}',
                               ),
                               _MetadataChip(
                                 label:
-                                    '${_localizedText(context, zh: '助手', en: 'Assistant')} ${statistics.assistantMessageCount}',
+                                    '${AppLocalizations.of(context)!.sessMetaAssistant} ${statistics.assistantMessageCount}',
                               ),
                               _MetadataChip(
                                 label:
-                                    '${_localizedText(context, zh: '工具', en: 'Tool')} ${statistics.toolMessageCount}',
+                                    '${AppLocalizations.of(context)!.sessMetaTool} ${statistics.toolMessageCount}',
                               ),
                               _MetadataChip(
                                 label: 'MCP ${statistics.mcpMessageCount}',
                               ),
                               _MetadataChip(
                                 label:
-                                    '${_localizedText(context, zh: '技能', en: 'Skill')} ${statistics.skillMessageCount}',
+                                    '${AppLocalizations.of(context)!.sessMetaSkill} ${statistics.skillMessageCount}',
                               ),
                               _MetadataChip(
                                 label:
-                                    '${_localizedText(context, zh: '压缩', en: 'Compression')} ${statistics.compressionPointCount}',
+                                    '${AppLocalizations.of(context)!.sessMetaCompression} ${statistics.compressionPointCount}',
                               ),
                             ],
                           ),
@@ -309,11 +293,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '运行环境',
-                          en: 'Environment',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaEnvironment,
                         children: [
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
@@ -408,19 +388,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '命令策略',
-                          en: 'Command Policy',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaCommandPolicy,
                         children: !hasPromptMetadata
                             ? [
                                 Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '当前还没有可展示的 prompt 元数据。',
-                                    en: 'Prompt metadata is not available yet.',
-                                  ),
+                                  AppLocalizations.of(context)!.sessMetaPromptMetadataIsNotAvailableYet,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -428,38 +400,18 @@ class _SessionMetadataDialog extends StatelessWidget {
                               ]
                             : [
                                 _MetadataEntryRow(
-                                  label: _localizedText(
-                                    context,
-                                    zh: '写命令确认',
-                                    en: 'Write Confirmation',
-                                  ),
+                                  label: AppLocalizations.of(context)!.sessMetaWriteConfirmation,
                                   value: writeCommandConfirmationEnabled
-                                      ? _localizedText(
-                                          context,
-                                          zh: '需要确认',
-                                          en: 'Required',
-                                        )
-                                      : _localizedText(
-                                          context,
-                                          zh: '无需确认',
-                                          en: 'Not required',
-                                        ),
+                                      ? AppLocalizations.of(context)!.sessMetaRequired
+                                      : AppLocalizations.of(context)!.sessMetaNotRequired,
                                 ),
                                 _MetadataEntryRow(
-                                  label: _localizedText(
-                                    context,
-                                    zh: '允许规则数',
-                                    en: 'Allow Rules',
-                                  ),
+                                  label: AppLocalizations.of(context)!.sessMetaAllowRules,
                                   value: '$allowCommandRuleCount',
                                 ),
                                 if (allowCommandRules.isEmpty)
                                   Text(
-                                    _localizedText(
-                                      context,
-                                      zh: '当前没有已上屏的允许命令规则。',
-                                      en: 'There are no surfaced allow command rules.',
-                                    ),
+                                    AppLocalizations.of(context)!.sessMetaThereAreNoSurfacedAllowCommand,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                     ),
@@ -492,84 +444,44 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '运行时编排',
-                          en: 'Runtime Orchestration',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaRuntimeOrchestration,
                         children: [
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '状态来源',
-                              en: 'State Source',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaStateSource,
                             value: runtimeStatus.isLivePreview
-                                ? _localizedText(
-                                    context,
-                                    zh: '根据当前模型、MCP/Skills 与 Plan 状态即时生成',
-                                    en: 'Generated from the current model, MCP/skills, and plan state',
-                                  )
-                                : _localizedText(
-                                    context,
-                                    zh: '上一轮已落盘的运行时快照',
-                                    en: 'The last persisted runtime snapshot',
-                                  ),
+                                ? AppLocalizations.of(context)!.sessMetaGeneratedFromTheCurrentModelMcp
+                                : AppLocalizations.of(context)!.sessMetaTheLastPersistedRuntimeSnapshot,
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '当前模式',
-                              en: 'Mode',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaMode,
                             value: _runtimeModeLabel(context, runtimeStatus),
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '工具目录状态',
-                              en: 'Tool Catalog State',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaToolCatalogState,
                             value: _runtimeToolCatalogStatusLabel(
                               context,
                               runtimeStatus,
                             ),
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '门控原因',
-                              en: 'Gate Reason',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaGateReason,
                             value: _runtimeToolGateReasonLabel(
                               context,
                               runtimeStatus.gateReason,
                             ),
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '当前运行时工具数',
-                              en: 'Runtime Tool Count',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaRuntimeToolCount,
                             value:
                                 runtimeStatus.hasSnapshot &&
                                     !runtimeStatus.stale
                                 ? '${runtimeStatus.toolCount}'
-                                : _localizedText(
-                                    context,
-                                    zh: '等待下一轮刷新',
-                                    en: 'Refreshes next round',
-                                  ),
+                                : AppLocalizations.of(context)!.sessMetaRefreshesNextRound,
                           ),
                           if (runtimeStatus.notices.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Text(
-                              _localizedText(
-                                context,
-                                zh: '运行时 Notices',
-                                en: 'Runtime Notices',
-                              ),
+                              AppLocalizations.of(context)!.sessMetaRuntimeNotices,
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -587,11 +499,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                               !runtimeStatus.stale) ...[
                             const SizedBox(height: 12),
                             Text(
-                              _localizedText(
-                                context,
-                                zh: '当前运行时工具',
-                                en: 'Current Runtime Tools',
-                              ),
+                              AppLocalizations.of(context)!.sessMetaCurrentRuntimeTools,
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -609,59 +517,27 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '任务跟踪',
-                          en: 'Task Tracking',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaTaskTracking,
                         children: [
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '当前 Todo 数量',
-                              en: 'Current Todos',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaCurrentTodos,
                             value: '${currentTodos.length}',
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: '计划记录数量',
-                              en: 'Plan Records',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaPlanRecords,
                             value: '${planHistory.length}',
                           ),
                           _MetadataEntryRow(
-                            label: _localizedText(
-                              context,
-                              zh: 'TodoWrite 强提醒',
-                              en: 'TodoWrite Reminder',
-                            ),
+                            label: AppLocalizations.of(context)!.sessMetaTodowriteReminder,
                             value: hasPromptMetadata
                                 ? (todoWriteRecommended
-                                      ? _localizedText(
-                                          context,
-                                          zh: '已触发',
-                                          en: 'Triggered',
-                                        )
-                                      : _localizedText(
-                                          context,
-                                          zh: '未触发',
-                                          en: 'Not triggered',
-                                        ))
-                                : _localizedText(
-                                    context,
-                                    zh: '暂无数据',
-                                    en: 'Unavailable',
-                                  ),
+                                      ? AppLocalizations.of(context)!.sessMetaTriggered
+                                      : AppLocalizations.of(context)!.sessMetaNotTriggered)
+                                : AppLocalizations.of(context)!.sessMetaUnavailable,
                           ),
                           if (todoWriteReason.isNotEmpty)
                             _MetadataEntryRow(
-                              label: _localizedText(
-                                context,
-                                zh: '提醒原因',
-                                en: 'Reminder Reason',
-                              ),
+                              label: AppLocalizations.of(context)!.sessMetaReminderReason,
                               value: todoWriteReason,
                             ),
                           if (currentTodos.isNotEmpty)
@@ -692,11 +568,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                           if (planHistory.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Text(
-                              _localizedText(
-                                context,
-                                zh: '计划历史',
-                                en: 'Plan History',
-                              ),
+                              AppLocalizations.of(context)!.sessMetaPlanHistory,
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -713,19 +585,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '最近异常',
-                          en: 'Recent Errors',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaRecentErrors,
                         children: recentErrors.isEmpty
                             ? [
                                 Text(
-                                  _localizedText(
-                                    context,
-                                    zh: '当前没有需要关注的会话异常。',
-                                    en: 'There are no session errors to review.',
-                                  ),
+                                  AppLocalizations.of(context)!.sessMetaThereAreNoSessionErrorsTo,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -739,11 +603,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: _localizedText(
-                          context,
-                          zh: '最后一次 Prompt 元数据',
-                          en: 'Last Prompt Metadata',
-                        ),
+                        title: AppLocalizations.of(context)!.sessMetaLastPromptMetadata,
                         children: [
                           _MetadataJsonPanel(
                             content: const JsonEncoder.withIndent(
@@ -762,7 +622,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                 children: [
                   OpenHandDialogActionButton.secondary(
                     onPressed: () => Navigator.of(context).pop(),
-                    label: _localizedText(context, zh: '关闭', en: 'Close'),
+                    label: AppLocalizations.of(context)!.sessMetaClose,
                   ),
                 ],
               ),
@@ -906,31 +766,11 @@ String _sessionPlanStatusLabel(
   AiSessionPlanStatus status,
 ) {
   return switch (status) {
-    AiSessionPlanStatus.pendingApproval => _localizedText(
-      context,
-      zh: '待确认',
-      en: 'Pending Approval',
-    ),
-    AiSessionPlanStatus.inProgress => _localizedText(
-      context,
-      zh: '进行中',
-      en: 'In Progress',
-    ),
-    AiSessionPlanStatus.completed => _localizedText(
-      context,
-      zh: '已完成',
-      en: 'Completed',
-    ),
-    AiSessionPlanStatus.failed => _localizedText(
-      context,
-      zh: '失败',
-      en: 'Failed',
-    ),
-    AiSessionPlanStatus.cancelled => _localizedText(
-      context,
-      zh: '已取消',
-      en: 'Cancelled',
-    ),
+    AiSessionPlanStatus.pendingApproval => AppLocalizations.of(context)!.sessMetaPendingApproval,
+    AiSessionPlanStatus.inProgress => AppLocalizations.of(context)!.sessMetaInProgress,
+    AiSessionPlanStatus.completed => AppLocalizations.of(context)!.sessMetaCompleted,
+    AiSessionPlanStatus.failed => AppLocalizations.of(context)!.sessMetaFailed,
+    AiSessionPlanStatus.cancelled => AppLocalizations.of(context)!.sessMetaCancelled,
   };
 }
 
@@ -982,11 +822,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
-                _localizedText(
-                  context,
-                  zh: '计划 #$planIndex',
-                  en: 'Plan #$planIndex',
-                ),
+                AppLocalizations.of(context)!.sessMetaPlanPlanindex(planIndex),
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1012,7 +848,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${_localizedText(context, zh: '创建', en: 'Created')} ${_formatDateTime(planRecord.createdAt)} · ${_localizedText(context, zh: '更新', en: 'Updated')} ${_formatDateTime(planRecord.updatedAt)}',
+            '${AppLocalizations.of(context)!.sessMetaCreated} ${_formatDateTime(planRecord.createdAt)} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${_formatDateTime(planRecord.updatedAt)}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -1075,7 +911,7 @@ class _MetadataErrorCard extends StatelessWidget {
           if (detail.isNotEmpty && detail != rawMessage) ...[
             const SizedBox(height: 8),
             Text(
-              _localizedText(context, zh: '错误细节', en: 'Error Detail'),
+              AppLocalizations.of(context)!.sessMetaErrorDetail,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: colorScheme.onErrorContainer.withValues(alpha: 0.9),
                 fontWeight: FontWeight.w700,
@@ -1092,7 +928,7 @@ class _MetadataErrorCard extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Text(
-            '${_sessionErrorStageLabel(context, error.stage)} · ${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? _localizedText(context, zh: '已展示', en: 'Presented') : _localizedText(context, zh: '未展示', en: 'Pending')}',
+            '${_sessionErrorStageLabel(context, error.stage)} · ${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onErrorContainer.withValues(alpha: 0.84),
             ),
@@ -1118,11 +954,7 @@ _SessionErrorPresentation _presentSessionError(
   final rawMessage = error.message.trim();
   final fallbackMessage = rawMessage.isNotEmpty
       ? rawMessage
-      : _localizedText(
-          context,
-          zh: '当前会话已提前结束。请重试或继续发送更具体的指令。',
-          en: 'This session ended early. Retry the request or continue with a more specific instruction.',
-        );
+      : AppLocalizations.of(context)!.sessMetaThisSessionEndedEarlyRetryThe;
   // Chat 系列 stage 直接使用底层 AiChatException 输出的「现象 / 原因 / 建议」
   // 三段式中英诊断文案：第一行作为 banner 标题，其余多行作为正文，避免之前
   // 一律展示通用兜底文案、丢失协议/网络层细节的问题。
@@ -1136,53 +968,29 @@ _SessionErrorPresentation _presentSessionError(
   }
   return switch (error.stage) {
     'tool_loop' => _SessionErrorPresentation(
-      title: _localizedText(
-        context,
-        zh: '工具调用已安全停止',
-        en: 'Tool Calls Stopped for Safety',
-      ),
+      title: AppLocalizations.of(context)!.sessMetaToolCallsStoppedForSafety,
       message: () {
         final configuredLimit = _extractConfiguredToolLoopLimit(
           error.detail ?? '',
         );
         final limitSuffix = configuredLimit == null
             ? ''
-            : _localizedText(
-                context,
-                zh: ' 当前连续工具轮次上限为 $configuredLimit。',
-                en: ' The current sequential tool round limit is $configuredLimit.',
-              );
-        return _localizedText(
-              context,
-              zh: '本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。',
-              en: 'OpenHand stopped this session for safety after too many sequential tool rounds. This stop happened in the session controller before the next tool could run, not because one specific tool execution failed. Ask the assistant to summarize the current progress or give a more specific next step.',
-            ) +
+            : AppLocalizations.of(context)!.sessMetaTheCurrentSequentialToolRoundLimit(configuredLimit);
+        return AppLocalizations.of(context)!.sessMetaOpenhandStoppedThisSessionForSafety +
             limitSuffix;
       }(),
     ),
     'chat_stream' => _SessionErrorPresentation(
-      title: _localizedText(context, zh: '回答已中断', en: 'Response Interrupted'),
-      message: _localizedText(
-        context,
-        zh: '本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。',
-        en: 'The response was interrupted while streaming and this session has stopped. Retry the request or continue with a new message.',
-      ),
+      title: AppLocalizations.of(context)!.sessMetaResponseInterrupted,
+      message: AppLocalizations.of(context)!.sessMetaTheResponseWasInterruptedWhileStreaming,
     ),
     'chat_request' => _SessionErrorPresentation(
-      title: _localizedText(context, zh: '请求发送失败', en: 'Request Failed'),
-      message: _localizedText(
-        context,
-        zh: '本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。',
-        en: 'The request failed before the assistant could continue. Check the configuration and retry, or send a new message.',
-      ),
+      title: AppLocalizations.of(context)!.sessMetaRequestFailed,
+      message: AppLocalizations.of(context)!.sessMetaTheRequestFailedBeforeTheAssistant,
     ),
     'chat_continuation_request' => _SessionErrorPresentation(
-      title: _localizedText(context, zh: '后续请求失败', en: 'Continuation Failed'),
-      message: _localizedText(
-        context,
-        zh: '本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。',
-        en: 'The session failed while requesting the next assistant round after continuing execution. Completed steps and tool results were preserved. Reply with continue/retry, or check the configuration and try again.',
-      ),
+      title: AppLocalizations.of(context)!.sessMetaContinuationFailed,
+      message: AppLocalizations.of(context)!.sessMetaTheSessionFailedWhileRequestingThe,
     ),
     _ => _SessionErrorPresentation(
       title: fallbackTitle,
@@ -1241,35 +1049,15 @@ _SessionErrorPresentation _splitStructuredErrorMessage(
 
 String _sessionErrorStageLabel(BuildContext context, String stage) {
   return switch (stage) {
-    'tool_loop' => _localizedText(context, zh: '安全停止', en: 'Safety Stop'),
-    'chat_stream' => _localizedText(context, zh: '响应中断', en: 'Stream Error'),
-    'chat_request' => _localizedText(context, zh: '请求失败', en: 'Request Error'),
-    'chat_continuation_request' => _localizedText(
-      context,
-      zh: '后续请求失败',
-      en: 'Continuation Error',
-    ),
-    'tool_execution' => _localizedText(
-      context,
-      zh: '工具执行失败',
-      en: 'Tool Execution Error',
-    ),
-    'history_compression' => _localizedText(
-      context,
-      zh: '历史压缩失败',
-      en: 'Compression Error',
-    ),
-    'user_prompt_hook' => _localizedText(
-      context,
-      zh: '提示词被拦截',
-      en: 'Prompt Blocked',
-    ),
-    'title_generation' => _localizedText(
-      context,
-      zh: '标题生成失败',
-      en: 'Title Generation Error',
-    ),
-    _ => _localizedText(context, zh: '会话异常', en: 'Session Error'),
+    'tool_loop' => AppLocalizations.of(context)!.sessMetaSafetyStop,
+    'chat_stream' => AppLocalizations.of(context)!.sessMetaStreamError,
+    'chat_request' => AppLocalizations.of(context)!.sessMetaRequestError,
+    'chat_continuation_request' => AppLocalizations.of(context)!.sessMetaContinuationError,
+    'tool_execution' => AppLocalizations.of(context)!.sessMetaToolExecutionError,
+    'history_compression' => AppLocalizations.of(context)!.sessMetaCompressionError,
+    'user_prompt_hook' => AppLocalizations.of(context)!.sessMetaPromptBlocked,
+    'title_generation' => AppLocalizations.of(context)!.sessMetaTitleGenerationError,
+    _ => AppLocalizations.of(context)!.sessMetaSessionError,
   };
 }
 

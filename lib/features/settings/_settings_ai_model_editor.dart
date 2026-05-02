@@ -108,19 +108,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     super.dispose();
   }
 
-  String _localizedText({required String zh, required String en}) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
-
   Future<void> _scanModels() async {
     final baseUrl = _baseUrlController.text.trim();
     if (baseUrl.isEmpty || !isValidHttpUrl(baseUrl)) {
       setState(() {
-        _scanError = _localizedText(
-          zh: '请先输入有效的 Base URL',
-          en: 'Enter a valid Base URL first',
-        );
+        _scanError = AppLocalizations.of(context)!.mdlEdEnterAValidBaseUrlFirst;
       });
       return;
     }
@@ -157,10 +149,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           _availableModelIds = sorted;
           _isScanning = false;
           _scanError = result.modelIds.isEmpty
-              ? _localizedText(
-                  zh: '未从该提供商扫描到模型。',
-                  en: 'No models found from this provider.',
-                )
+              ? AppLocalizations.of(context)!.mdlEdNoModelsFoundFromThisProvider
               : null;
           // Reconcile active selection against the freshly scanned list:
           // - If the previously active model is still present, keep it.
@@ -334,14 +323,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             controller: _nameController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
-                              labelText: _localizedText(
-                                zh: '提供商名称',
-                                en: 'Provider Name',
-                              ),
-                              hintText: _localizedText(
-                                zh: '可选，如 DeepSeek、本地 Ollama',
-                                en: 'Optional, e.g. DeepSeek, Local Ollama',
-                              ),
+                              labelText: AppLocalizations.of(context)!.mdlEdProviderName,
+                              hintText: AppLocalizations.of(context)!.mdlEdOptionalEGDeepseekLocalOllama,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -566,14 +549,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                                         ?.hasUserOverrides ==
                                                     true,
                                                 tooltip: isActive
-                                                    ? _localizedText(
-                                                        zh: '当前活跃模型',
-                                                        en: 'Currently active model',
-                                                      )
-                                                    : _localizedText(
-                                                        zh: '点击切换为活跃模型',
-                                                        en: 'Click to set as active model',
-                                                      ),
+                                                    ? AppLocalizations.of(context)!.mdlEdCurrentlyActiveModel
+                                                    : AppLocalizations.of(context)!.mdlEdClickToSetAsActiveModel,
                                                 onPressed: () =>
                                                     _selectModelId(id),
                                                 onEdit: () =>
@@ -591,10 +568,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             )
                           else
                             Text(
-                              _localizedText(
-                                zh: '点击「扫描模型」按钮自动发现可用模型，或手动添加。',
-                                en: 'Tap "Scan Models" to discover models automatically, or add manually below.',
-                              ),
+                              AppLocalizations.of(context)!.mdlEdTapScanModelsToDiscoverModels,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -628,14 +602,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             controller: _modelIdController,
                             enabled: !_isSaving,
                             decoration: InputDecoration(
-                              labelText: _localizedText(
-                                zh: '当前活跃模型 ID',
-                                en: 'Active Model ID',
-                              ),
-                              helperText: _localizedText(
-                                zh: '当前用于对话的模型。可从上方列表选择或直接输入。',
-                                en: 'The model used for conversations. Select from the list above or type directly.',
-                              ),
+                              labelText: AppLocalizations.of(context)!.mdlEdActiveModelId,
+                              helperText: AppLocalizations.of(context)!.mdlEdTheModelUsedForConversationsSelect,
                             ),
                             onChanged: (value) {
                               setState(() {
@@ -651,14 +619,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                             enabled: !_isSaving,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
-                              labelText: _localizedText(
-                                zh: '最大上下文 Token 上限',
-                                en: 'Max Context Tokens',
-                              ),
-                              helperText: _localizedText(
-                                zh: '可选。用于在压缩时限制历史切片大小。',
-                                en: 'Optional. Limits the history slice used during compression.',
-                              ),
+                              labelText: AppLocalizations.of(context)!.mdlEdMaxContextTokens,
+                              helperText: AppLocalizations.of(context)!.mdlEdOptionalLimitsTheHistorySliceUsed,
                             ),
                             validator: (value) {
                               final trimmed = value?.trim() ?? '';
@@ -667,10 +629,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               }
                               final parsed = int.tryParse(trimmed);
                               if (parsed == null || parsed <= 0) {
-                                return _localizedText(
-                                  zh: '请输入大于 0 的整数',
-                                  en: 'Enter a whole number greater than 0',
-                                );
+                                return AppLocalizations.of(context)!.mdlEdEnterAWholeNumberGreaterThan;
                               }
                               return null;
                             },
@@ -684,10 +643,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   DropdownButtonFormField<String>(
                                     initialValue: _requestMethod,
                                     decoration: InputDecoration(
-                                      labelText: _localizedText(
-                                        zh: '请求方式',
-                                        en: 'Request Method',
-                                      ),
+                                      labelText: AppLocalizations.of(context)!.mdlEdRequestMethod,
                                     ),
                                     items: const <DropdownMenuItem<String>>[
                                       DropdownMenuItem<String>(
@@ -730,10 +686,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   );
                               final streamToggle = InputDecorator(
                                 decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    zh: '输出模式',
-                                    en: 'Output Mode',
-                                  ),
+                                  labelText: AppLocalizations.of(context)!.mdlEdOutputMode,
                                   border: InputBorder.none,
                                   contentPadding: const EdgeInsets.only(top: 8),
                                 ),
@@ -741,14 +694,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   children: [
                                     Text(
                                       _streamEnabled
-                                          ? _localizedText(
-                                              zh: '流式输出',
-                                              en: 'Streaming',
-                                            )
-                                          : _localizedText(
-                                              zh: '非流式输出',
-                                              en: 'Non-streaming',
-                                            ),
+                                          ? AppLocalizations.of(context)!.mdlEdStreaming
+                                          : AppLocalizations.of(context)!.mdlEdNonStreaming,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
@@ -793,24 +740,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 enabled: !_isSaving,
                                 keyboardType: TextInputType.number,
                                 decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    zh: '最大输出 Token 数',
-                                    en: 'Max Output Tokens',
-                                  ),
-                                  helperText: _localizedText(
-                                    zh: '可选。不指定则使用适配器默认值。',
-                                    en: 'Optional. Uses adapter default if unset.',
-                                  ),
+                                  labelText: AppLocalizations.of(context)!.mdlEdMaxOutputTokens,
+                                  helperText: AppLocalizations.of(context)!.mdlEdOptionalUsesAdapterDefaultIfUnset,
                                 ),
                                 validator: (value) {
                                   final trimmed = value?.trim() ?? '';
                                   if (trimmed.isEmpty) return null;
                                   final parsed = int.tryParse(trimmed);
                                   if (parsed == null || parsed <= 0) {
-                                    return _localizedText(
-                                      zh: '请输入大于 0 的整数',
-                                      en: 'Enter a whole number greater than 0',
-                                    );
+                                    return AppLocalizations.of(context)!.mdlEdEnterAWholeNumberGreaterThan;
                                   }
                                   return null;
                                 },
@@ -823,14 +761,8 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                       decimal: true,
                                     ),
                                 decoration: InputDecoration(
-                                  labelText: _localizedText(
-                                    zh: '温度',
-                                    en: 'Temperature',
-                                  ),
-                                  helperText: _localizedText(
-                                    zh: '0.0 ~ 2.0，默认 0.7',
-                                    en: '0.0 ~ 2.0, default 0.7',
-                                  ),
+                                  labelText: AppLocalizations.of(context)!.mdlEdTemperature,
+                                  helperText: AppLocalizations.of(context)!.mdlEd0020Default0,
                                 ),
                                 validator: (value) {
                                   final trimmed = value?.trim() ?? '';
@@ -839,10 +771,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   if (parsed == null ||
                                       parsed < 0 ||
                                       parsed > 2.0) {
-                                    return _localizedText(
-                                      zh: '请输入 0.0 到 2.0 之间的数值',
-                                      en: 'Enter a number between 0.0 and 2.0',
-                                    );
+                                    return AppLocalizations.of(context)!.mdlEdEnterANumberBetween00;
                                   }
                                   return null;
                                 },
@@ -872,10 +801,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           Row(
                             children: [
                               Text(
-                                _localizedText(
-                                  zh: '自定义请求头',
-                                  en: 'Custom Headers',
-                                ),
+                                AppLocalizations.of(context)!.mdlEdCustomHeaders,
                                 style: Theme.of(context).textTheme.titleSmall,
                               ),
                               const Spacer(),
@@ -883,7 +809,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 onPressed: _isSaving ? null : _addHeaderEntry,
                                 icon: const Icon(Icons.add, size: 18),
                                 label: Text(
-                                  _localizedText(zh: '添加', en: 'Add'),
+                                  AppLocalizations.of(context)!.mdlEdAdd,
                                 ),
                               ),
                             ],
@@ -891,10 +817,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           const SizedBox(height: 8),
                           if (_customHeaderEntries.isEmpty)
                             Text(
-                              _localizedText(
-                                zh: '暂无自定义请求头。点击「添加」按钮来添加。',
-                                en: 'No custom headers. Tap "Add" to create one.',
-                              ),
+                              AppLocalizations.of(context)!.mdlEdNoCustomHeadersTapAddTo,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -916,10 +839,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         controller: entry.keyController,
                                         enabled: !_isSaving,
                                         decoration: InputDecoration(
-                                          labelText: _localizedText(
-                                            zh: 'Header 名称',
-                                            en: 'Header Name',
-                                          ),
+                                          labelText: AppLocalizations.of(context)!.mdlEdHeaderName,
                                           isDense: true,
                                         ),
                                       ),
@@ -931,10 +851,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         controller: entry.valueController,
                                         enabled: !_isSaving,
                                         decoration: InputDecoration(
-                                          labelText: _localizedText(
-                                            zh: 'Header 值',
-                                            en: 'Header Value',
-                                          ),
+                                          labelText: AppLocalizations.of(context)!.mdlEdHeaderValue,
                                           isDense: true,
                                         ),
                                       ),
@@ -1113,11 +1030,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   bool? _supportsAttachments;
   late Set<AiModelModality> _supportedModalities;
   late Set<AiModelCapability> _capabilities;
-
-  String _localizedText({required String zh, required String en}) {
-    final languageCode = Localizations.localeOf(context).languageCode;
-    return languageCode.startsWith('zh') ? zh : en;
-  }
 
   @override
   void initState() {
@@ -1298,7 +1210,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final colorScheme = theme.colorScheme;
     return AlertDialog(
       title: Text(
-        _localizedText(zh: '编辑模型配置', en: 'Edit Model Profile'),
+        AppLocalizations.of(context)!.mdlEdEditModelProfile,
         style: theme.textTheme.titleMedium,
       ),
       content: SizedBox(
@@ -1327,11 +1239,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _displayNameController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(zh: '显示名称', en: 'Display Name'),
-                  hintText: _localizedText(
-                    zh: '可选，用于界面展示',
-                    en: 'Optional, shown in the UI',
-                  ),
+                  labelText: AppLocalizations.of(context)!.mdlEdDisplayName,
+                  hintText: AppLocalizations.of(context)!.mdlEdOptionalShownInTheUi,
                   isDense: true,
                 ),
               ),
@@ -1341,7 +1250,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
-                  labelText: _localizedText(zh: '模型描述', en: 'Description'),
+                  labelText: AppLocalizations.of(context)!.mdlEdDescription,
                   isDense: true,
                 ),
                 maxLines: 2,
@@ -1350,7 +1259,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
               // Multimodal toggle (tri-state)
               _buildSectionHeader(
-                _localizedText(zh: '多模态支持', en: 'Multimodal Support'),
+                AppLocalizations.of(context)!.mdlEdMultimodalSupport,
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1358,17 +1267,17 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 runSpacing: 6,
                 children: <Widget>[
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '自动检测', en: 'Auto-detect')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdAutoDetect),
                     selected: _isMultimodal == null,
                     onSelected: (_) => setState(() => _isMultimodal = null),
                   ),
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '是', en: 'Yes')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdYes),
                     selected: _isMultimodal == true,
                     onSelected: (_) => setState(() => _isMultimodal = true),
                   ),
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '否', en: 'No')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdNo),
                     selected: _isMultimodal == false,
                     onSelected: (_) => setState(() => _isMultimodal = false),
                   ),
@@ -1380,7 +1289,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               // composer's attachment button is enabled for sessions using
               // this model.
               _buildSectionHeader(
-                _localizedText(zh: '支持附件', en: 'Supports Attachments'),
+                AppLocalizations.of(context)!.mdlEdSupportsAttachments,
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1388,19 +1297,19 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 runSpacing: 6,
                 children: <Widget>[
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '自动检测', en: 'Auto-detect')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdAutoDetect),
                     selected: _supportsAttachments == null,
                     onSelected: (_) =>
                         setState(() => _supportsAttachments = null),
                   ),
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '是', en: 'Yes')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdYes),
                     selected: _supportsAttachments == true,
                     onSelected: (_) =>
                         setState(() => _supportsAttachments = true),
                   ),
                   ChoiceChip(
-                    label: Text(_localizedText(zh: '否', en: 'No')),
+                    label: Text(AppLocalizations.of(context)!.mdlEdNo),
                     selected: _supportsAttachments == false,
                     onSelected: (_) =>
                         setState(() => _supportsAttachments = false),
@@ -1411,7 +1320,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
               // Supported modalities
               _buildSectionHeader(
-                _localizedText(zh: '支持的模态', en: 'Supported Modalities'),
+                AppLocalizations.of(context)!.mdlEdSupportedModalities,
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1420,22 +1329,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 children: AiModelModality.values
                     .map((m) {
                       final label = switch (m) {
-                        AiModelModality.text => _localizedText(
-                          zh: '文本',
-                          en: 'Text',
-                        ),
-                        AiModelModality.image => _localizedText(
-                          zh: '图片',
-                          en: 'Image',
-                        ),
-                        AiModelModality.video => _localizedText(
-                          zh: '视频',
-                          en: 'Video',
-                        ),
-                        AiModelModality.audio => _localizedText(
-                          zh: '音频',
-                          en: 'Audio',
-                        ),
+                        AiModelModality.text => AppLocalizations.of(context)!.mdlEdText,
+                        AiModelModality.image => AppLocalizations.of(context)!.mdlEdImage,
+                        AiModelModality.video => AppLocalizations.of(context)!.mdlEdVideo,
+                        AiModelModality.audio => AppLocalizations.of(context)!.mdlEdAudio,
                       };
                       return FilterChip(
                         label: Text(label),
@@ -1457,7 +1354,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
               // Capabilities
               _buildSectionHeader(
-                _localizedText(zh: '生成能力', en: 'Generation Capabilities'),
+                AppLocalizations.of(context)!.mdlEdGenerationCapabilities,
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1466,26 +1363,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 children: AiModelCapability.values
                     .map((c) {
                       final label = switch (c) {
-                        AiModelCapability.imageGeneration => _localizedText(
-                          zh: '图片生成',
-                          en: 'Image',
-                        ),
-                        AiModelCapability.videoGeneration => _localizedText(
-                          zh: '视频生成',
-                          en: 'Video',
-                        ),
-                        AiModelCapability.audioGeneration => _localizedText(
-                          zh: '音频生成',
-                          en: 'Audio',
-                        ),
-                        AiModelCapability.pdfGeneration => _localizedText(
-                          zh: 'PDF 生成',
-                          en: 'PDF',
-                        ),
-                        AiModelCapability.pptGeneration => _localizedText(
-                          zh: 'PPT 生成',
-                          en: 'PPT',
-                        ),
+                        AiModelCapability.imageGeneration => AppLocalizations.of(context)!.mdlEdImage,
+                        AiModelCapability.videoGeneration => AppLocalizations.of(context)!.mdlEdVideo,
+                        AiModelCapability.audioGeneration => AppLocalizations.of(context)!.mdlEdAudio,
+                        AiModelCapability.pdfGeneration => AppLocalizations.of(context)!.mdlEdPdf,
+                        AiModelCapability.pptGeneration => AppLocalizations.of(context)!.mdlEdPpt,
                       };
                       return FilterChip(
                         label: Text(label),
@@ -1507,7 +1389,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
               // Token limits
               _buildSectionHeader(
-                _localizedText(zh: 'Token 限制', en: 'Token Limits'),
+                AppLocalizations.of(context)!.mdlEdTokenLimits,
               ),
               const SizedBox(height: 8),
               Row(
@@ -1517,10 +1399,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxContextLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '上下文长度',
-                          en: 'Context Length',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdContextLength,
                         isDense: true,
                       ),
                     ),
@@ -1531,10 +1410,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxSummaryLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '摘要长度',
-                          en: 'Summary Length',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdSummaryLength,
                         isDense: true,
                       ),
                     ),
@@ -1549,10 +1425,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxOutputLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '输出长度',
-                          en: 'Output Length',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdOutputLength,
                         isDense: true,
                       ),
                     ),
@@ -1563,10 +1436,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       controller: _maxThinkingLengthController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '思考长度',
-                          en: 'Thinking Length',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdThinkingLength,
                         isDense: true,
                       ),
                     ),
@@ -1575,10 +1445,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ),
               const SizedBox(height: 16),
               _buildSectionHeader(
-                _localizedText(
-                  zh: 'Token 单价（USD / 1M tokens，留空表示未配置）',
-                  en: 'Token pricing (USD / 1M tokens, leave blank if unset)',
-                ),
+                AppLocalizations.of(context)!.mdlEdTokenPricingUsd1mTokensLeave,
               ),
               const SizedBox(height: 8),
               Row(
@@ -1589,10 +1456,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '输入价',
-                          en: 'Input',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdInput,
                         isDense: true,
                       ),
                     ),
@@ -1604,10 +1468,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '输出价',
-                          en: 'Output',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdOutput,
                         isDense: true,
                       ),
                     ),
@@ -1623,10 +1484,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '缓存读取价',
-                          en: 'Cache Read',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdCacheRead,
                         isDense: true,
                       ),
                     ),
@@ -1638,10 +1496,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          zh: '缓存写入价',
-                          en: 'Cache Write',
-                        ),
+                        labelText: AppLocalizations.of(context)!.mdlEdCacheWrite,
                         isDense: true,
                       ),
                     ),
@@ -1660,7 +1515,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
           ),
           child: Text(
-            _localizedText(zh: '重置', en: 'Reset'),
+            AppLocalizations.of(context)!.mdlEdReset,
             style: TextStyle(color: colorScheme.error),
           ),
         ),
@@ -1670,7 +1525,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             minimumSize: const Size(64, 40),
             padding: const EdgeInsets.symmetric(horizontal: 16),
           ),
-          child: Text(_localizedText(zh: '取消', en: 'Cancel')),
+          child: Text(AppLocalizations.of(context)!.mdlEdCancel),
         ),
         FilledButton(
           onPressed: _save,
@@ -1678,7 +1533,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             minimumSize: const Size(64, 40),
             padding: const EdgeInsets.symmetric(horizontal: 16),
           ),
-          child: Text(_localizedText(zh: '确定', en: 'OK')),
+          child: Text(AppLocalizations.of(context)!.mdlEdOk),
         ),
       ],
     );

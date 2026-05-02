@@ -833,5 +833,911 @@
         "type": "int"
       }
     }
+  },
+  "mdlEdEnterAValidBaseUrlFirst": "Enter a valid Base URL first",
+  "mdlEdNoModelsFoundFromThisProvider": "No models found from this provider.",
+  "mdlEdProviderName": "Provider Name",
+  "mdlEdOptionalEGDeepseekLocalOllama": "Optional, e.g. DeepSeek, Local Ollama",
+  "mdlEdCurrentlyActiveModel": "Currently active model",
+  "mdlEdClickToSetAsActiveModel": "Click to set as active model",
+  "mdlEdTapScanModelsToDiscoverModels": "Tap \"Scan Models\" to discover models automatically, or add manually below.",
+  "mdlEdActiveModelId": "Active Model ID",
+  "mdlEdTheModelUsedForConversationsSelect": "The model used for conversations. Select from the list above or type directly.",
+  "mdlEdMaxContextTokens": "Max Context Tokens",
+  "mdlEdOptionalLimitsTheHistorySliceUsed": "Optional. Limits the history slice used during compression.",
+  "mdlEdEnterAWholeNumberGreaterThan": "Enter a whole number greater than 0",
+  "mdlEdRequestMethod": "Request Method",
+  "mdlEdOutputMode": "Output Mode",
+  "mdlEdStreaming": "Streaming",
+  "mdlEdNonStreaming": "Non-streaming",
+  "mdlEdMaxOutputTokens": "Max Output Tokens",
+  "mdlEdOptionalUsesAdapterDefaultIfUnset": "Optional. Uses adapter default if unset.",
+  "mdlEdTemperature": "Temperature",
+  "mdlEd0020Default0": "0.0 ~ 2.0, default 0.7",
+  "mdlEdEnterANumberBetween00": "Enter a number between 0.0 and 2.0",
+  "mdlEdCustomHeaders": "Custom Headers",
+  "mdlEdAdd": "Add",
+  "mdlEdNoCustomHeadersTapAddTo": "No custom headers. Tap \"Add\" to create one.",
+  "mdlEdHeaderName": "Header Name",
+  "mdlEdHeaderValue": "Header Value",
+  "mdlEdEditModelProfile": "Edit Model Profile",
+  "mdlEdDisplayName": "Display Name",
+  "mdlEdOptionalShownInTheUi": "Optional, shown in the UI",
+  "mdlEdDescription": "Description",
+  "mdlEdMultimodalSupport": "Multimodal Support",
+  "mdlEdAutoDetect": "Auto-detect",
+  "mdlEdYes": "Yes",
+  "mdlEdNo": "No",
+  "mdlEdSupportsAttachments": "Supports Attachments",
+  "mdlEdSupportedModalities": "Supported Modalities",
+  "mdlEdText": "Text",
+  "mdlEdImage": "Image",
+  "mdlEdVideo": "Video",
+  "mdlEdAudio": "Audio",
+  "mdlEdGenerationCapabilities": "Generation Capabilities",
+  "mdlEdPdf": "PDF",
+  "mdlEdPpt": "PPT",
+  "mdlEdTokenLimits": "Token Limits",
+  "mdlEdContextLength": "Context Length",
+  "mdlEdSummaryLength": "Summary Length",
+  "mdlEdOutputLength": "Output Length",
+  "mdlEdThinkingLength": "Thinking Length",
+  "mdlEdTokenPricingUsd1mTokensLeave": "Token pricing (USD / 1M tokens, leave blank if unset)",
+  "mdlEdInput": "Input",
+  "mdlEdOutput": "Output",
+  "mdlEdCacheRead": "Cache Read",
+  "mdlEdCacheWrite": "Cache Write",
+  "mdlEdReset": "Reset",
+  "mdlEdCancel": "Cancel",
+  "mdlEdOk": "OK",
+  "tlCallDir": "Dir",
+  "tlCallElapsed": "Elapsed",
+  "tlCallExit": "Exit",
+  "tlCallToolInput": "Tool Input",
+  "tlCallCommand": "command",
+  "tlCallArguments": "arguments",
+  "tlCallToolOutput": "Tool Output",
+  "tlCallNoOutputYet": "No output yet",
+  "tlCallResult": "result",
+  "tlCallThereIsNoToolOutputYet": "There is no tool output yet.",
+  "tlCallViewInDialog": "View in Dialog",
+  "tlCallEmptyContent": "Empty content",
+  "tlCallWrite": "Write",
+  "tlCallEdit": "Edit",
+  "tlCallMultiEdit": "Multi-edit",
+  "tlCallNotebookEdit": "Notebook Edit",
+  "tlCallBashWrite": "Bash Write",
+  "tlCallFileChanged": "File Changed",
+  "tlCallChangedFile": "Changed File",
+  "tlCallTool": "Tool",
+  "tlCallSkill": "Skill",
+  "tlCallStopped": "Stopped",
+  "tlCallBlocked": "Blocked",
+  "tlCallRejected": "Rejected",
+  "tlCallInvalid": "Invalid",
+  "tlCallToolCall": "Tool Call",
+  "tlCallRunning": "Running",
+  "tlCallSucceeded": "Succeeded",
+  "tlCallDenied": "Denied",
+  "tlCallTimedOut": "Timed Out",
+  "tlCallFailed": "Failed",
+  "tlCallToolIsRunningWaitingForOutput": "Tool is running. Waiting for output...",
+  "tlCallExpandToInspectToolOutput": "Expand to inspect tool output",
+  "tlCallType": "Type",
+  "tlCallSize": "Size",
+  "tlCallModified": "Modified",
+  "tlCallSelfLearning": "Self-Learning",
+  "tlCallNudgeRecovered": "Nudge recovered",
+  "tlCallProfileChanges": "Profile Changes",
+  "tlCallMemoryChanges": "Memory Changes",
+  "tlCallSkillChanges": "Skill Changes",
+  "tlCallProfileDiff": "Profile Diff",
+  "tlCallNoChanges": "No changes",
+  "tlCallUnnamed": "(unnamed)",
+  "tlCallJustNow": "just now",
+  "sessMetaMessages": "Messages",
+  "sessMetaPromptBuilds": "Prompt Builds",
+  "sessMetaCompressions": "Compressions",
+  "sessMetaTotalTokens": "Total Tokens",
+  "sessMetaMode": "Mode",
+  "sessMetaRuntimeTools": "Runtime Tools",
+  "sessMetaPending": "Pending",
+  "sessMetaCurrentSessionMetadata": "Current Session Metadata",
+  "sessMetaSessionOverview": "Session Overview",
+  "sessMetaExtendedMetadata": "Extended Metadata",
+  "sessMetaStatistics": "Statistics",
+  "sessMetaUser": "User",
+  "sessMetaAssistant": "Assistant",
+  "sessMetaTool": "Tool",
+  "sessMetaSkill": "Skill",
+  "sessMetaCompression": "Compression",
+  "sessMetaEnvironment": "Environment",
+  "sessMetaCommandPolicy": "Command Policy",
+  "sessMetaPromptMetadataIsNotAvailableYet": "Prompt metadata is not available yet.",
+  "sessMetaWriteConfirmation": "Write Confirmation",
+  "sessMetaRequired": "Required",
+  "sessMetaNotRequired": "Not required",
+  "sessMetaAllowRules": "Allow Rules",
+  "sessMetaThereAreNoSurfacedAllowCommand": "There are no surfaced allow command rules.",
+  "sessMetaRuntimeOrchestration": "Runtime Orchestration",
+  "sessMetaStateSource": "State Source",
+  "sessMetaGeneratedFromTheCurrentModelMcp": "Generated from the current model, MCP/skills, and plan state",
+  "sessMetaTheLastPersistedRuntimeSnapshot": "The last persisted runtime snapshot",
+  "sessMetaToolCatalogState": "Tool Catalog State",
+  "sessMetaGateReason": "Gate Reason",
+  "sessMetaRuntimeToolCount": "Runtime Tool Count",
+  "sessMetaRefreshesNextRound": "Refreshes next round",
+  "sessMetaRuntimeNotices": "Runtime Notices",
+  "sessMetaCurrentRuntimeTools": "Current Runtime Tools",
+  "sessMetaTaskTracking": "Task Tracking",
+  "sessMetaCurrentTodos": "Current Todos",
+  "sessMetaPlanRecords": "Plan Records",
+  "sessMetaTodowriteReminder": "TodoWrite Reminder",
+  "sessMetaTriggered": "Triggered",
+  "sessMetaNotTriggered": "Not triggered",
+  "sessMetaUnavailable": "Unavailable",
+  "sessMetaReminderReason": "Reminder Reason",
+  "sessMetaPlanHistory": "Plan History",
+  "sessMetaRecentErrors": "Recent Errors",
+  "sessMetaThereAreNoSessionErrorsTo": "There are no session errors to review.",
+  "sessMetaLastPromptMetadata": "Last Prompt Metadata",
+  "sessMetaClose": "Close",
+  "sessMetaPendingApproval": "Pending Approval",
+  "sessMetaInProgress": "In Progress",
+  "sessMetaCompleted": "Completed",
+  "sessMetaFailed": "Failed",
+  "sessMetaCancelled": "Cancelled",
+  "sessMetaCreated": "Created",
+  "sessMetaUpdated": "Updated",
+  "sessMetaErrorDetail": "Error Detail",
+  "sessMetaPresented": "Presented",
+  "sessMetaThisSessionEndedEarlyRetryThe": "This session ended early. Retry the request or continue with a more specific instruction.",
+  "sessMetaToolCallsStoppedForSafety": "Tool Calls Stopped for Safety",
+  "sessMetaOpenhandStoppedThisSessionForSafety": "OpenHand stopped this session for safety after too many sequential tool rounds. This stop happened in the session controller before the next tool could run, not because one specific tool execution failed. Ask the assistant to summarize the current progress or give a more specific next step.",
+  "sessMetaResponseInterrupted": "Response Interrupted",
+  "sessMetaTheResponseWasInterruptedWhileStreaming": "The response was interrupted while streaming and this session has stopped. Retry the request or continue with a new message.",
+  "sessMetaRequestFailed": "Request Failed",
+  "sessMetaTheRequestFailedBeforeTheAssistant": "The request failed before the assistant could continue. Check the configuration and retry, or send a new message.",
+  "sessMetaContinuationFailed": "Continuation Failed",
+  "sessMetaTheSessionFailedWhileRequestingThe": "The session failed while requesting the next assistant round after continuing execution. Completed steps and tool results were preserved. Reply with continue/retry, or check the configuration and try again.",
+  "sessMetaSafetyStop": "Safety Stop",
+  "sessMetaStreamError": "Stream Error",
+  "sessMetaRequestError": "Request Error",
+  "sessMetaContinuationError": "Continuation Error",
+  "sessMetaToolExecutionError": "Tool Execution Error",
+  "sessMetaCompressionError": "Compression Error",
+  "sessMetaPromptBlocked": "Prompt Blocked",
+  "sessMetaTitleGenerationError": "Title Generation Error",
+  "sessMetaSessionError": "Session Error",
+  "auditNoData": "No data",
+  "auditCopyJson": "Copy JSON",
+  "auditCopiedToClipboard": "Copied to clipboard",
+  "auditMessageAudit": "Message Audit",
+  "auditClose": "Close",
+  "auditOverview": "Overview",
+  "auditMessageId": "Message ID",
+  "auditSessionId": "Session ID",
+  "auditRole": "Role",
+  "auditKind": "Kind",
+  "auditCharacterCount": "Character Count",
+  "auditStreaming": "Streaming",
+  "auditDeleted": "Deleted",
+  "auditHasError": "Has Error",
+  "auditTiming": "Timing",
+  "auditStartedCreated": "Started / Created",
+  "auditEnded": "Ended",
+  "auditDurationMs": "Duration (ms)",
+  "auditModelTokens": "Model & Tokens",
+  "auditModelId": "Model ID",
+  "auditModelLabel": "Model Label",
+  "auditTotalTokens": "Total Tokens",
+  "auditPromptTokens": "Prompt Tokens",
+  "auditCompletionTokens": "Completion Tokens",
+  "auditTokenBreakdown": "Token Breakdown",
+  "auditError": "Error",
+  "auditContent": "Content",
+  "auditFullComposedPromptThatWasActually": "Full composed prompt that was actually sent to the AI for this round (system instructions, tool catalog, memory, history and user input).",
+  "auditWaitingForComposedPromptInjectionAuto": "Waiting for composed prompt injection (auto-refreshes during streaming).",
+  "auditUserRawInput": "User Raw Input",
+  "auditStructuredPromptTurns": "Structured Prompt Turns",
+  "auditNone": "None",
+  "auditPromptMetadata": "Prompt Metadata",
+  "auditRequest": "Request",
+  "auditMethod": "Method",
+  "auditHeaders": "Headers",
+  "auditNotCapturedEnableSettingsAiTelemetry": "Not captured (enable Settings → AI → Telemetry Debug)",
+  "auditBodyQueryPath": "Body / Query / Path",
+  "auditRawAiResponse": "Raw AI Response",
+  "auditExpandRawResponse": "Expand raw response",
+  "auditNotCapturedDebugDisabledOrResponse": "Not captured: debug disabled or response unavailable",
+  "auditAttachments": "Attachments",
+  "auditAttachmentList": "Attachment list",
+  "auditNoAttachments": "No attachments",
+  "auditFullMetadata": "Full Metadata",
+  "auditMessageMetadata": "Message metadata",
+  "auditSessionEnvironment": "Session Environment",
+  "auditEnvironmentSnapshot": "Environment snapshot",
+  "auditAuditSnapshotCopied": "Audit snapshot copied",
+  "auditCopyAuditSnapshot": "Copy Audit Snapshot",
+  "auditSessionMetadataSaved": "Session metadata saved",
+  "auditSessionAudit": "Session Audit",
+  "auditTemplate": "Template",
+  "auditCreatedAt": "Created At",
+  "auditUpdatedAt": "Updated At",
+  "auditMessages": "Messages",
+  "auditLastModel": "Last Model",
+  "auditTitleEditable": "Title (Editable)",
+  "auditSessionTitle": "Session title",
+  "auditSaveTitle": "Save Title",
+  "auditSessionMetadataEditableJson": "Session Metadata (Editable JSON)",
+  "auditSaveWritesBackThroughTheSession": "Save writes back through the session controller with live UI diff; removed keys are cleared.",
+  "auditSaveMetadata": "Save Metadata",
+  "auditRuntimePromptMetadataReadOnly": "Runtime Prompt Metadata (Read-only)",
+  "auditUsefulForPromptConstructionTroubleshooti": "Useful for prompt-construction troubleshooting; auto-updated by runtime.",
+  "auditLastPromptMetadata": "last_prompt_metadata",
+  "auditNoRuntimePromptMetadataYet": "No runtime prompt metadata yet",
+  "auditEnvironment": "Environment",
+  "auditErrorList": "Error list",
+  "auditNoErrorsRecorded": "No errors recorded",
+  "auditTapARowToInspectA": "Tap a row to inspect a message; delete removes it from storage.",
+  "auditNoMessages": "No messages",
+  "auditAudit": "Audit",
+  "auditDelete": "Delete",
+  "progExpFESelectOpenedFile": "Select Opened File",
+  "progExpFEExpandSelected": "Expand Selected",
+  "progExpFECollapseAll": "Collapse All",
+  "progExpFETypeASymbolNameToSearch": "Type a symbol name to search across files in the current workspace.",
+  "progExpFENoWorkspaceSymbolBackendIsAvailable": "No workspace symbol backend is available for the current file.",
+  "progExpFENoMatchingWorkspaceSymbolsWereFound": "No matching workspace symbols were found.",
+  "progExpFEFetchingWorkspaceSymbolsFailedConfirmTha": "Fetching workspace symbols failed. Confirm that the active language server supports workspace/symbol.",
+  "progExpFEThisFileIsStillInLarge": "This file is still in large-file preview mode, so the symbol bar is using local extraction to stay responsive.",
+  "progExpFENoLspSymbolBackendIsAvailable": "No LSP symbol backend is available for this file, so the symbol bar fell back to local extraction.",
+  "progExpFETheLspServerReturnedAnEmpty": "The LSP server returned an empty symbol list.",
+  "progExpFEFetchingLspSymbolsFailedSoThe": "Fetching LSP symbols failed, so the symbol bar fell back to local extraction.",
+  "progExpFERenameSymbol": "Rename Symbol",
+  "progExpFEReviewTheDiffForThisRename": "Review the diff for this rename before deciding whether to apply it.",
+  "progExpFETheRenameWasCancelledAndNo": "The rename was cancelled and no changes were applied.",
+  "progExpFETheSymbolAtTheCurrentCursor": "The symbol at the current cursor position cannot be renamed.",
+  "progExpFETheLanguageServerDidNotReturn": "The language server did not return any edits to apply.",
+  "progExpFECodeActions": "Code Actions",
+  "progExpFENoCodeActionsAreAvailableAt": "No code actions are available at the current cursor position.",
+  "progExpFEReviewTheDiffFromThisCode": "Review the diff from this code action before applying it.",
+  "progExpFEIfTheLanguageServerCommandRequests": "If the language-server command requests edits while running, those edits will also be previewed first.",
+  "progExpFETheCodeActionWasCancelledAnd": "The code action was cancelled and no changes were applied.",
+  "progExpFEExecutedTheLanguageServerCommand": "Executed the language-server command.",
+  "progExpFESomeLanguageServerRequestedEditsWere": "Some language-server requested edits were skipped.",
+  "progExpFEThisCodeActionDidNotReturn": "This code action did not return any applicable edits.",
+  "progExpFEQuickFix": "Quick Fix",
+  "progExpFENoQuickFixesAreAvailableFor": "No quick fixes are available for the hovered diagnostic.",
+  "progExpFENoCodeActionsAreAvailableFor": "No code actions are available for the hovered diagnostic.",
+  "progExpFENoQuickFixesAreAvailableFor2": "No quick fixes are available for this diagnostic line.",
+  "progExpFETheCurrentFileIsStillLoading": "The current file is still loading, so LSP actions are not available yet.",
+  "progExpFEThisFileIsStillInLarge2": "This file is still in large-file preview mode. Open the full editor before running LSP navigation.",
+  "progExpFETheCurrentFileIsStillLoading2": "The current file is still loading, so document-level edit actions are not available yet.",
+  "progExpFEThisFileIsStillInLarge3": "This file is still in large-file preview mode. Open the full editor before formatting.",
+  "progExpFEFormatDocument": "Format Document",
+  "progExpFETheCurrentFileIsNotReady": "The current file is not ready yet. Try again in a moment.",
+  "progExpFETheFormatterDidNotReturnAny": "The formatter did not return any edits to apply.",
+  "progExpFEFormattingProducedTheSameContentSo": "Formatting produced the same content, so no text changed.",
+  "progExpFEGoToDefinition": "Go to Definition",
+  "progExpFENoDefinitionWasFoundAtThe": "No definition was found at the current cursor position.",
+  "progExpFEMultipleDefinitionsWereFoundChooseA": "Multiple definitions were found. Choose a target to navigate to.",
+  "progExpFEFindReferences": "Find References",
+  "progExpFENoReferencesWereFoundAtThe": "No references were found at the current cursor position.",
+  "progExpFEHoverInfo": "Hover Info",
+  "progExpFEThereIsNoHoverInformationAt": "There is no hover information at the current cursor position.",
+  "progExpFELspBackend": "LSP Backend",
+  "progExpFEReResolveTheBackendForThe": "Re-resolve the backend for the current file",
+  "progExpFEInspectBackendDetails": "Inspect backend details",
+  "progExpFECloseEsc": "Close (Esc)",
+  "progExpFEToggleComment": "Toggle Comment",
+  "progExpFEThisLanguageDoesNotHaveA": "This language does not have a configured comment strategy yet, so comment toggling is unavailable.",
+  "progExpFEGoToImplementation": "Go to Implementation",
+  "progExpFESignatureHelp": "Signature Help",
+  "progExpFEThereIsNoSignatureHelpAvailable": "There is no signature help available at the current cursor position.",
+  "progExpFEPreviousMatch": "Previous Match",
+  "progExpFENextMatch": "Next Match",
+  "progExpFEMatchCase": "Match Case",
+  "progExpFEShowReplace": "Show Replace",
+  "progExpFEReplaceCurrent": "Replace Current",
+  "progExpFEReplaceAll": "Replace All",
+  "progExpFECurrentFileSymbols": "Current File Symbols",
+  "progExpFEWorkspaceSymbols": "Workspace Symbols",
+  "progExpFERefreshDiagnostics": "Refresh diagnostics",
+  "progExpFESymbols": "Symbols",
+  "progExpFESymbolNavigationShiftCmdCtrlO": "Symbol navigation (Shift+Cmd/Ctrl+O)",
+  "progExpFEWorkspace": "Workspace",
+  "progExpFEWorkspaceSymbolSearchCmdCtrlT": "Workspace symbol search (Cmd/Ctrl+T)",
+  "progExpFEShowDiagnosticsForTheCurrentFile": "Show diagnostics for the current file",
+  "progExpFEInspectTheLspBackendBoundTo": "Inspect the LSP backend bound to the current file",
+  "progExpFEDef": "Def",
+  "progExpFEGoToDefinitionF12CmdCtrl": "Go to Definition (F12 / Cmd/Ctrl+B)",
+  "progExpFERefs": "Refs",
+  "progExpFEFindReferencesShiftF12CmdCtrl": "Find References (Shift+F12 / Cmd/Ctrl+Shift+B)",
+  "progExpFEHover": "Hover",
+  "progExpFEHoverInfoCmdCtrlI": "Hover Info (Cmd/Ctrl+I)",
+  "progExpFERename": "Rename",
+  "progExpFERenameSymbolF2": "Rename Symbol (F2)",
+  "progExpFEActions": "Actions",
+  "progExpFECodeActionsCmdCtrl": "Code Actions (Cmd/Ctrl+.)",
+  "progExpFEFormat": "Format",
+  "progExpFENoImplementationWasFoundAtThe": "No implementation was found at the current cursor position.",
+  "progExpFEMultipleImplementationsFoundChooseATarge": "Multiple implementations found. Choose a target to navigate to.",
+  "progExpFERefactor": "Refactor",
+  "progExpFEReviewTheChangesBeforeApplying": "Review the changes before applying.",
+  "progExpFESaveFile": "Save file",
+  "progExpFECloseEditorReturnToSession": "Close editor, return to session",
+  "progExpFEShowQuickFixesForThisDiagnostic": "Show quick fixes for this diagnostic line",
+  "progExpFELargeFilePerformanceModeIsActive": "Large-file performance mode is active: using a virtualized read-only preview to avoid full-document layout stalls.",
+  "progExpFEOpenFullEditorAnyway": "Open full editor anyway",
+  "settingsShortcuts": "Shortcuts",
+  "settingsConfigureKeyCombinationsForCommonActions": "Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.",
+  "settingsBuiltInTools": "Built-in Tools",
+  "settingsCrons": "Crons",
+  "settingsControlsRetentionAndColdStartCleanup": "Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.",
+  "settingsHermesTalker": "Hermes Talker",
+  "settingsConfigureHermesTalkerSelfLearningEvery": "Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.",
+  "settingsEditor": "Editor",
+  "settingsManagePerLanguageLspBackendsInstall": "Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.",
+  "settingsAppData": "App Data",
+  "settingsPerResponseToolCallLimit": "Per-Response Tool Call Limit",
+  "settingsSaveLimit": "Save Limit",
+  "settingsSequentialToolRoundLimit": "Sequential Tool Round Limit",
+  "settingsSessionSettings": "Session Settings",
+  "settingsConfigureDefaultBehaviourForNewSessions": "Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.",
+  "settingsSendTimeoutS": "Send Timeout (s)",
+  "settingsMaximumWaitTimeToEstablishThe": "Maximum wait time to establish the HTTP connection and send the request. Default: 60 s.",
+  "settingsSaveTimeout": "Save Timeout",
+  "settingsResponseTimeoutS": "Response Timeout (s)",
+  "settingsMaximumWaitForACompleteResponse": "Maximum wait for a complete response in non-streaming mode. Default: 120 s.",
+  "settingsStreamIdleTimeoutS": "Stream Idle Timeout (s)",
+  "settingsMaximumIdleWaitBetweenStreamChunks": "Maximum idle wait between stream chunks. Exceeding this causes \"Request timed out.\". Default: 120 s.",
+  "settingsAutoTitle": "Auto Title",
+  "settingsWhenEnabledATitleIsAutomatically": "When enabled, a title is automatically generated after the first message in a new session.",
+  "settingsDefaultSessionMode": "Default Session Mode",
+  "settingsDefaultInteractionModeForNewSessions": "Default interaction mode for new sessions: Chat or Plan.",
+  "settingsChat": "Chat",
+  "settingsPlan": "Plan",
+  "settingsDefaultFullAccess": "Default Full Access",
+  "settingsWhenEnabledNewSessionsStartIn": "When enabled, new sessions start in full-access mode, allowing the AI to execute file and command operations without per-action confirmation.",
+  "settingsUserProfile": "User Profile",
+  "settingsMaintainAGlobalUserProfileLanguage": "Maintain a global user profile (language style, focus areas, communication preferences). When non-empty, the profile is woven into the system prompt of every thread template so the AI feels personalised; self-learning incrementally refines it.",
+  "settingsModelProviderManagement": "Model Provider Management",
+  "settingsAddSelectTestAndMaintainModel": "Add, select, test, and maintain model provider configurations. Each provider can serve multiple models.",
+  "settingsCompressionTrigger": "Compression Trigger",
+  "settingsOnceTheUncompressedHistoryInA": "Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.",
+  "settingsToolCallOutputCompressionThreshold": "Tool Call Output Compression Threshold",
+  "settingsWhenAToolCallReturnsMore": "When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.",
+  "settingsDefaultsTo40IfOneAssistant": "Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.",
+  "settingsDefaultsTo24RoundsIfThe": "Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.",
+  "settingsImageSizeLimit": "Image Size Limit",
+  "settingsDefaultsTo1mbImageAttachmentsLarger": "Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.",
+  "settingsCostControl": "Cost Control",
+  "settingsReduceTokenCostsByFreezingThe": "Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.",
+  "settingsEnableInputCache": "Enable Input Cache",
+  "settingsDisabledByDefaultWhenEnabledEvery": "Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.",
+  "settingsCacheBreakpointUpdateMode": "Cache Breakpoint Update Mode",
+  "settingsChooseTheSlidingUnitForThe": "Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.",
+  "settingsByMessageCountUserAssistant": "By message count (user+assistant)",
+  "settingsByUserMessageCountOnly": "By user-message count only",
+  "settingsByAccumulatedTokens": "By accumulated tokens",
+  "settingsCacheBreakpointUpdateInterval": "Cache Breakpoint Update Interval",
+  "settingsDefault10MeaningDependsOnThe": "Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).",
+  "settingsSave": "Save",
+  "settingsCacheBreakpointCount": "Cache Breakpoint Count",
+  "settingsDefault4Range14Anthropic": "Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.",
+  "settingsCommandSafety": "Command Safety",
+  "settingsControlWriteCommandConfirmationForBash": "Control write-command confirmation for bash and manage deny rules in one place.",
+  "settingsWriteCommandConfirmation": "Write Command Confirmation",
+  "settingsEnabledByDefaultWhenTheAi": "Enabled by default. When the AI tries to run a write-like bash command, OpenHand will ask for your confirmation first.",
+  "settingsAllowCommandList": "Allow Command List",
+  "settingsMatchingWriteLikeBashCommandsSkip": "Matching write-like bash commands skip the confirmation dialog and run immediately. Only use this for stable command patterns you explicitly trust.",
+  "settingsAddAllowRule": "Add Allow Rule",
+  "settingsNoAllowRulesConfigured": "No allow rules configured",
+  "settingsAddARuleToLetMatching": "Add a rule to let matching write commands bypass confirmation.",
+  "settingsDenyCommandList": "Deny Command List",
+  "settingsMatchingBashCommandsAreBlockedBefore": "Matching bash commands are blocked before execution and the denial result is returned to the model instead. Supports regex and simple wildcard patterns such as `rm *`.",
+  "settingsAddRule": "Add Rule",
+  "settingsNoDenyRulesConfigured": "No deny rules configured",
+  "settingsAddARuleToBlockMatching": "Add a rule to block matching bash commands before they run.",
+  "settingsTelemetry": "Telemetry",
+  "settingsWhenEnabledOpenhandCapturesRawAi": "When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.",
+  "settingsDebugMode": "Debug Mode",
+  "settingsOffByDefaultWhenEnabledEvery": "Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.",
+  "settingsCaptureRawPayload": "Capture Raw Payload",
+  "settingsEnabledByDefaultOnlyActiveWhen": "Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.",
+  "settingsCaptureEnvironment": "Capture Environment",
+  "settingsOffByDefaultOnlyActiveWhen": "Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.",
+  "settingsShortcutBindings": "Shortcut Bindings",
+  "settingsClickRecordThenPressTheNew": "Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.",
+  "settingsAutoCleanupExecutionHistory": "Auto-cleanup execution history",
+  "settingsOnEveryColdStartAnAsync": "On every cold start, an async worker runs once to delete history older than the retention window. The worker is single-flight, has a hard timeout, and silently logs failures so it can never block the UI or loop indefinitely.",
+  "settingsEnableSelfLearning": "Enable self-learning",
+  "settingsWhenOffTheSchedulerSkipsEvery": "When off, the scheduler skips every Hermes Talker session. The system cron entry is preserved but never dispatches a sub-agent.",
+  "settingsShowSelfLearningMessages": "Show self-learning messages",
+  "settingsWhenOffSelfLearningCardsAre": "When off, \"self-learning\" cards are hidden from the chat transcript (background learning still runs). Defaults to on.",
+  "settingsToolCatalogOverview": "Tool Catalog Overview",
+  "settingsResetAll": "Reset All",
+  "settingsEnableAll": "Enable All",
+  "settingsDisableAll": "Disable All",
+  "settingsNoBuiltInToolConfigurations": "No built-in tool configurations",
+  "settingsClickResetAllToRestoreThe": "Click \"Reset All\" to restore the default tool list.",
+  "settingsResetBuiltInToolConfigs": "Reset Built-in Tool Configs",
+  "settingsCancel": "Cancel",
+  "settingsReset": "Reset",
+  "settingsDeleteCustomTool": "Delete Custom Tool",
+  "settingsDelete": "Delete",
+  "settingsSendTimeoutSaved": "Send timeout saved.",
+  "settingsResponseTimeoutSaved": "Response timeout saved.",
+  "settingsStreamIdleTimeoutSaved": "Stream idle timeout saved.",
+  "settingsCacheBreakpointUpdateIntervalSaved": "Cache breakpoint update interval saved",
+  "settingsCacheBreakpointCountSaved": "Cache breakpoint count saved",
+  "settingsCacheBreakpointPositions": "Cache Breakpoint Positions",
+  "settingsCacheBreakpointPositionsSaved": "Cache breakpoint positions saved",
+  "settingsEnterAToolCallLimitGreater": "Enter a tool call limit greater than 0.",
+  "settingsThePerResponseToolCallLimit": "The per-response tool call limit has been saved.",
+  "settingsEnterASequentialToolRoundLimit": "Enter a sequential tool round limit greater than 0.",
+  "settingsTheSequentialToolRoundLimitHas": "The sequential tool round limit has been saved.",
+  "settingsDeleteDenyRule": "Delete Deny Rule",
+  "settingsTheDenyCommandRuleHasBeen": "The deny command rule has been deleted.",
+  "settingsDeleteAllowRule": "Delete Allow Rule",
+  "settingsTheAllowCommandRuleHasBeen": "The allow command rule has been deleted.",
+  "settingsTheShortcutHasBeenUpdated": "The shortcut has been updated.",
+  "settingsTheEditorShortcutHasBeenUpdated": "The editor shortcut has been updated.",
+  "settingsSendMessage": "Send Message",
+  "settingsCollapseOrExpandComposer": "Collapse or Expand Composer",
+  "settingsPreviousModel": "Previous Model",
+  "settingsNextModel": "Next Model",
+  "settingsToggleAutoFollow": "Toggle Auto Follow",
+  "settingsPreviousSession": "Previous Session",
+  "settingsNextSession": "Next Session",
+  "settingsSaveFile": "Save File",
+  "settingsTriggerCompletion": "Trigger Completion",
+  "settingsShowSignatureHelp": "Show Signature Help",
+  "settingsFind": "Find",
+  "settingsFindAndReplace": "Find and Replace",
+  "settingsGoToLine": "Go to Line",
+  "settingsDocumentSymbols": "Document Symbols",
+  "settingsWorkspaceSymbols": "Workspace Symbols",
+  "settingsGoToDefinition": "Go to Definition",
+  "settingsFindReferences": "Find References",
+  "settingsGoToImplementation": "Go to Implementation",
+  "settingsShowHoverInfo": "Show Hover Info",
+  "settingsRenameSymbol": "Rename Symbol",
+  "settingsCodeActions": "Code Actions",
+  "settingsFormatDocument": "Format Document",
+  "settingsDefaultsToCtrlEnterAndTriggers": "Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.",
+  "settingsDefaultsToCtrlPForQuickly": "Defaults to Ctrl + P for quickly collapsing or expanding the composer.",
+  "settingsDefaultsToCtrlLeftAndWraps": "Defaults to Ctrl + Left and wraps around to the last model when needed.",
+  "settingsDefaultsToCtrlRightAndWraps": "Defaults to Ctrl + Right and wraps around to the first model when needed.",
+  "settingsDefaultsToCtrlSForToggling": "Defaults to Ctrl + S for toggling auto follow.",
+  "settingsDefaultsToCtrlUpAndWraps": "Defaults to Ctrl + Up and wraps to the end of the session list.",
+  "settingsDefaultsToCtrlDownAndWraps": "Defaults to Ctrl + Down and wraps to the start of the session list.",
+  "auditDeleteMessage": "Delete Message",
+  "auditDeleteThisMessageThisCannotBe": "Delete this message? This cannot be undone.",
+  "auditCancel": "Cancel",
+  "settingsManageTheBuiltInAiTools": "Manage the built-in AI tools. Adjust each tool's enabled state, name, description, schema, priority, sort order, load strategy, and other parameters.",
+  "settingsManageTheLocalFilesAndDatabase": "Manage the local files and database tables OpenHand owns on disk. Every cleanup runs on background workers — the UI thread stays responsive — and requires explicit second confirmation.",
+  "settingsThisWillRestoreAllBuiltIn": "This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.",
+  "tlCallUnwrap": "Unwrap",
+  "tlCallWrapLines": "Wrap Lines",
+  "tlCallViewCompressedContent": "View Compressed Content",
+  "tlCallViewFullContent": "View Full Content",
+  "tlCallMultiEditEditcount": "Multi-edit ×{editCount}",
+  "@tlCallMultiEditEditcount": {
+    "placeholders": {
+      "editCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallPreparing": "Preparing",
+  "tlCallPreparingAlt": "Preparing",
+  "tlCallRunningAlt": "Running",
+  "tlCallCompleted": "Completed",
+  "tlCallCompletedAlt": "Completed",
+  "tlCallTimedOutAlt": "Timed Out",
+  "tlCallFailedAlt": "Failed",
+  "tlCallFailedToOpenFileLocationError": "Failed to open file location: {error}",
+  "@tlCallFailedToOpenFileLocationError": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallMemoryitemsLengthMemoriesUpdated": "{memoryItems_length} memories updated",
+  "@tlCallMemoryitemsLengthMemoriesUpdated": {
+    "placeholders": {
+      "memoryItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallProfileitemsLengthProfileChanges": "{profileItems_length} profile changes",
+  "@tlCallProfileitemsLengthProfileChanges": {
+    "placeholders": {
+      "profileItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallSkillitemsLengthSkillsUpdated": "{skillItems_length} skills updated",
+  "@tlCallSkillitemsLengthSkillsUpdated": {
+    "placeholders": {
+      "skillItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallAiThinkingStreaming": "AI Thinking (streaming)",
+  "tlCallAiThinking": "AI Thinking",
+  "tlCallAiResponseStreaming": "AI Response (streaming)",
+  "tlCallAiResponse": "AI Response",
+  "tlCallAndItemsLength3More": " and {items_length_3} more",
+  "@tlCallAndItemsLength3More": {
+    "placeholders": {
+      "items_length_3": {
+        "type": "Object"
+      },
+      "items_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallSecondsSAgo": "{seconds}s ago",
+  "@tlCallSecondsSAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallMinutesMAgo": "{minutes}m ago",
+  "@tlCallMinutesMAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallHoursHAgo": "{hours}h ago",
+  "@tlCallHoursHAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallDaysDAgo": "{days}d ago",
+  "@tlCallDaysDAgo": {
+    "placeholders": {
+      "days": {
+        "type": "Object"
+      }
+    }
+  },
+  "sessMetaPlanPlanindex": "Plan #{planIndex}",
+  "@sessMetaPlanPlanindex": {
+    "placeholders": {
+      "planIndex": {
+        "type": "Object"
+      }
+    }
+  },
+  "sessMetaTheCurrentSequentialToolRoundLimit": " The current sequential tool round limit is {configuredLimit}.",
+  "@sessMetaTheCurrentSequentialToolRoundLimit": {
+    "placeholders": {
+      "configuredLimit": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditInvalidJsonErrorMessage": "Invalid JSON: {error_message}",
+  "@auditInvalidJsonErrorMessage": {
+    "placeholders": {
+      "error_message": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditSaveFailedError": "Save failed: {error}",
+  "@auditSaveFailedError": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditRecentErrorsSessionRecenterrorsLength": "Recent Errors ({session_recentErrors_length})",
+  "@auditRecentErrorsSessionRecenterrorsLength": {
+    "placeholders": {
+      "session_recentErrors_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditMessagesSessionMessagesLength": "Messages ({session_messages_length})",
+  "@auditMessagesSessionMessagesLength": {
+    "placeholders": {
+      "session_messages_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEAppliedEditsLengthFormattingEdits": "Applied {edits_length} formatting edits.",
+  "@progExpFEAppliedEditsLengthFormattingEdits": {
+    "placeholders": {
+      "edits_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEFormatTheCurrentFileFormatshortcut": "Format the current file ({formatShortcut})",
+  "@progExpFEFormatTheCurrentFileFormatshortcut": {
+    "placeholders": {
+      "formatShortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFENoCodeactionkindRefactoringIsAvailableAt": "No \"{codeActionKind}\" refactoring is available at the current position.",
+  "@progExpFENoCodeactionkindRefactoringIsAvailableAt": {
+    "placeholders": {
+      "codeActionKind": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEHideFileBrowser": "Hide file browser",
+  "progExpFEShowFileBrowser": "Show file browser",
+  "settingsRetentionWindowRetentionDayS": "Retention window: {retention} day(s)",
+  "@settingsRetentionWindowRetentionDayS": {
+    "placeholders": {
+      "retention": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsRangeMinrMaxrDaysDefault7": "Range {minR}–{maxR} days; default 7. Takes effect on the next cold start.",
+  "@settingsRangeMinrMaxrDaysDefault7": {
+    "placeholders": {
+      "minR": {
+        "type": "Object"
+      },
+      "maxR": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsConcurrentWorkersConcurrency": "Concurrent workers: {concurrency}",
+  "@settingsConcurrentWorkersConcurrency": {
+    "placeholders": {
+      "concurrency": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsCapsHowManySessionsCanBe": "Caps how many sessions can be dispatched in parallel per tick ({minC}–{maxC}). Defaults to 5.",
+  "@settingsCapsHowManySessionsCanBe": {
+    "placeholders": {
+      "minC": {
+        "type": "Object"
+      },
+      "maxC": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsSortedLengthBuiltInToolsEnabledcount": "{sorted_length} built-in tools, {enabledCount} enabled. Adjust name, description, schema, priority, sort order, and load strategy for each.",
+  "@settingsSortedLengthBuiltInToolsEnabledcount": {
+    "placeholders": {
+      "sorted_length": {
+        "type": "Object"
+      },
+      "enabledCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsAreYouSureYouWantTo": "Are you sure you want to delete \"{config_effectiveName}\"? This cannot be undone.",
+  "@settingsAreYouSureYouWantTo": {
+    "placeholders": {
+      "config_effectiveName": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsEnterAValueBetweenMinAnd": "Enter a value between {min} and {max} seconds.",
+  "@settingsEnterAValueBetweenMinAnd": {
+    "placeholders": {
+      "min": {
+        "type": "Object"
+      },
+      "max": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn": "Please enter an integer between {AppSettingsSnapshot_minAiInputCacheUpdateInterval} and {AppSettingsSnapshot_maxAiInputCacheUpdateInterval}",
+  "@settingsPleaseEnterAnIntegerBetweenAppsettingssn": {
+    "placeholders": {
+      "AppSettingsSnapshot_minAiInputCacheUpdateInterval": {
+        "type": "Object"
+      },
+      "AppSettingsSnapshot_maxAiInputCacheUpdateInterval": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn2": "Please enter an integer between {AppSettingsSnapshot_minAiInputCacheBreakpointCount} and {AppSettingsSnapshot_maxAiInputCacheBreakpointCount}",
+  "@settingsPleaseEnterAnIntegerBetweenAppsettingssn2": {
+    "placeholders": {
+      "AppSettingsSnapshot_minAiInputCacheBreakpointCount": {
+        "type": "Object"
+      },
+      "AppSettingsSnapshot_maxAiInputCacheBreakpointCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDragTheThumbcountThumbsToPosition": "Drag the {thumbCount} thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.",
+  "@settingsDragTheThumbcountThumbsToPosition": {
+    "placeholders": {
+      "thumbCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsTheDenyCommandRuleHasBeen2": "The deny command rule has been updated.",
+  "settingsTheAllowCommandRuleHasBeen2": "The allow command rule has been updated.",
+  "settingsDefaultsToDefaultlabelAndSavesThe": "Defaults to {defaultLabel} and saves the current file.",
+  "@settingsDefaultsToDefaultlabelAndSavesThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndOpensThe": "Defaults to {defaultLabel} and opens the completion popup on demand.",
+  "@settingsDefaultsToDefaultlabelAndOpensThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsMethod": "Defaults to {defaultLabel} and shows method signatures, parameter details, and summary docs for the current call site.",
+  "@settingsDefaultsToDefaultlabelAndShowsMethod": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe": "Defaults to {defaultLabel} and toggles the find panel.",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe2": "Defaults to {defaultLabel} and toggles the replace panel.",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe2": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe3": "Defaults to {defaultLabel} and toggles the go-to-line panel.",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe3": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe4": "Defaults to {defaultLabel} and toggles the symbol list for the current file.",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe4": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe5": "Defaults to {defaultLabel} and toggles the workspace symbol search panel.",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe5": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndJumpsTo": "Defaults to {defaultLabel} and jumps to the current symbol definition.",
+  "@settingsDefaultsToDefaultlabelAndJumpsTo": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndFindsReferences": "Defaults to {defaultLabel} and finds references for the current symbol.",
+  "@settingsDefaultsToDefaultlabelAndFindsReferences": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndJumpsTo2": "Defaults to {defaultLabel} and jumps to the current implementation.",
+  "@settingsDefaultsToDefaultlabelAndJumpsTo2": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsType": "Defaults to {defaultLabel} and shows type or documentation info at the current position.",
+  "@settingsDefaultsToDefaultlabelAndShowsType": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndStartsRename": "Defaults to {defaultLabel} and starts rename for the current symbol.",
+  "@settingsDefaultsToDefaultlabelAndStartsRename": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsAvailable": "Defaults to {defaultLabel} and shows available code actions.",
+  "@settingsDefaultsToDefaultlabelAndShowsAvailable": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndFormatsThe": "Defaults to {defaultLabel} and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.",
+  "@settingsDefaultsToDefaultlabelAndFormatsThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEResolvedLspBackendForCurrentFile": "Resolved {lspName} for the current file.\nProject language: {projLang}\nCurrent file language: {fileLang}\n{modeLine}\n{sdkSourceLine}\n{lspSourceLine}\nWorkspace: {rootPath}\nCommand: {command}",
+  "@progExpFEResolvedLspBackendForCurrentFile": {
+    "placeholders": {
+      "lspName": {
+        "type": "Object"
+      },
+      "projLang": {
+        "type": "Object"
+      },
+      "fileLang": {
+        "type": "Object"
+      },
+      "modeLine": {
+        "type": "Object"
+      },
+      "sdkSourceLine": {
+        "type": "Object"
+      },
+      "lspSourceLine": {
+        "type": "Object"
+      },
+      "rootPath": {
+        "type": "Object"
+      },
+      "command": {
+        "type": "Object"
+      }
+    }
   }
 }

@@ -707,11 +707,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               const SizedBox(width: 2),
               // Select Opened File (scroll-from-source)
               Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: '定位到已打开文件',
-                  en: 'Select Opened File',
-                ),
+                message: AppLocalizations.of(context)!.progExpFESelectOpenedFile,
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: _borderRadius999,
@@ -732,11 +728,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               const SizedBox(width: 2),
               // Expand Selected
               Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: '展开选中目录',
-                  en: 'Expand Selected',
-                ),
+                message: AppLocalizations.of(context)!.progExpFEExpandSelected,
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: _borderRadius999,
@@ -757,11 +749,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               const SizedBox(width: 2),
               // Collapse All
               Tooltip(
-                message: _localizedText(
-                  context,
-                  zh: '全部折叠',
-                  en: 'Collapse All',
-                ),
+                message: AppLocalizations.of(context)!.progExpFECollapseAll,
                 child: Material(
                   color: Colors.transparent,
                   borderRadius: _borderRadius999,
@@ -2094,11 +2082,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             truncated: false,
           ),
           usingLsp: false,
-          hintMessage: _localizedText(
-            context,
-            zh: '输入符号名后即可在当前工作区内跨文件搜索。',
-            en: 'Type a symbol name to search across files in the current workspace.',
-          ),
+          hintMessage: AppLocalizations.of(context)!.progExpFETypeASymbolNameToSearch,
         );
         return;
       }
@@ -2116,11 +2100,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               truncated: false,
             ),
             usingLsp: false,
-            hintMessage: _localizedText(
-              context,
-              zh: '当前文件没有可用的工作区符号后端。',
-              en: 'No workspace symbol backend is available for the current file.',
-            ),
+            hintMessage: AppLocalizations.of(context)!.progExpFENoWorkspaceSymbolBackendIsAvailable,
           );
           return;
         }
@@ -2142,11 +2122,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           extraction,
           usingLsp: true,
           hintMessage: extraction.symbols.isEmpty
-              ? _localizedText(
-                  context,
-                  zh: '没有找到匹配的工作区符号。',
-                  en: 'No matching workspace symbols were found.',
-                )
+              ? AppLocalizations.of(context)!.progExpFENoMatchingWorkspaceSymbolsWereFound
               : null,
         );
       } catch (_) {
@@ -2156,11 +2132,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             truncated: false,
           ),
           usingLsp: false,
-          hintMessage: _localizedText(
-            context,
-            zh: '读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。',
-            en: 'Fetching workspace symbols failed. Confirm that the active language server supports workspace/symbol.',
-          ),
+          hintMessage: AppLocalizations.of(context)!.progExpFEFetchingWorkspaceSymbolsFailedConfirmTha,
         );
       }
       return;
@@ -2171,11 +2143,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
-        hintMessage: _localizedText(
-          context,
-          zh: '当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。',
-          en: 'This file is still in large-file preview mode, so the symbol bar is using local extraction to stay responsive.',
-        ),
+        hintMessage: AppLocalizations.of(context)!.progExpFEThisFileIsStillInLarge,
       );
       return;
     }
@@ -2191,11 +2159,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         applyExtraction(
           fallbackExtraction,
           usingLsp: false,
-          hintMessage: _localizedText(
-            context,
-            zh: '当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。',
-            en: 'No LSP symbol backend is available for this file, so the symbol bar fell back to local extraction.',
-          ),
+          hintMessage: AppLocalizations.of(context)!.progExpFENoLspSymbolBackendIsAvailable,
         );
         return;
       }
@@ -2220,22 +2184,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         extraction,
         usingLsp: true,
         hintMessage: extraction.symbols.isEmpty
-            ? _localizedText(
-                context,
-                zh: 'LSP 已返回空符号列表。',
-                en: 'The LSP server returned an empty symbol list.',
-              )
+            ? AppLocalizations.of(context)!.progExpFETheLspServerReturnedAnEmpty
             : null,
       );
     } catch (_) {
       applyExtraction(
         fallbackExtraction,
         usingLsp: false,
-        hintMessage: _localizedText(
-          context,
-          zh: '读取 LSP 符号失败，已回退到本地符号提取。',
-          en: 'Fetching LSP symbols failed, so the symbol bar fell back to local extraction.',
-        ),
+        hintMessage: AppLocalizations.of(context)!.progExpFEFetchingLspSymbolsFailedSoThe,
       );
     }
   }
@@ -2924,17 +2880,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _renameSymbolAtCursor() async {
-    final title = _localizedText(context, zh: '重命名符号', en: 'Rename Symbol');
-    final previewDescription = _localizedText(
-      context,
-      zh: '先查看这次重命名将影响的差异，再决定是否应用。',
-      en: 'Review the diff for this rename before deciding whether to apply it.',
-    );
-    final previewCanceledMessage = _localizedText(
-      context,
-      zh: '已取消本次重命名，未写入任何修改。',
-      en: 'The rename was cancelled and no changes were applied.',
-    );
+    final title = AppLocalizations.of(context)!.progExpFERenameSymbol;
+    final previewDescription = AppLocalizations.of(context)!.progExpFEReviewTheDiffForThisRename;
+    final previewCanceledMessage = AppLocalizations.of(context)!.progExpFETheRenameWasCancelledAndNo;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -2958,11 +2906,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (prepared == null) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前光标位置不支持重命名。',
-            en: 'The symbol at the current cursor position cannot be renamed.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFETheSymbolAtTheCurrentCursor,
         );
         return;
       }
@@ -2992,11 +2936,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (edit.isEmpty && !edit.hasUnsupportedOperations) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '语言服务器没有返回需要应用的修改。',
-            en: 'The language server did not return any edits to apply.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFETheLanguageServerDidNotReturn,
         );
         return;
       }
@@ -3022,12 +2962,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _showCodeActionsAtCursor() async {
-    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
-    final emptyMessage = _localizedText(
-      context,
-      zh: '当前光标位置没有可用的代码操作。',
-      en: 'No code actions are available at the current cursor position.',
-    );
+    final title = AppLocalizations.of(context)!.progExpFECodeActions;
+    final emptyMessage = AppLocalizations.of(context)!.progExpFENoCodeActionsAreAvailableAt;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -3101,36 +3037,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final title = action.title;
-    final previewDescription = _localizedText(
-      context,
-      zh: '先预览该代码操作将要写入的差异，再决定是否应用。',
-      en: 'Review the diff from this code action before applying it.',
-    );
-    final commandPreviewDescription = _localizedText(
-      context,
-      zh: '如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。',
-      en: 'If the language-server command requests edits while running, those edits will also be previewed first.',
-    );
-    final previewCanceledMessage = _localizedText(
-      context,
-      zh: '已取消本次代码操作，未写入任何修改。',
-      en: 'The code action was cancelled and no changes were applied.',
-    );
-    final commandExecutedMessage = _localizedText(
-      context,
-      zh: '已执行语言服务器命令。',
-      en: 'Executed the language-server command.',
-    );
-    final commandEditsSkippedMessage = _localizedText(
-      context,
-      zh: '有语言服务器请求的修改被跳过。',
-      en: 'Some language-server requested edits were skipped.',
-    );
-    final noApplicableEditsMessage = _localizedText(
-      context,
-      zh: '该代码操作没有返回可应用的编辑。',
-      en: 'This code action did not return any applicable edits.',
-    );
+    final previewDescription = AppLocalizations.of(context)!.progExpFEReviewTheDiffFromThisCode;
+    final commandPreviewDescription = AppLocalizations.of(context)!.progExpFEIfTheLanguageServerCommandRequests;
+    final previewCanceledMessage = AppLocalizations.of(context)!.progExpFETheCodeActionWasCancelledAnd;
+    final commandExecutedMessage = AppLocalizations.of(context)!.progExpFEExecutedTheLanguageServerCommand;
+    final commandEditsSkippedMessage = AppLocalizations.of(context)!.progExpFESomeLanguageServerRequestedEditsWere;
+    final noApplicableEditsMessage = AppLocalizations.of(context)!.progExpFEThisCodeActionDidNotReturn;
     _showLspLoading(title);
     final previewContext = _PendingWorkspaceEditPreviewContext(
       title: title,
@@ -3416,12 +3328,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     List<_EditorDiagnostic> diagnostics,
     Offset anchorPosition,
   ) async {
-    final title = _localizedText(context, zh: '快速修复', en: 'Quick Fix');
-    final noActionsMessage = _localizedText(
-      context,
-      zh: '当前诊断位置没有可用的快速修复。',
-      en: 'No quick fixes are available for the hovered diagnostic.',
-    );
+    final title = AppLocalizations.of(context)!.progExpFEQuickFix;
+    final noActionsMessage = AppLocalizations.of(context)!.progExpFENoQuickFixesAreAvailableFor;
     try {
       final actions = await _requestCodeActionsForEditorDiagnostics(
         title: title,
@@ -3456,12 +3364,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     List<_EditorDiagnostic> diagnostics,
     Offset anchorPosition,
   ) async {
-    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
-    final noActionsMessage = _localizedText(
-      context,
-      zh: '当前诊断位置没有可用的代码操作。',
-      en: 'No code actions are available for the hovered diagnostic.',
-    );
+    final title = AppLocalizations.of(context)!.progExpFECodeActions;
+    final noActionsMessage = AppLocalizations.of(context)!.progExpFENoCodeActionsAreAvailableFor;
     try {
       final actions = await _requestCodeActionsForEditorDiagnostics(
         title: title,
@@ -3788,12 +3692,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     int lineNumber,
     Offset anchorPosition,
   ) async {
-    final title = _localizedText(context, zh: '快速修复', en: 'Quick Fix');
-    final noDiagnosticsMessage = _localizedText(
-      context,
-      zh: '当前诊断行没有可用的快速修复。',
-      en: 'No quick fixes are available for this diagnostic line.',
-    );
+    final title = AppLocalizations.of(context)!.progExpFEQuickFix;
+    final noDiagnosticsMessage = AppLocalizations.of(context)!.progExpFENoQuickFixesAreAvailableFor2;
     final resolution = await _prepareLspActionWithoutResultBar(title);
     if (resolution == null) {
       return;
@@ -3954,19 +3854,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String? _cursorLspPreconditionMessage(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) {
-      return _localizedText(
-        context,
-        zh: '当前文件尚未完成加载，暂时无法执行 LSP 操作。',
-        en: 'The current file is still loading, so LSP actions are not available yet.',
-      );
+      return AppLocalizations.of(context)!.progExpFETheCurrentFileIsStillLoading;
     }
     if (controller.useVirtualizedPreview &&
         !_forcedFullEditorFiles.contains(filePath)) {
-      return _localizedText(
-        context,
-        zh: '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。',
-        en: 'This file is still in large-file preview mode. Open the full editor before running LSP navigation.',
-      );
+      return AppLocalizations.of(context)!.progExpFEThisFileIsStillInLarge2;
     }
     return null;
   }
@@ -3974,19 +3866,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   String? _documentLspPreconditionMessage(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) {
-      return _localizedText(
-        context,
-        zh: '当前文件尚未完成加载，暂时无法执行文档级编辑操作。',
-        en: 'The current file is still loading, so document-level edit actions are not available yet.',
-      );
+      return AppLocalizations.of(context)!.progExpFETheCurrentFileIsStillLoading2;
     }
     if (controller.useVirtualizedPreview &&
         !_forcedFullEditorFiles.contains(filePath)) {
-      return _localizedText(
-        context,
-        zh: '当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。',
-        en: 'This file is still in large-file preview mode. Open the full editor before formatting.',
-      );
+      return AppLocalizations.of(context)!.progExpFEThisFileIsStillInLarge3;
     }
     return null;
   }
@@ -4193,7 +4077,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _formatDocument(String filePath) async {
-    final title = _localizedText(context, zh: '格式化文档', en: 'Format Document');
+    final title = AppLocalizations.of(context)!.progExpFEFormatDocument;
     final precondition = _documentLspPreconditionMessage(filePath);
     if (precondition != null) {
       _showLspMessage(title: title, message: precondition);
@@ -4204,11 +4088,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (controller == null) {
       _showLspMessage(
         title: title,
-        message: _localizedText(
-          context,
-          zh: '当前文件尚未准备好，稍后再试。',
-          en: 'The current file is not ready yet. Try again in a moment.',
-        ),
+        message: AppLocalizations.of(context)!.progExpFETheCurrentFileIsNotReady,
       );
       return;
     }
@@ -4239,11 +4119,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (edits.isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '格式化器没有返回可应用的修改。',
-            en: 'The formatter did not return any edits to apply.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFETheFormatterDidNotReturnAny,
         );
         return;
       }
@@ -4252,11 +4128,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (nextText == controller.text) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '格式化结果与当前内容一致，没有产生新的文本变更。',
-            en: 'Formatting produced the same content, so no text changed.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFEFormattingProducedTheSameContentSo,
         );
         return;
       }
@@ -4279,11 +4151,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
       _showLspMessage(
         title: title,
-        message: _localizedText(
-          context,
-          zh: '已应用 ${edits.length} 处格式化修改。',
-          en: 'Applied ${edits.length} formatting edits.',
-        ),
+        message: AppLocalizations.of(context)!.progExpFEAppliedEditsLengthFormattingEdits(edits.length),
       );
     } catch (error) {
       if (!mounted) {
@@ -4294,7 +4162,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _goToDefinitionAtCursor() async {
-    final title = _localizedText(context, zh: '定义跳转', en: 'Go to Definition');
+    final title = AppLocalizations.of(context)!.progExpFEGoToDefinition;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -4317,11 +4185,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前光标位置没有找到定义。',
-            en: 'No definition was found at the current cursor position.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFENoDefinitionWasFoundAtThe,
         );
         return;
       }
@@ -4333,11 +4197,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _showLspLocations(
         title: title,
         locations: locations,
-        message: _localizedText(
-          context,
-          zh: '找到多个定义结果，请选择要跳转的位置。',
-          en: 'Multiple definitions were found. Choose a target to navigate to.',
-        ),
+        message: AppLocalizations.of(context)!.progExpFEMultipleDefinitionsWereFoundChooseA,
       );
     } catch (error) {
       if (!mounted) {
@@ -4348,7 +4208,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _findReferencesAtCursor() async {
-    final title = _localizedText(context, zh: '引用查找', en: 'Find References');
+    final title = AppLocalizations.of(context)!.progExpFEFindReferences;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -4371,11 +4231,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前光标位置没有找到引用。',
-            en: 'No references were found at the current cursor position.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFENoReferencesWereFoundAtThe,
         );
         return;
       }
@@ -4389,7 +4245,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _showHoverAtCursor() async {
-    final title = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');
+    final title = AppLocalizations.of(context)!.progExpFEHoverInfo;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) {
       return;
@@ -4412,11 +4268,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (hover == null || hover.renderedText.trim().isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前光标位置没有可显示的悬浮信息。',
-            en: 'There is no hover information at the current cursor position.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFEThereIsNoHoverInformationAt,
         );
         return;
       }
@@ -4866,7 +4718,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _showLspBackendStatusForActiveFile() async {
-    final title = _localizedText(context, zh: 'LSP 后端', en: 'LSP Backend');
+    final title = AppLocalizations.of(context)!.progExpFELspBackend;
     _showLspLoading(title);
     try {
       final resolution = await _ensureLspBackend(
@@ -4921,12 +4773,21 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           : (isZh
                 ? '项目模式：继续使用全局按语言配置'
                 : 'Project mode: using the global per-language mapping');
+      final lspName = resolution.displayName ?? resolution.backendId ?? 'LSP';
+      final projLang = _programmingLanguageLabel(context, widget.projectLanguage);
+      final fileLang = _programmingLanguageLabel(context, resolution.language);
+      final rootPath = resolution.rootPath;
       _showLspMessage(
         title: title,
-        message: _localizedText(
-          context,
-          zh: '当前文件已解析到 ${resolution.displayName ?? resolution.backendId ?? 'LSP'}。\n项目语言：${_programmingLanguageLabel(context, widget.projectLanguage)}\n当前文件语言：${_programmingLanguageLabel(context, resolution.language)}\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：${resolution.rootPath}\n命令：$command',
-          en: 'Resolved ${resolution.displayName ?? resolution.backendId ?? 'LSP'} for the current file.\nProject language: ${_programmingLanguageLabel(context, widget.projectLanguage)}\nCurrent file language: ${_programmingLanguageLabel(context, resolution.language)}\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: ${resolution.rootPath}\nCommand: $command',
+        message: AppLocalizations.of(context)!.progExpFEResolvedLspBackendForCurrentFile(
+          lspName,
+          projLang,
+          fileLang,
+          modeLine,
+          sdkSourceLine,
+          lspSourceLine,
+          rootPath,
+          command,
         ),
       );
     } catch (error) {
@@ -5477,11 +5338,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   _FindBarButton(
                     icon: Icons.refresh_rounded,
-                    tooltip: _localizedText(
-                      context,
-                      zh: '重新解析当前文件后端',
-                      en: 'Re-resolve the backend for the current file',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFEReResolveTheBackendForThe,
                     onPressed: () {
                       unawaited(
                         _ensureLspBackend(widget.activeFilePath, force: true),
@@ -5491,11 +5348,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   _FindBarButton(
                     icon: Icons.hub_rounded,
-                    tooltip: _localizedText(
-                      context,
-                      zh: '查看后端详情',
-                      en: 'Inspect backend details',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFEInspectBackendDetails,
                     onPressed: () {
                       unawaited(_showLspBackendStatusForActiveFile());
                     },
@@ -5503,11 +5356,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                   _FindBarButton(
                     icon: Icons.close_rounded,
-                    tooltip: _localizedText(
-                      context,
-                      zh: '关闭 (Esc)',
-                      en: 'Close (Esc)',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
                     onPressed: () {
                       setState(() => _projectToolchainBarVisible = false);
                     },
@@ -5922,15 +5771,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final commentStyle = editorCommentStyleForLanguage(
       _resolvedLanguageForFile(filePath),
     );
-    final title = _localizedText(context, zh: '切换注释', en: 'Toggle Comment');
+    final title = AppLocalizations.of(context)!.progExpFEToggleComment;
     if (commentStyle == null) {
       _showLspMessage(
         title: title,
-        message: _localizedText(
-          context,
-          zh: '当前语言暂未配置注释策略，无法执行注释切换。',
-          en: 'This language does not have a configured comment strategy yet, so comment toggling is unavailable.',
-        ),
+        message: AppLocalizations.of(context)!.progExpFEThisLanguageDoesNotHaveA,
       );
       return true;
     }
@@ -5999,7 +5844,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _toggleDefinitionAtCursor() async {
-    final title = _localizedText(context, zh: '定义跳转', en: 'Go to Definition');
+    final title = AppLocalizations.of(context)!.progExpFEGoToDefinition;
     if (_isLocationResultPanelOpen(title)) {
       _hideLspResultBar();
       return;
@@ -6008,7 +5853,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _toggleFindReferencesAtCursor() async {
-    final title = _localizedText(context, zh: '引用查找', en: 'Find References');
+    final title = AppLocalizations.of(context)!.progExpFEFindReferences;
     if (_isLocationResultPanelOpen(title)) {
       _hideLspResultBar();
       return;
@@ -6017,11 +5862,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _toggleImplementationAtCursor() async {
-    final title = _localizedText(
-      context,
-      zh: '跳转到实现',
-      en: 'Go to Implementation',
-    );
+    final title = AppLocalizations.of(context)!.progExpFEGoToImplementation;
     if (_isLocationResultPanelOpen(title)) {
       _hideLspResultBar();
       return;
@@ -6038,7 +5879,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   Future<void> _toggleCodeActionsAtCursor() async {
-    final title = _localizedText(context, zh: '代码操作', en: 'Code Actions');
+    final title = AppLocalizations.of(context)!.progExpFECodeActions;
     if (_lspResultBarVisible &&
         !_lspResultLoading &&
         _lspResultTitle == title &&
@@ -6147,7 +5988,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _lastSignatureHelpRequestOffset = offset;
     _lastSignatureHelpRequestRevision = revision;
 
-    final title = _localizedText(context, zh: '参数信息', en: 'Signature Help');
+    final title = AppLocalizations.of(context)!.progExpFESignatureHelp;
     final precondition = _cursorLspPreconditionMessage(filePath);
     if (precondition != null) {
       if (explicit && mounted) {
@@ -6188,11 +6029,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         if (explicit) {
           _showLspMessage(
             title: title,
-            message: _localizedText(
-              context,
-              zh: '当前光标位置没有可显示的参数签名信息。',
-              en: 'There is no signature help available at the current cursor position.',
-            ),
+            message: AppLocalizations.of(context)!.progExpFEThereIsNoSignatureHelpAvailable,
           );
         }
         _hideSignatureHelpOverlay();
@@ -6680,23 +6517,19 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
               _FindBarButton(
                 icon: Icons.keyboard_arrow_up_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '上一个结果',
-                  en: 'Previous Match',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFEPreviousMatch,
                 onPressed: _findMatchOffsets.isEmpty ? null : _findPrevious,
                 colorScheme: colorScheme,
               ),
               _FindBarButton(
                 icon: Icons.keyboard_arrow_down_rounded,
-                tooltip: _localizedText(context, zh: '下一个结果', en: 'Next Match'),
+                tooltip: AppLocalizations.of(context)!.progExpFENextMatch,
                 onPressed: _findMatchOffsets.isEmpty ? null : _findNext,
                 colorScheme: colorScheme,
               ),
               _FindBarButton(
                 icon: Icons.font_download_rounded,
-                tooltip: _localizedText(context, zh: '区分大小写', en: 'Match Case'),
+                tooltip: AppLocalizations.of(context)!.progExpFEMatchCase,
                 isActive: _findCaseSensitive,
                 onPressed: () {
                   setState(() => _findCaseSensitive = !_findCaseSensitive);
@@ -6707,21 +6540,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               if (!_replaceBarVisible)
                 _FindBarButton(
                   icon: Icons.find_replace_rounded,
-                  tooltip: _localizedText(
-                    context,
-                    zh: '显示替换',
-                    en: 'Show Replace',
-                  ),
+                  tooltip: AppLocalizations.of(context)!.progExpFEShowReplace,
                   onPressed: () => setState(() => _replaceBarVisible = true),
                   colorScheme: colorScheme,
                 ),
               _FindBarButton(
                 icon: Icons.close_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭 (Esc)',
-                  en: 'Close (Esc)',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
                 onPressed: _hideFindBar,
                 colorScheme: colorScheme,
               ),
@@ -6779,21 +6604,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 const SizedBox(width: 4),
                 _FindBarButton(
                   icon: Icons.find_replace_rounded,
-                  tooltip: _localizedText(
-                    context,
-                    zh: '替换当前结果',
-                    en: 'Replace Current',
-                  ),
+                  tooltip: AppLocalizations.of(context)!.progExpFEReplaceCurrent,
                   onPressed: _findMatchOffsets.isEmpty ? null : _replaceCurrent,
                   colorScheme: colorScheme,
                 ),
                 _FindBarButton(
                   icon: Icons.done_all_rounded,
-                  tooltip: _localizedText(
-                    context,
-                    zh: '全部替换',
-                    en: 'Replace All',
-                  ),
+                  tooltip: AppLocalizations.of(context)!.progExpFEReplaceAll,
                   onPressed: _findMatchOffsets.isEmpty ? null : _replaceAll,
                   colorScheme: colorScheme,
                 ),
@@ -6864,7 +6681,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           const SizedBox(width: 4),
           _FindBarButton(
             icon: Icons.close_rounded,
-            tooltip: _localizedText(context, zh: '关闭 (Esc)', en: 'Close (Esc)'),
+            tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
             onPressed: () => setState(() => _goToLineVisible = false),
             colorScheme: colorScheme,
           ),
@@ -6944,11 +6761,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               const SizedBox(width: 4),
               _FindBarButton(
                 icon: Icons.article_outlined,
-                tooltip: _localizedText(
-                  context,
-                  zh: '当前文件符号',
-                  en: 'Current File Symbols',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFECurrentFileSymbols,
                 onPressed: _workspaceSymbolMode
                     ? () => _setSymbolSearchMode(false)
                     : null,
@@ -6957,11 +6770,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
               _FindBarButton(
                 icon: Icons.travel_explore_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '工作区符号',
-                  en: 'Workspace Symbols',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFEWorkspaceSymbols,
                 onPressed: _workspaceSymbolMode
                     ? null
                     : () => _setSymbolSearchMode(true),
@@ -7025,11 +6834,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
               _FindBarButton(
                 icon: Icons.close_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭 (Esc)',
-                  en: 'Close (Esc)',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
                 onPressed: _hideSymbolBar,
                 colorScheme: colorScheme,
               ),
@@ -7243,11 +7048,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               if (supportsDiagnostics)
                 _FindBarButton(
                   icon: Icons.refresh_rounded,
-                  tooltip: _localizedText(
-                    context,
-                    zh: '刷新诊断',
-                    en: 'Refresh diagnostics',
-                  ),
+                  tooltip: AppLocalizations.of(context)!.progExpFERefreshDiagnostics,
                   onPressed: isLoading
                       ? null
                       : () => _refreshDiagnostics(filePath),
@@ -7255,11 +7056,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
               _FindBarButton(
                 icon: Icons.close_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭 (Esc)',
-                  en: 'Close (Esc)',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
                 onPressed: () => setState(() => _diagnosticsBarVisible = false),
                 colorScheme: colorScheme,
               ),
@@ -7498,11 +7295,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
               _FindBarButton(
                 icon: Icons.close_rounded,
-                tooltip: _localizedText(
-                  context,
-                  zh: '关闭 (Esc)',
-                  en: 'Close (Esc)',
-                ),
+                tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
                 onPressed: _hideLspResultBar,
                 colorScheme: colorScheme,
               ),
@@ -8095,42 +7888,18 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
     final backendResolution = _lspResolutionForFile(widget.activeFilePath);
     final lspActionColor = _lspActionColor(colorScheme, widget.activeFilePath);
-    final definitionTitle = _localizedText(
-      context,
-      zh: '定义跳转',
-      en: 'Go to Definition',
-    );
-    final referencesTitle = _localizedText(
-      context,
-      zh: '引用查找',
-      en: 'Find References',
-    );
-    final renameTitle = _localizedText(
-      context,
-      zh: '重命名符号',
-      en: 'Rename Symbol',
-    );
-    final codeActionsTitle = _localizedText(
-      context,
-      zh: '代码操作',
-      en: 'Code Actions',
-    );
-    final formatTitle = _localizedText(
-      context,
-      zh: '格式化文档',
-      en: 'Format Document',
-    );
+    final definitionTitle = AppLocalizations.of(context)!.progExpFEGoToDefinition;
+    final referencesTitle = AppLocalizations.of(context)!.progExpFEFindReferences;
+    final renameTitle = AppLocalizations.of(context)!.progExpFERenameSymbol;
+    final codeActionsTitle = AppLocalizations.of(context)!.progExpFECodeActions;
+    final formatTitle = AppLocalizations.of(context)!.progExpFEFormatDocument;
     final formatShortcut = formatShortcutLabel(
       settingsController.editorShortcutBindings[EditorShortcutAction
               .formatDocument] ??
           const <int>[],
     );
-    final hoverTitle = _localizedText(context, zh: '悬浮信息', en: 'Hover Info');
-    final backendTitle = _localizedText(
-      context,
-      zh: 'LSP 后端',
-      en: 'LSP Backend',
-    );
+    final hoverTitle = AppLocalizations.of(context)!.progExpFEHoverInfo;
+    final backendTitle = AppLocalizations.of(context)!.progExpFELspBackend;
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -8181,12 +7950,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.account_tree_rounded,
-                    label: _localizedText(context, zh: '符号', en: 'Symbols'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '符号导航 (Shift+Cmd/Ctrl+O)',
-                      en: 'Symbol navigation (Shift+Cmd/Ctrl+O)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFESymbols,
+                    tooltip: AppLocalizations.of(context)!.progExpFESymbolNavigationShiftCmdCtrlO,
                     onTap: _showSymbolBar,
                     active: _symbolBarVisible && !_workspaceSymbolMode,
                   ),
@@ -8194,12 +7959,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.travel_explore_rounded,
-                    label: _localizedText(context, zh: '全局符号', en: 'Workspace'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '工作区符号搜索 (Cmd/Ctrl+T)',
-                      en: 'Workspace symbol search (Cmd/Ctrl+T)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFEWorkspace,
+                    tooltip: AppLocalizations.of(context)!.progExpFEWorkspaceSymbolSearchCmdCtrlT,
                     onTap: _showWorkspaceSymbolBar,
                     active: _symbolBarVisible && _workspaceSymbolMode,
                   ),
@@ -8214,11 +7975,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         ? Icons.sync_rounded
                         : Icons.info_outline_rounded,
                     label: diagnosticsLabel,
-                    tooltip: _localizedText(
-                      context,
-                      zh: '显示当前文件诊断',
-                      en: 'Show diagnostics for the current file',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFEShowDiagnosticsForTheCurrentFile,
                     onTap: () {
                       setState(() {
                         if (_diagnosticsBarVisible) {
@@ -8290,11 +8047,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       context,
                       widget.activeFilePath,
                     ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '查看当前文件绑定的 LSP 后端',
-                      en: 'Inspect the LSP backend bound to the current file',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFEInspectTheLspBackendBoundTo,
                     onTap: () {
                       unawaited(_showLspBackendStatusForActiveFile());
                     },
@@ -8309,12 +8062,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.subdirectory_arrow_right_rounded,
-                    label: _localizedText(context, zh: '定义', en: 'Def'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '定义跳转 (F12 / Cmd/Ctrl+B)',
-                      en: 'Go to Definition (F12 / Cmd/Ctrl+B)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFEDef,
+                    tooltip: AppLocalizations.of(context)!.progExpFEGoToDefinitionF12CmdCtrl,
                     onTap: () {
                       unawaited(_goToDefinitionAtCursor());
                     },
@@ -8327,12 +8076,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.format_list_bulleted_rounded,
-                    label: _localizedText(context, zh: '引用', en: 'Refs'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)',
-                      en: 'Find References (Shift+F12 / Cmd/Ctrl+Shift+B)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFERefs,
+                    tooltip: AppLocalizations.of(context)!.progExpFEFindReferencesShiftF12CmdCtrl,
                     onTap: () {
                       unawaited(_findReferencesAtCursor());
                     },
@@ -8345,12 +8090,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.info_outline_rounded,
-                    label: _localizedText(context, zh: '悬浮', en: 'Hover'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '悬浮信息 (Cmd/Ctrl+I)',
-                      en: 'Hover Info (Cmd/Ctrl+I)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFEHover,
+                    tooltip: AppLocalizations.of(context)!.progExpFEHoverInfoCmdCtrlI,
                     onTap: () {
                       unawaited(_showHoverAtCursor());
                     },
@@ -8362,12 +8103,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.drive_file_rename_outline_rounded,
-                    label: _localizedText(context, zh: '重命名', en: 'Rename'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '重命名符号 (F2)',
-                      en: 'Rename Symbol (F2)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFERename,
+                    tooltip: AppLocalizations.of(context)!.progExpFERenameSymbolF2,
                     onTap: () {
                       unawaited(_renameSymbolAtCursor());
                     },
@@ -8379,12 +8116,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.lightbulb_outline_rounded,
-                    label: _localizedText(context, zh: '操作', en: 'Actions'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '代码操作 (Cmd/Ctrl+.)',
-                      en: 'Code Actions (Cmd/Ctrl+.)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFEActions,
+                    tooltip: AppLocalizations.of(context)!.progExpFECodeActionsCmdCtrl,
                     onTap: () {
                       unawaited(_showCodeActionsAtCursor());
                     },
@@ -8397,12 +8130,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.auto_fix_high_rounded,
-                    label: _localizedText(context, zh: '格式化', en: 'Format'),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '格式化当前文件 ($formatShortcut)',
-                      en: 'Format the current file ($formatShortcut)',
-                    ),
+                    label: AppLocalizations.of(context)!.progExpFEFormat,
+                    tooltip: AppLocalizations.of(context)!.progExpFEFormatTheCurrentFileFormatshortcut(formatShortcut),
                     onTap: () {
                       unawaited(_formatDocument(widget.activeFilePath));
                     },
@@ -9359,11 +9088,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   // ── Go to Implementation (LSP textDocument/implementation) ──
 
   Future<void> _goToImplementationAtCursor() async {
-    final title = _localizedText(
-      context,
-      zh: '跳转到实现',
-      en: 'Go to Implementation',
-    );
+    final title = AppLocalizations.of(context)!.progExpFEGoToImplementation;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) return;
     final controller = _textControllers[widget.activeFilePath];
@@ -9382,11 +9107,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (locations.isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前光标位置没有找到实现。',
-            en: 'No implementation was found at the current cursor position.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFENoImplementationWasFoundAtThe,
         );
         return;
       }
@@ -9398,11 +9119,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _showLspLocations(
         title: title,
         locations: locations,
-        message: _localizedText(
-          context,
-          zh: '找到多个实现，请选择要跳转的位置。',
-          en: 'Multiple implementations found. Choose a target to navigate to.',
-        ),
+        message: AppLocalizations.of(context)!.progExpFEMultipleImplementationsFoundChooseATarge,
       );
     } catch (error) {
       if (!mounted) return;
@@ -9416,7 +9133,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     String filePath,
     String codeActionKind,
   ) async {
-    final title = _localizedText(context, zh: '重构', en: 'Refactor');
+    final title = AppLocalizations.of(context)!.progExpFERefactor;
     final resolution = await _prepareCursorLspAction(title);
     if (resolution == null) return;
     final controller = _textControllers[filePath];
@@ -9437,11 +9154,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       if (matching.isEmpty) {
         _showLspMessage(
           title: title,
-          message: _localizedText(
-            context,
-            zh: '当前位置没有可用的"$codeActionKind"重构操作。',
-            en: 'No "$codeActionKind" refactoring is available at the current position.',
-          ),
+          message: AppLocalizations.of(context)!.progExpFENoCodeactionkindRefactoringIsAvailableAt(codeActionKind),
         );
         return;
       }
@@ -9524,11 +9237,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         final applied = await _reviewWorkspaceEditAndMaybeApply(
           title: title,
           edit: edit,
-          description: _localizedText(
-            context,
-            zh: '查看此次重构将影响的差异，再决定是否应用。',
-            en: 'Review the changes before applying.',
-          ),
+          description: AppLocalizations.of(context)!.progExpFEReviewTheChangesBeforeApplying,
         );
         if (!mounted) return;
         if (applied) {
@@ -9902,11 +9611,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 // Save button
                 if (_fileDirty[widget.activeFilePath] == true) ...[
                   _EditorActionButton(
-                    tooltip: _localizedText(
-                      context,
-                      zh: '保存文件',
-                      en: 'Save file',
-                    ),
+                    tooltip: AppLocalizations.of(context)!.progExpFESaveFile,
                     icon: Icons.save_rounded,
                     color: colorScheme.primary,
                     onPressed: () => _saveFile(widget.activeFilePath),
@@ -9915,13 +9620,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 // File explorer toggle button
                 if (widget.onToggleFileExplorer != null)
                   _EditorActionButton(
-                    tooltip: _localizedText(
-                      context,
-                      zh: widget.fileExplorerVisible ? '隐藏文件浏览器' : '显示文件浏览器',
-                      en: widget.fileExplorerVisible
-                          ? 'Hide file browser'
-                          : 'Show file browser',
-                    ),
+                    tooltip: (widget.fileExplorerVisible ? AppLocalizations.of(context)!.progExpFEHideFileBrowser : AppLocalizations.of(context)!.progExpFEShowFileBrowser),
                     icon: widget.fileExplorerVisible
                         ? Icons.folder_open_rounded
                         : Icons.folder_rounded,
@@ -9932,11 +9631,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                 // Close all button
                 _EditorActionButton(
-                  tooltip: _localizedText(
-                    context,
-                    zh: '关闭编辑器，返回会话',
-                    en: 'Close editor, return to session',
-                  ),
+                  tooltip: AppLocalizations.of(context)!.progExpFECloseEditorReturnToSession,
                   icon: Icons.close_rounded,
                   color: colorScheme.onSurfaceVariant,
                   onPressed: widget.onCloseAll,
@@ -13948,11 +13643,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                       child: IgnorePointer(
                                         ignoring: !showQuickFix,
                                         child: Tooltip(
-                                          message: _localizedText(
-                                            context,
-                                            zh: '显示该诊断行的快速修复',
-                                            en: 'Show quick fixes for this diagnostic line',
-                                          ),
+                                          message: AppLocalizations.of(context)!.progExpFEShowQuickFixesForThisDiagnostic,
                                           child: GestureDetector(
                                             behavior: HitTestBehavior.opaque,
                                             onTapDown: (details) => widget
@@ -14256,11 +13947,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _localizedText(
-                    context,
-                    zh: '已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。',
-                    en: 'Large-file performance mode is active: using a virtualized read-only preview to avoid full-document layout stalls.',
-                  ),
+                  AppLocalizations.of(context)!.progExpFELargeFilePerformanceModeIsActive,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface,
                     fontWeight: FontWeight.w500,
@@ -14271,11 +13958,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
               TextButton(
                 onPressed: widget.onOpenFullEditor,
                 child: Text(
-                  _localizedText(
-                    context,
-                    zh: '仍然打开完整编辑器',
-                    en: 'Open full editor anyway',
-                  ),
+                  AppLocalizations.of(context)!.progExpFEOpenFullEditorAnyway,
                 ),
               ),
             ],

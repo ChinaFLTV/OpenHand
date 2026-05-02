@@ -4587,6 +4587,3322 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'已完成 {completed}/{total} 项'**
   String toolbarPlanStepsCompleted(int completed, int total);
+
+  /// No description provided for @mdlEdEnterAValidBaseUrlFirst.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请先输入有效的 Base URL'**
+  String get mdlEdEnterAValidBaseUrlFirst;
+
+  /// No description provided for @mdlEdNoModelsFoundFromThisProvider.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未从该提供商扫描到模型。'**
+  String get mdlEdNoModelsFoundFromThisProvider;
+
+  /// No description provided for @mdlEdProviderName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提供商名称'**
+  String get mdlEdProviderName;
+
+  /// No description provided for @mdlEdOptionalEGDeepseekLocalOllama.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选，如 DeepSeek、本地 Ollama'**
+  String get mdlEdOptionalEGDeepseekLocalOllama;
+
+  /// No description provided for @mdlEdCurrentlyActiveModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前活跃模型'**
+  String get mdlEdCurrentlyActiveModel;
+
+  /// No description provided for @mdlEdClickToSetAsActiveModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击切换为活跃模型'**
+  String get mdlEdClickToSetAsActiveModel;
+
+  /// No description provided for @mdlEdTapScanModelsToDiscoverModels.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击「扫描模型」按钮自动发现可用模型，或手动添加。'**
+  String get mdlEdTapScanModelsToDiscoverModels;
+
+  /// No description provided for @mdlEdActiveModelId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前活跃模型 ID'**
+  String get mdlEdActiveModelId;
+
+  /// No description provided for @mdlEdTheModelUsedForConversationsSelect.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前用于对话的模型。可从上方列表选择或直接输入。'**
+  String get mdlEdTheModelUsedForConversationsSelect;
+
+  /// No description provided for @mdlEdMaxContextTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最大上下文 Token 上限'**
+  String get mdlEdMaxContextTokens;
+
+  /// No description provided for @mdlEdOptionalLimitsTheHistorySliceUsed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选。用于在压缩时限制历史切片大小。'**
+  String get mdlEdOptionalLimitsTheHistorySliceUsed;
+
+  /// No description provided for @mdlEdEnterAWholeNumberGreaterThan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入大于 0 的整数'**
+  String get mdlEdEnterAWholeNumberGreaterThan;
+
+  /// No description provided for @mdlEdRequestMethod.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求方式'**
+  String get mdlEdRequestMethod;
+
+  /// No description provided for @mdlEdOutputMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出模式'**
+  String get mdlEdOutputMode;
+
+  /// No description provided for @mdlEdStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'流式输出'**
+  String get mdlEdStreaming;
+
+  /// No description provided for @mdlEdNonStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'非流式输出'**
+  String get mdlEdNonStreaming;
+
+  /// No description provided for @mdlEdMaxOutputTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最大输出 Token 数'**
+  String get mdlEdMaxOutputTokens;
+
+  /// No description provided for @mdlEdOptionalUsesAdapterDefaultIfUnset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选。不指定则使用适配器默认值。'**
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset;
+
+  /// No description provided for @mdlEdTemperature.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'温度'**
+  String get mdlEdTemperature;
+
+  /// No description provided for @mdlEd0020Default0.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'0.0 ~ 2.0，默认 0.7'**
+  String get mdlEd0020Default0;
+
+  /// No description provided for @mdlEdEnterANumberBetween00.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0.0 到 2.0 之间的数值'**
+  String get mdlEdEnterANumberBetween00;
+
+  /// No description provided for @mdlEdCustomHeaders.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自定义请求头'**
+  String get mdlEdCustomHeaders;
+
+  /// No description provided for @mdlEdAdd.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'添加'**
+  String get mdlEdAdd;
+
+  /// No description provided for @mdlEdNoCustomHeadersTapAddTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无自定义请求头。点击「添加」按钮来添加。'**
+  String get mdlEdNoCustomHeadersTapAddTo;
+
+  /// No description provided for @mdlEdHeaderName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Header 名称'**
+  String get mdlEdHeaderName;
+
+  /// No description provided for @mdlEdHeaderValue.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Header 值'**
+  String get mdlEdHeaderValue;
+
+  /// No description provided for @mdlEdEditModelProfile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑模型配置'**
+  String get mdlEdEditModelProfile;
+
+  /// No description provided for @mdlEdDisplayName.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示名称'**
+  String get mdlEdDisplayName;
+
+  /// No description provided for @mdlEdOptionalShownInTheUi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'可选，用于界面展示'**
+  String get mdlEdOptionalShownInTheUi;
+
+  /// No description provided for @mdlEdDescription.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型描述'**
+  String get mdlEdDescription;
+
+  /// No description provided for @mdlEdMultimodalSupport.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多模态支持'**
+  String get mdlEdMultimodalSupport;
+
+  /// No description provided for @mdlEdAutoDetect.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动检测'**
+  String get mdlEdAutoDetect;
+
+  /// No description provided for @mdlEdYes.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是'**
+  String get mdlEdYes;
+
+  /// No description provided for @mdlEdNo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'否'**
+  String get mdlEdNo;
+
+  /// No description provided for @mdlEdSupportsAttachments.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'支持附件'**
+  String get mdlEdSupportsAttachments;
+
+  /// No description provided for @mdlEdSupportedModalities.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'支持的模态'**
+  String get mdlEdSupportedModalities;
+
+  /// No description provided for @mdlEdText.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文本'**
+  String get mdlEdText;
+
+  /// No description provided for @mdlEdImage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'图片生成'**
+  String get mdlEdImage;
+
+  /// No description provided for @mdlEdVideo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'视频生成'**
+  String get mdlEdVideo;
+
+  /// No description provided for @mdlEdAudio.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'音频生成'**
+  String get mdlEdAudio;
+
+  /// No description provided for @mdlEdGenerationCapabilities.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'生成能力'**
+  String get mdlEdGenerationCapabilities;
+
+  /// No description provided for @mdlEdPdf.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'PDF 生成'**
+  String get mdlEdPdf;
+
+  /// No description provided for @mdlEdPpt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'PPT 生成'**
+  String get mdlEdPpt;
+
+  /// No description provided for @mdlEdTokenLimits.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 限制'**
+  String get mdlEdTokenLimits;
+
+  /// No description provided for @mdlEdContextLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上下文长度'**
+  String get mdlEdContextLength;
+
+  /// No description provided for @mdlEdSummaryLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'摘要长度'**
+  String get mdlEdSummaryLength;
+
+  /// No description provided for @mdlEdOutputLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出长度'**
+  String get mdlEdOutputLength;
+
+  /// No description provided for @mdlEdThinkingLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'思考长度'**
+  String get mdlEdThinkingLength;
+
+  /// No description provided for @mdlEdTokenPricingUsd1mTokensLeave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 单价（USD / 1M tokens，留空表示未配置）'**
+  String get mdlEdTokenPricingUsd1mTokensLeave;
+
+  /// No description provided for @mdlEdInput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入价'**
+  String get mdlEdInput;
+
+  /// No description provided for @mdlEdOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出价'**
+  String get mdlEdOutput;
+
+  /// No description provided for @mdlEdCacheRead.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存读取价'**
+  String get mdlEdCacheRead;
+
+  /// No description provided for @mdlEdCacheWrite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存写入价'**
+  String get mdlEdCacheWrite;
+
+  /// No description provided for @mdlEdReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置'**
+  String get mdlEdReset;
+
+  /// No description provided for @mdlEdCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get mdlEdCancel;
+
+  /// No description provided for @mdlEdOk.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定'**
+  String get mdlEdOk;
+
+  /// No description provided for @tlCallDir.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'目录'**
+  String get tlCallDir;
+
+  /// No description provided for @tlCallElapsed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'耗时'**
+  String get tlCallElapsed;
+
+  /// No description provided for @tlCallExit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'退出码'**
+  String get tlCallExit;
+
+  /// No description provided for @tlCallToolInput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具入参'**
+  String get tlCallToolInput;
+
+  /// No description provided for @tlCallCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'command'**
+  String get tlCallCommand;
+
+  /// No description provided for @tlCallArguments.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'arguments'**
+  String get tlCallArguments;
+
+  /// No description provided for @tlCallToolOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结果输出'**
+  String get tlCallToolOutput;
+
+  /// No description provided for @tlCallNoOutputYet.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无输出'**
+  String get tlCallNoOutputYet;
+
+  /// No description provided for @tlCallResult.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'result'**
+  String get tlCallResult;
+
+  /// No description provided for @tlCallThereIsNoToolOutputYet.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前还没有工具输出。'**
+  String get tlCallThereIsNoToolOutputYet;
+
+  /// No description provided for @tlCallViewInDialog.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'在弹窗里查看完整内容'**
+  String get tlCallViewInDialog;
+
+  /// No description provided for @tlCallEmptyContent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内容为空'**
+  String get tlCallEmptyContent;
+
+  /// No description provided for @tlCallWrite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写入'**
+  String get tlCallWrite;
+
+  /// No description provided for @tlCallEdit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑'**
+  String get tlCallEdit;
+
+  /// No description provided for @tlCallMultiEdit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多处编辑'**
+  String get tlCallMultiEdit;
+
+  /// No description provided for @tlCallNotebookEdit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Notebook 编辑'**
+  String get tlCallNotebookEdit;
+
+  /// No description provided for @tlCallBashWrite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令写入'**
+  String get tlCallBashWrite;
+
+  /// No description provided for @tlCallFileChanged.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件变更'**
+  String get tlCallFileChanged;
+
+  /// No description provided for @tlCallChangedFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文件变动'**
+  String get tlCallChangedFile;
+
+  /// No description provided for @tlCallTool.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具'**
+  String get tlCallTool;
+
+  /// No description provided for @tlCallSkill.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get tlCallSkill;
+
+  /// No description provided for @tlCallStopped.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已停止'**
+  String get tlCallStopped;
+
+  /// No description provided for @tlCallBlocked.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已拦截'**
+  String get tlCallBlocked;
+
+  /// No description provided for @tlCallRejected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户拒绝'**
+  String get tlCallRejected;
+
+  /// No description provided for @tlCallInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'参数无效'**
+  String get tlCallInvalid;
+
+  /// No description provided for @tlCallToolCall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用'**
+  String get tlCallToolCall;
+
+  /// No description provided for @tlCallRunning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行中'**
+  String get tlCallRunning;
+
+  /// No description provided for @tlCallSucceeded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行成功'**
+  String get tlCallSucceeded;
+
+  /// No description provided for @tlCallDenied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已被禁止'**
+  String get tlCallDenied;
+
+  /// No description provided for @tlCallTimedOut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行超时'**
+  String get tlCallTimedOut;
+
+  /// No description provided for @tlCallFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行失败'**
+  String get tlCallFailed;
+
+  /// No description provided for @tlCallToolIsRunningWaitingForOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具运行中，等待新的输出...'**
+  String get tlCallToolIsRunningWaitingForOutput;
+
+  /// No description provided for @tlCallExpandToInspectToolOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击展开查看工具输出'**
+  String get tlCallExpandToInspectToolOutput;
+
+  /// No description provided for @tlCallType.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'类型'**
+  String get tlCallType;
+
+  /// No description provided for @tlCallSize.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'大小'**
+  String get tlCallSize;
+
+  /// No description provided for @tlCallModified.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'修改于'**
+  String get tlCallModified;
+
+  /// No description provided for @tlCallSelfLearning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自我学习'**
+  String get tlCallSelfLearning;
+
+  /// No description provided for @tlCallNudgeRecovered.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已纠正\"光说不做\"'**
+  String get tlCallNudgeRecovered;
+
+  /// No description provided for @tlCallProfileChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户画像变更'**
+  String get tlCallProfileChanges;
+
+  /// No description provided for @tlCallMemoryChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'记忆变更'**
+  String get tlCallMemoryChanges;
+
+  /// No description provided for @tlCallSkillChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能变更'**
+  String get tlCallSkillChanges;
+
+  /// No description provided for @tlCallProfileDiff.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'画像差异摘要'**
+  String get tlCallProfileDiff;
+
+  /// No description provided for @tlCallNoChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无变更'**
+  String get tlCallNoChanges;
+
+  /// No description provided for @tlCallUnnamed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'(未命名)'**
+  String get tlCallUnnamed;
+
+  /// No description provided for @tlCallJustNow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刚刚'**
+  String get tlCallJustNow;
+
+  /// No description provided for @sessMetaMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息总数'**
+  String get sessMetaMessages;
+
+  /// No description provided for @sessMetaPromptBuilds.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt 构建'**
+  String get sessMetaPromptBuilds;
+
+  /// No description provided for @sessMetaCompressions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩次数'**
+  String get sessMetaCompressions;
+
+  /// No description provided for @sessMetaTotalTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总 Token'**
+  String get sessMetaTotalTokens;
+
+  /// No description provided for @sessMetaMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前模式'**
+  String get sessMetaMode;
+
+  /// No description provided for @sessMetaRuntimeTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行工具'**
+  String get sessMetaRuntimeTools;
+
+  /// No description provided for @sessMetaPending.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未展示'**
+  String get sessMetaPending;
+
+  /// No description provided for @sessMetaCurrentSessionMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话元数据'**
+  String get sessMetaCurrentSessionMetadata;
+
+  /// No description provided for @sessMetaSessionOverview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话概览'**
+  String get sessMetaSessionOverview;
+
+  /// No description provided for @sessMetaExtendedMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'扩展元数据'**
+  String get sessMetaExtendedMetadata;
+
+  /// No description provided for @sessMetaStatistics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'统计信息'**
+  String get sessMetaStatistics;
+
+  /// No description provided for @sessMetaUser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户'**
+  String get sessMetaUser;
+
+  /// No description provided for @sessMetaAssistant.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'助手'**
+  String get sessMetaAssistant;
+
+  /// No description provided for @sessMetaTool.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具'**
+  String get sessMetaTool;
+
+  /// No description provided for @sessMetaSkill.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'技能'**
+  String get sessMetaSkill;
+
+  /// No description provided for @sessMetaCompression.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩'**
+  String get sessMetaCompression;
+
+  /// No description provided for @sessMetaEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行环境'**
+  String get sessMetaEnvironment;
+
+  /// No description provided for @sessMetaCommandPolicy.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令策略'**
+  String get sessMetaCommandPolicy;
+
+  /// No description provided for @sessMetaPromptMetadataIsNotAvailableYet.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前还没有可展示的 prompt 元数据。'**
+  String get sessMetaPromptMetadataIsNotAvailableYet;
+
+  /// No description provided for @sessMetaWriteConfirmation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写命令确认'**
+  String get sessMetaWriteConfirmation;
+
+  /// No description provided for @sessMetaRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'需要确认'**
+  String get sessMetaRequired;
+
+  /// No description provided for @sessMetaNotRequired.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无需确认'**
+  String get sessMetaNotRequired;
+
+  /// No description provided for @sessMetaAllowRules.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'允许规则数'**
+  String get sessMetaAllowRules;
+
+  /// No description provided for @sessMetaThereAreNoSurfacedAllowCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有已上屏的允许命令规则。'**
+  String get sessMetaThereAreNoSurfacedAllowCommand;
+
+  /// No description provided for @sessMetaRuntimeOrchestration.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行时编排'**
+  String get sessMetaRuntimeOrchestration;
+
+  /// No description provided for @sessMetaStateSource.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'状态来源'**
+  String get sessMetaStateSource;
+
+  /// No description provided for @sessMetaGeneratedFromTheCurrentModelMcp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'根据当前模型、MCP/Skills 与 Plan 状态即时生成'**
+  String get sessMetaGeneratedFromTheCurrentModelMcp;
+
+  /// No description provided for @sessMetaTheLastPersistedRuntimeSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上一轮已落盘的运行时快照'**
+  String get sessMetaTheLastPersistedRuntimeSnapshot;
+
+  /// No description provided for @sessMetaToolCatalogState.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具目录状态'**
+  String get sessMetaToolCatalogState;
+
+  /// No description provided for @sessMetaGateReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'门控原因'**
+  String get sessMetaGateReason;
+
+  /// No description provided for @sessMetaRuntimeToolCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前运行时工具数'**
+  String get sessMetaRuntimeToolCount;
+
+  /// No description provided for @sessMetaRefreshesNextRound.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待下一轮刷新'**
+  String get sessMetaRefreshesNextRound;
+
+  /// No description provided for @sessMetaRuntimeNotices.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行时 Notices'**
+  String get sessMetaRuntimeNotices;
+
+  /// No description provided for @sessMetaCurrentRuntimeTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前运行时工具'**
+  String get sessMetaCurrentRuntimeTools;
+
+  /// No description provided for @sessMetaTaskTracking.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'任务跟踪'**
+  String get sessMetaTaskTracking;
+
+  /// No description provided for @sessMetaCurrentTodos.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前 Todo 数量'**
+  String get sessMetaCurrentTodos;
+
+  /// No description provided for @sessMetaPlanRecords.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划记录数量'**
+  String get sessMetaPlanRecords;
+
+  /// No description provided for @sessMetaTodowriteReminder.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'TodoWrite 强提醒'**
+  String get sessMetaTodowriteReminder;
+
+  /// No description provided for @sessMetaTriggered.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已触发'**
+  String get sessMetaTriggered;
+
+  /// No description provided for @sessMetaNotTriggered.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未触发'**
+  String get sessMetaNotTriggered;
+
+  /// No description provided for @sessMetaUnavailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无数据'**
+  String get sessMetaUnavailable;
+
+  /// No description provided for @sessMetaReminderReason.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提醒原因'**
+  String get sessMetaReminderReason;
+
+  /// No description provided for @sessMetaPlanHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划历史'**
+  String get sessMetaPlanHistory;
+
+  /// No description provided for @sessMetaRecentErrors.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近异常'**
+  String get sessMetaRecentErrors;
+
+  /// No description provided for @sessMetaThereAreNoSessionErrorsTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有需要关注的会话异常。'**
+  String get sessMetaThereAreNoSessionErrorsTo;
+
+  /// No description provided for @sessMetaLastPromptMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最后一次 Prompt 元数据'**
+  String get sessMetaLastPromptMetadata;
+
+  /// No description provided for @sessMetaClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get sessMetaClose;
+
+  /// No description provided for @sessMetaPendingApproval.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'待确认'**
+  String get sessMetaPendingApproval;
+
+  /// No description provided for @sessMetaInProgress.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'进行中'**
+  String get sessMetaInProgress;
+
+  /// No description provided for @sessMetaCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已完成'**
+  String get sessMetaCompleted;
+
+  /// No description provided for @sessMetaFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'失败'**
+  String get sessMetaFailed;
+
+  /// No description provided for @sessMetaCancelled.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已取消'**
+  String get sessMetaCancelled;
+
+  /// No description provided for @sessMetaCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建'**
+  String get sessMetaCreated;
+
+  /// No description provided for @sessMetaUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新'**
+  String get sessMetaUpdated;
+
+  /// No description provided for @sessMetaErrorDetail.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误细节'**
+  String get sessMetaErrorDetail;
+
+  /// No description provided for @sessMetaPresented.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已展示'**
+  String get sessMetaPresented;
+
+  /// No description provided for @sessMetaThisSessionEndedEarlyRetryThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话已提前结束。请重试或继续发送更具体的指令。'**
+  String get sessMetaThisSessionEndedEarlyRetryThe;
+
+  /// No description provided for @sessMetaToolCallsStoppedForSafety.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用已安全停止'**
+  String get sessMetaToolCallsStoppedForSafety;
+
+  /// No description provided for @sessMetaOpenhandStoppedThisSessionForSafety.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。'**
+  String get sessMetaOpenhandStoppedThisSessionForSafety;
+
+  /// No description provided for @sessMetaResponseInterrupted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'回答已中断'**
+  String get sessMetaResponseInterrupted;
+
+  /// No description provided for @sessMetaTheResponseWasInterruptedWhileStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。'**
+  String get sessMetaTheResponseWasInterruptedWhileStreaming;
+
+  /// No description provided for @sessMetaRequestFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求发送失败'**
+  String get sessMetaRequestFailed;
+
+  /// No description provided for @sessMetaTheRequestFailedBeforeTheAssistant.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。'**
+  String get sessMetaTheRequestFailedBeforeTheAssistant;
+
+  /// No description provided for @sessMetaContinuationFailed.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续请求失败'**
+  String get sessMetaContinuationFailed;
+
+  /// No description provided for @sessMetaTheSessionFailedWhileRequestingThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。'**
+  String get sessMetaTheSessionFailedWhileRequestingThe;
+
+  /// No description provided for @sessMetaSafetyStop.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'安全停止'**
+  String get sessMetaSafetyStop;
+
+  /// No description provided for @sessMetaStreamError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应中断'**
+  String get sessMetaStreamError;
+
+  /// No description provided for @sessMetaRequestError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求失败'**
+  String get sessMetaRequestError;
+
+  /// No description provided for @sessMetaContinuationError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'后续请求失败'**
+  String get sessMetaContinuationError;
+
+  /// No description provided for @sessMetaToolExecutionError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具执行失败'**
+  String get sessMetaToolExecutionError;
+
+  /// No description provided for @sessMetaCompressionError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'历史压缩失败'**
+  String get sessMetaCompressionError;
+
+  /// No description provided for @sessMetaPromptBlocked.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提示词被拦截'**
+  String get sessMetaPromptBlocked;
+
+  /// No description provided for @sessMetaTitleGenerationError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标题生成失败'**
+  String get sessMetaTitleGenerationError;
+
+  /// No description provided for @sessMetaSessionError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话异常'**
+  String get sessMetaSessionError;
+
+  /// No description provided for @auditNoData.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无数据'**
+  String get auditNoData;
+
+  /// No description provided for @auditCopyJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制 JSON'**
+  String get auditCopyJson;
+
+  /// No description provided for @auditCopiedToClipboard.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已复制到剪贴板'**
+  String get auditCopiedToClipboard;
+
+  /// No description provided for @auditMessageAudit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息审计'**
+  String get auditMessageAudit;
+
+  /// No description provided for @auditClose.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭'**
+  String get auditClose;
+
+  /// No description provided for @auditOverview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'基本信息'**
+  String get auditOverview;
+
+  /// No description provided for @auditMessageId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息 ID'**
+  String get auditMessageId;
+
+  /// No description provided for @auditSessionId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话 ID'**
+  String get auditSessionId;
+
+  /// No description provided for @auditRole.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'角色'**
+  String get auditRole;
+
+  /// No description provided for @auditKind.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'类型'**
+  String get auditKind;
+
+  /// No description provided for @auditCharacterCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'字符数'**
+  String get auditCharacterCount;
+
+  /// No description provided for @auditStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是否流式'**
+  String get auditStreaming;
+
+  /// No description provided for @auditDeleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是否已删除'**
+  String get auditDeleted;
+
+  /// No description provided for @auditHasError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'是否报错'**
+  String get auditHasError;
+
+  /// No description provided for @auditTiming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'时间与耗时'**
+  String get auditTiming;
+
+  /// No description provided for @auditStartedCreated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开始/创建时间'**
+  String get auditStartedCreated;
+
+  /// No description provided for @auditEnded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结束时间'**
+  String get auditEnded;
+
+  /// No description provided for @auditDurationMs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'耗时 (ms)'**
+  String get auditDurationMs;
+
+  /// No description provided for @auditModelTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型与 Token'**
+  String get auditModelTokens;
+
+  /// No description provided for @auditModelId.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型 ID'**
+  String get auditModelId;
+
+  /// No description provided for @auditModelLabel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型标签'**
+  String get auditModelLabel;
+
+  /// No description provided for @auditTotalTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总 Token'**
+  String get auditTotalTokens;
+
+  /// No description provided for @auditPromptTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入 Token'**
+  String get auditPromptTokens;
+
+  /// No description provided for @auditCompletionTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出 Token'**
+  String get auditCompletionTokens;
+
+  /// No description provided for @auditTokenBreakdown.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Token 明细'**
+  String get auditTokenBreakdown;
+
+  /// No description provided for @auditError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误信息'**
+  String get auditError;
+
+  /// No description provided for @auditContent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息内容'**
+  String get auditContent;
+
+  /// No description provided for @auditFullComposedPromptThatWasActually.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。'**
+  String get auditFullComposedPromptThatWasActually;
+
+  /// No description provided for @auditWaitingForComposedPromptInjectionAuto.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）'**
+  String get auditWaitingForComposedPromptInjectionAuto;
+
+  /// No description provided for @auditUserRawInput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户原始输入'**
+  String get auditUserRawInput;
+
+  /// No description provided for @auditStructuredPromptTurns.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'结构化 Prompt Turns'**
+  String get auditStructuredPromptTurns;
+
+  /// No description provided for @auditNone.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无'**
+  String get auditNone;
+
+  /// No description provided for @auditPromptMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Prompt Metadata'**
+  String get auditPromptMetadata;
+
+  /// No description provided for @auditRequest.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求参数'**
+  String get auditRequest;
+
+  /// No description provided for @auditMethod.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'方法'**
+  String get auditMethod;
+
+  /// No description provided for @auditHeaders.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求头'**
+  String get auditHeaders;
+
+  /// No description provided for @auditNotCapturedEnableSettingsAiTelemetry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未捕获（请在设置 → AI → 遥测 中开启调试）'**
+  String get auditNotCapturedEnableSettingsAiTelemetry;
+
+  /// No description provided for @auditBodyQueryPath.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请求体 / Query / Path'**
+  String get auditBodyQueryPath;
+
+  /// No description provided for @auditRawAiResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'原始 AI 响应'**
+  String get auditRawAiResponse;
+
+  /// No description provided for @auditExpandRawResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开查看原始响应'**
+  String get auditExpandRawResponse;
+
+  /// No description provided for @auditNotCapturedDebugDisabledOrResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'未捕获：调试未开启或模型未提供原始响应'**
+  String get auditNotCapturedDebugDisabledOrResponse;
+
+  /// No description provided for @auditAttachments.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件'**
+  String get auditAttachments;
+
+  /// No description provided for @auditAttachmentList.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'附件列表'**
+  String get auditAttachmentList;
+
+  /// No description provided for @auditNoAttachments.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'无附件'**
+  String get auditNoAttachments;
+
+  /// No description provided for @auditFullMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'完整元数据 (metadata)'**
+  String get auditFullMetadata;
+
+  /// No description provided for @auditMessageMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息元数据'**
+  String get auditMessageMetadata;
+
+  /// No description provided for @auditSessionEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话环境'**
+  String get auditSessionEnvironment;
+
+  /// No description provided for @auditEnvironmentSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'环境快照'**
+  String get auditEnvironmentSnapshot;
+
+  /// No description provided for @auditAuditSnapshotCopied.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'审计快照已复制'**
+  String get auditAuditSnapshotCopied;
+
+  /// No description provided for @auditCopyAuditSnapshot.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'复制审计快照'**
+  String get auditCopyAuditSnapshot;
+
+  /// No description provided for @auditSessionMetadataSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话元数据已更新'**
+  String get auditSessionMetadataSaved;
+
+  /// No description provided for @auditSessionAudit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话审计'**
+  String get auditSessionAudit;
+
+  /// No description provided for @auditTemplate.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模板'**
+  String get auditTemplate;
+
+  /// No description provided for @auditCreatedAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'创建时间'**
+  String get auditCreatedAt;
+
+  /// No description provided for @auditUpdatedAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'更新时间'**
+  String get auditUpdatedAt;
+
+  /// No description provided for @auditMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息数'**
+  String get auditMessages;
+
+  /// No description provided for @auditLastModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近模型'**
+  String get auditLastModel;
+
+  /// No description provided for @auditTitleEditable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标题编辑'**
+  String get auditTitleEditable;
+
+  /// No description provided for @auditSessionTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话标题'**
+  String get auditSessionTitle;
+
+  /// No description provided for @auditSaveTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存标题'**
+  String get auditSaveTitle;
+
+  /// No description provided for @auditSessionMetadataEditableJson.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话元数据 (可编辑 JSON)'**
+  String get auditSessionMetadataEditableJson;
+
+  /// No description provided for @auditSaveWritesBackThroughTheSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。'**
+  String get auditSaveWritesBackThroughTheSession;
+
+  /// No description provided for @auditSaveMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存元数据'**
+  String get auditSaveMetadata;
+
+  /// No description provided for @auditRuntimePromptMetadataReadOnly.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'运行时 Prompt 元数据 (只读)'**
+  String get auditRuntimePromptMetadataReadOnly;
+
+  /// No description provided for @auditUsefulForPromptConstructionTroubleshooti.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用于排查本轮消息拼装上下文；自动由系统写入。'**
+  String get auditUsefulForPromptConstructionTroubleshooti;
+
+  /// No description provided for @auditLastPromptMetadata.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'last_prompt_metadata'**
+  String get auditLastPromptMetadata;
+
+  /// No description provided for @auditNoRuntimePromptMetadataYet.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无运行时 Prompt 元数据'**
+  String get auditNoRuntimePromptMetadataYet;
+
+  /// No description provided for @auditEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话环境'**
+  String get auditEnvironment;
+
+  /// No description provided for @auditErrorList.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'错误列表'**
+  String get auditErrorList;
+
+  /// No description provided for @auditNoErrorsRecorded.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无错误'**
+  String get auditNoErrorsRecorded;
+
+  /// No description provided for @auditTapARowToInspectA.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击单条可打开消息审计弹窗；支持删除单条消息。'**
+  String get auditTapARowToInspectA;
+
+  /// No description provided for @auditNoMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'暂无消息'**
+  String get auditNoMessages;
+
+  /// No description provided for @auditAudit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'审计'**
+  String get auditAudit;
+
+  /// No description provided for @auditDelete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get auditDelete;
+
+  /// No description provided for @progExpFESelectOpenedFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定位到已打开文件'**
+  String get progExpFESelectOpenedFile;
+
+  /// No description provided for @progExpFEExpandSelected.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'展开选中目录'**
+  String get progExpFEExpandSelected;
+
+  /// No description provided for @progExpFECollapseAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部折叠'**
+  String get progExpFECollapseAll;
+
+  /// No description provided for @progExpFETypeASymbolNameToSearch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入符号名后即可在当前工作区内跨文件搜索。'**
+  String get progExpFETypeASymbolNameToSearch;
+
+  /// No description provided for @progExpFENoWorkspaceSymbolBackendIsAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件没有可用的工作区符号后端。'**
+  String get progExpFENoWorkspaceSymbolBackendIsAvailable;
+
+  /// No description provided for @progExpFENoMatchingWorkspaceSymbolsWereFound.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有找到匹配的工作区符号。'**
+  String get progExpFENoMatchingWorkspaceSymbolsWereFound;
+
+  /// No description provided for @progExpFEFetchingWorkspaceSymbolsFailedConfirmTha.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。'**
+  String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha;
+
+  /// No description provided for @progExpFEThisFileIsStillInLarge.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。'**
+  String get progExpFEThisFileIsStillInLarge;
+
+  /// No description provided for @progExpFENoLspSymbolBackendIsAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。'**
+  String get progExpFENoLspSymbolBackendIsAvailable;
+
+  /// No description provided for @progExpFETheLspServerReturnedAnEmpty.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'LSP 已返回空符号列表。'**
+  String get progExpFETheLspServerReturnedAnEmpty;
+
+  /// No description provided for @progExpFEFetchingLspSymbolsFailedSoThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'读取 LSP 符号失败，已回退到本地符号提取。'**
+  String get progExpFEFetchingLspSymbolsFailedSoThe;
+
+  /// No description provided for @progExpFERenameSymbol.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名符号'**
+  String get progExpFERenameSymbol;
+
+  /// No description provided for @progExpFEReviewTheDiffForThisRename.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'先查看这次重命名将影响的差异，再决定是否应用。'**
+  String get progExpFEReviewTheDiffForThisRename;
+
+  /// No description provided for @progExpFETheRenameWasCancelledAndNo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已取消本次重命名，未写入任何修改。'**
+  String get progExpFETheRenameWasCancelledAndNo;
+
+  /// No description provided for @progExpFETheSymbolAtTheCurrentCursor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置不支持重命名。'**
+  String get progExpFETheSymbolAtTheCurrentCursor;
+
+  /// No description provided for @progExpFETheLanguageServerDidNotReturn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'语言服务器没有返回需要应用的修改。'**
+  String get progExpFETheLanguageServerDidNotReturn;
+
+  /// No description provided for @progExpFECodeActions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代码操作'**
+  String get progExpFECodeActions;
+
+  /// No description provided for @progExpFENoCodeActionsAreAvailableAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有可用的代码操作。'**
+  String get progExpFENoCodeActionsAreAvailableAt;
+
+  /// No description provided for @progExpFEReviewTheDiffFromThisCode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'先预览该代码操作将要写入的差异，再决定是否应用。'**
+  String get progExpFEReviewTheDiffFromThisCode;
+
+  /// No description provided for @progExpFEIfTheLanguageServerCommandRequests.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。'**
+  String get progExpFEIfTheLanguageServerCommandRequests;
+
+  /// No description provided for @progExpFETheCodeActionWasCancelledAnd.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已取消本次代码操作，未写入任何修改。'**
+  String get progExpFETheCodeActionWasCancelledAnd;
+
+  /// No description provided for @progExpFEExecutedTheLanguageServerCommand.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已执行语言服务器命令。'**
+  String get progExpFEExecutedTheLanguageServerCommand;
+
+  /// No description provided for @progExpFESomeLanguageServerRequestedEditsWere.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'有语言服务器请求的修改被跳过。'**
+  String get progExpFESomeLanguageServerRequestedEditsWere;
+
+  /// No description provided for @progExpFEThisCodeActionDidNotReturn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'该代码操作没有返回可应用的编辑。'**
+  String get progExpFEThisCodeActionDidNotReturn;
+
+  /// No description provided for @progExpFEQuickFix.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快速修复'**
+  String get progExpFEQuickFix;
+
+  /// No description provided for @progExpFENoQuickFixesAreAvailableFor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前诊断位置没有可用的快速修复。'**
+  String get progExpFENoQuickFixesAreAvailableFor;
+
+  /// No description provided for @progExpFENoCodeActionsAreAvailableFor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前诊断位置没有可用的代码操作。'**
+  String get progExpFENoCodeActionsAreAvailableFor;
+
+  /// No description provided for @progExpFENoQuickFixesAreAvailableFor2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前诊断行没有可用的快速修复。'**
+  String get progExpFENoQuickFixesAreAvailableFor2;
+
+  /// No description provided for @progExpFETheCurrentFileIsStillLoading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件尚未完成加载，暂时无法执行 LSP 操作。'**
+  String get progExpFETheCurrentFileIsStillLoading;
+
+  /// No description provided for @progExpFEThisFileIsStillInLarge2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。'**
+  String get progExpFEThisFileIsStillInLarge2;
+
+  /// No description provided for @progExpFETheCurrentFileIsStillLoading2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件尚未完成加载，暂时无法执行文档级编辑操作。'**
+  String get progExpFETheCurrentFileIsStillLoading2;
+
+  /// No description provided for @progExpFEThisFileIsStillInLarge3.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。'**
+  String get progExpFEThisFileIsStillInLarge3;
+
+  /// No description provided for @progExpFEFormatDocument.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化文档'**
+  String get progExpFEFormatDocument;
+
+  /// No description provided for @progExpFETheCurrentFileIsNotReady.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件尚未准备好，稍后再试。'**
+  String get progExpFETheCurrentFileIsNotReady;
+
+  /// No description provided for @progExpFETheFormatterDidNotReturnAny.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化器没有返回可应用的修改。'**
+  String get progExpFETheFormatterDidNotReturnAny;
+
+  /// No description provided for @progExpFEFormattingProducedTheSameContentSo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化结果与当前内容一致，没有产生新的文本变更。'**
+  String get progExpFEFormattingProducedTheSameContentSo;
+
+  /// No description provided for @progExpFEGoToDefinition.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定义跳转'**
+  String get progExpFEGoToDefinition;
+
+  /// No description provided for @progExpFENoDefinitionWasFoundAtThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有找到定义。'**
+  String get progExpFENoDefinitionWasFoundAtThe;
+
+  /// No description provided for @progExpFEMultipleDefinitionsWereFoundChooseA.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'找到多个定义结果，请选择要跳转的位置。'**
+  String get progExpFEMultipleDefinitionsWereFoundChooseA;
+
+  /// No description provided for @progExpFEFindReferences.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'引用查找'**
+  String get progExpFEFindReferences;
+
+  /// No description provided for @progExpFENoReferencesWereFoundAtThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有找到引用。'**
+  String get progExpFENoReferencesWereFoundAtThe;
+
+  /// No description provided for @progExpFEHoverInfo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'悬浮信息'**
+  String get progExpFEHoverInfo;
+
+  /// No description provided for @progExpFEThereIsNoHoverInformationAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有可显示的悬浮信息。'**
+  String get progExpFEThereIsNoHoverInformationAt;
+
+  /// No description provided for @progExpFELspBackend.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'LSP 后端'**
+  String get progExpFELspBackend;
+
+  /// No description provided for @progExpFEReResolveTheBackendForThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重新解析当前文件后端'**
+  String get progExpFEReResolveTheBackendForThe;
+
+  /// No description provided for @progExpFEInspectBackendDetails.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看后端详情'**
+  String get progExpFEInspectBackendDetails;
+
+  /// No description provided for @progExpFECloseEsc.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭 (Esc)'**
+  String get progExpFECloseEsc;
+
+  /// No description provided for @progExpFEToggleComment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'切换注释'**
+  String get progExpFEToggleComment;
+
+  /// No description provided for @progExpFEThisLanguageDoesNotHaveA.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前语言暂未配置注释策略，无法执行注释切换。'**
+  String get progExpFEThisLanguageDoesNotHaveA;
+
+  /// No description provided for @progExpFEGoToImplementation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳转到实现'**
+  String get progExpFEGoToImplementation;
+
+  /// No description provided for @progExpFESignatureHelp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'参数信息'**
+  String get progExpFESignatureHelp;
+
+  /// No description provided for @progExpFEThereIsNoSignatureHelpAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有可显示的参数签名信息。'**
+  String get progExpFEThereIsNoSignatureHelpAvailable;
+
+  /// No description provided for @progExpFEPreviousMatch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上一个结果'**
+  String get progExpFEPreviousMatch;
+
+  /// No description provided for @progExpFENextMatch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下一个结果'**
+  String get progExpFENextMatch;
+
+  /// No description provided for @progExpFEMatchCase.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'区分大小写'**
+  String get progExpFEMatchCase;
+
+  /// No description provided for @progExpFEShowReplace.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示替换'**
+  String get progExpFEShowReplace;
+
+  /// No description provided for @progExpFEReplaceCurrent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'替换当前结果'**
+  String get progExpFEReplaceCurrent;
+
+  /// No description provided for @progExpFEReplaceAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部替换'**
+  String get progExpFEReplaceAll;
+
+  /// No description provided for @progExpFECurrentFileSymbols.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件符号'**
+  String get progExpFECurrentFileSymbols;
+
+  /// No description provided for @progExpFEWorkspaceSymbols.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作区符号'**
+  String get progExpFEWorkspaceSymbols;
+
+  /// No description provided for @progExpFERefreshDiagnostics.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'刷新诊断'**
+  String get progExpFERefreshDiagnostics;
+
+  /// No description provided for @progExpFESymbols.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'符号'**
+  String get progExpFESymbols;
+
+  /// No description provided for @progExpFESymbolNavigationShiftCmdCtrlO.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'符号导航 (Shift+Cmd/Ctrl+O)'**
+  String get progExpFESymbolNavigationShiftCmdCtrlO;
+
+  /// No description provided for @progExpFEWorkspace.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全局符号'**
+  String get progExpFEWorkspace;
+
+  /// No description provided for @progExpFEWorkspaceSymbolSearchCmdCtrlT.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工作区符号搜索 (Cmd/Ctrl+T)'**
+  String get progExpFEWorkspaceSymbolSearchCmdCtrlT;
+
+  /// No description provided for @progExpFEShowDiagnosticsForTheCurrentFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示当前文件诊断'**
+  String get progExpFEShowDiagnosticsForTheCurrentFile;
+
+  /// No description provided for @progExpFEInspectTheLspBackendBoundTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看当前文件绑定的 LSP 后端'**
+  String get progExpFEInspectTheLspBackendBoundTo;
+
+  /// No description provided for @progExpFEDef.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定义'**
+  String get progExpFEDef;
+
+  /// No description provided for @progExpFEGoToDefinitionF12CmdCtrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定义跳转 (F12 / Cmd/Ctrl+B)'**
+  String get progExpFEGoToDefinitionF12CmdCtrl;
+
+  /// No description provided for @progExpFERefs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'引用'**
+  String get progExpFERefs;
+
+  /// No description provided for @progExpFEFindReferencesShiftF12CmdCtrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)'**
+  String get progExpFEFindReferencesShiftF12CmdCtrl;
+
+  /// No description provided for @progExpFEHover.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'悬浮'**
+  String get progExpFEHover;
+
+  /// No description provided for @progExpFEHoverInfoCmdCtrlI.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'悬浮信息 (Cmd/Ctrl+I)'**
+  String get progExpFEHoverInfoCmdCtrlI;
+
+  /// No description provided for @progExpFERename.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名'**
+  String get progExpFERename;
+
+  /// No description provided for @progExpFERenameSymbolF2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名符号 (F2)'**
+  String get progExpFERenameSymbolF2;
+
+  /// No description provided for @progExpFEActions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'操作'**
+  String get progExpFEActions;
+
+  /// No description provided for @progExpFECodeActionsCmdCtrl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代码操作 (Cmd/Ctrl+.)'**
+  String get progExpFECodeActionsCmdCtrl;
+
+  /// No description provided for @progExpFEFormat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化'**
+  String get progExpFEFormat;
+
+  /// No description provided for @progExpFENoImplementationWasFoundAtThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前光标位置没有找到实现。'**
+  String get progExpFENoImplementationWasFoundAtThe;
+
+  /// No description provided for @progExpFEMultipleImplementationsFoundChooseATarge.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'找到多个实现，请选择要跳转的位置。'**
+  String get progExpFEMultipleImplementationsFoundChooseATarge;
+
+  /// No description provided for @progExpFERefactor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重构'**
+  String get progExpFERefactor;
+
+  /// No description provided for @progExpFEReviewTheChangesBeforeApplying.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看此次重构将影响的差异，再决定是否应用。'**
+  String get progExpFEReviewTheChangesBeforeApplying;
+
+  /// No description provided for @progExpFESaveFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存文件'**
+  String get progExpFESaveFile;
+
+  /// No description provided for @progExpFECloseEditorReturnToSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭编辑器，返回会话'**
+  String get progExpFECloseEditorReturnToSession;
+
+  /// No description provided for @progExpFEShowQuickFixesForThisDiagnostic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示该诊断行的快速修复'**
+  String get progExpFEShowQuickFixesForThisDiagnostic;
+
+  /// No description provided for @progExpFELargeFilePerformanceModeIsActive.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。'**
+  String get progExpFELargeFilePerformanceModeIsActive;
+
+  /// No description provided for @progExpFEOpenFullEditorAnyway.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仍然打开完整编辑器'**
+  String get progExpFEOpenFullEditorAnyway;
+
+  /// No description provided for @settingsShortcuts.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快捷键'**
+  String get settingsShortcuts;
+
+  /// No description provided for @settingsConfigureKeyCombinationsForCommonActions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'为常用操作配置组合键。当前最多支持同时按下 4 个按键。'**
+  String get settingsConfigureKeyCombinationsForCommonActions;
+
+  /// No description provided for @settingsBuiltInTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内建工具'**
+  String get settingsBuiltInTools;
+
+  /// No description provided for @settingsCrons.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'定时任务'**
+  String get settingsCrons;
+
+  /// No description provided for @settingsControlsRetentionAndColdStartCleanup.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。'**
+  String get settingsControlsRetentionAndColdStartCleanup;
+
+  /// No description provided for @settingsHermesTalker.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Hermes Talker'**
+  String get settingsHermesTalker;
+
+  /// No description provided for @settingsConfigureHermesTalkerSelfLearningEvery.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。'**
+  String get settingsConfigureHermesTalkerSelfLearningEvery;
+
+  /// No description provided for @settingsEditor.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑器'**
+  String get settingsEditor;
+
+  /// No description provided for @settingsManagePerLanguageLspBackendsInstall.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。'**
+  String get settingsManagePerLanguageLspBackendsInstall;
+
+  /// No description provided for @settingsAppData.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用数据'**
+  String get settingsAppData;
+
+  /// No description provided for @settingsPerResponseToolCallLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单轮工具调用上限'**
+  String get settingsPerResponseToolCallLimit;
+
+  /// No description provided for @settingsSaveLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存上限'**
+  String get settingsSaveLimit;
+
+  /// No description provided for @settingsSequentialToolRoundLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'连续工具轮次上限'**
+  String get settingsSequentialToolRoundLimit;
+
+  /// No description provided for @settingsSessionSettings.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话设置'**
+  String get settingsSessionSettings;
+
+  /// No description provided for @settingsConfigureDefaultBehaviourForNewSessions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。'**
+  String get settingsConfigureDefaultBehaviourForNewSessions;
+
+  /// No description provided for @settingsSendTimeoutS.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送超时（秒）'**
+  String get settingsSendTimeoutS;
+
+  /// No description provided for @settingsMaximumWaitTimeToEstablishThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。'**
+  String get settingsMaximumWaitTimeToEstablishThe;
+
+  /// No description provided for @settingsSaveTimeout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存超时'**
+  String get settingsSaveTimeout;
+
+  /// No description provided for @settingsResponseTimeoutS.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应超时（秒）'**
+  String get settingsResponseTimeoutS;
+
+  /// No description provided for @settingsMaximumWaitForACompleteResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'非流式请求等待完整响应的最大时间，默认 120 秒。'**
+  String get settingsMaximumWaitForACompleteResponse;
+
+  /// No description provided for @settingsStreamIdleTimeoutS.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待超时（秒）'**
+  String get settingsStreamIdleTimeoutS;
+
+  /// No description provided for @settingsMaximumIdleWaitBetweenStreamChunks.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。'**
+  String get settingsMaximumIdleWaitBetweenStreamChunks;
+
+  /// No description provided for @settingsAutoTitle.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动标题'**
+  String get settingsAutoTitle;
+
+  /// No description provided for @settingsWhenEnabledATitleIsAutomatically.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启后，新会话发送首条消息时将自动生成会话标题。'**
+  String get settingsWhenEnabledATitleIsAutomatically;
+
+  /// No description provided for @settingsDefaultSessionMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认会话模式'**
+  String get settingsDefaultSessionMode;
+
+  /// No description provided for @settingsDefaultInteractionModeForNewSessions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新会话的默认交互模式：对话（Chat）或规划（Plan）。'**
+  String get settingsDefaultInteractionModeForNewSessions;
+
+  /// No description provided for @settingsChat.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'对话'**
+  String get settingsChat;
+
+  /// No description provided for @settingsPlan.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'规划'**
+  String get settingsPlan;
+
+  /// No description provided for @settingsDefaultFullAccess.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认全访问权限'**
+  String get settingsDefaultFullAccess;
+
+  /// No description provided for @settingsWhenEnabledNewSessionsStartIn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。'**
+  String get settingsWhenEnabledNewSessionsStartIn;
+
+  /// No description provided for @settingsUserProfile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户画像'**
+  String get settingsUserProfile;
+
+  /// No description provided for @settingsMaintainAGlobalUserProfileLanguage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。'**
+  String get settingsMaintainAGlobalUserProfileLanguage;
+
+  /// No description provided for @settingsModelProviderManagement.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模型提供商管理'**
+  String get settingsModelProviderManagement;
+
+  /// No description provided for @settingsAddSelectTestAndMaintainModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。'**
+  String get settingsAddSelectTestAndMaintainModel;
+
+  /// No description provided for @settingsCompressionTrigger.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'压缩触发阈值'**
+  String get settingsCompressionTrigger;
+
+  /// No description provided for @settingsOnceTheUncompressedHistoryInA.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。'**
+  String get settingsOnceTheUncompressedHistoryInA;
+
+  /// No description provided for @settingsToolCallOutputCompressionThreshold.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具调用输出压缩阈值'**
+  String get settingsToolCallOutputCompressionThreshold;
+
+  /// No description provided for @settingsWhenAToolCallReturnsMore.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。'**
+  String get settingsWhenAToolCallReturnsMore;
+
+  /// No description provided for @settingsDefaultsTo40IfOneAssistant.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。'**
+  String get settingsDefaultsTo40IfOneAssistant;
+
+  /// No description provided for @settingsDefaultsTo24RoundsIfThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。'**
+  String get settingsDefaultsTo24RoundsIfThe;
+
+  /// No description provided for @settingsImageSizeLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'图片大小上限'**
+  String get settingsImageSizeLimit;
+
+  /// No description provided for @settingsDefaultsTo1mbImageAttachmentsLarger.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。'**
+  String get settingsDefaultsTo1mbImageAttachmentsLarger;
+
+  /// No description provided for @settingsCostControl.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成本控制'**
+  String get settingsCostControl;
+
+  /// No description provided for @settingsReduceTokenCostsByFreezingThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。'**
+  String get settingsReduceTokenCostsByFreezingThe;
+
+  /// No description provided for @settingsEnableInputCache.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用输入缓存'**
+  String get settingsEnableInputCache;
+
+  /// No description provided for @settingsDisabledByDefaultWhenEnabledEvery.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。'**
+  String get settingsDisabledByDefaultWhenEnabledEvery;
+
+  /// No description provided for @settingsCacheBreakpointUpdateMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点更新模式'**
+  String get settingsCacheBreakpointUpdateMode;
+
+  /// No description provided for @settingsChooseTheSlidingUnitForThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。'**
+  String get settingsChooseTheSlidingUnitForThe;
+
+  /// No description provided for @settingsByMessageCountUserAssistant.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按消息条数 (user+assistant)'**
+  String get settingsByMessageCountUserAssistant;
+
+  /// No description provided for @settingsByUserMessageCountOnly.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按用户消息条数'**
+  String get settingsByUserMessageCountOnly;
+
+  /// No description provided for @settingsByAccumulatedTokens.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'按累计 tokens'**
+  String get settingsByAccumulatedTokens;
+
+  /// No description provided for @settingsCacheBreakpointUpdateInterval.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点更新间隔'**
+  String get settingsCacheBreakpointUpdateInterval;
+
+  /// No description provided for @settingsDefault10MeaningDependsOnThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。'**
+  String get settingsDefault10MeaningDependsOnThe;
+
+  /// No description provided for @settingsSave.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存'**
+  String get settingsSave;
+
+  /// No description provided for @settingsCacheBreakpointCount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点数量'**
+  String get settingsCacheBreakpointCount;
+
+  /// No description provided for @settingsDefault4Range14Anthropic.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。'**
+  String get settingsDefault4Range14Anthropic;
+
+  /// No description provided for @settingsCommandSafety.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'命令安全'**
+  String get settingsCommandSafety;
+
+  /// No description provided for @settingsControlWriteCommandConfirmationForBash.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。'**
+  String get settingsControlWriteCommandConfirmationForBash;
+
+  /// No description provided for @settingsWriteCommandConfirmation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'写命令确认'**
+  String get settingsWriteCommandConfirmation;
+
+  /// No description provided for @settingsEnabledByDefaultWhenTheAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。'**
+  String get settingsEnabledByDefaultWhenTheAi;
+
+  /// No description provided for @settingsAllowCommandList.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'允许命令列表'**
+  String get settingsAllowCommandList;
+
+  /// No description provided for @settingsMatchingWriteLikeBashCommandsSkip.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。'**
+  String get settingsMatchingWriteLikeBashCommandsSkip;
+
+  /// No description provided for @settingsAddAllowRule.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增允许规则'**
+  String get settingsAddAllowRule;
+
+  /// No description provided for @settingsNoAllowRulesConfigured.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有允许命令规则'**
+  String get settingsNoAllowRulesConfigured;
+
+  /// No description provided for @settingsAddARuleToLetMatching.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增规则后，匹配到的写命令将跳过确认弹窗。'**
+  String get settingsAddARuleToLetMatching;
+
+  /// No description provided for @settingsDenyCommandList.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'禁止命令列表'**
+  String get settingsDenyCommandList;
+
+  /// No description provided for @settingsMatchingBashCommandsAreBlockedBefore.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。'**
+  String get settingsMatchingBashCommandsAreBlockedBefore;
+
+  /// No description provided for @settingsAddRule.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增规则'**
+  String get settingsAddRule;
+
+  /// No description provided for @settingsNoDenyRulesConfigured.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前没有禁止命令规则'**
+  String get settingsNoDenyRulesConfigured;
+
+  /// No description provided for @settingsAddARuleToBlockMatching.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'新增规则后，匹配到的 bash 命令会被直接拦截。'**
+  String get settingsAddARuleToBlockMatching;
+
+  /// No description provided for @settingsTelemetry.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'遥测'**
+  String get settingsTelemetry;
+
+  /// No description provided for @settingsWhenEnabledOpenhandCapturesRawAi.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。'**
+  String get settingsWhenEnabledOpenhandCapturesRawAi;
+
+  /// No description provided for @settingsDebugMode.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启调试'**
+  String get settingsDebugMode;
+
+  /// No description provided for @settingsOffByDefaultWhenEnabledEvery.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。'**
+  String get settingsOffByDefaultWhenEnabledEvery;
+
+  /// No description provided for @settingsCaptureRawPayload.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'捕获原始响应'**
+  String get settingsCaptureRawPayload;
+
+  /// No description provided for @settingsEnabledByDefaultOnlyActiveWhen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。'**
+  String get settingsEnabledByDefaultOnlyActiveWhen;
+
+  /// No description provided for @settingsCaptureEnvironment.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'捕获环境数据'**
+  String get settingsCaptureEnvironment;
+
+  /// No description provided for @settingsOffByDefaultOnlyActiveWhen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。'**
+  String get settingsOffByDefaultOnlyActiveWhen;
+
+  /// No description provided for @settingsShortcutBindings.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快捷键绑定'**
+  String get settingsShortcutBindings;
+
+  /// No description provided for @settingsClickRecordThenPressTheNew.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。'**
+  String get settingsClickRecordThenPressTheNew;
+
+  /// No description provided for @settingsAutoCleanupExecutionHistory.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动清理执行历史'**
+  String get settingsAutoCleanupExecutionHistory;
+
+  /// No description provided for @settingsOnEveryColdStartAnAsync.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。'**
+  String get settingsOnEveryColdStartAnAsync;
+
+  /// No description provided for @settingsEnableSelfLearning.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'启用自主学习'**
+  String get settingsEnableSelfLearning;
+
+  /// No description provided for @settingsWhenOffTheSchedulerSkipsEvery.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。'**
+  String get settingsWhenOffTheSchedulerSkipsEvery;
+
+  /// No description provided for @settingsShowSelfLearningMessages.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示自我学习消息'**
+  String get settingsShowSelfLearningMessages;
+
+  /// No description provided for @settingsWhenOffSelfLearningCardsAre.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'关闭后，对话中不再展示\"自我学习\"卡片（后台学习仍会运行）。默认开启。'**
+  String get settingsWhenOffSelfLearningCardsAre;
+
+  /// No description provided for @settingsToolCatalogOverview.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'工具目录总览'**
+  String get settingsToolCatalogOverview;
+
+  /// No description provided for @settingsResetAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置全部'**
+  String get settingsResetAll;
+
+  /// No description provided for @settingsEnableAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部启用'**
+  String get settingsEnableAll;
+
+  /// No description provided for @settingsDisableAll.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全部禁用'**
+  String get settingsDisableAll;
+
+  /// No description provided for @settingsNoBuiltInToolConfigurations.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'没有内建工具配置'**
+  String get settingsNoBuiltInToolConfigurations;
+
+  /// No description provided for @settingsClickResetAllToRestoreThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'点击\"重置全部\"恢复默认工具列表。'**
+  String get settingsClickResetAllToRestoreThe;
+
+  /// No description provided for @settingsResetBuiltInToolConfigs.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置内建工具配置'**
+  String get settingsResetBuiltInToolConfigs;
+
+  /// No description provided for @settingsCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get settingsCancel;
+
+  /// No description provided for @settingsReset.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重置'**
+  String get settingsReset;
+
+  /// No description provided for @settingsDeleteCustomTool.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除自定义工具'**
+  String get settingsDeleteCustomTool;
+
+  /// No description provided for @settingsDelete.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除'**
+  String get settingsDelete;
+
+  /// No description provided for @settingsSendTimeoutSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送超时时间已保存。'**
+  String get settingsSendTimeoutSaved;
+
+  /// No description provided for @settingsResponseTimeoutSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'响应超时时间已保存。'**
+  String get settingsResponseTimeoutSaved;
+
+  /// No description provided for @settingsStreamIdleTimeoutSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'等待超时时间已保存。'**
+  String get settingsStreamIdleTimeoutSaved;
+
+  /// No description provided for @settingsCacheBreakpointUpdateIntervalSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点更新间隔已保存'**
+  String get settingsCacheBreakpointUpdateIntervalSaved;
+
+  /// No description provided for @settingsCacheBreakpointCountSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点数量已保存'**
+  String get settingsCacheBreakpointCountSaved;
+
+  /// No description provided for @settingsCacheBreakpointPositions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点位置'**
+  String get settingsCacheBreakpointPositions;
+
+  /// No description provided for @settingsCacheBreakpointPositionsSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存断点位置已保存'**
+  String get settingsCacheBreakpointPositionsSaved;
+
+  /// No description provided for @settingsEnterAToolCallLimitGreater.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入大于 0 的工具调用上限。'**
+  String get settingsEnterAToolCallLimitGreater;
+
+  /// No description provided for @settingsThePerResponseToolCallLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单轮工具调用上限已保存。'**
+  String get settingsThePerResponseToolCallLimit;
+
+  /// No description provided for @settingsEnterASequentialToolRoundLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入大于 0 的连续工具轮次上限。'**
+  String get settingsEnterASequentialToolRoundLimit;
+
+  /// No description provided for @settingsTheSequentialToolRoundLimitHas.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'连续工具轮次上限已保存。'**
+  String get settingsTheSequentialToolRoundLimitHas;
+
+  /// No description provided for @settingsDeleteDenyRule.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除禁止命令规则'**
+  String get settingsDeleteDenyRule;
+
+  /// No description provided for @settingsTheDenyCommandRuleHasBeen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'禁止命令规则已删除。'**
+  String get settingsTheDenyCommandRuleHasBeen;
+
+  /// No description provided for @settingsDeleteAllowRule.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除允许命令规则'**
+  String get settingsDeleteAllowRule;
+
+  /// No description provided for @settingsTheAllowCommandRuleHasBeen.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'允许命令规则已删除。'**
+  String get settingsTheAllowCommandRuleHasBeen;
+
+  /// No description provided for @settingsTheShortcutHasBeenUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'快捷键已更新。'**
+  String get settingsTheShortcutHasBeenUpdated;
+
+  /// No description provided for @settingsTheEditorShortcutHasBeenUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'编辑器快捷键已更新。'**
+  String get settingsTheEditorShortcutHasBeenUpdated;
+
+  /// No description provided for @settingsSendMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'发送消息'**
+  String get settingsSendMessage;
+
+  /// No description provided for @settingsCollapseOrExpandComposer.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'折叠或展开输入框'**
+  String get settingsCollapseOrExpandComposer;
+
+  /// No description provided for @settingsPreviousModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上一个模型'**
+  String get settingsPreviousModel;
+
+  /// No description provided for @settingsNextModel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下一个模型'**
+  String get settingsNextModel;
+
+  /// No description provided for @settingsToggleAutoFollow.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开关自动滚动'**
+  String get settingsToggleAutoFollow;
+
+  /// No description provided for @settingsPreviousSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'上一个会话'**
+  String get settingsPreviousSession;
+
+  /// No description provided for @settingsNextSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'下一个会话'**
+  String get settingsNextSession;
+
+  /// No description provided for @settingsSaveFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存文件'**
+  String get settingsSaveFile;
+
+  /// No description provided for @settingsTriggerCompletion.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'触发智能补全'**
+  String get settingsTriggerCompletion;
+
+  /// No description provided for @settingsShowSignatureHelp.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示签名帮助'**
+  String get settingsShowSignatureHelp;
+
+  /// No description provided for @settingsFind.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查找'**
+  String get settingsFind;
+
+  /// No description provided for @settingsFindAndReplace.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查找替换'**
+  String get settingsFindAndReplace;
+
+  /// No description provided for @settingsGoToLine.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳转到行'**
+  String get settingsGoToLine;
+
+  /// No description provided for @settingsDocumentSymbols.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'文档符号'**
+  String get settingsDocumentSymbols;
+
+  /// No description provided for @settingsWorkspaceSymbols.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'全局符号'**
+  String get settingsWorkspaceSymbols;
+
+  /// No description provided for @settingsGoToDefinition.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳转到定义'**
+  String get settingsGoToDefinition;
+
+  /// No description provided for @settingsFindReferences.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查找引用'**
+  String get settingsFindReferences;
+
+  /// No description provided for @settingsGoToImplementation.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'跳转到实现'**
+  String get settingsGoToImplementation;
+
+  /// No description provided for @settingsShowHoverInfo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示悬浮信息'**
+  String get settingsShowHoverInfo;
+
+  /// No description provided for @settingsRenameSymbol.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'重命名符号'**
+  String get settingsRenameSymbol;
+
+  /// No description provided for @settingsCodeActions.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'代码操作'**
+  String get settingsCodeActions;
+
+  /// No description provided for @settingsFormatDocument.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化文档'**
+  String get settingsFormatDocument;
+
+  /// No description provided for @settingsDefaultsToCtrlEnterAndTriggers.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。'**
+  String get settingsDefaultsToCtrlEnterAndTriggers;
+
+  /// No description provided for @settingsDefaultsToCtrlPForQuickly.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + P，用于快速折叠或展开输入框。'**
+  String get settingsDefaultsToCtrlPForQuickly;
+
+  /// No description provided for @settingsDefaultsToCtrlLeftAndWraps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。'**
+  String get settingsDefaultsToCtrlLeftAndWraps;
+
+  /// No description provided for @settingsDefaultsToCtrlRightAndWraps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。'**
+  String get settingsDefaultsToCtrlRightAndWraps;
+
+  /// No description provided for @settingsDefaultsToCtrlSForToggling.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + S，开关自动滚动模式。'**
+  String get settingsDefaultsToCtrlSForToggling;
+
+  /// No description provided for @settingsDefaultsToCtrlUpAndWraps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + ↑，切换到上一个会话并支持绕圈。'**
+  String get settingsDefaultsToCtrlUpAndWraps;
+
+  /// No description provided for @settingsDefaultsToCtrlDownAndWraps.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 Ctrl + ↓，切换到下一个会话并支持绕圈。'**
+  String get settingsDefaultsToCtrlDownAndWraps;
+
+  /// No description provided for @auditDeleteMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'删除消息'**
+  String get auditDeleteMessage;
+
+  /// No description provided for @auditDeleteThisMessageThisCannotBe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确认删除该消息？此操作不可撤销。'**
+  String get auditDeleteThisMessageThisCannotBe;
+
+  /// No description provided for @auditCancel.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消'**
+  String get auditCancel;
+
+  /// No description provided for @settingsManageTheBuiltInAiTools.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、Schema、优先级、排序、加载策略和其他参数。'**
+  String get settingsManageTheBuiltInAiTools;
+
+  /// No description provided for @settingsManageTheLocalFilesAndDatabase.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker 中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。'**
+  String get settingsManageTheLocalFilesAndDatabase;
+
+  /// No description provided for @settingsThisWillRestoreAllBuiltIn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。'**
+  String get settingsThisWillRestoreAllBuiltIn;
+
+  /// No description provided for @tlCallUnwrap.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'取消换行'**
+  String get tlCallUnwrap;
+
+  /// No description provided for @tlCallWrapLines.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'自动换行'**
+  String get tlCallWrapLines;
+
+  /// No description provided for @tlCallViewCompressedContent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看压缩内容'**
+  String get tlCallViewCompressedContent;
+
+  /// No description provided for @tlCallViewFullContent.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'查看完整内容'**
+  String get tlCallViewFullContent;
+
+  /// No description provided for @tlCallMultiEditEditcount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'多处编辑 ×{editCount}'**
+  String tlCallMultiEditEditcount(Object editCount);
+
+  /// No description provided for @tlCallPreparing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'准备执行'**
+  String get tlCallPreparing;
+
+  /// No description provided for @tlCallPreparingAlt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'准备调用'**
+  String get tlCallPreparingAlt;
+
+  /// No description provided for @tlCallRunningAlt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调用中'**
+  String get tlCallRunningAlt;
+
+  /// No description provided for @tlCallCompleted.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'执行完成'**
+  String get tlCallCompleted;
+
+  /// No description provided for @tlCallCompletedAlt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调用完成'**
+  String get tlCallCompletedAlt;
+
+  /// No description provided for @tlCallTimedOutAlt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调用超时'**
+  String get tlCallTimedOutAlt;
+
+  /// No description provided for @tlCallFailedAlt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'调用失败'**
+  String get tlCallFailedAlt;
+
+  /// No description provided for @tlCallFailedToOpenFileLocationError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'打开文件位置失败：{error}'**
+  String tlCallFailedToOpenFileLocationError(Object error);
+
+  /// No description provided for @tlCallMemoryitemsLengthMemoriesUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{memoryItems_length} 条记忆已更新'**
+  String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length);
+
+  /// No description provided for @tlCallProfileitemsLengthProfileChanges.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{profileItems_length} 项画像已更新'**
+  String tlCallProfileitemsLengthProfileChanges(Object profileItems_length);
+
+  /// No description provided for @tlCallSkillitemsLengthSkillsUpdated.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{skillItems_length} 个技能已更新'**
+  String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length);
+
+  /// No description provided for @tlCallAiThinkingStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 思考（生成中）'**
+  String get tlCallAiThinkingStreaming;
+
+  /// No description provided for @tlCallAiThinking.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 思考'**
+  String get tlCallAiThinking;
+
+  /// No description provided for @tlCallAiResponseStreaming.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 响应（生成中）'**
+  String get tlCallAiResponseStreaming;
+
+  /// No description provided for @tlCallAiResponse.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'AI 响应'**
+  String get tlCallAiResponse;
+
+  /// No description provided for @tlCallAndItemsLength3More.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **' 等 {items_length} 项'**
+  String tlCallAndItemsLength3More(Object items_length_3, Object items_length);
+
+  /// No description provided for @tlCallSecondsSAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{seconds}秒前'**
+  String tlCallSecondsSAgo(Object seconds);
+
+  /// No description provided for @tlCallMinutesMAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{minutes}分钟前'**
+  String tlCallMinutesMAgo(Object minutes);
+
+  /// No description provided for @tlCallHoursHAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{hours}小时前'**
+  String tlCallHoursHAgo(Object hours);
+
+  /// No description provided for @tlCallDaysDAgo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'{days}天前'**
+  String tlCallDaysDAgo(Object days);
+
+  /// No description provided for @sessMetaPlanPlanindex.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'计划 #{planIndex}'**
+  String sessMetaPlanPlanindex(Object planIndex);
+
+  /// No description provided for @sessMetaTheCurrentSequentialToolRoundLimit.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **' 当前连续工具轮次上限为 {configuredLimit}。'**
+  String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit);
+
+  /// No description provided for @auditInvalidJsonErrorMessage.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'JSON 解析失败：{error_message}'**
+  String auditInvalidJsonErrorMessage(Object error_message);
+
+  /// No description provided for @auditSaveFailedError.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保存失败：{error}'**
+  String auditSaveFailedError(Object error);
+
+  /// No description provided for @auditRecentErrorsSessionRecenterrorsLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'最近错误 ({session_recentErrors_length})'**
+  String auditRecentErrorsSessionRecenterrorsLength(
+    Object session_recentErrors_length,
+  );
+
+  /// No description provided for @auditMessagesSessionMessagesLength.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'消息列表 ({session_messages_length})'**
+  String auditMessagesSessionMessagesLength(Object session_messages_length);
+
+  /// No description provided for @progExpFEAppliedEditsLengthFormattingEdits.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已应用 {edits_length} 处格式化修改。'**
+  String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length);
+
+  /// No description provided for @progExpFEFormatTheCurrentFileFormatshortcut.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'格式化当前文件 ({formatShortcut})'**
+  String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut);
+
+  /// No description provided for @progExpFENoCodeactionkindRefactoringIsAvailableAt.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前位置没有可用的\"{codeActionKind}\"重构操作。'**
+  String progExpFENoCodeactionkindRefactoringIsAvailableAt(
+    Object codeActionKind,
+  );
+
+  /// No description provided for @progExpFEHideFileBrowser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'隐藏文件浏览器'**
+  String get progExpFEHideFileBrowser;
+
+  /// No description provided for @progExpFEShowFileBrowser.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'显示文件浏览器'**
+  String get progExpFEShowFileBrowser;
+
+  /// No description provided for @settingsRetentionWindowRetentionDayS.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'保留天数：{retention} 天'**
+  String settingsRetentionWindowRetentionDayS(Object retention);
+
+  /// No description provided for @settingsRangeMinrMaxrDaysDefault7.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'范围 {minR}–{maxR} 天，默认 7 天。下次冷启动时生效。'**
+  String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR);
+
+  /// No description provided for @settingsConcurrentWorkersConcurrency.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'并发 Worker 数：{concurrency}'**
+  String settingsConcurrentWorkersConcurrency(Object concurrency);
+
+  /// No description provided for @settingsCapsHowManySessionsCanBe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'限制单轮 tick 同时派发的会话数 ({minC}–{maxC})。默认 5。'**
+  String settingsCapsHowManySessionsCanBe(Object minC, Object maxC);
+
+  /// No description provided for @settingsSortedLengthBuiltInToolsEnabledcount.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前共 {sorted_length} 个内建工具，已启用 {enabledCount} 个。可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。'**
+  String settingsSortedLengthBuiltInToolsEnabledcount(
+    Object sorted_length,
+    Object enabledCount,
+  );
+
+  /// No description provided for @settingsAreYouSureYouWantTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'确定要删除 \"{config_effectiveName}\" 吗？此操作不可撤销。'**
+  String settingsAreYouSureYouWantTo(Object config_effectiveName);
+
+  /// No description provided for @settingsEnterAValueBetweenMinAnd.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 {min}–{max} 之间的秒数。'**
+  String settingsEnterAValueBetweenMinAnd(Object min, Object max);
+
+  /// No description provided for @settingsPleaseEnterAnIntegerBetweenAppsettingssn.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 {AppSettingsSnapshot_minAiInputCacheUpdateInterval} 到 {AppSettingsSnapshot_maxAiInputCacheUpdateInterval} 之间的整数'**
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+    Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
+    Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
+  );
+
+  /// No description provided for @settingsPleaseEnterAnIntegerBetweenAppsettingssn2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 {AppSettingsSnapshot_minAiInputCacheBreakpointCount} 到 {AppSettingsSnapshot_maxAiInputCacheBreakpointCount} 之间的整数'**
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+    Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
+    Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
+  );
+
+  /// No description provided for @settingsDragTheThumbcountThumbsToPosition.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'拖动 {thumbCount} 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。'**
+  String settingsDragTheThumbcountThumbsToPosition(Object thumbCount);
+
+  /// No description provided for @settingsTheDenyCommandRuleHasBeen2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'禁止命令规则已更新。'**
+  String get settingsTheDenyCommandRuleHasBeen2;
+
+  /// No description provided for @settingsTheAllowCommandRuleHasBeen2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'允许命令规则已更新。'**
+  String get settingsTheAllowCommandRuleHasBeen2;
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndSavesThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，保存当前正在编辑的文件。'**
+  String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndOpensThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，主动弹出智能补全候选列表。'**
+  String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndShowsMethod.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，显示当前调用位置的方法签名、参数解释和文档摘要。'**
+  String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndTogglesThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，打开或关闭查找面板。'**
+  String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndTogglesThe2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，打开或关闭替换面板。'**
+  String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndTogglesThe3.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，打开或关闭跳转到行面板。'**
+  String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndTogglesThe4.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，打开或关闭当前文件的符号列表。'**
+  String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndTogglesThe5.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，打开或关闭全局符号检索面板。'**
+  String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndJumpsTo.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，跳转到当前符号定义。'**
+  String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndFindsReferences.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，查找当前符号的引用位置。'**
+  String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndJumpsTo2.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，跳转到当前符号的实现位置。'**
+  String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndShowsType.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，显示当前位置的类型或文档信息。'**
+  String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndStartsRename.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，发起当前符号重命名。'**
+  String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndShowsAvailable.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，显示可用的代码操作列表。'**
+  String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel);
+
+  /// No description provided for @settingsDefaultsToDefaultlabelAndFormatsThe.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'默认 {defaultLabel}，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。'**
+  String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel);
+
+  /// No description provided for @progExpFEResolvedLspBackendForCurrentFile.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前文件已解析到 {lspName}。\n项目语言：{projLang}\n当前文件语言：{fileLang}\n{modeLine}\n{sdkSourceLine}\n{lspSourceLine}\n工作区：{rootPath}\n命令：{command}'**
+  String progExpFEResolvedLspBackendForCurrentFile(
+    Object lspName,
+    Object projLang,
+    Object fileLang,
+    Object modeLine,
+    Object sdkSourceLine,
+    Object lspSourceLine,
+    Object rootPath,
+    Object command,
+  );
 }
 
 class _AppLocalizationsDelegate

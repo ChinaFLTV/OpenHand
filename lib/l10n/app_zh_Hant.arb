@@ -833,5 +833,911 @@
         "type": "int"
       }
     }
+  },
+  "mdlEdEnterAValidBaseUrlFirst": "请先输入有效的 Base URL",
+  "mdlEdNoModelsFoundFromThisProvider": "未从该提供商扫描到模型。",
+  "mdlEdProviderName": "提供商名称",
+  "mdlEdOptionalEGDeepseekLocalOllama": "可选，如 DeepSeek、本地 Ollama",
+  "mdlEdCurrentlyActiveModel": "当前活跃模型",
+  "mdlEdClickToSetAsActiveModel": "点击切换为活跃模型",
+  "mdlEdTapScanModelsToDiscoverModels": "点击「扫描模型」按钮自动发现可用模型，或手动添加。",
+  "mdlEdActiveModelId": "当前活跃模型 ID",
+  "mdlEdTheModelUsedForConversationsSelect": "当前用于对话的模型。可从上方列表选择或直接输入。",
+  "mdlEdMaxContextTokens": "最大上下文 Token 上限",
+  "mdlEdOptionalLimitsTheHistorySliceUsed": "可选。用于在压缩时限制历史切片大小。",
+  "mdlEdEnterAWholeNumberGreaterThan": "请输入大于 0 的整数",
+  "mdlEdRequestMethod": "请求方式",
+  "mdlEdOutputMode": "输出模式",
+  "mdlEdStreaming": "流式输出",
+  "mdlEdNonStreaming": "非流式输出",
+  "mdlEdMaxOutputTokens": "最大输出 Token 数",
+  "mdlEdOptionalUsesAdapterDefaultIfUnset": "可选。不指定则使用适配器默认值。",
+  "mdlEdTemperature": "温度",
+  "mdlEd0020Default0": "0.0 ~ 2.0，默认 0.7",
+  "mdlEdEnterANumberBetween00": "请输入 0.0 到 2.0 之间的数值",
+  "mdlEdCustomHeaders": "自定义请求头",
+  "mdlEdAdd": "添加",
+  "mdlEdNoCustomHeadersTapAddTo": "暂无自定义请求头。点击「添加」按钮来添加。",
+  "mdlEdHeaderName": "Header 名称",
+  "mdlEdHeaderValue": "Header 值",
+  "mdlEdEditModelProfile": "编辑模型配置",
+  "mdlEdDisplayName": "显示名称",
+  "mdlEdOptionalShownInTheUi": "可选，用于界面展示",
+  "mdlEdDescription": "模型描述",
+  "mdlEdMultimodalSupport": "多模态支持",
+  "mdlEdAutoDetect": "自动检测",
+  "mdlEdYes": "是",
+  "mdlEdNo": "否",
+  "mdlEdSupportsAttachments": "支持附件",
+  "mdlEdSupportedModalities": "支持的模态",
+  "mdlEdText": "文本",
+  "mdlEdImage": "图片生成",
+  "mdlEdVideo": "视频生成",
+  "mdlEdAudio": "音频生成",
+  "mdlEdGenerationCapabilities": "生成能力",
+  "mdlEdPdf": "PDF 生成",
+  "mdlEdPpt": "PPT 生成",
+  "mdlEdTokenLimits": "Token 限制",
+  "mdlEdContextLength": "上下文长度",
+  "mdlEdSummaryLength": "摘要长度",
+  "mdlEdOutputLength": "输出长度",
+  "mdlEdThinkingLength": "思考长度",
+  "mdlEdTokenPricingUsd1mTokensLeave": "Token 单价（USD / 1M tokens，留空表示未配置）",
+  "mdlEdInput": "输入价",
+  "mdlEdOutput": "输出价",
+  "mdlEdCacheRead": "缓存读取价",
+  "mdlEdCacheWrite": "缓存写入价",
+  "mdlEdReset": "重置",
+  "mdlEdCancel": "取消",
+  "mdlEdOk": "确定",
+  "tlCallDir": "目录",
+  "tlCallElapsed": "耗时",
+  "tlCallExit": "退出码",
+  "tlCallToolInput": "工具入参",
+  "tlCallCommand": "command",
+  "tlCallArguments": "arguments",
+  "tlCallToolOutput": "结果输出",
+  "tlCallNoOutputYet": "暂无输出",
+  "tlCallResult": "result",
+  "tlCallThereIsNoToolOutputYet": "当前还没有工具输出。",
+  "tlCallViewInDialog": "在弹窗里查看完整内容",
+  "tlCallEmptyContent": "内容为空",
+  "tlCallWrite": "写入",
+  "tlCallEdit": "编辑",
+  "tlCallMultiEdit": "多处编辑",
+  "tlCallNotebookEdit": "Notebook 编辑",
+  "tlCallBashWrite": "命令写入",
+  "tlCallFileChanged": "文件变更",
+  "tlCallChangedFile": "文件变动",
+  "tlCallTool": "工具",
+  "tlCallSkill": "技能",
+  "tlCallStopped": "已停止",
+  "tlCallBlocked": "已拦截",
+  "tlCallRejected": "用户拒绝",
+  "tlCallInvalid": "参数无效",
+  "tlCallToolCall": "工具调用",
+  "tlCallRunning": "运行中",
+  "tlCallSucceeded": "执行成功",
+  "tlCallDenied": "已被禁止",
+  "tlCallTimedOut": "执行超时",
+  "tlCallFailed": "执行失败",
+  "tlCallToolIsRunningWaitingForOutput": "工具运行中，等待新的输出...",
+  "tlCallExpandToInspectToolOutput": "点击展开查看工具输出",
+  "tlCallType": "类型",
+  "tlCallSize": "大小",
+  "tlCallModified": "修改于",
+  "tlCallSelfLearning": "自我学习",
+  "tlCallNudgeRecovered": "已纠正\"光说不做\"",
+  "tlCallProfileChanges": "用户画像变更",
+  "tlCallMemoryChanges": "记忆变更",
+  "tlCallSkillChanges": "技能变更",
+  "tlCallProfileDiff": "画像差异摘要",
+  "tlCallNoChanges": "无变更",
+  "tlCallUnnamed": "(未命名)",
+  "tlCallJustNow": "刚刚",
+  "sessMetaMessages": "消息总数",
+  "sessMetaPromptBuilds": "Prompt 构建",
+  "sessMetaCompressions": "压缩次数",
+  "sessMetaTotalTokens": "总 Token",
+  "sessMetaMode": "当前模式",
+  "sessMetaRuntimeTools": "运行工具",
+  "sessMetaPending": "未展示",
+  "sessMetaCurrentSessionMetadata": "当前会话元数据",
+  "sessMetaSessionOverview": "会话概览",
+  "sessMetaExtendedMetadata": "扩展元数据",
+  "sessMetaStatistics": "统计信息",
+  "sessMetaUser": "用户",
+  "sessMetaAssistant": "助手",
+  "sessMetaTool": "工具",
+  "sessMetaSkill": "技能",
+  "sessMetaCompression": "压缩",
+  "sessMetaEnvironment": "运行环境",
+  "sessMetaCommandPolicy": "命令策略",
+  "sessMetaPromptMetadataIsNotAvailableYet": "当前还没有可展示的 prompt 元数据。",
+  "sessMetaWriteConfirmation": "写命令确认",
+  "sessMetaRequired": "需要确认",
+  "sessMetaNotRequired": "无需确认",
+  "sessMetaAllowRules": "允许规则数",
+  "sessMetaThereAreNoSurfacedAllowCommand": "当前没有已上屏的允许命令规则。",
+  "sessMetaRuntimeOrchestration": "运行时编排",
+  "sessMetaStateSource": "状态来源",
+  "sessMetaGeneratedFromTheCurrentModelMcp": "根据当前模型、MCP/Skills 与 Plan 状态即时生成",
+  "sessMetaTheLastPersistedRuntimeSnapshot": "上一轮已落盘的运行时快照",
+  "sessMetaToolCatalogState": "工具目录状态",
+  "sessMetaGateReason": "门控原因",
+  "sessMetaRuntimeToolCount": "当前运行时工具数",
+  "sessMetaRefreshesNextRound": "等待下一轮刷新",
+  "sessMetaRuntimeNotices": "运行时 Notices",
+  "sessMetaCurrentRuntimeTools": "当前运行时工具",
+  "sessMetaTaskTracking": "任务跟踪",
+  "sessMetaCurrentTodos": "当前 Todo 数量",
+  "sessMetaPlanRecords": "计划记录数量",
+  "sessMetaTodowriteReminder": "TodoWrite 强提醒",
+  "sessMetaTriggered": "已触发",
+  "sessMetaNotTriggered": "未触发",
+  "sessMetaUnavailable": "暂无数据",
+  "sessMetaReminderReason": "提醒原因",
+  "sessMetaPlanHistory": "计划历史",
+  "sessMetaRecentErrors": "最近异常",
+  "sessMetaThereAreNoSessionErrorsTo": "当前没有需要关注的会话异常。",
+  "sessMetaLastPromptMetadata": "最后一次 Prompt 元数据",
+  "sessMetaClose": "关闭",
+  "sessMetaPendingApproval": "待确认",
+  "sessMetaInProgress": "进行中",
+  "sessMetaCompleted": "已完成",
+  "sessMetaFailed": "失败",
+  "sessMetaCancelled": "已取消",
+  "sessMetaCreated": "创建",
+  "sessMetaUpdated": "更新",
+  "sessMetaErrorDetail": "错误细节",
+  "sessMetaPresented": "已展示",
+  "sessMetaThisSessionEndedEarlyRetryThe": "当前会话已提前结束。请重试或继续发送更具体的指令。",
+  "sessMetaToolCallsStoppedForSafety": "工具调用已安全停止",
+  "sessMetaOpenhandStoppedThisSessionForSafety": "本次会话连续触发了过多轮工具调用，OpenHand 已为安全起见提前停止。这次停止发生在会话控制层，并不是某个具体工具真的执行失败。你可以让助手先总结当前进展，或给出更具体的下一步指令。",
+  "sessMetaResponseInterrupted": "回答已中断",
+  "sessMetaTheResponseWasInterruptedWhileStreaming": "本次回答在流式接收过程中异常中断，当前会话已停止。你可以直接重试，或继续发送下一条消息。",
+  "sessMetaRequestFailed": "请求发送失败",
+  "sessMetaTheRequestFailedBeforeTheAssistant": "本次请求在发送阶段失败，当前会话未继续执行。你可以检查配置后重试，或继续发送新的消息。",
+  "sessMetaContinuationFailed": "后续请求失败",
+  "sessMetaTheSessionFailedWhileRequestingThe": "本次会话在继续执行后续步骤时，请求下一轮模型响应失败。已完成的步骤与工具结果都已保留，你可以直接回复继续/重试，或检查配置后再试。",
+  "sessMetaSafetyStop": "安全停止",
+  "sessMetaStreamError": "响应中断",
+  "sessMetaRequestError": "请求失败",
+  "sessMetaContinuationError": "后续请求失败",
+  "sessMetaToolExecutionError": "工具执行失败",
+  "sessMetaCompressionError": "历史压缩失败",
+  "sessMetaPromptBlocked": "提示词被拦截",
+  "sessMetaTitleGenerationError": "标题生成失败",
+  "sessMetaSessionError": "会话异常",
+  "auditNoData": "无数据",
+  "auditCopyJson": "复制 JSON",
+  "auditCopiedToClipboard": "已复制到剪贴板",
+  "auditMessageAudit": "消息审计",
+  "auditClose": "关闭",
+  "auditOverview": "基本信息",
+  "auditMessageId": "消息 ID",
+  "auditSessionId": "会话 ID",
+  "auditRole": "角色",
+  "auditKind": "类型",
+  "auditCharacterCount": "字符数",
+  "auditStreaming": "是否流式",
+  "auditDeleted": "是否已删除",
+  "auditHasError": "是否报错",
+  "auditTiming": "时间与耗时",
+  "auditStartedCreated": "开始/创建时间",
+  "auditEnded": "结束时间",
+  "auditDurationMs": "耗时 (ms)",
+  "auditModelTokens": "模型与 Token",
+  "auditModelId": "模型 ID",
+  "auditModelLabel": "模型标签",
+  "auditTotalTokens": "总 Token",
+  "auditPromptTokens": "输入 Token",
+  "auditCompletionTokens": "输出 Token",
+  "auditTokenBreakdown": "Token 明细",
+  "auditError": "错误信息",
+  "auditContent": "消息内容",
+  "auditFullComposedPromptThatWasActually": "以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。",
+  "auditWaitingForComposedPromptInjectionAuto": "正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）",
+  "auditUserRawInput": "用户原始输入",
+  "auditStructuredPromptTurns": "结构化 Prompt Turns",
+  "auditNone": "无",
+  "auditPromptMetadata": "Prompt Metadata",
+  "auditRequest": "请求参数",
+  "auditMethod": "方法",
+  "auditHeaders": "请求头",
+  "auditNotCapturedEnableSettingsAiTelemetry": "未捕获（请在设置 → AI → 遥测 中开启调试）",
+  "auditBodyQueryPath": "请求体 / Query / Path",
+  "auditRawAiResponse": "原始 AI 响应",
+  "auditExpandRawResponse": "展开查看原始响应",
+  "auditNotCapturedDebugDisabledOrResponse": "未捕获：调试未开启或模型未提供原始响应",
+  "auditAttachments": "附件",
+  "auditAttachmentList": "附件列表",
+  "auditNoAttachments": "无附件",
+  "auditFullMetadata": "完整元数据 (metadata)",
+  "auditMessageMetadata": "消息元数据",
+  "auditSessionEnvironment": "会话环境",
+  "auditEnvironmentSnapshot": "环境快照",
+  "auditAuditSnapshotCopied": "审计快照已复制",
+  "auditCopyAuditSnapshot": "复制审计快照",
+  "auditSessionMetadataSaved": "会话元数据已更新",
+  "auditSessionAudit": "会话审计",
+  "auditTemplate": "模板",
+  "auditCreatedAt": "创建时间",
+  "auditUpdatedAt": "更新时间",
+  "auditMessages": "消息数",
+  "auditLastModel": "最近模型",
+  "auditTitleEditable": "标题编辑",
+  "auditSessionTitle": "会话标题",
+  "auditSaveTitle": "保存标题",
+  "auditSessionMetadataEditableJson": "会话元数据 (可编辑 JSON)",
+  "auditSaveWritesBackThroughTheSession": "修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。",
+  "auditSaveMetadata": "保存元数据",
+  "auditRuntimePromptMetadataReadOnly": "运行时 Prompt 元数据 (只读)",
+  "auditUsefulForPromptConstructionTroubleshooti": "用于排查本轮消息拼装上下文；自动由系统写入。",
+  "auditLastPromptMetadata": "last_prompt_metadata",
+  "auditNoRuntimePromptMetadataYet": "暂无运行时 Prompt 元数据",
+  "auditEnvironment": "会话环境",
+  "auditErrorList": "错误列表",
+  "auditNoErrorsRecorded": "暂无错误",
+  "auditTapARowToInspectA": "点击单条可打开消息审计弹窗；支持删除单条消息。",
+  "auditNoMessages": "暂无消息",
+  "auditAudit": "审计",
+  "auditDelete": "删除",
+  "progExpFESelectOpenedFile": "定位到已打开文件",
+  "progExpFEExpandSelected": "展开选中目录",
+  "progExpFECollapseAll": "全部折叠",
+  "progExpFETypeASymbolNameToSearch": "输入符号名后即可在当前工作区内跨文件搜索。",
+  "progExpFENoWorkspaceSymbolBackendIsAvailable": "当前文件没有可用的工作区符号后端。",
+  "progExpFENoMatchingWorkspaceSymbolsWereFound": "没有找到匹配的工作区符号。",
+  "progExpFEFetchingWorkspaceSymbolsFailedConfirmTha": "读取工作区符号失败，请确认对应语言服务器支持 workspace/symbol。",
+  "progExpFEThisFileIsStillInLarge": "当前文件仍处于大文件预览模式，符号栏暂使用本地提取以保持响应速度。",
+  "progExpFENoLspSymbolBackendIsAvailable": "当前文件没有可用的 LSP 符号后端，已回退到本地符号提取。",
+  "progExpFETheLspServerReturnedAnEmpty": "LSP 已返回空符号列表。",
+  "progExpFEFetchingLspSymbolsFailedSoThe": "读取 LSP 符号失败，已回退到本地符号提取。",
+  "progExpFERenameSymbol": "重命名符号",
+  "progExpFEReviewTheDiffForThisRename": "先查看这次重命名将影响的差异，再决定是否应用。",
+  "progExpFETheRenameWasCancelledAndNo": "已取消本次重命名，未写入任何修改。",
+  "progExpFETheSymbolAtTheCurrentCursor": "当前光标位置不支持重命名。",
+  "progExpFETheLanguageServerDidNotReturn": "语言服务器没有返回需要应用的修改。",
+  "progExpFECodeActions": "代码操作",
+  "progExpFENoCodeActionsAreAvailableAt": "当前光标位置没有可用的代码操作。",
+  "progExpFEReviewTheDiffFromThisCode": "先预览该代码操作将要写入的差异，再决定是否应用。",
+  "progExpFEIfTheLanguageServerCommandRequests": "如果语言服务器命令在执行过程中请求写入修改，也会先展示差异预览。",
+  "progExpFETheCodeActionWasCancelledAnd": "已取消本次代码操作，未写入任何修改。",
+  "progExpFEExecutedTheLanguageServerCommand": "已执行语言服务器命令。",
+  "progExpFESomeLanguageServerRequestedEditsWere": "有语言服务器请求的修改被跳过。",
+  "progExpFEThisCodeActionDidNotReturn": "该代码操作没有返回可应用的编辑。",
+  "progExpFEQuickFix": "快速修复",
+  "progExpFENoQuickFixesAreAvailableFor": "当前诊断位置没有可用的快速修复。",
+  "progExpFENoCodeActionsAreAvailableFor": "当前诊断位置没有可用的代码操作。",
+  "progExpFENoQuickFixesAreAvailableFor2": "当前诊断行没有可用的快速修复。",
+  "progExpFETheCurrentFileIsStillLoading": "当前文件尚未完成加载，暂时无法执行 LSP 操作。",
+  "progExpFEThisFileIsStillInLarge2": "当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行 LSP 跳转。",
+  "progExpFETheCurrentFileIsStillLoading2": "当前文件尚未完成加载，暂时无法执行文档级编辑操作。",
+  "progExpFEThisFileIsStillInLarge3": "当前文件仍处于大文件预览模式，请先切换到完整编辑器后再执行格式化。",
+  "progExpFEFormatDocument": "格式化文档",
+  "progExpFETheCurrentFileIsNotReady": "当前文件尚未准备好，稍后再试。",
+  "progExpFETheFormatterDidNotReturnAny": "格式化器没有返回可应用的修改。",
+  "progExpFEFormattingProducedTheSameContentSo": "格式化结果与当前内容一致，没有产生新的文本变更。",
+  "progExpFEGoToDefinition": "定义跳转",
+  "progExpFENoDefinitionWasFoundAtThe": "当前光标位置没有找到定义。",
+  "progExpFEMultipleDefinitionsWereFoundChooseA": "找到多个定义结果，请选择要跳转的位置。",
+  "progExpFEFindReferences": "引用查找",
+  "progExpFENoReferencesWereFoundAtThe": "当前光标位置没有找到引用。",
+  "progExpFEHoverInfo": "悬浮信息",
+  "progExpFEThereIsNoHoverInformationAt": "当前光标位置没有可显示的悬浮信息。",
+  "progExpFELspBackend": "LSP 后端",
+  "progExpFEReResolveTheBackendForThe": "重新解析当前文件后端",
+  "progExpFEInspectBackendDetails": "查看后端详情",
+  "progExpFECloseEsc": "关闭 (Esc)",
+  "progExpFEToggleComment": "切换注释",
+  "progExpFEThisLanguageDoesNotHaveA": "当前语言暂未配置注释策略，无法执行注释切换。",
+  "progExpFEGoToImplementation": "跳转到实现",
+  "progExpFESignatureHelp": "参数信息",
+  "progExpFEThereIsNoSignatureHelpAvailable": "当前光标位置没有可显示的参数签名信息。",
+  "progExpFEPreviousMatch": "上一个结果",
+  "progExpFENextMatch": "下一个结果",
+  "progExpFEMatchCase": "区分大小写",
+  "progExpFEShowReplace": "显示替换",
+  "progExpFEReplaceCurrent": "替换当前结果",
+  "progExpFEReplaceAll": "全部替换",
+  "progExpFECurrentFileSymbols": "当前文件符号",
+  "progExpFEWorkspaceSymbols": "工作区符号",
+  "progExpFERefreshDiagnostics": "刷新诊断",
+  "progExpFESymbols": "符号",
+  "progExpFESymbolNavigationShiftCmdCtrlO": "符号导航 (Shift+Cmd/Ctrl+O)",
+  "progExpFEWorkspace": "全局符号",
+  "progExpFEWorkspaceSymbolSearchCmdCtrlT": "工作区符号搜索 (Cmd/Ctrl+T)",
+  "progExpFEShowDiagnosticsForTheCurrentFile": "显示当前文件诊断",
+  "progExpFEInspectTheLspBackendBoundTo": "查看当前文件绑定的 LSP 后端",
+  "progExpFEDef": "定义",
+  "progExpFEGoToDefinitionF12CmdCtrl": "定义跳转 (F12 / Cmd/Ctrl+B)",
+  "progExpFERefs": "引用",
+  "progExpFEFindReferencesShiftF12CmdCtrl": "引用查找 (Shift+F12 / Cmd/Ctrl+Shift+B)",
+  "progExpFEHover": "悬浮",
+  "progExpFEHoverInfoCmdCtrlI": "悬浮信息 (Cmd/Ctrl+I)",
+  "progExpFERename": "重命名",
+  "progExpFERenameSymbolF2": "重命名符号 (F2)",
+  "progExpFEActions": "操作",
+  "progExpFECodeActionsCmdCtrl": "代码操作 (Cmd/Ctrl+.)",
+  "progExpFEFormat": "格式化",
+  "progExpFENoImplementationWasFoundAtThe": "当前光标位置没有找到实现。",
+  "progExpFEMultipleImplementationsFoundChooseATarge": "找到多个实现，请选择要跳转的位置。",
+  "progExpFERefactor": "重构",
+  "progExpFEReviewTheChangesBeforeApplying": "查看此次重构将影响的差异，再决定是否应用。",
+  "progExpFESaveFile": "保存文件",
+  "progExpFECloseEditorReturnToSession": "关闭编辑器，返回会话",
+  "progExpFEShowQuickFixesForThisDiagnostic": "显示该诊断行的快速修复",
+  "progExpFELargeFilePerformanceModeIsActive": "已启用大文件性能模式：使用虚拟化只读预览，避免整篇文本布局导致卡顿。",
+  "progExpFEOpenFullEditorAnyway": "仍然打开完整编辑器",
+  "settingsShortcuts": "快捷键",
+  "settingsConfigureKeyCombinationsForCommonActions": "为常用操作配置组合键。当前最多支持同时按下 4 个按键。",
+  "settingsBuiltInTools": "内建工具",
+  "settingsCrons": "定时任务",
+  "settingsControlsRetentionAndColdStartCleanup": "控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。",
+  "settingsHermesTalker": "Hermes Talker",
+  "settingsConfigureHermesTalkerSelfLearningEvery": "配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。",
+  "settingsEditor": "编辑器",
+  "settingsManagePerLanguageLspBackendsInstall": "管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。",
+  "settingsAppData": "应用数据",
+  "settingsPerResponseToolCallLimit": "单轮工具调用上限",
+  "settingsSaveLimit": "保存上限",
+  "settingsSequentialToolRoundLimit": "连续工具轮次上限",
+  "settingsSessionSettings": "会话设置",
+  "settingsConfigureDefaultBehaviourForNewSessions": "配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。",
+  "settingsSendTimeoutS": "发送超时（秒）",
+  "settingsMaximumWaitTimeToEstablishThe": "建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。",
+  "settingsSaveTimeout": "保存超时",
+  "settingsResponseTimeoutS": "响应超时（秒）",
+  "settingsMaximumWaitForACompleteResponse": "非流式请求等待完整响应的最大时间，默认 120 秒。",
+  "settingsStreamIdleTimeoutS": "等待超时（秒）",
+  "settingsMaximumIdleWaitBetweenStreamChunks": "流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示\"Request timed out.\"，默认 120 秒。",
+  "settingsAutoTitle": "自动标题",
+  "settingsWhenEnabledATitleIsAutomatically": "开启后，新会话发送首条消息时将自动生成会话标题。",
+  "settingsDefaultSessionMode": "默认会话模式",
+  "settingsDefaultInteractionModeForNewSessions": "新会话的默认交互模式：对话（Chat）或规划（Plan）。",
+  "settingsChat": "对话",
+  "settingsPlan": "规划",
+  "settingsDefaultFullAccess": "默认全访问权限",
+  "settingsWhenEnabledNewSessionsStartIn": "开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。",
+  "settingsUserProfile": "用户画像",
+  "settingsMaintainAGlobalUserProfileLanguage": "维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。",
+  "settingsModelProviderManagement": "模型提供商管理",
+  "settingsAddSelectTestAndMaintainModel": "新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。",
+  "settingsCompressionTrigger": "压缩触发阈值",
+  "settingsOnceTheUncompressedHistoryInA": "当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。",
+  "settingsToolCallOutputCompressionThreshold": "工具调用输出压缩阈值",
+  "settingsWhenAToolCallReturnsMore": "当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。",
+  "settingsDefaultsTo40IfOneAssistant": "默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。",
+  "settingsDefaultsTo24RoundsIfThe": "默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。",
+  "settingsImageSizeLimit": "图片大小上限",
+  "settingsDefaultsTo1mbImageAttachmentsLarger": "默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。",
+  "settingsCostControl": "成本控制",
+  "settingsReduceTokenCostsByFreezingThe": "通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。",
+  "settingsEnableInputCache": "启用输入缓存",
+  "settingsDisabledByDefaultWhenEnabledEvery": "默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。",
+  "settingsCacheBreakpointUpdateMode": "缓存断点更新模式",
+  "settingsChooseTheSlidingUnitForThe": "决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。",
+  "settingsByMessageCountUserAssistant": "按消息条数 (user+assistant)",
+  "settingsByUserMessageCountOnly": "按用户消息条数",
+  "settingsByAccumulatedTokens": "按累计 tokens",
+  "settingsCacheBreakpointUpdateInterval": "缓存断点更新间隔",
+  "settingsDefault10MeaningDependsOnThe": "默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。",
+  "settingsSave": "保存",
+  "settingsCacheBreakpointCount": "缓存断点数量",
+  "settingsDefault4Range14Anthropic": "默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。",
+  "settingsCommandSafety": "命令安全",
+  "settingsControlWriteCommandConfirmationForBash": "控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。",
+  "settingsWriteCommandConfirmation": "写命令确认",
+  "settingsEnabledByDefaultWhenTheAi": "默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。",
+  "settingsAllowCommandList": "允许命令列表",
+  "settingsMatchingWriteLikeBashCommandsSkip": "匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。",
+  "settingsAddAllowRule": "新增允许规则",
+  "settingsNoAllowRulesConfigured": "当前没有允许命令规则",
+  "settingsAddARuleToLetMatching": "新增规则后，匹配到的写命令将跳过确认弹窗。",
+  "settingsDenyCommandList": "禁止命令列表",
+  "settingsMatchingBashCommandsAreBlockedBefore": "匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。",
+  "settingsAddRule": "新增规则",
+  "settingsNoDenyRulesConfigured": "当前没有禁止命令规则",
+  "settingsAddARuleToBlockMatching": "新增规则后，匹配到的 bash 命令会被直接拦截。",
+  "settingsTelemetry": "遥测",
+  "settingsWhenEnabledOpenhandCapturesRawAi": "开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。",
+  "settingsDebugMode": "开启调试",
+  "settingsOffByDefaultWhenEnabledEvery": "默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。",
+  "settingsCaptureRawPayload": "捕获原始响应",
+  "settingsEnabledByDefaultOnlyActiveWhen": "默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。",
+  "settingsCaptureEnvironment": "捕获环境数据",
+  "settingsOffByDefaultOnlyActiveWhen": "默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。",
+  "settingsShortcutBindings": "快捷键绑定",
+  "settingsClickRecordThenPressTheNew": "点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。",
+  "settingsAutoCleanupExecutionHistory": "自动清理执行历史",
+  "settingsOnEveryColdStartAnAsync": "应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。",
+  "settingsEnableSelfLearning": "启用自主学习",
+  "settingsWhenOffTheSchedulerSkipsEvery": "关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。",
+  "settingsShowSelfLearningMessages": "显示自我学习消息",
+  "settingsWhenOffSelfLearningCardsAre": "关闭后，对话中不再展示\"自我学习\"卡片（后台学习仍会运行）。默认开启。",
+  "settingsToolCatalogOverview": "工具目录总览",
+  "settingsResetAll": "重置全部",
+  "settingsEnableAll": "全部启用",
+  "settingsDisableAll": "全部禁用",
+  "settingsNoBuiltInToolConfigurations": "没有内建工具配置",
+  "settingsClickResetAllToRestoreThe": "点击\"重置全部\"恢复默认工具列表。",
+  "settingsResetBuiltInToolConfigs": "重置内建工具配置",
+  "settingsCancel": "取消",
+  "settingsReset": "重置",
+  "settingsDeleteCustomTool": "删除自定义工具",
+  "settingsDelete": "删除",
+  "settingsSendTimeoutSaved": "发送超时时间已保存。",
+  "settingsResponseTimeoutSaved": "响应超时时间已保存。",
+  "settingsStreamIdleTimeoutSaved": "等待超时时间已保存。",
+  "settingsCacheBreakpointUpdateIntervalSaved": "缓存断点更新间隔已保存",
+  "settingsCacheBreakpointCountSaved": "缓存断点数量已保存",
+  "settingsCacheBreakpointPositions": "缓存断点位置",
+  "settingsCacheBreakpointPositionsSaved": "缓存断点位置已保存",
+  "settingsEnterAToolCallLimitGreater": "请输入大于 0 的工具调用上限。",
+  "settingsThePerResponseToolCallLimit": "单轮工具调用上限已保存。",
+  "settingsEnterASequentialToolRoundLimit": "请输入大于 0 的连续工具轮次上限。",
+  "settingsTheSequentialToolRoundLimitHas": "连续工具轮次上限已保存。",
+  "settingsDeleteDenyRule": "删除禁止命令规则",
+  "settingsTheDenyCommandRuleHasBeen": "禁止命令规则已删除。",
+  "settingsDeleteAllowRule": "删除允许命令规则",
+  "settingsTheAllowCommandRuleHasBeen": "允许命令规则已删除。",
+  "settingsTheShortcutHasBeenUpdated": "快捷键已更新。",
+  "settingsTheEditorShortcutHasBeenUpdated": "编辑器快捷键已更新。",
+  "settingsSendMessage": "发送消息",
+  "settingsCollapseOrExpandComposer": "折叠或展开输入框",
+  "settingsPreviousModel": "上一个模型",
+  "settingsNextModel": "下一个模型",
+  "settingsToggleAutoFollow": "开关自动滚动",
+  "settingsPreviousSession": "上一个会话",
+  "settingsNextSession": "下一个会话",
+  "settingsSaveFile": "保存文件",
+  "settingsTriggerCompletion": "触发智能补全",
+  "settingsShowSignatureHelp": "显示签名帮助",
+  "settingsFind": "查找",
+  "settingsFindAndReplace": "查找替换",
+  "settingsGoToLine": "跳转到行",
+  "settingsDocumentSymbols": "文档符号",
+  "settingsWorkspaceSymbols": "全局符号",
+  "settingsGoToDefinition": "跳转到定义",
+  "settingsFindReferences": "查找引用",
+  "settingsGoToImplementation": "跳转到实现",
+  "settingsShowHoverInfo": "显示悬浮信息",
+  "settingsRenameSymbol": "重命名符号",
+  "settingsCodeActions": "代码操作",
+  "settingsFormatDocument": "格式化文档",
+  "settingsDefaultsToCtrlEnterAndTriggers": "默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。",
+  "settingsDefaultsToCtrlPForQuickly": "默认 Ctrl + P，用于快速折叠或展开输入框。",
+  "settingsDefaultsToCtrlLeftAndWraps": "默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。",
+  "settingsDefaultsToCtrlRightAndWraps": "默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。",
+  "settingsDefaultsToCtrlSForToggling": "默认 Ctrl + S，开关自动滚动模式。",
+  "settingsDefaultsToCtrlUpAndWraps": "默认 Ctrl + ↑，切换到上一个会话并支持绕圈。",
+  "settingsDefaultsToCtrlDownAndWraps": "默认 Ctrl + ↓，切换到下一个会话并支持绕圈。",
+  "auditDeleteMessage": "删除消息",
+  "auditDeleteThisMessageThisCannotBe": "确认删除该消息？此操作不可撤销。",
+  "auditCancel": "取消",
+  "settingsManageTheBuiltInAiTools": "管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、Schema、优先级、排序、加载策略和其他参数。",
+  "settingsManageTheLocalFilesAndDatabase": "管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker 中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。",
+  "settingsThisWillRestoreAllBuiltIn": "这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。",
+  "tlCallUnwrap": "取消换行",
+  "tlCallWrapLines": "自动换行",
+  "tlCallViewCompressedContent": "查看压缩内容",
+  "tlCallViewFullContent": "查看完整内容",
+  "tlCallMultiEditEditcount": "多处编辑 ×{editCount}",
+  "@tlCallMultiEditEditcount": {
+    "placeholders": {
+      "editCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallPreparing": "准备执行",
+  "tlCallPreparingAlt": "准备调用",
+  "tlCallRunningAlt": "调用中",
+  "tlCallCompleted": "执行完成",
+  "tlCallCompletedAlt": "调用完成",
+  "tlCallTimedOutAlt": "调用超时",
+  "tlCallFailedAlt": "调用失败",
+  "tlCallFailedToOpenFileLocationError": "打开文件位置失败：{error}",
+  "@tlCallFailedToOpenFileLocationError": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallMemoryitemsLengthMemoriesUpdated": "{memoryItems_length} 条记忆已更新",
+  "@tlCallMemoryitemsLengthMemoriesUpdated": {
+    "placeholders": {
+      "memoryItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallProfileitemsLengthProfileChanges": "{profileItems_length} 项画像已更新",
+  "@tlCallProfileitemsLengthProfileChanges": {
+    "placeholders": {
+      "profileItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallSkillitemsLengthSkillsUpdated": "{skillItems_length} 个技能已更新",
+  "@tlCallSkillitemsLengthSkillsUpdated": {
+    "placeholders": {
+      "skillItems_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallAiThinkingStreaming": "AI 思考（生成中）",
+  "tlCallAiThinking": "AI 思考",
+  "tlCallAiResponseStreaming": "AI 响应（生成中）",
+  "tlCallAiResponse": "AI 响应",
+  "tlCallAndItemsLength3More": " 等 {items_length} 项",
+  "@tlCallAndItemsLength3More": {
+    "placeholders": {
+      "items_length_3": {
+        "type": "Object"
+      },
+      "items_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallSecondsSAgo": "{seconds}秒前",
+  "@tlCallSecondsSAgo": {
+    "placeholders": {
+      "seconds": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallMinutesMAgo": "{minutes}分钟前",
+  "@tlCallMinutesMAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallHoursHAgo": "{hours}小时前",
+  "@tlCallHoursHAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "Object"
+      }
+    }
+  },
+  "tlCallDaysDAgo": "{days}天前",
+  "@tlCallDaysDAgo": {
+    "placeholders": {
+      "days": {
+        "type": "Object"
+      }
+    }
+  },
+  "sessMetaPlanPlanindex": "计划 #{planIndex}",
+  "@sessMetaPlanPlanindex": {
+    "placeholders": {
+      "planIndex": {
+        "type": "Object"
+      }
+    }
+  },
+  "sessMetaTheCurrentSequentialToolRoundLimit": " 当前连续工具轮次上限为 {configuredLimit}。",
+  "@sessMetaTheCurrentSequentialToolRoundLimit": {
+    "placeholders": {
+      "configuredLimit": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditInvalidJsonErrorMessage": "JSON 解析失败：{error_message}",
+  "@auditInvalidJsonErrorMessage": {
+    "placeholders": {
+      "error_message": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditSaveFailedError": "保存失败：{error}",
+  "@auditSaveFailedError": {
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditRecentErrorsSessionRecenterrorsLength": "最近错误 ({session_recentErrors_length})",
+  "@auditRecentErrorsSessionRecenterrorsLength": {
+    "placeholders": {
+      "session_recentErrors_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "auditMessagesSessionMessagesLength": "消息列表 ({session_messages_length})",
+  "@auditMessagesSessionMessagesLength": {
+    "placeholders": {
+      "session_messages_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEAppliedEditsLengthFormattingEdits": "已应用 {edits_length} 处格式化修改。",
+  "@progExpFEAppliedEditsLengthFormattingEdits": {
+    "placeholders": {
+      "edits_length": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEFormatTheCurrentFileFormatshortcut": "格式化当前文件 ({formatShortcut})",
+  "@progExpFEFormatTheCurrentFileFormatshortcut": {
+    "placeholders": {
+      "formatShortcut": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFENoCodeactionkindRefactoringIsAvailableAt": "当前位置没有可用的\"{codeActionKind}\"重构操作。",
+  "@progExpFENoCodeactionkindRefactoringIsAvailableAt": {
+    "placeholders": {
+      "codeActionKind": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEHideFileBrowser": "隐藏文件浏览器",
+  "progExpFEShowFileBrowser": "显示文件浏览器",
+  "settingsRetentionWindowRetentionDayS": "保留天数：{retention} 天",
+  "@settingsRetentionWindowRetentionDayS": {
+    "placeholders": {
+      "retention": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsRangeMinrMaxrDaysDefault7": "范围 {minR}–{maxR} 天，默认 7 天。下次冷启动时生效。",
+  "@settingsRangeMinrMaxrDaysDefault7": {
+    "placeholders": {
+      "minR": {
+        "type": "Object"
+      },
+      "maxR": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsConcurrentWorkersConcurrency": "并发 Worker 数：{concurrency}",
+  "@settingsConcurrentWorkersConcurrency": {
+    "placeholders": {
+      "concurrency": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsCapsHowManySessionsCanBe": "限制单轮 tick 同时派发的会话数 ({minC}–{maxC})。默认 5。",
+  "@settingsCapsHowManySessionsCanBe": {
+    "placeholders": {
+      "minC": {
+        "type": "Object"
+      },
+      "maxC": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsSortedLengthBuiltInToolsEnabledcount": "当前共 {sorted_length} 个内建工具，已启用 {enabledCount} 个。可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。",
+  "@settingsSortedLengthBuiltInToolsEnabledcount": {
+    "placeholders": {
+      "sorted_length": {
+        "type": "Object"
+      },
+      "enabledCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsAreYouSureYouWantTo": "确定要删除 \"{config_effectiveName}\" 吗？此操作不可撤销。",
+  "@settingsAreYouSureYouWantTo": {
+    "placeholders": {
+      "config_effectiveName": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsEnterAValueBetweenMinAnd": "请输入 {min}–{max} 之间的秒数。",
+  "@settingsEnterAValueBetweenMinAnd": {
+    "placeholders": {
+      "min": {
+        "type": "Object"
+      },
+      "max": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn": "请输入 {AppSettingsSnapshot_minAiInputCacheUpdateInterval} 到 {AppSettingsSnapshot_maxAiInputCacheUpdateInterval} 之间的整数",
+  "@settingsPleaseEnterAnIntegerBetweenAppsettingssn": {
+    "placeholders": {
+      "AppSettingsSnapshot_minAiInputCacheUpdateInterval": {
+        "type": "Object"
+      },
+      "AppSettingsSnapshot_maxAiInputCacheUpdateInterval": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn2": "请输入 {AppSettingsSnapshot_minAiInputCacheBreakpointCount} 到 {AppSettingsSnapshot_maxAiInputCacheBreakpointCount} 之间的整数",
+  "@settingsPleaseEnterAnIntegerBetweenAppsettingssn2": {
+    "placeholders": {
+      "AppSettingsSnapshot_minAiInputCacheBreakpointCount": {
+        "type": "Object"
+      },
+      "AppSettingsSnapshot_maxAiInputCacheBreakpointCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDragTheThumbcountThumbsToPosition": "拖动 {thumbCount} 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。",
+  "@settingsDragTheThumbcountThumbsToPosition": {
+    "placeholders": {
+      "thumbCount": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsTheDenyCommandRuleHasBeen2": "禁止命令规则已更新。",
+  "settingsTheAllowCommandRuleHasBeen2": "允许命令规则已更新。",
+  "settingsDefaultsToDefaultlabelAndSavesThe": "默认 {defaultLabel}，保存当前正在编辑的文件。",
+  "@settingsDefaultsToDefaultlabelAndSavesThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndOpensThe": "默认 {defaultLabel}，主动弹出智能补全候选列表。",
+  "@settingsDefaultsToDefaultlabelAndOpensThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsMethod": "默认 {defaultLabel}，显示当前调用位置的方法签名、参数解释和文档摘要。",
+  "@settingsDefaultsToDefaultlabelAndShowsMethod": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe": "默认 {defaultLabel}，打开或关闭查找面板。",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe2": "默认 {defaultLabel}，打开或关闭替换面板。",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe2": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe3": "默认 {defaultLabel}，打开或关闭跳转到行面板。",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe3": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe4": "默认 {defaultLabel}，打开或关闭当前文件的符号列表。",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe4": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndTogglesThe5": "默认 {defaultLabel}，打开或关闭全局符号检索面板。",
+  "@settingsDefaultsToDefaultlabelAndTogglesThe5": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndJumpsTo": "默认 {defaultLabel}，跳转到当前符号定义。",
+  "@settingsDefaultsToDefaultlabelAndJumpsTo": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndFindsReferences": "默认 {defaultLabel}，查找当前符号的引用位置。",
+  "@settingsDefaultsToDefaultlabelAndFindsReferences": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndJumpsTo2": "默认 {defaultLabel}，跳转到当前符号的实现位置。",
+  "@settingsDefaultsToDefaultlabelAndJumpsTo2": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsType": "默认 {defaultLabel}，显示当前位置的类型或文档信息。",
+  "@settingsDefaultsToDefaultlabelAndShowsType": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndStartsRename": "默认 {defaultLabel}，发起当前符号重命名。",
+  "@settingsDefaultsToDefaultlabelAndStartsRename": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndShowsAvailable": "默认 {defaultLabel}，显示可用的代码操作列表。",
+  "@settingsDefaultsToDefaultlabelAndShowsAvailable": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "settingsDefaultsToDefaultlabelAndFormatsThe": "默认 {defaultLabel}，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。",
+  "@settingsDefaultsToDefaultlabelAndFormatsThe": {
+    "placeholders": {
+      "defaultLabel": {
+        "type": "Object"
+      }
+    }
+  },
+  "progExpFEResolvedLspBackendForCurrentFile": "当前文件已解析到 {lspName}。\n项目语言：{projLang}\n当前文件语言：{fileLang}\n{modeLine}\n{sdkSourceLine}\n{lspSourceLine}\n工作区：{rootPath}\n命令：{command}",
+  "@progExpFEResolvedLspBackendForCurrentFile": {
+    "placeholders": {
+      "lspName": {
+        "type": "Object"
+      },
+      "projLang": {
+        "type": "Object"
+      },
+      "fileLang": {
+        "type": "Object"
+      },
+      "modeLine": {
+        "type": "Object"
+      },
+      "sdkSourceLine": {
+        "type": "Object"
+      },
+      "lspSourceLine": {
+        "type": "Object"
+      },
+      "rootPath": {
+        "type": "Object"
+      },
+      "command": {
+        "type": "Object"
+      }
+    }
   }
 }

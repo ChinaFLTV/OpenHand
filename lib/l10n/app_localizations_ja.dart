@@ -2462,4 +2462,1910 @@ class AppLocalizationsJa extends AppLocalizations {
   String toolbarPlanStepsCompleted(int completed, int total) {
     return '$completed/$total 完了';
   }
+
+  @override
+  String get mdlEdEnterAValidBaseUrlFirst => 'Enter a valid Base URL first';
+
+  @override
+  String get mdlEdNoModelsFoundFromThisProvider =>
+      'No models found from this provider.';
+
+  @override
+  String get mdlEdProviderName => 'Provider Name';
+
+  @override
+  String get mdlEdOptionalEGDeepseekLocalOllama =>
+      'Optional, e.g. DeepSeek, Local Ollama';
+
+  @override
+  String get mdlEdCurrentlyActiveModel => 'Currently active model';
+
+  @override
+  String get mdlEdClickToSetAsActiveModel => 'Click to set as active model';
+
+  @override
+  String get mdlEdTapScanModelsToDiscoverModels =>
+      'Tap \"Scan Models\" to discover models automatically, or add manually below.';
+
+  @override
+  String get mdlEdActiveModelId => 'Active Model ID';
+
+  @override
+  String get mdlEdTheModelUsedForConversationsSelect =>
+      'The model used for conversations. Select from the list above or type directly.';
+
+  @override
+  String get mdlEdMaxContextTokens => 'Max Context Tokens';
+
+  @override
+  String get mdlEdOptionalLimitsTheHistorySliceUsed =>
+      'Optional. Limits the history slice used during compression.';
+
+  @override
+  String get mdlEdEnterAWholeNumberGreaterThan =>
+      'Enter a whole number greater than 0';
+
+  @override
+  String get mdlEdRequestMethod => 'Request Method';
+
+  @override
+  String get mdlEdOutputMode => 'Output Mode';
+
+  @override
+  String get mdlEdStreaming => 'Streaming';
+
+  @override
+  String get mdlEdNonStreaming => 'Non-streaming';
+
+  @override
+  String get mdlEdMaxOutputTokens => 'Max Output Tokens';
+
+  @override
+  String get mdlEdOptionalUsesAdapterDefaultIfUnset =>
+      'Optional. Uses adapter default if unset.';
+
+  @override
+  String get mdlEdTemperature => 'Temperature';
+
+  @override
+  String get mdlEd0020Default0 => '0.0 ~ 2.0, default 0.7';
+
+  @override
+  String get mdlEdEnterANumberBetween00 => 'Enter a number between 0.0 and 2.0';
+
+  @override
+  String get mdlEdCustomHeaders => 'Custom Headers';
+
+  @override
+  String get mdlEdAdd => 'Add';
+
+  @override
+  String get mdlEdNoCustomHeadersTapAddTo =>
+      'No custom headers. Tap \"Add\" to create one.';
+
+  @override
+  String get mdlEdHeaderName => 'Header Name';
+
+  @override
+  String get mdlEdHeaderValue => 'Header Value';
+
+  @override
+  String get mdlEdEditModelProfile => 'Edit Model Profile';
+
+  @override
+  String get mdlEdDisplayName => 'Display Name';
+
+  @override
+  String get mdlEdOptionalShownInTheUi => 'Optional, shown in the UI';
+
+  @override
+  String get mdlEdDescription => 'Description';
+
+  @override
+  String get mdlEdMultimodalSupport => 'Multimodal Support';
+
+  @override
+  String get mdlEdAutoDetect => 'Auto-detect';
+
+  @override
+  String get mdlEdYes => 'Yes';
+
+  @override
+  String get mdlEdNo => 'No';
+
+  @override
+  String get mdlEdSupportsAttachments => 'Supports Attachments';
+
+  @override
+  String get mdlEdSupportedModalities => 'Supported Modalities';
+
+  @override
+  String get mdlEdText => 'Text';
+
+  @override
+  String get mdlEdImage => 'Image';
+
+  @override
+  String get mdlEdVideo => 'Video';
+
+  @override
+  String get mdlEdAudio => 'Audio';
+
+  @override
+  String get mdlEdGenerationCapabilities => 'Generation Capabilities';
+
+  @override
+  String get mdlEdPdf => 'PDF';
+
+  @override
+  String get mdlEdPpt => 'PPT';
+
+  @override
+  String get mdlEdTokenLimits => 'Token Limits';
+
+  @override
+  String get mdlEdContextLength => 'Context Length';
+
+  @override
+  String get mdlEdSummaryLength => 'Summary Length';
+
+  @override
+  String get mdlEdOutputLength => 'Output Length';
+
+  @override
+  String get mdlEdThinkingLength => 'Thinking Length';
+
+  @override
+  String get mdlEdTokenPricingUsd1mTokensLeave =>
+      'Token pricing (USD / 1M tokens, leave blank if unset)';
+
+  @override
+  String get mdlEdInput => 'Input';
+
+  @override
+  String get mdlEdOutput => 'Output';
+
+  @override
+  String get mdlEdCacheRead => 'Cache Read';
+
+  @override
+  String get mdlEdCacheWrite => 'Cache Write';
+
+  @override
+  String get mdlEdReset => 'Reset';
+
+  @override
+  String get mdlEdCancel => 'Cancel';
+
+  @override
+  String get mdlEdOk => 'OK';
+
+  @override
+  String get tlCallDir => 'Dir';
+
+  @override
+  String get tlCallElapsed => 'Elapsed';
+
+  @override
+  String get tlCallExit => 'Exit';
+
+  @override
+  String get tlCallToolInput => 'Tool Input';
+
+  @override
+  String get tlCallCommand => 'command';
+
+  @override
+  String get tlCallArguments => 'arguments';
+
+  @override
+  String get tlCallToolOutput => 'Tool Output';
+
+  @override
+  String get tlCallNoOutputYet => 'No output yet';
+
+  @override
+  String get tlCallResult => 'result';
+
+  @override
+  String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
+
+  @override
+  String get tlCallViewInDialog => 'View in Dialog';
+
+  @override
+  String get tlCallEmptyContent => 'Empty content';
+
+  @override
+  String get tlCallWrite => 'Write';
+
+  @override
+  String get tlCallEdit => 'Edit';
+
+  @override
+  String get tlCallMultiEdit => 'Multi-edit';
+
+  @override
+  String get tlCallNotebookEdit => 'Notebook Edit';
+
+  @override
+  String get tlCallBashWrite => 'Bash Write';
+
+  @override
+  String get tlCallFileChanged => 'File Changed';
+
+  @override
+  String get tlCallChangedFile => 'Changed File';
+
+  @override
+  String get tlCallTool => 'Tool';
+
+  @override
+  String get tlCallSkill => 'Skill';
+
+  @override
+  String get tlCallStopped => 'Stopped';
+
+  @override
+  String get tlCallBlocked => 'Blocked';
+
+  @override
+  String get tlCallRejected => 'Rejected';
+
+  @override
+  String get tlCallInvalid => 'Invalid';
+
+  @override
+  String get tlCallToolCall => 'Tool Call';
+
+  @override
+  String get tlCallRunning => 'Running';
+
+  @override
+  String get tlCallSucceeded => 'Succeeded';
+
+  @override
+  String get tlCallDenied => 'Denied';
+
+  @override
+  String get tlCallTimedOut => 'Timed Out';
+
+  @override
+  String get tlCallFailed => 'Failed';
+
+  @override
+  String get tlCallToolIsRunningWaitingForOutput =>
+      'Tool is running. Waiting for output...';
+
+  @override
+  String get tlCallExpandToInspectToolOutput => 'Expand to inspect tool output';
+
+  @override
+  String get tlCallType => 'Type';
+
+  @override
+  String get tlCallSize => 'Size';
+
+  @override
+  String get tlCallModified => 'Modified';
+
+  @override
+  String get tlCallSelfLearning => 'Self-Learning';
+
+  @override
+  String get tlCallNudgeRecovered => 'Nudge recovered';
+
+  @override
+  String get tlCallProfileChanges => 'Profile Changes';
+
+  @override
+  String get tlCallMemoryChanges => 'Memory Changes';
+
+  @override
+  String get tlCallSkillChanges => 'Skill Changes';
+
+  @override
+  String get tlCallProfileDiff => 'Profile Diff';
+
+  @override
+  String get tlCallNoChanges => 'No changes';
+
+  @override
+  String get tlCallUnnamed => '(unnamed)';
+
+  @override
+  String get tlCallJustNow => 'just now';
+
+  @override
+  String get sessMetaMessages => 'Messages';
+
+  @override
+  String get sessMetaPromptBuilds => 'Prompt Builds';
+
+  @override
+  String get sessMetaCompressions => 'Compressions';
+
+  @override
+  String get sessMetaTotalTokens => 'Total Tokens';
+
+  @override
+  String get sessMetaMode => 'Mode';
+
+  @override
+  String get sessMetaRuntimeTools => 'Runtime Tools';
+
+  @override
+  String get sessMetaPending => 'Pending';
+
+  @override
+  String get sessMetaCurrentSessionMetadata => 'Current Session Metadata';
+
+  @override
+  String get sessMetaSessionOverview => 'Session Overview';
+
+  @override
+  String get sessMetaExtendedMetadata => 'Extended Metadata';
+
+  @override
+  String get sessMetaStatistics => 'Statistics';
+
+  @override
+  String get sessMetaUser => 'User';
+
+  @override
+  String get sessMetaAssistant => 'Assistant';
+
+  @override
+  String get sessMetaTool => 'Tool';
+
+  @override
+  String get sessMetaSkill => 'Skill';
+
+  @override
+  String get sessMetaCompression => 'Compression';
+
+  @override
+  String get sessMetaEnvironment => 'Environment';
+
+  @override
+  String get sessMetaCommandPolicy => 'Command Policy';
+
+  @override
+  String get sessMetaPromptMetadataIsNotAvailableYet =>
+      'Prompt metadata is not available yet.';
+
+  @override
+  String get sessMetaWriteConfirmation => 'Write Confirmation';
+
+  @override
+  String get sessMetaRequired => 'Required';
+
+  @override
+  String get sessMetaNotRequired => 'Not required';
+
+  @override
+  String get sessMetaAllowRules => 'Allow Rules';
+
+  @override
+  String get sessMetaThereAreNoSurfacedAllowCommand =>
+      'There are no surfaced allow command rules.';
+
+  @override
+  String get sessMetaRuntimeOrchestration => 'Runtime Orchestration';
+
+  @override
+  String get sessMetaStateSource => 'State Source';
+
+  @override
+  String get sessMetaGeneratedFromTheCurrentModelMcp =>
+      'Generated from the current model, MCP/skills, and plan state';
+
+  @override
+  String get sessMetaTheLastPersistedRuntimeSnapshot =>
+      'The last persisted runtime snapshot';
+
+  @override
+  String get sessMetaToolCatalogState => 'Tool Catalog State';
+
+  @override
+  String get sessMetaGateReason => 'Gate Reason';
+
+  @override
+  String get sessMetaRuntimeToolCount => 'Runtime Tool Count';
+
+  @override
+  String get sessMetaRefreshesNextRound => 'Refreshes next round';
+
+  @override
+  String get sessMetaRuntimeNotices => 'Runtime Notices';
+
+  @override
+  String get sessMetaCurrentRuntimeTools => 'Current Runtime Tools';
+
+  @override
+  String get sessMetaTaskTracking => 'Task Tracking';
+
+  @override
+  String get sessMetaCurrentTodos => 'Current Todos';
+
+  @override
+  String get sessMetaPlanRecords => 'Plan Records';
+
+  @override
+  String get sessMetaTodowriteReminder => 'TodoWrite Reminder';
+
+  @override
+  String get sessMetaTriggered => 'Triggered';
+
+  @override
+  String get sessMetaNotTriggered => 'Not triggered';
+
+  @override
+  String get sessMetaUnavailable => 'Unavailable';
+
+  @override
+  String get sessMetaReminderReason => 'Reminder Reason';
+
+  @override
+  String get sessMetaPlanHistory => 'Plan History';
+
+  @override
+  String get sessMetaRecentErrors => 'Recent Errors';
+
+  @override
+  String get sessMetaThereAreNoSessionErrorsTo =>
+      'There are no session errors to review.';
+
+  @override
+  String get sessMetaLastPromptMetadata => 'Last Prompt Metadata';
+
+  @override
+  String get sessMetaClose => 'Close';
+
+  @override
+  String get sessMetaPendingApproval => 'Pending Approval';
+
+  @override
+  String get sessMetaInProgress => 'In Progress';
+
+  @override
+  String get sessMetaCompleted => 'Completed';
+
+  @override
+  String get sessMetaFailed => 'Failed';
+
+  @override
+  String get sessMetaCancelled => 'Cancelled';
+
+  @override
+  String get sessMetaCreated => 'Created';
+
+  @override
+  String get sessMetaUpdated => 'Updated';
+
+  @override
+  String get sessMetaErrorDetail => 'Error Detail';
+
+  @override
+  String get sessMetaPresented => 'Presented';
+
+  @override
+  String get sessMetaThisSessionEndedEarlyRetryThe =>
+      'This session ended early. Retry the request or continue with a more specific instruction.';
+
+  @override
+  String get sessMetaToolCallsStoppedForSafety =>
+      'Tool Calls Stopped for Safety';
+
+  @override
+  String get sessMetaOpenhandStoppedThisSessionForSafety =>
+      'OpenHand stopped this session for safety after too many sequential tool rounds. This stop happened in the session controller before the next tool could run, not because one specific tool execution failed. Ask the assistant to summarize the current progress or give a more specific next step.';
+
+  @override
+  String get sessMetaResponseInterrupted => 'Response Interrupted';
+
+  @override
+  String get sessMetaTheResponseWasInterruptedWhileStreaming =>
+      'The response was interrupted while streaming and this session has stopped. Retry the request or continue with a new message.';
+
+  @override
+  String get sessMetaRequestFailed => 'Request Failed';
+
+  @override
+  String get sessMetaTheRequestFailedBeforeTheAssistant =>
+      'The request failed before the assistant could continue. Check the configuration and retry, or send a new message.';
+
+  @override
+  String get sessMetaContinuationFailed => 'Continuation Failed';
+
+  @override
+  String get sessMetaTheSessionFailedWhileRequestingThe =>
+      'The session failed while requesting the next assistant round after continuing execution. Completed steps and tool results were preserved. Reply with continue/retry, or check the configuration and try again.';
+
+  @override
+  String get sessMetaSafetyStop => 'Safety Stop';
+
+  @override
+  String get sessMetaStreamError => 'Stream Error';
+
+  @override
+  String get sessMetaRequestError => 'Request Error';
+
+  @override
+  String get sessMetaContinuationError => 'Continuation Error';
+
+  @override
+  String get sessMetaToolExecutionError => 'Tool Execution Error';
+
+  @override
+  String get sessMetaCompressionError => 'Compression Error';
+
+  @override
+  String get sessMetaPromptBlocked => 'Prompt Blocked';
+
+  @override
+  String get sessMetaTitleGenerationError => 'Title Generation Error';
+
+  @override
+  String get sessMetaSessionError => 'Session Error';
+
+  @override
+  String get auditNoData => 'No data';
+
+  @override
+  String get auditCopyJson => 'Copy JSON';
+
+  @override
+  String get auditCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get auditMessageAudit => 'Message Audit';
+
+  @override
+  String get auditClose => 'Close';
+
+  @override
+  String get auditOverview => 'Overview';
+
+  @override
+  String get auditMessageId => 'Message ID';
+
+  @override
+  String get auditSessionId => 'Session ID';
+
+  @override
+  String get auditRole => 'Role';
+
+  @override
+  String get auditKind => 'Kind';
+
+  @override
+  String get auditCharacterCount => 'Character Count';
+
+  @override
+  String get auditStreaming => 'Streaming';
+
+  @override
+  String get auditDeleted => 'Deleted';
+
+  @override
+  String get auditHasError => 'Has Error';
+
+  @override
+  String get auditTiming => 'Timing';
+
+  @override
+  String get auditStartedCreated => 'Started / Created';
+
+  @override
+  String get auditEnded => 'Ended';
+
+  @override
+  String get auditDurationMs => 'Duration (ms)';
+
+  @override
+  String get auditModelTokens => 'Model & Tokens';
+
+  @override
+  String get auditModelId => 'Model ID';
+
+  @override
+  String get auditModelLabel => 'Model Label';
+
+  @override
+  String get auditTotalTokens => 'Total Tokens';
+
+  @override
+  String get auditPromptTokens => 'Prompt Tokens';
+
+  @override
+  String get auditCompletionTokens => 'Completion Tokens';
+
+  @override
+  String get auditTokenBreakdown => 'Token Breakdown';
+
+  @override
+  String get auditError => 'Error';
+
+  @override
+  String get auditContent => 'Content';
+
+  @override
+  String get auditFullComposedPromptThatWasActually =>
+      'Full composed prompt that was actually sent to the AI for this round (system instructions, tool catalog, memory, history and user input).';
+
+  @override
+  String get auditWaitingForComposedPromptInjectionAuto =>
+      'Waiting for composed prompt injection (auto-refreshes during streaming).';
+
+  @override
+  String get auditUserRawInput => 'User Raw Input';
+
+  @override
+  String get auditStructuredPromptTurns => 'Structured Prompt Turns';
+
+  @override
+  String get auditNone => 'None';
+
+  @override
+  String get auditPromptMetadata => 'Prompt Metadata';
+
+  @override
+  String get auditRequest => 'Request';
+
+  @override
+  String get auditMethod => 'Method';
+
+  @override
+  String get auditHeaders => 'Headers';
+
+  @override
+  String get auditNotCapturedEnableSettingsAiTelemetry =>
+      'Not captured (enable Settings → AI → Telemetry Debug)';
+
+  @override
+  String get auditBodyQueryPath => 'Body / Query / Path';
+
+  @override
+  String get auditRawAiResponse => 'Raw AI Response';
+
+  @override
+  String get auditExpandRawResponse => 'Expand raw response';
+
+  @override
+  String get auditNotCapturedDebugDisabledOrResponse =>
+      'Not captured: debug disabled or response unavailable';
+
+  @override
+  String get auditAttachments => 'Attachments';
+
+  @override
+  String get auditAttachmentList => 'Attachment list';
+
+  @override
+  String get auditNoAttachments => 'No attachments';
+
+  @override
+  String get auditFullMetadata => 'Full Metadata';
+
+  @override
+  String get auditMessageMetadata => 'Message metadata';
+
+  @override
+  String get auditSessionEnvironment => 'Session Environment';
+
+  @override
+  String get auditEnvironmentSnapshot => 'Environment snapshot';
+
+  @override
+  String get auditAuditSnapshotCopied => 'Audit snapshot copied';
+
+  @override
+  String get auditCopyAuditSnapshot => 'Copy Audit Snapshot';
+
+  @override
+  String get auditSessionMetadataSaved => 'Session metadata saved';
+
+  @override
+  String get auditSessionAudit => 'Session Audit';
+
+  @override
+  String get auditTemplate => 'Template';
+
+  @override
+  String get auditCreatedAt => 'Created At';
+
+  @override
+  String get auditUpdatedAt => 'Updated At';
+
+  @override
+  String get auditMessages => 'Messages';
+
+  @override
+  String get auditLastModel => 'Last Model';
+
+  @override
+  String get auditTitleEditable => 'Title (Editable)';
+
+  @override
+  String get auditSessionTitle => 'Session title';
+
+  @override
+  String get auditSaveTitle => 'Save Title';
+
+  @override
+  String get auditSessionMetadataEditableJson =>
+      'Session Metadata (Editable JSON)';
+
+  @override
+  String get auditSaveWritesBackThroughTheSession =>
+      'Save writes back through the session controller with live UI diff; removed keys are cleared.';
+
+  @override
+  String get auditSaveMetadata => 'Save Metadata';
+
+  @override
+  String get auditRuntimePromptMetadataReadOnly =>
+      'Runtime Prompt Metadata (Read-only)';
+
+  @override
+  String get auditUsefulForPromptConstructionTroubleshooti =>
+      'Useful for prompt-construction troubleshooting; auto-updated by runtime.';
+
+  @override
+  String get auditLastPromptMetadata => 'last_prompt_metadata';
+
+  @override
+  String get auditNoRuntimePromptMetadataYet =>
+      'No runtime prompt metadata yet';
+
+  @override
+  String get auditEnvironment => 'Environment';
+
+  @override
+  String get auditErrorList => 'Error list';
+
+  @override
+  String get auditNoErrorsRecorded => 'No errors recorded';
+
+  @override
+  String get auditTapARowToInspectA =>
+      'Tap a row to inspect a message; delete removes it from storage.';
+
+  @override
+  String get auditNoMessages => 'No messages';
+
+  @override
+  String get auditAudit => 'Audit';
+
+  @override
+  String get auditDelete => 'Delete';
+
+  @override
+  String get progExpFESelectOpenedFile => 'Select Opened File';
+
+  @override
+  String get progExpFEExpandSelected => 'Expand Selected';
+
+  @override
+  String get progExpFECollapseAll => 'Collapse All';
+
+  @override
+  String get progExpFETypeASymbolNameToSearch =>
+      'Type a symbol name to search across files in the current workspace.';
+
+  @override
+  String get progExpFENoWorkspaceSymbolBackendIsAvailable =>
+      'No workspace symbol backend is available for the current file.';
+
+  @override
+  String get progExpFENoMatchingWorkspaceSymbolsWereFound =>
+      'No matching workspace symbols were found.';
+
+  @override
+  String get progExpFEFetchingWorkspaceSymbolsFailedConfirmTha =>
+      'Fetching workspace symbols failed. Confirm that the active language server supports workspace/symbol.';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge =>
+      'This file is still in large-file preview mode, so the symbol bar is using local extraction to stay responsive.';
+
+  @override
+  String get progExpFENoLspSymbolBackendIsAvailable =>
+      'No LSP symbol backend is available for this file, so the symbol bar fell back to local extraction.';
+
+  @override
+  String get progExpFETheLspServerReturnedAnEmpty =>
+      'The LSP server returned an empty symbol list.';
+
+  @override
+  String get progExpFEFetchingLspSymbolsFailedSoThe =>
+      'Fetching LSP symbols failed, so the symbol bar fell back to local extraction.';
+
+  @override
+  String get progExpFERenameSymbol => 'Rename Symbol';
+
+  @override
+  String get progExpFEReviewTheDiffForThisRename =>
+      'Review the diff for this rename before deciding whether to apply it.';
+
+  @override
+  String get progExpFETheRenameWasCancelledAndNo =>
+      'The rename was cancelled and no changes were applied.';
+
+  @override
+  String get progExpFETheSymbolAtTheCurrentCursor =>
+      'The symbol at the current cursor position cannot be renamed.';
+
+  @override
+  String get progExpFETheLanguageServerDidNotReturn =>
+      'The language server did not return any edits to apply.';
+
+  @override
+  String get progExpFECodeActions => 'Code Actions';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableAt =>
+      'No code actions are available at the current cursor position.';
+
+  @override
+  String get progExpFEReviewTheDiffFromThisCode =>
+      'Review the diff from this code action before applying it.';
+
+  @override
+  String get progExpFEIfTheLanguageServerCommandRequests =>
+      'If the language-server command requests edits while running, those edits will also be previewed first.';
+
+  @override
+  String get progExpFETheCodeActionWasCancelledAnd =>
+      'The code action was cancelled and no changes were applied.';
+
+  @override
+  String get progExpFEExecutedTheLanguageServerCommand =>
+      'Executed the language-server command.';
+
+  @override
+  String get progExpFESomeLanguageServerRequestedEditsWere =>
+      'Some language-server requested edits were skipped.';
+
+  @override
+  String get progExpFEThisCodeActionDidNotReturn =>
+      'This code action did not return any applicable edits.';
+
+  @override
+  String get progExpFEQuickFix => 'Quick Fix';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor =>
+      'No quick fixes are available for the hovered diagnostic.';
+
+  @override
+  String get progExpFENoCodeActionsAreAvailableFor =>
+      'No code actions are available for the hovered diagnostic.';
+
+  @override
+  String get progExpFENoQuickFixesAreAvailableFor2 =>
+      'No quick fixes are available for this diagnostic line.';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading =>
+      'The current file is still loading, so LSP actions are not available yet.';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge2 =>
+      'This file is still in large-file preview mode. Open the full editor before running LSP navigation.';
+
+  @override
+  String get progExpFETheCurrentFileIsStillLoading2 =>
+      'The current file is still loading, so document-level edit actions are not available yet.';
+
+  @override
+  String get progExpFEThisFileIsStillInLarge3 =>
+      'This file is still in large-file preview mode. Open the full editor before formatting.';
+
+  @override
+  String get progExpFEFormatDocument => 'Format Document';
+
+  @override
+  String get progExpFETheCurrentFileIsNotReady =>
+      'The current file is not ready yet. Try again in a moment.';
+
+  @override
+  String get progExpFETheFormatterDidNotReturnAny =>
+      'The formatter did not return any edits to apply.';
+
+  @override
+  String get progExpFEFormattingProducedTheSameContentSo =>
+      'Formatting produced the same content, so no text changed.';
+
+  @override
+  String get progExpFEGoToDefinition => 'Go to Definition';
+
+  @override
+  String get progExpFENoDefinitionWasFoundAtThe =>
+      'No definition was found at the current cursor position.';
+
+  @override
+  String get progExpFEMultipleDefinitionsWereFoundChooseA =>
+      'Multiple definitions were found. Choose a target to navigate to.';
+
+  @override
+  String get progExpFEFindReferences => 'Find References';
+
+  @override
+  String get progExpFENoReferencesWereFoundAtThe =>
+      'No references were found at the current cursor position.';
+
+  @override
+  String get progExpFEHoverInfo => 'Hover Info';
+
+  @override
+  String get progExpFEThereIsNoHoverInformationAt =>
+      'There is no hover information at the current cursor position.';
+
+  @override
+  String get progExpFELspBackend => 'LSP Backend';
+
+  @override
+  String get progExpFEReResolveTheBackendForThe =>
+      'Re-resolve the backend for the current file';
+
+  @override
+  String get progExpFEInspectBackendDetails => 'Inspect backend details';
+
+  @override
+  String get progExpFECloseEsc => 'Close (Esc)';
+
+  @override
+  String get progExpFEToggleComment => 'Toggle Comment';
+
+  @override
+  String get progExpFEThisLanguageDoesNotHaveA =>
+      'This language does not have a configured comment strategy yet, so comment toggling is unavailable.';
+
+  @override
+  String get progExpFEGoToImplementation => 'Go to Implementation';
+
+  @override
+  String get progExpFESignatureHelp => 'Signature Help';
+
+  @override
+  String get progExpFEThereIsNoSignatureHelpAvailable =>
+      'There is no signature help available at the current cursor position.';
+
+  @override
+  String get progExpFEPreviousMatch => 'Previous Match';
+
+  @override
+  String get progExpFENextMatch => 'Next Match';
+
+  @override
+  String get progExpFEMatchCase => 'Match Case';
+
+  @override
+  String get progExpFEShowReplace => 'Show Replace';
+
+  @override
+  String get progExpFEReplaceCurrent => 'Replace Current';
+
+  @override
+  String get progExpFEReplaceAll => 'Replace All';
+
+  @override
+  String get progExpFECurrentFileSymbols => 'Current File Symbols';
+
+  @override
+  String get progExpFEWorkspaceSymbols => 'Workspace Symbols';
+
+  @override
+  String get progExpFERefreshDiagnostics => 'Refresh diagnostics';
+
+  @override
+  String get progExpFESymbols => 'Symbols';
+
+  @override
+  String get progExpFESymbolNavigationShiftCmdCtrlO =>
+      'Symbol navigation (Shift+Cmd/Ctrl+O)';
+
+  @override
+  String get progExpFEWorkspace => 'Workspace';
+
+  @override
+  String get progExpFEWorkspaceSymbolSearchCmdCtrlT =>
+      'Workspace symbol search (Cmd/Ctrl+T)';
+
+  @override
+  String get progExpFEShowDiagnosticsForTheCurrentFile =>
+      'Show diagnostics for the current file';
+
+  @override
+  String get progExpFEInspectTheLspBackendBoundTo =>
+      'Inspect the LSP backend bound to the current file';
+
+  @override
+  String get progExpFEDef => 'Def';
+
+  @override
+  String get progExpFEGoToDefinitionF12CmdCtrl =>
+      'Go to Definition (F12 / Cmd/Ctrl+B)';
+
+  @override
+  String get progExpFERefs => 'Refs';
+
+  @override
+  String get progExpFEFindReferencesShiftF12CmdCtrl =>
+      'Find References (Shift+F12 / Cmd/Ctrl+Shift+B)';
+
+  @override
+  String get progExpFEHover => 'Hover';
+
+  @override
+  String get progExpFEHoverInfoCmdCtrlI => 'Hover Info (Cmd/Ctrl+I)';
+
+  @override
+  String get progExpFERename => 'Rename';
+
+  @override
+  String get progExpFERenameSymbolF2 => 'Rename Symbol (F2)';
+
+  @override
+  String get progExpFEActions => 'Actions';
+
+  @override
+  String get progExpFECodeActionsCmdCtrl => 'Code Actions (Cmd/Ctrl+.)';
+
+  @override
+  String get progExpFEFormat => 'Format';
+
+  @override
+  String get progExpFENoImplementationWasFoundAtThe =>
+      'No implementation was found at the current cursor position.';
+
+  @override
+  String get progExpFEMultipleImplementationsFoundChooseATarge =>
+      'Multiple implementations found. Choose a target to navigate to.';
+
+  @override
+  String get progExpFERefactor => 'Refactor';
+
+  @override
+  String get progExpFEReviewTheChangesBeforeApplying =>
+      'Review the changes before applying.';
+
+  @override
+  String get progExpFESaveFile => 'Save file';
+
+  @override
+  String get progExpFECloseEditorReturnToSession =>
+      'Close editor, return to session';
+
+  @override
+  String get progExpFEShowQuickFixesForThisDiagnostic =>
+      'Show quick fixes for this diagnostic line';
+
+  @override
+  String get progExpFELargeFilePerformanceModeIsActive =>
+      'Large-file performance mode is active: using a virtualized read-only preview to avoid full-document layout stalls.';
+
+  @override
+  String get progExpFEOpenFullEditorAnyway => 'Open full editor anyway';
+
+  @override
+  String get settingsShortcuts => 'Shortcuts';
+
+  @override
+  String get settingsConfigureKeyCombinationsForCommonActions =>
+      'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.';
+
+  @override
+  String get settingsBuiltInTools => 'Built-in Tools';
+
+  @override
+  String get settingsCrons => 'Crons';
+
+  @override
+  String get settingsControlsRetentionAndColdStartCleanup =>
+      'Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.';
+
+  @override
+  String get settingsHermesTalker => 'Hermes Talker';
+
+  @override
+  String get settingsConfigureHermesTalkerSelfLearningEvery =>
+      'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.';
+
+  @override
+  String get settingsEditor => 'Editor';
+
+  @override
+  String get settingsManagePerLanguageLspBackendsInstall =>
+      'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.';
+
+  @override
+  String get settingsAppData => 'App Data';
+
+  @override
+  String get settingsPerResponseToolCallLimit => 'Per-Response Tool Call Limit';
+
+  @override
+  String get settingsSaveLimit => 'Save Limit';
+
+  @override
+  String get settingsSequentialToolRoundLimit => 'Sequential Tool Round Limit';
+
+  @override
+  String get settingsSessionSettings => 'Session Settings';
+
+  @override
+  String get settingsConfigureDefaultBehaviourForNewSessions =>
+      'Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.';
+
+  @override
+  String get settingsSendTimeoutS => 'Send Timeout (s)';
+
+  @override
+  String get settingsMaximumWaitTimeToEstablishThe =>
+      'Maximum wait time to establish the HTTP connection and send the request. Default: 60 s.';
+
+  @override
+  String get settingsSaveTimeout => 'Save Timeout';
+
+  @override
+  String get settingsResponseTimeoutS => 'Response Timeout (s)';
+
+  @override
+  String get settingsMaximumWaitForACompleteResponse =>
+      'Maximum wait for a complete response in non-streaming mode. Default: 120 s.';
+
+  @override
+  String get settingsStreamIdleTimeoutS => 'Stream Idle Timeout (s)';
+
+  @override
+  String get settingsMaximumIdleWaitBetweenStreamChunks =>
+      'Maximum idle wait between stream chunks. Exceeding this causes \"Request timed out.\". Default: 120 s.';
+
+  @override
+  String get settingsAutoTitle => 'Auto Title';
+
+  @override
+  String get settingsWhenEnabledATitleIsAutomatically =>
+      'When enabled, a title is automatically generated after the first message in a new session.';
+
+  @override
+  String get settingsDefaultSessionMode => 'Default Session Mode';
+
+  @override
+  String get settingsDefaultInteractionModeForNewSessions =>
+      'Default interaction mode for new sessions: Chat or Plan.';
+
+  @override
+  String get settingsChat => 'Chat';
+
+  @override
+  String get settingsPlan => 'Plan';
+
+  @override
+  String get settingsDefaultFullAccess => 'Default Full Access';
+
+  @override
+  String get settingsWhenEnabledNewSessionsStartIn =>
+      'When enabled, new sessions start in full-access mode, allowing the AI to execute file and command operations without per-action confirmation.';
+
+  @override
+  String get settingsUserProfile => 'User Profile';
+
+  @override
+  String get settingsMaintainAGlobalUserProfileLanguage =>
+      'Maintain a global user profile (language style, focus areas, communication preferences). When non-empty, the profile is woven into the system prompt of every thread template so the AI feels personalised; self-learning incrementally refines it.';
+
+  @override
+  String get settingsModelProviderManagement => 'Model Provider Management';
+
+  @override
+  String get settingsAddSelectTestAndMaintainModel =>
+      'Add, select, test, and maintain model provider configurations. Each provider can serve multiple models.';
+
+  @override
+  String get settingsCompressionTrigger => 'Compression Trigger';
+
+  @override
+  String get settingsOnceTheUncompressedHistoryInA =>
+      'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.';
+
+  @override
+  String get settingsToolCallOutputCompressionThreshold =>
+      'Tool Call Output Compression Threshold';
+
+  @override
+  String get settingsWhenAToolCallReturnsMore =>
+      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+
+  @override
+  String get settingsDefaultsTo40IfOneAssistant =>
+      'Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.';
+
+  @override
+  String get settingsDefaultsTo24RoundsIfThe =>
+      'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.';
+
+  @override
+  String get settingsImageSizeLimit => 'Image Size Limit';
+
+  @override
+  String get settingsDefaultsTo1mbImageAttachmentsLarger =>
+      'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.';
+
+  @override
+  String get settingsCostControl => 'Cost Control';
+
+  @override
+  String get settingsReduceTokenCostsByFreezingThe =>
+      'Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.';
+
+  @override
+  String get settingsEnableInputCache => 'Enable Input Cache';
+
+  @override
+  String get settingsDisabledByDefaultWhenEnabledEvery =>
+      'Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.';
+
+  @override
+  String get settingsCacheBreakpointUpdateMode =>
+      'Cache Breakpoint Update Mode';
+
+  @override
+  String get settingsChooseTheSlidingUnitForThe =>
+      'Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.';
+
+  @override
+  String get settingsByMessageCountUserAssistant =>
+      'By message count (user+assistant)';
+
+  @override
+  String get settingsByUserMessageCountOnly => 'By user-message count only';
+
+  @override
+  String get settingsByAccumulatedTokens => 'By accumulated tokens';
+
+  @override
+  String get settingsCacheBreakpointUpdateInterval =>
+      'Cache Breakpoint Update Interval';
+
+  @override
+  String get settingsDefault10MeaningDependsOnThe =>
+      'Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).';
+
+  @override
+  String get settingsSave => 'Save';
+
+  @override
+  String get settingsCacheBreakpointCount => 'Cache Breakpoint Count';
+
+  @override
+  String get settingsDefault4Range14Anthropic =>
+      'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.';
+
+  @override
+  String get settingsCommandSafety => 'Command Safety';
+
+  @override
+  String get settingsControlWriteCommandConfirmationForBash =>
+      'Control write-command confirmation for bash and manage deny rules in one place.';
+
+  @override
+  String get settingsWriteCommandConfirmation => 'Write Command Confirmation';
+
+  @override
+  String get settingsEnabledByDefaultWhenTheAi =>
+      'Enabled by default. When the AI tries to run a write-like bash command, OpenHand will ask for your confirmation first.';
+
+  @override
+  String get settingsAllowCommandList => 'Allow Command List';
+
+  @override
+  String get settingsMatchingWriteLikeBashCommandsSkip =>
+      'Matching write-like bash commands skip the confirmation dialog and run immediately. Only use this for stable command patterns you explicitly trust.';
+
+  @override
+  String get settingsAddAllowRule => 'Add Allow Rule';
+
+  @override
+  String get settingsNoAllowRulesConfigured => 'No allow rules configured';
+
+  @override
+  String get settingsAddARuleToLetMatching =>
+      'Add a rule to let matching write commands bypass confirmation.';
+
+  @override
+  String get settingsDenyCommandList => 'Deny Command List';
+
+  @override
+  String get settingsMatchingBashCommandsAreBlockedBefore =>
+      'Matching bash commands are blocked before execution and the denial result is returned to the model instead. Supports regex and simple wildcard patterns such as `rm *`.';
+
+  @override
+  String get settingsAddRule => 'Add Rule';
+
+  @override
+  String get settingsNoDenyRulesConfigured => 'No deny rules configured';
+
+  @override
+  String get settingsAddARuleToBlockMatching =>
+      'Add a rule to block matching bash commands before they run.';
+
+  @override
+  String get settingsTelemetry => 'Telemetry';
+
+  @override
+  String get settingsWhenEnabledOpenhandCapturesRawAi =>
+      'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.';
+
+  @override
+  String get settingsDebugMode => 'Debug Mode';
+
+  @override
+  String get settingsOffByDefaultWhenEnabledEvery =>
+      'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.';
+
+  @override
+  String get settingsCaptureRawPayload => 'Capture Raw Payload';
+
+  @override
+  String get settingsEnabledByDefaultOnlyActiveWhen =>
+      'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.';
+
+  @override
+  String get settingsCaptureEnvironment => 'Capture Environment';
+
+  @override
+  String get settingsOffByDefaultOnlyActiveWhen =>
+      'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.';
+
+  @override
+  String get settingsShortcutBindings => 'Shortcut Bindings';
+
+  @override
+  String get settingsClickRecordThenPressTheNew =>
+      'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.';
+
+  @override
+  String get settingsAutoCleanupExecutionHistory =>
+      'Auto-cleanup execution history';
+
+  @override
+  String get settingsOnEveryColdStartAnAsync =>
+      'On every cold start, an async worker runs once to delete history older than the retention window. The worker is single-flight, has a hard timeout, and silently logs failures so it can never block the UI or loop indefinitely.';
+
+  @override
+  String get settingsEnableSelfLearning => 'Enable self-learning';
+
+  @override
+  String get settingsWhenOffTheSchedulerSkipsEvery =>
+      'When off, the scheduler skips every Hermes Talker session. The system cron entry is preserved but never dispatches a sub-agent.';
+
+  @override
+  String get settingsShowSelfLearningMessages => 'Show self-learning messages';
+
+  @override
+  String get settingsWhenOffSelfLearningCardsAre =>
+      'When off, \"self-learning\" cards are hidden from the chat transcript (background learning still runs). Defaults to on.';
+
+  @override
+  String get settingsToolCatalogOverview => 'Tool Catalog Overview';
+
+  @override
+  String get settingsResetAll => 'Reset All';
+
+  @override
+  String get settingsEnableAll => 'Enable All';
+
+  @override
+  String get settingsDisableAll => 'Disable All';
+
+  @override
+  String get settingsNoBuiltInToolConfigurations =>
+      'No built-in tool configurations';
+
+  @override
+  String get settingsClickResetAllToRestoreThe =>
+      'Click \"Reset All\" to restore the default tool list.';
+
+  @override
+  String get settingsResetBuiltInToolConfigs => 'Reset Built-in Tool Configs';
+
+  @override
+  String get settingsCancel => 'Cancel';
+
+  @override
+  String get settingsReset => 'Reset';
+
+  @override
+  String get settingsDeleteCustomTool => 'Delete Custom Tool';
+
+  @override
+  String get settingsDelete => 'Delete';
+
+  @override
+  String get settingsSendTimeoutSaved => 'Send timeout saved.';
+
+  @override
+  String get settingsResponseTimeoutSaved => 'Response timeout saved.';
+
+  @override
+  String get settingsStreamIdleTimeoutSaved => 'Stream idle timeout saved.';
+
+  @override
+  String get settingsCacheBreakpointUpdateIntervalSaved =>
+      'Cache breakpoint update interval saved';
+
+  @override
+  String get settingsCacheBreakpointCountSaved =>
+      'Cache breakpoint count saved';
+
+  @override
+  String get settingsCacheBreakpointPositions => 'Cache Breakpoint Positions';
+
+  @override
+  String get settingsCacheBreakpointPositionsSaved =>
+      'Cache breakpoint positions saved';
+
+  @override
+  String get settingsEnterAToolCallLimitGreater =>
+      'Enter a tool call limit greater than 0.';
+
+  @override
+  String get settingsThePerResponseToolCallLimit =>
+      'The per-response tool call limit has been saved.';
+
+  @override
+  String get settingsEnterASequentialToolRoundLimit =>
+      'Enter a sequential tool round limit greater than 0.';
+
+  @override
+  String get settingsTheSequentialToolRoundLimitHas =>
+      'The sequential tool round limit has been saved.';
+
+  @override
+  String get settingsDeleteDenyRule => 'Delete Deny Rule';
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen =>
+      'The deny command rule has been deleted.';
+
+  @override
+  String get settingsDeleteAllowRule => 'Delete Allow Rule';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen =>
+      'The allow command rule has been deleted.';
+
+  @override
+  String get settingsTheShortcutHasBeenUpdated =>
+      'The shortcut has been updated.';
+
+  @override
+  String get settingsTheEditorShortcutHasBeenUpdated =>
+      'The editor shortcut has been updated.';
+
+  @override
+  String get settingsSendMessage => 'Send Message';
+
+  @override
+  String get settingsCollapseOrExpandComposer => 'Collapse or Expand Composer';
+
+  @override
+  String get settingsPreviousModel => 'Previous Model';
+
+  @override
+  String get settingsNextModel => 'Next Model';
+
+  @override
+  String get settingsToggleAutoFollow => 'Toggle Auto Follow';
+
+  @override
+  String get settingsPreviousSession => 'Previous Session';
+
+  @override
+  String get settingsNextSession => 'Next Session';
+
+  @override
+  String get settingsSaveFile => 'Save File';
+
+  @override
+  String get settingsTriggerCompletion => 'Trigger Completion';
+
+  @override
+  String get settingsShowSignatureHelp => 'Show Signature Help';
+
+  @override
+  String get settingsFind => 'Find';
+
+  @override
+  String get settingsFindAndReplace => 'Find and Replace';
+
+  @override
+  String get settingsGoToLine => 'Go to Line';
+
+  @override
+  String get settingsDocumentSymbols => 'Document Symbols';
+
+  @override
+  String get settingsWorkspaceSymbols => 'Workspace Symbols';
+
+  @override
+  String get settingsGoToDefinition => 'Go to Definition';
+
+  @override
+  String get settingsFindReferences => 'Find References';
+
+  @override
+  String get settingsGoToImplementation => 'Go to Implementation';
+
+  @override
+  String get settingsShowHoverInfo => 'Show Hover Info';
+
+  @override
+  String get settingsRenameSymbol => 'Rename Symbol';
+
+  @override
+  String get settingsCodeActions => 'Code Actions';
+
+  @override
+  String get settingsFormatDocument => 'Format Document';
+
+  @override
+  String get settingsDefaultsToCtrlEnterAndTriggers =>
+      'Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.';
+
+  @override
+  String get settingsDefaultsToCtrlPForQuickly =>
+      'Defaults to Ctrl + P for quickly collapsing or expanding the composer.';
+
+  @override
+  String get settingsDefaultsToCtrlLeftAndWraps =>
+      'Defaults to Ctrl + Left and wraps around to the last model when needed.';
+
+  @override
+  String get settingsDefaultsToCtrlRightAndWraps =>
+      'Defaults to Ctrl + Right and wraps around to the first model when needed.';
+
+  @override
+  String get settingsDefaultsToCtrlSForToggling =>
+      'Defaults to Ctrl + S for toggling auto follow.';
+
+  @override
+  String get settingsDefaultsToCtrlUpAndWraps =>
+      'Defaults to Ctrl + Up and wraps to the end of the session list.';
+
+  @override
+  String get settingsDefaultsToCtrlDownAndWraps =>
+      'Defaults to Ctrl + Down and wraps to the start of the session list.';
+
+  @override
+  String get auditDeleteMessage => 'Delete Message';
+
+  @override
+  String get auditDeleteThisMessageThisCannotBe =>
+      'Delete this message? This cannot be undone.';
+
+  @override
+  String get auditCancel => 'Cancel';
+
+  @override
+  String get settingsManageTheBuiltInAiTools =>
+      'Manage the built-in AI tools. Adjust each tool\'s enabled state, name, description, schema, priority, sort order, load strategy, and other parameters.';
+
+  @override
+  String get settingsManageTheLocalFilesAndDatabase =>
+      'Manage the local files and database tables OpenHand owns on disk. Every cleanup runs on background workers — the UI thread stays responsive — and requires explicit second confirmation.';
+
+  @override
+  String get settingsThisWillRestoreAllBuiltIn =>
+      'This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.';
+
+  @override
+  String get tlCallUnwrap => 'Unwrap';
+
+  @override
+  String get tlCallWrapLines => 'Wrap Lines';
+
+  @override
+  String get tlCallViewCompressedContent => 'View Compressed Content';
+
+  @override
+  String get tlCallViewFullContent => 'View Full Content';
+
+  @override
+  String tlCallMultiEditEditcount(Object editCount) {
+    return 'Multi-edit ×$editCount';
+  }
+
+  @override
+  String get tlCallPreparing => 'Preparing';
+
+  @override
+  String get tlCallPreparingAlt => 'Preparing';
+
+  @override
+  String get tlCallRunningAlt => 'Running';
+
+  @override
+  String get tlCallCompleted => 'Completed';
+
+  @override
+  String get tlCallCompletedAlt => 'Completed';
+
+  @override
+  String get tlCallTimedOutAlt => 'Timed Out';
+
+  @override
+  String get tlCallFailedAlt => 'Failed';
+
+  @override
+  String tlCallFailedToOpenFileLocationError(Object error) {
+    return 'Failed to open file location: $error';
+  }
+
+  @override
+  String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
+    return '$memoryItems_length memories updated';
+  }
+
+  @override
+  String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
+    return '$profileItems_length profile changes';
+  }
+
+  @override
+  String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
+    return '$skillItems_length skills updated';
+  }
+
+  @override
+  String get tlCallAiThinkingStreaming => 'AI Thinking (streaming)';
+
+  @override
+  String get tlCallAiThinking => 'AI Thinking';
+
+  @override
+  String get tlCallAiResponseStreaming => 'AI Response (streaming)';
+
+  @override
+  String get tlCallAiResponse => 'AI Response';
+
+  @override
+  String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
+    return ' and $items_length_3 more';
+  }
+
+  @override
+  String tlCallSecondsSAgo(Object seconds) {
+    return '${seconds}s ago';
+  }
+
+  @override
+  String tlCallMinutesMAgo(Object minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String tlCallHoursHAgo(Object hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String tlCallDaysDAgo(Object days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String sessMetaPlanPlanindex(Object planIndex) {
+    return 'Plan #$planIndex';
+  }
+
+  @override
+  String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
+    return ' The current sequential tool round limit is $configuredLimit.';
+  }
+
+  @override
+  String auditInvalidJsonErrorMessage(Object error_message) {
+    return 'Invalid JSON: $error_message';
+  }
+
+  @override
+  String auditSaveFailedError(Object error) {
+    return 'Save failed: $error';
+  }
+
+  @override
+  String auditRecentErrorsSessionRecenterrorsLength(
+    Object session_recentErrors_length,
+  ) {
+    return 'Recent Errors ($session_recentErrors_length)';
+  }
+
+  @override
+  String auditMessagesSessionMessagesLength(Object session_messages_length) {
+    return 'Messages ($session_messages_length)';
+  }
+
+  @override
+  String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
+    return 'Applied $edits_length formatting edits.';
+  }
+
+  @override
+  String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
+    return 'Format the current file ($formatShortcut)';
+  }
+
+  @override
+  String progExpFENoCodeactionkindRefactoringIsAvailableAt(
+    Object codeActionKind,
+  ) {
+    return 'No \"$codeActionKind\" refactoring is available at the current position.';
+  }
+
+  @override
+  String get progExpFEHideFileBrowser => 'Hide file browser';
+
+  @override
+  String get progExpFEShowFileBrowser => 'Show file browser';
+
+  @override
+  String settingsRetentionWindowRetentionDayS(Object retention) {
+    return 'Retention window: $retention day(s)';
+  }
+
+  @override
+  String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
+    return 'Range $minR–$maxR days; default 7. Takes effect on the next cold start.';
+  }
+
+  @override
+  String settingsConcurrentWorkersConcurrency(Object concurrency) {
+    return 'Concurrent workers: $concurrency';
+  }
+
+  @override
+  String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
+    return 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.';
+  }
+
+  @override
+  String settingsSortedLengthBuiltInToolsEnabledcount(
+    Object sorted_length,
+    Object enabledCount,
+  ) {
+    return '$sorted_length built-in tools, $enabledCount enabled. Adjust name, description, schema, priority, sort order, and load strategy for each.';
+  }
+
+  @override
+  String settingsAreYouSureYouWantTo(Object config_effectiveName) {
+    return 'Are you sure you want to delete \"$config_effectiveName\"? This cannot be undone.';
+  }
+
+  @override
+  String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
+    return 'Enter a value between $min and $max seconds.';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn(
+    Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
+    Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
+  ) {
+    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheUpdateInterval and $AppSettingsSnapshot_maxAiInputCacheUpdateInterval';
+  }
+
+  @override
+  String settingsPleaseEnterAnIntegerBetweenAppsettingssn2(
+    Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
+    Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
+  ) {
+    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheBreakpointCount and $AppSettingsSnapshot_maxAiInputCacheBreakpointCount';
+  }
+
+  @override
+  String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
+    return 'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.';
+  }
+
+  @override
+  String get settingsTheDenyCommandRuleHasBeen2 =>
+      'The deny command rule has been updated.';
+
+  @override
+  String get settingsTheAllowCommandRuleHasBeen2 =>
+      'The allow command rule has been updated.';
+
+  @override
+  String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and saves the current file.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and opens the completion popup on demand.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and shows method signatures, parameter details, and summary docs for the current call site.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and toggles the find panel.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and toggles the replace panel.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and toggles the go-to-line panel.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and toggles the symbol list for the current file.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and toggles the workspace symbol search panel.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and jumps to the current symbol definition.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and finds references for the current symbol.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and jumps to the current implementation.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and shows type or documentation info at the current position.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and starts rename for the current symbol.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and shows available code actions.';
+  }
+
+  @override
+  String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
+    return 'Defaults to $defaultLabel and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.';
+  }
+
+  @override
+  String progExpFEResolvedLspBackendForCurrentFile(
+    Object lspName,
+    Object projLang,
+    Object fileLang,
+    Object modeLine,
+    Object sdkSourceLine,
+    Object lspSourceLine,
+    Object rootPath,
+    Object command,
+  ) {
+    return 'Resolved $lspName for the current file.\nProject language: $projLang\nCurrent file language: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: $rootPath\nCommand: $command';
+  }
 }

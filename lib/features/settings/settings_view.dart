@@ -587,12 +587,8 @@ class _SettingsViewState extends State<SettingsView> {
         ],
       ),
       _SettingsSection.shortcuts => _SettingsGroupCard(
-        title: _localizedText(context, zh: '快捷键', en: 'Shortcuts'),
-        description: _localizedText(
-          context,
-          zh: '为常用操作配置组合键。当前最多支持同时按下 4 个按键。',
-          en: 'Configure key combinations for common actions. OpenHand currently supports up to four simultaneous keys.',
-        ),
+        title: AppLocalizations.of(context)!.settingsShortcuts,
+        description: AppLocalizations.of(context)!.settingsConfigureKeyCombinationsForCommonActions,
         children: [_buildShortcutsSection(context, settingsController)],
       ),
       _SettingsSection.ai => _SettingsGroupCard(
@@ -601,17 +597,8 @@ class _SettingsViewState extends State<SettingsView> {
         children: [_buildAiModelsSection(context, settingsController)],
       ),
       _SettingsSection.builtinTools => _SettingsGroupCard(
-        title: _localizedText(context, zh: '内建工具', en: 'Built-in Tools'),
-        description: _localizedText(
-          context,
-          zh:
-              '管理应用内置的 AI 内建工具。可调整每个工具的启用状态、名称、描述、'
-              'Schema、优先级、排序、加载策略和其他参数。',
-          en:
-              'Manage the built-in AI tools. Adjust each tool\'s enabled '
-              'state, name, description, schema, priority, sort order, '
-              'load strategy, and other parameters.',
-        ),
+        title: AppLocalizations.of(context)!.settingsBuiltInTools,
+        description: AppLocalizations.of(context)!.settingsManageTheBuiltInAiTools,
         children: [_buildBuiltinToolsSection(context, settingsController)],
       ),
       _SettingsSection.mcp => _SettingsGroupCard(
@@ -630,48 +617,23 @@ class _SettingsViewState extends State<SettingsView> {
         children: [_buildMemorySection(context, settingsController)],
       ),
       _SettingsSection.crons => _SettingsGroupCard(
-        title: _localizedText(context, zh: '定时任务', en: 'Crons'),
-        description: _localizedText(
-          context,
-          zh: '控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。',
-          en: 'Controls retention and cold-start cleanup of cron execution history. The cleanup worker runs once per cold start with a hard timeout, single-flight lock and silentLog-only failures so it can never leak resources or loop indefinitely.',
-        ),
+        title: AppLocalizations.of(context)!.settingsCrons,
+        description: AppLocalizations.of(context)!.settingsControlsRetentionAndColdStartCleanup,
         children: [_buildCronsSection(context, settingsController)],
       ),
       _SettingsSection.hermesTalker => _SettingsGroupCard(
-        title: _localizedText(
-          context,
-          zh: 'Hermes Talker',
-          en: 'Hermes Talker',
-        ),
-        description: _localizedText(
-          context,
-          zh: '配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。',
-          en: 'Configure Hermes Talker self-learning: every 5 minutes a system cron scans sessions from the last 7 days and dispatches a restricted sub-agent to update memory and skills in the background.',
-        ),
+        title: AppLocalizations.of(context)!.settingsHermesTalker,
+        description: AppLocalizations.of(context)!.settingsConfigureHermesTalkerSelfLearningEvery,
         children: [_buildHermesTalkerSection(context, settingsController)],
       ),
       _SettingsSection.editor => _SettingsGroupCard(
-        title: _localizedText(context, zh: '编辑器', en: 'Editor'),
-        description: _localizedText(
-          context,
-          zh: '管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。',
-          en: 'Manage per-language LSP backends, install roots, and download assistant settings. Saved mappings are applied directly to editor navigation, diagnostics, rename, and code actions.',
-        ),
+        title: AppLocalizations.of(context)!.settingsEditor,
+        description: AppLocalizations.of(context)!.settingsManagePerLanguageLspBackendsInstall,
         children: [_buildEditorSection(context, settingsController)],
       ),
       _SettingsSection.appData => _SettingsGroupCard(
-        title: _localizedText(context, zh: '应用数据', en: 'App Data'),
-        description: _localizedText(
-          context,
-          zh: '管理 OpenHand 在本地占用的文件与数据库体积。所有清理动作都在后台 worker '
-              '中运行，不会阻塞主线程；每个分类均需二次确认后才会真正删除。',
-          en:
-              'Manage the local files and database tables OpenHand owns on '
-              'disk. Every cleanup runs on background workers — the UI '
-              'thread stays responsive — and requires explicit second '
-              'confirmation.',
-        ),
+        title: AppLocalizations.of(context)!.settingsAppData,
+        description: AppLocalizations.of(context)!.settingsManageTheLocalFilesAndDatabase,
         children: const [_DataCleanupSection()],
       ),
       _SettingsSection.system => _SettingsGroupCard(
@@ -919,11 +881,7 @@ class _SettingsViewState extends State<SettingsView> {
             FilteringTextInputFormatter.digitsOnly,
           ],
           decoration: InputDecoration(
-            labelText: _localizedText(
-              context,
-              zh: '单轮工具调用上限',
-              en: 'Per-Response Tool Call Limit',
-            ),
+            labelText: AppLocalizations.of(context)!.settingsPerResponseToolCallLimit,
             hintText:
                 '${AppSettingsSnapshot.defaultAiSingleRoundToolCallLimit}',
           ),
@@ -937,7 +895,7 @@ class _SettingsViewState extends State<SettingsView> {
             onPressed: () =>
                 _saveToolCallLimit(context, _toolCallLimitController.text),
             icon: const Icon(Icons.save_outlined),
-            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
+            label: Text(AppLocalizations.of(context)!.settingsSaveLimit),
           ),
         ),
       ],
@@ -954,11 +912,7 @@ class _SettingsViewState extends State<SettingsView> {
             FilteringTextInputFormatter.digitsOnly,
           ],
           decoration: InputDecoration(
-            labelText: _localizedText(
-              context,
-              zh: '连续工具轮次上限',
-              en: 'Sequential Tool Round Limit',
-            ),
+            labelText: AppLocalizations.of(context)!.settingsSequentialToolRoundLimit,
             hintText:
                 '${AppSettingsSnapshot.defaultAiSequentialToolRoundLimit}',
           ),
@@ -976,7 +930,7 @@ class _SettingsViewState extends State<SettingsView> {
               _sequentialToolRoundLimitController.text,
             ),
             icon: const Icon(Icons.save_outlined),
-            label: Text(_localizedText(context, zh: '保存上限', en: 'Save Limit')),
+            label: Text(AppLocalizations.of(context)!.settingsSaveLimit),
           ),
         ),
       ],
@@ -1161,25 +1115,13 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '会话设置', en: 'Session Settings'),
-          description: _localizedText(
-            context,
-            zh: '配置新会话的默认行为，包括超时时间、自动标题、默认模式与权限。',
-            en: 'Configure default behaviour for new sessions, including timeouts, auto-title, default mode, and permissions.',
-          ),
+          title: AppLocalizations.of(context)!.settingsSessionSettings,
+          description: AppLocalizations.of(context)!.settingsConfigureDefaultBehaviourForNewSessions,
           child: Column(
             children: [
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '发送超时时间（秒）',
-                  en: 'Send Timeout (s)',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '建立 HTTP 连接并完成请求发送的最大等待时间，默认 60 秒。',
-                  en: 'Maximum wait time to establish the HTTP connection and send the request. Default: 60 s.',
-                ),
+                title: AppLocalizations.of(context)!.settingsSendTimeoutS,
+                subtitle: AppLocalizations.of(context)!.settingsMaximumWaitTimeToEstablishThe,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1191,11 +1133,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '发送超时（秒）',
-                          en: 'Send Timeout (s)',
-                        ),
+                        labelText: AppLocalizations.of(context)!.settingsSendTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiConnectTimeoutSeconds}',
                       ),
@@ -1212,11 +1150,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
-                          _localizedText(
-                            context,
-                            zh: '保存超时',
-                            en: 'Save Timeout',
-                          ),
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
                         ),
                       ),
                     ),
@@ -1226,16 +1160,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '响应超时时间（秒）',
-                  en: 'Response Timeout (s)',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '非流式请求等待完整响应的最大时间，默认 120 秒。',
-                  en: 'Maximum wait for a complete response in non-streaming mode. Default: 120 s.',
-                ),
+                title: AppLocalizations.of(context)!.settingsResponseTimeoutS,
+                subtitle: AppLocalizations.of(context)!.settingsMaximumWaitForACompleteResponse,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1247,11 +1173,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '响应超时（秒）',
-                          en: 'Response Timeout (s)',
-                        ),
+                        labelText: AppLocalizations.of(context)!.settingsResponseTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiResponseTimeoutSeconds}',
                       ),
@@ -1268,11 +1190,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
-                          _localizedText(
-                            context,
-                            zh: '保存超时',
-                            en: 'Save Timeout',
-                          ),
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
                         ),
                       ),
                     ),
@@ -1282,16 +1200,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '等待超时时间（秒）',
-                  en: 'Stream Idle Timeout (s)',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '流式响应中两次数据块之间的最大空闲等待时间，超时将中断请求并显示"Request timed out."，默认 120 秒。',
-                  en: 'Maximum idle wait between stream chunks. Exceeding this causes "Request timed out.". Default: 120 s.',
-                ),
+                title: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
+                subtitle: AppLocalizations.of(context)!.settingsMaximumIdleWaitBetweenStreamChunks,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1303,11 +1213,7 @@ class _SettingsViewState extends State<SettingsView> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: InputDecoration(
-                        labelText: _localizedText(
-                          context,
-                          zh: '等待超时（秒）',
-                          en: 'Stream Idle Timeout (s)',
-                        ),
+                        labelText: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
                         hintText:
                             '${AppSettingsSnapshot.defaultAiStreamIdleTimeoutSeconds}',
                       ),
@@ -1324,11 +1230,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         icon: const Icon(Icons.save_outlined),
                         label: Text(
-                          _localizedText(
-                            context,
-                            zh: '保存超时',
-                            en: 'Save Timeout',
-                          ),
+                          AppLocalizations.of(context)!.settingsSaveTimeout,
                         ),
                       ),
                     ),
@@ -1338,12 +1240,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(context, zh: '自动标题', en: 'Auto Title'),
-                subtitle: _localizedText(
-                  context,
-                  zh: '开启后，新会话发送首条消息时将自动生成会话标题。',
-                  en: 'When enabled, a title is automatically generated after the first message in a new session.',
-                ),
+                title: AppLocalizations.of(context)!.settingsAutoTitle,
+                subtitle: AppLocalizations.of(context)!.settingsWhenEnabledATitleIsAutomatically,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1355,16 +1253,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '默认会话模式',
-                  en: 'Default Session Mode',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '新会话的默认交互模式：对话（Chat）或规划（Plan）。',
-                  en: 'Default interaction mode for new sessions: Chat or Plan.',
-                ),
+                title: AppLocalizations.of(context)!.settingsDefaultSessionMode,
+                subtitle: AppLocalizations.of(context)!.settingsDefaultInteractionModeForNewSessions,
                 control: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
@@ -1373,7 +1263,7 @@ class _SettingsViewState extends State<SettingsView> {
                         value: 'chat',
                         icon: const Icon(Icons.chat_outlined),
                         label: Text(
-                          _localizedText(context, zh: '对话', en: 'Chat'),
+                          AppLocalizations.of(context)!.settingsChat,
                           softWrap: false,
                         ),
                       ),
@@ -1381,7 +1271,7 @@ class _SettingsViewState extends State<SettingsView> {
                         value: 'plan',
                         icon: const Icon(Icons.account_tree_outlined),
                         label: Text(
-                          _localizedText(context, zh: '规划', en: 'Plan'),
+                          AppLocalizations.of(context)!.settingsPlan,
                           softWrap: false,
                         ),
                       ),
@@ -1400,16 +1290,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '默认全访问权限',
-                  en: 'Default Full Access',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '开启后，新会话将默认使用全访问权限模式，允许 AI 直接执行文件与命令操作而无需逐一确认。',
-                  en: 'When enabled, new sessions start in full-access mode, allowing the AI to execute file and command operations without per-action confirmation.',
-                ),
+                title: AppLocalizations.of(context)!.settingsDefaultFullAccess,
+                subtitle: AppLocalizations.of(context)!.settingsWhenEnabledNewSessionsStartIn,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1421,16 +1303,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '用户画像',
-                  en: 'User Profile',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '维护用于全局会话的用户画像（语言风格、关注领域、交流偏好等）。设置非空时，所有线程模板的内建系统提示词都会自动携带画像上下文，使 AI 回复更贴近你的习惯；自我学习也会增量更新这份画像。',
-                  en: 'Maintain a global user profile (language style, focus areas, communication preferences). When non-empty, the profile is woven into the system prompt of every thread template so the AI feels personalised; self-learning incrementally refines it.',
-                ),
+                title: AppLocalizations.of(context)!.settingsUserProfile,
+                subtitle: AppLocalizations.of(context)!.settingsMaintainAGlobalUserProfileLanguage,
                 control: const Align(
                   alignment: Alignment.centerLeft,
                   child: _UserProfileSettingsButton(),
@@ -1460,16 +1334,8 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
-          title: _localizedText(
-            context,
-            zh: '模型提供商管理',
-            en: 'Model Provider Management',
-          ),
-          description: _localizedText(
-            context,
-            zh: '新增、选择、测试并维护当前可用的模型提供商配置。每个提供商可包含多个模型。',
-            en: 'Add, select, test, and maintain model provider configurations. Each provider can serve multiple models.',
-          ),
+          title: AppLocalizations.of(context)!.settingsModelProviderManagement,
+          description: AppLocalizations.of(context)!.settingsAddSelectTestAndMaintainModel,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1544,31 +1410,15 @@ class _SettingsViewState extends State<SettingsView> {
           child: Column(
             children: [
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '压缩触发阈值',
-                  en: 'Compression Trigger',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '当线程中尚未被压缩的历史消息字符总数超过这个值时，系统会生成新的摘要检查点。',
-                  en: 'Once the uncompressed history in a thread exceeds this value, OpenHand creates a new summary checkpoint.',
-                ),
+                title: AppLocalizations.of(context)!.settingsCompressionTrigger,
+                subtitle: AppLocalizations.of(context)!.settingsOnceTheUncompressedHistoryInA,
                 control: compressionControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '工具调用输出压缩阈值',
-                  en: 'Tool Call Output Compression Threshold',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '当某个工具调用返回的 raw 内容字符数超过该阈值时，OpenHand 会在拼装 conversation history 前将其压缩为「受影响路径+目的+首尾片段」的结构化摘要，释放 tokens。默认 1024。',
-                  en: 'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.',
-                ),
+                title: AppLocalizations.of(context)!.settingsToolCallOutputCompressionThreshold,
+                subtitle: AppLocalizations.of(context)!.settingsWhenAToolCallReturnsMore,
                 control: toolResultCompressionControl,
                 controlMaxWidth: 360,
               ),
@@ -1602,31 +1452,15 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '单轮工具调用上限',
-                  en: 'Per-Response Tool Call Limit',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认 40 次。一次人机对话响应过程中，如果工具调用总次数超过这个阈值，系统会追加警告消息并安全终止本轮响应。',
-                  en: 'Defaults to 40. If one assistant response exceeds this many tool calls, OpenHand posts a warning message and stops the round safely.',
-                ),
+                title: AppLocalizations.of(context)!.settingsPerResponseToolCallLimit,
+                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo40IfOneAssistant,
                 control: toolCallLimitControl,
                 controlMaxWidth: 360,
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '连续工具轮次上限',
-                  en: 'Sequential Tool Round Limit',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认 24 轮。一次会话中，如果助手在工具执行后又连续请求下一轮工具，达到这个轮次数时系统会安全停止，避免陷入无限工具回环。',
-                  en: 'Defaults to 24 rounds. If the assistant keeps requesting another tool round after each execution, OpenHand stops once this round limit is reached to prevent runaway tool loops.',
-                ),
+                title: AppLocalizations.of(context)!.settingsSequentialToolRoundLimit,
+                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo24RoundsIfThe,
                 control: sequentialToolRoundLimitControl,
                 controlMaxWidth: 360,
               ),
@@ -1660,16 +1494,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '图片大小上限',
-                  en: 'Image Size Limit',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认 1MB。用户附加的图片若超过这个大小，会在弹出图片编辑器之前先按比例自动压缩，并最终落盘到该上限以内，避免会话与提示词膨胀。',
-                  en: 'Defaults to 1MB. Image attachments larger than this cap are auto-compressed before the editor opens and stored within the limit, keeping sessions and prompts compact.',
-                ),
+                title: AppLocalizations.of(context)!.settingsImageSizeLimit,
+                subtitle: AppLocalizations.of(context)!.settingsDefaultsTo1mbImageAttachmentsLarger,
                 control: imageSizeLimitControl,
                 controlMaxWidth: 360,
               ),
@@ -1678,26 +1504,14 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '成本控制', en: 'Cost Control'),
-          description: _localizedText(
-            context,
-            zh: '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。',
-            en: 'Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.',
-          ),
+          title: AppLocalizations.of(context)!.settingsCostControl,
+          description: AppLocalizations.of(context)!.settingsReduceTokenCostsByFreezingThe,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '启用输入缓存',
-                  en: 'Enable Input Cache',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。',
-                  en: 'Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.',
-                ),
+                title: AppLocalizations.of(context)!.settingsEnableInputCache,
+                subtitle: AppLocalizations.of(context)!.settingsDisabledByDefaultWhenEnabledEvery,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: Switch(
@@ -1715,16 +1529,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '缓存断点更新模式',
-                  en: 'Cache Breakpoint Update Mode',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。',
-                  en: 'Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.',
-                ),
+                title: AppLocalizations.of(context)!.settingsCacheBreakpointUpdateMode,
+                subtitle: AppLocalizations.of(context)!.settingsChooseTheSlidingUnitForThe,
                 control: Align(
                   alignment: Alignment.centerLeft,
                   child: DropdownButton<String>(
@@ -1742,33 +1548,21 @@ class _SettingsViewState extends State<SettingsView> {
                         value: AppSettingsSnapshot
                             .aiInputCacheUpdateModeAllMessages,
                         child: Text(
-                          _localizedText(
-                            context,
-                            zh: '按消息条数 (user+assistant)',
-                            en: 'By message count (user+assistant)',
-                          ),
+                          AppLocalizations.of(context)!.settingsByMessageCountUserAssistant,
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: AppSettingsSnapshot
                             .aiInputCacheUpdateModeUserMessages,
                         child: Text(
-                          _localizedText(
-                            context,
-                            zh: '按用户消息条数',
-                            en: 'By user-message count only',
-                          ),
+                          AppLocalizations.of(context)!.settingsByUserMessageCountOnly,
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: AppSettingsSnapshot
                             .aiInputCacheUpdateModeTokens,
                         child: Text(
-                          _localizedText(
-                            context,
-                            zh: '按累计 tokens',
-                            en: 'By accumulated tokens',
-                          ),
+                          AppLocalizations.of(context)!.settingsByAccumulatedTokens,
                         ),
                       ),
                     ],
@@ -1778,16 +1572,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '缓存断点更新间隔',
-                  en: 'Cache Breakpoint Update Interval',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。',
-                  en: 'Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).',
-                ),
+                title: AppLocalizations.of(context)!.settingsCacheBreakpointUpdateInterval,
+                subtitle: AppLocalizations.of(context)!.settingsDefault10MeaningDependsOnThe,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1821,7 +1607,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         icon: const Icon(Icons.save_rounded),
                         label: Text(
-                          _localizedText(context, zh: '保存', en: 'Save'),
+                          AppLocalizations.of(context)!.settingsSave,
                         ),
                       ),
                     ),
@@ -1831,16 +1617,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '缓存断点数量',
-                  en: 'Cache Breakpoint Count',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。',
-                  en: 'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.',
-                ),
+                title: AppLocalizations.of(context)!.settingsCacheBreakpointCount,
+                subtitle: AppLocalizations.of(context)!.settingsDefault4Range14Anthropic,
                 control: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1874,7 +1652,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                         icon: const Icon(Icons.save_rounded),
                         label: Text(
-                          _localizedText(context, zh: '保存', en: 'Save'),
+                          AppLocalizations.of(context)!.settingsSave,
                         ),
                       ),
                     ),
@@ -1889,26 +1667,14 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
-          title: _localizedText(context, zh: '命令安全', en: 'Command Safety'),
-          description: _localizedText(
-            context,
-            zh: '控制 bash 工具是否需要写命令确认，并集中管理禁止命令规则。',
-            en: 'Control write-command confirmation for bash and manage deny rules in one place.',
-          ),
+          title: AppLocalizations.of(context)!.settingsCommandSafety,
+          description: AppLocalizations.of(context)!.settingsControlWriteCommandConfirmationForBash,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ResponsiveSettingRow(
-                title: _localizedText(
-                  context,
-                  zh: '写命令确认',
-                  en: 'Write Command Confirmation',
-                ),
-                subtitle: _localizedText(
-                  context,
-                  zh: '默认开启。AI 调用 bash 工具执行可能修改文件或系统状态的命令时，会先弹窗等待你确认。',
-                  en: 'Enabled by default. When the AI tries to run a write-like bash command, OpenHand will ask for your confirmation first.',
-                ),
+                title: AppLocalizations.of(context)!.settingsWriteCommandConfirmation,
+                subtitle: AppLocalizations.of(context)!.settingsEnabledByDefaultWhenTheAi,
                 control: Switch(
                   value: settingsController.aiWriteCommandConfirmationEnabled,
                   onChanged: (value) async {
@@ -1923,16 +1689,12 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               Text(
-                _localizedText(context, zh: '允许命令列表', en: 'Allow Command List'),
+                AppLocalizations.of(context)!.settingsAllowCommandList,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                _localizedText(
-                  context,
-                  zh: '匹配到的写类 bash 命令会跳过确认弹窗直接执行。只适合长期明确放行的稳定命令模式。',
-                  en: 'Matching write-like bash commands skip the confirmation dialog and run immediately. Only use this for stable command patterns you explicitly trust.',
-                ),
+                AppLocalizations.of(context)!.settingsMatchingWriteLikeBashCommandsSkip,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -1942,23 +1704,15 @@ class _SettingsViewState extends State<SettingsView> {
                 onPressed: () => _showAllowCommandRuleDialog(context),
                 icon: const Icon(Icons.verified_outlined),
                 label: Text(
-                  _localizedText(context, zh: '新增允许规则', en: 'Add Allow Rule'),
+                  AppLocalizations.of(context)!.settingsAddAllowRule,
                 ),
               ),
               const SizedBox(height: 16),
               if (allowCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.verified_user_outlined,
-                  title: _localizedText(
-                    context,
-                    zh: '当前没有允许命令规则',
-                    en: 'No allow rules configured',
-                  ),
-                  body: _localizedText(
-                    context,
-                    zh: '新增规则后，匹配到的写命令将跳过确认弹窗。',
-                    en: 'Add a rule to let matching write commands bypass confirmation.',
-                  ),
+                  title: AppLocalizations.of(context)!.settingsNoAllowRulesConfigured,
+                  body: AppLocalizations.of(context)!.settingsAddARuleToLetMatching,
                 )
               else
                 SizedBox(
@@ -1984,16 +1738,12 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
               const SizedBox(height: 18),
               Text(
-                _localizedText(context, zh: '禁止命令列表', en: 'Deny Command List'),
+                AppLocalizations.of(context)!.settingsDenyCommandList,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                _localizedText(
-                  context,
-                  zh: '匹配到的 bash 命令将不会真正执行，而是把“被用户禁止”这一结果直接返回给模型。支持正则和简单通配写法，例如 `rm *`。',
-                  en: 'Matching bash commands are blocked before execution and the denial result is returned to the model instead. Supports regex and simple wildcard patterns such as `rm *`.',
-                ),
+                AppLocalizations.of(context)!.settingsMatchingBashCommandsAreBlockedBefore,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -2003,23 +1753,15 @@ class _SettingsViewState extends State<SettingsView> {
                 onPressed: () => _showDenyCommandRuleDialog(context),
                 icon: const Icon(Icons.block_rounded),
                 label: Text(
-                  _localizedText(context, zh: '新增规则', en: 'Add Rule'),
+                  AppLocalizations.of(context)!.settingsAddRule,
                 ),
               ),
               const SizedBox(height: 16),
               if (denyCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.rule_folder_outlined,
-                  title: _localizedText(
-                    context,
-                    zh: '当前没有禁止命令规则',
-                    en: 'No deny rules configured',
-                  ),
-                  body: _localizedText(
-                    context,
-                    zh: '新增规则后，匹配到的 bash 命令会被直接拦截。',
-                    en: 'Add a rule to block matching bash commands before they run.',
-                  ),
+                  title: AppLocalizations.of(context)!.settingsNoDenyRulesConfigured,
+                  body: AppLocalizations.of(context)!.settingsAddARuleToBlockMatching,
                 )
               else
                 SizedBox(
@@ -2057,22 +1799,14 @@ class _SettingsViewState extends State<SettingsView> {
     SettingsController settingsController,
   ) {
     return _SettingsSubsectionCard(
-      title: _localizedText(context, zh: '遥测', en: 'Telemetry'),
-      description: _localizedText(
-        context,
-        zh: '开启后会捕获每条 AI 消息的原始响应、请求参数、耗时、错误等调试数据，方便在消息/会话审计弹窗中排查问题。',
-        en: 'When enabled, OpenHand captures raw AI responses, request parameters, timings and errors so you can inspect them from message/session audit dialogs.',
-      ),
+      title: AppLocalizations.of(context)!.settingsTelemetry,
+      description: AppLocalizations.of(context)!.settingsWhenEnabledOpenhandCapturesRawAi,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ResponsiveSettingRow(
-            title: _localizedText(context, zh: '开启调试', en: 'Debug Mode'),
-            subtitle: _localizedText(
-              context,
-              zh: '默认关闭。开启后，在所有线程模板的消息卡片上鼠标悬停/聚焦时会显示【审计】按钮，会话顶部也会新增会话审计入口。',
-              en: 'Off by default. When enabled, every message card exposes an Audit pill on hover/focus and each session toolbar shows a session-level Audit action.',
-            ),
+            title: AppLocalizations.of(context)!.settingsDebugMode,
+            subtitle: AppLocalizations.of(context)!.settingsOffByDefaultWhenEnabledEvery,
             control: Switch(
               key: const ValueKey<String>('settingsTelemetryDebugSwitch'),
               value: settingsController.telemetryDebugEnabled,
@@ -2088,16 +1822,8 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           const SizedBox(height: 18),
           _ResponsiveSettingRow(
-            title: _localizedText(
-              context,
-              zh: '捕获原始响应',
-              en: 'Capture Raw Payload',
-            ),
-            subtitle: _localizedText(
-              context,
-              zh: '默认开启。仅当调试开启时生效，将 AI 响应的原始 JSON/SSE 片段一并写入消息元数据，便于审计。',
-              en: 'Enabled by default. Only active when debug mode is on. Attaches the raw JSON/SSE chunks to message metadata for auditing.',
-            ),
+            title: AppLocalizations.of(context)!.settingsCaptureRawPayload,
+            subtitle: AppLocalizations.of(context)!.settingsEnabledByDefaultOnlyActiveWhen,
             control: Switch(
               key: const ValueKey<String>('settingsTelemetryRawPayloadSwitch'),
               value: settingsController.telemetryCaptureRawPayload,
@@ -2115,16 +1841,8 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           const SizedBox(height: 18),
           _ResponsiveSettingRow(
-            title: _localizedText(
-              context,
-              zh: '捕获环境数据',
-              en: 'Capture Environment',
-            ),
-            subtitle: _localizedText(
-              context,
-              zh: '默认关闭。仅当调试开启时生效。将工作目录、平台信息、进程环境变量（可能含敏感令牌）等写入消息元数据，便于深度排查，请谨慎开启。',
-              en: 'Off by default. Only active when debug mode is on. Attaches working directory, platform details and process environment variables (may contain secrets) to message metadata — enable with care.',
-            ),
+            title: AppLocalizations.of(context)!.settingsCaptureEnvironment,
+            subtitle: AppLocalizations.of(context)!.settingsOffByDefaultOnlyActiveWhen,
             control: Switch(
               key: const ValueKey<String>(
                 'settingsTelemetryCaptureEnvironmentSwitch',
@@ -2154,12 +1872,8 @@ class _SettingsViewState extends State<SettingsView> {
     final bindings = settingsController.shortcutBindings;
     const actions = OpenHandShortcutAction.values;
     return _SettingsSubsectionCard(
-      title: _localizedText(context, zh: '快捷键绑定', en: 'Shortcut Bindings'),
-      description: _localizedText(
-        context,
-        zh: '点击录制后，按下新的组合键即可更新绑定。模型切换和会话切换会自动绕圈循环。',
-        en: 'Click record, then press the new key combination to update a binding. Model and session switching wrap around automatically.',
-      ),
+      title: AppLocalizations.of(context)!.settingsShortcutBindings,
+      description: AppLocalizations.of(context)!.settingsClickRecordThenPressTheNew,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 520),
         child: PrimaryScrollController.none(
@@ -2277,16 +1991,8 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ResponsiveSettingRow(
-          title: _localizedText(
-            context,
-            zh: '自动清理执行历史',
-            en: 'Auto-cleanup execution history',
-          ),
-          subtitle: _localizedText(
-            context,
-            zh: '应用每次冷启动后，会异步启动一次清理 worker，删除超过保留天数的历史记录。worker 自带 single-flight、超时兜底与异常 silentLog，绝不无限重试或阻塞 UI。',
-            en: 'On every cold start, an async worker runs once to delete history older than the retention window. The worker is single-flight, has a hard timeout, and silently logs failures so it can never block the UI or loop indefinitely.',
-          ),
+          title: AppLocalizations.of(context)!.settingsAutoCleanupExecutionHistory,
+          subtitle: AppLocalizations.of(context)!.settingsOnEveryColdStartAnAsync,
           control: Switch(
             value: enabled,
             onChanged: (value) async {
@@ -2299,11 +2005,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         Text(
-          _localizedText(
-            context,
-            zh: '保留天数：$retention 天',
-            en: 'Retention window: $retention day(s)',
-          ),
+          AppLocalizations.of(context)!.settingsRetentionWindowRetentionDayS(retention),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2322,11 +2024,7 @@ class _SettingsViewState extends State<SettingsView> {
               : null,
         ),
         Text(
-          _localizedText(
-            context,
-            zh: '范围 $minR–$maxR 天，默认 7 天。下次冷启动时生效。',
-            en: 'Range $minR–$maxR days; default 7. Takes effect on the next cold start.',
-          ),
+          AppLocalizations.of(context)!.settingsRangeMinrMaxrDaysDefault7(minR, maxR),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -2350,16 +2048,8 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _ResponsiveSettingRow(
-          title: _localizedText(
-            context,
-            zh: '启用自主学习',
-            en: 'Enable self-learning',
-          ),
-          subtitle: _localizedText(
-            context,
-            zh: '关闭后，后台调度器跳过所有 Hermes Talker 会话；系统 Cron 条目会保留但不再派发子 Agent。',
-            en: 'When off, the scheduler skips every Hermes Talker session. The system cron entry is preserved but never dispatches a sub-agent.',
-          ),
+          title: AppLocalizations.of(context)!.settingsEnableSelfLearning,
+          subtitle: AppLocalizations.of(context)!.settingsWhenOffTheSchedulerSkipsEvery,
           control: Switch(
             value: enabled,
             onChanged: (value) async {
@@ -2373,11 +2063,7 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         Text(
-          _localizedText(
-            context,
-            zh: '并发 Worker 数：$concurrency',
-            en: 'Concurrent workers: $concurrency',
-          ),
+          AppLocalizations.of(context)!.settingsConcurrentWorkersConcurrency(concurrency),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         Slider(
@@ -2396,11 +2082,7 @@ class _SettingsViewState extends State<SettingsView> {
               : null,
         ),
         Text(
-          _localizedText(
-            context,
-            zh: '限制单轮 tick 同时派发的会话数 ($minC–$maxC)。默认 5。',
-            en: 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.',
-          ),
+          AppLocalizations.of(context)!.settingsCapsHowManySessionsCanBe(minC, maxC),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -2436,16 +2118,8 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 18),
         _ResponsiveSettingRow(
-          title: _localizedText(
-            context,
-            zh: '显示自我学习消息',
-            en: 'Show self-learning messages',
-          ),
-          subtitle: _localizedText(
-            context,
-            zh: '关闭后，对话中不再展示"自我学习"卡片（后台学习仍会运行）。默认开启。',
-            en: 'When off, "self-learning" cards are hidden from the chat transcript (background learning still runs). Defaults to on.',
-          ),
+          title: AppLocalizations.of(context)!.settingsShowSelfLearningMessages,
+          subtitle: AppLocalizations.of(context)!.settingsWhenOffSelfLearningCardsAre,
           control: Switch(
             value: settingsController.showSelfLearningMessages,
             onChanged: (value) async {
@@ -2562,20 +2236,8 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SettingsSubsectionCard(
-          title: _localizedText(
-            context,
-            zh: '工具目录总览',
-            en: 'Tool Catalog Overview',
-          ),
-          description: _localizedText(
-            context,
-            zh:
-                '当前共 ${sorted.length} 个内建工具，已启用 $enabledCount 个。'
-                '可调整每个工具的名称、描述、Schema、优先级、排序和加载策略等。',
-            en:
-                '${sorted.length} built-in tools, $enabledCount enabled. '
-                'Adjust name, description, schema, priority, sort order, and load strategy for each.',
-          ),
+          title: AppLocalizations.of(context)!.settingsToolCatalogOverview,
+          description: AppLocalizations.of(context)!.settingsSortedLengthBuiltInToolsEnabledcount(sorted.length, enabledCount),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2590,7 +2252,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     icon: const Icon(Icons.restart_alt_rounded),
                     label: Text(
-                      _localizedText(context, zh: '重置全部', en: 'Reset All'),
+                      AppLocalizations.of(context)!.settingsResetAll,
                     ),
                   ),
                   OutlinedButton.icon(
@@ -2599,7 +2261,7 @@ class _SettingsViewState extends State<SettingsView> {
                     },
                     icon: const Icon(Icons.check_circle_outline_rounded),
                     label: Text(
-                      _localizedText(context, zh: '全部启用', en: 'Enable All'),
+                      AppLocalizations.of(context)!.settingsEnableAll,
                     ),
                   ),
                   OutlinedButton.icon(
@@ -2612,7 +2274,7 @@ class _SettingsViewState extends State<SettingsView> {
                     },
                     icon: const Icon(Icons.remove_circle_outline_rounded),
                     label: Text(
-                      _localizedText(context, zh: '全部禁用', en: 'Disable All'),
+                      AppLocalizations.of(context)!.settingsDisableAll,
                     ),
                   ),
                 ],
@@ -2621,16 +2283,8 @@ class _SettingsViewState extends State<SettingsView> {
               if (sorted.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.build_circle_outlined,
-                  title: _localizedText(
-                    context,
-                    zh: '没有内建工具配置',
-                    en: 'No built-in tool configurations',
-                  ),
-                  body: _localizedText(
-                    context,
-                    zh: '点击"重置全部"恢复默认工具列表。',
-                    en: 'Click "Reset All" to restore the default tool list.',
-                  ),
+                  title: AppLocalizations.of(context)!.settingsNoBuiltInToolConfigurations,
+                  body: AppLocalizations.of(context)!.settingsClickResetAllToRestoreThe,
                 )
               else
                 ConstrainedBox(
@@ -2728,32 +2382,19 @@ class _SettingsViewState extends State<SettingsView> {
         return AlertDialog(
           icon: const Icon(Icons.restart_alt_rounded),
           title: Text(
-            _localizedText(
-              context,
-              zh: '重置内建工具配置',
-              en: 'Reset Built-in Tool Configs',
-            ),
+            AppLocalizations.of(context)!.settingsResetBuiltInToolConfigs,
           ),
           content: Text(
-            _localizedText(
-              context,
-              zh:
-                  '这将把所有内建工具配置恢复为出厂默认值，包括名称、描述、'
-                  'Schema 覆盖、优先级、排序和加载策略。此操作不可撤销。',
-              en:
-                  'This will restore all built-in tool configurations to factory '
-                  'defaults, including name, description, schema overrides, '
-                  'priority, sort order, and load strategy. This cannot be undone.',
-            ),
+            AppLocalizations.of(context)!.settingsThisWillRestoreAllBuiltIn,
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
+              child: Text(AppLocalizations.of(context)!.settingsCancel),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(context, zh: '重置', en: 'Reset')),
+              child: Text(AppLocalizations.of(context)!.settingsReset),
             ),
           ],
         );
@@ -2776,28 +2417,22 @@ class _SettingsViewState extends State<SettingsView> {
         return AlertDialog(
           icon: const Icon(Icons.delete_outline_rounded),
           title: Text(
-            _localizedText(context, zh: '删除自定义工具', en: 'Delete Custom Tool'),
+            AppLocalizations.of(context)!.settingsDeleteCustomTool,
           ),
           content: Text(
-            _localizedText(
-              context,
-              zh: '确定要删除 "${config.effectiveName}" 吗？此操作不可撤销。',
-              en:
-                  'Are you sure you want to delete "${config.effectiveName}"? '
-                  'This cannot be undone.',
-            ),
+            AppLocalizations.of(context)!.settingsAreYouSureYouWantTo(config.effectiveName),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(_localizedText(context, zh: '取消', en: 'Cancel')),
+              child: Text(AppLocalizations.of(context)!.settingsCancel),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(_localizedText(context, zh: '删除', en: 'Delete')),
+              child: Text(AppLocalizations.of(context)!.settingsDelete),
             ),
           ],
         );
@@ -3045,11 +2680,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh: '请输入 $min–$max 之间的秒数。',
-          en: 'Enter a value between $min and $max seconds.',
-        ),
+        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -3068,7 +2699,7 @@ class _SettingsViewState extends State<SettingsView> {
     _connectTimeoutController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(context, zh: '发送超时时间已保存。', en: 'Send timeout saved.'),
+      AppLocalizations.of(context)!.settingsSendTimeoutSaved,
     );
   }
 
@@ -3082,11 +2713,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh: '请输入 $min–$max 之间的秒数。',
-          en: 'Enter a value between $min and $max seconds.',
-        ),
+        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -3105,7 +2732,7 @@ class _SettingsViewState extends State<SettingsView> {
     _responseTimeoutController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(context, zh: '响应超时时间已保存。', en: 'Response timeout saved.'),
+      AppLocalizations.of(context)!.settingsResponseTimeoutSaved,
     );
   }
 
@@ -3119,11 +2746,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue < min || parsedValue > max) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh: '请输入 $min–$max 之间的秒数。',
-          en: 'Enter a value between $min and $max seconds.',
-        ),
+        AppLocalizations.of(context)!.settingsEnterAValueBetweenMinAnd(min, max),
       );
       return;
     }
@@ -3142,11 +2765,7 @@ class _SettingsViewState extends State<SettingsView> {
     _streamIdleTimeoutController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '等待超时时间已保存。',
-        en: 'Stream idle timeout saved.',
-      ),
+      AppLocalizations.of(context)!.settingsStreamIdleTimeoutSaved,
     );
   }
 
@@ -3270,13 +2889,7 @@ class _SettingsViewState extends State<SettingsView> {
         parsedValue > AppSettingsSnapshot.maxAiInputCacheUpdateInterval) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh:
-              '请输入 ${AppSettingsSnapshot.minAiInputCacheUpdateInterval} 到 ${AppSettingsSnapshot.maxAiInputCacheUpdateInterval} 之间的整数',
-          en:
-              'Please enter an integer between ${AppSettingsSnapshot.minAiInputCacheUpdateInterval} and ${AppSettingsSnapshot.maxAiInputCacheUpdateInterval}',
-        ),
+        AppLocalizations.of(context)!.settingsPleaseEnterAnIntegerBetweenAppsettingssn(AppSettingsSnapshot.minAiInputCacheUpdateInterval, AppSettingsSnapshot.maxAiInputCacheUpdateInterval),
       );
       return;
     }
@@ -3294,11 +2907,7 @@ class _SettingsViewState extends State<SettingsView> {
         '${context.read<SettingsController>().aiInputCacheUpdateInterval}';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '缓存断点更新间隔已保存',
-        en: 'Cache breakpoint update interval saved',
-      ),
+      AppLocalizations.of(context)!.settingsCacheBreakpointUpdateIntervalSaved,
     );
   }
 
@@ -3312,13 +2921,7 @@ class _SettingsViewState extends State<SettingsView> {
         parsedValue > AppSettingsSnapshot.maxAiInputCacheBreakpointCount) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh:
-              '请输入 ${AppSettingsSnapshot.minAiInputCacheBreakpointCount} 到 ${AppSettingsSnapshot.maxAiInputCacheBreakpointCount} 之间的整数',
-          en:
-              'Please enter an integer between ${AppSettingsSnapshot.minAiInputCacheBreakpointCount} and ${AppSettingsSnapshot.maxAiInputCacheBreakpointCount}',
-        ),
+        AppLocalizations.of(context)!.settingsPleaseEnterAnIntegerBetweenAppsettingssn2(AppSettingsSnapshot.minAiInputCacheBreakpointCount, AppSettingsSnapshot.maxAiInputCacheBreakpointCount),
       );
       return;
     }
@@ -3336,11 +2939,7 @@ class _SettingsViewState extends State<SettingsView> {
         '${context.read<SettingsController>().aiInputCacheBreakpointCount}';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '缓存断点数量已保存',
-        en: 'Cache breakpoint count saved',
-      ),
+      AppLocalizations.of(context)!.settingsCacheBreakpointCountSaved,
     );
   }
 
@@ -3364,18 +2963,8 @@ class _SettingsViewState extends State<SettingsView> {
           );
     final liveKey = ValueKey<int>(thumbCount);
     return _ResponsiveSettingRow(
-      title: _localizedText(
-        context,
-        zh: '缓存断点位置',
-        en: 'Cache Breakpoint Positions',
-      ),
-      subtitle: _localizedText(
-        context,
-        zh:
-            '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。',
-        en:
-            'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap "Reset" to redistribute evenly.',
-      ),
+      title: AppLocalizations.of(context)!.settingsCacheBreakpointPositions,
+      subtitle: AppLocalizations.of(context)!.settingsDragTheThumbcountThumbsToPosition(thumbCount),
       control: _AiInputCacheBreakpointPositionsControl(
         key: liveKey,
         initialValues: List<double>.unmodifiable(values),
@@ -3405,11 +2994,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '缓存断点位置已保存',
-        en: 'Cache breakpoint positions saved',
-      ),
+      AppLocalizations.of(context)!.settingsCacheBreakpointPositionsSaved,
     );
   }
 
@@ -3445,11 +3030,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue <= 0) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh: '请输入大于 0 的工具调用上限。',
-          en: 'Enter a tool call limit greater than 0.',
-        ),
+        AppLocalizations.of(context)!.settingsEnterAToolCallLimitGreater,
       );
       return;
     }
@@ -3468,11 +3049,7 @@ class _SettingsViewState extends State<SettingsView> {
     _toolCallLimitController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '单轮工具调用上限已保存。',
-        en: 'The per-response tool call limit has been saved.',
-      ),
+      AppLocalizations.of(context)!.settingsThePerResponseToolCallLimit,
     );
   }
 
@@ -3484,11 +3061,7 @@ class _SettingsViewState extends State<SettingsView> {
     if (parsedValue == null || parsedValue <= 0) {
       _showSnackBar(
         context,
-        _localizedText(
-          context,
-          zh: '请输入大于 0 的连续工具轮次上限。',
-          en: 'Enter a sequential tool round limit greater than 0.',
-        ),
+        AppLocalizations.of(context)!.settingsEnterASequentialToolRoundLimit,
       );
       return;
     }
@@ -3507,11 +3080,7 @@ class _SettingsViewState extends State<SettingsView> {
     _sequentialToolRoundLimitController.text = '$parsedValue';
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '连续工具轮次上限已保存。',
-        en: 'The sequential tool round limit has been saved.',
-      ),
+      AppLocalizations.of(context)!.settingsTheSequentialToolRoundLimitHas,
     );
   }
 
@@ -3698,13 +3267,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: initialRule == null ? '禁止命令规则已新增。' : '禁止命令规则已更新。',
-        en: initialRule == null
-            ? 'The deny command rule has been added.'
-            : 'The deny command rule has been updated.',
-      ),
+      (initialRule == null ? AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen : AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen2),
     );
   }
 
@@ -3717,7 +3280,7 @@ class _SettingsViewState extends State<SettingsView> {
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(
-            _localizedText(context, zh: '删除禁止命令规则', en: 'Delete Deny Rule'),
+            AppLocalizations.of(context)!.settingsDeleteDenyRule,
           ),
           content: Text(rule.pattern),
           actions: [
@@ -3748,11 +3311,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '禁止命令规则已删除。',
-        en: 'The deny command rule has been deleted.',
-      ),
+      AppLocalizations.of(context)!.settingsTheDenyCommandRuleHasBeen,
     );
   }
 
@@ -3791,13 +3350,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: initialRule == null ? '允许命令规则已新增。' : '允许命令规则已更新。',
-        en: initialRule == null
-            ? 'The allow command rule has been added.'
-            : 'The allow command rule has been updated.',
-      ),
+      (initialRule == null ? AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen : AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen2),
     );
   }
 
@@ -3810,7 +3363,7 @@ class _SettingsViewState extends State<SettingsView> {
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(
-            _localizedText(context, zh: '删除允许命令规则', en: 'Delete Allow Rule'),
+            AppLocalizations.of(context)!.settingsDeleteAllowRule,
           ),
           content: Text(rule.pattern),
           actions: [
@@ -3841,11 +3394,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '允许命令规则已删除。',
-        en: 'The allow command rule has been deleted.',
-      ),
+      AppLocalizations.of(context)!.settingsTheAllowCommandRuleHasBeen,
     );
   }
 
@@ -4057,11 +3606,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '快捷键已更新。',
-        en: 'The shortcut has been updated.',
-      ),
+      AppLocalizations.of(context)!.settingsTheShortcutHasBeenUpdated,
     );
   }
 
@@ -4097,11 +3642,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
     _showSnackBar(
       context,
-      _localizedText(
-        context,
-        zh: '编辑器快捷键已更新。',
-        en: 'The editor shortcut has been updated.',
-      ),
+      AppLocalizations.of(context)!.settingsTheEditorShortcutHasBeenUpdated,
     );
   }
 
@@ -4110,41 +3651,13 @@ class _SettingsViewState extends State<SettingsView> {
     OpenHandShortcutAction action,
   ) {
     return switch (action) {
-      OpenHandShortcutAction.sendMessage => _localizedText(
-        context,
-        zh: '发送消息',
-        en: 'Send Message',
-      ),
-      OpenHandShortcutAction.toggleComposer => _localizedText(
-        context,
-        zh: '折叠或展开输入框',
-        en: 'Collapse or Expand Composer',
-      ),
-      OpenHandShortcutAction.selectPreviousModel => _localizedText(
-        context,
-        zh: '上一个模型',
-        en: 'Previous Model',
-      ),
-      OpenHandShortcutAction.selectNextModel => _localizedText(
-        context,
-        zh: '下一个模型',
-        en: 'Next Model',
-      ),
-      OpenHandShortcutAction.toggleAutoFollow => _localizedText(
-        context,
-        zh: '开关自动滚动',
-        en: 'Toggle Auto Follow',
-      ),
-      OpenHandShortcutAction.selectPreviousSession => _localizedText(
-        context,
-        zh: '上一个会话',
-        en: 'Previous Session',
-      ),
-      OpenHandShortcutAction.selectNextSession => _localizedText(
-        context,
-        zh: '下一个会话',
-        en: 'Next Session',
-      ),
+      OpenHandShortcutAction.sendMessage => AppLocalizations.of(context)!.settingsSendMessage,
+      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(context)!.settingsCollapseOrExpandComposer,
+      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(context)!.settingsPreviousModel,
+      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(context)!.settingsNextModel,
+      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(context)!.settingsToggleAutoFollow,
+      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(context)!.settingsPreviousSession,
+      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(context)!.settingsNextSession,
     };
   }
 
@@ -4153,81 +3666,21 @@ class _SettingsViewState extends State<SettingsView> {
     EditorShortcutAction action,
   ) {
     return switch (action) {
-      EditorShortcutAction.saveFile => _localizedText(
-        context,
-        zh: '保存文件',
-        en: 'Save File',
-      ),
-      EditorShortcutAction.triggerCompletion => _localizedText(
-        context,
-        zh: '触发智能补全',
-        en: 'Trigger Completion',
-      ),
-      EditorShortcutAction.showSignatureHelp => _localizedText(
-        context,
-        zh: '显示签名帮助',
-        en: 'Show Signature Help',
-      ),
-      EditorShortcutAction.find => _localizedText(
-        context,
-        zh: '查找',
-        en: 'Find',
-      ),
-      EditorShortcutAction.replace => _localizedText(
-        context,
-        zh: '查找替换',
-        en: 'Find and Replace',
-      ),
-      EditorShortcutAction.goToLine => _localizedText(
-        context,
-        zh: '跳转到行',
-        en: 'Go to Line',
-      ),
-      EditorShortcutAction.showDocumentSymbols => _localizedText(
-        context,
-        zh: '文档符号',
-        en: 'Document Symbols',
-      ),
-      EditorShortcutAction.showWorkspaceSymbols => _localizedText(
-        context,
-        zh: '全局符号',
-        en: 'Workspace Symbols',
-      ),
-      EditorShortcutAction.goToDefinition => _localizedText(
-        context,
-        zh: '跳转到定义',
-        en: 'Go to Definition',
-      ),
-      EditorShortcutAction.findReferences => _localizedText(
-        context,
-        zh: '查找引用',
-        en: 'Find References',
-      ),
-      EditorShortcutAction.goToImplementation => _localizedText(
-        context,
-        zh: '跳转到实现',
-        en: 'Go to Implementation',
-      ),
-      EditorShortcutAction.showHoverInfo => _localizedText(
-        context,
-        zh: '显示悬浮信息',
-        en: 'Show Hover Info',
-      ),
-      EditorShortcutAction.renameSymbol => _localizedText(
-        context,
-        zh: '重命名符号',
-        en: 'Rename Symbol',
-      ),
-      EditorShortcutAction.showCodeActions => _localizedText(
-        context,
-        zh: '代码操作',
-        en: 'Code Actions',
-      ),
-      EditorShortcutAction.formatDocument => _localizedText(
-        context,
-        zh: '格式化文档',
-        en: 'Format Document',
-      ),
+      EditorShortcutAction.saveFile => AppLocalizations.of(context)!.settingsSaveFile,
+      EditorShortcutAction.triggerCompletion => AppLocalizations.of(context)!.settingsTriggerCompletion,
+      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(context)!.settingsShowSignatureHelp,
+      EditorShortcutAction.find => AppLocalizations.of(context)!.settingsFind,
+      EditorShortcutAction.replace => AppLocalizations.of(context)!.settingsFindAndReplace,
+      EditorShortcutAction.goToLine => AppLocalizations.of(context)!.settingsGoToLine,
+      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(context)!.settingsDocumentSymbols,
+      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(context)!.settingsWorkspaceSymbols,
+      EditorShortcutAction.goToDefinition => AppLocalizations.of(context)!.settingsGoToDefinition,
+      EditorShortcutAction.findReferences => AppLocalizations.of(context)!.settingsFindReferences,
+      EditorShortcutAction.goToImplementation => AppLocalizations.of(context)!.settingsGoToImplementation,
+      EditorShortcutAction.showHoverInfo => AppLocalizations.of(context)!.settingsShowHoverInfo,
+      EditorShortcutAction.renameSymbol => AppLocalizations.of(context)!.settingsRenameSymbol,
+      EditorShortcutAction.showCodeActions => AppLocalizations.of(context)!.settingsCodeActions,
+      EditorShortcutAction.formatDocument => AppLocalizations.of(context)!.settingsFormatDocument,
     };
   }
 
@@ -4236,41 +3689,13 @@ class _SettingsViewState extends State<SettingsView> {
     OpenHandShortcutAction action,
   ) {
     return switch (action) {
-      OpenHandShortcutAction.sendMessage => _localizedText(
-        context,
-        zh: '默认 Ctrl + Enter，仅在聊天输入框准备好时触发发送按钮。',
-        en: 'Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.',
-      ),
-      OpenHandShortcutAction.toggleComposer => _localizedText(
-        context,
-        zh: '默认 Ctrl + P，用于快速折叠或展开输入框。',
-        en: 'Defaults to Ctrl + P for quickly collapsing or expanding the composer.',
-      ),
-      OpenHandShortcutAction.selectPreviousModel => _localizedText(
-        context,
-        zh: '默认 Ctrl + ←，向前切换模型，切到头后自动绕回末尾。',
-        en: 'Defaults to Ctrl + Left and wraps around to the last model when needed.',
-      ),
-      OpenHandShortcutAction.selectNextModel => _localizedText(
-        context,
-        zh: '默认 Ctrl + →，向后切换模型，切到末尾后自动绕回开头。',
-        en: 'Defaults to Ctrl + Right and wraps around to the first model when needed.',
-      ),
-      OpenHandShortcutAction.toggleAutoFollow => _localizedText(
-        context,
-        zh: '默认 Ctrl + S，开关自动滚动模式。',
-        en: 'Defaults to Ctrl + S for toggling auto follow.',
-      ),
-      OpenHandShortcutAction.selectPreviousSession => _localizedText(
-        context,
-        zh: '默认 Ctrl + ↑，切换到上一个会话并支持绕圈。',
-        en: 'Defaults to Ctrl + Up and wraps to the end of the session list.',
-      ),
-      OpenHandShortcutAction.selectNextSession => _localizedText(
-        context,
-        zh: '默认 Ctrl + ↓，切换到下一个会话并支持绕圈。',
-        en: 'Defaults to Ctrl + Down and wraps to the start of the session list.',
-      ),
+      OpenHandShortcutAction.sendMessage => AppLocalizations.of(context)!.settingsDefaultsToCtrlEnterAndTriggers,
+      OpenHandShortcutAction.toggleComposer => AppLocalizations.of(context)!.settingsDefaultsToCtrlPForQuickly,
+      OpenHandShortcutAction.selectPreviousModel => AppLocalizations.of(context)!.settingsDefaultsToCtrlLeftAndWraps,
+      OpenHandShortcutAction.selectNextModel => AppLocalizations.of(context)!.settingsDefaultsToCtrlRightAndWraps,
+      OpenHandShortcutAction.toggleAutoFollow => AppLocalizations.of(context)!.settingsDefaultsToCtrlSForToggling,
+      OpenHandShortcutAction.selectPreviousSession => AppLocalizations.of(context)!.settingsDefaultsToCtrlUpAndWraps,
+      OpenHandShortcutAction.selectNextSession => AppLocalizations.of(context)!.settingsDefaultsToCtrlDownAndWraps,
     };
   }
 
@@ -4282,81 +3707,21 @@ class _SettingsViewState extends State<SettingsView> {
       defaultEditorShortcutBindings()[action] ?? const <int>[],
     );
     return switch (action) {
-      EditorShortcutAction.saveFile => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，保存当前正在编辑的文件。',
-        en: 'Defaults to $defaultLabel and saves the current file.',
-      ),
-      EditorShortcutAction.triggerCompletion => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，主动弹出智能补全候选列表。',
-        en: 'Defaults to $defaultLabel and opens the completion popup on demand.',
-      ),
-      EditorShortcutAction.showSignatureHelp => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，显示当前调用位置的方法签名、参数解释和文档摘要。',
-        en: 'Defaults to $defaultLabel and shows method signatures, parameter details, and summary docs for the current call site.',
-      ),
-      EditorShortcutAction.find => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，打开或关闭查找面板。',
-        en: 'Defaults to $defaultLabel and toggles the find panel.',
-      ),
-      EditorShortcutAction.replace => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，打开或关闭替换面板。',
-        en: 'Defaults to $defaultLabel and toggles the replace panel.',
-      ),
-      EditorShortcutAction.goToLine => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，打开或关闭跳转到行面板。',
-        en: 'Defaults to $defaultLabel and toggles the go-to-line panel.',
-      ),
-      EditorShortcutAction.showDocumentSymbols => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，打开或关闭当前文件的符号列表。',
-        en: 'Defaults to $defaultLabel and toggles the symbol list for the current file.',
-      ),
-      EditorShortcutAction.showWorkspaceSymbols => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，打开或关闭全局符号检索面板。',
-        en: 'Defaults to $defaultLabel and toggles the workspace symbol search panel.',
-      ),
-      EditorShortcutAction.goToDefinition => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，跳转到当前符号定义。',
-        en: 'Defaults to $defaultLabel and jumps to the current symbol definition.',
-      ),
-      EditorShortcutAction.findReferences => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，查找当前符号的引用位置。',
-        en: 'Defaults to $defaultLabel and finds references for the current symbol.',
-      ),
-      EditorShortcutAction.goToImplementation => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，跳转到当前符号的实现位置。',
-        en: 'Defaults to $defaultLabel and jumps to the current implementation.',
-      ),
-      EditorShortcutAction.showHoverInfo => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，显示当前位置的类型或文档信息。',
-        en: 'Defaults to $defaultLabel and shows type or documentation info at the current position.',
-      ),
-      EditorShortcutAction.renameSymbol => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，发起当前符号重命名。',
-        en: 'Defaults to $defaultLabel and starts rename for the current symbol.',
-      ),
-      EditorShortcutAction.showCodeActions => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，显示可用的代码操作列表。',
-        en: 'Defaults to $defaultLabel and shows available code actions.',
-      ),
-      EditorShortcutAction.formatDocument => _localizedText(
-        context,
-        zh: '默认 $defaultLabel，格式化当前编程文件；当选中多行时，Shift+Tab 仍优先执行反向缩进。',
-        en: 'Defaults to $defaultLabel and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.',
-      ),
+      EditorShortcutAction.saveFile => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndSavesThe(defaultLabel),
+      EditorShortcutAction.triggerCompletion => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndOpensThe(defaultLabel),
+      EditorShortcutAction.showSignatureHelp => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsMethod(defaultLabel),
+      EditorShortcutAction.find => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe(defaultLabel),
+      EditorShortcutAction.replace => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe2(defaultLabel),
+      EditorShortcutAction.goToLine => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe3(defaultLabel),
+      EditorShortcutAction.showDocumentSymbols => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe4(defaultLabel),
+      EditorShortcutAction.showWorkspaceSymbols => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndTogglesThe5(defaultLabel),
+      EditorShortcutAction.goToDefinition => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndJumpsTo(defaultLabel),
+      EditorShortcutAction.findReferences => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndFindsReferences(defaultLabel),
+      EditorShortcutAction.goToImplementation => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndJumpsTo2(defaultLabel),
+      EditorShortcutAction.showHoverInfo => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsType(defaultLabel),
+      EditorShortcutAction.renameSymbol => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndStartsRename(defaultLabel),
+      EditorShortcutAction.showCodeActions => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndShowsAvailable(defaultLabel),
+      EditorShortcutAction.formatDocument => AppLocalizations.of(context)!.settingsDefaultsToDefaultlabelAndFormatsThe(defaultLabel),
     };
   }
 

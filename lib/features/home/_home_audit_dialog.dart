@@ -358,7 +358,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
     final colorScheme = theme.colorScheme;
     final rendered = _isEmpty ? '' : _auditFormatJson(widget.json);
     final emptyHint =
-        widget.emptyHint ?? _localizedText(context, zh: '无数据', en: 'No data');
+        widget.emptyHint ?? AppLocalizations.of(context)!.auditNoData;
     return Container(
       margin: const EdgeInsets.only(top: 6, bottom: 6),
       decoration: BoxDecoration(
@@ -398,11 +398,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                   ),
                   if (!_isEmpty)
                     IconButton(
-                      tooltip: _localizedText(
-                        context,
-                        zh: '复制 JSON',
-                        en: 'Copy JSON',
-                      ),
+                      tooltip: AppLocalizations.of(context)!.auditCopyJson,
                       icon: const Icon(Icons.copy_all_rounded, size: 18),
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: rendered));
@@ -410,11 +406,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              _localizedText(
-                                context,
-                                zh: '已复制到剪贴板',
-                                en: 'Copied to clipboard',
-                              ),
+                              AppLocalizations.of(context)!.auditCopiedToClipboard,
                             ),
                           ),
                         );
@@ -616,14 +608,14 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                _localizedText(context, zh: '消息审计', en: 'Message Audit'),
+                AppLocalizations.of(context)!.auditMessageAudit,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             IconButton(
-              tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+              tooltip: AppLocalizations.of(context)!.auditClose,
               icon: const Icon(Icons.close_rounded),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -638,65 +630,41 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
               children: [
                 _AuditSectionCard(
                   icon: Icons.info_outline_rounded,
-                  title: _localizedText(context, zh: '基本信息', en: 'Overview'),
+                  title: AppLocalizations.of(context)!.auditOverview,
                   child: Column(
                     children: [
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '消息 ID',
-                          en: 'Message ID',
-                        ),
+                        label: AppLocalizations.of(context)!.auditMessageId,
                         value: message.id,
                         mono: true,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '会话 ID',
-                          en: 'Session ID',
-                        ),
+                        label: AppLocalizations.of(context)!.auditSessionId,
                         value: session.id,
                         mono: true,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(context, zh: '角色', en: 'Role'),
+                        label: AppLocalizations.of(context)!.auditRole,
                         value: message.role.storageValue,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(context, zh: '类型', en: 'Kind'),
+                        label: AppLocalizations.of(context)!.auditKind,
                         value: message.kind.storageValue,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '字符数',
-                          en: 'Character Count',
-                        ),
+                        label: AppLocalizations.of(context)!.auditCharacterCount,
                         value: '${message.characterCount}',
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '是否流式',
-                          en: 'Streaming',
-                        ),
+                        label: AppLocalizations.of(context)!.auditStreaming,
                         value: _auditFormatBool(streaming),
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '是否已删除',
-                          en: 'Deleted',
-                        ),
+                        label: AppLocalizations.of(context)!.auditDeleted,
                         value: _auditFormatBool(message.isDeleted),
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '是否报错',
-                          en: 'Has Error',
-                        ),
+                        label: AppLocalizations.of(context)!.auditHasError,
                         value: _auditFormatBool(
                           error != null && error.isNotEmpty,
                         ),
@@ -706,57 +674,37 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 ),
                 _AuditSectionCard(
                   icon: Icons.schedule_outlined,
-                  title: _localizedText(context, zh: '时间与耗时', en: 'Timing'),
+                  title: AppLocalizations.of(context)!.auditTiming,
                   child: Column(
                     children: [
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '开始/创建时间',
-                          en: 'Started / Created',
-                        ),
+                        label: AppLocalizations.of(context)!.auditStartedCreated,
                         value: _auditFormatInstant(
                           startedAt ?? message.createdAt,
                         ),
                       ),
                       if (streaming && endedAt == null)
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '结束时间',
-                            en: 'Ended',
-                          ),
+                          label: AppLocalizations.of(context)!.auditEnded,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 200,
                           ),
                         )
                       else
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '结束时间',
-                            en: 'Ended',
-                          ),
+                          label: AppLocalizations.of(context)!.auditEnded,
                           value: _auditFormatInstant(endedAt),
                         ),
                       if (streaming && durationMs == null)
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '耗时 (ms)',
-                            en: 'Duration (ms)',
-                          ),
+                          label: AppLocalizations.of(context)!.auditDurationMs,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 120,
                           ),
                         )
                       else
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '耗时 (ms)',
-                            en: 'Duration (ms)',
-                          ),
+                          label: AppLocalizations.of(context)!.auditDurationMs,
                           value: durationMs == null ? '—' : '$durationMs',
                         ),
                     ],
@@ -764,93 +712,53 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 ),
                 _AuditSectionCard(
                   icon: Icons.memory_outlined,
-                  title: _localizedText(
-                    context,
-                    zh: '模型与 Token',
-                    en: 'Model & Tokens',
-                  ),
+                  title: AppLocalizations.of(context)!.auditModelTokens,
                   child: Column(
                     children: [
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '模型 ID',
-                          en: 'Model ID',
-                        ),
+                        label: AppLocalizations.of(context)!.auditModelId,
                         value: _auditFormatOrDash(message.modelId),
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '模型标签',
-                          en: 'Model Label',
-                        ),
+                        label: AppLocalizations.of(context)!.auditModelLabel,
                         value: _auditFormatOrDash(message.modelLabel),
                       ),
                       if (streaming && message.usage == null) ...[
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '总 Token',
-                            en: 'Total Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditTotalTokens,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 100,
                           ),
                         ),
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '输入 Token',
-                            en: 'Prompt Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditPromptTokens,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 100,
                           ),
                         ),
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '输出 Token',
-                            en: 'Completion Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditCompletionTokens,
                           valueWidget: const _AuditShimmerPlaceholder(
                             width: 100,
                           ),
                         ),
                       ] else ...[
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '总 Token',
-                            en: 'Total Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditTotalTokens,
                           value: '${message.usage?.totalTokens ?? '—'}',
                         ),
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '输入 Token',
-                            en: 'Prompt Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditPromptTokens,
                           value: '${message.usage?.promptTokens ?? '—'}',
                         ),
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '输出 Token',
-                            en: 'Completion Tokens',
-                          ),
+                          label: AppLocalizations.of(context)!.auditCompletionTokens,
                           value: '${message.usage?.completionTokens ?? '—'}',
                         ),
                       ],
                       if (message.usage != null)
                         _AuditJsonBlock(
-                          label: _localizedText(
-                            context,
-                            zh: 'Token 明细',
-                            en: 'Token Breakdown',
-                          ),
+                          label: AppLocalizations.of(context)!.auditTokenBreakdown,
                           json: message.usage!.toJson(),
                         ),
                     ],
@@ -859,7 +767,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                 if (error != null && error.isNotEmpty)
                   _AuditSectionCard(
                     icon: Icons.error_outline_rounded,
-                    title: _localizedText(context, zh: '错误信息', en: 'Error'),
+                    title: AppLocalizations.of(context)!.auditError,
                     child: SelectableText(
                       error,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -872,19 +780,11 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   icon: Icons.article_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(context, zh: '消息内容', en: 'Content'),
+                  title: AppLocalizations.of(context)!.auditContent,
                   subtitle: composedPromptText != null
-                      ? _localizedText(
-                          context,
-                          zh: '以下为该轮用户消息触发时，程序自动拼装后最终发送给 AI 的 prompt 完全体（含系统指令 / 工具目录 / 用户记忆 / 历史上下文 / 用户输入等）。',
-                          en: 'Full composed prompt that was actually sent to the AI for this round (system instructions, tool catalog, memory, history and user input).',
-                        )
+                      ? AppLocalizations.of(context)!.auditFullComposedPromptThatWasActually
                       : streaming
-                      ? _localizedText(
-                          context,
-                          zh: '正在等待本轮最终组合 Prompt 注入（发送中会自动刷新）',
-                          en: 'Waiting for composed prompt injection (auto-refreshes during streaming).',
-                        )
+                      ? AppLocalizations.of(context)!.auditWaitingForComposedPromptInjectionAuto
                       : null,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -916,11 +816,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       if (composedPromptText != null) ...[
                         const SizedBox(height: 10),
                         _AuditKvRow(
-                          label: _localizedText(
-                            context,
-                            zh: '用户原始输入',
-                            en: 'User Raw Input',
-                          ),
+                          label: AppLocalizations.of(context)!.auditUserRawInput,
                           value: message.content.isEmpty
                               ? '—'
                               : message.content,
@@ -929,26 +825,14 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         if (composedPromptTurns != null &&
                             composedPromptTurns.isNotEmpty)
                           _AuditJsonBlock(
-                            label: _localizedText(
-                              context,
-                              zh: '结构化 Prompt Turns',
-                              en: 'Structured Prompt Turns',
-                            ),
+                            label: AppLocalizations.of(context)!.auditStructuredPromptTurns,
                             json: composedPromptTurns,
-                            emptyHint: _localizedText(
-                              context,
-                              zh: '无',
-                              en: 'None',
-                            ),
+                            emptyHint: AppLocalizations.of(context)!.auditNone,
                           ),
                         if (promptMetadataFromMsg != null &&
                             promptMetadataFromMsg.isNotEmpty)
                           _AuditJsonBlock(
-                            label: _localizedText(
-                              context,
-                              zh: 'Prompt Metadata',
-                              en: 'Prompt Metadata',
-                            ),
+                            label: AppLocalizations.of(context)!.auditPromptMetadata,
                             json: promptMetadataFromMsg,
                           ),
                       ],
@@ -959,7 +843,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   icon: Icons.cloud_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(context, zh: '请求参数', en: 'Request'),
+                  title: AppLocalizations.of(context)!.auditRequest,
                   child: Column(
                     children: [
                       _AuditKvRow(
@@ -968,34 +852,18 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         mono: true,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(context, zh: '方法', en: 'Method'),
+                        label: AppLocalizations.of(context)!.auditMethod,
                         value: _auditFormatOrDash(requestMethod),
                       ),
                       _AuditJsonBlock(
-                        label: _localizedText(
-                          context,
-                          zh: '请求头',
-                          en: 'Headers',
-                        ),
+                        label: AppLocalizations.of(context)!.auditHeaders,
                         json: requestHeaders,
-                        emptyHint: _localizedText(
-                          context,
-                          zh: '未捕获（请在设置 → AI → 遥测 中开启调试）',
-                          en: 'Not captured (enable Settings → AI → Telemetry Debug)',
-                        ),
+                        emptyHint: AppLocalizations.of(context)!.auditNotCapturedEnableSettingsAiTelemetry,
                       ),
                       _AuditJsonBlock(
-                        label: _localizedText(
-                          context,
-                          zh: '请求体 / Query / Path',
-                          en: 'Body / Query / Path',
-                        ),
+                        label: AppLocalizations.of(context)!.auditBodyQueryPath,
                         json: requestPayload,
-                        emptyHint: _localizedText(
-                          context,
-                          zh: '未捕获（请在设置 → AI → 遥测 中开启调试）',
-                          en: 'Not captured (enable Settings → AI → Telemetry Debug)',
-                        ),
+                        emptyHint: AppLocalizations.of(context)!.auditNotCapturedEnableSettingsAiTelemetry,
                       ),
                     ],
                   ),
@@ -1004,59 +872,31 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   icon: Icons.receipt_long_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(
-                    context,
-                    zh: '原始 AI 响应',
-                    en: 'Raw AI Response',
-                  ),
+                  title: AppLocalizations.of(context)!.auditRawAiResponse,
                   child: streaming && responseRaw == null
                       ? _auditShimmerBlock(lines: 4)
                       : _AuditJsonBlock(
-                          label: _localizedText(
-                            context,
-                            zh: '展开查看原始响应',
-                            en: 'Expand raw response',
-                          ),
+                          label: AppLocalizations.of(context)!.auditExpandRawResponse,
                           json: responseRaw,
-                          emptyHint: _localizedText(
-                            context,
-                            zh: '未捕获：调试未开启或模型未提供原始响应',
-                            en: 'Not captured: debug disabled or response unavailable',
-                          ),
+                          emptyHint: AppLocalizations.of(context)!.auditNotCapturedDebugDisabledOrResponse,
                         ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.attach_file_outlined,
-                  title: _localizedText(context, zh: '附件', en: 'Attachments'),
+                  title: AppLocalizations.of(context)!.auditAttachments,
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: '附件列表',
-                      en: 'Attachment list',
-                    ),
+                    label: AppLocalizations.of(context)!.auditAttachmentList,
                     json: attachments,
-                    emptyHint: _localizedText(
-                      context,
-                      zh: '无附件',
-                      en: 'No attachments',
-                    ),
+                    emptyHint: AppLocalizations.of(context)!.auditNoAttachments,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.data_object_rounded,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(
-                    context,
-                    zh: '完整元数据 (metadata)',
-                    en: 'Full Metadata',
-                  ),
+                  title: AppLocalizations.of(context)!.auditFullMetadata,
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: '消息元数据',
-                      en: 'Message metadata',
-                    ),
+                    label: AppLocalizations.of(context)!.auditMessageMetadata,
                     json: metadata,
                     initiallyExpanded: true,
                   ),
@@ -1065,17 +905,9 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                   icon: Icons.public_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(
-                    context,
-                    zh: '会话环境',
-                    en: 'Session Environment',
-                  ),
+                  title: AppLocalizations.of(context)!.auditSessionEnvironment,
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: '环境快照',
-                      en: 'Environment snapshot',
-                    ),
+                    label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
                     json:
                         envSnapshot ??
                         _auditSafeMap(session.environment.toJson),
@@ -1101,23 +933,19 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    _localizedText(
-                      context,
-                      zh: '审计快照已复制',
-                      en: 'Audit snapshot copied',
-                    ),
+                    AppLocalizations.of(context)!.auditAuditSnapshotCopied,
                   ),
                 ),
               );
             },
             icon: const Icon(Icons.copy_all_rounded, size: 18),
             label: Text(
-              _localizedText(context, zh: '复制审计快照', en: 'Copy Audit Snapshot'),
+              AppLocalizations.of(context)!.auditCopyAuditSnapshot,
             ),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+            child: Text(AppLocalizations.of(context)!.auditClose),
           ),
         ],
       ),
@@ -1248,31 +1076,19 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _localizedText(
-              context,
-              zh: '会话元数据已更新',
-              en: 'Session metadata saved',
-            ),
+            AppLocalizations.of(context)!.auditSessionMetadataSaved,
           ),
         ),
       );
     } on FormatException catch (error) {
       if (!mounted) return;
       setState(() {
-        _metadataError = _localizedText(
-          context,
-          zh: 'JSON 解析失败：${error.message}',
-          en: 'Invalid JSON: ${error.message}',
-        );
+        _metadataError = AppLocalizations.of(context)!.auditInvalidJsonErrorMessage(error.message);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _metadataError = _localizedText(
-          context,
-          zh: '保存失败：$error',
-          en: 'Save failed: $error',
-        );
+        _metadataError = AppLocalizations.of(context)!.auditSaveFailedError(error);
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1284,23 +1100,19 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(
-          _localizedText(dialogContext, zh: '删除消息', en: 'Delete Message'),
+          AppLocalizations.of(dialogContext)!.auditDeleteMessage,
         ),
         content: Text(
-          _localizedText(
-            dialogContext,
-            zh: '确认删除该消息？此操作不可撤销。',
-            en: 'Delete this message? This cannot be undone.',
-          ),
+          AppLocalizations.of(dialogContext)!.auditDeleteThisMessageThisCannotBe,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(_localizedText(dialogContext, zh: '取消', en: 'Cancel')),
+            child: Text(AppLocalizations.of(dialogContext)!.auditCancel),
           ),
           FilledButton.tonal(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(_localizedText(dialogContext, zh: '删除', en: 'Delete')),
+            child: Text(AppLocalizations.of(dialogContext)!.auditDelete),
           ),
         ],
       ),
@@ -1340,7 +1152,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                _localizedText(context, zh: '会话审计', en: 'Session Audit'),
+                AppLocalizations.of(context)!.auditSessionAudit,
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                 ),
@@ -1356,7 +1168,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                 ),
               ),
             IconButton(
-              tooltip: _localizedText(context, zh: '关闭', en: 'Close'),
+              tooltip: AppLocalizations.of(context)!.auditClose,
               icon: const Icon(Icons.close_rounded),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -1371,65 +1183,37 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
               children: [
                 _AuditSectionCard(
                   icon: Icons.info_outline_rounded,
-                  title: _localizedText(context, zh: '基本信息', en: 'Overview'),
+                  title: AppLocalizations.of(context)!.auditOverview,
                   child: Column(
                     children: [
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '会话 ID',
-                          en: 'Session ID',
-                        ),
+                        label: AppLocalizations.of(context)!.auditSessionId,
                         value: session.id,
                         mono: true,
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '模板',
-                          en: 'Template',
-                        ),
+                        label: AppLocalizations.of(context)!.auditTemplate,
                         value:
                             '${session.templateName} (${session.templateId}) · v${session.templateInternalVersion}',
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '创建时间',
-                          en: 'Created At',
-                        ),
+                        label: AppLocalizations.of(context)!.auditCreatedAt,
                         value: _auditFormatInstant(session.createdAt),
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '更新时间',
-                          en: 'Updated At',
-                        ),
+                        label: AppLocalizations.of(context)!.auditUpdatedAt,
                         value: _auditFormatInstant(session.updatedAt),
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '消息数',
-                          en: 'Messages',
-                        ),
+                        label: AppLocalizations.of(context)!.auditMessages,
                         value: '${statistics.totalMessageCount}',
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '总 Token',
-                          en: 'Total Tokens',
-                        ),
+                        label: AppLocalizations.of(context)!.auditTotalTokens,
                         value: '${statistics.totalTokens ?? 0}',
                       ),
                       _AuditKvRow(
-                        label: _localizedText(
-                          context,
-                          zh: '最近模型',
-                          en: 'Last Model',
-                        ),
+                        label: AppLocalizations.of(context)!.auditLastModel,
                         value: _auditFormatOrDash(
                           session.lastUsedModelLabel ?? session.lastUsedModelId,
                         ),
@@ -1439,11 +1223,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                 ),
                 _AuditSectionCard(
                   icon: Icons.edit_note_rounded,
-                  title: _localizedText(
-                    context,
-                    zh: '标题编辑',
-                    en: 'Title (Editable)',
-                  ),
+                  title: AppLocalizations.of(context)!.auditTitleEditable,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1451,11 +1231,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                         controller: _titleController,
                         focusNode: _titleFocusNode,
                         decoration: InputDecoration(
-                          labelText: _localizedText(
-                            context,
-                            zh: '会话标题',
-                            en: 'Session title',
-                          ),
+                          labelText: AppLocalizations.of(context)!.auditSessionTitle,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -1465,11 +1241,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                           onPressed: _busy ? null : _saveTitle,
                           icon: const Icon(Icons.save_outlined),
                           label: Text(
-                            _localizedText(
-                              context,
-                              zh: '保存标题',
-                              en: 'Save Title',
-                            ),
+                            AppLocalizations.of(context)!.auditSaveTitle,
                           ),
                         ),
                       ),
@@ -1478,16 +1250,8 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                 ),
                 _AuditSectionCard(
                   icon: Icons.data_object_rounded,
-                  title: _localizedText(
-                    context,
-                    zh: '会话元数据 (可编辑 JSON)',
-                    en: 'Session Metadata (Editable JSON)',
-                  ),
-                  subtitle: _localizedText(
-                    context,
-                    zh: '修改后点击保存将通过会话控制器写回数据库并实时刷新 UI。删除的 key 会被清除。',
-                    en: 'Save writes back through the session controller with live UI diff; removed keys are cleared.',
-                  ),
+                  title: AppLocalizations.of(context)!.auditSessionMetadataEditableJson,
+                  subtitle: AppLocalizations.of(context)!.auditSaveWritesBackThroughTheSession,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1511,11 +1275,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                           onPressed: _busy ? null : _saveMetadata,
                           icon: const Icon(Icons.save_outlined),
                           label: Text(
-                            _localizedText(
-                              context,
-                              zh: '保存元数据',
-                              en: 'Save Metadata',
-                            ),
+                            AppLocalizations.of(context)!.auditSaveMetadata,
                           ),
                         ),
                       ),
@@ -1526,89 +1286,45 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
                   icon: Icons.route_outlined,
                   collapsible: true,
                   initiallyExpanded: false,
-                  title: _localizedText(
-                    context,
-                    zh: '运行时 Prompt 元数据 (只读)',
-                    en: 'Runtime Prompt Metadata (Read-only)',
-                  ),
-                  subtitle: _localizedText(
-                    context,
-                    zh: '用于排查本轮消息拼装上下文；自动由系统写入。',
-                    en: 'Useful for prompt-construction troubleshooting; auto-updated by runtime.',
-                  ),
+                  title: AppLocalizations.of(context)!.auditRuntimePromptMetadataReadOnly,
+                  subtitle: AppLocalizations.of(context)!.auditUsefulForPromptConstructionTroubleshooti,
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: 'last_prompt_metadata',
-                      en: 'last_prompt_metadata',
-                    ),
+                    label: AppLocalizations.of(context)!.auditLastPromptMetadata,
                     json: session.lastPromptMetadata,
-                    emptyHint: _localizedText(
-                      context,
-                      zh: '暂无运行时 Prompt 元数据',
-                      en: 'No runtime prompt metadata yet',
-                    ),
+                    emptyHint: AppLocalizations.of(context)!.auditNoRuntimePromptMetadataYet,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.public_outlined,
-                  title: _localizedText(context, zh: '会话环境', en: 'Environment'),
+                  title: AppLocalizations.of(context)!.auditEnvironment,
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: '环境快照',
-                      en: 'Environment snapshot',
-                    ),
+                    label: AppLocalizations.of(context)!.auditEnvironmentSnapshot,
                     json: _auditSafeMap(session.environment.toJson),
                     initiallyExpanded: true,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.history_rounded,
-                  title: _localizedText(
-                    context,
-                    zh: '最近错误 (${session.recentErrors.length})',
-                    en: 'Recent Errors (${session.recentErrors.length})',
-                  ),
+                  title: AppLocalizations.of(context)!.auditRecentErrorsSessionRecenterrorsLength(session.recentErrors.length),
                   child: _AuditJsonBlock(
-                    label: _localizedText(
-                      context,
-                      zh: '错误列表',
-                      en: 'Error list',
-                    ),
+                    label: AppLocalizations.of(context)!.auditErrorList,
                     json: session.recentErrors
                         .map((error) => _auditSafeMap(error.toJson))
                         .toList(growable: false),
-                    emptyHint: _localizedText(
-                      context,
-                      zh: '暂无错误',
-                      en: 'No errors recorded',
-                    ),
+                    emptyHint: AppLocalizations.of(context)!.auditNoErrorsRecorded,
                   ),
                 ),
                 _AuditSectionCard(
                   icon: Icons.chat_bubble_outline_rounded,
-                  title: _localizedText(
-                    context,
-                    zh: '消息列表 (${session.messages.length})',
-                    en: 'Messages (${session.messages.length})',
-                  ),
-                  subtitle: _localizedText(
-                    context,
-                    zh: '点击单条可打开消息审计弹窗；支持删除单条消息。',
-                    en: 'Tap a row to inspect a message; delete removes it from storage.',
-                  ),
+                  title: AppLocalizations.of(context)!.auditMessagesSessionMessagesLength(session.messages.length),
+                  subtitle: AppLocalizations.of(context)!.auditTapARowToInspectA,
                   child: Column(
                     children: session.messages.isEmpty
                         ? <Widget>[
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '暂无消息',
-                                  en: 'No messages',
-                                ),
+                                AppLocalizations.of(context)!.auditNoMessages,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -1642,7 +1358,7 @@ class _SessionAuditDialogState extends State<_SessionAuditDialog> {
         actions: [
           FilledButton.tonal(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(_localizedText(context, zh: '关闭', en: 'Close')),
+            child: Text(AppLocalizations.of(context)!.auditClose),
           ),
         ],
       ),
@@ -1724,13 +1440,13 @@ class _AuditMessageRow extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: _localizedText(context, zh: '审计', en: 'Audit'),
+            tooltip: AppLocalizations.of(context)!.auditAudit,
             icon: const Icon(Icons.fact_check_outlined, size: 20),
             onPressed: onInspect,
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: _localizedText(context, zh: '删除', en: 'Delete'),
+            tooltip: AppLocalizations.of(context)!.auditDelete,
             icon: Icon(
               Icons.delete_outline_rounded,
               size: 20,
