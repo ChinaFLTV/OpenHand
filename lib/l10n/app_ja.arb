@@ -1128,6 +1128,8 @@
   "tlCallStderr": "標準エラー",
   "tlCallArgumentsConstructing": "引数を構築中…",
   "tlCallArgumentsConstructingHint": "引数はモデルからストリーミング中です。構築が完了すると通常のカード表示に切り替わります。",
+  "tlCallCollectedParameters": "取得済み",
+  "tlCallNoParametersYet": "引数はまだ解析されていません",
   "tlCallThereIsNoToolOutputYet": "まだツール出力はありません。",
   "tlCallViewInDialog": "ダイアログで表示",
   "tlCallEmptyContent": "内容なし",

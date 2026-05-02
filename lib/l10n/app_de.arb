@@ -1128,6 +1128,8 @@
   "tlCallStderr": "stderr",
   "tlCallArgumentsConstructing": "Argumente werden aufgebaut…",
   "tlCallArgumentsConstructingHint": "Die Argumente werden noch vom Modell gestreamt; die Karte wechselt nach Fertigstellung in den Normalzustand.",
+  "tlCallCollectedParameters": "Erfasst",
+  "tlCallNoParametersYet": "Noch keine Argumente erkannt",
   "tlCallThereIsNoToolOutputYet": "Noch keine Werkzeugausgabe.",
   "tlCallViewInDialog": "Im Dialog anzeigen",
   "tlCallEmptyContent": "Leerer Inhalt",

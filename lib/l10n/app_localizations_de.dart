@@ -2748,6 +2748,12 @@ class AppLocalizationsDe extends AppLocalizations {
       'Die Argumente werden noch vom Modell gestreamt; die Karte wechselt nach Fertigstellung in den Normalzustand.';
 
   @override
+  String get tlCallCollectedParameters => 'Erfasst';
+
+  @override
+  String get tlCallNoParametersYet => 'Noch keine Argumente erkannt';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'Noch keine Werkzeugausgabe.';
 
   @override

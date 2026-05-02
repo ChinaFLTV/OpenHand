@@ -5002,6 +5002,18 @@ abstract class AppLocalizations {
   /// **'正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。'**
   String get tlCallArgumentsConstructingHint;
 
+  /// No description provided for @tlCallCollectedParameters.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已采集参数'**
+  String get tlCallCollectedParameters;
+
+  /// No description provided for @tlCallNoParametersYet.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'尚未解析到入参'**
+  String get tlCallNoParametersYet;
+
   /// No description provided for @tlCallThereIsNoToolOutputYet.
   ///
   /// In zh_Hans, this message translates to:

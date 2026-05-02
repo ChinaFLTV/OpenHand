@@ -1128,6 +1128,8 @@
   "tlCallStderr": "stderr",
   "tlCallArgumentsConstructing": "Constructing arguments…",
   "tlCallArgumentsConstructingHint": "Arguments are still streaming from the model; the card will switch to its normal state once construction completes.",
+  "tlCallCollectedParameters": "Collected",
+  "tlCallNoParametersYet": "No arguments parsed yet",
   "tlCallThereIsNoToolOutputYet": "There is no tool output yet.",
   "tlCallViewInDialog": "View in Dialog",
   "tlCallEmptyContent": "Empty content",

@@ -2765,6 +2765,12 @@ class AppLocalizationsFr extends AppLocalizations {
       'Les arguments sont toujours en cours de réception ; la carte basculera à l’état normal une fois la construction terminée.';
 
   @override
+  String get tlCallCollectedParameters => 'Collectés';
+
+  @override
+  String get tlCallNoParametersYet => 'Aucun argument analysé';
+
+  @override
   String get tlCallThereIsNoToolOutputYet =>
       'Aucune sortie d’outil pour l’instant.';
 

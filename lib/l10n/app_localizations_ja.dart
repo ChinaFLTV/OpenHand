@@ -2611,6 +2611,12 @@ class AppLocalizationsJa extends AppLocalizations {
       '引数はモデルからストリーミング中です。構築が完了すると通常のカード表示に切り替わります。';
 
   @override
+  String get tlCallCollectedParameters => '取得済み';
+
+  @override
+  String get tlCallNoParametersYet => '引数はまだ解析されていません';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'まだツール出力はありません。';
 
   @override

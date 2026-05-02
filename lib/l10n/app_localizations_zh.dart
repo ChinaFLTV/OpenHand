@@ -2579,6 +2579,12 @@ class AppLocalizationsZh extends AppLocalizations {
       '正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。';
 
   @override
+  String get tlCallCollectedParameters => '已采集参数';
+
+  @override
+  String get tlCallNoParametersYet => '尚未解析到入参';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
 
   @override
@@ -6900,6 +6906,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。';
 
   @override
+  String get tlCallCollectedParameters => '已采集参数';
+
+  @override
+  String get tlCallNoParametersYet => '尚未解析到入参';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
 
   @override
@@ -11218,6 +11230,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get tlCallArgumentsConstructingHint =>
       '正在跟隨模型輸出即時拼裝入參，參數構造完成後會自動切回正常狀態。';
+
+  @override
+  String get tlCallCollectedParameters => '已採集參數';
+
+  @override
+  String get tlCallNoParametersYet => '尚未解析到入參';
 
   @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';

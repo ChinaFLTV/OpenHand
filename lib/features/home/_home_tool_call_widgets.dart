@@ -117,92 +117,103 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               ),
           ],
         ),
-        const SizedBox(height: 10),
-        _ExpandableToolSection(
-          title: AppLocalizations.of(context)!.tlCallToolInput,
-          preview: toolCall.argumentsPreview,
-          expanded: argumentsExpanded,
-          onToggle: () {
-            setState(() {
-              _argumentsExpandedOverride = !argumentsExpanded;
-            });
-          },
-          expandedBuilder: (context) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (toolCall.command.isNotEmpty)
-                _ToolOutputPanel(
-                  label: AppLocalizations.of(context)!.tlCallCommand,
-                  content: toolCall.formattedCommand,
-                  theme: theme,
-                  selectable: widget.selectable,
-                ),
-              if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
-              _ToolOutputPanel(
-                label: AppLocalizations.of(context)!.tlCallArguments,
-                content: toolCall.formattedArguments,
-                theme: theme,
-                selectable: widget.selectable,
-              ),
-            ],
+        if (isConstructing) ...[
+          const SizedBox(height: 10),
+          _ConstructingArgumentKeysRow(
+            keys: toolCall.argumentKeys,
+            collectedLabel: AppLocalizations.of(
+              context,
+            )!.tlCallCollectedParameters,
+            emptyLabel: AppLocalizations.of(context)!.tlCallNoParametersYet,
           ),
-        ),
-        const SizedBox(height: 10),
-        _ExpandableToolSection(
-          title: AppLocalizations.of(context)!.tlCallToolOutput,
-          preview: toolCall.hasResultContent
-              ? toolCall.resultPreview
-              : AppLocalizations.of(context)!.tlCallNoOutputYet,
-          expanded: resultExpanded,
-          onToggle: () {
-            setState(() {
-              _resultExpandedOverride = !resultExpanded;
-            });
-          },
-          expandedBuilder: (context) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (toolCall.stdout.isNotEmpty)
-                _ToolOutputPanel(
-                  label: AppLocalizations.of(context)!.tlCallStdout,
-                  content: toolCall.formattedStdout,
-                  theme: theme,
-                  selectable: widget.selectable,
-                  fullContentFile: toolCall.stdoutFile,
-                ),
-              if (toolCall.stderr.isNotEmpty) ...[
-                if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
-                _ToolOutputPanel(
-                  label: AppLocalizations.of(context)!.tlCallStderr,
-                  content: toolCall.formattedStderr,
-                  theme: theme,
-                  isError: true,
-                  selectable: widget.selectable,
-                  fullContentFile: toolCall.stderrFile,
-                ),
-              ],
-              if (toolCall.showResultText) ...[
-                if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
-                  const SizedBox(height: 10),
-                _ToolOutputPanel(
-                  label: AppLocalizations.of(context)!.tlCallResult,
-                  content: toolCall.formattedResult,
-                  theme: theme,
-                  selectable: widget.selectable,
-                ),
-              ],
-              if (toolCall.stdout.isEmpty &&
-                  toolCall.stderr.isEmpty &&
-                  !toolCall.showResultText)
-                Text(
-                  AppLocalizations.of(context)!.tlCallThereIsNoToolOutputYet,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+        ] else ...[
+          const SizedBox(height: 10),
+          _ExpandableToolSection(
+            title: AppLocalizations.of(context)!.tlCallToolInput,
+            preview: toolCall.argumentsPreview,
+            expanded: argumentsExpanded,
+            onToggle: () {
+              setState(() {
+                _argumentsExpandedOverride = !argumentsExpanded;
+              });
+            },
+            expandedBuilder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (toolCall.command.isNotEmpty)
+                  _ToolOutputPanel(
+                    label: AppLocalizations.of(context)!.tlCallCommand,
+                    content: toolCall.formattedCommand,
+                    theme: theme,
+                    selectable: widget.selectable,
                   ),
+                if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
+                _ToolOutputPanel(
+                  label: AppLocalizations.of(context)!.tlCallArguments,
+                  content: toolCall.formattedArguments,
+                  theme: theme,
+                  selectable: widget.selectable,
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 10),
+          _ExpandableToolSection(
+            title: AppLocalizations.of(context)!.tlCallToolOutput,
+            preview: toolCall.hasResultContent
+                ? toolCall.resultPreview
+                : AppLocalizations.of(context)!.tlCallNoOutputYet,
+            expanded: resultExpanded,
+            onToggle: () {
+              setState(() {
+                _resultExpandedOverride = !resultExpanded;
+              });
+            },
+            expandedBuilder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (toolCall.stdout.isNotEmpty)
+                  _ToolOutputPanel(
+                    label: AppLocalizations.of(context)!.tlCallStdout,
+                    content: toolCall.formattedStdout,
+                    theme: theme,
+                    selectable: widget.selectable,
+                    fullContentFile: toolCall.stdoutFile,
+                  ),
+                if (toolCall.stderr.isNotEmpty) ...[
+                  if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
+                  _ToolOutputPanel(
+                    label: AppLocalizations.of(context)!.tlCallStderr,
+                    content: toolCall.formattedStderr,
+                    theme: theme,
+                    isError: true,
+                    selectable: widget.selectable,
+                    fullContentFile: toolCall.stderrFile,
+                  ),
+                ],
+                if (toolCall.showResultText) ...[
+                  if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
+                    const SizedBox(height: 10),
+                  _ToolOutputPanel(
+                    label: AppLocalizations.of(context)!.tlCallResult,
+                    content: toolCall.formattedResult,
+                    theme: theme,
+                    selectable: widget.selectable,
+                  ),
+                ],
+                if (toolCall.stdout.isEmpty &&
+                    toolCall.stderr.isEmpty &&
+                    !toolCall.showResultText)
+                  Text(
+                    AppLocalizations.of(context)!.tlCallThereIsNoToolOutputYet,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
         // ── File mutation indicator (mirrors HE changed-files row) ──
         if (_fileMutationPath(message).isNotEmpty &&
             _toolExecutionStatus(message) == 'success') ...[
@@ -1345,6 +1356,78 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
   }
 }
 
+/// Inline row used while a tool call is still in its "constructing" phase:
+/// shows the parameter keys parsed so far (e.g. `path, query`), or a muted
+/// "no parameters yet" placeholder. Each key fades in via [AppearOnce] so
+/// new arrivals feel alive without re-laying out neighbours.
+class _ConstructingArgumentKeysRow extends StatelessWidget {
+  const _ConstructingArgumentKeysRow({
+    required this.keys,
+    required this.collectedLabel,
+    required this.emptyLabel,
+  });
+
+  final List<String> keys;
+  final String collectedLabel;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final mutedStyle = theme.textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+      fontStyle: FontStyle.italic,
+    );
+    if (keys.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 2),
+        child: Text(emptyLabel, style: mutedStyle),
+      );
+    }
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 2, left: 2),
+          child: Text(
+            '$collectedLabel:',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        for (final key in keys)
+          AppearOnce(
+            key: ValueKey<String>('arg-key-$key'),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
+                borderRadius: _borderRadius999,
+                border: Border.all(
+                  color: cs.outline.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Text(
+                key,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurface,
+                  fontFamily: 'JetBrainsMono',
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _ToolCallPresentation {
   const _ToolCallPresentation({
     required this.categoryLabel,
@@ -1371,6 +1454,7 @@ class _ToolCallViewData {
     required this.exitCode,
     required this.durationMs,
     required this.argumentsPreview,
+    required this.argumentKeys,
     required this.formattedCommand,
     required this.formattedArguments,
     required this.formattedStdout,
@@ -1405,6 +1489,9 @@ class _ToolCallViewData {
     final exitCode = _toolExecutionExitCode(message);
     final durationMs = _toolExecutionDurationMs(message);
     final argumentsPreview = _toolArgumentsPreview(message);
+    final argumentKeys = _parseArgumentKeys(
+      '${message.metadata['tool_arguments'] ?? ''}',
+    );
     final formattedCommand = !includeArgumentsContent || command.isEmpty
         ? const _FormattedToolContent(text: '')
         : _FormattedToolContent(text: '\$ $command', language: 'bash');
@@ -1453,6 +1540,7 @@ class _ToolCallViewData {
       exitCode: exitCode,
       durationMs: durationMs,
       argumentsPreview: argumentsPreview,
+      argumentKeys: argumentKeys,
       formattedCommand: formattedCommand,
       formattedArguments: formattedArguments,
       formattedStdout: formattedStdout,
@@ -1494,6 +1582,11 @@ class _ToolCallViewData {
   final int? exitCode;
   final int durationMs;
   final String argumentsPreview;
+
+  /// Argument names (top-level keys) that have been parsed so far. Useful
+  /// during the streaming "constructing" state to surface a real-time
+  /// preview of which parameters the model has already supplied.
+  final List<String> argumentKeys;
   final _FormattedToolContent formattedCommand;
   final _FormattedToolContent formattedArguments;
   final _FormattedToolContent formattedStdout;
@@ -2074,6 +2167,23 @@ String _toolArgumentsPreview(AiSessionMessage message) {
       .map((line) => line.trim())
       .firstWhere((line) => line.isNotEmpty, orElse: () => '{}');
   return firstLine;
+}
+
+/// Best-effort parse of top-level argument keys from a JSON-encoded
+/// `tool_arguments` blob. Used to surface a real-time preview of which
+/// parameters have been parsed during the streaming "constructing" state.
+List<String> _parseArgumentKeys(String rawArguments) {
+  final trimmed = rawArguments.trim();
+  if (trimmed.isEmpty) return const <String>[];
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map) {
+      return decoded.keys.map((k) => '$k').toList(growable: false);
+    }
+  } catch (_) {
+    // Partial JSON mid-stream — expected; fall through.
+  }
+  return const <String>[];
 }
 
 String _toolCallStatusLabelForData(

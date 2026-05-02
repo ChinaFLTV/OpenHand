@@ -2717,6 +2717,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Arguments are still streaming from the model; the card will switch to its normal state once construction completes.';
 
   @override
+  String get tlCallCollectedParameters => 'Collected';
+
+  @override
+  String get tlCallNoParametersYet => 'No arguments parsed yet';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
 
   @override

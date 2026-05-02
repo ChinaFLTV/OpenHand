@@ -1128,6 +1128,8 @@
   "tlCallStderr": "stderr",
   "tlCallArgumentsConstructing": "Construction des arguments…",
   "tlCallArgumentsConstructingHint": "Les arguments sont toujours en cours de réception ; la carte basculera à l’état normal une fois la construction terminée.",
+  "tlCallCollectedParameters": "Collectés",
+  "tlCallNoParametersYet": "Aucun argument analysé",
   "tlCallThereIsNoToolOutputYet": "Aucune sortie d’outil pour l’instant.",
   "tlCallViewInDialog": "Afficher dans la boîte de dialogue",
   "tlCallEmptyContent": "Contenu vide",
