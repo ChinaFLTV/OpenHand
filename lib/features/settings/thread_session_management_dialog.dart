@@ -9,7 +9,9 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/export_config_dialog.dart';
 import '../../shared/widgets/export_progress_dialog.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_session.dart';
 import '../ai/service/ai_session_jsonl_exporter.dart';
@@ -79,6 +81,12 @@ class _ThreadSessionManagementDialogState
   AiSession? _previewSession;
   bool _previewLoading = false;
 
+  // Outcome pulse signals — drive a green/red HighlightPulse bar at the
+  // top of the dialog when a high-value action (export, batch export,
+  // pin/archive toggle, delete) settles.
+  final ValueNotifier<int> _outcomeSuccessSignal = ValueNotifier<int>(0);
+  final ValueNotifier<int> _outcomeErrorSignal = ValueNotifier<int>(0);
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +101,8 @@ class _ThreadSessionManagementDialogState
   void dispose() {
     _persistDebounce?.cancel();
     _searchController.dispose();
+    _outcomeSuccessSignal.dispose();
+    _outcomeErrorSignal.dispose();
     super.dispose();
   }
 
@@ -251,13 +261,13 @@ class _ThreadSessionManagementDialogState
     final ok = await controller.renameSession(session.id, submitted);
     if (!mounted || ok) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          controller.lastErrorMessage ??
-              AppLocalizations.of(context)!.tsmRenameFailed,
-        ),
+      OpenHandSnackBar.error(
+        context,
+        controller.lastErrorMessage ??
+            AppLocalizations.of(context)!.tsmRenameFailed,
       ),
     );
+    _outcomeErrorSignal.value++;
   }
 
   Future<void> _confirmDeleteSingle(AiSession session) async {
@@ -344,12 +354,14 @@ class _ThreadSessionManagementDialogState
     });
     if (failed > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
-          ),
+        OpenHandSnackBar.error(
+          context,
+          AppLocalizations.of(context)!.tsmDeleteFailedCount(failed),
         ),
       );
+      _outcomeErrorSignal.value++;
+    } else {
+      _outcomeSuccessSignal.value++;
     }
     // Recompute disk footprint after the row count changes.
     unawaited(_refreshDiskBytes());
@@ -372,11 +384,11 @@ class _ThreadSessionManagementDialogState
     }
     if (full == null || !mounted) {
       if (mounted) {
-        messenger.showSnackBar(SnackBar(
-          content: Text(
-            AppLocalizations.of(context)!.tsmSessionMissing,
-          ),
+        messenger.showSnackBar(OpenHandSnackBar.error(
+          context,
+          AppLocalizations.of(context)!.tsmSessionMissing,
         ));
+        _outcomeErrorSignal.value++;
       }
       return;
     }
@@ -441,9 +453,16 @@ class _ThreadSessionManagementDialogState
     if (!mounted) return;
     final ok = result.kind == ExportResultKind.success;
     final l10n = AppLocalizations.of(context)!;
-    messenger.showSnackBar(SnackBar(
-      content: Text(ok ? l10n.tsmExportComplete : l10n.tsmExportFailed),
-    ));
+    messenger.showSnackBar(
+      ok
+          ? OpenHandSnackBar.success(context, l10n.tsmExportComplete)
+          : OpenHandSnackBar.error(context, l10n.tsmExportFailed),
+    );
+    if (ok) {
+      _outcomeSuccessSignal.value++;
+    } else {
+      _outcomeErrorSignal.value++;
+    }
   }
 
   Future<void> _batchExportSelected() async {
@@ -541,11 +560,18 @@ class _ThreadSessionManagementDialogState
     }
     await dialogFuture;
     if (!mounted) return;
-    messenger.showSnackBar(SnackBar(
-      content: Text(
-        AppLocalizations.of(context)!.tsmBatchExportDone(ok, failed),
-      ),
-    ));
+    final batchMessage =
+        AppLocalizations.of(context)!.tsmBatchExportDone(ok, failed);
+    messenger.showSnackBar(
+      failed == 0
+          ? OpenHandSnackBar.success(context, batchMessage)
+          : OpenHandSnackBar.error(context, batchMessage),
+    );
+    if (failed == 0) {
+      _outcomeSuccessSignal.value++;
+    } else {
+      _outcomeErrorSignal.value++;
+    }
   }
 
   Future<void> _showSessionContextMenu(
@@ -662,9 +688,11 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppLocalizations.of(context)!.tsmPinUpdateFailed),
+      ScaffoldMessenger.of(context).showSnackBar(OpenHandSnackBar.error(
+        context,
+        AppLocalizations.of(context)!.tsmPinUpdateFailed,
       ));
+      _outcomeErrorSignal.value++;
     }
   }
 
@@ -686,9 +714,11 @@ class _ThreadSessionManagementDialogState
       });
       await _refreshFlags();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppLocalizations.of(context)!.tsmArchiveUpdateFailed),
+      ScaffoldMessenger.of(context).showSnackBar(OpenHandSnackBar.error(
+        context,
+        AppLocalizations.of(context)!.tsmArchiveUpdateFailed,
       ));
+      _outcomeErrorSignal.value++;
     }
   }
 
@@ -937,38 +967,64 @@ class _ThreadSessionManagementDialogState
           maxWidth: dialogWidth,
           maxHeight: dialogHeight,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
-            _buildHeader(theme, sessions),
-            const Divider(height: 1),
-            _buildToolbar(theme, templates),
-            const Divider(height: 1),
-            if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: visible.isEmpty
-                        ? _buildEmptyState()
-                        : _buildList(visible),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(theme, sessions),
+                const Divider(height: 1),
+                _buildToolbar(theme, templates),
+                const Divider(height: 1),
+                if (_isSelectionMode) _buildSelectionToolbar(theme, visible),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: visible.isEmpty
+                            ? _buildEmptyState()
+                            : _buildList(visible),
+                      ),
+                      AnimatedSize(
+                        duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.centerLeft,
+                        child: _previewSession == null
+                            ? const SizedBox(width: 0)
+                            : _buildPreviewDrawer(theme),
+                      ),
+                    ],
                   ),
-                  AnimatedSize(
-                    duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.centerLeft,
-                    child: _previewSession == null
-                        ? const SizedBox(width: 0)
-                        : _buildPreviewDrawer(theme),
-                  ),
-                ],
+                ),
+                const Divider(height: 1),
+                _buildFooter(),
+              ],
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _outcomeSuccessSignal,
+                  color: const Color(0xFF22C55E),
+                ),
               ),
             ),
-            const Divider(height: 1),
-            _buildFooter(),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _outcomeErrorSignal,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
+            ),
           ],
         ),
       ),
