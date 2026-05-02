@@ -1208,14 +1208,17 @@ class _FileTreeTile extends StatelessWidget {
             child: Row(
               children: [
                 if (node.isDirectory)
-                  Icon(
-                    node.isExpanded
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.chevron_right_rounded,
-                    size: 16,
-                    color: isActive
-                        ? colorScheme.primary
-                        : colorScheme.onSurfaceVariant,
+                  AnimatedRotation(
+                    turns: node.isExpanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: isActive
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
                   )
                 else
                   const SizedBox(width: 16),

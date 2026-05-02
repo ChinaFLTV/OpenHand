@@ -364,10 +364,11 @@ class _HeComposer extends StatelessWidget {
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
               ),
-              child: Icon(
-                isCollapsed
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
+              child: AnimatedRotation(
+                turns: isCollapsed ? 0.5 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
             ),
           ),

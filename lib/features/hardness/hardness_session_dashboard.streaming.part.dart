@@ -177,12 +177,15 @@ class _HeStreamingSubConversationState
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        _showEarlierSegments
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        size: 16,
-                        color: colorScheme.onSurfaceVariant,
+                      AnimatedRotation(
+                        turns: _showEarlierSegments ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(

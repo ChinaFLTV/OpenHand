@@ -1364,10 +1364,11 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
               ),
-              child: Icon(
-                widget.isCollapsed
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
+              child: AnimatedRotation(
+                turns: widget.isCollapsed ? 0.5 : 0,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
             ),
           ),
