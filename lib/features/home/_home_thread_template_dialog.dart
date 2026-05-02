@@ -453,6 +453,31 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '估算使用率',
       en: 'Estimated Usage',
     ),
+    'compact_memory_sidecar_status' => _localizedText(
+      context,
+      zh: 'Sidecar 状态',
+      en: 'Sidecar Status',
+    ),
+    'compact_memory_checkpoint_id' => _localizedText(
+      context,
+      zh: 'Checkpoint ID',
+      en: 'Checkpoint ID',
+    ),
+    'compact_memory_checkpoint_characters' => _localizedText(
+      context,
+      zh: 'Checkpoint 字符数',
+      en: 'Checkpoint Characters',
+    ),
+    'compact_memory_restored_from_sidecar' => _localizedText(
+      context,
+      zh: '从 Sidecar 恢复',
+      en: 'Restored From Sidecar',
+    ),
+    'compact_memory_sidecar_path' => _localizedText(
+      context,
+      zh: 'Sidecar 路径',
+      en: 'Sidecar Path',
+    ),
     'locale_tag' => _localizedText(context, zh: '语言区域', en: 'Locale Tag'),
     'platform' => _localizedText(context, zh: '平台', en: 'Platform'),
     'app_version' => _localizedText(context, zh: '应用版本', en: 'App Version'),

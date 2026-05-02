@@ -308,6 +308,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                         colorScheme,
                         lastPromptMetadata,
                       ),
+                      ..._buildCompactMemorySection(
+                        context,
+                        lastPromptMetadata,
+                      ),
                       const SizedBox(height: 16),
                       _MetadataSection(
                         title: AppLocalizations.of(
@@ -989,6 +993,93 @@ class _SessionMetadataDialog extends StatelessWidget {
       ),
     ];
   }
+
+  List<Widget> _buildCompactMemorySection(
+    BuildContext context,
+    Map<String, Object?> metadata,
+  ) {
+    final checkpoint = session.latestCompressionPoint;
+    final rehydration = _metadataObjectMap(
+      metadata['post_compact_rehydration'],
+    );
+    if (checkpoint == null && rehydration.isEmpty) {
+      return const <Widget>[];
+    }
+    final sidecarPath = '${rehydration['session_memory_sidecar_path'] ?? ''}'
+        .trim();
+    final sidecarPresent =
+        rehydration['session_memory_sidecar_present'] == true;
+    final restoredFromSidecar =
+        checkpoint?.metadata['restored_from_compact_memory_sidecar'] == true;
+    final sidecarStatus = checkpoint == null
+        ? _localizedText(context, zh: '未生成', en: 'Not Generated')
+        : restoredFromSidecar
+        ? _localizedText(context, zh: '已恢复', en: 'Restored')
+        : sidecarPresent
+        ? _localizedText(context, zh: '已登记', en: 'Registered')
+        : _localizedText(
+            context,
+            zh: '等待下次 Prompt 刷新',
+            en: 'Pending Prompt Refresh',
+          );
+
+    return <Widget>[
+      const SizedBox(height: 16),
+      _MetadataSection(
+        title: _localizedText(
+          context,
+          zh: '压缩记忆 Sidecar',
+          en: 'Compact Memory Sidecar',
+        ),
+        children: [
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'compact_memory_sidecar_status',
+            ),
+            value: sidecarStatus,
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'compact_memory_checkpoint_id',
+            ),
+            value: checkpoint?.id ?? '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'compact_memory_checkpoint_characters',
+            ),
+            value: checkpoint == null ? '-' : '${checkpoint.characterCount}',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'compact_memory_restored_from_sidecar',
+            ),
+            value: restoredFromSidecar
+                ? _localizedText(context, zh: '是', en: 'Yes')
+                : _localizedText(context, zh: '否', en: 'No'),
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'compact_memory_sidecar_path',
+            ),
+            value: sidecarPath.isEmpty ? '-' : sidecarPath,
+          ),
+        ],
+      ),
+    ];
+  }
+}
+
+Map<String, Object?> _metadataObjectMap(Object? rawValue) {
+  if (rawValue is Map) {
+    return Map<String, Object?>.from(rawValue);
+  }
+  return const <String, Object?>{};
 }
 
 class _MetadataSection extends StatelessWidget {

@@ -210,6 +210,7 @@ Hardness API phase runner 有独立交接压缩：
 | Durable Session Memory | `ai_prompt_builder.dart` | 持久 checkpoint 进入后续 prompt 时使用有界头尾视图，超长中段以 `[checkpoint_middle_omitted]` 标记省略 |
 | Session Memory Sidecar | `ai_session_store.dart` / `ai_session_controller.dart` | 压缩成功后写入 `sessions/{sessionId}/memory/compact-latest.md` / `compact-latest.json`，作为独立可审计的持久摘要文件 |
 | Sidecar 读取/恢复 | `ai_session_store.dart` | 读取 sidecar 前恢复原子写 `.tmp/.bak`，主消息表缺失 checkpoint 时可从 sidecar 重建最新 compression checkpoint |
+| Sidecar 调试 UI | `_home_session_metadata_dialog.dart` | 会话元数据弹窗展示 compact memory sidecar 状态、checkpoint id、字符数、恢复标记和路径 |
 
 ## 5. OpenHand 目标架构
 
@@ -358,6 +359,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 5. **持久 checkpoint 有界视图**：OpenHand 的 compression checkpoint 本身就是持久会话记忆；后续 prompt / 再压缩 prompt 读取它时使用 40K 字符上限的头尾视图，避免旧摘要本身吞掉整个上下文窗口。
 6. **文件型 session memory sidecar**：压缩 checkpoint 成功提交后，额外原子写入 `compact-latest.md` 与 `compact-latest.json`，让摘要脱离主消息表也可被审计、导出和后续恢复逻辑复用；prompt metadata 同步暴露 sidecar path。
 7. **Sidecar 恢复链路**：会话完整加载时会尝试读取 compact sidecar；若主消息表缺失最新 checkpoint，会用 sidecar 中的摘要和元数据恢复一个标记了 `restored_from_compact_memory_sidecar` 的 checkpoint，增强异常恢复能力。
+8. **Sidecar 可观测性**：会话元数据弹窗增加“压缩记忆 Sidecar”区块，便于排查 checkpoint 是否已写入旁路文件、是否从旁路恢复、当前摘要字符数与路径。
 
 ## 7. Prompt 维护准则
 
