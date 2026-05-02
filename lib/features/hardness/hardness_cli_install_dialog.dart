@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import 'hardness_cli_catalog.dart';
 
 /// Shows a dialog that runs the CLI install command and streams output in real time.
@@ -33,6 +34,26 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
   Process? _process;
   final ScrollController _scrollController = ScrollController();
 
+  /// Pulses the green top-edge confirmation flash on successful install.
+  final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
+
+  /// Pulses the red top-edge flash on install failure.
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
+
+  /// Tracks whether we've already pulsed for this run, so the periodic
+  /// rebuilds from streaming log appends don't re-trigger.
+  bool _pulsedOutcome = false;
+
+  void _pulseOutcome() {
+    if (_pulsedOutcome) return;
+    _pulsedOutcome = true;
+    if (_success) {
+      _successPulse.value = _successPulse.value + 1;
+    } else if (!_cancelled) {
+      _errorPulse.value = _errorPulse.value + 1;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +69,8 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       silentLog('hardness_cli_install_dialog', 'kill process on dispose', error, stack);
     }
     _scrollController.dispose();
+    _successPulse.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -430,6 +453,13 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
         ? (isZh ? '已取消' : 'Cancelled')
         : (isZh ? '安装失败' : 'Installation Failed');
 
+    if (!_running) {
+      // Defer to next frame so the pulse fires after the build is committed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pulseOutcome();
+      });
+    }
+
     return AlertDialog(
       title: Row(
         children: [
@@ -445,7 +475,9 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
       content: SizedBox(
         width: 640,
         height: 420,
-        child: Column(
+        child: Stack(
+          children: [
+            Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Status row
@@ -510,6 +542,30 @@ class _HardnessCliInstallDialogState extends State<HardnessCliInstallDialog> {
                       return _LogLine(line: _logLines[index]);
                     },
                   ),
+                ),
+              ),
+            ),
+          ],
+        ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _successPulse,
+                  color: const Color(0xFF22C55E),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: const Color(0xFFEF4444),
                 ),
               ),
             ),

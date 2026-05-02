@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/support/safe_subprocess.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import 'hardness_cli_catalog.dart';
 
@@ -34,6 +35,14 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
   String? _errorMessage;
   String _output = '';
 
+  /// Pulses the green top-edge confirmation flash on successful login
+  /// completion (exit 0).
+  final ValueNotifier<int> _successPulse = ValueNotifier<int>(0);
+
+  /// Pulses the red top-edge flash on process startup / runtime failure
+  /// or non-zero exit codes.
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
+
   HardnessCli get _cli => widget.entry.cli;
   String get _executable => widget.entry.resolvedPath ?? _cli.executable;
   List<String> get _loginArgs => _cli.loginArgs ?? const <String>[];
@@ -53,6 +62,8 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
     _stderrSubscription?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
+    _successPulse.dispose();
+    _errorPulse.dispose();
     final process = _process;
     _process = null;
     if (process != null) {
@@ -134,6 +145,11 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         _finished = true;
         _exitCode = exitCode;
       });
+      if (exitCode == 0) {
+        _successPulse.value = _successPulse.value + 1;
+      } else {
+        _errorPulse.value = _errorPulse.value + 1;
+      }
     } on ProcessException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -141,6 +157,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         _finished = true;
         _errorMessage = '无法启动进程 / Failed to start process: ${error.message}';
       });
+      _errorPulse.value = _errorPulse.value + 1;
     } catch (error) {
       if (!mounted) {
         return;
@@ -150,6 +167,7 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
         _finished = true;
         _errorMessage = '$error';
       });
+      _errorPulse.value = _errorPulse.value + 1;
     }
   }
 
@@ -305,7 +323,9 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
       content: SizedBox(
         width: 860,
         height: 620,
-        child: Column(
+        child: Stack(
+          children: [
+            Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
@@ -467,6 +487,30 @@ class _HardnessCliLoginDialogState extends State<HardnessCliLoginDialog> {
                   label: Text(isZh ? '在终端中打开' : 'Open in Terminal'),
                 ),
               ],
+            ),
+          ],
+        ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _successPulse,
+                  color: const Color(0xFF22C55E),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
             ),
           ],
         ),
