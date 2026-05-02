@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/silent_log.dart';
 import '../../instructions/model/user_instruction_entry.dart';
 import '../../memory/model/user_memory_entry.dart';
 import '../model/ai_attachment.dart';
@@ -48,6 +49,10 @@ class AiPromptBuilder {
   static const int _checkpointPromptMaxChars = 40000;
   static const int _checkpointPromptEdgeChars = 18000;
   static const int _compressionAttachmentDetailMaxChars = 2000;
+  static const int _postCompactRestoreMaxFiles = 5;
+  static const int _postCompactRestoreMaxFileBytes = 256 * 1024;
+  static const int _postCompactRestoreMaxCharsPerFile = 12000;
+  static const int _postCompactRestoreTotalChars = 30000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -246,6 +251,14 @@ class AiPromptBuilder {
             planModeReminder: planModeReminder,
           )
         : metadata;
+    final focusContext = _renderFocusContext(
+      historyMessages: historyMessages,
+      latestUserMessage: latestUserMessage,
+    );
+    final restoredFileContext = _renderPostCompactRestoredFileContext(
+      historyMessages: historyMessages,
+      latestCompressionPoint: latestCompressionPoint,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -323,14 +336,15 @@ class AiPromptBuilder {
       // [5.5] Focus Context — last few tool outcomes + latest-user attachments,
       // 仅在有信号时注入；用于在主 transcript 之外提供"刚才发生了什么"的高
       // 优先级简报，等价于 Warp 的 block_context（命令 + 输出 + cwd）。
-      if (_renderFocusContext(
-            historyMessages: historyMessages,
-            latestUserMessage: latestUserMessage,
-          )
-          case final String focusContext when focusContext.isNotEmpty)
+      if (focusContext.isNotEmpty)
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.5] Focus Context\n\n$focusContext',
+        ),
+      if (restoredFileContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.6] Restored File Context\n\n$restoredFileContext',
         ),
       ...latestUserTurns,
     ];
@@ -1936,7 +1950,7 @@ $tail''';
 
   List<Map<String, Object?>> _recentReadFileAnchors(
     List<AiSessionMessage> messages, {
-    int maxFiles = 5,
+    int maxFiles = _postCompactRestoreMaxFiles,
   }) {
     final anchors = <Map<String, Object?>>[];
     final seenPaths = <String>{};
@@ -1967,6 +1981,103 @@ $tail''';
       });
     }
     return anchors.reversed.toList(growable: false);
+  }
+
+  String _renderPostCompactRestoredFileContext({
+    required List<AiSessionMessage> historyMessages,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    if (latestCompressionPoint == null) {
+      return '';
+    }
+    final checkpointIndex = historyMessages.indexWhere(
+      (message) => message.id == latestCompressionPoint.id,
+    );
+    if (checkpointIndex <= 0) {
+      return '';
+    }
+    final preCheckpointMessages = historyMessages
+        .take(checkpointIndex)
+        .toList(growable: false);
+    final anchors = _recentReadFileAnchors(preCheckpointMessages);
+    if (anchors.isEmpty) {
+      return '';
+    }
+
+    final sections = <String>[];
+    var usedChars = 0;
+    for (final anchor in anchors) {
+      if (usedChars >= _postCompactRestoreTotalChars) {
+        break;
+      }
+      final path = '${anchor['path'] ?? ''}'.trim();
+      if (path.isEmpty) {
+        continue;
+      }
+      final restored = _tryReadPostCompactRestoredFile(path);
+      if (restored == null || restored.isEmpty) {
+        continue;
+      }
+      final remainingBudget = _postCompactRestoreTotalChars - usedChars;
+      final content = restored.length > remainingBudget
+          ? _truncateRestoredFileContent(restored, remainingBudget)
+          : restored;
+      if (content.trim().isEmpty) {
+        continue;
+      }
+      usedChars += content.length;
+      final fileKind = '${anchor['file_kind'] ?? ''}'.trim();
+      final renderMode = '${anchor['render_mode'] ?? ''}'.trim();
+      final metadata = <String>[
+        if (fileKind.isNotEmpty) 'kind=$fileKind',
+        if (renderMode.isNotEmpty) 'last_read_mode=$renderMode',
+      ].join(' · ');
+      sections.add('''## $path${metadata.isEmpty ? '' : ' · $metadata'}
+
+```text
+$content
+```''');
+    }
+    if (sections.isEmpty) {
+      return '';
+    }
+    return 'Recent files restored after compaction. These are bounded snapshots of files previously read before the latest checkpoint.\n\n${sections.join('\n\n')}';
+  }
+
+  String? _tryReadPostCompactRestoredFile(String path) {
+    try {
+      final file = File(path);
+      final stat = file.statSync();
+      if (stat.type != FileSystemEntityType.file ||
+          stat.size <= 0 ||
+          stat.size > _postCompactRestoreMaxFileBytes) {
+        return null;
+      }
+      return _truncateRestoredFileContent(
+        file.readAsStringSync(),
+        _postCompactRestoreMaxCharsPerFile,
+      );
+    } catch (error, stackTrace) {
+      silentLog(
+        'AiPromptBuilder',
+        'tryReadPostCompactRestoredFile',
+        error,
+        stackTrace,
+      );
+      return null;
+    }
+  }
+
+  String _truncateRestoredFileContent(String content, int maxChars) {
+    if (maxChars <= 0) {
+      return '';
+    }
+    if (content.length <= maxChars) {
+      return content.trimRight();
+    }
+    final head = content.substring(0, maxChars).trimRight();
+    final omitted = content.length - head.length;
+    return '$head\n[restored_file_truncated: omitted $omitted chars]';
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:openhand/features/ai/model/ai_attachment.dart';
@@ -371,6 +373,75 @@ void main() {
     expect(promptText, contains('[attachment_content_truncated:'));
     expect(promptText, isNot(contains('SHOULD_BE_TRUNCATED')));
     expect(promptText, contains('[image] photo.png (image/png)'));
+  });
+
+  test('restores recent read file content after compact', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-restored-file-test-',
+    );
+    addTearDown(() async {
+      if (await root.exists()) {
+        await root.delete(recursive: true);
+      }
+    });
+    final file = File('${root.path}/main.dart');
+    await file.writeAsString('void main() {\n  print("restored");\n}\n');
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final readResult = AiSessionMessage.toolResult(
+      id: 'read-before-compact',
+      content: '1\tvoid main() {',
+      createdAt: now,
+      metadata: <String, Object?>{
+        'tool_call_id': 'call-read-before-compact',
+        'tool_name': 'Read',
+        'status': 'success',
+        'read_file_path': file.path,
+        'read_file_kind': 'text',
+        'read_render_mode': 'line',
+      },
+    );
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-restore',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: 'continue',
+      createdAt: now,
+    );
+    final messages = <AiSessionMessage>[readResult, checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+
+    expect(promptText, contains('# [5.6] Restored File Context'));
+    expect(promptText, contains(file.path));
+    expect(promptText, contains('print("restored")'));
   });
 }
 

@@ -213,6 +213,7 @@ Hardness API phase runner 有独立交接压缩：
 | Sidecar 调试 UI | `_home_session_metadata_dialog.dart` | 会话元数据弹窗展示 compact memory sidecar 状态、checkpoint id、字符数、恢复标记和路径 |
 | 附件压缩降级 | `ai_prompt_builder.dart` | 压缩 prompt 渲染附件时 summary 优先、长文本 2K 字符封顶、无摘要图片降级为 `[image]` marker |
 | 最近 Read 文件锚点 | `ai_prompt_builder.dart` | post-compact metadata 与 Focus Context 注入最近 5 个 Read 文件路径/类型/渲染模式，作为轻量文件恢复清单 |
+| 真实文件内容恢复 | `ai_prompt_builder.dart` | checkpoint 后从最近 Read 文件锚点中恢复最多 5 个现存文本文件内容，按单文件/总字符预算注入 `[5.6] Restored File Context` |
 
 ## 5. OpenHand 目标架构
 
@@ -364,6 +365,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 8. **Sidecar 可观测性**：会话元数据弹窗增加“压缩记忆 Sidecar”区块，便于排查 checkpoint 是否已写入旁路文件、是否从旁路恢复、当前摘要字符数与路径。
 9. **压缩前附件降级**：对齐 Claude Code `stripImagesFromMessages` 的思想，compact 请求不再把长文档附件原文无界塞入摘要 prompt；有 summary 用 summary，无 summary 的图片/媒体用轻量 marker，文本附件最多保留 2K 字符。
 10. **最近 Read 文件恢复锚点**：对齐 Claude Code post-compact file restore 的目的，OpenHand 先采用轻量清单策略，在 `post_compact_rehydration` 与 Focus Context 中列出最近 5 个 Read 文件路径、文件类型和渲染模式，避免压缩后模型完全丢失“刚读过哪些文件”的工作集。
+11. **真实文件内容恢复**：在最新 checkpoint 存在时，Prompt Builder 会尝试从 checkpoint 之前最近 Read 过的文件里恢复最多 5 个仍存在的文本文件快照，并以 12K/文件、30K/总量预算注入 `[5.6] Restored File Context`；读取失败走 `silentLog`，不阻断 prompt 构建。
 
 ## 7. Prompt 维护准则
 
