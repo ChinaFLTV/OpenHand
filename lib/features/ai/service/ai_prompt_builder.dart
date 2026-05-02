@@ -150,6 +150,7 @@ class AiPromptBuilder {
         .toList(growable: false);
     final postCompactRehydration = _buildPostCompactRehydrationSnapshot(
       session: session,
+      historyMessages: historyMessages,
       runtimeContext: runtimeContext,
       memoryEntries: memoryEntries,
       repositorySnapshot: repositorySnapshot,
@@ -499,6 +500,7 @@ class AiPromptBuilder {
 
   Map<String, Object?> _buildPostCompactRehydrationSnapshot({
     required AiSession session,
+    required List<AiSessionMessage> historyMessages,
     required AiSessionRuntimeContext runtimeContext,
     required List<UserMemoryEntry> memoryEntries,
     required AiRepositorySnapshot? repositorySnapshot,
@@ -517,6 +519,7 @@ class AiPromptBuilder {
       session,
       latestCompressionPoint,
     );
+    final recentReadFiles = _recentReadFileAnchors(historyMessages);
     final restoredChannels = <String>[
       'system_instructions',
       'developer_instructions',
@@ -536,6 +539,7 @@ class AiPromptBuilder {
       if (session.todoItems.isNotEmpty) 'todos',
       if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
       if (session.planHistory.isNotEmpty) 'plan_history',
+      if (recentReadFiles.isNotEmpty) 'recent_read_files',
     ];
     return <String, Object?>{
       'active': latestCompressionPoint != null,
@@ -558,6 +562,8 @@ class AiPromptBuilder {
       'plan_record_count': session.planHistory.length,
       'pending_plan_present': session.pendingPlan?.trim().isNotEmpty == true,
       'repository_snapshot_present': repositorySnapshot != null,
+      'recent_read_file_count': recentReadFiles.length,
+      if (recentReadFiles.isNotEmpty) 'recent_read_files': recentReadFiles,
     };
   }
 
@@ -1884,6 +1890,24 @@ $tail''';
       }
     }
 
+    final recentReadFiles = _recentReadFileAnchors(historyMessages);
+    if (recentReadFiles.isNotEmpty) {
+      if (lines.isNotEmpty) lines.add('');
+      lines.add('## Recent read files (post-compact restore anchors)');
+      for (final item in recentReadFiles) {
+        final path = '${item['path'] ?? ''}'.trim();
+        final fileKind = '${item['file_kind'] ?? ''}'.trim();
+        final renderMode = '${item['render_mode'] ?? ''}'.trim();
+        final truncated = item['truncated'] == true;
+        final details = <String>[
+          if (fileKind.isNotEmpty) 'kind=$fileKind',
+          if (renderMode.isNotEmpty) 'mode=$renderMode',
+          if (truncated) 'truncated=true',
+        ].join(' · ');
+        lines.add(details.isEmpty ? '- $path' : '- $path · $details');
+      }
+    }
+
     // Latest user message attachments / referenced paths.
     if (latestUserMessage != null) {
       final attachments = latestUserMessage.metadata['attachments'];
@@ -1908,6 +1932,41 @@ $tail''';
     }
 
     return lines.isEmpty ? '' : lines.join('\n');
+  }
+
+  List<Map<String, Object?>> _recentReadFileAnchors(
+    List<AiSessionMessage> messages, {
+    int maxFiles = 5,
+  }) {
+    final anchors = <Map<String, Object?>>[];
+    final seenPaths = <String>{};
+    for (
+      var i = messages.length - 1;
+      i >= 0 && anchors.length < maxFiles;
+      i--
+    ) {
+      final message = messages[i];
+      if (message.kind != AiSessionMessageKind.tool &&
+          message.kind != AiSessionMessageKind.mcp &&
+          message.kind != AiSessionMessageKind.skill) {
+        continue;
+      }
+      final path = '${message.metadata['read_file_path'] ?? ''}'.trim();
+      if (path.isEmpty || !seenPaths.add(path)) {
+        continue;
+      }
+      anchors.add(<String, Object?>{
+        'path': path,
+        'message_id': message.id,
+        'created_at': message.createdAt.toUtc().toIso8601String(),
+        if ('${message.metadata['read_file_kind'] ?? ''}'.trim().isNotEmpty)
+          'file_kind': '${message.metadata['read_file_kind']}',
+        if ('${message.metadata['read_render_mode'] ?? ''}'.trim().isNotEmpty)
+          'render_mode': '${message.metadata['read_render_mode']}',
+        if (message.metadata['read_truncated'] == true) 'truncated': true,
+      });
+    }
+    return anchors.reversed.toList(growable: false);
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {

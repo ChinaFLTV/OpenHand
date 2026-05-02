@@ -187,6 +187,19 @@ void main() {
       createdAt: now,
       metadata: const <String, Object?>{},
     );
+    final readResult = AiSessionMessage.toolResult(
+      id: 'read1',
+      content: '1\tvoid main() {}',
+      createdAt: now,
+      metadata: const <String, Object?>{
+        'tool_call_id': 'call-read1',
+        'tool_name': 'Read',
+        'status': 'success',
+        'read_file_path': '/tmp/project/lib/main.dart',
+        'read_file_kind': 'text',
+        'read_render_mode': 'line',
+      },
+    );
     final latest = AiSessionMessage.user(
       id: 'latest',
       content: 'continue',
@@ -195,7 +208,7 @@ void main() {
     final session = _session(
       template: template,
       now: now,
-      messages: <AiSessionMessage>[checkpoint, latest],
+      messages: <AiSessionMessage>[readResult, checkpoint, latest],
     );
 
     final result = const AiPromptBuilder().buildSessionPrompt(
@@ -212,9 +225,10 @@ void main() {
           tags: const <String>[],
         ),
       ],
-      sessionMessages: <AiSessionMessage>[checkpoint, latest],
+      sessionMessages: <AiSessionMessage>[readResult, checkpoint, latest],
       latestUserMessageId: latest.id,
     );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
 
     final rehydration = Map<String, Object?>.from(
       result.metadata['post_compact_rehydration']! as Map,
@@ -237,8 +251,12 @@ void main() {
         'conversation_checkpoint',
         'recent_history_tail',
         'user_memory',
+        'recent_read_files',
       ]),
     );
+    expect(rehydration['recent_read_file_count'], 1);
+    expect(promptText, contains('Recent read files'));
+    expect(promptText, contains('/tmp/project/lib/main.dart'));
   });
 
   test('bounds oversized checkpoint in compression prompts', () {
