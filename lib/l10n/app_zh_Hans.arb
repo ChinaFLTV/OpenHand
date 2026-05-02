@@ -1,12 +1,18 @@
 {
   "@@locale": "zh_Hans",
   "appTitle": "OpenHand",
+  "@appTitle": {
+    "description": "Application brand name. Keep as \"OpenHand\" untranslated."
+  },
   "appTagline": "开放、稳定、可扩展的桌面工作台",
   "newThread": "新线程",
   "automations": "自动化",
   "skills": "技能",
   "memory": "记忆",
   "mcp": "MCP",
+  "@mcp": {
+    "description": "Model Context Protocol acronym. Keep as \"MCP\" untranslated."
+  },
   "settings": "设置",
   "threads": "线程",
   "workspaceHeadline": "开始构建",
@@ -78,6 +84,9 @@
   "previewSectionTitle": "设计方向",
   "previewSectionBody": "遵循 Material 3 Expressive 设计理念，强调层次、留白、圆角、柔和光感与清晰的信息节奏。",
   "threadPrimary": "OpenHand",
+  "@threadPrimary": {
+    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
+  },
   "threadShell": "桌面应用骨架",
   "threadSettings": "设置与本地化",
   "threadRoadmap": "后续模块规划",
@@ -175,25 +184,85 @@
   "aiAuthToken": "Token",
   "aiAuthApiKey": "API Key",
   "aiProtocolOpenAi": "OpenAI",
+  "@aiProtocolOpenAi": {
+    "description": "AI provider brand: OpenAI. Brand name; transliterate only when natural (e.g. ja: オープンAI)."
+  },
   "aiProtocolClaude": "Claude",
+  "@aiProtocolClaude": {
+    "description": "AI provider brand: Anthropic Claude. Brand name; transliterate only when natural (e.g. ja: クロード)."
+  },
   "aiProtocolGemini": "Gemini",
+  "@aiProtocolGemini": {
+    "description": "AI provider brand: Google Gemini. Brand name; transliterate only when natural (e.g. ja: ジェミニ)."
+  },
   "aiProtocolDeepSeek": "DeepSeek",
+  "@aiProtocolDeepSeek": {
+    "description": "AI provider brand: DeepSeek. Brand name; transliterate only when natural (e.g. ja: ディープシーク)."
+  },
   "aiProtocolKimi": "Kimi",
+  "@aiProtocolKimi": {
+    "description": "AI provider brand: Moonshot Kimi. Brand name; transliterate only when natural (e.g. ja: キミ)."
+  },
   "aiProtocolGlm": "GLM",
+  "@aiProtocolGlm": {
+    "description": "AI provider brand: Zhipu GLM. Acronym; keep as \"GLM\" untranslated."
+  },
   "aiProtocolGrok": "Grok",
+  "@aiProtocolGrok": {
+    "description": "AI provider brand: xAI Grok. Brand name; transliterate only when natural (e.g. ja: グロック)."
+  },
   "aiProtocolOllama": "Ollama",
+  "@aiProtocolOllama": {
+    "description": "Local-runtime brand: Ollama. Brand name; transliterate only when natural (e.g. ja: オラマ)."
+  },
   "aiProtocolVllm": "vLLM",
+  "@aiProtocolVllm": {
+    "description": "Local-runtime brand: vLLM. Acronym; keep as \"vLLM\" untranslated."
+  },
   "aiProtocolSglang": "SGLang",
+  "@aiProtocolSglang": {
+    "description": "Local-runtime brand: SGLang. Keep as \"SGLang\" untranslated."
+  },
   "aiProtocolQwen": "通义千问",
+  "@aiProtocolQwen": {
+    "description": "AI provider brand: Alibaba Qwen / 通义千问. Brand name; transliterate when natural (ja: クウェン)."
+  },
   "aiProtocolSeed": "豆包 (火山方舟)",
+  "@aiProtocolSeed": {
+    "description": "AI provider brand: ByteDance Seed / Doubao 豆包. Brand name; preserve \"(Doubao)\" parenthetical."
+  },
   "aiProtocolStepFun": "阶跃星辰",
+  "@aiProtocolStepFun": {
+    "description": "AI provider brand: StepFun 阶跃星辰. Brand name; transliterate when natural (ja: ステップファン)."
+  },
   "aiProtocolMinimax": "MiniMax",
+  "@aiProtocolMinimax": {
+    "description": "AI provider brand: MiniMax. Brand name; transliterate when natural (ja: ミニマックス)."
+  },
   "aiProtocolLongCat": "LongCat",
+  "@aiProtocolLongCat": {
+    "description": "AI provider brand: Meituan LongCat. Brand name; transliterate when natural (ja: ロングキャット)."
+  },
   "aiProtocolJoyCode": "JoyCode",
+  "@aiProtocolJoyCode": {
+    "description": "AI provider brand: JD JoyCode. Brand name; transliterate when natural (ja: ジョイコード)."
+  },
   "aiProtocolWenxin": "文心一言 (ERNIE)",
+  "@aiProtocolWenxin": {
+    "description": "AI provider brand: Baidu Wenxin / ERNIE 文心一言. Preserve \"/ ERNIE\" pairing."
+  },
   "aiProtocolMeta": "Meta AI (Llama)",
+  "@aiProtocolMeta": {
+    "description": "AI provider brand: Meta AI / Llama family. Preserve \"Meta AI / \" prefix."
+  },
   "aiProtocolMimo": "MIMO (小米)",
+  "@aiProtocolMimo": {
+    "description": "AI provider brand: Xiaomi MIMO. Acronym; keep as \"MIMO\" untranslated."
+  },
   "aiProtocolHunyuan": "混元 (腾讯)",
+  "@aiProtocolHunyuan": {
+    "description": "AI provider brand: Tencent Hunyuan 混元. Brand name; Chinese form preferred for ja/zh."
+  },
   "skillsPageTitle": "技能",
   "skillsPageSubtitle": "为 OpenHand 提供更强大的扩展能力，统一管理本地已安装技能与模板。",
   "skillsInstalledSectionTitle": "已安装",
@@ -358,6 +427,9 @@
   "memoryPersistenceSaveFailedTitle": "记忆文件保存失败",
   "memoryPersistenceSaveFailedBody": "写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。",
   "mcpPageTitle": "MCP",
+  "@mcpPageTitle": {
+    "description": "MCP settings page title. Acronym; keep as \"MCP\" untranslated."
+  },
   "mcpPageSubtitle": "参考 Cursor 的 MCP 服务管理结构，统一维护本地 MCP Server 配置。",
   "mcpRefresh": "刷新",
   "mcpNewServer": "新增服务",
@@ -390,8 +462,17 @@
   "mcpDisabledTitle": "MCP 服务当前已关闭",
   "mcpDisabledBody": "你仍然可以在这里维护服务配置；如需在运行时启用，请到设置页 MCP 板块打开 MCP 开关。",
   "mcpTransportStreamableHttp": "Streamable HTTP",
+  "@mcpTransportStreamableHttp": {
+    "description": "MCP transport mode label. Technical term; keep \"HTTP\" portion untranslated."
+  },
   "mcpTransportSse": "SSE",
+  "@mcpTransportSse": {
+    "description": "MCP Server-Sent Events transport. Acronym; keep as \"SSE\" untranslated."
+  },
   "mcpTransportStdio": "STDIO",
+  "@mcpTransportStdio": {
+    "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
+  },
   "mcpPersistenceRecoveredTitle": "MCP 配置文件已自动恢复",
   "mcpPersistenceRecoveredBody": "检测到 MCP 配置文件内容损坏或被篡改，OpenHand 已备份异常文件并恢复为空配置。",
   "mcpPersistenceSanitizedTitle": "MCP 配置内容已自动修正",
@@ -1340,6 +1421,9 @@
   "settingsCrons": "定时任务",
   "settingsControlsRetentionAndColdStartCleanup": "控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。",
   "settingsHermesTalker": "Hermes Talker",
+  "@settingsHermesTalker": {
+    "description": "Internal feature brand name: Hermes Talker. Brand-style; transliterate only when natural."
+  },
   "settingsConfigureHermesTalkerSelfLearningEvery": "配置 Hermes Talker 线程模板的自主学习：每 5 分钟扫描最近 7 天的会话，在后台派发受限子 Agent 更新记忆与技能。",
   "settingsEditor": "编辑器",
   "settingsManagePerLanguageLspBackendsInstall": "管理各编程语言的 LSP 后端、安装根路径与下载辅助配置。保存后的配置会直接用于文件编辑器内的跳转、诊断、重命名和代码操作。",

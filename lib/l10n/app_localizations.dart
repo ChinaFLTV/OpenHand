@@ -106,7 +106,7 @@ abstract class AppLocalizations {
     Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
   ];
 
-  /// No description provided for @appTitle.
+  /// Application brand name. Keep as "OpenHand" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'OpenHand'**
@@ -142,7 +142,7 @@ abstract class AppLocalizations {
   /// **'记忆'**
   String get memory;
 
-  /// No description provided for @mcp.
+  /// Model Context Protocol acronym. Keep as "MCP" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'MCP'**
@@ -568,7 +568,7 @@ abstract class AppLocalizations {
   /// **'遵循 Material 3 Expressive 设计理念，强调层次、留白、圆角、柔和光感与清晰的信息节奏。'**
   String get previewSectionBody;
 
-  /// No description provided for @threadPrimary.
+  /// Default conversation thread title; same as the application brand "OpenHand".
   ///
   /// In zh_Hans, this message translates to:
   /// **'OpenHand'**
@@ -994,121 +994,121 @@ abstract class AppLocalizations {
   /// **'API Key'**
   String get aiAuthApiKey;
 
-  /// No description provided for @aiProtocolOpenAi.
+  /// AI provider brand: OpenAI. Brand name; transliterate only when natural (e.g. ja: オープンAI).
   ///
   /// In zh_Hans, this message translates to:
   /// **'OpenAI'**
   String get aiProtocolOpenAi;
 
-  /// No description provided for @aiProtocolClaude.
+  /// AI provider brand: Anthropic Claude. Brand name; transliterate only when natural (e.g. ja: クロード).
   ///
   /// In zh_Hans, this message translates to:
   /// **'Claude'**
   String get aiProtocolClaude;
 
-  /// No description provided for @aiProtocolGemini.
+  /// AI provider brand: Google Gemini. Brand name; transliterate only when natural (e.g. ja: ジェミニ).
   ///
   /// In zh_Hans, this message translates to:
   /// **'Gemini'**
   String get aiProtocolGemini;
 
-  /// No description provided for @aiProtocolDeepSeek.
+  /// AI provider brand: DeepSeek. Brand name; transliterate only when natural (e.g. ja: ディープシーク).
   ///
   /// In zh_Hans, this message translates to:
   /// **'DeepSeek'**
   String get aiProtocolDeepSeek;
 
-  /// No description provided for @aiProtocolKimi.
+  /// AI provider brand: Moonshot Kimi. Brand name; transliterate only when natural (e.g. ja: キミ).
   ///
   /// In zh_Hans, this message translates to:
   /// **'Kimi'**
   String get aiProtocolKimi;
 
-  /// No description provided for @aiProtocolGlm.
+  /// AI provider brand: Zhipu GLM. Acronym; keep as "GLM" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'GLM'**
   String get aiProtocolGlm;
 
-  /// No description provided for @aiProtocolGrok.
+  /// AI provider brand: xAI Grok. Brand name; transliterate only when natural (e.g. ja: グロック).
   ///
   /// In zh_Hans, this message translates to:
   /// **'Grok'**
   String get aiProtocolGrok;
 
-  /// No description provided for @aiProtocolOllama.
+  /// Local-runtime brand: Ollama. Brand name; transliterate only when natural (e.g. ja: オラマ).
   ///
   /// In zh_Hans, this message translates to:
   /// **'Ollama'**
   String get aiProtocolOllama;
 
-  /// No description provided for @aiProtocolVllm.
+  /// Local-runtime brand: vLLM. Acronym; keep as "vLLM" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'vLLM'**
   String get aiProtocolVllm;
 
-  /// No description provided for @aiProtocolSglang.
+  /// Local-runtime brand: SGLang. Keep as "SGLang" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'SGLang'**
   String get aiProtocolSglang;
 
-  /// No description provided for @aiProtocolQwen.
+  /// AI provider brand: Alibaba Qwen / 通义千问. Brand name; transliterate when natural (ja: クウェン).
   ///
   /// In zh_Hans, this message translates to:
   /// **'通义千问'**
   String get aiProtocolQwen;
 
-  /// No description provided for @aiProtocolSeed.
+  /// AI provider brand: ByteDance Seed / Doubao 豆包. Brand name; preserve "(Doubao)" parenthetical.
   ///
   /// In zh_Hans, this message translates to:
   /// **'豆包 (火山方舟)'**
   String get aiProtocolSeed;
 
-  /// No description provided for @aiProtocolStepFun.
+  /// AI provider brand: StepFun 阶跃星辰. Brand name; transliterate when natural (ja: ステップファン).
   ///
   /// In zh_Hans, this message translates to:
   /// **'阶跃星辰'**
   String get aiProtocolStepFun;
 
-  /// No description provided for @aiProtocolMinimax.
+  /// AI provider brand: MiniMax. Brand name; transliterate when natural (ja: ミニマックス).
   ///
   /// In zh_Hans, this message translates to:
   /// **'MiniMax'**
   String get aiProtocolMinimax;
 
-  /// No description provided for @aiProtocolLongCat.
+  /// AI provider brand: Meituan LongCat. Brand name; transliterate when natural (ja: ロングキャット).
   ///
   /// In zh_Hans, this message translates to:
   /// **'LongCat'**
   String get aiProtocolLongCat;
 
-  /// No description provided for @aiProtocolJoyCode.
+  /// AI provider brand: JD JoyCode. Brand name; transliterate when natural (ja: ジョイコード).
   ///
   /// In zh_Hans, this message translates to:
   /// **'JoyCode'**
   String get aiProtocolJoyCode;
 
-  /// No description provided for @aiProtocolWenxin.
+  /// AI provider brand: Baidu Wenxin / ERNIE 文心一言. Preserve "/ ERNIE" pairing.
   ///
   /// In zh_Hans, this message translates to:
   /// **'文心一言 (ERNIE)'**
   String get aiProtocolWenxin;
 
-  /// No description provided for @aiProtocolMeta.
+  /// AI provider brand: Meta AI / Llama family. Preserve "Meta AI / " prefix.
   ///
   /// In zh_Hans, this message translates to:
   /// **'Meta AI (Llama)'**
   String get aiProtocolMeta;
 
-  /// No description provided for @aiProtocolMimo.
+  /// AI provider brand: Xiaomi MIMO. Acronym; keep as "MIMO" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'MIMO (小米)'**
   String get aiProtocolMimo;
 
-  /// No description provided for @aiProtocolHunyuan.
+  /// AI provider brand: Tencent Hunyuan 混元. Brand name; Chinese form preferred for ja/zh.
   ///
   /// In zh_Hans, this message translates to:
   /// **'混元 (腾讯)'**
@@ -2092,7 +2092,7 @@ abstract class AppLocalizations {
   /// **'写入记忆文件失败，界面已回滚到上一次有效内容，请检查文件权限或磁盘状态。'**
   String get memoryPersistenceSaveFailedBody;
 
-  /// No description provided for @mcpPageTitle.
+  /// MCP settings page title. Acronym; keep as "MCP" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'MCP'**
@@ -2284,19 +2284,19 @@ abstract class AppLocalizations {
   /// **'你仍然可以在这里维护服务配置；如需在运行时启用，请到设置页 MCP 板块打开 MCP 开关。'**
   String get mcpDisabledBody;
 
-  /// No description provided for @mcpTransportStreamableHttp.
+  /// MCP transport mode label. Technical term; keep "HTTP" portion untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'Streamable HTTP'**
   String get mcpTransportStreamableHttp;
 
-  /// No description provided for @mcpTransportSse.
+  /// MCP Server-Sent Events transport. Acronym; keep as "SSE" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'SSE'**
   String get mcpTransportSse;
 
-  /// No description provided for @mcpTransportStdio.
+  /// MCP standard I/O transport. Acronym; keep as "STDIO" untranslated.
   ///
   /// In zh_Hans, this message translates to:
   /// **'STDIO'**
@@ -6634,7 +6634,7 @@ abstract class AppLocalizations {
   /// **'控制定时任务执行历史的保留与冷启动清理。清理 worker 仅在冷启动后异步运行一次，导致有超时兑底、独享运行锁、异常全部 silentLog，避免资源泄露与无限重试。'**
   String get settingsControlsRetentionAndColdStartCleanup;
 
-  /// No description provided for @settingsHermesTalker.
+  /// Internal feature brand name: Hermes Talker. Brand-style; transliterate only when natural.
   ///
   /// In zh_Hans, this message translates to:
   /// **'Hermes Talker'**

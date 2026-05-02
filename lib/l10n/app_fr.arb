@@ -1,12 +1,18 @@
 {
   "@@locale": "fr",
   "appTitle": "OpenHand",
+  "@appTitle": {
+    "description": "Application brand name. Keep as \"OpenHand\" untranslated."
+  },
   "appTagline": "Un espace de travail de bureau ouvert, stable et extensible",
   "newThread": "Nouveau fil",
   "automations": "Automatisations",
   "skills": "Compétences",
   "memory": "Mémoire",
   "mcp": "MCP",
+  "@mcp": {
+    "description": "Model Context Protocol acronym. Keep as \"MCP\" untranslated."
+  },
   "settings": "Paramètres",
   "threads": "Fils",
   "workspaceHeadline": "Commencer à créer",
@@ -78,6 +84,9 @@
   "previewSectionTitle": "Direction du design",
   "previewSectionBody": "Conçu autour de Material 3 Expressive, avec des surfaces superposées, de larges espacements, des formes arrondies, une lumière douce et un rythme d'information clair.",
   "threadPrimary": "OpenHand",
+  "@threadPrimary": {
+    "description": "Default conversation thread title; same as the application brand \"OpenHand\"."
+  },
   "threadShell": "Ossature de l'application bureau",
   "threadSettings": "Paramètres et localisation",
   "threadRoadmap": "Planification des futurs modules",
@@ -175,25 +184,85 @@
   "aiAuthToken": "Jeton",
   "aiAuthApiKey": "Clé API",
   "aiProtocolOpenAi": "OpenAI",
+  "@aiProtocolOpenAi": {
+    "description": "AI provider brand: OpenAI. Brand name; transliterate only when natural (e.g. ja: オープンAI)."
+  },
   "aiProtocolClaude": "Claude",
+  "@aiProtocolClaude": {
+    "description": "AI provider brand: Anthropic Claude. Brand name; transliterate only when natural (e.g. ja: クロード)."
+  },
   "aiProtocolGemini": "Gemini",
+  "@aiProtocolGemini": {
+    "description": "AI provider brand: Google Gemini. Brand name; transliterate only when natural (e.g. ja: ジェミニ)."
+  },
   "aiProtocolDeepSeek": "DeepSeek",
+  "@aiProtocolDeepSeek": {
+    "description": "AI provider brand: DeepSeek. Brand name; transliterate only when natural (e.g. ja: ディープシーク)."
+  },
   "aiProtocolKimi": "Kimi",
+  "@aiProtocolKimi": {
+    "description": "AI provider brand: Moonshot Kimi. Brand name; transliterate only when natural (e.g. ja: キミ)."
+  },
   "aiProtocolGlm": "GLM",
+  "@aiProtocolGlm": {
+    "description": "AI provider brand: Zhipu GLM. Acronym; keep as \"GLM\" untranslated."
+  },
   "aiProtocolGrok": "Grok",
+  "@aiProtocolGrok": {
+    "description": "AI provider brand: xAI Grok. Brand name; transliterate only when natural (e.g. ja: グロック)."
+  },
   "aiProtocolOllama": "Ollama",
+  "@aiProtocolOllama": {
+    "description": "Local-runtime brand: Ollama. Brand name; transliterate only when natural (e.g. ja: オラマ)."
+  },
   "aiProtocolVllm": "vLLM",
+  "@aiProtocolVllm": {
+    "description": "Local-runtime brand: vLLM. Acronym; keep as \"vLLM\" untranslated."
+  },
   "aiProtocolSglang": "SGLang",
+  "@aiProtocolSglang": {
+    "description": "Local-runtime brand: SGLang. Keep as \"SGLang\" untranslated."
+  },
   "aiProtocolQwen": "Qwen",
+  "@aiProtocolQwen": {
+    "description": "AI provider brand: Alibaba Qwen / 通义千问. Brand name; transliterate when natural (ja: クウェン)."
+  },
   "aiProtocolSeed": "Seed (Doubao)",
+  "@aiProtocolSeed": {
+    "description": "AI provider brand: ByteDance Seed / Doubao 豆包. Brand name; preserve \"(Doubao)\" parenthetical."
+  },
   "aiProtocolStepFun": "StepFun",
+  "@aiProtocolStepFun": {
+    "description": "AI provider brand: StepFun 阶跃星辰. Brand name; transliterate when natural (ja: ステップファン)."
+  },
   "aiProtocolMinimax": "MiniMax",
+  "@aiProtocolMinimax": {
+    "description": "AI provider brand: MiniMax. Brand name; transliterate when natural (ja: ミニマックス)."
+  },
   "aiProtocolLongCat": "LongCat",
+  "@aiProtocolLongCat": {
+    "description": "AI provider brand: Meituan LongCat. Brand name; transliterate when natural (ja: ロングキャット)."
+  },
   "aiProtocolJoyCode": "JoyCode",
+  "@aiProtocolJoyCode": {
+    "description": "AI provider brand: JD JoyCode. Brand name; transliterate when natural (ja: ジョイコード)."
+  },
   "aiProtocolWenxin": "Wenxin / ERNIE",
+  "@aiProtocolWenxin": {
+    "description": "AI provider brand: Baidu Wenxin / ERNIE 文心一言. Preserve \"/ ERNIE\" pairing."
+  },
   "aiProtocolMeta": "Meta AI / Llama",
+  "@aiProtocolMeta": {
+    "description": "AI provider brand: Meta AI / Llama family. Preserve \"Meta AI / \" prefix."
+  },
   "aiProtocolMimo": "MIMO",
+  "@aiProtocolMimo": {
+    "description": "AI provider brand: Xiaomi MIMO. Acronym; keep as \"MIMO\" untranslated."
+  },
   "aiProtocolHunyuan": "Hunyuan",
+  "@aiProtocolHunyuan": {
+    "description": "AI provider brand: Tencent Hunyuan 混元. Brand name; Chinese form preferred for ja/zh."
+  },
   "skillsPageTitle": "Compétences",
   "skillsPageSubtitle": "Donnez à OpenHand une plus grande extensibilité grâce à une vue unifiée des compétences locales installées et des modèles.",
   "skillsInstalledSectionTitle": "Installées",
@@ -358,6 +427,9 @@
   "memoryPersistenceSaveFailedTitle": "Échec de l’enregistrement de la mémoire",
   "memoryPersistenceSaveFailedBody": "L’écriture du fichier de mémoire a échoué. L’interface est revenue au dernier contenu valide. Vérifiez les autorisations du fichier ou l’état du disque.",
   "mcpPageTitle": "MCP",
+  "@mcpPageTitle": {
+    "description": "MCP settings page title. Acronym; keep as \"MCP\" untranslated."
+  },
   "mcpPageSubtitle": "Gérez les configurations locales du serveur MCP avec une mise en page de style Cursor adaptée à OpenHand.",
   "mcpRefresh": "Actualiser",
   "mcpNewServer": "Nouveau serveur",
@@ -390,8 +462,17 @@
   "mcpDisabledTitle": "Les services MCP sont actuellement désactivés",
   "mcpDisabledBody": "Vous pouvez toujours gérer ici les configurations de service. Pour les activer à l’exécution, activez le commutateur MCP dans Paramètres > MCP.",
   "mcpTransportStreamableHttp": "HTTP en flux",
+  "@mcpTransportStreamableHttp": {
+    "description": "MCP transport mode label. Technical term; keep \"HTTP\" portion untranslated."
+  },
   "mcpTransportSse": "SSE",
+  "@mcpTransportSse": {
+    "description": "MCP Server-Sent Events transport. Acronym; keep as \"SSE\" untranslated."
+  },
   "mcpTransportStdio": "STDIO",
+  "@mcpTransportStdio": {
+    "description": "MCP standard I/O transport. Acronym; keep as \"STDIO\" untranslated."
+  },
   "mcpPersistenceRecoveredTitle": "Configuration MCP récupérée",
   "mcpPersistenceRecoveredBody": "OpenHand a détecté que le fichier de configuration MCP était endommagé ou modifié, l’a sauvegardé et a restauré une configuration vide.",
   "mcpPersistenceSanitizedTitle": "Configuration MCP assainie",
@@ -1176,6 +1257,9 @@
   "settingsCrons": "Tâches Cron",
   "settingsControlsRetentionAndColdStartCleanup": "Contrôle la rétention et le nettoyage au démarrage à froid de l’historique d’exécution cron. Le travailleur de nettoyage s’exécute une fois par démarrage à froid avec délai d’expiration strict, verrou single-flight et défaillances en silentLog uniquement pour ne jamais fuir de ressources ou boucler indéfiniment.",
   "settingsHermesTalker": "Hermes Talker",
+  "@settingsHermesTalker": {
+    "description": "Internal feature brand name: Hermes Talker. Brand-style; transliterate only when natural."
+  },
   "settingsConfigureHermesTalkerSelfLearningEvery": "Configurer l’auto-apprentissage de Hermes Talker : toutes les 5 minutes, un cron système analyse les sessions des 7 derniers jours et envoie un sous-agent restreint pour mettre à jour la mémoire et les compétences en arrière-plan.",
   "settingsEditor": "Éditeur",
   "settingsManagePerLanguageLspBackendsInstall": "Gérez les back-ends LSP par langue, les racines d’installation et les paramètres d’assistant de téléchargement. Les mappages enregistrés s’appliquent directement à la navigation, aux diagnostics, au renommage et aux actions de code de l’éditeur.",
