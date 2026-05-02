@@ -28,6 +28,7 @@ import '../../app/support/url_validation.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/rolling_text.dart';
@@ -1380,34 +1381,43 @@ class _SettingsViewState extends State<SettingsView> {
                     separatorBuilder: (context, index) =>
                         const SizedBox(height: 14),
                     itemBuilder: (context, index) {
-                      return _AiModelTile(
-                        model: aiModels[index],
-                        isSelected:
-                            settingsController.selectedAiModelId ==
-                            aiModels[index].id,
-                        isTesting: _testingAiModelIds.contains(
-                          aiModels[index].id,
+                      return AppearOnce(
+                        key: ValueKey<String>(
+                          'ai-model-${aiModels[index].id}',
                         ),
-                        isFirst: index == 0,
-                        isLast: index == aiModels.length - 1,
-                        onSelect: () => settingsController
-                            .updateSelectedAiModel(aiModels[index].id),
-                        onTest: () => _testAiModel(aiModels[index]),
-                        onEdit: () => _showAiModelDialog(
-                          context,
-                          initialModel: aiModels[index],
-                        ),
-                        onMoveUp: () =>
-                            settingsController.moveAiModel(index, index - 1),
-                        onMoveDown: () =>
-                            settingsController.moveAiModel(index, index + 1),
-                        onDelete: () =>
-                            _confirmDeleteAiModel(context, aiModels[index]),
-                        onActiveModelChanged: (modelId) =>
-                            settingsController.updateProviderActiveModel(
+                        child: _AiModelTile(
+                          model: aiModels[index],
+                          isSelected:
+                              settingsController.selectedAiModelId ==
                               aiModels[index].id,
-                              modelId,
-                            ),
+                          isTesting: _testingAiModelIds.contains(
+                            aiModels[index].id,
+                          ),
+                          isFirst: index == 0,
+                          isLast: index == aiModels.length - 1,
+                          onSelect: () => settingsController
+                              .updateSelectedAiModel(aiModels[index].id),
+                          onTest: () => _testAiModel(aiModels[index]),
+                          onEdit: () => _showAiModelDialog(
+                            context,
+                            initialModel: aiModels[index],
+                          ),
+                          onMoveUp: () => settingsController.moveAiModel(
+                            index,
+                            index - 1,
+                          ),
+                          onMoveDown: () => settingsController.moveAiModel(
+                            index,
+                            index + 1,
+                          ),
+                          onDelete: () =>
+                              _confirmDeleteAiModel(context, aiModels[index]),
+                          onActiveModelChanged: (modelId) =>
+                              settingsController.updateProviderActiveModel(
+                                aiModels[index].id,
+                                modelId,
+                              ),
+                        ),
                       );
                     },
                   ),
@@ -1786,13 +1796,17 @@ class _SettingsViewState extends State<SettingsView> {
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final rule = allowCommandRules[index];
-                      return _AllowCommandRuleTile(
-                        rule: rule,
-                        onEdit: () => _showAllowCommandRuleDialog(
-                          context,
-                          initialRule: rule,
+                      return AppearOnce(
+                        key: ValueKey<String>('allow-rule-${rule.id}'),
+                        child: _AllowCommandRuleTile(
+                          rule: rule,
+                          onEdit: () => _showAllowCommandRuleDialog(
+                            context,
+                            initialRule: rule,
+                          ),
+                          onDelete: () =>
+                              _deleteAllowCommandRule(context, rule),
                         ),
-                        onDelete: () => _deleteAllowCommandRule(context, rule),
                       );
                     },
                   ),
@@ -1835,13 +1849,17 @@ class _SettingsViewState extends State<SettingsView> {
                         const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final rule = denyCommandRules[index];
-                      return _DenyCommandRuleTile(
-                        rule: rule,
-                        onEdit: () => _showDenyCommandRuleDialog(
-                          context,
-                          initialRule: rule,
+                      return AppearOnce(
+                        key: ValueKey<String>('deny-rule-${rule.id}'),
+                        child: _DenyCommandRuleTile(
+                          rule: rule,
+                          onEdit: () => _showDenyCommandRuleDialog(
+                            context,
+                            initialRule: rule,
+                          ),
+                          onDelete: () =>
+                              _deleteDenyCommandRule(context, rule),
                         ),
-                        onDelete: () => _deleteDenyCommandRule(context, rule),
                       );
                     },
                   ),
