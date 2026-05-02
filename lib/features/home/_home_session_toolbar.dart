@@ -9,6 +9,8 @@ class _SessionToolbar extends StatelessWidget {
     this.onPlanTimelineCollapsedChanged,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.activeProfile,
+    this.claudeStyle = true,
   });
 
   final AiSession session;
@@ -18,6 +20,8 @@ class _SessionToolbar extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +212,8 @@ class _SessionToolbar extends StatelessWidget {
               ],
               _TokenDial(
                 statistics: session.statistics,
+                activeProfile: activeProfile,
+                claudeStyle: claudeStyle,
               ),
             ],
           ),

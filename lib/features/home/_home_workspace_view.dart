@@ -164,6 +164,10 @@ class _WorkspaceView extends StatelessWidget {
                                 onPlanTimelineCollapsedChanged,
                             fileExplorerVisible: fileExplorerVisible,
                             onFileExplorerToggled: onFileExplorerToggled,
+                            activeProfile: selectedModel
+                                ?.modelProfiles[selectedModel!.modelId],
+                            claudeStyle: selectedModel?.protocolType ==
+                                AiProtocolType.claude,
                           ),
                           const SizedBox(height: 14),
                           Expanded(
@@ -214,6 +218,10 @@ class _WorkspaceView extends StatelessWidget {
                                   jumpToBottomOnInit: jumpToBottomOnInit,
                                   fileExplorerVisible: fileExplorerVisible,
                                   onFileExplorerToggled: onFileExplorerToggled,
+                                  activeProfile: selectedModel
+                                      ?.modelProfiles[selectedModel!.modelId],
+                                  claudeStyle: selectedModel?.protocolType ==
+                                      AiProtocolType.claude,
                                 ),
                               ),
                             ),
@@ -244,6 +252,10 @@ class _WorkspaceView extends StatelessWidget {
                                     fileExplorerVisible: fileExplorerVisible,
                                     onFileExplorerToggled:
                                         onFileExplorerToggled,
+                                    activeProfile: selectedModel
+                                        ?.modelProfiles[selectedModel!.modelId],
+                                    claudeStyle: selectedModel?.protocolType ==
+                                        AiProtocolType.claude,
                                   ),
                                 ),
                               ),

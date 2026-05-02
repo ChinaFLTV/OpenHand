@@ -3,9 +3,13 @@ part of 'openhand_home_page.dart';
 class _TokenDial extends StatefulWidget {
   const _TokenDial({
     required this.statistics,
+    this.activeProfile,
+    this.claudeStyle = true,
   });
 
   final AiSessionStatistics statistics;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   int get totalTokens => statistics.totalTokens ?? 0;
   int? get cacheReadTokens => statistics.cacheReadTokens;
@@ -114,6 +118,8 @@ class _TokenDialState extends State<_TokenDial>
                     alignment: Alignment.topRight,
                     child: _TokenDialPopup(
                       statistics: widget.statistics,
+                      activeProfile: widget.activeProfile,
+                      claudeStyle: widget.claudeStyle,
                     ),
                   ),
                 ),
@@ -193,9 +199,15 @@ class _TokenDialState extends State<_TokenDial>
 /// - 总计：Total
 /// - 会话累计 (消息数 / prompt 字符 / 构建次数)
 class _TokenDialPopup extends StatelessWidget {
-  const _TokenDialPopup({required this.statistics});
+  const _TokenDialPopup({
+    required this.statistics,
+    this.activeProfile,
+    this.claudeStyle = true,
+  });
 
   final AiSessionStatistics statistics;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -353,8 +365,134 @@ class _TokenDialPopup extends StatelessWidget {
               keyStyle: keyStyle,
               valueStyle: valueStyle,
             ),
+            ..._buildCostSection(
+              context: context,
+              headStyle: headStyle,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+              colorScheme: colorScheme,
+              promptTokens: promptTokens,
+              completionTokens: completionTokens,
+              cacheRead: cacheRead,
+              cacheWrite: cacheWrite,
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 1C-B：在累计统计末尾追加成本拆解。当 [activeProfile] 为 null 或
+  /// 没有任一价格字段时返回空 list — UI 不渲染该分区。
+  List<Widget> _buildCostSection({
+    required BuildContext context,
+    required TextStyle? headStyle,
+    required TextStyle? keyStyle,
+    required TextStyle? valueStyle,
+    required ColorScheme colorScheme,
+    required int promptTokens,
+    required int completionTokens,
+    required int cacheRead,
+    required int cacheWrite,
+  }) {
+    if (activeProfile == null) return const <Widget>[];
+    final breakdown = AiCostBreakdown.compute(
+      usage: AiTokenUsage(
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+        cacheReadTokens: cacheRead,
+        cacheCreationTokens: cacheWrite,
+      ),
+      profile: activeProfile,
+      claudeStyle: claudeStyle,
+    );
+    if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
+
+    final amberStyle = valueStyle?.copyWith(color: Colors.amber.shade700);
+
+    return <Widget>[
+      Container(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        height: 1,
+        color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+      ),
+      Text(
+        _localizedText(context, zh: '成本估算', en: 'COST').toUpperCase(),
+        style: headStyle,
+      ),
+      const SizedBox(height: 6),
+      if (breakdown.inputUsd != null)
+        _CostPopupRow(
+          label: _localizedText(context, zh: 'Input', en: 'Input'),
+          usd: breakdown.inputUsd!,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+      if (breakdown.outputUsd != null)
+        _CostPopupRow(
+          label: _localizedText(context, zh: 'Output', en: 'Output'),
+          usd: breakdown.outputUsd!,
+          keyStyle: keyStyle,
+          valueStyle: valueStyle,
+        ),
+      if (breakdown.cacheReadUsd != null)
+        _CostPopupRow(
+          label: _localizedText(context, zh: 'Cache 命中', en: 'Cache Read'),
+          usd: breakdown.cacheReadUsd!,
+          keyStyle: keyStyle,
+          valueStyle: amberStyle,
+        ),
+      if (breakdown.cacheWriteUsd != null)
+        _CostPopupRow(
+          label: _localizedText(context, zh: 'Cache 写入', en: 'Cache Write'),
+          usd: breakdown.cacheWriteUsd!,
+          keyStyle: keyStyle,
+          valueStyle: amberStyle,
+        ),
+      if (breakdown.totalUsd != null) ...[
+        const SizedBox(height: 4),
+        _CostPopupRow(
+          label: _localizedText(context, zh: '总计', en: 'Total'),
+          usd: breakdown.totalUsd!,
+          keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w800),
+          valueStyle: valueStyle?.copyWith(color: colorScheme.primary),
+        ),
+      ],
+    ];
+  }
+}
+
+/// 单价行专用：USD 格式化展示（最高精度 4 位小数；总计/小数据时切到更密）。
+class _CostPopupRow extends StatelessWidget {
+  const _CostPopupRow({
+    required this.label,
+    required this.usd,
+    this.keyStyle,
+    this.valueStyle,
+  });
+
+  final String label;
+  final double usd;
+  final TextStyle? keyStyle;
+  final TextStyle? valueStyle;
+
+  String _format(double v) {
+    if (v == 0) return r'$0.0000';
+    if (v >= 1) return '\$${v.toStringAsFixed(2)}';
+    if (v >= 0.01) return '\$${v.toStringAsFixed(4)}';
+    return '\$${v.toStringAsFixed(6)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: keyStyle),
+          Text(_format(usd), style: valueStyle),
+        ],
       ),
     );
   }

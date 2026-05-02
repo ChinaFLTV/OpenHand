@@ -10,6 +10,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
     required this.onPlanTimelineCollapsedChanged,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.activeProfile,
+    this.claudeStyle = true,
   });
 
   final AiSession session;
@@ -19,6 +21,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +37,8 @@ class _SessionTranscriptLoadingPlaceholder extends StatelessWidget {
           onPlanTimelineCollapsedChanged: onPlanTimelineCollapsedChanged,
           fileExplorerVisible: fileExplorerVisible,
           onFileExplorerToggled: onFileExplorerToggled,
+          activeProfile: activeProfile,
+          claudeStyle: claudeStyle,
         ),
         const SizedBox(height: 14),
         // 2026-04-27 (UX): 移除会话加载占位中的 OpenHand 品牌 LOGO，避免在
@@ -100,6 +106,8 @@ class _SessionTranscript extends StatefulWidget {
     this.jumpToBottomOnInit = false,
     this.fileExplorerVisible = false,
     this.onFileExplorerToggled,
+    this.activeProfile,
+    this.claudeStyle = true,
   });
 
   final ScrollController controller;
@@ -122,6 +130,8 @@ class _SessionTranscript extends StatefulWidget {
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   @override
   State<_SessionTranscript> createState() => _SessionTranscriptState();
@@ -748,6 +758,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           onPlanTimelineCollapsedChanged: widget.onPlanTimelineCollapsedChanged,
           fileExplorerVisible: widget.fileExplorerVisible,
           onFileExplorerToggled: widget.onFileExplorerToggled,
+          activeProfile: widget.activeProfile,
+          claudeStyle: widget.claudeStyle,
         ),
         const SizedBox(height: 14),
         Expanded(
