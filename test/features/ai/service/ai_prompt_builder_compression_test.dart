@@ -530,6 +530,90 @@ void main() {
     expect(rehydration['invoked_skill_count'], 1);
     expect(rehydration['restored_channels'], contains('invoked_skills'));
   });
+
+  test('restores plan context after compact', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp-plan-restore',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: '继续执行计划',
+      createdAt: now,
+    );
+    final messages = <AiSessionMessage>[checkpoint, latest];
+    final session = _session(template: template, now: now, messages: messages)
+        .copyWith(
+          mode: AiSessionMode.plan,
+          awaitingPlanApproval: true,
+          pendingPlan: '1. Inspect compact state\n2. Patch prompt restore',
+          planHistory: <AiSessionPlanRecord>[
+            AiSessionPlanRecord(
+              id: 'plan-1',
+              createdAt: now.subtract(const Duration(minutes: 5)),
+              updatedAt: now,
+              status: AiSessionPlanStatus.pendingApproval,
+              plan: 'Restore plan details after checkpoint.',
+              steps: const <AiSessionTodoItem>[
+                AiSessionTodoItem(
+                  id: 'step-1',
+                  content: 'Inspect compact state',
+                  status: 'completed',
+                ),
+                AiSessionTodoItem(
+                  id: 'step-2',
+                  content: 'Patch prompt restore',
+                  status: 'in_progress',
+                ),
+              ],
+            ),
+          ],
+          todoItems: const <AiSessionTodoItem>[
+            AiSessionTodoItem(
+              id: 'todo-1',
+              content: 'Patch prompt restore',
+              status: 'in_progress',
+            ),
+          ],
+        );
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+
+    expect(promptText, contains('# [5.8] Restored Plan Context'));
+    expect(promptText, contains('awaiting_plan_approval: true'));
+    expect(promptText, contains('Restore plan details after checkpoint.'));
+    expect(promptText, contains('- [in_progress] Patch prompt restore'));
+    expect(rehydration['restored_channels'], contains('plan_context'));
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {

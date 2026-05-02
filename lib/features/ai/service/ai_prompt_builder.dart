@@ -57,6 +57,7 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxSkills = 3;
   static const int _postCompactRestoreMaxSkillChars = 8000;
   static const int _postCompactRestoreTotalSkillChars = 20000;
+  static const int _postCompactRestoreMaxPlanChars = 12000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -268,6 +269,10 @@ class AiPromptBuilder {
       runtimeContext: runtimeContext,
       latestCompressionPoint: latestCompressionPoint,
     );
+    final restoredPlanContext = _renderPostCompactRestoredPlanContext(
+      session: session,
+      latestCompressionPoint: latestCompressionPoint,
+    );
 
     final messages = <AiChatTurn>[
       AiChatTurn(
@@ -359,6 +364,11 @@ class AiPromptBuilder {
         AiChatTurn(
           role: AiChatRole.system,
           content: '# [5.7] Restored Skill Context\n\n$restoredSkillContext',
+        ),
+      if (restoredPlanContext.isNotEmpty)
+        AiChatTurn(
+          role: AiChatRole.system,
+          content: '# [5.8] Restored Plan Context\n\n$restoredPlanContext',
         ),
       ...latestUserTurns,
     ];
@@ -568,6 +578,7 @@ class AiPromptBuilder {
       if (session.todoItems.isNotEmpty) 'todos',
       if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
       if (session.planHistory.isNotEmpty) 'plan_history',
+      if (_hasRestorablePlanContext(session)) 'plan_context',
       if (recentReadFiles.isNotEmpty) 'recent_read_files',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
     ];
@@ -2087,6 +2098,18 @@ $content
   }
 
   String _truncateRestoredFileContent(String content, int maxChars) {
+    return _truncateRestoredContextContent(
+      content,
+      maxChars,
+      'restored_file_truncated',
+    );
+  }
+
+  String _truncateRestoredContextContent(
+    String content,
+    int maxChars,
+    String marker,
+  ) {
     if (maxChars <= 0) {
       return '';
     }
@@ -2095,7 +2118,7 @@ $content
     }
     final head = content.substring(0, maxChars).trimRight();
     final omitted = content.length - head.length;
-    return '$head\n[restored_file_truncated: omitted $omitted chars]';
+    return '$head\n[$marker: omitted $omitted chars]';
   }
 
   String _renderPostCompactRestoredSkillContext({
@@ -2237,6 +2260,102 @@ $content
       });
     }
     return anchors.reversed.toList(growable: false);
+  }
+
+  bool _hasRestorablePlanContext(AiSession session) {
+    return session.pendingPlan?.trim().isNotEmpty == true ||
+        session.planHistory.isNotEmpty ||
+        session.todoItems.isNotEmpty ||
+        session.awaitingPlanApproval ||
+        session.mode == AiSessionMode.plan;
+  }
+
+  String _renderPostCompactRestoredPlanContext({
+    required AiSession session,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    if (latestCompressionPoint == null || !_hasRestorablePlanContext(session)) {
+      return '';
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'Plan context restored after compaction. Treat this as the current plan state for continuing the task.',
+      )
+      ..writeln()
+      ..writeln('mode: ${session.mode.storageValue}')
+      ..writeln('awaiting_plan_approval: ${session.awaitingPlanApproval}');
+
+    final pendingPlan = session.pendingPlan?.trim();
+    if (pendingPlan != null && pendingPlan.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Pending Plan')
+        ..writeln('```text')
+        ..writeln(pendingPlan)
+        ..writeln('```');
+    }
+
+    final recentPlanRecords = session.planHistory.reversed
+        .take(3)
+        .toList(growable: false)
+        .reversed
+        .toList(growable: false);
+    if (recentPlanRecords.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Recent Plan Records');
+      for (final record in recentPlanRecords) {
+        buffer
+          ..writeln()
+          ..writeln('### ${record.id}')
+          ..writeln('status: ${record.status.storageValue}')
+          ..writeln(
+            'updated_at: ${record.updatedAt.toUtc().toIso8601String()}',
+          );
+        final plan = record.plan.trim();
+        if (plan.isNotEmpty) {
+          buffer
+            ..writeln('```text')
+            ..writeln(plan)
+            ..writeln('```');
+        }
+        final steps = _renderPlanTodoItems(record.steps);
+        if (steps.isNotEmpty) {
+          buffer
+            ..writeln('steps:')
+            ..writeln(steps);
+        }
+      }
+    }
+
+    final currentTodos = _renderPlanTodoItems(session.todoItems);
+    if (currentTodos.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Current Todos')
+        ..writeln(currentTodos);
+    }
+
+    return _truncateRestoredContextContent(
+      buffer.toString().trimRight(),
+      _postCompactRestoreMaxPlanChars,
+      'restored_plan_truncated',
+    );
+  }
+
+  String _renderPlanTodoItems(List<AiSessionTodoItem> items) {
+    final lines = <String>[];
+    for (final item in items) {
+      final content = item.content.trim();
+      if (content.isEmpty) {
+        continue;
+      }
+      final status = item.status.trim().isEmpty
+          ? 'unknown'
+          : item.status.trim();
+      lines.add('- [$status] $content');
+    }
+    return lines.join('\n');
   }
 
   String _firstNonEmptyLine(String text, int maxChars) {
