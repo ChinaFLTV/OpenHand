@@ -66,7 +66,6 @@ class _AppearOnceState extends State<AppearOnce>
     _ctrl = ctrl;
     ctrl.forward();
   }
-
   void _onStatus(AnimationStatus status) {
     if (status != AnimationStatus.completed) return;
     final ctrl = _ctrl;
@@ -93,6 +92,12 @@ class _AppearOnceState extends State<AppearOnce>
     if (opacity == null || translate == null) {
       // Animation already finished — return the child directly so we add
       // zero overhead per frame from here on out.
+      return widget.child;
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // Honor user / OS reduce-motion: snap to the resting state and let
+      // the controller finish out (it'll dispose itself via _onStatus).
+      _ctrl?.value = 1.0;
       return widget.child;
     }
     return FadeTransition(

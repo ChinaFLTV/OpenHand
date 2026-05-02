@@ -2012,5 +2012,13 @@
       }
     }
   },
-  "@@locale": "fr"
+  "@@locale": "fr",
+  "settingsReduceMotionLabel": "Réduire les animations",
+  "@settingsReduceMotionLabel": {
+    "description": "Settings → General: label for the global reduce-motion switch."
+  },
+  "settingsReduceMotionBody": "Lorsque cette option est activée, les animations personnalisées et intégrées sont ignorées (durées ramenées à zéro). Se combine avec le réglage d’accessibilité « Réduire les animations » du système.",
+  "@settingsReduceMotionBody": {
+    "description": "Settings → General: subtitle for the reduce-motion switch."
+  }
 }

@@ -248,6 +248,7 @@ class SettingsStore {
       'show_self_learning_messages': snapshot.showSelfLearningMessages,
       'cron_auto_cleanup_enabled': snapshot.cronAutoCleanupEnabled,
       'cron_auto_cleanup_retention_days': snapshot.cronAutoCleanupRetentionDays,
+      'reduce_motion': snapshot.reduceMotion,
       'proxy': snapshot.proxySettings.toJson(),
       'ai_models': snapshot.aiModels
           .map((model) => model.toJson())
@@ -959,6 +960,10 @@ class SettingsStore {
           )
         : AppSettingsSnapshot.defaultCronAutoCleanupRetentionDays;
 
+    final reduceMotion = json['reduce_motion'] is bool
+        ? json['reduce_motion'] as bool
+        : false;
+
     final proxySettings = AppProxySettings.fromJson(json['proxy']);
 
     return AppSettingsSnapshot(
@@ -1044,6 +1049,7 @@ class SettingsStore {
       showSelfLearningMessages: showSelfLearningMessages,
       cronAutoCleanupEnabled: cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: cronAutoCleanupRetentionDays,
+      reduceMotion: reduceMotion,
       proxySettings: proxySettings,
     );
   }

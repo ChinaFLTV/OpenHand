@@ -31,6 +31,9 @@ class _OpenHandAppState extends State<OpenHandApp> {
     final locale = context.select<SettingsController, Locale?>(
       (controller) => controller.locale,
     );
+    final reduceMotion = context.select<SettingsController, bool>(
+      (controller) => controller.reduceMotion,
+    );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -43,8 +46,25 @@ class _OpenHandAppState extends State<OpenHandApp> {
       supportedLocales: supportedAppLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       themeAnimationCurve: Curves.easeOutCubic,
-      themeAnimationDuration: const Duration(milliseconds: 220),
+      themeAnimationDuration: reduceMotion
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
       scrollBehavior: const _SafeScrollBehavior(),
+      // 2026-05 — 用户层 reduceMotion 通过 MediaQuery.disableAnimations 同步
+      // 给框架（Hero/PageRoute/Theme 等内置动画自动归零），同时也是自研
+      // 动画组件（AnimatedExpandable / AppearOnce 等）的统一信号源。OS-level
+      // reduceMotion 仍然由 Flutter 的 PlatformDispatcher 自动并入。
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final disable = reduceMotion || media.disableAnimations;
+        if (disable == media.disableAnimations) {
+          return child ?? const SizedBox.shrink();
+        }
+        return MediaQuery(
+          data: media.copyWith(disableAnimations: disable),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: widget.home,
     );
   }

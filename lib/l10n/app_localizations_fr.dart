@@ -4629,4 +4629,11 @@ class AppLocalizationsFr extends AppLocalizations {
   ) {
     return '$lspName résolu pour le fichier actuel.\nLangue du projet : $projLang\nLangue du fichier actuel : $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nEspace de travail : $rootPath\nCommande : $command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => 'Réduire les animations';
+
+  @override
+  String get settingsReduceMotionBody =>
+      'Lorsque cette option est activée, les animations personnalisées et intégrées sont ignorées (durées ramenées à zéro). Se combine avec le réglage d’accessibilité « Réduire les animations » du système.';
 }

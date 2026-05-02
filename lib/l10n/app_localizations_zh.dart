@@ -4335,6 +4335,13 @@ class AppLocalizationsZh extends AppLocalizations {
   ) {
     return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => '减少动画';
+
+  @override
+  String get settingsReduceMotionBody =>
+      '开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -8668,6 +8675,13 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   ) {
     return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => '减少动画';
+
+  @override
+  String get settingsReduceMotionBody =>
+      '开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -13000,4 +13014,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   ) {
     return '当前文件已解析到 $lspName。\n项目语言：$projLang\n当前文件语言：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\n工作区：$rootPath\n命令：$command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => '減少動畫';
+
+  @override
+  String get settingsReduceMotionBody =>
+      '開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。';
 }

@@ -4604,4 +4604,11 @@ class AppLocalizationsDe extends AppLocalizations {
   ) {
     return '$lspName für die aktuelle Datei aufgelöst.\nProjektsprache: $projLang\nSprache der aktuellen Datei: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nArbeitsbereich: $rootPath\nBefehl: $command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => 'Bewegung reduzieren';
+
+  @override
+  String get settingsReduceMotionBody =>
+      'Wenn aktiviert, werden eigene und in Flutter eingebaute Animationen übersprungen (Dauer auf null). Wirkt zusammen mit der systemweiten Bedienungshilfe „Bewegung reduzieren“.';
 }

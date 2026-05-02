@@ -45,8 +45,11 @@ class AnimatedExpandable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveDuration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : duration;
     return AnimatedSize(
-      duration: duration,
+      duration: effectiveDuration,
       curve: Curves.easeOutCubic,
       alignment: alignment,
       child: Column(
@@ -54,7 +57,7 @@ class AnimatedExpandable extends StatelessWidget {
         children: [
           header,
           AnimatedSwitcher(
-            duration: duration,
+            duration: effectiveDuration,
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             layoutBuilder: (current, previous) => Stack(
@@ -114,7 +117,9 @@ class AnimatedExpandChevron extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,
-      duration: duration,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : duration,
       curve: Curves.easeOutCubic,
       child: Icon(
         Icons.keyboard_arrow_right_rounded,

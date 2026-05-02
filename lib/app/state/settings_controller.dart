@@ -132,6 +132,7 @@ class SettingsController extends ChangeNotifier {
        _showSelfLearningMessages = snapshot.showSelfLearningMessages,
        _cronAutoCleanupEnabled = snapshot.cronAutoCleanupEnabled,
        _cronAutoCleanupRetentionDays = snapshot.cronAutoCleanupRetentionDays,
+       _reduceMotion = snapshot.reduceMotion,
        _proxySettings = snapshot.proxySettings,
        _persistenceIssue = persistenceIssue;
 
@@ -229,6 +230,7 @@ class SettingsController extends ChangeNotifier {
   bool _showSelfLearningMessages;
   bool _cronAutoCleanupEnabled;
   int _cronAutoCleanupRetentionDays;
+  bool _reduceMotion;
   AppProxySettings _proxySettings;
   SettingsPersistenceIssue? _persistenceIssue;
   bool _isDisposed = false;
@@ -401,6 +403,12 @@ class SettingsController extends ChangeNotifier {
   /// 2026-04-25 — cron 执行历史保留天数；超过该天数的记录会被异步 worker
   /// 清理。
   int get cronAutoCleanupRetentionDays => _cronAutoCleanupRetentionDays;
+
+  /// 2026-05 — 用户层减少动画总开关。true 时自研动画时长归 0，
+  /// 同时通过 MediaQuery.disableAnimations 同步禁用 Flutter 内置动画
+  /// （路由/弹窗/Hero）。默认 false；OS-level reduceMotion 仍由
+  /// MediaQuery 自动接管。
+  bool get reduceMotion => _reduceMotion;
 
   /// 系统级代理配置（模式、协议、主机、端口、鉴权与例外名单）。
   AppProxySettings get proxySettings => _proxySettings;
@@ -1764,6 +1772,17 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
+  // 2026-05 — 减少动画总开关。
+  Future<bool> updateReduceMotion(bool value) async {
+    return _commitMutation(() {
+      if (_reduceMotion == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _reduceMotion = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// 更新系统代理配置。允许部分字段更新（任何 `null` 表示保持原值）。
   /// 所有字段会经过 `AppProxySettings.copyWith` 合并，再做必需的归一化
   /// （如 host trim、port 钳位、protocols 去空集合 fallback）。
@@ -1973,6 +1992,7 @@ class SettingsController extends ChangeNotifier {
       showSelfLearningMessages: _showSelfLearningMessages,
       cronAutoCleanupEnabled: _cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays: _cronAutoCleanupRetentionDays,
+      reduceMotion: _reduceMotion,
       proxySettings: _proxySettings,
     );
   }
@@ -2075,6 +2095,7 @@ class SettingsController extends ChangeNotifier {
     _selfLearningStreamFlushIntervalMs =
         snapshot.selfLearningStreamFlushIntervalMs;
     _showSelfLearningMessages = snapshot.showSelfLearningMessages;
+    _reduceMotion = snapshot.reduceMotion;
     _proxySettings = snapshot.proxySettings;
   }
 

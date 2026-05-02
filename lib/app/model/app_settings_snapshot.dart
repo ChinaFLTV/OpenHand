@@ -216,6 +216,7 @@ class AppSettingsSnapshot {
     this.showSelfLearningMessages = true,
     this.cronAutoCleanupEnabled = true,
     this.cronAutoCleanupRetentionDays = defaultCronAutoCleanupRetentionDays,
+    this.reduceMotion = false,
     AppProxySettings? proxySettings,
   }) : proxySettings = proxySettings ?? const AppProxySettings(
           mode: AppProxyMode.automatic,
@@ -594,6 +595,15 @@ class AppSettingsSnapshot {
   /// [maxCronAutoCleanupRetentionDays] 是输入安全护栏。
   final int cronAutoCleanupRetentionDays;
 
+  /// 2026-05 — 用户层减少动画总开关。true 时所有自定义动画
+  /// 时长压到 0；built-in 动画（路由/弹窗/HeroAnimation）通过
+  /// MediaQuery.disableAnimations 同步禁用。`AppearOnce`、
+  /// `AnimatedExpandable` 等自研组件经由 InheritedWidget 读取。
+  /// 默认 false（OS-level reduceMotion 仍会被 MediaQuery 自动
+  /// 抓取，所以即便此处为 false，开了系统辅助功能用户也能拿到
+  /// 减弱动画体验）。
+  final bool reduceMotion;
+
   /// 系统级代理配置。`SystemProxyResolver` 会从此处读取生效模式与
   /// 主机/端口/鉴权/例外名单。
   final AppProxySettings proxySettings;
@@ -679,6 +689,7 @@ class AppSettingsSnapshot {
     bool? showSelfLearningMessages,
     bool? cronAutoCleanupEnabled,
     int? cronAutoCleanupRetentionDays,
+    bool? reduceMotion,
     AppProxySettings? proxySettings,
     bool clearSelectedAiModelId = false,
   }) {
@@ -822,6 +833,7 @@ class AppSettingsSnapshot {
           cronAutoCleanupEnabled ?? this.cronAutoCleanupEnabled,
       cronAutoCleanupRetentionDays:
           cronAutoCleanupRetentionDays ?? this.cronAutoCleanupRetentionDays,
+      reduceMotion: reduceMotion ?? this.reduceMotion,
       proxySettings: proxySettings ?? this.proxySettings,
     );
   }

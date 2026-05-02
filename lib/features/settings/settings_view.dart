@@ -580,6 +580,26 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
           ),
+          _ResponsiveSettingRow(
+            title: l10n.settingsReduceMotionLabel,
+            subtitle: l10n.settingsReduceMotionBody,
+            controlMaxWidth: 120,
+            control: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Switch(
+                value: settingsController.reduceMotion,
+                onChanged: (value) async {
+                  final saved = await settingsController.updateReduceMotion(
+                    value,
+                  );
+                  if (!context.mounted || saved) {
+                    return;
+                  }
+                  _showPersistenceFailureSnackBar(context);
+                },
+              ),
+            ),
+          ),
           _AnimationRestoreDefaultsSection(
             settingsController: settingsController,
           ),

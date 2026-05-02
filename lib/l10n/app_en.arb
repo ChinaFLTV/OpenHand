@@ -2012,5 +2012,13 @@
       }
     }
   },
-  "@@locale": "en"
+  "@@locale": "en",
+  "settingsReduceMotionLabel": "Reduce motion",
+  "@settingsReduceMotionLabel": {
+    "description": "Settings → General: label for the global reduce-motion switch."
+  },
+  "settingsReduceMotionBody": "When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.",
+  "@settingsReduceMotionBody": {
+    "description": "Settings → General: subtitle for the reduce-motion switch."
+  }
 }

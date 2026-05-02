@@ -8167,6 +8167,18 @@ abstract class AppLocalizations {
     Object rootPath,
     Object command,
   );
+
+  /// Settings → General: label for the global reduce-motion switch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'减少动画'**
+  String get settingsReduceMotionLabel;
+
+  /// Settings → General: subtitle for the reduce-motion switch.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'开启后，自研动画与 Flutter 内建动画的时长全部归零。与系统层「减少动画」辅助功能并联生效。'**
+  String get settingsReduceMotionBody;
 }
 
 class _AppLocalizationsDelegate

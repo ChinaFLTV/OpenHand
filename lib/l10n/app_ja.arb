@@ -2012,5 +2012,13 @@
       }
     }
   },
-  "@@locale": "ja"
+  "@@locale": "ja",
+  "settingsReduceMotionLabel": "モーションを減らす",
+  "@settingsReduceMotionLabel": {
+    "description": "Settings → General: label for the global reduce-motion switch."
+  },
+  "settingsReduceMotionBody": "有効にすると、自社カスタムおよび Flutter 組み込みアニメーションの時間がゼロになります。OS の「視差効果を減らす」と併用できます。",
+  "@settingsReduceMotionBody": {
+    "description": "Settings → General: subtitle for the reduce-motion switch."
+  }
 }

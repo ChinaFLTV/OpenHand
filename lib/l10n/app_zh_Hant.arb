@@ -2012,5 +2012,13 @@
       }
     }
   },
-  "@@locale": "zh_Hant"
+  "@@locale": "zh_Hant",
+  "settingsReduceMotionLabel": "減少動畫",
+  "@settingsReduceMotionLabel": {
+    "description": "Settings → General: label for the global reduce-motion switch."
+  },
+  "settingsReduceMotionBody": "開啟後，自研動畫與 Flutter 內建動畫的時長全部歸零。與系統層「減少動畫」輔助功能並聯生效。",
+  "@settingsReduceMotionBody": {
+    "description": "Settings → General: subtitle for the reduce-motion switch."
+  }
 }

@@ -4407,4 +4407,11 @@ class AppLocalizationsJa extends AppLocalizations {
   ) {
     return '現在のファイルに対して $lspName を解決しました。\nプロジェクト言語：$projLang\n現在のファイル言語：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nワークスペース：$rootPath\nコマンド：$command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => 'モーションを減らす';
+
+  @override
+  String get settingsReduceMotionBody =>
+      '有効にすると、自社カスタムおよび Flutter 組み込みアニメーションの時間がゼロになります。OS の「視差効果を減らす」と併用できます。';
 }

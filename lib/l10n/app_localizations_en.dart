@@ -4562,4 +4562,11 @@ class AppLocalizationsEn extends AppLocalizations {
   ) {
     return 'Resolved $lspName for the current file.\nProject language: $projLang\nCurrent file language: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: $rootPath\nCommand: $command';
   }
+
+  @override
+  String get settingsReduceMotionLabel => 'Reduce motion';
+
+  @override
+  String get settingsReduceMotionBody =>
+      'When enabled, custom and built-in animations are skipped (durations collapse to zero). Pairs with the system Reduce Motion accessibility setting.';
 }
