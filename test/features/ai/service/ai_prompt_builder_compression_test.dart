@@ -110,6 +110,52 @@ void main() {
     expect(promptText, contains('raw result 2'));
     expect(promptText, contains('raw result 6'));
   });
+
+  test('records context budget metadata for prompt builds', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: 'hello',
+      createdAt: now,
+    );
+    final session = _session(template: template, now: now, messages: [latest]);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(maxContextTokens: 1000),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: [latest],
+      latestUserMessageId: latest.id,
+    );
+
+    expect(
+      result.metadata['current_prompt_character_count'],
+      result.promptCharacterCount,
+    );
+    expect(
+      result.metadata['context_budget_estimated_prompt_tokens'],
+      isA<int>().having((value) => value, 'value', greaterThan(0)),
+    );
+    expect(result.metadata['context_budget_model_max_tokens'], 1000);
+    expect(result.metadata['context_budget_status'], isNot('unknown'));
+    expect(result.metadata['context_budget_usage_percent'], isA<int>());
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {
@@ -147,14 +193,15 @@ AiSessionMessage _toolResult(
   );
 }
 
-AiModelConfig _model() {
-  return const AiModelConfig(
+AiModelConfig _model({int? maxContextTokens}) {
+  return AiModelConfig(
     id: 'model',
     baseUrl: 'https://example.test/v1',
     authScheme: AiAuthScheme.none,
     token: '',
     modelId: 'test-model',
     protocolType: AiProtocolType.openai,
+    maxContextTokens: maxContextTokens,
   );
 }
 

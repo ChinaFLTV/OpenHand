@@ -200,6 +200,8 @@ Hardness API phase runner 有独立交接压缩：
 | Phase 1 测试 | `test/features/ai/ai_session_controller_compression_group_test.dart` | 覆盖工具调用组分组与 PTL 重试整组丢弃 |
 | Phase 2 | `ai_prompt_builder.dart` | 已消费旧工具结果 micro compact：只保留最近 5 个完整结果，更旧结果替换为极简清理摘要 |
 | Phase 2 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖旧工具结果被清理、最近结果仍保留原文 |
+| Phase 3 | `ai_prompt_builder.dart` / `_home_session_metadata_dialog.dart` | 写入上下文预算估算元数据，并在会话元数据弹窗展示预算状态、估算 token、剩余 token 与使用率 |
+| Phase 3 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖 prompt build 输出上下文预算元数据 |
 
 ## 5. OpenHand 目标架构
 
@@ -305,6 +307,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 ### Phase 3：Token Budget 与警告 UI
 
 优先级：中
+
+状态：已在 2026-05-03 落地第一版；当前使用字符 / 4 的轻量估算，只在会话元数据弹窗展示，不主动打断发送流程。
 
 1. 新增 `AiContextBudgetSnapshot`：当前估算 tokens、剩余百分比、warning/error/autocompact 状态。
 2. 在 session metadata dialog 与 top bar 显示上下文剩余状态。

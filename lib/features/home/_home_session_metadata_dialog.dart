@@ -95,7 +95,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          AppLocalizations.of(context)!.sessMetaCurrentSessionMetadata,
+                          AppLocalizations.of(
+                            context,
+                          )!.sessMetaCurrentSessionMetadata,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
                           ),
@@ -126,7 +128,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaSessionOverview,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaSessionOverview,
                         children: [
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
@@ -204,7 +208,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                           .isNotEmpty) ...[
                         const SizedBox(height: 16),
                         _MetadataSection(
-                          title: AppLocalizations.of(context)!.sessMetaExtendedMetadata,
+                          title: AppLocalizations.of(
+                            context,
+                          )!.sessMetaExtendedMetadata,
                           children: session.metadata.entries
                               .where(
                                 (e) =>
@@ -296,9 +302,17 @@ class _SessionMetadataDialog extends StatelessWidget {
                           ),
                         ],
                       ),
+                      ..._buildContextBudgetSection(
+                        context,
+                        theme,
+                        colorScheme,
+                        lastPromptMetadata,
+                      ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaEnvironment,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaEnvironment,
                         children: [
                           _MetadataEntryRow(
                             label: _localizedMetadataField(
@@ -393,11 +407,15 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaCommandPolicy,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaCommandPolicy,
                         children: !hasPromptMetadata
                             ? [
                                 Text(
-                                  AppLocalizations.of(context)!.sessMetaPromptMetadataIsNotAvailableYet,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaPromptMetadataIsNotAvailableYet,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -405,18 +423,28 @@ class _SessionMetadataDialog extends StatelessWidget {
                               ]
                             : [
                                 _MetadataEntryRow(
-                                  label: AppLocalizations.of(context)!.sessMetaWriteConfirmation,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaWriteConfirmation,
                                   value: writeCommandConfirmationEnabled
-                                      ? AppLocalizations.of(context)!.sessMetaRequired
-                                      : AppLocalizations.of(context)!.sessMetaNotRequired,
+                                      ? AppLocalizations.of(
+                                          context,
+                                        )!.sessMetaRequired
+                                      : AppLocalizations.of(
+                                          context,
+                                        )!.sessMetaNotRequired,
                                 ),
                                 _MetadataEntryRow(
-                                  label: AppLocalizations.of(context)!.sessMetaAllowRules,
+                                  label: AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaAllowRules,
                                   value: '$allowCommandRuleCount',
                                 ),
                                 if (allowCommandRules.isEmpty)
                                   Text(
-                                    AppLocalizations.of(context)!.sessMetaThereAreNoSurfacedAllowCommand,
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.sessMetaThereAreNoSurfacedAllowCommand,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                     ),
@@ -449,44 +477,62 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaRuntimeOrchestration,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaRuntimeOrchestration,
                         children: [
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaStateSource,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaStateSource,
                             value: runtimeStatus.isLivePreview
-                                ? AppLocalizations.of(context)!.sessMetaGeneratedFromTheCurrentModelMcp
-                                : AppLocalizations.of(context)!.sessMetaTheLastPersistedRuntimeSnapshot,
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaGeneratedFromTheCurrentModelMcp
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaTheLastPersistedRuntimeSnapshot,
                           ),
                           _MetadataEntryRow(
                             label: AppLocalizations.of(context)!.sessMetaMode,
                             value: _runtimeModeLabel(context, runtimeStatus),
                           ),
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaToolCatalogState,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaToolCatalogState,
                             value: _runtimeToolCatalogStatusLabel(
                               context,
                               runtimeStatus,
                             ),
                           ),
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaGateReason,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaGateReason,
                             value: _runtimeToolGateReasonLabel(
                               context,
                               runtimeStatus.gateReason,
                             ),
                           ),
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaRuntimeToolCount,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaRuntimeToolCount,
                             value:
                                 runtimeStatus.hasSnapshot &&
                                     !runtimeStatus.stale
                                 ? '${runtimeStatus.toolCount}'
-                                : AppLocalizations.of(context)!.sessMetaRefreshesNextRound,
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaRefreshesNextRound,
                           ),
                           if (runtimeStatus.notices.isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Text(
-                              AppLocalizations.of(context)!.sessMetaRuntimeNotices,
+                              AppLocalizations.of(
+                                context,
+                              )!.sessMetaRuntimeNotices,
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -504,7 +550,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                               !runtimeStatus.stale) ...[
                             const SizedBox(height: 12),
                             Text(
-                              AppLocalizations.of(context)!.sessMetaCurrentRuntimeTools,
+                              AppLocalizations.of(
+                                context,
+                              )!.sessMetaCurrentRuntimeTools,
                               style: theme.textTheme.labelLarge?.copyWith(
                                 fontWeight: FontWeight.w800,
                               ),
@@ -522,27 +570,43 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaTaskTracking,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaTaskTracking,
                         children: [
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaCurrentTodos,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaCurrentTodos,
                             value: '${currentTodos.length}',
                           ),
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaPlanRecords,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaPlanRecords,
                             value: '${planHistory.length}',
                           ),
                           _MetadataEntryRow(
-                            label: AppLocalizations.of(context)!.sessMetaTodowriteReminder,
+                            label: AppLocalizations.of(
+                              context,
+                            )!.sessMetaTodowriteReminder,
                             value: hasPromptMetadata
                                 ? (todoWriteRecommended
-                                      ? AppLocalizations.of(context)!.sessMetaTriggered
-                                      : AppLocalizations.of(context)!.sessMetaNotTriggered)
-                                : AppLocalizations.of(context)!.sessMetaUnavailable,
+                                      ? AppLocalizations.of(
+                                          context,
+                                        )!.sessMetaTriggered
+                                      : AppLocalizations.of(
+                                          context,
+                                        )!.sessMetaNotTriggered)
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaUnavailable,
                           ),
                           if (todoWriteReason.isNotEmpty)
                             _MetadataEntryRow(
-                              label: AppLocalizations.of(context)!.sessMetaReminderReason,
+                              label: AppLocalizations.of(
+                                context,
+                              )!.sessMetaReminderReason,
                               value: todoWriteReason,
                             ),
                           if (currentTodos.isNotEmpty)
@@ -590,11 +654,15 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaRecentErrors,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaRecentErrors,
                         children: recentErrors.isEmpty
                             ? [
                                 Text(
-                                  AppLocalizations.of(context)!.sessMetaThereAreNoSessionErrorsTo,
+                                  AppLocalizations.of(
+                                    context,
+                                  )!.sessMetaThereAreNoSessionErrorsTo,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -608,7 +676,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _MetadataSection(
-                        title: AppLocalizations.of(context)!.sessMetaLastPromptMetadata,
+                        title: AppLocalizations.of(
+                          context,
+                        )!.sessMetaLastPromptMetadata,
                         children: [
                           _MetadataJsonPanel(
                             content: const JsonEncoder.withIndent(
@@ -661,10 +731,9 @@ class _SessionMetadataDialog extends StatelessWidget {
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 
     final l10n = AppLocalizations.of(context)!;
-    final budget = context
-        .watch<SettingsController>()
-        .aiBudgetUsdPerSession;
-    final overBudget = budget > 0 &&
+    final budget = context.watch<SettingsController>().aiBudgetUsdPerSession;
+    final overBudget =
+        budget > 0 &&
         breakdown.totalUsd != null &&
         breakdown.totalUsd! > budget;
     final headStyle = theme.textTheme.labelSmall?.copyWith(
@@ -723,11 +792,17 @@ class _SessionMetadataDialog extends StatelessWidget {
             if (breakdown.outputUsd != null)
               row(l10n.tokenPopupCostOutput, breakdown.outputUsd!),
             if (breakdown.cacheReadUsd != null)
-              row(l10n.tokenPopupCostCacheRead, breakdown.cacheReadUsd!,
-                  style: amberStyle),
+              row(
+                l10n.tokenPopupCostCacheRead,
+                breakdown.cacheReadUsd!,
+                style: amberStyle,
+              ),
             if (breakdown.cacheWriteUsd != null)
-              row(l10n.tokenPopupCostCacheWrite, breakdown.cacheWriteUsd!,
-                  style: amberStyle),
+              row(
+                l10n.tokenPopupCostCacheWrite,
+                breakdown.cacheWriteUsd!,
+                style: amberStyle,
+              ),
             if (breakdown.totalUsd != null) ...[
               const SizedBox(height: 4),
               Padding(
@@ -745,8 +820,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         color: overBudget
                             ? colorScheme.error
                             : colorScheme.primary,
-                        fontWeight:
-                            overBudget ? FontWeight.w800 : null,
+                        fontWeight: overBudget ? FontWeight.w800 : null,
                       ),
                     ),
                   ],
@@ -756,8 +830,10 @@ class _SessionMetadataDialog extends StatelessWidget {
                 const SizedBox(height: 6),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(8),
@@ -790,6 +866,94 @@ class _SessionMetadataDialog extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildContextBudgetSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    Map<String, Object?> metadata,
+  ) {
+    final estimatedTokens = _metadataInt(
+      metadata['context_budget_estimated_prompt_tokens'],
+    );
+    if (estimatedTokens <= 0) {
+      return const <Widget>[];
+    }
+    final maxTokens = _metadataInt(metadata['context_budget_model_max_tokens']);
+    final remainingTokens = _metadataInt(
+      metadata['context_budget_remaining_tokens'],
+    );
+    final usagePercent = _metadataInt(metadata['context_budget_usage_percent']);
+    final status = '${metadata['context_budget_status'] ?? 'unknown'}'.trim();
+    final statusColor = switch (status) {
+      'critical' => colorScheme.error,
+      'warning' => Colors.amber.shade700,
+      'ok' => colorScheme.primary,
+      _ => colorScheme.outline,
+    };
+    final statusLabel = switch (status) {
+      'critical' => _localizedText(context, zh: '危险', en: 'Critical'),
+      'warning' => _localizedText(context, zh: '偏高', en: 'High'),
+      'ok' => _localizedText(context, zh: '正常', en: 'OK'),
+      _ => _localizedText(context, zh: '未知', en: 'Unknown'),
+    };
+    final usageValue = maxTokens > 0
+        ? (usagePercent / 100).clamp(0.0, 1.0)
+        : null;
+
+    return <Widget>[
+      const SizedBox(height: 16),
+      _MetadataSection(
+        title: _localizedText(context, zh: '上下文预算', en: 'Context Budget'),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: LinearProgressIndicator(
+                  value: usageValue ?? 0,
+                  minHeight: 8,
+                  borderRadius: _borderRadius999,
+                  color: statusColor,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                ),
+              ),
+              const SizedBox(width: 12),
+              _MetadataChip(label: statusLabel),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_estimated_prompt_tokens',
+            ),
+            value: '$estimatedTokens',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_model_max_tokens',
+            ),
+            value: maxTokens > 0 ? '$maxTokens' : '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_remaining_tokens',
+            ),
+            value: maxTokens > 0 ? '$remainingTokens' : '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_usage_percent',
+            ),
+            value: maxTokens > 0 ? '$usagePercent%' : '-',
+          ),
+        ],
       ),
     ];
   }
@@ -927,11 +1091,19 @@ String _sessionPlanStatusLabel(
   AiSessionPlanStatus status,
 ) {
   return switch (status) {
-    AiSessionPlanStatus.pendingApproval => AppLocalizations.of(context)!.sessMetaPendingApproval,
-    AiSessionPlanStatus.inProgress => AppLocalizations.of(context)!.sessMetaInProgress,
-    AiSessionPlanStatus.completed => AppLocalizations.of(context)!.sessMetaCompleted,
+    AiSessionPlanStatus.pendingApproval => AppLocalizations.of(
+      context,
+    )!.sessMetaPendingApproval,
+    AiSessionPlanStatus.inProgress => AppLocalizations.of(
+      context,
+    )!.sessMetaInProgress,
+    AiSessionPlanStatus.completed => AppLocalizations.of(
+      context,
+    )!.sessMetaCompleted,
     AiSessionPlanStatus.failed => AppLocalizations.of(context)!.sessMetaFailed,
-    AiSessionPlanStatus.cancelled => AppLocalizations.of(context)!.sessMetaCancelled,
+    AiSessionPlanStatus.cancelled => AppLocalizations.of(
+      context,
+    )!.sessMetaCancelled,
   };
 }
 
@@ -1136,22 +1308,32 @@ _SessionErrorPresentation _presentSessionError(
         );
         final limitSuffix = configuredLimit == null
             ? ''
-            : AppLocalizations.of(context)!.sessMetaTheCurrentSequentialToolRoundLimit(configuredLimit);
-        return AppLocalizations.of(context)!.sessMetaOpenhandStoppedThisSessionForSafety +
+            : AppLocalizations.of(
+                context,
+              )!.sessMetaTheCurrentSequentialToolRoundLimit(configuredLimit);
+        return AppLocalizations.of(
+              context,
+            )!.sessMetaOpenhandStoppedThisSessionForSafety +
             limitSuffix;
       }(),
     ),
     'chat_stream' => _SessionErrorPresentation(
       title: AppLocalizations.of(context)!.sessMetaResponseInterrupted,
-      message: AppLocalizations.of(context)!.sessMetaTheResponseWasInterruptedWhileStreaming,
+      message: AppLocalizations.of(
+        context,
+      )!.sessMetaTheResponseWasInterruptedWhileStreaming,
     ),
     'chat_request' => _SessionErrorPresentation(
       title: AppLocalizations.of(context)!.sessMetaRequestFailed,
-      message: AppLocalizations.of(context)!.sessMetaTheRequestFailedBeforeTheAssistant,
+      message: AppLocalizations.of(
+        context,
+      )!.sessMetaTheRequestFailedBeforeTheAssistant,
     ),
     'chat_continuation_request' => _SessionErrorPresentation(
       title: AppLocalizations.of(context)!.sessMetaContinuationFailed,
-      message: AppLocalizations.of(context)!.sessMetaTheSessionFailedWhileRequestingThe,
+      message: AppLocalizations.of(
+        context,
+      )!.sessMetaTheSessionFailedWhileRequestingThe,
     ),
     _ => _SessionErrorPresentation(
       title: fallbackTitle,
@@ -1213,11 +1395,19 @@ String _sessionErrorStageLabel(BuildContext context, String stage) {
     'tool_loop' => AppLocalizations.of(context)!.sessMetaSafetyStop,
     'chat_stream' => AppLocalizations.of(context)!.sessMetaStreamError,
     'chat_request' => AppLocalizations.of(context)!.sessMetaRequestError,
-    'chat_continuation_request' => AppLocalizations.of(context)!.sessMetaContinuationError,
-    'tool_execution' => AppLocalizations.of(context)!.sessMetaToolExecutionError,
-    'history_compression' => AppLocalizations.of(context)!.sessMetaCompressionError,
+    'chat_continuation_request' => AppLocalizations.of(
+      context,
+    )!.sessMetaContinuationError,
+    'tool_execution' => AppLocalizations.of(
+      context,
+    )!.sessMetaToolExecutionError,
+    'history_compression' => AppLocalizations.of(
+      context,
+    )!.sessMetaCompressionError,
     'user_prompt_hook' => AppLocalizations.of(context)!.sessMetaPromptBlocked,
-    'title_generation' => AppLocalizations.of(context)!.sessMetaTitleGenerationError,
+    'title_generation' => AppLocalizations.of(
+      context,
+    )!.sessMetaTitleGenerationError,
     _ => AppLocalizations.of(context)!.sessMetaSessionError,
   };
 }

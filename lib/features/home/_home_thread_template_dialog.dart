@@ -418,6 +418,26 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '上次 Prompt 历史消息数',
       en: 'Last Prompt History Message Count',
     ),
+    'context_budget_estimated_prompt_tokens' => _localizedText(
+      context,
+      zh: '估算 Prompt Token',
+      en: 'Estimated Prompt Tokens',
+    ),
+    'context_budget_model_max_tokens' => _localizedText(
+      context,
+      zh: '模型上下文窗口',
+      en: 'Model Context Window',
+    ),
+    'context_budget_remaining_tokens' => _localizedText(
+      context,
+      zh: '估算剩余 Token',
+      en: 'Estimated Remaining Tokens',
+    ),
+    'context_budget_usage_percent' => _localizedText(
+      context,
+      zh: '估算使用率',
+      en: 'Estimated Usage',
+    ),
     'locale_tag' => _localizedText(context, zh: '语言区域', en: 'Locale Tag'),
     'platform' => _localizedText(context, zh: '平台', en: 'Platform'),
     'app_version' => _localizedText(context, zh: '应用版本', en: 'App Version'),

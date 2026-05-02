@@ -39,6 +39,11 @@ class AiPromptBuilder {
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const int _microCompactKeepRecentToolResults = 5;
+  static const int _contextBudgetEstimatedCharsPerToken = 4;
+  static const int _contextBudgetWarningBufferTokens = 13000;
+  static const int _contextBudgetCriticalBufferTokens = 3000;
+  static const double _contextBudgetWarningRatio = 0.85;
+  static const double _contextBudgetCriticalRatio = 0.95;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -323,6 +328,14 @@ class AiPromptBuilder {
       0,
       (sum, item) => sum + item.promptCharacterCount,
     );
+    metadata
+      ..['current_prompt_character_count'] = promptCharacterCount
+      ..addAll(
+        _buildContextBudgetMetadata(
+          model: model,
+          promptCharacterCount: promptCharacterCount,
+        ),
+      );
     return AiPromptBuildResult(
       messages: messages,
       metadata: metadata,
@@ -354,6 +367,60 @@ class AiPromptBuilder {
         ..writeln(document.content.trimRight());
     }
     return buffer.toString().trimRight();
+  }
+
+  Map<String, Object?> _buildContextBudgetMetadata({
+    required AiModelConfig model,
+    required int promptCharacterCount,
+  }) {
+    final estimatedPromptTokens = math.max(
+      1,
+      (promptCharacterCount / _contextBudgetEstimatedCharsPerToken).ceil(),
+    );
+    final maxContextTokens = model.maxContextTokens;
+    if (maxContextTokens == null || maxContextTokens <= 0) {
+      return <String, Object?>{
+        'context_budget_status': 'unknown',
+        'context_budget_estimated_prompt_tokens': estimatedPromptTokens,
+        'context_budget_estimated_chars_per_token':
+            _contextBudgetEstimatedCharsPerToken,
+        'context_budget_model_max_tokens': null,
+        'context_budget_remaining_tokens': null,
+        'context_budget_usage_percent': null,
+      };
+    }
+    final remainingTokens = maxContextTokens - estimatedPromptTokens;
+    final usageRatio = estimatedPromptTokens / maxContextTokens;
+    final warningBufferTokens = math.min(
+      _contextBudgetWarningBufferTokens,
+      math.max(1, (maxContextTokens * (1 - _contextBudgetWarningRatio)).ceil()),
+    );
+    final criticalBufferTokens = math.min(
+      _contextBudgetCriticalBufferTokens,
+      math.max(
+        1,
+        (maxContextTokens * (1 - _contextBudgetCriticalRatio)).ceil(),
+      ),
+    );
+    final status =
+        remainingTokens <= criticalBufferTokens ||
+            usageRatio >= _contextBudgetCriticalRatio
+        ? 'critical'
+        : remainingTokens <= warningBufferTokens ||
+              usageRatio >= _contextBudgetWarningRatio
+        ? 'warning'
+        : 'ok';
+    return <String, Object?>{
+      'context_budget_status': status,
+      'context_budget_estimated_prompt_tokens': estimatedPromptTokens,
+      'context_budget_estimated_chars_per_token':
+          _contextBudgetEstimatedCharsPerToken,
+      'context_budget_model_max_tokens': maxContextTokens,
+      'context_budget_remaining_tokens': remainingTokens,
+      'context_budget_usage_percent': (usageRatio * 100).round(),
+      'context_budget_warning_buffer_tokens': warningBufferTokens,
+      'context_budget_critical_buffer_tokens': criticalBufferTokens,
+    };
   }
 
   String _renderRuntimeEnvironmentSnapshot(
