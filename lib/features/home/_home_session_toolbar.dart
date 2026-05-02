@@ -92,6 +92,8 @@ class _SessionToolbar extends StatelessWidget {
                                     session,
                                     liveRuntimeToolPreview:
                                         liveRuntimeToolPreview,
+                                    activeProfile: activeProfile,
+                                    claudeStyle: claudeStyle,
                                   );
                                 },
                               ),
@@ -114,6 +116,8 @@ class _SessionToolbar extends StatelessWidget {
                                   session,
                                   liveRuntimeToolPreview:
                                       liveRuntimeToolPreview,
+                                  activeProfile: activeProfile,
+                                  claudeStyle: claudeStyle,
                                 );
                               },
                             ),
@@ -1326,12 +1330,16 @@ Future<void> _showSessionMetadataDialog(
   BuildContext context,
   AiSession session, {
   AiRuntimeToolPreview? liveRuntimeToolPreview,
+  AiModelProfile? activeProfile,
+  bool claudeStyle = true,
 }) {
   return showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _SessionMetadataDialog(
       session: session,
       liveRuntimeToolPreview: liveRuntimeToolPreview,
+      activeProfile: activeProfile,
+      claudeStyle: claudeStyle,
     ),
   );
 }

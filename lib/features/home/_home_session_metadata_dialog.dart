@@ -4,10 +4,14 @@ class _SessionMetadataDialog extends StatelessWidget {
   const _SessionMetadataDialog({
     required this.session,
     this.liveRuntimeToolPreview,
+    this.activeProfile,
+    this.claudeStyle = true,
   });
 
   final AiSession session;
   final AiRuntimeToolPreview? liveRuntimeToolPreview;
+  final AiModelProfile? activeProfile;
+  final bool claudeStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +118,7 @@ class _SessionMetadataDialog extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
+              ..._buildSessionCostSection(context, theme, colorScheme),
               const SizedBox(height: 18),
               Expanded(
                 child: SingleChildScrollView(
@@ -631,6 +636,115 @@ class _SessionMetadataDialog extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 1C-C：在 summaryBlocks 之后追加按 4 分量拆解的成本估算。
+  /// 数据源：`session.statistics` 累计 token + `activeProfile` 单价。
+  /// 当 [activeProfile] 为 null 或所有价格字段缺失时返回空 list — UI 不渲染。
+  List<Widget> _buildSessionCostSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    if (activeProfile == null) return const <Widget>[];
+    final stats = session.statistics;
+    final breakdown = AiCostBreakdown.compute(
+      usage: AiTokenUsage(
+        promptTokens: stats.totalPromptTokens ?? 0,
+        completionTokens: stats.totalCompletionTokens ?? 0,
+        cacheReadTokens: stats.cacheReadTokens ?? 0,
+        cacheCreationTokens: stats.cacheCreationTokens ?? 0,
+      ),
+      profile: activeProfile,
+      claudeStyle: claudeStyle,
+    );
+    if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
+
+    final l10n = AppLocalizations.of(context)!;
+    final headStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.6,
+    );
+    final keyStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+    );
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurface,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final amberStyle = valueStyle?.copyWith(color: Colors.amber.shade700);
+
+    String fmt(double v) {
+      if (v == 0) return r'$0.0000';
+      if (v >= 1) return '\$${v.toStringAsFixed(2)}';
+      if (v >= 0.01) return '\$${v.toStringAsFixed(4)}';
+      return '\$${v.toStringAsFixed(6)}';
+    }
+
+    Widget row(String label, double usd, {TextStyle? style}) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: keyStyle),
+            Text(fmt(usd), style: style ?? valueStyle),
+          ],
+        ),
+      );
+    }
+
+    return <Widget>[
+      const SizedBox(height: 14),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.tokenPopupCostHeading.toUpperCase(), style: headStyle),
+            const SizedBox(height: 6),
+            if (breakdown.inputUsd != null)
+              row(l10n.tokenPopupCostInput, breakdown.inputUsd!),
+            if (breakdown.outputUsd != null)
+              row(l10n.tokenPopupCostOutput, breakdown.outputUsd!),
+            if (breakdown.cacheReadUsd != null)
+              row(l10n.tokenPopupCostCacheRead, breakdown.cacheReadUsd!,
+                  style: amberStyle),
+            if (breakdown.cacheWriteUsd != null)
+              row(l10n.tokenPopupCostCacheWrite, breakdown.cacheWriteUsd!,
+                  style: amberStyle),
+            if (breakdown.totalUsd != null) ...[
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.tokenPopupCostTotal,
+                      style: keyStyle?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      fmt(breakdown.totalUsd!),
+                      style: valueStyle?.copyWith(color: colorScheme.primary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ];
   }
 }
 

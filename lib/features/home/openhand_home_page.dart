@@ -4330,7 +4330,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           );
           return;
         }
-        await _showSessionMetadataDialog(context, session);
+        await _showSessionMetadataDialog(
+          context,
+          session,
+          activeProfile: () {
+            final selected = context.read<SettingsController>().selectedAiModel;
+            return selected?.modelProfiles[selected.modelId];
+          }(),
+          claudeStyle: context.read<SettingsController>().selectedAiModel?.protocolType ==
+              AiProtocolType.claude,
+        );
         return;
       case OpenHandSlashCommandKind.stop:
         final sessionController = context.read<AiSessionController>();
