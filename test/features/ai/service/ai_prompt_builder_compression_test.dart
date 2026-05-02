@@ -220,6 +220,11 @@ void main() {
     );
     expect(rehydration['active'], isTrue);
     expect(rehydration['checkpoint_message_id'], 'cp1');
+    expect(rehydration['session_memory_sidecar_present'], isTrue);
+    expect(
+      rehydration['session_memory_sidecar_path'],
+      '/tmp/sessions/session-1/memory/compact-latest.md',
+    );
     expect(rehydration['memory_entry_count'], 1);
     expect(
       rehydration['restored_channels'],

@@ -80,6 +80,68 @@ class AiSessionStore {
     );
   }
 
+  String sessionCompactMemoryDirectoryPath(String sessionId) {
+    return p.join(
+      _sessionsDirectoryPath,
+      _requireSafeStorageIdentifier(sessionId, label: 'session id'),
+      'memory',
+    );
+  }
+
+  String sessionCompactMemoryMarkdownPath(String sessionId) {
+    return p.join(
+      sessionCompactMemoryDirectoryPath(sessionId),
+      'compact-latest.md',
+    );
+  }
+
+  String sessionCompactMemoryMetadataPath(String sessionId) {
+    return p.join(
+      sessionCompactMemoryDirectoryPath(sessionId),
+      'compact-latest.json',
+    );
+  }
+
+  Future<void> saveCompressionMemorySidecar({
+    required AiSession session,
+    required AiSessionMessage checkpoint,
+  }) async {
+    final markdownPath = sessionCompactMemoryMarkdownPath(session.id);
+    final metadataPath = sessionCompactMemoryMetadataPath(session.id);
+    final metadata = <String, Object?>{
+      'schema': 'openhand.compact_memory.v1',
+      'session_id': session.id,
+      'session_title': session.title,
+      'template_id': session.templateId,
+      'checkpoint_message_id': checkpoint.id,
+      'checkpoint_created_at': checkpoint.createdAt.toUtc().toIso8601String(),
+      'checkpoint_character_count': checkpoint.characterCount,
+      'checkpoint_metadata': checkpoint.metadata,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+    final markdown = StringBuffer()
+      ..writeln('# OpenHand Session Compact Memory')
+      ..writeln()
+      ..writeln('- schema: openhand.compact_memory.v1')
+      ..writeln('- session_id: ${session.id}')
+      ..writeln('- session_title: ${session.title}')
+      ..writeln('- template_id: ${session.templateId}')
+      ..writeln('- checkpoint_message_id: ${checkpoint.id}')
+      ..writeln(
+        '- checkpoint_created_at: ${checkpoint.createdAt.toUtc().toIso8601String()}',
+      )
+      ..writeln('- checkpoint_character_count: ${checkpoint.characterCount}')
+      ..writeln()
+      ..writeln('## Summary')
+      ..writeln()
+      ..writeln(checkpoint.content.trim());
+    await writeFileAtomically(File(markdownPath), markdown.toString());
+    await writeFileAtomically(
+      File(metadataPath),
+      const JsonEncoder.withIndent('  ').convert(metadata),
+    );
+  }
+
   /// Retained for backward compatibility (attachment management).
   String sessionFilePath(String sessionId) {
     final normalizedSessionId = _requireSafeStorageIdentifier(
@@ -258,8 +320,7 @@ class AiSessionStore {
   /// session in the database. The Thread Session Management dialog uses
   /// this to render badges and toggle states without bloating the
   /// in-memory `AiSession` model.
-  Future<Map<String, ({bool pinned, bool archived})>>
-      loadSessionFlags() async {
+  Future<Map<String, ({bool pinned, bool archived})>> loadSessionFlags() async {
     final rows = await _db.query(
       'sessions',
       columns: const <String>['id', 'pinned', 'archived'],

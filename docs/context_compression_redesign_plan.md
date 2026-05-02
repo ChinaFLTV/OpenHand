@@ -208,6 +208,7 @@ Hardness API phase runner 有独立交接压缩：
 | Claude 对齐增强 | `ai_prompt_builder.dart` / `ai_session_controller.dart` | 上下文预算改为 summary reserve + auto-compact/warning/blocking buffer 语义；自动压缩连续失败 3 次后熔断；压缩后尾部保留至少 5 条文本锚点 |
 | Post-Compact 重注入 | `ai_prompt_builder.dart` | Prompt metadata 增加 `post_compact_rehydration`，显式列出压缩后每轮重注入的 system/developer/tool/session/memory/workspace/todo/plan 等通道 |
 | Durable Session Memory | `ai_prompt_builder.dart` | 持久 checkpoint 进入后续 prompt 时使用有界头尾视图，超长中段以 `[checkpoint_middle_omitted]` 标记省略 |
+| Session Memory Sidecar | `ai_session_store.dart` / `ai_session_controller.dart` | 压缩成功后写入 `sessions/{sessionId}/memory/compact-latest.md` / `compact-latest.json`，作为独立可审计的持久摘要文件 |
 
 ## 5. OpenHand 目标架构
 
@@ -354,6 +355,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 3. **保留尾部文本锚点**：通用压缩在字符阈值外增加“至少保留 5 条用户 / 助手文本消息”的软约束，并用 2 倍阈值作为硬上限，避免压缩后只剩工具结果而缺少可恢复语义。
 4. **Post-compact 重注入清单**：Prompt metadata 写入 `post_compact_rehydration`，让模型和调试 UI 都能看到 checkpoint 之后哪些上下文会被重新注入（system/developer、tool catalog、session state、memory、workspace instructions、todos、plan、repository snapshot 等）。
 5. **持久 checkpoint 有界视图**：OpenHand 的 compression checkpoint 本身就是持久会话记忆；后续 prompt / 再压缩 prompt 读取它时使用 40K 字符上限的头尾视图，避免旧摘要本身吞掉整个上下文窗口。
+6. **文件型 session memory sidecar**：压缩 checkpoint 成功提交后，额外原子写入 `compact-latest.md` 与 `compact-latest.json`，让摘要脱离主消息表也可被审计、导出和后续恢复逻辑复用；prompt metadata 同步暴露 sidecar path。
 
 ## 7. Prompt 维护准则
 

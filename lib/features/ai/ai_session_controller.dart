@@ -5238,6 +5238,19 @@ class AiSessionController extends ChangeNotifier {
       );
       final committed = await _commitSessionLocked(compressedSession);
       if (committed) {
+        try {
+          await _store.saveCompressionMemorySidecar(
+            session: compressedSession,
+            checkpoint: checkpoint,
+          );
+        } catch (error, stackTrace) {
+          silentLog(
+            'AiSessionController',
+            'saveCompressionMemorySidecar',
+            error,
+            stackTrace,
+          );
+        }
         _markDidCompressInLastSend(session.id);
         await _emitCompactHooks(
           sessionId: session.id,

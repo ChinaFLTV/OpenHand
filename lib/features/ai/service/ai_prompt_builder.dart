@@ -512,6 +512,10 @@ class AiPromptBuilder {
         .length;
     final builtinToolCount =
         availableToolNames.length - skillToolCount - mcpToolCount;
+    final sidecarMarkdownPath = _sessionCompactMemoryMarkdownPath(
+      session,
+      latestCompressionPoint,
+    );
     final restoredChannels = <String>[
       'system_instructions',
       'developer_instructions',
@@ -538,6 +542,8 @@ class AiPromptBuilder {
       'checkpoint_created_at': latestCompressionPoint?.createdAt
           .toUtc()
           .toIso8601String(),
+      'session_memory_sidecar_present': sidecarMarkdownPath != null,
+      'session_memory_sidecar_path': sidecarMarkdownPath,
       'restored_channels': restoredChannels,
       'runtime_tool_count': availableToolNames.length,
       'builtin_tool_count': builtinToolCount,
@@ -552,6 +558,26 @@ class AiPromptBuilder {
       'pending_plan_present': session.pendingPlan?.trim().isNotEmpty == true,
       'repository_snapshot_present': repositorySnapshot != null,
     };
+  }
+
+  String? _sessionCompactMemoryMarkdownPath(
+    AiSession session,
+    AiSessionMessage? latestCompressionPoint,
+  ) {
+    if (latestCompressionPoint == null) {
+      return null;
+    }
+    final sessionsDirectoryPath = session.environment.sessionsDirectoryPath
+        .trim();
+    if (sessionsDirectoryPath.isEmpty || session.id.trim().isEmpty) {
+      return null;
+    }
+    return p.join(
+      sessionsDirectoryPath,
+      session.id,
+      'memory',
+      'compact-latest.md',
+    );
   }
 
   String _renderRuntimeEnvironmentSnapshot(
