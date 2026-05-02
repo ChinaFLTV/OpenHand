@@ -42,17 +42,31 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
-    // Construction state: tool call message has been created from a stream
-    // delta but the executor has not yet picked it up — `status` is empty,
-    // arguments are still streaming. Render a subtler gray-tinted card +
-    // pulsing badge so the user sees the call is forming, not stuck.
-    final isConstructing =
+    // Construction state machine: tool call has been created from stream
+    // deltas but the executor has not yet picked it up. Three sub-phases
+    // crossfade through a single AnimatedContainer (320ms easeOutCubic):
+    //   preparing/constructing → submitting → running.
+    // - constructing: arguments still streaming (gray);
+    // - submitting:   arguments fully captured, awaiting hand-off
+    //                 (soft tertiary tint, brief but visible);
+    // - running/done: handled by the regular two-section layout.
+    final isStreamingArgs =
+        message.metadata['tool_arguments_streaming'] == true ||
+        message.metadata['tool_preparing'] == true;
+    final isAwaitingExecutor =
         toolCall.status.isEmpty && !toolCall.hasResultContent;
+    final isConstructing = isAwaitingExecutor && isStreamingArgs;
+    final isSubmitting = isAwaitingExecutor && !isStreamingArgs;
+    final isPreExecution = isConstructing || isSubmitting;
     final cs = theme.colorScheme;
-    final borderColor = isConstructing
+    final borderColor = isSubmitting
+        ? cs.tertiary.withValues(alpha: 0.45)
+        : isConstructing
         ? cs.outline.withValues(alpha: 0.35)
         : Colors.transparent;
-    final tintColor = isConstructing
+    final tintColor = isSubmitting
+        ? cs.tertiaryContainer.withValues(alpha: 0.35)
+        : isConstructing
         ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
         : Colors.transparent;
     return SettingsAwareAppearOnce(
@@ -64,7 +78,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
-            padding: isConstructing
+            padding: isPreExecution
                 ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
                 : EdgeInsets.zero,
             decoration: BoxDecoration(
@@ -83,14 +97,23 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                     icon: toolCall.presentation.icon,
                     label: toolCall.primaryChipLabel,
                   ),
-                  if (isConstructing)
+                  if (isPreExecution)
                     _ToolConstructingBadge(
-                      label: AppLocalizations.of(
-                        context,
-                      )!.tlCallArgumentsConstructing,
-                      hint: AppLocalizations.of(
-                        context,
-                      )!.tlCallArgumentsConstructingHint,
+                      label: isSubmitting
+                          ? AppLocalizations.of(context)!.tlCallSubmitting
+                          : AppLocalizations.of(
+                              context,
+                            )!.tlCallArgumentsConstructing,
+                      hint: isSubmitting
+                          ? AppLocalizations.of(
+                              context,
+                            )!.tlCallSubmittingHint
+                          : AppLocalizations.of(
+                              context,
+                            )!.tlCallArgumentsConstructingHint,
+                      tone: isSubmitting
+                          ? _ToolConstructingTone.submitting
+                          : _ToolConstructingTone.constructing,
                     ),
             if (toolCall.workingDirectory.isNotEmpty)
               _ToolExecutionChip(
@@ -117,7 +140,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               ),
           ],
         ),
-        if (isConstructing) ...[
+        if (isPreExecution) ...[
           const SizedBox(height: 10),
           _ConstructingArgumentKeysRow(
             keys: toolCall.argumentKeys,
@@ -1274,14 +1297,22 @@ class _ToolExecutionChip extends StatelessWidget {
   }
 }
 
-/// Pulsing gray pill shown next to the primary chip while a tool call is
-/// still being constructed (arguments streaming in but executor not yet
-/// running it). Signals "forming, not stuck".
+enum _ToolConstructingTone { constructing, submitting }
+
+/// Pulsing pill shown next to the primary chip during the pre-execution
+/// phases. `constructing` = gray (arguments still streaming),
+/// `submitting` = soft tertiary tint (arguments captured, awaiting the
+/// executor). Both pulse with the same 1.1s breathing rhythm.
 class _ToolConstructingBadge extends StatefulWidget {
-  const _ToolConstructingBadge({required this.label, required this.hint});
+  const _ToolConstructingBadge({
+    required this.label,
+    required this.hint,
+    this.tone = _ToolConstructingTone.constructing,
+  });
 
   final String label;
   final String hint;
+  final _ToolConstructingTone tone;
 
   @override
   State<_ToolConstructingBadge> createState() => _ToolConstructingBadgeState();
@@ -1310,21 +1341,27 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isSubmitting = widget.tone == _ToolConstructingTone.submitting;
+    final baseFill = isSubmitting
+        ? cs.tertiaryContainer
+        : cs.surfaceContainerHighest;
+    final baseBorder = isSubmitting ? cs.tertiary : cs.outline;
+    final fg = isSubmitting ? cs.onTertiaryContainer : cs.onSurfaceVariant;
     return Tooltip(
       message: widget.hint,
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, _) {
           final t = _ctrl.value;
-          return Container(
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(
-                alpha: 0.55 + 0.35 * t,
-              ),
+              color: baseFill.withValues(alpha: 0.55 + 0.35 * t),
               borderRadius: _borderRadius999,
               border: Border.all(
-                color: cs.outline.withValues(alpha: 0.3 + 0.25 * t),
+                color: baseBorder.withValues(alpha: 0.3 + 0.25 * t),
               ),
             ),
             child: Row(
@@ -1335,16 +1372,14 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
                   height: 12,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.6,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      cs.onSurfaceVariant,
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(fg),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
                   style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
+                    color: fg,
                   ),
                 ),
               ],

@@ -2771,6 +2771,13 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tlCallNoParametersYet => 'Aucun argument analysé';
 
   @override
+  String get tlCallSubmitting => 'Envoi en cours…';
+
+  @override
+  String get tlCallSubmittingHint =>
+      'Paramètres capturés ; transfert à l’exécuteur';
+
+  @override
   String get tlCallThereIsNoToolOutputYet =>
       'Aucune sortie d’outil pour l’instant.';
 

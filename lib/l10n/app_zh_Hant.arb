@@ -1130,6 +1130,8 @@
   "tlCallArgumentsConstructingHint": "正在跟隨模型輸出即時拼裝入參，參數構造完成後會自動切回正常狀態。",
   "tlCallCollectedParameters": "已採集參數",
   "tlCallNoParametersYet": "尚未解析到入參",
+  "tlCallSubmitting": "提交中…",
+  "tlCallSubmittingHint": "已採集參數完畢，正在交給執行器",
   "tlCallThereIsNoToolOutputYet": "当前还没有工具输出。",
   "tlCallViewInDialog": "在弹窗里查看完整内容",
   "tlCallEmptyContent": "内容为空",

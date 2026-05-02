@@ -2723,6 +2723,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tlCallNoParametersYet => 'No arguments parsed yet';
 
   @override
+  String get tlCallSubmitting => 'Submitting…';
+
+  @override
+  String get tlCallSubmittingHint =>
+      'Arguments captured; handing off to the executor';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
 
   @override

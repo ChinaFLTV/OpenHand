@@ -2617,6 +2617,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallNoParametersYet => '引数はまだ解析されていません';
 
   @override
+  String get tlCallSubmitting => '送信中…';
+
+  @override
+  String get tlCallSubmittingHint => 'パラメータの収集が完了し、エグゼキューターに引き継いでいます';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'まだツール出力はありません。';
 
   @override

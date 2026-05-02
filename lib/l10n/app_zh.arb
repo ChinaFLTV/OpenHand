@@ -1130,6 +1130,8 @@
   "tlCallArgumentsConstructingHint": "正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。",
   "tlCallCollectedParameters": "已采集参数",
   "tlCallNoParametersYet": "尚未解析到入参",
+  "tlCallSubmitting": "提交中…",
+  "tlCallSubmittingHint": "已采集参数完毕，正在交给执行器",
   "tlCallThereIsNoToolOutputYet": "当前还没有工具输出。",
   "tlCallViewInDialog": "在弹窗里查看完整内容",
   "tlCallEmptyContent": "内容为空",

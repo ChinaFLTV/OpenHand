@@ -5014,6 +5014,18 @@ abstract class AppLocalizations {
   /// **'尚未解析到入参'**
   String get tlCallNoParametersYet;
 
+  /// No description provided for @tlCallSubmitting.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'提交中…'**
+  String get tlCallSubmitting;
+
+  /// No description provided for @tlCallSubmittingHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'已采集参数完毕，正在交给执行器'**
+  String get tlCallSubmittingHint;
+
   /// No description provided for @tlCallThereIsNoToolOutputYet.
   ///
   /// In zh_Hans, this message translates to:

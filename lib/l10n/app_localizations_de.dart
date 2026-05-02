@@ -2754,6 +2754,13 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallNoParametersYet => 'Noch keine Argumente erkannt';
 
   @override
+  String get tlCallSubmitting => 'Wird gesendet…';
+
+  @override
+  String get tlCallSubmittingHint =>
+      'Argumente erfasst; Übergabe an den Executor';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'Noch keine Werkzeugausgabe.';
 
   @override

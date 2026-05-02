@@ -2585,6 +2585,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallNoParametersYet => '尚未解析到入参';
 
   @override
+  String get tlCallSubmitting => '提交中…';
+
+  @override
+  String get tlCallSubmittingHint => '已采集参数完毕，正在交给执行器';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
 
   @override
@@ -6912,6 +6918,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallNoParametersYet => '尚未解析到入参';
 
   @override
+  String get tlCallSubmitting => '提交中…';
+
+  @override
+  String get tlCallSubmittingHint => '已采集参数完毕，正在交给执行器';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
 
   @override
@@ -11236,6 +11248,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get tlCallNoParametersYet => '尚未解析到入參';
+
+  @override
+  String get tlCallSubmitting => '提交中…';
+
+  @override
+  String get tlCallSubmittingHint => '已採集參數完畢，正在交給執行器';
 
   @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
