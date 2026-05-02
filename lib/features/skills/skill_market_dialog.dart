@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/skill_market_client.dart';
 import 'model/skill_market.dart';
@@ -897,7 +898,8 @@ class _SkillMarketResultTile extends StatelessWidget {
       en: skill.description,
     );
 
-    return Material(
+    return HoverLift(
+      child: Material(
       color: selected
           ? colorScheme.primaryContainer.withValues(alpha: 0.52)
           : colorScheme.surfaceContainerHigh,
@@ -983,6 +985,7 @@ class _SkillMarketResultTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

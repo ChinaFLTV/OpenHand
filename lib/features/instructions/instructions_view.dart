@@ -15,6 +15,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/appear_once.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/hover_lift.dart';
 import 'instructions_controller.dart';
 import 'model/user_instruction_entry.dart';
 
@@ -343,7 +344,8 @@ class _InstructionCard extends StatelessWidget {
     final keywords = entry.keywords.take(4).toList(growable: false);
     final hiddenKeywordCount = entry.keywords.length - keywords.length;
 
-    return Card(
+    return HoverLift(
+      child: Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -521,6 +523,7 @@ class _InstructionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
