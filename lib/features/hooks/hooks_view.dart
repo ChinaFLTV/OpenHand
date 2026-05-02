@@ -150,11 +150,10 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Expanded(
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
             Icon(
               Icons.webhook_outlined,
               size: 64,
@@ -178,7 +177,6 @@ class _EmptyState extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
