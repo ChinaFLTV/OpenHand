@@ -204,6 +204,7 @@ Hardness API phase runner 有独立交接压缩：
 | Phase 3 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖 prompt build 输出上下文预算元数据 |
 | Phase 4 | `hardness_api_phase_runner.dart` | handoff system prompt 对齐会话摘要结构，校验关键章节正文，保存同名 JSON sidecar 元数据 |
 | Phase 4 测试 | `test/features/hardness/hardness_handoff_validation_test.dart` | 覆盖新旧 handoff 标题兼容、缺章节与空正文拒绝 |
+| Phase 5 | `test/features/ai/service/ai_prompt_template_repository_test.dart` | 守护 5 个线程模板三件套真实资产加载、压缩说明结构、共享注入块去重 |
 
 ## 5. OpenHand 目标架构
 
@@ -331,6 +332,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 ### Phase 5：模板资产守护
 
 优先级：中
+
+状态：已在 2026-05-03 落地第一版；当前以单元测试守护资产加载、压缩说明结构和 v4 / Memory Tone 去重。
 
 1. 新增模板加载测试：5 个模板三件套都能从 asset 加载，且不落入 fallback。
 2. 验证每个 compression summary 至少包含 preserve/remove/output_format/rules 或模板等价结构。
