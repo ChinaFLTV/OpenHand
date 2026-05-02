@@ -10,11 +10,46 @@ class _ToolCallBody extends StatefulWidget {
   State<_ToolCallBody> createState() => _ToolCallBodyState();
 }
 
-class _ToolCallBodyState extends State<_ToolCallBody> {
+class _ToolCallBodyState extends State<_ToolCallBody>
+    with SingleTickerProviderStateMixin {
   bool? _argumentsExpandedOverride;
   bool? _resultExpandedOverride;
   _ToolCallViewData? _cachedViewData;
   int? _cachedViewDataSignature;
+
+  late final AnimationController _completionGlowCtrl;
+  String? _lastTerminalStatus; // success / error / failure once it lands
+
+  @override
+  void initState() {
+    super.initState();
+    _completionGlowCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 620),
+    );
+    final initialStatus = _toolExecutionStatus(widget.message);
+    if (_isTerminalStatus(initialStatus)) {
+      // Tool message rebuilt from history — already terminal, skip the
+      // ceremony to avoid replaying glows on session switch.
+      _lastTerminalStatus = initialStatus;
+      _completionGlowCtrl.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _completionGlowCtrl.dispose();
+    super.dispose();
+  }
+
+  void _maybeKickCompletionGlow(String status) {
+    if (!_isTerminalStatus(status)) return;
+    if (_lastTerminalStatus == status) return;
+    final wasFresh = _lastTerminalStatus == null;
+    _lastTerminalStatus = status;
+    if (!wasFresh) return; // status churn (e.g. success→failure) shouldn't replay
+    _completionGlowCtrl.forward(from: 0);
+  }
 
   @override
   void didUpdateWidget(covariant _ToolCallBody oldWidget) {
@@ -24,6 +59,13 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       _resultExpandedOverride = null;
       _cachedViewData = null;
       _cachedViewDataSignature = null;
+      _lastTerminalStatus = null;
+      _completionGlowCtrl.value = 0;
+      final initialStatus = _toolExecutionStatus(widget.message);
+      if (_isTerminalStatus(initialStatus)) {
+        _lastTerminalStatus = initialStatus;
+        _completionGlowCtrl.value = 1.0;
+      }
     }
   }
 
@@ -58,6 +100,9 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
     final isConstructing = isAwaitingExecutor && isStreamingArgs;
     final isSubmitting = isAwaitingExecutor && !isStreamingArgs;
     final isPreExecution = isConstructing || isSubmitting;
+    // Schedule a one-shot completion glow when status first lands on a
+    // terminal value. Idempotent — relies on _lastTerminalStatus.
+    _maybeKickCompletionGlow(toolCall.status);
     final cs = theme.colorScheme;
     final borderColor = isSubmitting
         ? cs.tertiary.withValues(alpha: 0.45)
@@ -75,17 +120,44 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            padding: isPreExecution
-                ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
-                : EdgeInsets.zero,
-            decoration: BoxDecoration(
-              color: tintColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: borderColor),
-            ),
+          child: AnimatedBuilder(
+            animation: _completionGlowCtrl,
+            builder: (context, child) {
+              // Compose completion glow on top of the steady-state tint.
+              // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
+              // fades within ~620ms so the card settles into its neutral
+              // post-execution look without lingering color.
+              final glowProgress = _completionGlowCtrl.value;
+              final glowActive = glowProgress > 0 && glowProgress < 1;
+              Color glowFill = Colors.transparent;
+              Color glowBorder = Colors.transparent;
+              if (glowActive) {
+                final fade = (1.0 - glowProgress).clamp(0.0, 1.0);
+                final eased = Curves.easeOutCubic.transform(fade);
+                final isFail = _isFailureStatus(_lastTerminalStatus ?? '');
+                final tone = isFail ? cs.error : cs.primary;
+                final container = isFail
+                    ? cs.errorContainer
+                    : cs.primaryContainer;
+                glowFill = container.withValues(alpha: 0.32 * eased);
+                glowBorder = tone.withValues(alpha: 0.55 * eased);
+              }
+              final composedFill = glowActive ? glowFill : tintColor;
+              final composedBorder = glowActive ? glowBorder : borderColor;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                padding: isPreExecution || glowActive
+                    ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
+                    : EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  color: composedFill,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: composedBorder),
+                ),
+                child: child,
+              );
+            },
             child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1678,6 +1750,23 @@ String _toolExecutionStatus(AiSessionMessage message) =>
 
 bool _shouldSweepToolStatus(String status) {
   return status.isEmpty || status == 'running';
+}
+
+bool _isTerminalStatus(String status) {
+  return status == 'success' ||
+      status == 'error' ||
+      status == 'failure' ||
+      status == 'failed' ||
+      status == 'denied' ||
+      status == 'rejected';
+}
+
+bool _isFailureStatus(String status) {
+  return status == 'error' ||
+      status == 'failure' ||
+      status == 'failed' ||
+      status == 'denied' ||
+      status == 'rejected';
 }
 
 String _toolExecutionCommand(AiSessionMessage message) {
