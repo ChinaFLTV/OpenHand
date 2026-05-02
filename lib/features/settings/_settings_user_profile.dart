@@ -6,8 +6,17 @@ part of 'settings_view.dart';
 /// 同步显示当前画像内容预览或 "未设置"。点击后弹出
 /// [_UserProfileEditorDialog] 进行预览 / 更新；弹窗的进出场动画由
 /// [showAnimatedDialog] 自动读取全局弹窗动画设置。
-class _UserProfileSettingsButton extends StatelessWidget {
+class _UserProfileSettingsButton extends StatefulWidget {
   const _UserProfileSettingsButton();
+
+  @override
+  State<_UserProfileSettingsButton> createState() =>
+      _UserProfileSettingsButtonState();
+}
+
+class _UserProfileSettingsButtonState
+    extends State<_UserProfileSettingsButton> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +25,7 @@ class _UserProfileSettingsButton extends StatelessWidget {
     final memoryController = context.watch<MemoryController>();
     final profile = memoryController.userProfile;
     final hasProfile = profile != null && profile.content.trim().isNotEmpty;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final preview = hasProfile
         ? _previewContent(profile.content)
         : _localizedText(
@@ -26,7 +36,15 @@ class _UserProfileSettingsButton extends StatelessWidget {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 520),
-      child: Material(
+      child: MouseRegion(
+        onEnter: (_) {
+          if (!_hovered) setState(() => _hovered = true);
+        },
+        onExit: (_) {
+          if (_hovered) setState(() => _hovered = false);
+        },
+        child: MicroPressFeedback(
+          child: Material(
         color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
         clipBehavior: Clip.antiAlias,
@@ -111,13 +129,22 @@ class _UserProfileSettingsButton extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colorScheme.onSurfaceVariant,
+                AnimatedSlide(
+                  offset: Offset(_hovered && !reduceMotion ? 0.18 : 0, 0),
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  curve: Curves.easeOutCubic,
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
         ),
       ),
     );
