@@ -2,20 +2,77 @@ part of 'openhand_home_page.dart';
 
 class _TokenDial extends StatefulWidget {
   const _TokenDial({
-    required this.totalTokens,
-    this.cacheReadTokens,
-    this.cacheCreationTokens,
+    required this.statistics,
   });
 
-  final int totalTokens;
-  final int? cacheReadTokens;
-  final int? cacheCreationTokens;
+  final AiSessionStatistics statistics;
+
+  int get totalTokens => statistics.totalTokens ?? 0;
+  int? get cacheReadTokens => statistics.cacheReadTokens;
+  int? get cacheCreationTokens => statistics.cacheCreationTokens;
 
   @override
   State<_TokenDial> createState() => _TokenDialState();
 }
 
-class _TokenDialState extends State<_TokenDial> {
+class _TokenDialState extends State<_TokenDial>
+    with SingleTickerProviderStateMixin {
+  final OverlayPortalController _portalController = OverlayPortalController();
+  final LayerLink _link = LayerLink();
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      reverseDuration: const Duration(milliseconds: 180),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fadeController,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  void _showPopup() {
+    _hideTimer?.cancel();
+    if (!_portalController.isShowing) {
+      _portalController.show();
+    }
+    _fadeController.forward();
+  }
+
+  void _schedulePopupHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 60), () async {
+      if (!mounted) return;
+      await _fadeController.reverse();
+      if (!mounted) return;
+      if (_portalController.isShowing) {
+        _portalController.hide();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -33,53 +90,311 @@ class _TokenDialState extends State<_TokenDial> {
       color: Colors.green.shade600,
     );
     final hasCache = (widget.cacheReadTokens ?? 0) > 0;
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: hasCache
-            ? Colors.green.withValues(alpha: 0.08)
-            : colorScheme.surfaceContainerHighest,
-        borderRadius: _borderRadius999,
-        border: Border.all(
-          color: hasCache
-              ? Colors.green.withValues(alpha: 0.4)
-              : colorScheme.outlineVariant.withValues(alpha: 0.55),
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _portalController,
+        overlayChildBuilder: (context) {
+          return Positioned(
+            left: 0,
+            top: 0,
+            child: CompositedTransformFollower(
+              link: _link,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.bottomRight,
+              followerAnchor: Alignment.topRight,
+              offset: const Offset(0, 8),
+              child: MouseRegion(
+                onEnter: (_) => _showPopup(),
+                onExit: (_) => _schedulePopupHide(),
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    alignment: Alignment.topRight,
+                    child: _TokenDialPopup(
+                      statistics: widget.statistics,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        child: MouseRegion(
+          onEnter: (_) => _showPopup(),
+          onExit: (_) => _schedulePopupHide(),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: hasCache
+                  ? Colors.green.withValues(alpha: 0.08)
+                  : colorScheme.surfaceContainerHighest,
+              borderRadius: _borderRadius999,
+              border: Border.all(
+                color: hasCache
+                    ? Colors.green.withValues(alpha: 0.4)
+                    : colorScheme.outlineVariant.withValues(alpha: 0.55),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  hasCache
+                      ? Icons.bolt_rounded
+                      : Icons.confirmation_number_rounded,
+                  size: 14,
+                  color: hasCache
+                      ? Colors.green.shade600
+                      : colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                if (hasCache) ...[
+                  _RollingNumber(
+                    value: widget.cacheReadTokens ?? 0,
+                    style: cacheStyle ?? const TextStyle(),
+                  ),
+                  const SizedBox(width: 4),
+                  Text('Cached', style: cacheStyle),
+                  Container(
+                    width: 1,
+                    height: 12,
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    color: colorScheme.outlineVariant,
+                  ),
+                ],
+                _RollingNumber(
+                  value: widget.totalTokens,
+                  style: numberStyle ?? const TextStyle(),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  hasCache
+                      ? _localizedText(context, zh: '总计', en: 'Total')
+                      : _localizedText(context, zh: 'Token', en: 'Token'),
+                  style: labelStyle,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            hasCache ? Icons.bolt_rounded : Icons.confirmation_number_rounded,
-            size: 14,
-            color: hasCache ? Colors.green.shade600 : colorScheme.primary,
+    );
+  }
+}
+
+/// 悬浮在 `_TokenDial` 下方的结构化 token 详情浮窗。
+///
+/// 内容分组：
+/// - 输入侧：Prompt / Cache Read / Cache Write
+/// - 输出侧：Completion
+/// - 总计：Total
+/// - 会话累计 (消息数 / prompt 字符 / 构建次数)
+class _TokenDialPopup extends StatelessWidget {
+  const _TokenDialPopup({required this.statistics});
+
+  final AiSessionStatistics statistics;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final headStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      color: colorScheme.onSurfaceVariant,
+      letterSpacing: 0.4,
+    );
+    final keyStyle = theme.textTheme.bodySmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+      color: colorScheme.onSurface,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final cacheValueStyle = valueStyle?.copyWith(color: Colors.green.shade700);
+    final promptTokens = statistics.totalPromptTokens ?? 0;
+    final completionTokens = statistics.totalCompletionTokens ?? 0;
+    final cacheRead = statistics.cacheReadTokens ?? 0;
+    final cacheWrite = statistics.cacheCreationTokens ?? 0;
+    final total = statistics.totalTokens ?? 0;
+    final cacheHitRatio = (promptTokens + cacheRead) == 0
+        ? 0.0
+        : cacheRead / (promptTokens + cacheRead);
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 260, maxWidth: 320),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.6),
           ),
-          const SizedBox(width: 6),
-          if (hasCache) ...[
-            _RollingNumber(
-              value: widget.cacheReadTokens ?? 0,
-              style: cacheStyle ?? const TextStyle(),
-            ),
-            const SizedBox(width: 4),
-            Text('Cached', style: cacheStyle),
-            Container(
-              width: 1,
-              height: 12,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: colorScheme.outlineVariant,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
-          _RollingNumber(
-            value: widget.totalTokens,
-            style: numberStyle ?? const TextStyle(),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            hasCache
-                ? _localizedText(context, zh: '总计', en: 'Total')
-                : _localizedText(context, zh: 'Token', en: 'Token'),
-            style: labelStyle,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _localizedText(context, zh: '输入', en: 'INPUT').toUpperCase(),
+              style: headStyle,
+            ),
+            const SizedBox(height: 6),
+            _PopupRow(
+              label: _localizedText(context, zh: 'Prompt', en: 'Prompt'),
+              value: promptTokens,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+            ),
+            _PopupRow(
+              label: _localizedText(
+                context,
+                zh: 'Cache 命中',
+                en: 'Cache Read',
+              ),
+              value: cacheRead,
+              keyStyle: keyStyle,
+              valueStyle: cacheValueStyle,
+            ),
+            _PopupRow(
+              label: _localizedText(
+                context,
+                zh: 'Cache 写入',
+                en: 'Cache Write',
+              ),
+              value: cacheWrite,
+              keyStyle: keyStyle,
+              valueStyle: cacheValueStyle,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _localizedText(context, zh: '输出', en: 'OUTPUT').toUpperCase(),
+              style: headStyle,
+            ),
+            const SizedBox(height: 6),
+            _PopupRow(
+              label: _localizedText(
+                context,
+                zh: 'Completion',
+                en: 'Completion',
+              ),
+              value: completionTokens,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+            ),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              height: 1,
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+            _PopupRow(
+              label: _localizedText(context, zh: '总计', en: 'Total'),
+              value: total,
+              keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w700),
+              valueStyle: valueStyle?.copyWith(
+                color: colorScheme.primary,
+                fontSize: (valueStyle.fontSize ?? 14) + 1,
+              ),
+            ),
+            if (cacheRead > 0 || cacheWrite > 0) ...[
+              const SizedBox(height: 6),
+              _PopupRow(
+                label: _localizedText(
+                  context,
+                  zh: 'Cache 命中率',
+                  en: 'Cache Hit',
+                ),
+                value: (cacheHitRatio * 100).round(),
+                suffix: '%',
+                keyStyle: keyStyle,
+                valueStyle: cacheValueStyle,
+              ),
+            ],
+            const SizedBox(height: 10),
+            Text(
+              _localizedText(context, zh: '会话累计', en: 'SESSION').toUpperCase(),
+              style: headStyle,
+            ),
+            const SizedBox(height: 6),
+            _PopupRow(
+              label: _localizedText(context, zh: '消息总数', en: 'Messages'),
+              value: statistics.totalMessageCount,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+            ),
+            _PopupRow(
+              label: _localizedText(
+                context,
+                zh: 'Prompt 构建',
+                en: 'Prompt Builds',
+              ),
+              value: statistics.promptBuildCount,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+            ),
+            _PopupRow(
+              label: _localizedText(
+                context,
+                zh: 'Prompt 字符',
+                en: 'Prompt Chars',
+              ),
+              value: statistics.totalPromptCharacters,
+              keyStyle: keyStyle,
+              valueStyle: valueStyle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PopupRow extends StatelessWidget {
+  const _PopupRow({
+    required this.label,
+    required this.value,
+    this.suffix,
+    this.keyStyle,
+    this.valueStyle,
+  });
+
+  final String label;
+  final int value;
+  final String? suffix;
+  final TextStyle? keyStyle;
+  final TextStyle? valueStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: keyStyle),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RollingNumber(
+                value: value,
+                style: valueStyle ?? const TextStyle(),
+              ),
+              if (suffix != null) ...[
+                const SizedBox(width: 2),
+                Text(suffix!, style: valueStyle),
+              ],
+            ],
           ),
         ],
       ),

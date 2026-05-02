@@ -189,9 +189,7 @@ class _SessionToolbar extends StatelessWidget {
                 const SizedBox(width: 10),
               ],
               _TokenDial(
-                totalTokens: session.statistics.totalTokens ?? 0,
-                cacheReadTokens: session.statistics.cacheReadTokens,
-                cacheCreationTokens: session.statistics.cacheCreationTokens,
+                statistics: session.statistics,
               ),
             ],
           ),

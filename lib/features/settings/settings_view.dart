@@ -120,6 +120,10 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _compressionThresholdFocusNode;
   late final TextEditingController _toolResultCompressionThresholdController;
   late final FocusNode _toolResultCompressionThresholdFocusNode;
+  late final TextEditingController _aiInputCacheUpdateIntervalController;
+  late final FocusNode _aiInputCacheUpdateIntervalFocusNode;
+  late final TextEditingController _aiInputCacheBreakpointCountController;
+  late final FocusNode _aiInputCacheBreakpointCountFocusNode;
   late final TextEditingController
   _toolResultCompressionHeadTailWindowController;
   late final FocusNode _toolResultCompressionHeadTailWindowFocusNode;
@@ -163,6 +167,10 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode = FocusNode();
     _toolResultCompressionThresholdController = TextEditingController();
     _toolResultCompressionThresholdFocusNode = FocusNode();
+    _aiInputCacheUpdateIntervalController = TextEditingController();
+    _aiInputCacheUpdateIntervalFocusNode = FocusNode();
+    _aiInputCacheBreakpointCountController = TextEditingController();
+    _aiInputCacheBreakpointCountFocusNode = FocusNode();
     _toolResultCompressionHeadTailWindowController = TextEditingController();
     _toolResultCompressionHeadTailWindowFocusNode = FocusNode();
     _toolResultCompressionMaxPathHitsController = TextEditingController();
@@ -204,6 +212,10 @@ class _SettingsViewState extends State<SettingsView> {
     _compressionThresholdFocusNode.dispose();
     _toolResultCompressionThresholdController.dispose();
     _toolResultCompressionThresholdFocusNode.dispose();
+    _aiInputCacheUpdateIntervalController.dispose();
+    _aiInputCacheUpdateIntervalFocusNode.dispose();
+    _aiInputCacheBreakpointCountController.dispose();
+    _aiInputCacheBreakpointCountFocusNode.dispose();
     _toolResultCompressionHeadTailWindowController.dispose();
     _toolResultCompressionHeadTailWindowFocusNode.dispose();
     _toolResultCompressionMaxPathHitsController.dispose();
@@ -275,6 +287,22 @@ class _SettingsViewState extends State<SettingsView> {
             toolResultCompressionMaxPathHitsText) {
       _toolResultCompressionMaxPathHitsController.text =
           toolResultCompressionMaxPathHitsText;
+    }
+    final aiInputCacheUpdateIntervalText =
+        '${settingsController.aiInputCacheUpdateInterval}';
+    if (!_aiInputCacheUpdateIntervalFocusNode.hasFocus &&
+        _aiInputCacheUpdateIntervalController.text !=
+            aiInputCacheUpdateIntervalText) {
+      _aiInputCacheUpdateIntervalController.text =
+          aiInputCacheUpdateIntervalText;
+    }
+    final aiInputCacheBreakpointCountText =
+        '${settingsController.aiInputCacheBreakpointCount}';
+    if (!_aiInputCacheBreakpointCountFocusNode.hasFocus &&
+        _aiInputCacheBreakpointCountController.text !=
+            aiInputCacheBreakpointCountText) {
+      _aiInputCacheBreakpointCountController.text =
+          aiInputCacheBreakpointCountText;
     }
     final writeToolSummaryMaxCharsText =
         '${settingsController.aiWriteToolSummaryMaxChars}';
@@ -1683,6 +1711,175 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '缓存断点更新模式',
+                  en: 'Cache Breakpoint Update Mode',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。',
+                  en: 'Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.',
+                ),
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: DropdownButton<String>(
+                    key: const ValueKey<String>(
+                      'settingsAiInputCacheUpdateModeDropdown',
+                    ),
+                    value: settingsController.aiInputCacheUpdateMode,
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      await settingsController
+                          .updateAiInputCacheUpdateMode(value);
+                    },
+                    items: <DropdownMenuItem<String>>[
+                      DropdownMenuItem<String>(
+                        value: AppSettingsSnapshot
+                            .aiInputCacheUpdateModeAllMessages,
+                        child: Text(
+                          _localizedText(
+                            context,
+                            zh: '按消息条数 (user+assistant)',
+                            en: 'By message count (user+assistant)',
+                          ),
+                        ),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: AppSettingsSnapshot
+                            .aiInputCacheUpdateModeUserMessages,
+                        child: Text(
+                          _localizedText(
+                            context,
+                            zh: '按用户消息条数',
+                            en: 'By user-message count only',
+                          ),
+                        ),
+                      ),
+                      DropdownMenuItem<String>(
+                        value: AppSettingsSnapshot
+                            .aiInputCacheUpdateModeTokens,
+                        child: Text(
+                          _localizedText(
+                            context,
+                            zh: '按累计 tokens',
+                            en: 'By accumulated tokens',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '缓存断点更新间隔',
+                  en: 'Cache Breakpoint Update Interval',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。',
+                  en: 'Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).',
+                ),
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      key: const ValueKey<String>(
+                        'settingsAiInputCacheUpdateIntervalField',
+                      ),
+                      controller: _aiInputCacheUpdateIntervalController,
+                      focusNode: _aiInputCacheUpdateIntervalFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: const InputDecoration(
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiInputCacheUpdateInterval}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveAiInputCacheUpdateInterval(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        key: const ValueKey<String>(
+                          'settingsAiInputCacheUpdateIntervalSaveButton',
+                        ),
+                        onPressed: () => _saveAiInputCacheUpdateInterval(
+                          context,
+                          _aiInputCacheUpdateIntervalController.text,
+                        ),
+                        icon: const Icon(Icons.save_rounded),
+                        label: Text(
+                          _localizedText(context, zh: '保存', en: 'Save'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '缓存断点数量',
+                  en: 'Cache Breakpoint Count',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。前 N-1 个用于静态前缀切片（系统提示/工具/技能/MCP/指令/记忆），第 N 个跟随上面的更新间隔在消息流中滑动。',
+                  en: 'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. The first N-1 are pinned at static prefix slice points (system prompt / tools / skills / MCP / instructions / memory); the Nth slides through the message stream per the update interval above.',
+                ),
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      key: const ValueKey<String>(
+                        'settingsAiInputCacheBreakpointCountField',
+                      ),
+                      controller: _aiInputCacheBreakpointCountController,
+                      focusNode: _aiInputCacheBreakpointCountFocusNode,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: const InputDecoration(
+                        hintText:
+                            '${AppSettingsSnapshot.defaultAiInputCacheBreakpointCount}',
+                      ),
+                      onSubmitted: (value) =>
+                          _saveAiInputCacheBreakpointCount(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        key: const ValueKey<String>(
+                          'settingsAiInputCacheBreakpointCountSaveButton',
+                        ),
+                        onPressed: () => _saveAiInputCacheBreakpointCount(
+                          context,
+                          _aiInputCacheBreakpointCountController.text,
+                        ),
+                        icon: const Icon(Icons.save_rounded),
+                        label: Text(
+                          _localizedText(context, zh: '保存', en: 'Save'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
             ],
           ),
         ),
@@ -3057,6 +3254,90 @@ class _SettingsViewState extends State<SettingsView> {
     _toolResultCompressionMaxPathHitsController.text =
         '${context.read<SettingsController>().aiToolResultCompressionMaxPathHits}';
     _showSnackBar(context, l10n.aiToolResultCompressionMaxPathHitsSaved);
+  }
+
+  Future<void> _saveAiInputCacheUpdateInterval(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null ||
+        parsedValue < AppSettingsSnapshot.minAiInputCacheUpdateInterval ||
+        parsedValue > AppSettingsSnapshot.maxAiInputCacheUpdateInterval) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh:
+              '请输入 ${AppSettingsSnapshot.minAiInputCacheUpdateInterval} 到 ${AppSettingsSnapshot.maxAiInputCacheUpdateInterval} 之间的整数',
+          en:
+              'Please enter an integer between ${AppSettingsSnapshot.minAiInputCacheUpdateInterval} and ${AppSettingsSnapshot.maxAiInputCacheUpdateInterval}',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiInputCacheUpdateInterval(parsedValue);
+    if (!context.mounted) return;
+    if (!saved) {
+      _aiInputCacheUpdateIntervalController.text =
+          '${context.read<SettingsController>().aiInputCacheUpdateInterval}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _aiInputCacheUpdateIntervalController.text =
+        '${context.read<SettingsController>().aiInputCacheUpdateInterval}';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '缓存断点更新间隔已保存',
+        en: 'Cache breakpoint update interval saved',
+      ),
+    );
+  }
+
+  Future<void> _saveAiInputCacheBreakpointCount(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final parsedValue = int.tryParse(rawValue.trim());
+    if (parsedValue == null ||
+        parsedValue < AppSettingsSnapshot.minAiInputCacheBreakpointCount ||
+        parsedValue > AppSettingsSnapshot.maxAiInputCacheBreakpointCount) {
+      _showSnackBar(
+        context,
+        _localizedText(
+          context,
+          zh:
+              '请输入 ${AppSettingsSnapshot.minAiInputCacheBreakpointCount} 到 ${AppSettingsSnapshot.maxAiInputCacheBreakpointCount} 之间的整数',
+          en:
+              'Please enter an integer between ${AppSettingsSnapshot.minAiInputCacheBreakpointCount} and ${AppSettingsSnapshot.maxAiInputCacheBreakpointCount}',
+        ),
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiInputCacheBreakpointCount(parsedValue);
+    if (!context.mounted) return;
+    if (!saved) {
+      _aiInputCacheBreakpointCountController.text =
+          '${context.read<SettingsController>().aiInputCacheBreakpointCount}';
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _aiInputCacheBreakpointCountController.text =
+        '${context.read<SettingsController>().aiInputCacheBreakpointCount}';
+    _showSnackBar(
+      context,
+      _localizedText(
+        context,
+        zh: '缓存断点数量已保存',
+        en: 'Cache breakpoint count saved',
+      ),
+    );
   }
 
   Future<void> _saveWriteToolSummaryMaxChars(
