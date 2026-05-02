@@ -315,10 +315,12 @@ class _NavigationPaneState extends State<_NavigationPane> {
             const SizedBox(height: 18),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FilledButton.icon(
-                onPressed: widget.onCreateThreadRequested,
-                icon: const Icon(Icons.add_comment_rounded),
-                label: Text(l10n.newThread),
+              child: MicroPressFeedback(
+                child: FilledButton.icon(
+                  onPressed: widget.onCreateThreadRequested,
+                  icon: const Icon(Icons.add_comment_rounded),
+                  label: Text(l10n.newThread),
+                ),
               ),
             ),
             const SizedBox(height: 12),
