@@ -21,6 +21,14 @@ class _CompressionMessageGroup {
 
   int get characterCount =>
       messages.fold<int>(0, (sum, message) => sum + message.characterCount);
+
+  int get textMessageCount => messages.where((message) {
+    if (message.isDeleted || message.content.trim().isEmpty) {
+      return false;
+    }
+    return message.role == AiSessionMessageRole.user ||
+        message.role == AiSessionMessageRole.assistant;
+  }).length;
 }
 
 class _ClaudeCodeDocsTarget {

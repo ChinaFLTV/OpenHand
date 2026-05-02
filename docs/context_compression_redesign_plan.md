@@ -205,7 +205,7 @@ Hardness API phase runner 有独立交接压缩：
 | Phase 4 | `hardness_api_phase_runner.dart` | handoff system prompt 对齐会话摘要结构，校验关键章节正文，保存同名 JSON sidecar 元数据 |
 | Phase 4 测试 | `test/features/hardness/hardness_handoff_validation_test.dart` | 覆盖新旧 handoff 标题兼容、缺章节与空正文拒绝 |
 | Phase 5 | `test/features/ai/service/ai_prompt_template_repository_test.dart` | 守护 5 个线程模板三件套真实资产加载、压缩说明结构、共享注入块去重 |
-| Claude 对齐增强 | `ai_prompt_builder.dart` / `ai_session_controller.dart` | 上下文预算改为 summary reserve + auto-compact/warning/blocking buffer 语义；自动压缩连续失败 3 次后熔断 |
+| Claude 对齐增强 | `ai_prompt_builder.dart` / `ai_session_controller.dart` | 上下文预算改为 summary reserve + auto-compact/warning/blocking buffer 语义；自动压缩连续失败 3 次后熔断；压缩后尾部保留至少 5 条文本锚点 |
 
 ## 5. OpenHand 目标架构
 
@@ -349,6 +349,7 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 
 1. **上下文预算阈值拆分**：预算元数据不再只按固定百分比标记 warning / critical，而是记录 `summary_reserve_tokens`、`effective_window_tokens`、`auto_compact_threshold_tokens`、`warning_threshold_tokens`、`error_threshold_tokens`、`blocking_limit_tokens` 与 `percent_left`。
 2. **自动压缩熔断**：同一会话自动压缩连续失败 3 次后跳过后续自动压缩尝试，避免 prompt-too-long 或服务端异常导致每轮都重复发起必失败的压缩请求；下一次成功压缩会清除该计数。
+3. **保留尾部文本锚点**：通用压缩在字符阈值外增加“至少保留 5 条用户 / 助手文本消息”的软约束，并用 2 倍阈值作为硬上限，避免压缩后只剩工具结果而缺少可恢复语义。
 
 ## 7. Prompt 维护准则
 

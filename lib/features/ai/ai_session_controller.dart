@@ -47,6 +47,8 @@ part '_ai_session_utils.dart';
 typedef WriteCommandConfirmationCallback =
     Future<bool> Function(BashCommandApprovalRequest request);
 
+const int _minRetainedCompressionTextMessages = 5;
+
 @visibleForTesting
 List<List<AiSessionMessage>> groupSessionMessagesForCompression(
   List<AiSessionMessage> messages,
@@ -74,6 +76,17 @@ retryCompressionWindowAfterPromptTooLong(List<AiSessionMessage> messages) {
     discardedMessages: _flattenCompressionGroups(groups.take(dropGroupCount)),
     messagesToCompress: _flattenCompressionGroups(groups.skip(dropGroupCount)),
   );
+}
+
+@visibleForTesting
+List<List<AiSessionMessage>> retainedSessionMessageGroupsForCompression(
+  List<AiSessionMessage> messages, {
+  required int threshold,
+}) {
+  return _selectRetainedCompressionGroups(
+    _buildCompressionMessageGroups(messages),
+    threshold,
+  ).map((group) => group.messages).toList(growable: false);
 }
 
 List<_CompressionMessageGroup> _buildCompressionMessageGroups(
@@ -119,6 +132,32 @@ List<AiSessionMessage> _flattenCompressionGroups(
   Iterable<_CompressionMessageGroup> groups,
 ) {
   return <AiSessionMessage>[for (final group in groups) ...group.messages];
+}
+
+List<_CompressionMessageGroup> _selectRetainedCompressionGroups(
+  List<_CompressionMessageGroup> activeConversationGroups,
+  int threshold,
+) {
+  final retainedGroups = <_CompressionMessageGroup>[];
+  var retainedCharacterCount = 0;
+  var retainedTextMessageCount = 0;
+  final retainedHardCharacterLimit = math.max(threshold, threshold * 2);
+  for (var index = activeConversationGroups.length - 1; index >= 0; index--) {
+    final group = activeConversationGroups[index];
+    final nextCharacterCount = retainedCharacterCount + group.characterCount;
+    final needsMoreTextAnchors =
+        retainedTextMessageCount < _minRetainedCompressionTextMessages;
+    if (retainedGroups.isNotEmpty &&
+        nextCharacterCount > threshold &&
+        (!needsMoreTextAnchors ||
+            nextCharacterCount > retainedHardCharacterLimit)) {
+      break;
+    }
+    retainedGroups.insert(0, group);
+    retainedCharacterCount = nextCharacterCount;
+    retainedTextMessageCount += group.textMessageCount;
+  }
+  return retainedGroups;
 }
 
 enum AiSendPhase {
@@ -5012,17 +5051,18 @@ class AiSessionController extends ChangeNotifier {
       model: model,
     );
 
-    final retainedGroups = <_CompressionMessageGroup>[];
-    var retainedCharacterCount = 0;
-    for (var index = activeConversationGroups.length - 1; index >= 0; index--) {
-      final group = activeConversationGroups[index];
-      final nextCharacterCount = retainedCharacterCount + group.characterCount;
-      if (retainedGroups.isNotEmpty && nextCharacterCount > threshold) {
-        break;
-      }
-      retainedGroups.insert(0, group);
-      retainedCharacterCount = nextCharacterCount;
-    }
+    final retainedGroups = _selectRetainedCompressionGroups(
+      activeConversationGroups,
+      threshold,
+    );
+    final retainedCharacterCount = retainedGroups.fold<int>(
+      0,
+      (sum, group) => sum + group.characterCount,
+    );
+    final retainedTextMessageCount = retainedGroups.fold<int>(
+      0,
+      (sum, group) => sum + group.textMessageCount,
+    );
 
     final compressedGroupCount =
         activeConversationGroups.length - retainedGroups.length;
@@ -5149,6 +5189,10 @@ class AiSessionController extends ChangeNotifier {
           'retained_message_ids_after_checkpoint': retainedMessages
               .map((message) => message.id)
               .toList(growable: false),
+          'retained_group_count_after_checkpoint': retainedGroups.length,
+          'retained_character_count_after_checkpoint': retainedCharacterCount,
+          'retained_text_message_count_after_checkpoint':
+              retainedTextMessageCount,
           'summary_model_id': model.id,
           'summary_model_label': model.displayName,
           'summary_model_max_context_tokens': model.maxContextTokens,

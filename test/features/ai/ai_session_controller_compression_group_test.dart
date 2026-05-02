@@ -62,6 +62,30 @@ void main() {
       <String>['tc1', 'tr1', 'tc2', 'tr2', 'a1'],
     );
   });
+
+  test('retention expands to keep recent text anchors', () {
+    final messages = <AiSessionMessage>[
+      _user('u0'),
+      _assistant('a0'),
+      _user('u1'),
+      _assistant('a1'),
+      _user('u2'),
+      _assistant('a2'),
+      _user('u3'),
+      _assistant('a3'),
+    ];
+
+    final retained = retainedSessionMessageGroupsForCompression(
+      messages,
+      threshold: 30,
+    );
+
+    expect(_ids(retained), <List<String>>[
+      <String>['a1', 'u2'],
+      <String>['a2', 'u3'],
+      <String>['a3'],
+    ]);
+  });
 }
 
 List<List<String>> _ids(List<List<AiSessionMessage>> groups) {
