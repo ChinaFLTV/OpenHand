@@ -80,5 +80,32 @@ trailing
       const buffer = '<DSML:invoke name="">body</DSML:invoke>';
       expect(scanPartialDsmlInvokes(buffer), isEmpty);
     });
+
+    test('emits preparing placeholder when invoke opener has no name yet',
+        () {
+      // Streaming mid-token: the closing `>` of the opening tag has not
+      // arrived. We don't even know the tool name yet — UI should still
+      // show a generic "preparing" card to acknowledge construction has
+      // begun.
+      const buffer = 'lead-in\n<DSML:invoke name="Ba';
+      final result = scanPartialDsmlInvokes(buffer);
+      expect(result, hasLength(1));
+      expect(result.first.isPreparing, isTrue);
+      expect(result.first.isComplete, isFalse);
+      expect(result.first.name, isEmpty);
+      expect(result.first.id, 'dsml-tool-call-1');
+    });
+
+    test('does not emit preparing placeholder once opener is closed', () {
+      // Once `<DSML:invoke name="Bash">` is closed, even with no params
+      // yet, the named partial entry covers it — no extra preparing
+      // placeholder needed.
+      const buffer = '<DSML:invoke name="Bash">';
+      final result = scanPartialDsmlInvokes(buffer);
+      expect(result, hasLength(1));
+      expect(result.first.name, 'Bash');
+      expect(result.first.isPreparing, isFalse);
+      expect(result.first.isComplete, isFalse);
+    });
   });
 }

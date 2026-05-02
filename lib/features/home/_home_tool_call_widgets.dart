@@ -1367,7 +1367,7 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
     required this.emptyLabel,
   });
 
-  final List<String> keys;
+  final List<({String key, String? valuePreview})> keys;
   final String collectedLabel;
   final String emptyLabel;
 
@@ -1399,9 +1399,9 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
             ),
           ),
         ),
-        for (final key in keys)
+        for (final entry in keys)
           AppearOnce(
-            key: ValueKey<String>('arg-key-$key'),
+            key: ValueKey<String>('arg-key-${entry.key}'),
             child: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 8,
@@ -1414,11 +1414,29 @@ class _ConstructingArgumentKeysRow extends StatelessWidget {
                   color: cs.outline.withValues(alpha: 0.25),
                 ),
               ),
-              child: Text(
-                key,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: cs.onSurface,
-                  fontFamily: 'JetBrainsMono',
+              child: RichText(
+                text: TextSpan(
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: cs.onSurface,
+                    fontFamily: 'JetBrainsMono',
+                  ),
+                  children: [
+                    TextSpan(text: entry.key),
+                    if (entry.valuePreview != null) ...[
+                      TextSpan(
+                        text: ': ',
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.8),
+                        ),
+                      ),
+                      TextSpan(
+                        text: entry.valuePreview,
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -1480,6 +1498,14 @@ class _ToolCallViewData {
     bool includeResultContent = true,
   }) {
     final presentation = _toolCallPresentation(context, message);
+    final isPreparing = message.metadata['tool_preparing'] == true;
+    final effectivePresentation = isPreparing
+        ? _ToolCallPresentation(
+            categoryLabel: AppLocalizations.of(context)!.tlCallTool,
+            displayName: AppLocalizations.of(context)!.tlCallPreparing,
+            icon: Icons.hourglass_empty_rounded,
+          )
+        : presentation;
     final status = _toolExecutionStatus(message);
     final command = _toolExecutionCommand(message);
     final workingDirectory = _toolExecutionWorkingDirectory(message);
@@ -1530,7 +1556,7 @@ class _ToolCallViewData {
     final stderrFile = '${message.metadata['tool_execution_stderr_file'] ?? ''}'
         .trim();
     final viewData = _ToolCallViewData(
-      presentation: presentation,
+      presentation: effectivePresentation,
       status: status,
       command: command,
       workingDirectory: workingDirectory,
@@ -1553,10 +1579,10 @@ class _ToolCallViewData {
       stderrFile: stderrFile.isNotEmpty ? stderrFile : null,
       shouldSweepBadge: _shouldSweepToolStatus(status),
       statusIcon: _toolExecutionStatusIcon(status),
-      primaryChipLabel: _buildPrimaryChipLabel(context, presentation),
+      primaryChipLabel: _buildPrimaryChipLabel(context, effectivePresentation),
       statusLabel: _toolCallStatusLabelForData(
         context,
-        presentation,
+        effectivePresentation,
         status,
         durationMs,
       ),
@@ -1586,7 +1612,7 @@ class _ToolCallViewData {
   /// Argument names (top-level keys) that have been parsed so far. Useful
   /// during the streaming "constructing" state to surface a real-time
   /// preview of which parameters the model has already supplied.
-  final List<String> argumentKeys;
+  final List<({String key, String? valuePreview})> argumentKeys;
   final _FormattedToolContent formattedCommand;
   final _FormattedToolContent formattedArguments;
   final _FormattedToolContent formattedStdout;
@@ -2169,21 +2195,47 @@ String _toolArgumentsPreview(AiSessionMessage message) {
   return firstLine;
 }
 
-/// Best-effort parse of top-level argument keys from a JSON-encoded
-/// `tool_arguments` blob. Used to surface a real-time preview of which
-/// parameters have been parsed during the streaming "constructing" state.
-List<String> _parseArgumentKeys(String rawArguments) {
+/// Best-effort parse of top-level argument key/value previews from a
+/// JSON-encoded `tool_arguments` blob. Used to surface a real-time
+/// preview of which parameters have been parsed during the streaming
+/// "constructing" state. Each value is truncated to ~16 chars and
+/// nested maps/lists are summarized as `{…}` / `[…]` so the row stays
+/// compact.
+List<({String key, String? valuePreview})> _parseArgumentKeys(
+  String rawArguments,
+) {
   final trimmed = rawArguments.trim();
-  if (trimmed.isEmpty) return const <String>[];
+  if (trimmed.isEmpty) {
+    return const <({String key, String? valuePreview})>[];
+  }
   try {
     final decoded = jsonDecode(trimmed);
     if (decoded is Map) {
-      return decoded.keys.map((k) => '$k').toList(growable: false);
+      return decoded.entries
+          .map(
+            (e) => (
+              key: '${e.key}',
+              valuePreview: _summarizeArgumentValue(e.value),
+            ),
+          )
+          .toList(growable: false);
     }
   } catch (_) {
     // Partial JSON mid-stream — expected; fall through.
   }
-  return const <String>[];
+  return const <({String key, String? valuePreview})>[];
+}
+
+String? _summarizeArgumentValue(Object? value) {
+  if (value == null) return null;
+  if (value is Map) return '{…}';
+  if (value is List) return value.isEmpty ? '[]' : '[${value.length}]';
+  final raw = value is String ? value : '$value';
+  final flat = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (flat.isEmpty) return null;
+  const maxLen = 16;
+  if (flat.length <= maxLen) return flat;
+  return '${flat.substring(0, maxLen)}…';
 }
 
 String _toolCallStatusLabelForData(

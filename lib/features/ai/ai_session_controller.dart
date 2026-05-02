@@ -2572,6 +2572,7 @@ class AiSessionController extends ChangeNotifier {
                       'tool_name': invoke.name,
                       'tool_arguments': invoke.argumentsJson,
                       'tool_arguments_streaming': !invoke.isComplete,
+                      'tool_preparing': invoke.isPreparing,
                       'tool_calls': <Map<String, Object?>>[
                         <String, Object?>{
                           'id': invoke.id,
@@ -2593,6 +2594,7 @@ class AiSessionController extends ChangeNotifier {
                       'tool_name': invoke.name,
                       'tool_arguments': invoke.argumentsJson,
                       'tool_arguments_streaming': !invoke.isComplete,
+                      'tool_preparing': invoke.isPreparing,
                       'tool_calls': <Map<String, Object?>>[
                         <String, Object?>{
                           'id': invoke.id,

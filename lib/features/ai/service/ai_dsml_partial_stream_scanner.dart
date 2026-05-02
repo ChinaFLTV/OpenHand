@@ -8,6 +8,7 @@ class PartialDsmlInvoke {
     required this.name,
     required this.argumentsJson,
     required this.isComplete,
+    this.isPreparing = false,
   });
 
   /// 0-based ordinal across the buffer. Matches `extractDsmlToolCalls`
@@ -26,6 +27,12 @@ class PartialDsmlInvoke {
 
   /// True once the closing `</DSML:invoke>` has been seen for this block.
   final bool isComplete;
+
+  /// True when a `<DSML:invoke` opener has been observed but the closing
+  /// `>` of the opening tag has not yet arrived — i.e. we don't even know
+  /// the tool name yet. Used to render a generic "preparing" placeholder
+  /// before the first real frame of state.
+  final bool isPreparing;
 }
 
 final RegExp _invokeOpenPattern = RegExp(
@@ -116,5 +123,32 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
     // Use absoluteOpenStart to keep analyzer happy about field unused.
     assert(absoluteOpenStart >= 0);
   }
+  // Trailing "preparing" placeholder: if there is an unclosed
+  // `<DSML:invoke` token after the last fully-scanned position AND no
+  // partial invoke was already emitted for it (name still empty), emit a
+  // sentinel preparing entry so the UI can show a generic card before
+  // the tool name lands.
+  final tail = buffer.substring(cursor);
+  if (_unclosedInvokeOpenerPattern.hasMatch(tail) &&
+      (invokes.isEmpty || invokes.last.isComplete)) {
+    final pendingOrdinal = ordinal + 1;
+    invokes.add(
+      PartialDsmlInvoke(
+        index: pendingOrdinal - 1,
+        id: 'dsml-tool-call-$pendingOrdinal',
+        name: '',
+        argumentsJson: '{}',
+        isComplete: false,
+        isPreparing: true,
+      ),
+    );
+  }
   return invokes;
 }
+
+/// Matches an opening `<DSML:invoke` whose `>` has not yet arrived. Used
+/// to detect a fresh, name-less invoke at the tail of a streaming buffer.
+final RegExp _unclosedInvokeOpenerPattern = RegExp(
+  r'<DSML:invoke\b[^>]*$',
+  caseSensitive: false,
+);
