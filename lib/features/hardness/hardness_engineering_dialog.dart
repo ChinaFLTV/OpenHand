@@ -7,8 +7,10 @@ import 'package:path/path.dart' as p;
 
 import '../../app/state/settings_controller.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/highlight_pulse.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import '../ai/model/ai_model_config.dart';
 import 'hardness_cli_catalog.dart';
 import 'hardness_cli_install_dialog.dart';
@@ -54,6 +56,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
   bool _isScanning = true;
   bool _isCheckingAuth = false;
   int _scanRequestId = 0;
+  final ValueNotifier<int> _logoutSuccessSignal = ValueNotifier<int>(0);
+  final ValueNotifier<int> _logoutErrorSignal = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -69,6 +73,8 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
     _taskController.dispose();
     _workingDirController.dispose();
     _persistenceDirController.dispose();
+    _logoutSuccessSignal.dispose();
+    _logoutErrorSignal.dispose();
     super.dispose();
   }
 
@@ -460,20 +466,23 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
 
     if (scaffoldMessenger != null) {
       final strippedMessage = stripHardnessCliTerminalSequences(result.message);
+      final snackMessage = result.success
+          ? (isZh
+              ? '${cli.name} 已登出。$strippedMessage'
+              : '${cli.name} logged out. $strippedMessage')
+          : (isZh
+              ? '${cli.name} 登出失败：$strippedMessage'
+              : '${cli.name} logout failed: $strippedMessage');
       scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            result.success
-                ? (isZh
-                      ? '${cli.name} 已登出。$strippedMessage'
-                      : '${cli.name} logged out. $strippedMessage')
-                : (isZh
-                      ? '${cli.name} 登出失败：$strippedMessage'
-                      : '${cli.name} logout failed: $strippedMessage'),
-          ),
-          backgroundColor: result.success ? null : Colors.red.shade700,
-        ),
+        result.success
+            ? OpenHandSnackBar.success(context, snackMessage)
+            : OpenHandSnackBar.error(context, snackMessage),
       );
+      if (result.success) {
+        _logoutSuccessSignal.value++;
+      } else {
+        _logoutErrorSignal.value++;
+      }
     }
 
     await _scanClis();
@@ -533,9 +542,11 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 908, maxHeight: maxDialogHeight),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-          child: Column(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -989,6 +1000,30 @@ class _HardnessEngineeringDialogState extends State<HardnessEngineeringDialog> {
               ),
             ],
           ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _logoutSuccessSignal,
+                  color: const Color(0xFF22C55E),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _logoutErrorSignal,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
