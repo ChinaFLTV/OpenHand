@@ -38,6 +38,7 @@ class AiPromptBuilder {
   const AiPromptBuilder();
 
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
+  static const int _microCompactKeepRecentToolResults = 5;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -925,6 +926,10 @@ $identity''';
         lastConsumerIndex = i;
       }
     }
+    final microCompactMessageIds = _microCompactToolMessageIds(
+      messages,
+      lastConsumerIndex,
+    );
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
@@ -954,6 +959,7 @@ $identity''';
           model,
           compressionConfig,
           lastConsumerIndex: lastConsumerIndex,
+          microCompactMessageIds: microCompactMessageIds,
         );
         if (mappedGroup.turns.isNotEmpty) {
           turns.addAll(
@@ -974,6 +980,7 @@ $identity''';
         compressionConfig,
         messageIndex: index,
         lastConsumerIndex: lastConsumerIndex,
+        microCompactMessageIds: microCompactMessageIds,
       );
       if (mapped.isNotEmpty) {
         turns.addAll(_attachReasoningToAssistantTurns(mapped, roundReasoning));
@@ -1042,6 +1049,7 @@ $identity''';
     AiModelConfig model,
     _ToolCompressionConfig compressionConfig, {
     required int lastConsumerIndex,
+    required Set<String> microCompactMessageIds,
   }) {
     final firstMessage = messages[startIndex];
     final groupedToolCallMessages = <AiSessionMessage>[];
@@ -1062,6 +1070,7 @@ $identity''';
               compressionConfig,
               messageIndex: cursor,
               lastConsumerIndex: lastConsumerIndex,
+              microCompactMessageIds: microCompactMessageIds,
             ),
             nextIndex: cursor + 1,
           );
@@ -1091,6 +1100,7 @@ $identity''';
           compressionConfig,
           messageIndex: startIndex,
           lastConsumerIndex: lastConsumerIndex,
+          microCompactMessageIds: microCompactMessageIds,
         ),
         nextIndex: startIndex + 1,
       );
@@ -1136,6 +1146,9 @@ $identity''';
             toolMessage,
             compressionConfig,
             isFreshUnconsumedResult: toolMessageIndex > lastConsumerIndex,
+            isMicroCompactCleared: microCompactMessageIds.contains(
+              toolMessage.id,
+            ),
           ),
         ),
       );
@@ -1150,6 +1163,7 @@ $identity''';
     _ToolCompressionConfig compressionConfig, {
     required int messageIndex,
     required int lastConsumerIndex,
+    required Set<String> microCompactMessageIds,
   }) {
     final promptContent = _promptContentForMessage(message);
     switch (message.kind) {
@@ -1177,6 +1191,7 @@ $identity''';
             message,
             compressionConfig,
             isFreshUnconsumedResult: messageIndex > lastConsumerIndex,
+            isMicroCompactCleared: microCompactMessageIds.contains(message.id),
           ),
         );
       case AiSessionMessageKind.mcp:
@@ -1696,6 +1711,7 @@ $identity''';
     AiSessionMessage message,
     _ToolCompressionConfig compressionConfig, {
     bool isFreshUnconsumedResult = false,
+    bool isMicroCompactCleared = false,
   }) {
     if (!compressionConfig.enabled) {
       // 2026-04-27: 总开关关闭时直接返回原始内容，不作压缩。
@@ -1708,6 +1724,9 @@ $identity''';
       // 会被迫凭空猜测或反复重试。仅对"已被模型消费过"的历史轮次
       // 启用压缩，未消费的最新一轮始终保留原文。
       return _promptContentForMessage(message);
+    }
+    if (isMicroCompactCleared) {
+      return _microCompactToolResultContent(message);
     }
     if (!_isWriteLikeToolHistoryMessage(message)) {
       // 2026-04-27: 通用工具调用结果压缩。当工具返回内容超过阈值时，
@@ -1745,6 +1764,55 @@ $identity''';
               : resultText.length <= compressionConfig.writeSummaryMaxChars))
         'summary: $resultText',
       'note: Large write payloads and file contents were omitted from prompt history to save tokens. Inspect the local filesystem if exact contents are needed.',
+    ];
+    return lines.join('\n');
+  }
+
+  Set<String> _microCompactToolMessageIds(
+    List<AiSessionMessage> messages,
+    int lastConsumerIndex,
+  ) {
+    if (lastConsumerIndex <= 0) {
+      return const <String>{};
+    }
+    final consumedToolMessages = <AiSessionMessage>[];
+    for (var index = 0; index < lastConsumerIndex; index++) {
+      final message = messages[index];
+      if (message.kind == AiSessionMessageKind.tool && !message.isDeleted) {
+        consumedToolMessages.add(message);
+      }
+    }
+    final clearCount =
+        consumedToolMessages.length - _microCompactKeepRecentToolResults;
+    if (clearCount <= 0) {
+      return const <String>{};
+    }
+    return consumedToolMessages
+        .take(clearCount)
+        .map((message) => message.id)
+        .toSet();
+  }
+
+  String _microCompactToolResultContent(AiSessionMessage message) {
+    final metadata = message.metadata;
+    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
+    final status =
+        '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
+            .trim();
+    final targetPath = _fileMutationTargetPath(metadata);
+    final workingDirectory =
+        '${metadata['working_directory'] ?? metadata['tool_execution_working_directory'] ?? ''}'
+            .trim();
+    final purpose = _extractToolCallPurpose(metadata);
+    final original = _promptContentForMessage(message);
+    final lines = <String>[
+      '[old_tool_result_cleared] ${toolName.isEmpty ? 'Tool' : toolName}',
+      'original_chars: ${original.length}',
+      if (status.isNotEmpty) 'status: $status',
+      if (targetPath != null) 'target: $targetPath',
+      if (workingDirectory.isNotEmpty) 'working_directory: $workingDirectory',
+      if (purpose != null && purpose.isNotEmpty) 'purpose: $purpose',
+      'note: Older consumed tool result content was cleared from prompt history. Re-run the tool or read local files if exact output is needed.',
     ];
     return lines.join('\n');
   }

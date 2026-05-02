@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:openhand/features/ai/model/ai_model_config.dart';
 import 'package:openhand/features/ai/model/ai_session.dart';
 import 'package:openhand/features/ai/model/ai_session_message.dart';
 import 'package:openhand/features/ai/model/ai_session_runtime_context.dart';
@@ -52,6 +53,109 @@ void main() {
     expect(prompt[1].content, contains('KEEP TERMINAL BINDING STATE'));
     expect(prompt.last.content, contains('继续排查远端终端问题'));
   });
+
+  test('micro compact clears older consumed tool results', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final history = <AiSessionMessage>[
+      AiSessionMessage.user(id: 'u1', content: 'run tools', createdAt: now),
+      for (var i = 0; i < 7; i++) ...<AiSessionMessage>[
+        _toolCall('tc$i', 'call$i', now),
+        _toolResult('tr$i', 'call$i', 'raw result $i', now),
+      ],
+      AiSessionMessage.assistant(
+        id: 'a1',
+        content: 'consumed tool outputs',
+        createdAt: now,
+      ),
+    ];
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: 'continue',
+      createdAt: now,
+    );
+    final messages = <AiSessionMessage>[...history, latest];
+    final session = _session(template: template, now: now, messages: messages);
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: const <UserMemoryEntry>[],
+      sessionMessages: messages,
+      latestUserMessageId: latest.id,
+    );
+    final promptText = result.messages.map((turn) => turn.content).join('\n');
+
+    expect(
+      RegExp(r'\[old_tool_result_cleared\]').allMatches(promptText).length,
+      2,
+    );
+    expect(promptText, isNot(contains('raw result 0')));
+    expect(promptText, isNot(contains('raw result 1')));
+    expect(promptText, contains('raw result 2'));
+    expect(promptText, contains('raw result 6'));
+  });
+}
+
+AiSessionMessage _toolCall(String id, String callId, DateTime now) {
+  return AiSessionMessage.toolCall(
+    id: id,
+    content: 'Tool call $callId',
+    createdAt: now,
+    metadata: <String, Object?>{
+      'tool_calls': <Map<String, Object?>>[
+        <String, Object?>{
+          'id': callId,
+          'name': 'Bash',
+          'arguments': '{"cmd":"echo $callId"}',
+        },
+      ],
+    },
+  );
+}
+
+AiSessionMessage _toolResult(
+  String id,
+  String callId,
+  String content,
+  DateTime now,
+) {
+  return AiSessionMessage.toolResult(
+    id: id,
+    content: content,
+    createdAt: now,
+    metadata: <String, Object?>{
+      'tool_call_id': callId,
+      'tool_name': 'Bash',
+      'status': 'success',
+    },
+  );
+}
+
+AiModelConfig _model() {
+  return const AiModelConfig(
+    id: 'model',
+    baseUrl: 'https://example.test/v1',
+    authScheme: AiAuthScheme.none,
+    token: '',
+    modelId: 'test-model',
+    protocolType: AiProtocolType.openai,
+  );
 }
 
 AiSession _session({

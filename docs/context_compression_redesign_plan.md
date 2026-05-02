@@ -198,6 +198,8 @@ Hardness API phase runner 有独立交接压缩：
 | 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖压缩 prompt 简洁无工具且不回灌完整 system |
 | Phase 1 | `ai_session_controller.dart` / `_ai_session_models.dart` | 通用压缩窗口改为按消息组保留与压缩，PTL 重试也只丢完整组 |
 | Phase 1 测试 | `test/features/ai/ai_session_controller_compression_group_test.dart` | 覆盖工具调用组分组与 PTL 重试整组丢弃 |
+| Phase 2 | `ai_prompt_builder.dart` | 已消费旧工具结果 micro compact：只保留最近 5 个完整结果，更旧结果替换为极简清理摘要 |
+| Phase 2 测试 | `test/features/ai/service/ai_prompt_builder_compression_test.dart` | 覆盖旧工具结果被清理、最近结果仍保留原文 |
 
 ## 5. OpenHand 目标架构
 
@@ -291,6 +293,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 ### Phase 2：L1 Micro Compact
 
 优先级：中高
+
+状态：已在 2026-05-03 落地第一版；当前仅处理标准 `tool` 结果，MCP / Skill / Hook 结果保持原逻辑。
 
 1. 在 prompt builder 前增加历史工具结果 micro compact 预处理，仅处理“已被模型消费”的旧结果。
 2. 默认保留最近 5 个工具 exchange 的完整结果。
