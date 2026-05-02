@@ -1022,91 +1022,105 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         ),
                       ],
                       const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: isFirst
-                            ? null
-                            : () =>
-                                  widget.onMoveQueuedMessage(index, index - 1),
-                        icon: Icon(
-                          Icons.arrow_upward_rounded,
-                          size: 14,
-                          color: isFirst
-                              ? Theme.of(context).colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.3)
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '上移',
-                          en: 'Move up',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: isLast
-                            ? null
-                            : () =>
-                                  widget.onMoveQueuedMessage(index, index + 1),
-                        icon: Icon(
-                          Icons.arrow_downward_rounded,
-                          size: 14,
-                          color: isLast
-                              ? Theme.of(context).colorScheme.onSurfaceVariant
-                                    .withValues(alpha: 0.3)
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '下移',
-                          en: 'Move down',
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: () async {
-                          final edited = await _showEditQueuedMessageDialog(
+                      // 2026-05 — wrap inline toolbar buttons in
+                      // MicroPressFeedback for an 80ms scale-down +
+                      // 140ms ease-out rebound on tap. Honors
+                      // reduceMotion via the wrapper.
+                      MicroPressFeedback(
+                        enabled: !isFirst,
+                        child: IconButton(
+                          onPressed: isFirst
+                              ? null
+                              : () => widget.onMoveQueuedMessage(
+                                    index, index - 1),
+                          icon: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 14,
+                            color: isFirst
+                                ? Theme.of(context).colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.3)
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: _localizedText(
                             context,
-                            msg.text,
-                          );
-                          if (edited != null && edited.trim().isNotEmpty) {
-                            widget.onEditQueuedMessage(index, edited);
-                          }
-                        },
-                        icon: Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '编辑此等待消息',
-                          en: 'Edit this queued message',
+                            zh: '上移',
+                            en: 'Move up',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: requestRemove,
-                        icon: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      MicroPressFeedback(
+                        enabled: !isLast,
+                        child: IconButton(
+                          onPressed: isLast
+                              ? null
+                              : () => widget.onMoveQueuedMessage(
+                                    index, index + 1),
+                          icon: Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 14,
+                            color: isLast
+                                ? Theme.of(context).colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.3)
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '下移',
+                            en: 'Move down',
+                          ),
                         ),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: _localizedText(
-                          context,
-                          zh: '删除此等待消息',
-                          en: 'Remove this queued message',
+                      ),
+                      const SizedBox(width: 4),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          onPressed: () async {
+                            final edited = await _showEditQueuedMessageDialog(
+                              context,
+                              msg.text,
+                            );
+                            if (edited != null && edited.trim().isNotEmpty) {
+                              widget.onEditQueuedMessage(index, edited);
+                            }
+                          },
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '编辑此等待消息',
+                            en: 'Edit this queued message',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      MicroPressFeedback(
+                        child: IconButton(
+                          onPressed: requestRemove,
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: _localizedText(
+                            context,
+                            zh: '删除此等待消息',
+                            en: 'Remove this queued message',
+                          ),
                         ),
                       ),
                     ],

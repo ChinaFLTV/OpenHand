@@ -49,6 +49,7 @@ import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/export_config_dialog.dart';
 import '../../shared/widgets/export_progress_dialog.dart';
 import '../../shared/widgets/image_editor_dialog.dart';
+import '../../shared/widgets/micro_press_feedback.dart';
 import '../../shared/widgets/model_search_selector.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/section_placeholder.dart';
