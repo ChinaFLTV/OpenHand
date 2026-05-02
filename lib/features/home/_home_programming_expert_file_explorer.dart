@@ -11,11 +11,13 @@ class _FileExplorerPanel extends StatefulWidget {
     required this.rootPath,
     required this.onFileSelected,
     this.activeFilePath,
+    this.onCloseRequested,
   });
 
   final String rootPath;
   final ValueChanged<String> onFileSelected;
   final String? activeFilePath;
+  final VoidCallback? onCloseRequested;
 
   @override
   State<_FileExplorerPanel> createState() => _FileExplorerPanelState();
@@ -649,6 +651,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     if (_loading) {
       return Center(
         child: SizedBox(
@@ -668,22 +671,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Icon(
-                Icons.folder_open_rounded,
-                size: 18,
-                color: colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _rootNode.name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
               Material(
                 color: Colors.transparent,
                 borderRadius: _borderRadius999,
@@ -784,6 +771,28 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
+              if (widget.onCloseRequested != null) ...[
+                const Spacer(),
+                Tooltip(
+                  message: l10n.toolbarFilesHide,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: _borderRadius999,
+                    child: InkWell(
+                      borderRadius: _borderRadius999,
+                      onTap: widget.onCloseRequested,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -458,6 +458,75 @@ Widget _buildPanelTransition({
   };
 }
 
+Widget _buildWorkspaceSidebarTransition({
+  required Widget child,
+  required Animation<double> animation,
+}) {
+  final safeAnimation = _ClampedDoubleAnimation(animation);
+  final isFileExplorerPane =
+      child.key == const ValueKey<String>('file-explorer-pane');
+  final isNavigationPane =
+      child.key == const ValueKey<String>('navigation-pane');
+  final horizontalOffset = isFileExplorerPane
+      ? 32.0
+      : isNavigationPane
+      ? -32.0
+      : 0.0;
+  return FadeTransition(
+    opacity: CurvedAnimation(
+      parent: safeAnimation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    ),
+    child: _PaintOffsetTransition(
+      animation: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      maxXOffset: horizontalOffset,
+      maxYOffset: 10,
+      child: child,
+    ),
+  );
+}
+
+Widget _buildWorkspaceContentTransition({
+  required Widget child,
+  required Animation<double> animation,
+}) {
+  final safeAnimation = _ClampedDoubleAnimation(animation);
+  final childKey = switch (child.key) {
+    ValueKey<String>(:final value) => value,
+    _ => null,
+  };
+  final isEditorPane = childKey == 'editor-pane';
+  final isSectionPane = childKey?.startsWith('section-') ?? false;
+  final horizontalOffset = isEditorPane
+      ? 34.0
+      : isSectionPane
+      ? -18.0
+      : 0.0;
+  final verticalOffset = isEditorPane ? 12.0 : 8.0;
+  return FadeTransition(
+    opacity: CurvedAnimation(
+      parent: safeAnimation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    ),
+    child: _PaintOffsetTransition(
+      animation: CurvedAnimation(
+        parent: safeAnimation,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      maxXOffset: horizontalOffset,
+      maxYOffset: verticalOffset,
+      child: child,
+    ),
+  );
+}
+
 Duration _effectiveSwitchDuration(DialogAnimationSettings settings) {
   // Always return a non-zero duration so page / panel switches are visibly
   // animated even when the user (or stale persisted settings) selected the
@@ -5280,8 +5349,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     _selectedSection == AppSection.workspace;
                 final panelAnim = panelAnimationSettings;
                 final panelDuration = _effectiveSwitchDuration(panelAnim);
-                final panelCurve = panelAnim.curve.curve;
-                final panelReverseCurve = panelAnim.curve.reverseCurve;
+                final leftPaneDuration = Duration(
+                  milliseconds: math.max(panelDuration.inMilliseconds, 260),
+                );
                 final Widget leftPaneContent = showFileExplorer
                     ? _ContentPane(
                         key: const ValueKey<String>('file-explorer-pane'),
@@ -5289,34 +5359,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                           rootPath: projectRoot,
                           onFileSelected: _openFileInEditor,
                           activeFilePath: _activeFilePath,
+                          onCloseRequested: _toggleFileExplorer,
                         ),
                       )
                     : KeyedSubtree(
                         key: const ValueKey<String>('navigation-pane'),
                         child: navigationPane,
                       );
-                final Widget leftPane = AnimatedSwitcher(
-                  duration: panelDuration,
-                  switchInCurve: panelCurve,
-                  switchOutCurve: panelReverseCurve,
-                  transitionBuilder: (child, animation) {
-                    return _buildPanelTransition(
-                      child: child,
-                      animation: animation,
-                      entranceStyle: panelAnim.entranceStyle,
-                      exitStyle: panelAnim.exitStyle,
-                    );
-                  },
-                  layoutBuilder: (currentChild, previousChildren) {
-                    return Stack(
-                      alignment: Alignment.topCenter,
-                      children: [
-                        ...previousChildren,
-                        if (currentChild != null) currentChild,
-                      ],
-                    );
-                  },
-                  child: leftPaneContent,
+                final Widget leftPane = ClipRect(
+                  child: AnimatedSwitcher(
+                    duration: leftPaneDuration,
+                    transitionBuilder: (child, animation) {
+                      return _buildWorkspaceSidebarTransition(
+                        child: child,
+                        animation: animation,
+                      );
+                    },
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    child: leftPaneContent,
+                  ),
                 );
 
                 // Swap right pane to code editor when files are open.
@@ -5379,34 +5448,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         ),
                         child: _buildSectionContent(context),
                       );
-                final rightPaneDuration = _effectiveSwitchDuration(
+                final rightPaneBaseDuration = _effectiveSwitchDuration(
                   effectiveSectionAnim,
                 );
-                final rightPaneCurve = effectiveSectionAnim.curve.curve;
-                final rightPaneReverseCurve =
-                    effectiveSectionAnim.curve.reverseCurve;
-                final Widget rightPane = AnimatedSwitcher(
-                  duration: rightPaneDuration,
-                  switchInCurve: rightPaneCurve,
-                  switchOutCurve: rightPaneReverseCurve,
-                  transitionBuilder: (child, animation) {
-                    return _buildPanelTransition(
-                      child: child,
-                      animation: animation,
-                      entranceStyle: effectiveSectionAnim.entranceStyle,
-                      exitStyle: effectiveSectionAnim.exitStyle,
-                    );
-                  },
-                  layoutBuilder: (currentChild, previousChildren) {
-                    return Stack(
-                      alignment: Alignment.topCenter,
-                      children: [
-                        ...previousChildren,
-                        if (currentChild != null) currentChild,
-                      ],
-                    );
-                  },
-                  child: rightPaneContent,
+                final rightPaneDuration = Duration(
+                  milliseconds: math.max(
+                    rightPaneBaseDuration.inMilliseconds,
+                    280,
+                  ),
+                );
+                final Widget rightPane = ClipRect(
+                  child: AnimatedSwitcher(
+                    duration: rightPaneDuration,
+                    transitionBuilder: (child, animation) {
+                      return _buildWorkspaceContentTransition(
+                        child: child,
+                        animation: animation,
+                      );
+                    },
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.topCenter,
+                        children: [
+                          ...previousChildren,
+                          if (currentChild != null) currentChild,
+                        ],
+                      );
+                    },
+                    child: rightPaneContent,
+                  ),
                 );
 
                 if (stackedLayout) {
