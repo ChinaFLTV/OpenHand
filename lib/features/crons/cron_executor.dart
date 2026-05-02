@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../app/model/cron_config.dart';
 import '../../app/support/app_runtime_context.dart';
 import '../../app/support/openhand_paths.dart';
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 
 /// Maximum characters to collect from cron script stdout / stderr.
@@ -421,7 +422,12 @@ class CronExecutor {
       final args = <String>['/PID', '$processId', '/T'];
       if (force) args.add('/F');
       try {
-        await Process.run('taskkill', args);
+        await runProcessWithTimeout(
+          'taskkill',
+          args,
+          timeout: const Duration(seconds: 5),
+          tag: 'cron_executor',
+        );
       } catch (error, stack) {
         silentLog('cron_executor', 'taskkill', error, stack);
       }
@@ -430,7 +436,12 @@ class CronExecutor {
 
     final signalFlag = force ? '-KILL' : '-TERM';
     try {
-      await Process.run('pkill', [signalFlag, '-P', '$processId']);
+      await runProcessWithTimeout(
+        'pkill',
+        <String>[signalFlag, '-P', '$processId'],
+        timeout: const Duration(seconds: 5),
+        tag: 'cron_executor',
+      );
     } catch (error, stack) {
       silentLog('cron_executor', 'pkill', error, stack);
     }

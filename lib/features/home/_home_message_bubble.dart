@@ -704,25 +704,37 @@ Future<void> _openLocalPathWithSystemApp(
     return;
   }
   try {
-    late final ProcessResult result;
+    final ProcessResult? result;
     if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[normalizedPath]);
+      result = await runProcessWithTimeout(
+        'open',
+        <String>[normalizedPath],
+        timeout: const Duration(seconds: 6),
+        tag: 'home_message_bubble',
+      );
     } else if (Platform.isWindows) {
-      result = await Process.run('cmd', <String>[
-        '/c',
-        'start',
-        '',
-        normalizedPath,
-      ]);
+      result = await runProcessWithTimeout(
+        'cmd',
+        <String>['/c', 'start', '', normalizedPath],
+        timeout: const Duration(seconds: 6),
+        tag: 'home_message_bubble',
+      );
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[normalizedPath]);
+      result = await runProcessWithTimeout(
+        'xdg-open',
+        <String>[normalizedPath],
+        timeout: const Duration(seconds: 6),
+        tag: 'home_message_bubble',
+      );
     } else {
       throw const FileSystemException('Unsupported platform.');
     }
-    if (result.exitCode == 0) {
+    if (result != null && result.exitCode == 0) {
       return;
     }
-    final message = '${result.stderr}'.trim();
+    final message = result == null
+        ? 'open command timed out'
+        : '${result.stderr}'.trim();
     throw FileSystemException(
       message.isEmpty ? 'Failed to open file.' : message,
       normalizedPath,

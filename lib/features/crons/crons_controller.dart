@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/cron_config.dart';
 import '../../app/support/openhand_notification_service.dart';
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import 'cron_executor.dart';
 import 'cron_parser.dart';
@@ -496,8 +497,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         notifyListeners();
         return;
       }
-      final result = await Process.run('cut', ['-d:', '-f1', '/etc/passwd']);
-      if (result.exitCode == 0) {
+      final result = await runProcessWithTimeout(
+        'cut',
+        const <String>['-d:', '-f1', '/etc/passwd'],
+        tag: 'crons_controller',
+      );
+      if (result != null && result.exitCode == 0) {
         final users = (result.stdout as String)
             .split('\n')
             .map((s) => s.trim())

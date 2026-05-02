@@ -2078,34 +2078,45 @@ Future<void> _openResolvedMessagePath(
   MessageResolvedPath resolvedPath,
 ) async {
   try {
-    late final ProcessResult result;
+    final ProcessResult? result;
     if (Platform.isMacOS) {
-      result = await Process.run(
+      result = await runProcessWithTimeout(
         'open',
         resolvedPath.isDirectory
             ? <String>[resolvedPath.resolvedPath]
             : <String>['-R', resolvedPath.resolvedPath],
+        timeout: const Duration(seconds: 6),
+        tag: 'tool_call_widgets',
       );
     } else if (Platform.isWindows) {
-      result = await Process.run(
+      result = await runProcessWithTimeout(
         'explorer',
         resolvedPath.isDirectory
             ? <String>[resolvedPath.resolvedPath]
             : <String>['/select,${resolvedPath.resolvedPath}'],
+        timeout: const Duration(seconds: 6),
+        tag: 'tool_call_widgets',
       );
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[
-        resolvedPath.isDirectory
-            ? resolvedPath.resolvedPath
-            : p.dirname(resolvedPath.resolvedPath),
-      ]);
+      result = await runProcessWithTimeout(
+        'xdg-open',
+        <String>[
+          resolvedPath.isDirectory
+              ? resolvedPath.resolvedPath
+              : p.dirname(resolvedPath.resolvedPath),
+        ],
+        timeout: const Duration(seconds: 6),
+        tag: 'tool_call_widgets',
+      );
     } else {
       throw const FileSystemException('Unsupported platform.');
     }
-    if (result.exitCode == 0) {
+    if (result != null && result.exitCode == 0) {
       return;
     }
-    final message = '${result.stderr}'.trim();
+    final message = result == null
+        ? 'open command timed out'
+        : '${result.stderr}'.trim();
     throw FileSystemException(
       message.isEmpty ? 'Unable to open file location.' : message,
     );

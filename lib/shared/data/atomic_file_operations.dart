@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../app/support/safe_subprocess.dart';
+
 /// Per-path write lock. All atomic writes that target the same absolute path
 /// are serialized on a single [Future] chain to prevent two concurrent writers
 /// from clobbering each other's `.tmp`/`.bak` files.
@@ -153,14 +155,29 @@ Future<void> openDirectoryInFileManager(Directory directory) async {
     await directory.create(recursive: true);
   }
 
-  late final ProcessResult result;
+  final ProcessResult? result;
   try {
     if (Platform.isMacOS) {
-      result = await Process.run('open', <String>[directory.path]);
+      result = await runProcessWithTimeout(
+        'open',
+        <String>[directory.path],
+        timeout: const Duration(seconds: 6),
+        tag: 'atomic_file_ops',
+      );
     } else if (Platform.isWindows) {
-      result = await Process.run('explorer', <String>[directory.path]);
+      result = await runProcessWithTimeout(
+        'explorer',
+        <String>[directory.path],
+        timeout: const Duration(seconds: 6),
+        tag: 'atomic_file_ops',
+      );
     } else if (Platform.isLinux) {
-      result = await Process.run('xdg-open', <String>[directory.path]);
+      result = await runProcessWithTimeout(
+        'xdg-open',
+        <String>[directory.path],
+        timeout: const Duration(seconds: 6),
+        tag: 'atomic_file_ops',
+      );
     } else {
       throw const FileSystemException('Unsupported platform.');
     }
@@ -170,6 +187,9 @@ Future<void> openDirectoryInFileManager(Directory directory) async {
 
   // Windows explorer.exe always returns exit code 1 even on success,
   // so skip the exit code check for it.
+  if (result == null) {
+    throw const FileSystemException('Open command timed out.');
+  }
   if (result.exitCode != 0 && !Platform.isWindows) {
     final message = '${result.stderr}'.trim();
     throw FileSystemException(

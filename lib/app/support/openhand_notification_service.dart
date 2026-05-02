@@ -133,21 +133,26 @@ abstract final class OpenHandNotificationService {
     required OpenHandNotificationLevel level,
   }) async {
     try {
-      final whichResult = await Process.run('which', ['notify-send']);
-      if (whichResult.exitCode != 0) return false;
+      final whichResult = await runProcessWithTimeout(
+        'which',
+        const <String>['notify-send'],
+        timeout: const Duration(seconds: 3),
+        tag: 'openhand_notification_service',
+      );
+      if (whichResult == null || whichResult.exitCode != 0) return false;
       final urgency = switch (level) {
         OpenHandNotificationLevel.critical => 'critical',
         OpenHandNotificationLevel.error => 'critical',
         OpenHandNotificationLevel.warning => 'normal',
         _ => 'low',
       };
-      final result = await Process.run('notify-send', [
-        '-u',
-        urgency,
-        title,
-        body,
-      ]);
-      return result.exitCode == 0;
+      final result = await runProcessWithTimeout(
+        'notify-send',
+        <String>['-u', urgency, title, body],
+        timeout: const Duration(seconds: 5),
+        tag: 'openhand_notification_service',
+      );
+      return result?.exitCode == 0;
     } catch (_) {
       return false;
     }
@@ -186,14 +191,19 @@ $notifier.Show($toast)
             .replaceAll('BODY_VALUE', safeBody);
 
     try {
-      final result = await Process.run('powershell', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        script,
-      ]);
-      return result.exitCode == 0;
+      final result = await runProcessWithTimeout(
+        'powershell',
+        <String>[
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-Command',
+          script,
+        ],
+        timeout: const Duration(seconds: 8),
+        tag: 'openhand_notification_service',
+      );
+      return result?.exitCode == 0;
     } catch (_) {
       return false;
     }
@@ -273,14 +283,24 @@ $notifier.Show($toast)
           OpenHandNotificationLevel.critical => 'dialog-error',
           OpenHandNotificationLevel.info => 'message-new-instant',
         };
-        final result = await Process.run('canberra-gtk-play', ['-i', id]);
-        if (result.exitCode == 0) return true;
+        final result = await runProcessWithTimeout(
+          'canberra-gtk-play',
+          <String>['-i', id],
+          timeout: const Duration(seconds: 5),
+          tag: 'openhand_notification_service',
+        );
+        if (result?.exitCode == 0) return true;
       }
       if (await _commandExists('paplay')) {
-        final result = await Process.run('paplay', [
-          '/usr/share/sounds/freedesktop/stereo/message.oga',
-        ]);
-        if (result.exitCode == 0) return true;
+        final result = await runProcessWithTimeout(
+          'paplay',
+          const <String>[
+            '/usr/share/sounds/freedesktop/stereo/message.oga',
+          ],
+          timeout: const Duration(seconds: 5),
+          tag: 'openhand_notification_service',
+        );
+        if (result?.exitCode == 0) return true;
       }
     } catch (_) {
       return false;
@@ -302,14 +322,19 @@ $notifier.Show($toast)
         '[System.Media.SystemSounds]::Beep.Play()',
     };
     try {
-      final result = await Process.run('powershell', [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        command,
-      ]);
-      return result.exitCode == 0;
+      final result = await runProcessWithTimeout(
+        'powershell',
+        <String>[
+          '-NoProfile',
+          '-ExecutionPolicy',
+          'Bypass',
+          '-Command',
+          command,
+        ],
+        timeout: const Duration(seconds: 6),
+        tag: 'openhand_notification_service',
+      );
+      return result?.exitCode == 0;
     } catch (_) {
       return false;
     }
@@ -317,8 +342,13 @@ $notifier.Show($toast)
 
   static Future<bool> _commandExists(String command) async {
     try {
-      final result = await Process.run('which', [command]);
-      return result.exitCode == 0;
+      final result = await runProcessWithTimeout(
+        'which',
+        <String>[command],
+        timeout: const Duration(seconds: 3),
+        tag: 'openhand_notification_service',
+      );
+      return result?.exitCode == 0;
     } catch (_) {
       return false;
     }

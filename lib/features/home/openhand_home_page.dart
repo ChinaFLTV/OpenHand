@@ -32,6 +32,7 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/openhand_scroll_physics.dart';
+import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../app/theme/openhand_palette.dart';
