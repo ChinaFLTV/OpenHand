@@ -1210,7 +1210,9 @@ class _FileTreeTile extends StatelessWidget {
                 if (node.isDirectory)
                   AnimatedRotation(
                     turns: node.isExpanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 200),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     child: Icon(
                       Icons.chevron_right_rounded,

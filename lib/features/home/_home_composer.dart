@@ -1366,7 +1366,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
               child: AnimatedRotation(
                 turns: widget.isCollapsed ? 0.5 : 0,
-                duration: const Duration(milliseconds: 220),
+                duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),

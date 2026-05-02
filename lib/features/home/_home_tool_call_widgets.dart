@@ -506,7 +506,9 @@ class _ExpandableToolSection extends StatelessWidget {
                   children: [
                     AnimatedRotation(
                       turns: expanded ? 0.25 : 0.0,
-                      duration: const Duration(milliseconds: 240),
+                      duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 240),
                       curve: Curves.easeOutCubic,
                       child: const Icon(
                         Icons.keyboard_arrow_right_rounded,

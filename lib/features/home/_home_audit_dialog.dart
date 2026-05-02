@@ -218,7 +218,9 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
                 if (widget.collapsible)
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                     curve: Curves.easeInOutCubic,
                     child: Icon(
                       Icons.expand_more_rounded,
@@ -379,7 +381,9 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                 children: [
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
                     curve: Curves.easeInOutCubic,
                     child: Icon(
                       Icons.expand_more_rounded,
