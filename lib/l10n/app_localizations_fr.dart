@@ -232,7 +232,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get aboutPlatformsValue => 'macOS 15+ / Windows 10+';
 
   @override
-  String get aboutBuild => 'Build';
+  String get aboutBuild => 'Numéro de build';
 
   @override
   String get commonCancel => 'Annuler';
@@ -845,7 +845,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Le dossier actuel, le nombre installé et l\'état d\'analyse sont affichés ici en temps réel.';
 
   @override
-  String get skillsStorageStatusReady => 'État';
+  String get skillsStorageStatusReady => 'Statut';
 
   @override
   String get skillsStorageStatusLoading => 'Analyse en cours';
@@ -1810,7 +1810,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get imageEditorHueLabel => 'Teinte';
 
   @override
-  String get imageEditorVignetteLabel => 'Vignette';
+  String get imageEditorVignetteLabel => 'Vignettage';
 
   @override
   String get imageEditorFineRotationLabel => 'Rotation fine (°)';
@@ -2247,7 +2247,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Par défaut : https://www.google.com/generate_204';
 
   @override
-  String get proxyTestVerdictDirect => 'direct';
+  String get proxyTestVerdictDirect => 'directe';
 
   @override
   String proxyTestVerdictProxy(Object endpoint) {
@@ -2595,7 +2595,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mdlEdOutputMode => 'Mode de sortie';
 
   @override
-  String get mdlEdStreaming => 'Flux';
+  String get mdlEdStreaming => 'Diffusion';
 
   @override
   String get mdlEdNonStreaming => 'Sans flux';
@@ -3130,7 +3130,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get auditCharacterCount => 'Nombre de caractères';
 
   @override
-  String get auditStreaming => 'En flux';
+  String get auditStreaming => 'Diffusion';
 
   @override
   String get auditDeleted => 'Supprimé';
@@ -3571,14 +3571,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Inspecter le back-end LSP lié au fichier actuel';
 
   @override
-  String get progExpFEDef => 'Déf';
+  String get progExpFEDef => 'Déf.';
 
   @override
   String get progExpFEGoToDefinitionF12CmdCtrl =>
       'Aller à la définition (F12 / Cmd/Ctrl+B)';
 
   @override
-  String get progExpFERefs => 'Réfs';
+  String get progExpFERefs => 'Réfs.';
 
   @override
   String get progExpFEFindReferencesShiftF12CmdCtrl =>
@@ -3650,7 +3650,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settingsBuiltInTools => 'Outils intégrés';
 
   @override
-  String get settingsCrons => 'Crons';
+  String get settingsCrons => 'Tâches Cron';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -3730,7 +3730,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Mode d’interaction par défaut pour les nouvelles sessions : Chat ou Plan.';
 
   @override
-  String get settingsChat => 'Chat';
+  String get settingsChat => 'Discussion';
 
   @override
   String get settingsPlan => 'Plan';
@@ -4468,6 +4468,6 @@ class AppLocalizationsFr extends AppLocalizations {
     Object rootPath,
     Object command,
   ) {
-    return 'Resolved $lspName for the current file.\nProject language: $projLang\nCurrent file language: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: $rootPath\nCommand: $command';
+    return '$lspName résolu pour le fichier actuel.\nLangue du projet : $projLang\nLangue du fichier actuel : $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nEspace de travail : $rootPath\nCommande : $command';
   }
 }

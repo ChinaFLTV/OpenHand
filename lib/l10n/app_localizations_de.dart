@@ -232,7 +232,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aboutPlatformsValue => 'macOS 15+ / Windows 10+';
 
   @override
-  String get aboutBuild => 'Build';
+  String get aboutBuild => 'Build-Nummer';
 
   @override
   String get commonCancel => 'Abbrechen';
@@ -2303,7 +2303,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupInputHeading => 'Eingabe';
 
   @override
-  String get tokenPopupPrompt => 'Prompt';
+  String get tokenPopupPrompt => 'Aufforderung';
 
   @override
   String get tokenPopupCacheRead => 'Cache-Treffer';
@@ -3193,7 +3193,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Nicht erfasst (Einstellungen → KI → Telemetrie-Debug aktivieren)';
 
   @override
-  String get auditBodyQueryPath => 'Body / Query / Pfad';
+  String get auditBodyQueryPath => 'Body / Query / Path';
 
   @override
   String get auditRawAiResponse => 'Rohe KI-Antwort';
@@ -3305,7 +3305,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get auditNoMessages => 'Keine Nachrichten';
 
   @override
-  String get auditAudit => 'Audit';
+  String get auditAudit => 'Prüfung';
 
   @override
   String get auditDelete => 'Löschen';
@@ -3552,14 +3552,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Das an die aktuelle Datei gebundene LSP-Backend prüfen';
 
   @override
-  String get progExpFEDef => 'Def';
+  String get progExpFEDef => 'Def.';
 
   @override
   String get progExpFEGoToDefinitionF12CmdCtrl =>
       'Zur Definition gehen (F12 / Cmd/Strg+B)';
 
   @override
-  String get progExpFERefs => 'Refs';
+  String get progExpFERefs => 'Refs.';
 
   @override
   String get progExpFEFindReferencesShiftF12CmdCtrl =>
@@ -3630,7 +3630,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsBuiltInTools => 'Integrierte Werkzeuge';
 
   @override
-  String get settingsCrons => 'Crons';
+  String get settingsCrons => 'Cron-Aufgaben';
 
   @override
   String get settingsControlsRetentionAndColdStartCleanup =>
@@ -4443,6 +4443,6 @@ class AppLocalizationsDe extends AppLocalizations {
     Object rootPath,
     Object command,
   ) {
-    return 'Resolved $lspName for the current file.\nProject language: $projLang\nCurrent file language: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: $rootPath\nCommand: $command';
+    return '$lspName für die aktuelle Datei aufgelöst.\nProjektsprache: $projLang\nSprache der aktuellen Datei: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nArbeitsbereich: $rootPath\nBefehl: $command';
   }
 }

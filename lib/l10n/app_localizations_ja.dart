@@ -359,7 +359,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiModelDialogEditTitle => 'モデルプロバイダーを編集';
 
   @override
-  String get aiModelBaseUrl => 'Base URL';
+  String get aiModelBaseUrl => 'ベース URL';
 
   @override
   String get aiModelBaseUrlRequired => 'Base URL を入力してください。';
@@ -465,7 +465,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiAuthNone => 'なし';
 
   @override
-  String get aiAuthBearer => 'Bearer';
+  String get aiAuthBearer => 'ベアラー';
 
   @override
   String get aiAuthToken => 'トークン';
@@ -474,28 +474,28 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiAuthApiKey => 'API キー';
 
   @override
-  String get aiProtocolOpenAi => 'OpenAI';
+  String get aiProtocolOpenAi => 'オープンAI';
 
   @override
-  String get aiProtocolClaude => 'Claude';
+  String get aiProtocolClaude => 'クロード';
 
   @override
-  String get aiProtocolGemini => 'Gemini';
+  String get aiProtocolGemini => 'ジェミニ';
 
   @override
-  String get aiProtocolDeepSeek => 'DeepSeek';
+  String get aiProtocolDeepSeek => 'ディープシーク';
 
   @override
-  String get aiProtocolKimi => 'Kimi';
+  String get aiProtocolKimi => 'キミ';
 
   @override
   String get aiProtocolGlm => 'GLM';
 
   @override
-  String get aiProtocolGrok => 'Grok';
+  String get aiProtocolGrok => 'グロック';
 
   @override
-  String get aiProtocolOllama => 'Ollama';
+  String get aiProtocolOllama => 'オラマ';
 
   @override
   String get aiProtocolVllm => 'vLLM';
@@ -504,34 +504,34 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiProtocolSglang => 'SGLang';
 
   @override
-  String get aiProtocolQwen => 'Qwen';
+  String get aiProtocolQwen => 'クウェン';
 
   @override
-  String get aiProtocolSeed => 'Seed (Doubao)';
+  String get aiProtocolSeed => 'シード（豆包）';
 
   @override
-  String get aiProtocolStepFun => 'StepFun';
+  String get aiProtocolStepFun => 'ステップファン';
 
   @override
-  String get aiProtocolMinimax => 'MiniMax';
+  String get aiProtocolMinimax => 'ミニマックス';
 
   @override
-  String get aiProtocolLongCat => 'LongCat';
+  String get aiProtocolLongCat => 'ロングキャット';
 
   @override
-  String get aiProtocolJoyCode => 'JoyCode';
+  String get aiProtocolJoyCode => 'ジョイコード';
 
   @override
-  String get aiProtocolWenxin => 'Wenxin / ERNIE';
+  String get aiProtocolWenxin => '文心 / ERNIE';
 
   @override
-  String get aiProtocolMeta => 'Meta AI / Llama';
+  String get aiProtocolMeta => 'Meta AI / ラマ';
 
   @override
   String get aiProtocolMimo => 'MIMO';
 
   @override
-  String get aiProtocolHunyuan => 'Hunyuan';
+  String get aiProtocolHunyuan => '混元';
 
   @override
   String get skillsPageTitle => 'スキル';
@@ -729,7 +729,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorGrainLabel => '粒子';
 
   @override
-  String get imageEditorDispersionLabel => '色収差';
+  String get imageEditorDispersionLabel => '分散';
 
   @override
   String get imageEditorDistortLabel => '歪み（正：膨張／負：伸縮）';
@@ -813,7 +813,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '現在のスキルディレクトリ、インストール数、スキャン状態をここでリアルタイムに確認できます。';
 
   @override
-  String get skillsStorageStatusReady => '状態';
+  String get skillsStorageStatusReady => 'ステータス';
 
   @override
   String get skillsStorageStatusLoading => 'スキャン中';
@@ -1137,7 +1137,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'ここでサービス設定の管理は引き続き可能です。実行時に有効化するには、設定 > MCP のスイッチをオンにしてください。';
 
   @override
-  String get mcpTransportStreamableHttp => 'Streamable HTTP';
+  String get mcpTransportStreamableHttp => 'ストリーマブル HTTP';
 
   @override
   String get mcpTransportSse => 'SSE';
@@ -1650,7 +1650,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorAspectFree => '自由';
 
   @override
-  String get imageEditorAspectOriginal => '元のサイズ';
+  String get imageEditorAspectOriginal => 'オリジナル';
 
   @override
   String get imageEditorAspectSquare => '1:1';
@@ -2102,7 +2102,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String proxyTestSuccess(Object latency, Object via) {
-    return '成功（$latency ms、$via 経由）';
+    return 'OK ($latency ms、$via 経由)';
   }
 
   @override
@@ -2117,11 +2117,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get proxyTestEndpointHint => '既定：https://www.google.com/generate_204';
 
   @override
-  String get proxyTestVerdictDirect => '直接接続';
+  String get proxyTestVerdictDirect => '直接';
 
   @override
   String proxyTestVerdictProxy(Object endpoint) {
-    return 'プロキシ $endpoint 経由';
+    return 'プロキシ $endpoint';
   }
 
   @override
@@ -2213,7 +2213,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupSessionHeading => 'セッション';
 
   @override
-  String get tokenPopupMessages => 'メッセージ数';
+  String get tokenPopupMessages => 'メッセージ';
 
   @override
   String get tokenPopupPromptBuilds => 'プロンプト生成';
@@ -3049,7 +3049,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '未取得（設定 → AI → テレメトリデバッグを有効化してください）';
 
   @override
-  String get auditBodyQueryPath => 'Body / Query / Path';
+  String get auditBodyQueryPath => 'ボディ / クエリ / パス';
 
   @override
   String get auditRawAiResponse => 'AI 生レスポンス';
@@ -3477,7 +3477,7 @@ class AppLocalizationsJa extends AppLocalizations {
       'Cron 実行履歴の保持期間とコールドスタート時のクリーンアップを制御します。クリーンアップワーカーはコールドスタートごとに 1 回だけ実行され、ハードタイムアウト、シングルフライトロック、silentLog のみの失敗で、リソースリークや無限ループを防ぎます。';
 
   @override
-  String get settingsHermesTalker => 'Hermes Talker';
+  String get settingsHermesTalker => 'ヘルメストーカー';
 
   @override
   String get settingsConfigureHermesTalkerSelfLearningEvery =>
@@ -4257,6 +4257,6 @@ class AppLocalizationsJa extends AppLocalizations {
     Object rootPath,
     Object command,
   ) {
-    return 'Resolved $lspName for the current file.\nProject language: $projLang\nCurrent file language: $fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nWorkspace: $rootPath\nCommand: $command';
+    return '現在のファイルに対して $lspName を解決しました。\nプロジェクト言語：$projLang\n現在のファイル言語：$fileLang\n$modeLine\n$sdkSourceLine\n$lspSourceLine\nワークスペース：$rootPath\nコマンド：$command';
   }
 }
