@@ -1517,7 +1517,37 @@ class _ToolExecutionChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14),
+          // 2026-05 — phase morph: cross-fade + 90° rotation between
+          // leading icons so preparing→constructing→submitting→running→
+          // done flows as a single morph instead of a hard cut. Keyed on
+          // the icon code-point so AnimatedSwitcher detects identity
+          // change. Honors MediaQuery.disableAnimationsOf via 0ms.
+          AnimatedSwitcher(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: RotationTransition(
+                  turns:
+                      Tween<double>(begin: -0.25, end: 0.0).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.center,
+              children: [...previous, if (current != null) current],
+            ),
+            child: Icon(
+              icon,
+              size: 14,
+              key: ValueKey<int>(icon.codePoint),
+            ),
+          ),
           const SizedBox(width: 6),
           Text(label, style: theme.textTheme.labelMedium),
         ],
