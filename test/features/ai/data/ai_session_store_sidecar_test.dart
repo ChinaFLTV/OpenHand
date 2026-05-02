@@ -67,6 +67,8 @@ void main() {
       checkpoint: checkpoint,
     );
 
+    final sidecar = await store.loadCompressionMemorySidecar(session.id);
+
     final markdown = await File(
       store.sessionCompactMemoryMarkdownPath(session.id),
     ).readAsString();
@@ -85,5 +87,28 @@ void main() {
     expect(metadata['session_id'], session.id);
     expect(metadata['checkpoint_message_id'], checkpoint.id);
     expect(metadata['checkpoint_character_count'], checkpoint.characterCount);
+    expect(sidecar, isNotNull);
+    expect(sidecar!.checkpointMessageId, checkpoint.id);
+    expect(sidecar.summaryContent, checkpoint.content);
+
+    final restored = await store.restoreCompressionCheckpointFromSidecar(
+      session.copyWith(
+        messages: const <AiSessionMessage>[],
+        latestCompressionCheckpointMessageId: checkpoint.id,
+        latestCompressionAt: checkpoint.createdAt,
+        statistics: session.statistics.copyWith(
+          totalMessageCount: 0,
+          compressionPointCount: 0,
+        ),
+      ),
+    );
+    expect(restored.latestCompressionPoint, isNotNull);
+    expect(restored.latestCompressionPoint!.id, checkpoint.id);
+    expect(restored.latestCompressionPoint!.content, checkpoint.content);
+    expect(
+      restored.latestCompressionPoint!.metadata,
+      containsPair('restored_from_compact_memory_sidecar', true),
+    );
+    expect(restored.statistics.compressionPointCount, 1);
   });
 }

@@ -46,6 +46,43 @@ class AiSessionMessagePage {
   final bool hasMore;
 }
 
+class AiSessionCompactMemorySidecar {
+  const AiSessionCompactMemorySidecar({
+    required this.markdownPath,
+    required this.metadataPath,
+    required this.markdown,
+    required this.metadata,
+  });
+
+  final String markdownPath;
+  final String metadataPath;
+  final String markdown;
+  final Map<String, Object?> metadata;
+
+  String get checkpointMessageId =>
+      '${metadata['checkpoint_message_id'] ?? ''}'.trim();
+
+  DateTime? get checkpointCreatedAt =>
+      DateTime.tryParse('${metadata['checkpoint_created_at'] ?? ''}')?.toUtc();
+
+  Map<String, Object?> get checkpointMetadata {
+    final raw = metadata['checkpoint_metadata'];
+    if (raw is Map) {
+      return Map<String, Object?>.from(raw);
+    }
+    return const <String, Object?>{};
+  }
+
+  String get summaryContent {
+    const marker = '\n## Summary\n\n';
+    final index = markdown.indexOf(marker);
+    if (index == -1) {
+      return markdown.trim();
+    }
+    return markdown.substring(index + marker.length).trim();
+  }
+}
+
 class AiSessionStore {
   AiSessionStore({String? sessionsDirectoryPath})
     : _sessionsDirectoryPath =
@@ -142,6 +179,80 @@ class AiSessionStore {
     );
   }
 
+  Future<AiSessionCompactMemorySidecar?> loadCompressionMemorySidecar(
+    String sessionId,
+  ) async {
+    final markdownPath = sessionCompactMemoryMarkdownPath(sessionId);
+    final metadataPath = sessionCompactMemoryMetadataPath(sessionId);
+    final markdownFile = File(markdownPath);
+    final metadataFile = File(metadataPath);
+    await recoverAtomicWriteBackupIfNeeded(markdownFile);
+    await recoverAtomicWriteBackupIfNeeded(metadataFile);
+    if (!await markdownFile.exists()) {
+      return null;
+    }
+    final markdown = await markdownFile.readAsString();
+    Map<String, Object?> metadata = const <String, Object?>{};
+    if (await metadataFile.exists()) {
+      final decoded = jsonDecode(await metadataFile.readAsString());
+      if (decoded is Map) {
+        metadata = Map<String, Object?>.from(decoded);
+      }
+    }
+    return AiSessionCompactMemorySidecar(
+      markdownPath: markdownPath,
+      metadataPath: metadataPath,
+      markdown: markdown,
+      metadata: metadata,
+    );
+  }
+
+  Future<AiSession> restoreCompressionCheckpointFromSidecar(
+    AiSession session,
+  ) async {
+    if (session.latestCompressionPoint != null) {
+      return session;
+    }
+    final sidecar = await loadCompressionMemorySidecar(session.id);
+    if (sidecar == null) {
+      return session;
+    }
+    final checkpointId = sidecar.checkpointMessageId;
+    final summary = sidecar.summaryContent;
+    if (checkpointId.isEmpty || summary.isEmpty) {
+      return session;
+    }
+    if (session.messages.any((message) => message.id == checkpointId)) {
+      return session;
+    }
+    final createdAt =
+        sidecar.checkpointCreatedAt ??
+        session.latestCompressionAt ??
+        session.updatedAt;
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: checkpointId,
+      content: summary,
+      createdAt: createdAt,
+      metadata: <String, Object?>{
+        ...sidecar.checkpointMetadata,
+        'restored_from_compact_memory_sidecar': true,
+        'compact_memory_sidecar_path': sidecar.markdownPath,
+      },
+    );
+    return session.copyWith(
+      messages: <AiSessionMessage>[...session.messages, checkpoint],
+      updatedAt: session.updatedAt.isAfter(createdAt)
+          ? session.updatedAt
+          : createdAt,
+      latestCompressionCheckpointMessageId: checkpoint.id,
+      latestCompressionAt: checkpoint.createdAt,
+      statistics: session.statistics.copyWith(
+        totalMessageCount: session.statistics.totalMessageCount + 1,
+        compressionPointCount: session.statistics.compressionPointCount + 1,
+      ),
+    );
+  }
+
   /// Retained for backward compatibility (attachment management).
   String sessionFilePath(String sessionId) {
     final normalizedSessionId = _requireSafeStorageIdentifier(
@@ -195,7 +306,11 @@ class AiSessionStore {
           whereArgs: <Object?>[sessionId],
           orderBy: 'sort_order ASC',
         );
-        sessions.add(_sessionFromRow(row, messageRows));
+        sessions.add(
+          await restoreCompressionCheckpointFromSidecar(
+            _sessionFromRow(row, messageRows),
+          ),
+        );
       } catch (error) {
         issues.add(
           AiSessionPersistenceIssue(
@@ -250,15 +365,14 @@ class AiSessionStore {
   /// sidebar behaviour and matches the user expectation that "the thread I
   /// just opened sits at the top". Sessions that the user explicitly
   /// reordered via the Thread Session Management dialog follow in their
-  /// stable `display_order ASC` sequence, with `updated_at DESC` /
-  /// `created_at DESC` as final tiebreakers.
+  /// saved order.
   ///
-  /// 2026-05-01 fix: previously this clause was `(display_order IS NULL)
-  /// ASC`, which placed manually-ordered sessions FIRST and pushed every
-  /// newly-created thread to the bottom of the list. Users reported that
-  /// brand-new sessions "disappeared" after a restart because they
-  /// scrolled off-screen below their dragged threads even though they
-  /// were correctly persisted in SQLite.
+  /// This uses `(display_order IS NULL) DESC` rather than ASC so NULLs sort
+  /// above manually ordered rows. A previous ASC ordering accidentally pushed
+  /// all newly-created sessions beneath any manually ordered session, making
+  /// fresh threads appear to vanish from the visible sidebar when the user had
+  /// scrolled off-screen below their dragged threads even though they were
+  /// correctly persisted in SQLite.
   static const String _sessionsOrderBy =
       'pinned DESC, '
       '(display_order IS NULL) DESC, '
@@ -418,7 +532,9 @@ class AiSessionStore {
       whereArgs: <Object?>[normalizedId],
       orderBy: 'sort_order ASC',
     );
-    return _sessionFromRow(rows.first, messageRows);
+    return restoreCompressionCheckpointFromSidecar(
+      _sessionFromRow(rows.first, messageRows),
+    );
   }
 
   /// Loads all sessions (with messages) that belong to the given [templateId]
@@ -447,7 +563,11 @@ class AiSessionStore {
           whereArgs: <Object?>[sessionId],
           orderBy: 'sort_order ASC',
         );
-        sessions.add(_sessionFromRow(row, messageRows));
+        sessions.add(
+          await restoreCompressionCheckpointFromSidecar(
+            _sessionFromRow(row, messageRows),
+          ),
+        );
       } catch (error, stack) {
         silentLog(
           'ai_session_store',
