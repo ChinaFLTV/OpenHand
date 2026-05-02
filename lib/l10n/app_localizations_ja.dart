@@ -3811,6 +3811,24 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsCacheBreakpointPositionsSaved => 'キャッシュブレークポイント位置を保存しました';
 
   @override
+  String get settingsAiBudgetUsdPerSession => 'セッションごとの予算（USD）';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 で警告を無効化します。セッションの累積推定コストがこの上限を超えると、セッションメタデータダイアログで警告色として表示されます。ソフトなリマインダーであり、会話を中断したり送信をブロックしたりはしません。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid => '0〜100000 の非負数を入力してください。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved => 'セッション予算を保存しました';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return '現在のセッションの推定コスト $total が予算 $budget を超えています。ソフトなリマインダーで、送信には影響しません。';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater => '0 より大きいツール呼び出し上限を入力してください。';
 
   @override

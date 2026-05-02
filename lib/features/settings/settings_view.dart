@@ -126,6 +126,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final FocusNode _aiInputCacheUpdateIntervalFocusNode;
   late final TextEditingController _aiInputCacheBreakpointCountController;
   late final FocusNode _aiInputCacheBreakpointCountFocusNode;
+  late final TextEditingController _aiBudgetUsdPerSessionController;
+  late final FocusNode _aiBudgetUsdPerSessionFocusNode;
   late final TextEditingController
   _toolResultCompressionHeadTailWindowController;
   late final FocusNode _toolResultCompressionHeadTailWindowFocusNode;
@@ -173,6 +175,8 @@ class _SettingsViewState extends State<SettingsView> {
     _aiInputCacheUpdateIntervalFocusNode = FocusNode();
     _aiInputCacheBreakpointCountController = TextEditingController();
     _aiInputCacheBreakpointCountFocusNode = FocusNode();
+    _aiBudgetUsdPerSessionController = TextEditingController();
+    _aiBudgetUsdPerSessionFocusNode = FocusNode();
     _toolResultCompressionHeadTailWindowController = TextEditingController();
     _toolResultCompressionHeadTailWindowFocusNode = FocusNode();
     _toolResultCompressionMaxPathHitsController = TextEditingController();
@@ -218,6 +222,8 @@ class _SettingsViewState extends State<SettingsView> {
     _aiInputCacheUpdateIntervalFocusNode.dispose();
     _aiInputCacheBreakpointCountController.dispose();
     _aiInputCacheBreakpointCountFocusNode.dispose();
+    _aiBudgetUsdPerSessionController.dispose();
+    _aiBudgetUsdPerSessionFocusNode.dispose();
     _toolResultCompressionHeadTailWindowController.dispose();
     _toolResultCompressionHeadTailWindowFocusNode.dispose();
     _toolResultCompressionMaxPathHitsController.dispose();
@@ -305,6 +311,12 @@ class _SettingsViewState extends State<SettingsView> {
             aiInputCacheBreakpointCountText) {
       _aiInputCacheBreakpointCountController.text =
           aiInputCacheBreakpointCountText;
+    }
+    final aiBudgetUsdPerSessionText =
+        _formatBudgetUsd(settingsController.aiBudgetUsdPerSession);
+    if (!_aiBudgetUsdPerSessionFocusNode.hasFocus &&
+        _aiBudgetUsdPerSessionController.text != aiBudgetUsdPerSessionText) {
+      _aiBudgetUsdPerSessionController.text = aiBudgetUsdPerSessionText;
     }
     final writeToolSummaryMaxCharsText =
         '${settingsController.aiWriteToolSummaryMaxChars}';
@@ -1662,6 +1674,55 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 18),
               _buildAiInputCacheBreakpointPositionsRow(context),
+              const SizedBox(height: 18),
+              _ResponsiveSettingRow(
+                title:
+                    AppLocalizations.of(context)!.settingsAiBudgetUsdPerSession,
+                subtitle: AppLocalizations.of(
+                  context,
+                )!.settingsAiBudgetUsdPerSessionBody,
+                control: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      key: const ValueKey<String>(
+                        'settingsAiBudgetUsdPerSessionField',
+                      ),
+                      controller: _aiBudgetUsdPerSessionController,
+                      focusNode: _aiBudgetUsdPerSessionFocusNode,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[0-9.]'),
+                        ),
+                      ],
+                      decoration: const InputDecoration(hintText: '0'),
+                      onSubmitted: (value) =>
+                          _saveAiBudgetUsdPerSession(context, value),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        key: const ValueKey<String>(
+                          'settingsAiBudgetUsdPerSessionSaveButton',
+                        ),
+                        onPressed: () => _saveAiBudgetUsdPerSession(
+                          context,
+                          _aiBudgetUsdPerSessionController.text,
+                        ),
+                        icon: const Icon(Icons.save_rounded),
+                        label: Text(
+                          AppLocalizations.of(context)!.settingsSave,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                controlMaxWidth: 360,
+              ),
             ],
           ),
         ),
@@ -2940,6 +3001,48 @@ class _SettingsViewState extends State<SettingsView> {
     _showSnackBar(
       context,
       AppLocalizations.of(context)!.settingsCacheBreakpointCountSaved,
+    );
+  }
+
+  // 2026-05-06 — 单会话预算输入：去掉小数尾零，0 显示为 "0"。
+  static String _formatBudgetUsd(double value) {
+    if (value <= 0) return '0';
+    final fixed = value.toStringAsFixed(2);
+    if (fixed.endsWith('.00')) return fixed.substring(0, fixed.length - 3);
+    if (fixed.endsWith('0')) return fixed.substring(0, fixed.length - 1);
+    return fixed;
+  }
+
+  Future<void> _saveAiBudgetUsdPerSession(
+    BuildContext context,
+    String rawValue,
+  ) async {
+    final trimmed = rawValue.trim();
+    final parsed = trimmed.isEmpty ? 0.0 : double.tryParse(trimmed);
+    if (parsed == null ||
+        parsed.isNaN ||
+        !parsed.isFinite ||
+        parsed < AppSettingsSnapshot.minAiBudgetUsdPerSession ||
+        parsed > AppSettingsSnapshot.maxAiBudgetUsdPerSession) {
+      _showSnackBar(
+        context,
+        AppLocalizations.of(context)!.settingsAiBudgetUsdPerSessionInvalid,
+      );
+      return;
+    }
+    final saved = await context
+        .read<SettingsController>()
+        .updateAiBudgetUsdPerSession(parsed);
+    if (!context.mounted) return;
+    final current = context.read<SettingsController>().aiBudgetUsdPerSession;
+    _aiBudgetUsdPerSessionController.text = _formatBudgetUsd(current);
+    if (!saved) {
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    _showSnackBar(
+      context,
+      AppLocalizations.of(context)!.settingsAiBudgetUsdPerSessionSaved,
     );
   }
 

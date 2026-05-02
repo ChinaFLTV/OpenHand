@@ -175,6 +175,7 @@ class SettingsStore {
       'ai_input_cache_breakpoint_count': snapshot.aiInputCacheBreakpointCount,
       'ai_input_cache_breakpoint_positions':
           snapshot.aiInputCacheBreakpointPositions,
+      'ai_budget_usd_per_session': snapshot.aiBudgetUsdPerSession,
       'ai_write_tool_summary_max_chars': snapshot.aiWriteToolSummaryMaxChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_max_recent_errors': snapshot.aiMaxRecentErrors,
@@ -418,6 +419,19 @@ class SettingsStore {
       }
       parsed.sort();
       return List<double>.unmodifiable(parsed);
+    }();
+    final aiBudgetUsdPerSession = () {
+      final raw = json['ai_budget_usd_per_session'];
+      double? v;
+      if (raw is num) v = raw.toDouble();
+      if (raw is String) v = double.tryParse(raw);
+      if (v == null || v.isNaN || !v.isFinite) {
+        return AppSettingsSnapshot.defaultAiBudgetUsdPerSession;
+      }
+      return v.clamp(
+        AppSettingsSnapshot.minAiBudgetUsdPerSession,
+        AppSettingsSnapshot.maxAiBudgetUsdPerSession,
+      );
     }();
     final aiWriteToolSummaryMaxChars =
         json['ai_write_tool_summary_max_chars'] is int &&
@@ -973,6 +987,7 @@ class SettingsStore {
       aiInputCacheUpdateInterval: aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: aiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions: aiInputCacheBreakpointPositions,
+      aiBudgetUsdPerSession: aiBudgetUsdPerSession,
       aiWriteToolSummaryMaxChars: aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,

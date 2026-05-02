@@ -7228,6 +7228,36 @@ abstract class AppLocalizations {
   /// **'缓存断点位置已保存'**
   String get settingsCacheBreakpointPositionsSaved;
 
+  /// No description provided for @settingsAiBudgetUsdPerSession.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单会话预算（USD）'**
+  String get settingsAiBudgetUsdPerSession;
+
+  /// No description provided for @settingsAiBudgetUsdPerSessionBody.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'0 表示关闭。当某个会话累计估算成本超过该上限时，会话元数据对话框中会以警示色提示，仅作软提醒，不会中断对话或限制发送。'**
+  String get settingsAiBudgetUsdPerSessionBody;
+
+  /// No description provided for @settingsAiBudgetUsdPerSessionInvalid.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'请输入 0 到 100000 之间的非负数。'**
+  String get settingsAiBudgetUsdPerSessionInvalid;
+
+  /// No description provided for @settingsAiBudgetUsdPerSessionSaved.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'单会话预算已保存'**
+  String get settingsAiBudgetUsdPerSessionSaved;
+
+  /// No description provided for @sessionMetadataOverBudgetNotice.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话估算成本 {total} 已超出预算 {budget}。仅作提醒，不影响发送。'**
+  String sessionMetadataOverBudgetNotice(String total, String budget);
+
   /// No description provided for @settingsEnterAToolCallLimitGreater.
   ///
   /// In zh_Hans, this message translates to:

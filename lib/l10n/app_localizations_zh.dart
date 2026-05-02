@@ -3753,6 +3753,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
 
   @override
+  String get settingsAiBudgetUsdPerSession => '单会话预算（USD）';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 表示关闭。当某个会话累计估算成本超过该上限时，会话元数据对话框中会以警示色提示，仅作软提醒，不会中断对话或限制发送。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid => '请输入 0 到 100000 之间的非负数。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved => '单会话预算已保存';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return '当前会话估算成本 $total 已超出预算 $budget。仅作提醒，不影响发送。';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';
 
   @override
@@ -7947,6 +7965,24 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
 
   @override
+  String get settingsAiBudgetUsdPerSession => '单会话预算（USD）';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 表示关闭。当某个会话累计估算成本超过该上限时，会话元数据对话框中会以警示色提示，仅作软提醒，不会中断对话或限制发送。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid => '请输入 0 到 100000 之间的非负数。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved => '单会话预算已保存';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return '当前会话估算成本 $total 已超出预算 $budget。仅作提醒，不影响发送。';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';
 
   @override
@@ -12138,6 +12174,24 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+
+  @override
+  String get settingsAiBudgetUsdPerSession => '單會話預算（USD）';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 表示關閉。當某個會話累計估算成本超過該上限時，會話元資料對話框中會以警示色提示，僅為軟提醒，不會中斷對話或限制發送。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid => '請輸入 0 到 100000 之間的非負數。';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved => '單會話預算已保存';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return '當前會話估算成本 $total 已超出預算 $budget。僅為提示，不影響發送。';
+  }
 
   @override
   String get settingsEnterAToolCallLimitGreater => '请输入大于 0 的工具调用上限。';

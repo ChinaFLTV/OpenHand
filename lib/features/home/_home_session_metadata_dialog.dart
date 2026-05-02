@@ -661,6 +661,12 @@ class _SessionMetadataDialog extends StatelessWidget {
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 
     final l10n = AppLocalizations.of(context)!;
+    final budget = context
+        .watch<SettingsController>()
+        .aiBudgetUsdPerSession;
+    final overBudget = budget > 0 &&
+        breakdown.totalUsd != null &&
+        breakdown.totalUsd! > budget;
     final headStyle = theme.textTheme.labelSmall?.copyWith(
       color: colorScheme.onSurfaceVariant,
       fontWeight: FontWeight.w700,
@@ -735,11 +741,52 @@ class _SessionMetadataDialog extends StatelessWidget {
                     ),
                     Text(
                       fmt(breakdown.totalUsd!),
-                      style: valueStyle?.copyWith(color: colorScheme.primary),
+                      style: valueStyle?.copyWith(
+                        color: overBudget
+                            ? colorScheme.error
+                            : colorScheme.primary,
+                        fontWeight:
+                            overBudget ? FontWeight.w800 : null,
+                      ),
                     ),
                   ],
                 ),
               ),
+              if (overBudget) ...[
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.errorContainer.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          l10n.sessionMetadataOverBudgetNotice(
+                            fmt(breakdown.totalUsd!),
+                            fmt(budget),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onErrorContainer,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ],
         ),

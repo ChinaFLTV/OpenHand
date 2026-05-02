@@ -4011,6 +4011,26 @@ class AppLocalizationsFr extends AppLocalizations {
       'Positions des points d’arrêt de cache enregistrées';
 
   @override
+  String get settingsAiBudgetUsdPerSession => 'Budget par session (USD)';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 désactive l’alerte. Lorsque le coût estimé cumulé d’une session dépasse ce plafond, la boîte de dialogue des métadonnées met le total en surbrillance dans une couleur d’avertissement. Simple rappel doux — n’interrompt jamais la conversation ni ne bloque l’envoi.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid =>
+      'Veuillez saisir un nombre non négatif entre 0 et 100000.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved =>
+      'Budget par session enregistré';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return 'Le coût estimé $total de la session actuelle a dépassé le budget $budget. Simple rappel doux — l’envoi n’est pas affecté.';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater =>
       'Saisissez une limite d’appel d’outil supérieure à 0.';
 

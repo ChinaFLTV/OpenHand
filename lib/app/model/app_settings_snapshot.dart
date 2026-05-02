@@ -53,6 +53,7 @@ class AppSettingsSnapshot {
       aiInputCacheUpdateInterval: defaultAiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: defaultAiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions: defaultAiInputCacheBreakpointPositions,
+      aiBudgetUsdPerSession: defaultAiBudgetUsdPerSession,
       aiWriteToolSummaryMaxChars: defaultAiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
@@ -157,6 +158,7 @@ class AppSettingsSnapshot {
     required this.aiInputCacheUpdateInterval,
     required this.aiInputCacheBreakpointCount,
     required this.aiInputCacheBreakpointPositions,
+    required this.aiBudgetUsdPerSession,
     required this.aiWriteToolSummaryMaxChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
@@ -302,6 +304,13 @@ class AppSettingsSnapshot {
   /// 百分比 [0, 1]。空列表表示沿用 mode-based 自动布点；非空时长度应 ==
   /// `aiInputCacheBreakpointCount - 1`，最后一个断点固定落在末尾消息。
   static const List<double> defaultAiInputCacheBreakpointPositions = <double>[];
+
+  /// 2026-05-06 — 单会话 USD 预算上限。0 表示关闭预算告警；超过该阈值时
+  /// TopBar 与会话元数据对话框将以警示样式提示用户当前会话累计成本已破
+  /// 预算。仅作为软提醒，不会中断对话或限制发送。
+  static const double defaultAiBudgetUsdPerSession = 0;
+  static const double minAiBudgetUsdPerSession = 0;
+  static const double maxAiBudgetUsdPerSession = 100000;
 
   /// 2026-04-27 — 写类工具结果摘要中保留原始 summary 文本的字符上限。
   /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
@@ -477,6 +486,9 @@ class AppSettingsSnapshot {
   /// 空列表表示沿用 mode-based 自动布点。
   final List<double> aiInputCacheBreakpointPositions;
 
+  /// 2026-05-06 — 单会话 USD 预算上限（0 = 关闭）。
+  final double aiBudgetUsdPerSession;
+
   /// 2026-04-27 — 写类工具摘要中 result_text 的字符上限。
   final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
@@ -610,6 +622,7 @@ class AppSettingsSnapshot {
     int? aiInputCacheUpdateInterval,
     int? aiInputCacheBreakpointCount,
     List<double>? aiInputCacheBreakpointPositions,
+    double? aiBudgetUsdPerSession,
     int? aiWriteToolSummaryMaxChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
@@ -708,6 +721,8 @@ class AppSettingsSnapshot {
           aiInputCacheBreakpointCount ?? this.aiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions: aiInputCacheBreakpointPositions ??
           this.aiInputCacheBreakpointPositions,
+      aiBudgetUsdPerSession:
+          aiBudgetUsdPerSession ?? this.aiBudgetUsdPerSession,
       aiWriteToolSummaryMaxChars:
           aiWriteToolSummaryMaxChars ?? this.aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit:

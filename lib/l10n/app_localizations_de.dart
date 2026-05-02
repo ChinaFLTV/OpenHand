@@ -3987,6 +3987,26 @@ class AppLocalizationsDe extends AppLocalizations {
       'Cache-Breakpoint-Positionen gespeichert';
 
   @override
+  String get settingsAiBudgetUsdPerSession => 'Budget pro Sitzung (USD)';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 deaktiviert die Warnung. Überschreiten die kumulierten geschätzten Kosten einer Sitzung diese Obergrenze, hebt der Sitzungsmetadaten-Dialog den Gesamtwert in einer Warnfarbe hervor. Reine Soft-Erinnerung — die Konversation wird weder unterbrochen noch das Senden blockiert.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid =>
+      'Bitte eine nicht negative Zahl zwischen 0 und 100000 eingeben.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved =>
+      'Budget pro Sitzung gespeichert';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return 'Geschätzte Kosten $total der aktuellen Sitzung haben das Budget $budget überschritten. Reine Soft-Erinnerung — Senden ist nicht betroffen.';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater =>
       'Werkzeugaufruflimit größer als 0 eingeben.';
 

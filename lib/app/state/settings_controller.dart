@@ -62,6 +62,7 @@ class SettingsController extends ChangeNotifier {
        _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval,
        _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount,
        _aiInputCacheBreakpointPositions = snapshot.aiInputCacheBreakpointPositions,
+       _aiBudgetUsdPerSession = snapshot.aiBudgetUsdPerSession,
        _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiMaxRecentErrors = snapshot.aiMaxRecentErrors,
@@ -171,6 +172,7 @@ class SettingsController extends ChangeNotifier {
   int _aiInputCacheUpdateInterval;
   int _aiInputCacheBreakpointCount;
   List<double> _aiInputCacheBreakpointPositions;
+  double _aiBudgetUsdPerSession;
   int _aiWriteToolSummaryMaxChars;
   int _aiSingleRoundToolCallLimit;
   int _aiMaxRecentErrors;
@@ -296,6 +298,7 @@ class SettingsController extends ChangeNotifier {
   /// 空列表表示沿用 mode-based 自动布点。
   List<double> get aiInputCacheBreakpointPositions =>
       _aiInputCacheBreakpointPositions;
+  double get aiBudgetUsdPerSession => _aiBudgetUsdPerSession;
   int get aiWriteToolSummaryMaxChars => _aiWriteToolSummaryMaxChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiMaxRecentErrors => _aiMaxRecentErrors;
@@ -725,6 +728,23 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiInputCacheBreakpointPositions = next;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  /// 2026-05-06 — 单会话 USD 预算上限。0 表示关闭预算告警。
+  Future<bool> updateAiBudgetUsdPerSession(double value) async {
+    final clamped = (value.isFinite && !value.isNaN)
+        ? value.clamp(
+            AppSettingsSnapshot.minAiBudgetUsdPerSession,
+            AppSettingsSnapshot.maxAiBudgetUsdPerSession,
+          )
+        : AppSettingsSnapshot.defaultAiBudgetUsdPerSession;
+    return _commitMutation(() {
+      if (_aiBudgetUsdPerSession == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiBudgetUsdPerSession = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1893,6 +1913,7 @@ class SettingsController extends ChangeNotifier {
       aiInputCacheUpdateInterval: _aiInputCacheUpdateInterval,
       aiInputCacheBreakpointCount: _aiInputCacheBreakpointCount,
       aiInputCacheBreakpointPositions: _aiInputCacheBreakpointPositions,
+      aiBudgetUsdPerSession: _aiBudgetUsdPerSession,
       aiWriteToolSummaryMaxChars: _aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiMaxRecentErrors: _aiMaxRecentErrors,
@@ -1986,6 +2007,7 @@ class SettingsController extends ChangeNotifier {
     _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval;
     _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount;
     _aiInputCacheBreakpointPositions = snapshot.aiInputCacheBreakpointPositions;
+    _aiBudgetUsdPerSession = snapshot.aiBudgetUsdPerSession;
     _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiMaxRecentErrors = snapshot.aiMaxRecentErrors;

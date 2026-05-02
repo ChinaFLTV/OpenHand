@@ -3946,6 +3946,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Cache breakpoint positions saved';
 
   @override
+  String get settingsAiBudgetUsdPerSession => 'Per-session budget (USD)';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionBody =>
+      '0 disables the alert. When the cumulative estimated cost of a session exceeds this cap, the session metadata dialog highlights the total in a warning color. This is a soft reminder only — it never interrupts the conversation or blocks sending.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionInvalid =>
+      'Please enter a non-negative number between 0 and 100000.';
+
+  @override
+  String get settingsAiBudgetUsdPerSessionSaved => 'Per-session budget saved';
+
+  @override
+  String sessionMetadataOverBudgetNotice(String total, String budget) {
+    return 'Estimated cost $total for the current session has exceeded the budget $budget. This is a soft reminder only — sending is not affected.';
+  }
+
+  @override
   String get settingsEnterAToolCallLimitGreater =>
       'Enter a tool call limit greater than 0.';
 
