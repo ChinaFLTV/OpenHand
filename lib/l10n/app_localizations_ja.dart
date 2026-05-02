@@ -24,7 +24,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skills => 'スキル';
 
   @override
-  String get memory => 'Memory';
+  String get memory => 'メモリ';
 
   @override
   String get mcp => 'MCP';
@@ -45,11 +45,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get composerSend => '送信';
 
   @override
-  String get chatSending => 'Sending';
+  String get chatSending => '送信中';
 
   @override
   String get chatRequestFailed =>
-      'Model request failed. Check the model configuration, network connectivity, or protocol type.';
+      'モデルリクエストに失敗しました。モデル設定、ネットワーク接続、またはプロトコル種別を確認してください。';
 
   @override
   String get composerUnavailable => '現在はベース骨格のみで、実行機能はまだ接続されていません。';
@@ -95,7 +95,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsSubtitle => 'ここでテーマ、言語、アプリ情報を管理します。';
 
   @override
-  String get settingsFilePathLabel => 'Settings File';
+  String get settingsFilePathLabel => '設定ファイル';
 
   @override
   String get themeSectionTitle => 'アプリテーマ';
@@ -113,71 +113,71 @@ class AppLocalizationsJa extends AppLocalizations {
   String get themeDark => 'ダーク';
 
   @override
-  String get themePaletteSectionTitle => 'Theme Palette';
+  String get themePaletteSectionTitle => 'テーマパレット';
 
   @override
   String get themePaletteSectionBody =>
-      'Choose a global color preset. OpenHand will derive the Material 3 Expressive surfaces and accents from it.';
+      '全体に適用するカラープリセットを選択します。OpenHand はそこから Material 3 Expressive のサーフェスとアクセントを生成します。';
 
   @override
-  String get themePresetDarkNightPurple => 'Dark Night Purple';
+  String get themePresetDarkNightPurple => 'ダークナイトパープル';
 
   @override
-  String get themePresetDeepSeaBlue => 'Deep Sea Blue';
+  String get themePresetDeepSeaBlue => 'ディープシーブルー';
 
   @override
-  String get themePresetMistGray => 'Mist Gray';
+  String get themePresetMistGray => 'ミストグレー';
 
   @override
-  String get themePresetObsidianBlack => 'Obsidian Black';
+  String get themePresetObsidianBlack => 'オブシディアンブラック';
 
   @override
-  String get themePresetPolarWhite => 'Polar White';
+  String get themePresetPolarWhite => 'ポーラーホワイト';
 
   @override
-  String get themePresetFrostMorningBlue => 'Frost Morning Blue';
+  String get themePresetFrostMorningBlue => 'フロストモーニングブルー';
 
   @override
-  String get themePresetDuskMountainGreen => 'Dusk Mountain Green';
+  String get themePresetDuskMountainGreen => 'ダスクマウンテングリーン';
 
   @override
-  String get themePresetNebulaPurple => 'Nebula Purple';
+  String get themePresetNebulaPurple => 'ネビュラパープル';
 
   @override
-  String get themePresetEmberOrange => 'Ember Orange';
+  String get themePresetEmberOrange => 'エンバーオレンジ';
 
   @override
-  String get themePresetTundraGreen => 'Tundra Green';
+  String get themePresetTundraGreen => 'ツンドラグリーン';
 
   @override
-  String get themePresetMoonShadowSilver => 'Moon Shadow Silver';
+  String get themePresetMoonShadowSilver => 'ムーンシャドウシルバー';
 
   @override
-  String get themePresetAmberGold => 'Amber Gold';
+  String get themePresetAmberGold => 'アンバーゴールド';
 
   @override
-  String get themePresetRainyCyan => 'Rainy Cyan';
+  String get themePresetRainyCyan => 'レイニーシアン';
 
   @override
-  String get themePresetGraphiteGray => 'Graphite Gray';
+  String get themePresetGraphiteGray => 'グラファイトグレー';
 
   @override
-  String get themePresetGlacierBlue => 'Glacier Blue';
+  String get themePresetGlacierBlue => 'グレーシャーブルー';
 
   @override
-  String get themePresetBlazeRed => 'Blaze Red';
+  String get themePresetBlazeRed => 'ブレイズレッド';
 
   @override
-  String get themePresetNightfallBlue => 'Nightfall Blue';
+  String get themePresetNightfallBlue => 'ナイトフォールブルー';
 
   @override
-  String get themePresetColdMoonWhite => 'Cold Moon White';
+  String get themePresetColdMoonWhite => 'コールドムーンホワイト';
 
   @override
-  String get themePresetPineInk => 'Pine Ink';
+  String get themePresetPineInk => 'パインインク';
 
   @override
-  String get themePresetSkyCyan => 'Sky Cyan';
+  String get themePresetSkyCyan => 'スカイシアン';
 
   @override
   String get languageSectionTitle => 'アプリ言語';
@@ -226,16 +226,16 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aboutBuild => 'ビルド';
 
   @override
-  String get commonCancel => 'Cancel';
+  String get commonCancel => 'キャンセル';
 
   @override
-  String get commonSave => 'Save';
+  String get commonSave => '保存';
 
   @override
-  String get commonDelete => 'Delete';
+  String get commonDelete => '削除';
 
   @override
-  String get commonEdit => 'Edit';
+  String get commonEdit => '編集';
 
   @override
   String get previewSectionTitle => 'デザイン方針';
@@ -260,7 +260,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get switchToWorkspace => 'ワークスペースに戻る';
 
   @override
-  String get modelLabel => 'OpenHand Skeleton';
+  String get modelLabel => 'OpenHand スケルトン';
 
   @override
   String get platformLabel => 'デスクトップ';
@@ -278,27 +278,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsCategorySkills => 'スキル';
 
   @override
-  String get settingsCategoryMemory => 'Memory';
+  String get settingsCategoryMemory => 'メモリ';
 
   @override
-  String get mcpSectionTitle => 'MCP Services';
+  String get mcpSectionTitle => 'MCP サービス';
 
   @override
   String get mcpSectionBody =>
-      'Manage the global MCP switch and the service configuration file path. Creating, updating, deleting, and enabling services all sync to the MCP JSON file.';
+      'MCP のグローバルスイッチとサービス設定ファイルパスを管理します。サービスの作成・更新・削除・有効化はすべて MCP JSON ファイルに同期されます。';
 
   @override
-  String get mcpEnabledLabel => 'Enable MCP Services';
+  String get mcpEnabledLabel => 'MCP サービスを有効化';
 
   @override
-  String get mcpEnabledBody =>
-      'When disabled, MCP capabilities stay off at runtime while keeping the saved server configurations.';
+  String get mcpEnabledBody => '無効にすると、保存済みのサーバー設定は残りますが、実行時に MCP の機能はオフになります。';
 
   @override
-  String get mcpFilePathLabel => 'MCP Config File';
+  String get mcpFilePathLabel => 'MCP 設定ファイル';
 
   @override
-  String get mcpOpenDirectory => 'Open Directory';
+  String get mcpOpenDirectory => 'ディレクトリを開く';
 
   @override
   String get settingsGeneralTitle => '一般';
@@ -307,8 +306,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsGeneralSubtitle => 'テーマ、言語、アプリの基本情報を管理します。';
 
   @override
-  String get settingsAiSubtitle =>
-      'Manage chat models, authentication, and protocol adapters.';
+  String get settingsAiSubtitle => 'チャットモデル、認証、プロトコルアダプターを管理します。';
 
   @override
   String get settingsSkillsTitle => 'スキル';
@@ -318,165 +316,162 @@ class AppLocalizationsJa extends AppLocalizations {
       'ローカルのスキルディレクトリ、テンプレート作成、インストール済みスキルを管理します。';
 
   @override
-  String get settingsMemorySubtitle =>
-      'Manage the user-memory switch and the persistence file path.';
+  String get settingsMemorySubtitle => 'ユーザーメモリのスイッチと永続化ファイルパスを管理します。';
 
   @override
-  String get settingsPersistenceRecoveredTitle => 'Settings File Recovered';
+  String get settingsPersistenceRecoveredTitle => '設定ファイルを復旧しました';
 
   @override
   String get settingsPersistenceRecoveredBody =>
-      'OpenHand detected that the settings file was damaged or tampered with, backed it up, and restored safe defaults.';
+      '設定ファイルの破損または改ざんを検出したため、バックアップを作成し、安全なデフォルトに復元しました。';
 
   @override
-  String get settingsPersistenceSanitizedTitle => 'Settings Content Sanitized';
+  String get settingsPersistenceSanitizedTitle => '設定内容をサニタイズしました';
 
   @override
   String get settingsPersistenceSanitizedBody =>
-      'OpenHand detected invalid settings fields, ignored them, and rewrote a valid configuration.';
+      '無効な設定項目を検出したため、それらを無視し、有効な設定を書き直しました。';
 
   @override
-  String get settingsPersistenceSaveFailedTitle => 'Settings Save Failed';
+  String get settingsPersistenceSaveFailedTitle => '設定の保存に失敗';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
+      '設定ファイルの書き込みに失敗しました。UI は最後に有効だった設定にロールバックされています。ファイルの権限やディスクの状態を確認してください。';
 
   @override
-  String get settingsPersistenceDismiss => 'Dismiss';
+  String get settingsPersistenceDismiss => '閉じる';
 
   @override
-  String get aiModelAdd => 'Add Provider';
+  String get aiModelAdd => 'プロバイダーを追加';
 
   @override
-  String get aiModelsEmptyTitle => 'No model providers yet';
+  String get aiModelsEmptyTitle => 'まだモデルプロバイダーがありません';
 
   @override
   String get aiModelsEmptyBody =>
-      'Add at least one model provider configuration here, and the thread composer will reuse it directly.';
+      'ここで少なくとも 1 つのモデルプロバイダー設定を追加すると、スレッドの作成画面でそのまま再利用できます。';
 
   @override
-  String get aiModelDialogCreateTitle => 'Add Model Provider';
+  String get aiModelDialogCreateTitle => 'モデルプロバイダーを追加';
 
   @override
-  String get aiModelDialogEditTitle => 'Edit Model Provider';
+  String get aiModelDialogEditTitle => 'モデルプロバイダーを編集';
 
   @override
   String get aiModelBaseUrl => 'Base URL';
 
   @override
-  String get aiModelBaseUrlRequired => 'Enter a base URL.';
+  String get aiModelBaseUrlRequired => 'Base URL を入力してください。';
 
   @override
-  String get aiModelBaseUrlInvalid => 'Enter a valid base URL.';
+  String get aiModelBaseUrlInvalid => '有効な Base URL を入力してください。';
 
   @override
-  String get aiModelAuthScheme => 'Auth Scheme';
+  String get aiModelAuthScheme => '認証方式';
 
   @override
-  String get aiModelToken => 'Token';
+  String get aiModelToken => 'トークン';
 
   @override
-  String get aiModelIdField => 'Model ID';
+  String get aiModelIdField => 'モデル ID';
 
   @override
-  String get aiModelIdRequired => 'Enter a model ID.';
+  String get aiModelIdRequired => 'モデル ID を入力してください。';
 
   @override
-  String get aiModelProtocol => 'Protocol';
+  String get aiModelProtocol => 'プロトコル';
 
   @override
-  String get aiModelSaveSuccess => 'Model provider configuration saved.';
+  String get aiModelSaveSuccess => 'モデルプロバイダー設定を保存しました。';
 
   @override
-  String get aiModelDeleteConfirmTitle => 'Delete Model Provider';
+  String get aiModelDeleteConfirmTitle => 'モデルプロバイダーを削除';
 
   @override
-  String get aiModelDeleteConfirmBody =>
-      'Delete this model provider configuration?';
+  String get aiModelDeleteConfirmBody => 'このモデルプロバイダー設定を削除しますか？';
 
   @override
-  String get aiModelDeleteSuccess => 'Model provider configuration deleted.';
+  String get aiModelDeleteSuccess => 'モデルプロバイダー設定を削除しました。';
 
   @override
-  String get aiModelMoveUp => 'Move Up';
+  String get aiModelMoveUp => '上へ移動';
 
   @override
-  String get aiModelMoveDown => 'Move Down';
+  String get aiModelMoveDown => '下へ移動';
 
   @override
-  String get aiModelSelected => 'Active model provider';
+  String get aiModelSelected => 'アクティブなモデルプロバイダー';
 
   @override
-  String get aiModelNoToken => 'No token configured';
+  String get aiModelNoToken => 'トークン未設定';
 
   @override
-  String get aiModelTest => 'Test';
+  String get aiModelTest => 'テスト';
 
   @override
-  String get aiModelTesting => 'Testing';
+  String get aiModelTesting => 'テスト中';
 
   @override
   String aiModelTestSuccess(Object modelName) {
-    return '$modelName passed the test.';
+    return '$modelName のテストに合格しました。';
   }
 
   @override
   String aiModelTestFailure(Object modelName, Object reason) {
-    return '$modelName test failed: $reason';
+    return '$modelName のテストに失敗しました：$reason';
   }
 
   @override
-  String get aiModelSelectionRequired =>
-      'Add and select an AI model provider in Settings first.';
+  String get aiModelSelectionRequired => 'まず設定で AI モデルプロバイダーを追加して選択してください。';
 
   @override
-  String get aiModelScanButton => 'Scan Models';
+  String get aiModelScanButton => 'モデルをスキャン';
 
   @override
-  String get aiModelScanning => 'Scanning available models…';
+  String get aiModelScanning => '利用可能なモデルをスキャン中…';
 
   @override
   String aiModelScanSuccess(Object count) {
-    return 'Found $count models.';
+    return '$count 件のモデルが見つかりました。';
   }
 
   @override
   String aiModelScanFailed(Object reason) {
-    return 'Scan failed: $reason';
+    return 'スキャンに失敗しました：$reason';
   }
 
   @override
-  String get aiModelScanEmpty => 'No models found from this provider.';
+  String get aiModelScanEmpty => 'このプロバイダーからはモデルが見つかりませんでした。';
 
   @override
-  String get aiModelAvailableModels => 'Available Models';
+  String get aiModelAvailableModels => '利用可能なモデル';
 
   @override
-  String get aiModelManualIdHint => 'Add model ID manually';
+  String get aiModelManualIdHint => 'モデル ID を手動で追加';
 
   @override
-  String get aiModelManualIdAdd => 'Add';
+  String get aiModelManualIdAdd => '追加';
 
   @override
   String aiModelCount(Object count) {
-    return '$count models';
+    return '$count モデル';
   }
 
   @override
-  String get chatModelButton => 'Choose Model';
+  String get chatModelButton => 'モデルを選択';
 
   @override
-  String get aiAuthNone => 'None';
+  String get aiAuthNone => 'なし';
 
   @override
   String get aiAuthBearer => 'Bearer';
 
   @override
-  String get aiAuthToken => 'Token';
+  String get aiAuthToken => 'トークン';
 
   @override
-  String get aiAuthApiKey => 'API Key';
+  String get aiAuthApiKey => 'API キー';
 
   @override
   String get aiProtocolOpenAi => 'OpenAI';
@@ -610,164 +605,158 @@ class AppLocalizationsJa extends AppLocalizations {
   String get skillsEditorLabel => 'SKILL.md の内容';
 
   @override
-  String get skillsCreateDialogTitle => 'Create Skill';
+  String get skillsCreateDialogTitle => 'スキルを作成';
 
   @override
-  String get skillsCreateNameLabel => 'Skill Name';
+  String get skillsCreateNameLabel => 'スキル名';
 
   @override
-  String get skillsCreateNameRequired => 'Enter the skill name.';
+  String get skillsCreateNameRequired => 'スキル名を入力してください。';
 
   @override
-  String get skillsCreateIconLabel => 'Skill Icon';
+  String get skillsCreateIconLabel => 'スキルのアイコン';
 
   @override
-  String get skillsCreateIconHint => 'Choose an emoji or a local image.';
+  String get skillsCreateIconHint => '絵文字またはローカル画像を選択してください。';
 
   @override
-  String get skillsCreateIconRequired => 'Choose an icon.';
+  String get skillsCreateIconRequired => 'アイコンを選択してください。';
 
   @override
-  String get skillsCreateIconChoose => 'Choose Emoji';
+  String get skillsCreateIconChoose => '絵文字を選択';
 
   @override
-  String get skillsCreateIconChange => 'Change';
+  String get skillsCreateIconChange => '変更';
 
   @override
-  String get skillsCreateImageChoose => 'Choose Image';
+  String get skillsCreateImageChoose => '画像を選択';
 
   @override
-  String get skillsCreateImageChange => 'Replace Image';
+  String get skillsCreateImageChange => '画像を置き換え';
 
   @override
-  String get skillsCreateImageSelected => 'Local image selected';
+  String get skillsCreateImageSelected => 'ローカル画像を選択しました';
 
   @override
-  String get skillsCreateDescriptionLabel => 'Short Description';
+  String get skillsCreateDescriptionLabel => '短い説明';
 
   @override
-  String get skillsCreateDescriptionRequired => 'Enter the short description.';
+  String get skillsCreateDescriptionRequired => '短い説明を入力してください。';
 
   @override
-  String get skillsCreateContentRequired => 'Enter the SKILL.md content.';
+  String get skillsCreateContentRequired => 'SKILL.md の内容を入力してください。';
 
   @override
-  String get imageEditorTitle => 'Edit Image';
+  String get imageEditorTitle => '画像を編集';
 
   @override
   String get imageEditorCropHint =>
-      'Drag the image to reposition the square crop area, then adjust zoom, rotation, brightness, and contrast.';
+      '画像をドラッグして正方形のクロップ範囲を移動し、ズーム・回転・明るさ・コントラストを調整します。';
 
   @override
-  String get imageEditorZoomLabel => 'Zoom';
+  String get imageEditorZoomLabel => 'ズーム';
 
   @override
-  String get imageEditorBrightnessLabel => 'Brightness';
+  String get imageEditorBrightnessLabel => '明るさ';
 
   @override
-  String get imageEditorContrastLabel => 'Contrast';
+  String get imageEditorContrastLabel => 'コントラスト';
 
   @override
-  String get imageEditorRotateLeft => 'Rotate Left';
+  String get imageEditorRotateLeft => '左に回転';
 
   @override
-  String get imageEditorRotateRight => 'Rotate Right';
+  String get imageEditorRotateRight => '右に回転';
 
   @override
-  String get imageEditorReset => 'Reset';
+  String get imageEditorReset => 'リセット';
 
   @override
-  String get imageEditorLoadFailed => 'Unable to load the selected image.';
+  String get imageEditorLoadFailed => '選択した画像を読み込めませんでした。';
 
   @override
-  String get imageEditorProcessFailed =>
-      'Unable to process the selected image.';
+  String get imageEditorProcessFailed => '選択した画像を処理できませんでした。';
 
   @override
-  String get imageEditorSectionBasic => 'Basic adjustments';
+  String get imageEditorSectionBasic => '基本調整';
 
   @override
-  String get imageEditorSectionColor => 'Color (temperature / tint / gamma)';
+  String get imageEditorSectionColor => '色（色温度／ティント／ガンマ）';
 
   @override
-  String get imageEditorSectionSplitToning => 'Split toning (HSL)';
+  String get imageEditorSectionSplitToning => 'スプリットトーン (HSL)';
 
   @override
-  String get imageEditorSectionDetail =>
-      'Detail (clarity / sharpness / denoise / grain)';
+  String get imageEditorSectionDetail => 'ディテール（明瞭度／シャープネス／ノイズ除去／粒子）';
 
   @override
-  String get imageEditorSectionEffects =>
-      'Effects (dispersion / distortion / vignette)';
+  String get imageEditorSectionEffects => 'エフェクト（色収差／歪み／周辺減光）';
 
   @override
-  String get imageEditorSectionWatermark => 'Text watermark / mark';
+  String get imageEditorSectionWatermark => 'テキスト透かし／マーク';
 
   @override
-  String get imageEditorTemperatureLabel => 'Temperature';
+  String get imageEditorTemperatureLabel => '色温度';
 
   @override
-  String get imageEditorTintLabel => 'Tint shift';
+  String get imageEditorTintLabel => 'ティントシフト';
 
   @override
-  String get imageEditorGammaLabel => 'Gamma (curve)';
+  String get imageEditorGammaLabel => 'ガンマ（カーブ）';
 
   @override
-  String get imageEditorShadowHueLabel => 'Shadow hue';
+  String get imageEditorShadowHueLabel => 'シャドウの色相';
 
   @override
-  String get imageEditorShadowStrengthLabel => 'Shadow strength';
+  String get imageEditorShadowStrengthLabel => 'シャドウの強さ';
 
   @override
-  String get imageEditorHighlightHueLabel => 'Highlight hue';
+  String get imageEditorHighlightHueLabel => 'ハイライトの色相';
 
   @override
-  String get imageEditorHighlightStrengthLabel => 'Highlight strength';
+  String get imageEditorHighlightStrengthLabel => 'ハイライトの強さ';
 
   @override
-  String get imageEditorClarityLabel => 'Clarity';
+  String get imageEditorClarityLabel => '明瞭度';
 
   @override
-  String get imageEditorSharpnessLabel => 'Sharpness';
+  String get imageEditorSharpnessLabel => 'シャープネス';
 
   @override
-  String get imageEditorDenoiseLabel => 'Denoise';
+  String get imageEditorDenoiseLabel => 'ノイズ除去';
 
   @override
-  String get imageEditorGrainLabel => 'Grain';
+  String get imageEditorGrainLabel => '粒子';
 
   @override
-  String get imageEditorDispersionLabel => 'Dispersion';
+  String get imageEditorDispersionLabel => '色収差';
 
   @override
-  String get imageEditorDistortLabel =>
-      'Distortion (positive bulges / negative stretches)';
+  String get imageEditorDistortLabel => '歪み（正：膨張／負：伸縮）';
 
   @override
-  String get imageEditorWatermarkTextLabel => 'Watermark text';
+  String get imageEditorWatermarkTextLabel => '透かしテキスト';
 
   @override
-  String get imageEditorWatermarkTextHint =>
-      'Enter text to overlay (leave empty to skip)';
+  String get imageEditorWatermarkTextHint => 'オーバーレイするテキストを入力（空欄でスキップ）';
 
   @override
-  String get imageEditorWatermarkSizeLabel => 'Text size';
+  String get imageEditorWatermarkSizeLabel => 'テキストサイズ';
 
   @override
-  String get imageEditorWatermarkOpacityLabel => 'Opacity';
+  String get imageEditorWatermarkOpacityLabel => '不透明度';
 
   @override
-  String get imageEditorWatermarkPositionLabel => 'Position';
+  String get imageEditorWatermarkPositionLabel => '位置';
 
   @override
-  String get imageEditorWatermarkColorLight => 'Light';
+  String get imageEditorWatermarkColorLight => 'ライト';
 
   @override
-  String get imageEditorWatermarkColorDark => 'Dark';
+  String get imageEditorWatermarkColorDark => 'ダーク';
 
   @override
-  String get imageEditorAdvancedApplyHint =>
-      'Adjustments in expanded panels are applied to the original image when you save.';
+  String get imageEditorAdvancedApplyHint => '展開パネル内の調整は、保存時に元の画像へ適用されます。';
 
   @override
   String get skillsEditorSave => '保存';
@@ -925,124 +914,121 @@ class AppLocalizationsJa extends AppLocalizations {
   String get instructionSaveFailed => '保存に失敗しました。必須項目が空でないか確認してください。';
 
   @override
-  String get memoryPageTitle => 'Memory';
+  String get memoryPageTitle => 'メモリ';
 
   @override
   String get memoryPageSubtitle =>
-      'Manage editable user memories in one place. Every entry is persisted to a local JSON file.';
+      '編集可能なユーザーメモリを一括管理します。エントリはローカルの JSON ファイルに永続化されます。';
 
   @override
-  String get memoryRefresh => 'Refresh';
+  String get memoryRefresh => '更新';
 
   @override
-  String get memoryNewEntry => 'New Memory';
+  String get memoryNewEntry => '新規メモリ';
 
   @override
-  String get memoryEmptyTitle => 'No user memories yet';
+  String get memoryEmptyTitle => 'まだユーザーメモリがありません';
 
   @override
-  String get memoryEmptyBody =>
-      'Add a user memory and OpenHand will persist it into the current memory file.';
+  String get memoryEmptyBody => 'ユーザーメモリを追加すると、OpenHand が現在のメモリファイルに永続化します。';
 
   @override
-  String get memoryLoadFailedTitle => 'Failed to load memory file';
+  String get memoryLoadFailedTitle => 'メモリファイルの読み込みに失敗';
 
   @override
-  String get memoryOperationFailed =>
-      'The memory action failed. Please try again.';
+  String get memoryOperationFailed => 'メモリ操作に失敗しました。もう一度お試しください。';
 
   @override
-  String get memoryDialogCreateTitle => 'Add User Memory';
+  String get memoryDialogCreateTitle => 'ユーザーメモリを追加';
 
   @override
-  String get memoryDialogEditTitle => 'Edit User Memory';
+  String get memoryDialogEditTitle => 'ユーザーメモリを編集';
 
   @override
-  String get memoryContentField => 'Memory Content';
+  String get memoryContentField => 'メモリ内容';
 
   @override
-  String get memoryContentRequired => 'Enter the memory content.';
+  String get memoryContentRequired => 'メモリ内容を入力してください。';
 
   @override
-  String get memoryTagsField => 'Tags';
+  String get memoryTagsField => 'タグ';
 
   @override
-  String get memoryTagsHint => 'Type a tag and press Enter to add it';
+  String get memoryTagsHint => 'タグを入力して Enter キーで追加';
 
   @override
-  String get memoryDeleteConfirmTitle => 'Delete User Memory';
+  String get memoryDeleteConfirmTitle => 'ユーザーメモリを削除';
 
   @override
-  String get memoryDeleteConfirmBody =>
-      'Delete this user memory? This action cannot be undone.';
+  String get memoryDeleteConfirmBody => 'このユーザーメモリを削除しますか？この操作は取り消せません。';
 
   @override
-  String get memoryTypeUser => 'User Edited';
+  String get memoryTypeUser => 'ユーザー編集';
 
   @override
-  String get memoryEntryCreated => 'User memory created.';
+  String get memoryEntryCreated => 'ユーザーメモリを作成しました。';
 
   @override
-  String get memoryEntryUpdated => 'User memory updated.';
+  String get memoryEntryUpdated => 'ユーザーメモリを更新しました。';
 
   @override
-  String get memoryEntryDeleted => 'User memory deleted.';
+  String get memoryEntryDeleted => 'ユーザーメモリを削除しました。';
 
   @override
-  String get memoryEnabledLabel => 'Enable Memory';
+  String get memoryEnabledLabel => 'メモリを有効化';
 
   @override
   String get memoryEnabledBody =>
-      'When disabled, saved user memories stay on disk but are not used at runtime.';
+      '無効にすると、保存済みのユーザーメモリはディスク上に残りますが、実行時には使用されません。';
 
   @override
-  String get userMemoryFileLabel => 'User Memory File';
+  String get userMemoryFileLabel => 'ユーザーメモリファイル';
 
   @override
   String get memoryFileBody =>
-      'Configure the JSON file used for user memories. By default it points to .openhand/memory/user-memory.json under the current app directory.';
+      'ユーザーメモリに使用する JSON ファイルを設定します。デフォルトではアプリディレクトリ配下の .openhand/memory/user-memory.json が指定されます。';
 
   @override
-  String get memoryFileDefaultPath => 'Default File';
+  String get memoryFileDefaultPath => '既定のファイル';
 
   @override
-  String get memoryFileSave => 'Save Path';
+  String get memoryFileSave => 'パスを保存';
 
   @override
-  String get memoryFileBrowse => 'Choose File';
+  String get memoryFileBrowse => 'ファイルを選択';
 
   @override
-  String get memoryFileReset => 'Restore Default';
+  String get memoryFileReset => '既定に戻す';
 
   @override
-  String get memoryOpenDirectory => 'Open Directory';
+  String get memoryOpenDirectory => 'ディレクトリを開く';
 
   @override
-  String get memoryPathSaved => 'The user memory file path has been updated';
+  String get memoryPathSaved => 'ユーザーメモリファイルのパスを更新しました';
 
   @override
-  String get memoryDisabledTitle => 'Memory is currently disabled';
+  String get memoryDisabledTitle => 'メモリは現在無効です';
 
   @override
   String get memoryDisabledBody =>
-      'You can still manage user memories here. To use them at runtime, turn Memory on in Settings > Memory.';
+      'ここでもユーザーメモリを管理できます。実行時に利用するには、設定 > メモリ でメモリを有効化してください。';
 
   @override
-  String get memoryCreatedAtLabel => 'Created At';
+  String get memoryCreatedAtLabel => '作成日時';
 
   @override
-  String get memoryPersistenceRecoveredTitle => 'Memory File Recovered';
+  String get memoryPersistenceRecoveredTitle => 'メモリファイルを復旧しました';
 
   @override
   String get memoryPersistenceRecoveredBody =>
-      'OpenHand detected that the memory file was damaged or tampered with, backed it up, and restored an empty list.';
+      'メモリファイルの破損または改ざんを検出したため、バックアップを作成し、空のリストに復元しました。';
 
   @override
-  String get memoryPersistenceSanitizedTitle => 'Memory Content Sanitized';
+  String get memoryPersistenceSanitizedTitle => 'メモリ内容をサニタイズしました';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      'OpenHand detected invalid memory fields, ignored the bad entries, and rewrote valid content.';
+      '無効なメモリ項目を検出したため、不正なエントリを無視し、有効な内容を書き直しました。';
 
   @override
   String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';

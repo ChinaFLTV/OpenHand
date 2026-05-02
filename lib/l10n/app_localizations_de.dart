@@ -25,7 +25,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get skills => 'Skills';
 
   @override
-  String get memory => 'Memory';
+  String get memory => 'Speicher';
 
   @override
   String get mcp => 'MCP';
@@ -47,11 +47,11 @@ class AppLocalizationsDe extends AppLocalizations {
   String get composerSend => 'Senden';
 
   @override
-  String get chatSending => 'Sending';
+  String get chatSending => 'Senden';
 
   @override
   String get chatRequestFailed =>
-      'Model request failed. Check the model configuration, network connectivity, or protocol type.';
+      'Modellanfrage fehlgeschlagen. Modellkonfiguration, Netzwerkverbindung oder Protokolltyp prüfen.';
 
   @override
   String get composerUnavailable =>
@@ -102,7 +102,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Hier verwaltest du Thema, Sprache und App-Informationen.';
 
   @override
-  String get settingsFilePathLabel => 'Settings File';
+  String get settingsFilePathLabel => 'Einstellungsdatei';
 
   @override
   String get themeSectionTitle => 'App-Thema';
@@ -121,71 +121,71 @@ class AppLocalizationsDe extends AppLocalizations {
   String get themeDark => 'Dunkel';
 
   @override
-  String get themePaletteSectionTitle => 'Theme Palette';
+  String get themePaletteSectionTitle => 'Themen-Palette';
 
   @override
   String get themePaletteSectionBody =>
-      'Choose a global color preset. OpenHand will derive the Material 3 Expressive surfaces and accents from it.';
+      'Wählen Sie eine globale Farbvoreinstellung. OpenHand leitet daraus die Material 3 Expressive-Flächen und -Akzente ab.';
 
   @override
-  String get themePresetDarkNightPurple => 'Dark Night Purple';
+  String get themePresetDarkNightPurple => 'Dunkelnacht-Lila';
 
   @override
-  String get themePresetDeepSeaBlue => 'Deep Sea Blue';
+  String get themePresetDeepSeaBlue => 'Tiefseeblau';
 
   @override
-  String get themePresetMistGray => 'Mist Gray';
+  String get themePresetMistGray => 'Nebelgrau';
 
   @override
-  String get themePresetObsidianBlack => 'Obsidian Black';
+  String get themePresetObsidianBlack => 'Obsidian-Schwarz';
 
   @override
-  String get themePresetPolarWhite => 'Polar White';
+  String get themePresetPolarWhite => 'Polarweiß';
 
   @override
-  String get themePresetFrostMorningBlue => 'Frost Morning Blue';
+  String get themePresetFrostMorningBlue => 'Frostmorgenblau';
 
   @override
-  String get themePresetDuskMountainGreen => 'Dusk Mountain Green';
+  String get themePresetDuskMountainGreen => 'Dämmerungsbergrün';
 
   @override
-  String get themePresetNebulaPurple => 'Nebula Purple';
+  String get themePresetNebulaPurple => 'Nebel-Lila';
 
   @override
-  String get themePresetEmberOrange => 'Ember Orange';
+  String get themePresetEmberOrange => 'Glut-Orange';
 
   @override
-  String get themePresetTundraGreen => 'Tundra Green';
+  String get themePresetTundraGreen => 'Tundra-Grün';
 
   @override
-  String get themePresetMoonShadowSilver => 'Moon Shadow Silver';
+  String get themePresetMoonShadowSilver => 'Mondschattensilber';
 
   @override
-  String get themePresetAmberGold => 'Amber Gold';
+  String get themePresetAmberGold => 'Bernsteingold';
 
   @override
-  String get themePresetRainyCyan => 'Rainy Cyan';
+  String get themePresetRainyCyan => 'Regen-Cyan';
 
   @override
-  String get themePresetGraphiteGray => 'Graphite Gray';
+  String get themePresetGraphiteGray => 'Graphitgrau';
 
   @override
-  String get themePresetGlacierBlue => 'Glacier Blue';
+  String get themePresetGlacierBlue => 'Gletscherblau';
 
   @override
-  String get themePresetBlazeRed => 'Blaze Red';
+  String get themePresetBlazeRed => 'Flammenrot';
 
   @override
-  String get themePresetNightfallBlue => 'Nightfall Blue';
+  String get themePresetNightfallBlue => 'Abenddämmerungsblau';
 
   @override
-  String get themePresetColdMoonWhite => 'Cold Moon White';
+  String get themePresetColdMoonWhite => 'Kaltmondweiß';
 
   @override
-  String get themePresetPineInk => 'Pine Ink';
+  String get themePresetPineInk => 'Kiefernschwarz';
 
   @override
-  String get themePresetSkyCyan => 'Sky Cyan';
+  String get themePresetSkyCyan => 'Himmel-Cyan';
 
   @override
   String get languageSectionTitle => 'App-Sprache';
@@ -235,16 +235,16 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aboutBuild => 'Build';
 
   @override
-  String get commonCancel => 'Cancel';
+  String get commonCancel => 'Abbrechen';
 
   @override
-  String get commonSave => 'Save';
+  String get commonSave => 'Speichern';
 
   @override
-  String get commonDelete => 'Delete';
+  String get commonDelete => 'Löschen';
 
   @override
-  String get commonEdit => 'Edit';
+  String get commonEdit => 'Bearbeiten';
 
   @override
   String get previewSectionTitle => 'Designrichtung';
@@ -269,7 +269,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get switchToWorkspace => 'Zurück zur Arbeitsfläche';
 
   @override
-  String get modelLabel => 'OpenHand Skeleton';
+  String get modelLabel => 'OpenHand-Skelett';
 
   @override
   String get platformLabel => 'Desktop';
@@ -281,33 +281,33 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsCategoryGeneral => 'Allgemein';
 
   @override
-  String get settingsCategoryAi => 'AI';
+  String get settingsCategoryAi => 'KI';
 
   @override
   String get settingsCategorySkills => 'Skills';
 
   @override
-  String get settingsCategoryMemory => 'Memory';
+  String get settingsCategoryMemory => 'Speicher';
 
   @override
-  String get mcpSectionTitle => 'MCP Services';
+  String get mcpSectionTitle => 'MCP-Dienste';
 
   @override
   String get mcpSectionBody =>
-      'Manage the global MCP switch and the service configuration file path. Creating, updating, deleting, and enabling services all sync to the MCP JSON file.';
+      'Globalen MCP-Schalter und Konfigurationsdateipfad der Dienste verwalten. Erstellen, Aktualisieren, Löschen und Aktivieren von Diensten werden mit der MCP-JSON-Datei synchronisiert.';
 
   @override
-  String get mcpEnabledLabel => 'Enable MCP Services';
+  String get mcpEnabledLabel => 'MCP-Dienste aktivieren';
 
   @override
   String get mcpEnabledBody =>
-      'When disabled, MCP capabilities stay off at runtime while keeping the saved server configurations.';
+      'Wenn deaktiviert, bleiben gespeicherte Serverkonfigurationen erhalten, MCP-Funktionen sind zur Laufzeit jedoch ausgeschaltet.';
 
   @override
-  String get mcpFilePathLabel => 'MCP Config File';
+  String get mcpFilePathLabel => 'MCP-Konfigurationsdatei';
 
   @override
-  String get mcpOpenDirectory => 'Open Directory';
+  String get mcpOpenDirectory => 'Verzeichnis öffnen';
 
   @override
   String get settingsGeneralTitle => 'Allgemein';
@@ -318,7 +318,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsAiSubtitle =>
-      'Manage chat models, authentication, and protocol adapters.';
+      'Chat-Modelle, Authentifizierung und Protokolladapter verwalten.';
 
   @override
   String get settingsSkillsTitle => 'Skills';
@@ -329,155 +329,159 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsMemorySubtitle =>
-      'Manage the user-memory switch and the persistence file path.';
+      'Schalter für Nutzer-Speicher und Persistenz-Dateipfad verwalten.';
 
   @override
-  String get settingsPersistenceRecoveredTitle => 'Settings File Recovered';
+  String get settingsPersistenceRecoveredTitle =>
+      'Einstellungsdatei wiederhergestellt';
 
   @override
   String get settingsPersistenceRecoveredBody =>
-      'OpenHand detected that the settings file was damaged or tampered with, backed it up, and restored safe defaults.';
+      'OpenHand hat erkannt, dass die Einstellungsdatei beschädigt oder manipuliert wurde, ein Backup erstellt und sichere Standardwerte wiederhergestellt.';
 
   @override
-  String get settingsPersistenceSanitizedTitle => 'Settings Content Sanitized';
+  String get settingsPersistenceSanitizedTitle =>
+      'Einstellungsinhalt bereinigt';
 
   @override
   String get settingsPersistenceSanitizedBody =>
-      'OpenHand detected invalid settings fields, ignored them, and rewrote a valid configuration.';
+      'OpenHand hat ungültige Einstellungsfelder erkannt, ignoriert und eine gültige Konfiguration neu geschrieben.';
 
   @override
-  String get settingsPersistenceSaveFailedTitle => 'Settings Save Failed';
+  String get settingsPersistenceSaveFailedTitle =>
+      'Speichern der Einstellungen fehlgeschlagen';
 
   @override
   String get settingsPersistenceSaveFailedBody =>
-      'Writing the settings file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
+      'Das Schreiben der Einstellungsdatei ist fehlgeschlagen. Die Oberfläche wurde auf die letzte gültige Konfiguration zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.';
 
   @override
-  String get settingsPersistenceDismiss => 'Dismiss';
+  String get settingsPersistenceDismiss => 'Schließen';
 
   @override
-  String get aiModelAdd => 'Add Provider';
+  String get aiModelAdd => 'Anbieter hinzufügen';
 
   @override
-  String get aiModelsEmptyTitle => 'No model providers yet';
+  String get aiModelsEmptyTitle => 'Noch keine Modellanbieter';
 
   @override
   String get aiModelsEmptyBody =>
-      'Add at least one model provider configuration here, and the thread composer will reuse it directly.';
+      'Fügen Sie hier mindestens eine Modellanbieter-Konfiguration hinzu, dann verwendet der Thread-Editor sie direkt wieder.';
 
   @override
-  String get aiModelDialogCreateTitle => 'Add Model Provider';
+  String get aiModelDialogCreateTitle => 'Modellanbieter hinzufügen';
 
   @override
-  String get aiModelDialogEditTitle => 'Edit Model Provider';
+  String get aiModelDialogEditTitle => 'Modellanbieter bearbeiten';
 
   @override
-  String get aiModelBaseUrl => 'Base URL';
+  String get aiModelBaseUrl => 'Basis-URL';
 
   @override
-  String get aiModelBaseUrlRequired => 'Enter a base URL.';
+  String get aiModelBaseUrlRequired => 'Basis-URL eingeben.';
 
   @override
-  String get aiModelBaseUrlInvalid => 'Enter a valid base URL.';
+  String get aiModelBaseUrlInvalid => 'Gültige Basis-URL eingeben.';
 
   @override
-  String get aiModelAuthScheme => 'Auth Scheme';
+  String get aiModelAuthScheme => 'Authentifizierungsschema';
 
   @override
   String get aiModelToken => 'Token';
 
   @override
-  String get aiModelIdField => 'Model ID';
+  String get aiModelIdField => 'Modell-ID';
 
   @override
-  String get aiModelIdRequired => 'Enter a model ID.';
+  String get aiModelIdRequired => 'Modell-ID eingeben.';
 
   @override
-  String get aiModelProtocol => 'Protocol';
+  String get aiModelProtocol => 'Protokoll';
 
   @override
-  String get aiModelSaveSuccess => 'Model provider configuration saved.';
+  String get aiModelSaveSuccess => 'Modellanbieter-Konfiguration gespeichert.';
 
   @override
-  String get aiModelDeleteConfirmTitle => 'Delete Model Provider';
+  String get aiModelDeleteConfirmTitle => 'Modellanbieter löschen';
 
   @override
   String get aiModelDeleteConfirmBody =>
-      'Delete this model provider configuration?';
+      'Diese Modellanbieter-Konfiguration löschen?';
 
   @override
-  String get aiModelDeleteSuccess => 'Model provider configuration deleted.';
+  String get aiModelDeleteSuccess => 'Modellanbieter-Konfiguration gelöscht.';
 
   @override
-  String get aiModelMoveUp => 'Move Up';
+  String get aiModelMoveUp => 'Nach oben';
 
   @override
-  String get aiModelMoveDown => 'Move Down';
+  String get aiModelMoveDown => 'Nach unten';
 
   @override
-  String get aiModelSelected => 'Active model provider';
+  String get aiModelSelected => 'Aktiver Modellanbieter';
 
   @override
-  String get aiModelNoToken => 'No token configured';
+  String get aiModelNoToken => 'Kein Token konfiguriert';
 
   @override
-  String get aiModelTest => 'Test';
+  String get aiModelTest => 'Testen';
 
   @override
-  String get aiModelTesting => 'Testing';
+  String get aiModelTesting => 'Teste';
 
   @override
   String aiModelTestSuccess(Object modelName) {
-    return '$modelName passed the test.';
+    return '$modelName hat den Test bestanden.';
   }
 
   @override
   String aiModelTestFailure(Object modelName, Object reason) {
-    return '$modelName test failed: $reason';
+    return '$modelName-Test fehlgeschlagen: $reason';
   }
 
   @override
   String get aiModelSelectionRequired =>
-      'Add and select an AI model provider in Settings first.';
+      'Fügen Sie zuerst in den Einstellungen einen KI-Modellanbieter hinzu und wählen Sie ihn aus.';
 
   @override
-  String get aiModelScanButton => 'Scan Models';
+  String get aiModelScanButton => 'Modelle scannen';
 
   @override
-  String get aiModelScanning => 'Scanning available models…';
+  String get aiModelScanning => 'Verfügbare Modelle werden gescannt …';
 
   @override
   String aiModelScanSuccess(Object count) {
-    return 'Found $count models.';
+    return '$count Modelle gefunden.';
   }
 
   @override
   String aiModelScanFailed(Object reason) {
-    return 'Scan failed: $reason';
+    return 'Scan fehlgeschlagen: $reason';
   }
 
   @override
-  String get aiModelScanEmpty => 'No models found from this provider.';
+  String get aiModelScanEmpty =>
+      'Bei diesem Anbieter wurden keine Modelle gefunden.';
 
   @override
-  String get aiModelAvailableModels => 'Available Models';
+  String get aiModelAvailableModels => 'Verfügbare Modelle';
 
   @override
-  String get aiModelManualIdHint => 'Add model ID manually';
+  String get aiModelManualIdHint => 'Modell-ID manuell hinzufügen';
 
   @override
-  String get aiModelManualIdAdd => 'Add';
+  String get aiModelManualIdAdd => 'Hinzufügen';
 
   @override
   String aiModelCount(Object count) {
-    return '$count models';
+    return '$count Modelle';
   }
 
   @override
-  String get chatModelButton => 'Choose Model';
+  String get chatModelButton => 'Modell auswählen';
 
   @override
-  String get aiAuthNone => 'None';
+  String get aiAuthNone => 'Keine';
 
   @override
   String get aiAuthBearer => 'Bearer';
@@ -486,7 +490,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiAuthToken => 'Token';
 
   @override
-  String get aiAuthApiKey => 'API Key';
+  String get aiAuthApiKey => 'API-Schlüssel';
 
   @override
   String get aiProtocolOpenAi => 'OpenAI';
@@ -622,164 +626,166 @@ class AppLocalizationsDe extends AppLocalizations {
   String get skillsEditorLabel => 'SKILL.md-Inhalt';
 
   @override
-  String get skillsCreateDialogTitle => 'Create Skill';
+  String get skillsCreateDialogTitle => 'Skill erstellen';
 
   @override
-  String get skillsCreateNameLabel => 'Skill Name';
+  String get skillsCreateNameLabel => 'Skill-Name';
 
   @override
-  String get skillsCreateNameRequired => 'Enter the skill name.';
+  String get skillsCreateNameRequired => 'Skill-Namen eingeben.';
 
   @override
-  String get skillsCreateIconLabel => 'Skill Icon';
+  String get skillsCreateIconLabel => 'Skill-Symbol';
 
   @override
-  String get skillsCreateIconHint => 'Choose an emoji or a local image.';
+  String get skillsCreateIconHint => 'Emoji oder lokales Bild auswählen.';
 
   @override
-  String get skillsCreateIconRequired => 'Choose an icon.';
+  String get skillsCreateIconRequired => 'Symbol auswählen.';
 
   @override
-  String get skillsCreateIconChoose => 'Choose Emoji';
+  String get skillsCreateIconChoose => 'Emoji wählen';
 
   @override
-  String get skillsCreateIconChange => 'Change';
+  String get skillsCreateIconChange => 'Ändern';
 
   @override
-  String get skillsCreateImageChoose => 'Choose Image';
+  String get skillsCreateImageChoose => 'Bild wählen';
 
   @override
-  String get skillsCreateImageChange => 'Replace Image';
+  String get skillsCreateImageChange => 'Bild ersetzen';
 
   @override
-  String get skillsCreateImageSelected => 'Local image selected';
+  String get skillsCreateImageSelected => 'Lokales Bild ausgewählt';
 
   @override
-  String get skillsCreateDescriptionLabel => 'Short Description';
+  String get skillsCreateDescriptionLabel => 'Kurze Beschreibung';
 
   @override
-  String get skillsCreateDescriptionRequired => 'Enter the short description.';
+  String get skillsCreateDescriptionRequired => 'Kurze Beschreibung eingeben.';
 
   @override
-  String get skillsCreateContentRequired => 'Enter the SKILL.md content.';
+  String get skillsCreateContentRequired => 'SKILL.md-Inhalt eingeben.';
 
   @override
-  String get imageEditorTitle => 'Edit Image';
+  String get imageEditorTitle => 'Bild bearbeiten';
 
   @override
   String get imageEditorCropHint =>
-      'Drag the image to reposition the square crop area, then adjust zoom, rotation, brightness, and contrast.';
+      'Ziehen Sie das Bild, um den quadratischen Beschnittbereich zu positionieren, dann passen Sie Zoom, Drehung, Helligkeit und Kontrast an.';
 
   @override
   String get imageEditorZoomLabel => 'Zoom';
 
   @override
-  String get imageEditorBrightnessLabel => 'Brightness';
+  String get imageEditorBrightnessLabel => 'Helligkeit';
 
   @override
-  String get imageEditorContrastLabel => 'Contrast';
+  String get imageEditorContrastLabel => 'Kontrast';
 
   @override
-  String get imageEditorRotateLeft => 'Rotate Left';
+  String get imageEditorRotateLeft => 'Nach links drehen';
 
   @override
-  String get imageEditorRotateRight => 'Rotate Right';
+  String get imageEditorRotateRight => 'Nach rechts drehen';
 
   @override
-  String get imageEditorReset => 'Reset';
+  String get imageEditorReset => 'Zurücksetzen';
 
   @override
-  String get imageEditorLoadFailed => 'Unable to load the selected image.';
+  String get imageEditorLoadFailed =>
+      'Das ausgewählte Bild konnte nicht geladen werden.';
 
   @override
   String get imageEditorProcessFailed =>
-      'Unable to process the selected image.';
+      'Das ausgewählte Bild konnte nicht verarbeitet werden.';
 
   @override
-  String get imageEditorSectionBasic => 'Basic adjustments';
+  String get imageEditorSectionBasic => 'Grundanpassungen';
 
   @override
-  String get imageEditorSectionColor => 'Color (temperature / tint / gamma)';
+  String get imageEditorSectionColor =>
+      'Farbe (Farbtemperatur / Farbton / Gamma)';
 
   @override
-  String get imageEditorSectionSplitToning => 'Split toning (HSL)';
+  String get imageEditorSectionSplitToning => 'Split Toning (HSL)';
 
   @override
   String get imageEditorSectionDetail =>
-      'Detail (clarity / sharpness / denoise / grain)';
+      'Details (Klarheit / Schärfe / Rauschunterdrückung / Körnung)';
 
   @override
   String get imageEditorSectionEffects =>
-      'Effects (dispersion / distortion / vignette)';
+      'Effekte (Dispersion / Verzerrung / Vignette)';
 
   @override
-  String get imageEditorSectionWatermark => 'Text watermark / mark';
+  String get imageEditorSectionWatermark => 'Textwasserzeichen / Markierung';
 
   @override
-  String get imageEditorTemperatureLabel => 'Temperature';
+  String get imageEditorTemperatureLabel => 'Farbtemperatur';
 
   @override
-  String get imageEditorTintLabel => 'Tint shift';
+  String get imageEditorTintLabel => 'Farbtonverschiebung';
 
   @override
-  String get imageEditorGammaLabel => 'Gamma (curve)';
+  String get imageEditorGammaLabel => 'Gamma (Kurve)';
 
   @override
-  String get imageEditorShadowHueLabel => 'Shadow hue';
+  String get imageEditorShadowHueLabel => 'Schatten-Farbton';
 
   @override
-  String get imageEditorShadowStrengthLabel => 'Shadow strength';
+  String get imageEditorShadowStrengthLabel => 'Schatten-Intensität';
 
   @override
-  String get imageEditorHighlightHueLabel => 'Highlight hue';
+  String get imageEditorHighlightHueLabel => 'Lichter-Farbton';
 
   @override
-  String get imageEditorHighlightStrengthLabel => 'Highlight strength';
+  String get imageEditorHighlightStrengthLabel => 'Lichter-Intensität';
 
   @override
-  String get imageEditorClarityLabel => 'Clarity';
+  String get imageEditorClarityLabel => 'Klarheit';
 
   @override
-  String get imageEditorSharpnessLabel => 'Sharpness';
+  String get imageEditorSharpnessLabel => 'Schärfe';
 
   @override
-  String get imageEditorDenoiseLabel => 'Denoise';
+  String get imageEditorDenoiseLabel => 'Rauschunterdrückung';
 
   @override
-  String get imageEditorGrainLabel => 'Grain';
+  String get imageEditorGrainLabel => 'Körnung';
 
   @override
   String get imageEditorDispersionLabel => 'Dispersion';
 
   @override
   String get imageEditorDistortLabel =>
-      'Distortion (positive bulges / negative stretches)';
+      'Verzerrung (positiv wölbt / negativ streckt)';
 
   @override
-  String get imageEditorWatermarkTextLabel => 'Watermark text';
+  String get imageEditorWatermarkTextLabel => 'Wasserzeichentext';
 
   @override
   String get imageEditorWatermarkTextHint =>
-      'Enter text to overlay (leave empty to skip)';
+      'Text zum Überlagern eingeben (leer lassen, um zu überspringen)';
 
   @override
-  String get imageEditorWatermarkSizeLabel => 'Text size';
+  String get imageEditorWatermarkSizeLabel => 'Textgröße';
 
   @override
-  String get imageEditorWatermarkOpacityLabel => 'Opacity';
+  String get imageEditorWatermarkOpacityLabel => 'Deckkraft';
 
   @override
   String get imageEditorWatermarkPositionLabel => 'Position';
 
   @override
-  String get imageEditorWatermarkColorLight => 'Light';
+  String get imageEditorWatermarkColorLight => 'Hell';
 
   @override
-  String get imageEditorWatermarkColorDark => 'Dark';
+  String get imageEditorWatermarkColorDark => 'Dunkel';
 
   @override
   String get imageEditorAdvancedApplyHint =>
-      'Adjustments in expanded panels are applied to the original image when you save.';
+      'Anpassungen in den erweiterten Bereichen werden beim Speichern auf das Originalbild angewendet.';
 
   @override
   String get skillsEditorSave => 'Speichern';
@@ -945,124 +951,126 @@ class AppLocalizationsDe extends AppLocalizations {
       'Speichern fehlgeschlagen. Prüfe, ob Pflichtfelder leer sind.';
 
   @override
-  String get memoryPageTitle => 'Memory';
+  String get memoryPageTitle => 'Speicher';
 
   @override
   String get memoryPageSubtitle =>
-      'Manage editable user memories in one place. Every entry is persisted to a local JSON file.';
+      'Bearbeitbare Nutzer-Erinnerungen an einem Ort verwalten. Jeder Eintrag wird in einer lokalen JSON-Datei gespeichert.';
 
   @override
-  String get memoryRefresh => 'Refresh';
+  String get memoryRefresh => 'Aktualisieren';
 
   @override
-  String get memoryNewEntry => 'New Memory';
+  String get memoryNewEntry => 'Neue Erinnerung';
 
   @override
-  String get memoryEmptyTitle => 'No user memories yet';
+  String get memoryEmptyTitle => 'Noch keine Nutzer-Erinnerungen';
 
   @override
   String get memoryEmptyBody =>
-      'Add a user memory and OpenHand will persist it into the current memory file.';
+      'Fügen Sie eine Nutzer-Erinnerung hinzu, und OpenHand speichert sie in der aktuellen Speicherdatei.';
 
   @override
-  String get memoryLoadFailedTitle => 'Failed to load memory file';
+  String get memoryLoadFailedTitle =>
+      'Speicherdatei konnte nicht geladen werden';
 
   @override
   String get memoryOperationFailed =>
-      'The memory action failed. Please try again.';
+      'Speicheraktion fehlgeschlagen. Bitte erneut versuchen.';
 
   @override
-  String get memoryDialogCreateTitle => 'Add User Memory';
+  String get memoryDialogCreateTitle => 'Nutzer-Erinnerung hinzufügen';
 
   @override
-  String get memoryDialogEditTitle => 'Edit User Memory';
+  String get memoryDialogEditTitle => 'Nutzer-Erinnerung bearbeiten';
 
   @override
-  String get memoryContentField => 'Memory Content';
+  String get memoryContentField => 'Erinnerungsinhalt';
 
   @override
-  String get memoryContentRequired => 'Enter the memory content.';
+  String get memoryContentRequired => 'Erinnerungsinhalt eingeben.';
 
   @override
   String get memoryTagsField => 'Tags';
 
   @override
-  String get memoryTagsHint => 'Type a tag and press Enter to add it';
+  String get memoryTagsHint => 'Tag eingeben und mit Enter hinzufügen';
 
   @override
-  String get memoryDeleteConfirmTitle => 'Delete User Memory';
+  String get memoryDeleteConfirmTitle => 'Nutzer-Erinnerung löschen';
 
   @override
   String get memoryDeleteConfirmBody =>
-      'Delete this user memory? This action cannot be undone.';
+      'Diese Nutzer-Erinnerung löschen? Diese Aktion kann nicht rückgängig gemacht werden.';
 
   @override
-  String get memoryTypeUser => 'User Edited';
+  String get memoryTypeUser => 'Vom Nutzer bearbeitet';
 
   @override
-  String get memoryEntryCreated => 'User memory created.';
+  String get memoryEntryCreated => 'Nutzer-Erinnerung erstellt.';
 
   @override
-  String get memoryEntryUpdated => 'User memory updated.';
+  String get memoryEntryUpdated => 'Nutzer-Erinnerung aktualisiert.';
 
   @override
-  String get memoryEntryDeleted => 'User memory deleted.';
+  String get memoryEntryDeleted => 'Nutzer-Erinnerung gelöscht.';
 
   @override
-  String get memoryEnabledLabel => 'Enable Memory';
+  String get memoryEnabledLabel => 'Speicher aktivieren';
 
   @override
   String get memoryEnabledBody =>
-      'When disabled, saved user memories stay on disk but are not used at runtime.';
+      'Wenn deaktiviert, bleiben gespeicherte Nutzer-Erinnerungen auf der Festplatte, werden zur Laufzeit jedoch nicht verwendet.';
 
   @override
-  String get userMemoryFileLabel => 'User Memory File';
+  String get userMemoryFileLabel => 'Nutzer-Speicherdatei';
 
   @override
   String get memoryFileBody =>
-      'Configure the JSON file used for user memories. By default it points to .openhand/memory/user-memory.json under the current app directory.';
+      'Konfigurieren Sie die JSON-Datei für Nutzer-Erinnerungen. Standardmäßig zeigt sie auf .openhand/memory/user-memory.json im aktuellen App-Verzeichnis.';
 
   @override
-  String get memoryFileDefaultPath => 'Default File';
+  String get memoryFileDefaultPath => 'Standarddatei';
 
   @override
-  String get memoryFileSave => 'Save Path';
+  String get memoryFileSave => 'Pfad speichern';
 
   @override
-  String get memoryFileBrowse => 'Choose File';
+  String get memoryFileBrowse => 'Datei wählen';
 
   @override
-  String get memoryFileReset => 'Restore Default';
+  String get memoryFileReset => 'Standard wiederherstellen';
 
   @override
-  String get memoryOpenDirectory => 'Open Directory';
+  String get memoryOpenDirectory => 'Verzeichnis öffnen';
 
   @override
-  String get memoryPathSaved => 'The user memory file path has been updated';
+  String get memoryPathSaved => 'Pfad der Nutzer-Speicherdatei aktualisiert';
 
   @override
-  String get memoryDisabledTitle => 'Memory is currently disabled';
+  String get memoryDisabledTitle => 'Speicher ist derzeit deaktiviert';
 
   @override
   String get memoryDisabledBody =>
-      'You can still manage user memories here. To use them at runtime, turn Memory on in Settings > Memory.';
+      'Sie können Nutzer-Erinnerungen hier weiterhin verwalten. Um sie zur Laufzeit zu nutzen, aktivieren Sie den Speicher unter Einstellungen > Speicher.';
 
   @override
-  String get memoryCreatedAtLabel => 'Created At';
+  String get memoryCreatedAtLabel => 'Erstellt am';
 
   @override
-  String get memoryPersistenceRecoveredTitle => 'Memory File Recovered';
+  String get memoryPersistenceRecoveredTitle =>
+      'Speicherdatei wiederhergestellt';
 
   @override
   String get memoryPersistenceRecoveredBody =>
-      'OpenHand detected that the memory file was damaged or tampered with, backed it up, and restored an empty list.';
+      'OpenHand hat erkannt, dass die Speicherdatei beschädigt oder manipuliert wurde, ein Backup erstellt und eine leere Liste wiederhergestellt.';
 
   @override
-  String get memoryPersistenceSanitizedTitle => 'Memory Content Sanitized';
+  String get memoryPersistenceSanitizedTitle => 'Speicherinhalt bereinigt';
 
   @override
   String get memoryPersistenceSanitizedBody =>
-      'OpenHand detected invalid memory fields, ignored the bad entries, and rewrote valid content.';
+      'OpenHand hat ungültige Speicherfelder erkannt, fehlerhafte Einträge ignoriert und gültigen Inhalt neu geschrieben.';
 
   @override
   String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
