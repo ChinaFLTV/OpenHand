@@ -523,11 +523,22 @@ class _WorkspacePrimarySwitcher extends StatelessWidget {
       transitionBuilder: (animatedChild, animation) {
         return _WorkspacePrimarySwitchTransition(
           allowOutgoingOverlap: _allowsOutgoingOverlap(animatedChild),
-          child: _buildPanelTransition(
-            child: animatedChild,
+          // Layer a subtle 6px horizontal paint-time offset on top of
+          // whatever transition the user picked, so cross-session swaps
+          // pick up a faint side-slide cue (works even when the style
+          // is `fade` / `none` because `_PaintOffsetTransition` only
+          // touches the paint offset). Honors `disableAnimationsOf`
+          // via the render object itself.
+          child: _PaintOffsetTransition(
             animation: animation,
-            entranceStyle: settings.entranceStyle,
-            exitStyle: settings.exitStyle,
+            maxYOffset: 0,
+            maxXOffset: 6,
+            child: _buildPanelTransition(
+              child: animatedChild,
+              animation: animation,
+              entranceStyle: settings.entranceStyle,
+              exitStyle: settings.exitStyle,
+            ),
           ),
         );
       },
