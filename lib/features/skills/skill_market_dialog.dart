@@ -10,6 +10,8 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/appear_once.dart';
+import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/openhand_snack_bar.dart';
 import 'data/skill_market_client.dart';
 import 'model/skill_market.dart';
 import 'skills_controller.dart';
@@ -48,6 +50,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   SkillMarketSummary? _selectedSkill;
   Future<SkillMarketBundle>? _selectedBundleFuture;
   final Map<String, String> _selectedPreviewVersions = <String, String>{};
+  final ValueNotifier<int> _installSuccessSignal = ValueNotifier<int>(0);
+  final ValueNotifier<int> _installErrorSignal = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -61,6 +65,8 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     _searchDebounce?.cancel();
     _marketClient.close();
     _searchController.dispose();
+    _installSuccessSignal.dispose();
+    _installErrorSignal.dispose();
     super.dispose();
   }
 
@@ -80,9 +86,11 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         child: SizedBox(
           width: dialogWidth,
           height: dialogHeight,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(context),
@@ -133,6 +141,30 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 _buildActions(context),
               ],
             ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _installSuccessSignal,
+                    color: const Color(0xFF22C55E),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _installErrorSignal,
+                    color: const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -656,7 +688,9 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       _showMarketSnackBar(
         context,
         '${_t(context, zh: '已安装技能', en: 'Skill installed')}: ${installedSkill.name}',
+        kind: _MarketSnackKind.success,
       );
+      _installSuccessSignal.value++;
     } catch (error, stackTrace) {
       silentLog(
         'skill_market_dialog',
@@ -675,17 +709,26 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           en: 'Install failed. Check the network, disk permission, or archive contents.',
         );
       });
+      _installErrorSignal.value++;
     }
   }
 
-  void _showMarketSnackBar(BuildContext context, String message) {
+  void _showMarketSnackBar(BuildContext context, String message,
+      {_MarketSnackKind kind = _MarketSnackKind.info}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text(message)));
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      switch (kind) {
+        case _MarketSnackKind.success:
+          messenger.showSnackBar(OpenHandSnackBar.success(context, message));
+        case _MarketSnackKind.error:
+          messenger.showSnackBar(OpenHandSnackBar.error(context, message));
+        case _MarketSnackKind.info:
+          messenger.showSnackBar(SnackBar(content: Text(message)));
+      }
     });
   }
 
@@ -1521,3 +1564,5 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   );
   return '${markdown.substring(0, maxChars)}$suffix';
 }
+
+enum _MarketSnackKind { info, success, error }
