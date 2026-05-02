@@ -880,38 +880,44 @@ class _ImagePreviewDialog extends StatelessWidget {
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.open_in_new_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.open_in_new_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '使用系统应用打开',
+                        en: 'Open with System App',
+                      ),
+                      onPressed: () => _openInSystemApp(context),
                     ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '使用系统应用打开',
-                      en: 'Open with System App',
-                    ),
-                    onPressed: () => _openInSystemApp(context),
                   ),
                   const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(
-                      Icons.download_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '保存到本地',
+                        en: 'Save to disk',
+                      ),
+                      onPressed: () => _saveImageAs(context),
                     ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '保存到本地',
-                      en: 'Save to disk',
-                    ),
-                    onPressed: () => _saveImageAs(context),
                   ),
                   const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
@@ -1967,53 +1973,61 @@ $mediaTag
                       style: theme.textTheme.titleMedium,
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.open_in_new_rounded,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '使用系统播放器打开',
-                      en: 'Open with System Player',
-                    ),
-                    onPressed: () => _openInSystemPlayer(context),
-                  ),
-                  const SizedBox(width: 4),
-                  if (isVideo) ...[
-                    IconButton(
+                  MicroPressFeedback(
+                    child: IconButton(
                       icon: Icon(
-                        Icons.fullscreen_rounded,
+                        Icons.open_in_new_rounded,
                         color: colorScheme.onSurfaceVariant,
                       ),
                       tooltip: _localizedText(
                         context,
-                        zh: '全屏沉浸播放',
-                        en: 'Fullscreen playback',
+                        zh: '使用系统播放器打开',
+                        en: 'Open with System Player',
                       ),
-                      onPressed: () => _enterFullscreen(context),
+                      onPressed: () => _openInSystemPlayer(context),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  if (isVideo) ...[
+                    MicroPressFeedback(
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.fullscreen_rounded,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: _localizedText(
+                          context,
+                          zh: '全屏沉浸播放',
+                          en: 'Fullscreen playback',
+                        ),
+                        onPressed: () => _enterFullscreen(context),
+                      ),
                     ),
                     const SizedBox(width: 4),
                   ],
-                  IconButton(
-                    icon: Icon(
-                      Icons.download_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.download_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      tooltip: _localizedText(
+                        context,
+                        zh: '保存到本地',
+                        en: 'Save to disk',
+                      ),
+                      onPressed: () => _saveMediaAs(context),
                     ),
-                    tooltip: _localizedText(
-                      context,
-                      zh: '保存到本地',
-                      en: 'Save to disk',
-                    ),
-                    onPressed: () => _saveMediaAs(context),
                   ),
                   const SizedBox(width: 4),
-                  IconButton(
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: colorScheme.onSurfaceVariant,
+                  MicroPressFeedback(
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),

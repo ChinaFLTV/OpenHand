@@ -6084,9 +6084,12 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
               SizedBox(
                 width: 46,
                 height: 46,
-                child: IconButton(
-                  onPressed: _count > 1 ? () => setState(() => _count--) : null,
-                  icon: const Icon(Icons.remove_circle_outline),
+                child: MicroPressFeedback(
+                  enabled: _count > 1,
+                  child: IconButton(
+                    onPressed: _count > 1 ? () => setState(() => _count--) : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -6100,9 +6103,12 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
               SizedBox(
                 width: 46,
                 height: 46,
-                child: IconButton(
-                  onPressed: _count < 4 ? () => setState(() => _count++) : null,
-                  icon: const Icon(Icons.add_circle_outline),
+                child: MicroPressFeedback(
+                  enabled: _count < 4,
+                  child: IconButton(
+                    onPressed: _count < 4 ? () => setState(() => _count++) : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
