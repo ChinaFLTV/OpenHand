@@ -364,9 +364,9 @@ class _DataCleanupRow extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                 ],
-                Text(
-                  sizeText,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                RollingText(
+                  text: sizeText,
+                  style: theme.textTheme.titleSmall!.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isDestructive
                         ? colorScheme.error
@@ -376,8 +376,14 @@ class _DataCleanupRow extends StatelessWidget {
                 if (detailText != null) ...[
                   const SizedBox(width: 10),
                   Text(
-                    '· $detailText',
+                    '· ',
                     style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  RollingText(
+                    text: detailText,
+                    style: theme.textTheme.bodySmall!.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),

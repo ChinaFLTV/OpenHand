@@ -30,6 +30,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/error_snackbar.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
+import '../../shared/widgets/rolling_text.dart';
 import '../ai/ai_session_controller.dart';
 import '../ai/model/ai_allow_command_rule.dart';
 import '../ai/model/ai_builtin_tool_config.dart';
