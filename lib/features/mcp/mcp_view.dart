@@ -1336,43 +1336,51 @@ class _McpServerToggleChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final backgroundColor = enabled
-        ? colorScheme.primaryContainer
-        : colorScheme.surfaceContainerHighest;
-    final foregroundColor = enabled
-        ? colorScheme.onPrimaryContainer
-        : colorScheme.onSurfaceVariant;
-    final borderColor = enabled
-        ? colorScheme.primary.withValues(alpha: 0.28)
-        : colorScheme.outlineVariant;
+    final enabledBg = colorScheme.primaryContainer;
+    final disabledBg = colorScheme.surfaceContainerHighest;
+    final enabledFg = colorScheme.onPrimaryContainer;
+    final disabledFg = colorScheme.onSurfaceVariant;
+    final enabledBorder = colorScheme.primary.withValues(alpha: 0.28);
+    final disabledBorder = colorScheme.outlineVariant;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Tooltip(
       message: enabled
           ? _localizedText(context, zh: '点击停用', en: 'Click to Disable')
           : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
-      child: ActionChip(
-        avatar: Icon(
-          enabled
-              ? Icons.check_circle_outline_rounded
-              : Icons.pause_circle_outline_rounded,
-          size: 18,
-          color: foregroundColor,
-        ),
-        label: Text(
-          enabled
-              ? AppLocalizations.of(context)!.mcpServerStatusEnabled
-              : AppLocalizations.of(context)!.mcpServerStatusDisabled,
-        ),
-        onPressed: onPressed,
-        backgroundColor: backgroundColor,
-        side: BorderSide(color: borderColor),
-        shape: const StadiumBorder(),
-        labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: foregroundColor,
-          fontWeight: FontWeight.w600,
-        ),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.compact,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
+        duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        builder: (context, t, _) {
+          final backgroundColor = Color.lerp(disabledBg, enabledBg, t)!;
+          final foregroundColor = Color.lerp(disabledFg, enabledFg, t)!;
+          final borderColor = Color.lerp(disabledBorder, enabledBorder, t)!;
+          return ActionChip(
+            avatar: Icon(
+              enabled
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.pause_circle_outline_rounded,
+              size: 18,
+              color: foregroundColor,
+            ),
+            label: Text(
+              enabled
+                  ? AppLocalizations.of(context)!.mcpServerStatusEnabled
+                  : AppLocalizations.of(context)!.mcpServerStatusDisabled,
+            ),
+            onPressed: onPressed,
+            backgroundColor: backgroundColor,
+            side: BorderSide(color: borderColor),
+            shape: const StadiumBorder(),
+            labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w600,
+            ),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          );
+        },
       ),
     );
   }
