@@ -21,7 +21,7 @@
 | `WebFetch` | 抓特定网页 | 30x 跳转用返回最终 URL 重新调一次 |
 | `WebSearch` | 时效信息 / 当前事件 / 近期文档 | 时间敏感场景必须基于运行时日期 |
 | `TodoWrite` | 跟踪 ≥3 步多步任务 | 单一 `in_progress`；完成立即标 `completed` |
-| `ExitPlanMode` | 计划阶段结束 + 提交执行步骤 | 需等用户批准再切实施工具 |
+| `ExitPlanMode` | 计划阶段唯一闸门 | `plan` 仅装「1./2./…」纯文本清单；提交后等用户明确应允才可切实施工具 |
 | `NotebookEdit` | 编辑单个 Jupyter 单元 | 传 `notebook_path` + `new_source`；非 `.ipynb` 用 `Edit` / `Write` |
 | `Lsp` | LSP 符号导航（定义 / 引用 / Hover） | 类型化语言里优于 `Grep` |
 | `CodebaseSearch` | 自然语言语义搜索 | 字面 / 关键词已知时优先 `Grep` / `Glob` |
@@ -39,7 +39,7 @@
 - 永不泛泛申请权限，直接调用。
 - 运行时工具列表是权威；不在列表里的工具不可用。
 - 失败 / 被拒的工具调用都是真实结果，按系统 `<error_recovery>` 决策。
-- 计划模式下若 `Write` / `Edit` / `MultiEdit` / `Bash` 不在目录里而用户要求实施代码 — 立即调 `ExitPlanMode` 提交清单；**禁止**把代码块塞聊天让用户复制粘贴。
+- 计划模式下仅可调 9 件白名单工具（`Read` / `Grep` / `Glob` / `LS` / `WebSearch` / `WebFetch` / `Task` / `TodoWrite` / `ExitPlanMode`）；写工具不在目录里是闸门正常状态 — 调研完毕调 `ExitPlanMode` 提交清单；**禁止**把代码块塞聊天让用户复制粘贴。
 </operating_rules>
 
 <git_protocol>
