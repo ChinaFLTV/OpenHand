@@ -1464,10 +1464,13 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             if (canExpand)
               TextButton.icon(
                 onPressed: () => setState(() => _expanded = !_expanded),
-                icon: Icon(
-                  _expanded
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
+                icon: AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0.0,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  child: const Icon(Icons.expand_more_rounded),
                 ),
                 label: Text(
                   _expanded
