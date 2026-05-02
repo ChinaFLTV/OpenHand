@@ -2455,7 +2455,7 @@ class AppLocalizationsJa extends AppLocalizations {
       '任意。未設定の場合はアダプターの既定値を使用します。';
 
   @override
-  String get mdlEdTemperature => 'Temperature';
+  String get mdlEdTemperature => '温度';
 
   @override
   String get mdlEd0020Default0 => '0.0 ～ 2.0、既定値 0.7';
@@ -2607,19 +2607,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallEmptyContent => '内容なし';
 
   @override
-  String get tlCallWrite => 'Write';
+  String get tlCallWrite => '書き込み';
 
   @override
-  String get tlCallEdit => 'Edit';
+  String get tlCallEdit => '編集';
 
   @override
-  String get tlCallMultiEdit => 'Multi-edit';
+  String get tlCallMultiEdit => '複数編集';
 
   @override
-  String get tlCallNotebookEdit => 'Notebook Edit';
+  String get tlCallNotebookEdit => 'ノートブック編集';
 
   @override
-  String get tlCallBashWrite => 'Bash Write';
+  String get tlCallBashWrite => 'Bash 書き込み';
 
   @override
   String get tlCallFileChanged => 'ファイル変更あり';
@@ -3872,259 +3872,258 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsShowSignatureHelp => 'シグネチャヘルプを表示';
 
   @override
-  String get settingsFind => 'Find';
+  String get settingsFind => '検索';
 
   @override
-  String get settingsFindAndReplace => 'Find and Replace';
+  String get settingsFindAndReplace => '検索と置換';
 
   @override
-  String get settingsGoToLine => 'Go to Line';
+  String get settingsGoToLine => '行へ移動';
 
   @override
-  String get settingsDocumentSymbols => 'Document Symbols';
+  String get settingsDocumentSymbols => 'ドキュメントシンボル';
 
   @override
-  String get settingsWorkspaceSymbols => 'Workspace Symbols';
+  String get settingsWorkspaceSymbols => 'ワークスペースシンボル';
 
   @override
-  String get settingsGoToDefinition => 'Go to Definition';
+  String get settingsGoToDefinition => '定義へ移動';
 
   @override
-  String get settingsFindReferences => 'Find References';
+  String get settingsFindReferences => '参照を検索';
 
   @override
-  String get settingsGoToImplementation => 'Go to Implementation';
+  String get settingsGoToImplementation => '実装へ移動';
 
   @override
-  String get settingsShowHoverInfo => 'Show Hover Info';
+  String get settingsShowHoverInfo => 'ホバー情報を表示';
 
   @override
-  String get settingsRenameSymbol => 'Rename Symbol';
+  String get settingsRenameSymbol => 'シンボル名を変更';
 
   @override
-  String get settingsCodeActions => 'Code Actions';
+  String get settingsCodeActions => 'コードアクション';
 
   @override
-  String get settingsFormatDocument => 'Format Document';
+  String get settingsFormatDocument => 'ドキュメントをフォーマット';
 
   @override
   String get settingsDefaultsToCtrlEnterAndTriggers =>
-      'Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.';
+      '既定は Ctrl + Enter で、チャット入力欄が準備できているときに送信ボタンをトリガーします。';
 
   @override
   String get settingsDefaultsToCtrlPForQuickly =>
-      'Defaults to Ctrl + P for quickly collapsing or expanding the composer.';
+      '既定は Ctrl + P で、入力欄を素早く折りたたむ／展開します。';
 
   @override
   String get settingsDefaultsToCtrlLeftAndWraps =>
-      'Defaults to Ctrl + Left and wraps around to the last model when needed.';
+      '既定は Ctrl + 左で、必要に応じて最後のモデルへラップアラウンドします。';
 
   @override
   String get settingsDefaultsToCtrlRightAndWraps =>
-      'Defaults to Ctrl + Right and wraps around to the first model when needed.';
+      '既定は Ctrl + 右で、必要に応じて最初のモデルへラップアラウンドします。';
 
   @override
   String get settingsDefaultsToCtrlSForToggling =>
-      'Defaults to Ctrl + S for toggling auto follow.';
+      '既定は Ctrl + S で、自動追従をトグルします。';
 
   @override
   String get settingsDefaultsToCtrlUpAndWraps =>
-      'Defaults to Ctrl + Up and wraps to the end of the session list.';
+      '既定は Ctrl + 上で、セッションリストの末尾へラップアラウンドします。';
 
   @override
   String get settingsDefaultsToCtrlDownAndWraps =>
-      'Defaults to Ctrl + Down and wraps to the start of the session list.';
+      '既定は Ctrl + 下で、セッションリストの先頭へラップアラウンドします。';
 
   @override
-  String get auditDeleteMessage => 'Delete Message';
+  String get auditDeleteMessage => 'メッセージを削除';
 
   @override
-  String get auditDeleteThisMessageThisCannotBe =>
-      'Delete this message? This cannot be undone.';
+  String get auditDeleteThisMessageThisCannotBe => 'このメッセージを削除しますか？元に戻せません。';
 
   @override
-  String get auditCancel => 'Cancel';
+  String get auditCancel => 'キャンセル';
 
   @override
   String get settingsManageTheBuiltInAiTools =>
-      'Manage the built-in AI tools. Adjust each tool\'s enabled state, name, description, schema, priority, sort order, load strategy, and other parameters.';
+      '組み込みの AI ツールを管理します。各ツールの有効状態、名前、説明、スキーマ、優先度などを調整します。';
 
   @override
   String get settingsManageTheLocalFilesAndDatabase =>
-      'Manage the local files and database tables OpenHand owns on disk. Every cleanup runs on background workers — the UI thread stays responsive — and requires explicit second confirmation.';
+      'OpenHand がディスク上に保持するローカルファイルとデータベーステーブルを管理します。すべてのクリーンアップは UI をブロックしないようバックグラウンドのワーカーで実行されます。';
 
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
-      'This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.';
+      'これにより、すべての組み込みツール設定が工場出荷時のデフォルト（名前、説明、スキーマなどを含む）に復元されます。';
 
   @override
-  String get tlCallUnwrap => 'Unwrap';
+  String get tlCallUnwrap => '折り返しを解除';
 
   @override
-  String get tlCallWrapLines => 'Wrap Lines';
+  String get tlCallWrapLines => '行を折り返す';
 
   @override
-  String get tlCallViewCompressedContent => 'View Compressed Content';
+  String get tlCallViewCompressedContent => '圧縮されたコンテンツを表示';
 
   @override
-  String get tlCallViewFullContent => 'View Full Content';
+  String get tlCallViewFullContent => '完全なコンテンツを表示';
 
   @override
   String tlCallMultiEditEditcount(Object editCount) {
-    return 'Multi-edit ×$editCount';
+    return '複数編集 ×$editCount';
   }
 
   @override
-  String get tlCallPreparing => 'Preparing';
+  String get tlCallPreparing => '準備中';
 
   @override
-  String get tlCallPreparingAlt => 'Preparing';
+  String get tlCallPreparingAlt => '準備中';
 
   @override
-  String get tlCallRunningAlt => 'Running';
+  String get tlCallRunningAlt => '実行中';
 
   @override
-  String get tlCallCompleted => 'Completed';
+  String get tlCallCompleted => '完了';
 
   @override
-  String get tlCallCompletedAlt => 'Completed';
+  String get tlCallCompletedAlt => '完了';
 
   @override
-  String get tlCallTimedOutAlt => 'Timed Out';
+  String get tlCallTimedOutAlt => 'タイムアウト';
 
   @override
-  String get tlCallFailedAlt => 'Failed';
+  String get tlCallFailedAlt => '失敗';
 
   @override
   String tlCallFailedToOpenFileLocationError(Object error) {
-    return 'Failed to open file location: $error';
+    return 'ファイルの場所を開けませんでした：$error';
   }
 
   @override
   String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
-    return '$memoryItems_length memories updated';
+    return '$memoryItems_length 件のメモリを更新';
   }
 
   @override
   String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
-    return '$profileItems_length profile changes';
+    return '$profileItems_length 件のプロファイル変更';
   }
 
   @override
   String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
-    return '$skillItems_length skills updated';
+    return '$skillItems_length 件のスキルを更新';
   }
 
   @override
-  String get tlCallAiThinkingStreaming => 'AI Thinking (streaming)';
+  String get tlCallAiThinkingStreaming => 'AI が思考中（ストリーミング）';
 
   @override
-  String get tlCallAiThinking => 'AI Thinking';
+  String get tlCallAiThinking => 'AI が思考中';
 
   @override
-  String get tlCallAiResponseStreaming => 'AI Response (streaming)';
+  String get tlCallAiResponseStreaming => 'AI 応答（ストリーミング）';
 
   @override
-  String get tlCallAiResponse => 'AI Response';
+  String get tlCallAiResponse => 'AI 応答';
 
   @override
   String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
-    return ' and $items_length_3 more';
+    return ' 他 $items_length_3 件';
   }
 
   @override
   String tlCallSecondsSAgo(Object seconds) {
-    return '${seconds}s ago';
+    return '$seconds 秒前';
   }
 
   @override
   String tlCallMinutesMAgo(Object minutes) {
-    return '${minutes}m ago';
+    return '$minutes 分前';
   }
 
   @override
   String tlCallHoursHAgo(Object hours) {
-    return '${hours}h ago';
+    return '$hours 時間前';
   }
 
   @override
   String tlCallDaysDAgo(Object days) {
-    return '${days}d ago';
+    return '$days 日前';
   }
 
   @override
   String sessMetaPlanPlanindex(Object planIndex) {
-    return 'Plan #$planIndex';
+    return 'プラン #$planIndex';
   }
 
   @override
   String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
-    return ' The current sequential tool round limit is $configuredLimit.';
+    return '現在の連続ツールラウンド上限は $configuredLimit です。';
   }
 
   @override
   String auditInvalidJsonErrorMessage(Object error_message) {
-    return 'Invalid JSON: $error_message';
+    return '無効な JSON：$error_message';
   }
 
   @override
   String auditSaveFailedError(Object error) {
-    return 'Save failed: $error';
+    return '保存に失敗しました：$error';
   }
 
   @override
   String auditRecentErrorsSessionRecenterrorsLength(
     Object session_recentErrors_length,
   ) {
-    return 'Recent Errors ($session_recentErrors_length)';
+    return '最近のエラー ($session_recentErrors_length)';
   }
 
   @override
   String auditMessagesSessionMessagesLength(Object session_messages_length) {
-    return 'Messages ($session_messages_length)';
+    return 'メッセージ ($session_messages_length)';
   }
 
   @override
   String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
-    return 'Applied $edits_length formatting edits.';
+    return '$edits_length 件のフォーマット編集を適用しました。';
   }
 
   @override
   String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
-    return 'Format the current file ($formatShortcut)';
+    return '現在のファイルをフォーマット ($formatShortcut)';
   }
 
   @override
   String progExpFENoCodeactionkindRefactoringIsAvailableAt(
     Object codeActionKind,
   ) {
-    return 'No \"$codeActionKind\" refactoring is available at the current position.';
+    return '現在の位置で「$codeActionKind」リファクタリングは利用できません。';
   }
 
   @override
-  String get progExpFEHideFileBrowser => 'Hide file browser';
+  String get progExpFEHideFileBrowser => 'ファイルブラウザを隠す';
 
   @override
-  String get progExpFEShowFileBrowser => 'Show file browser';
+  String get progExpFEShowFileBrowser => 'ファイルブラウザを表示';
 
   @override
   String settingsRetentionWindowRetentionDayS(Object retention) {
-    return 'Retention window: $retention day(s)';
+    return '保持期間：$retention 日';
   }
 
   @override
   String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
-    return 'Range $minR–$maxR days; default 7. Takes effect on the next cold start.';
+    return '範囲 $minR–$maxR 日、既定値 7。次回のコールドスタートで反映されます。';
   }
 
   @override
   String settingsConcurrentWorkersConcurrency(Object concurrency) {
-    return 'Concurrent workers: $concurrency';
+    return '同時実行ワーカー：$concurrency';
   }
 
   @override
   String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
-    return 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.';
+    return '1 ティックあたり並列にディスパッチできるセッション数の上限 ($minC–$maxC)。既定値 5。';
   }
 
   @override
@@ -4132,17 +4131,17 @@ class AppLocalizationsJa extends AppLocalizations {
     Object sorted_length,
     Object enabledCount,
   ) {
-    return '$sorted_length built-in tools, $enabledCount enabled. Adjust name, description, schema, priority, sort order, and load strategy for each.';
+    return '組み込みツール $sorted_length 件、有効化 $enabledCount 件。名前、説明、スキーマ、優先度などを調整できます。';
   }
 
   @override
   String settingsAreYouSureYouWantTo(Object config_effectiveName) {
-    return 'Are you sure you want to delete \"$config_effectiveName\"? This cannot be undone.';
+    return '「$config_effectiveName」を削除してもよろしいですか？元に戻せません。';
   }
 
   @override
   String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
-    return 'Enter a value between $min and $max seconds.';
+    return '$min から $max 秒の間の値を入力してください。';
   }
 
   @override
@@ -4150,7 +4149,7 @@ class AppLocalizationsJa extends AppLocalizations {
     Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
     Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
   ) {
-    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheUpdateInterval and $AppSettingsSnapshot_maxAiInputCacheUpdateInterval';
+    return '$AppSettingsSnapshot_minAiInputCacheUpdateInterval から $AppSettingsSnapshot_maxAiInputCacheUpdateInterval までの整数を入力してください。';
   }
 
   @override
@@ -4158,95 +4157,93 @@ class AppLocalizationsJa extends AppLocalizations {
     Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
     Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
   ) {
-    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheBreakpointCount and $AppSettingsSnapshot_maxAiInputCacheBreakpointCount';
+    return '$AppSettingsSnapshot_minAiInputCacheBreakpointCount から $AppSettingsSnapshot_maxAiInputCacheBreakpointCount までの整数を入力してください。';
   }
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return 'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.';
+    return '$thumbCount 個のつまみをドラッグして、メッセージストリームに沿った最初の N-1 個の静的キャッシュブレークポイントを配置します。';
   }
 
   @override
-  String get settingsTheDenyCommandRuleHasBeen2 =>
-      'The deny command rule has been updated.';
+  String get settingsTheDenyCommandRuleHasBeen2 => '拒否コマンドルールを更新しました。';
 
   @override
-  String get settingsTheAllowCommandRuleHasBeen2 =>
-      'The allow command rule has been updated.';
+  String get settingsTheAllowCommandRuleHasBeen2 => '許可コマンドルールを更新しました。';
 
   @override
   String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and saves the current file.';
+    return '既定は $defaultLabel で、現在のファイルを保存します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and opens the completion popup on demand.';
+    return '既定は $defaultLabel で、必要に応じて補完ポップアップを開きます。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows method signatures, parameter details, and summary docs for the current call site.';
+    return '既定は $defaultLabel で、現在のシンボルのメソッドシグネチャ、パラメータ詳細、サマリドキュメントを表示します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the find panel.';
+    return '既定は $defaultLabel で、検索パネルをトグルします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the replace panel.';
+    return '既定は $defaultLabel で、置換パネルをトグルします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the go-to-line panel.';
+    return '既定は $defaultLabel で、行へ移動パネルをトグルします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the symbol list for the current file.';
+    return '既定は $defaultLabel で、現在のファイルのシンボル一覧をトグルします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the workspace symbol search panel.';
+    return '既定は $defaultLabel で、ワークスペースシンボル検索パネルをトグルします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and jumps to the current symbol definition.';
+    return '既定は $defaultLabel で、現在のシンボル定義へジャンプします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and finds references for the current symbol.';
+    return '既定は $defaultLabel で、現在のシンボルの参照を検索します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and jumps to the current implementation.';
+    return '既定は $defaultLabel で、現在の実装へジャンプします。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows type or documentation info at the current position.';
+    return '既定は $defaultLabel で、現在の位置の型またはドキュメント情報を表示します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and starts rename for the current symbol.';
+    return '既定は $defaultLabel で、現在のシンボルの名前変更を開始します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows available code actions.';
+    return '既定は $defaultLabel で、利用可能なコードアクションを表示します。';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.';
+    return '既定は $defaultLabel で、現在のプログラミングファイルをフォーマットします。Shift+Tab は最初にインデントを下げます。';
   }
 
   @override

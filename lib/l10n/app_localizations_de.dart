@@ -22,7 +22,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get automations => 'Automationen';
 
   @override
-  String get skills => 'Skills';
+  String get skills => 'Fähigkeiten';
 
   @override
   String get memory => 'Speicher';
@@ -34,7 +34,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings => 'Einstellungen';
 
   @override
-  String get threads => 'Threads';
+  String get threads => 'Konversationen';
 
   @override
   String get workspaceHeadline => 'Mit dem Aufbau beginnen';
@@ -284,7 +284,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsCategoryAi => 'KI';
 
   @override
-  String get settingsCategorySkills => 'Skills';
+  String get settingsCategorySkills => 'Fähigkeiten';
 
   @override
   String get settingsCategoryMemory => 'Speicher';
@@ -321,7 +321,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Chat-Modelle, Authentifizierung und Protokolladapter verwalten.';
 
   @override
-  String get settingsSkillsTitle => 'Skills';
+  String get settingsSkillsTitle => 'Fähigkeiten';
 
   @override
   String get settingsSkillsSubtitle =>
@@ -553,7 +553,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get aiProtocolHunyuan => 'Hunyuan';
 
   @override
-  String get skillsPageTitle => 'Skills';
+  String get skillsPageTitle => 'Fähigkeiten';
 
   @override
   String get skillsPageSubtitle =>
@@ -755,7 +755,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorGrainLabel => 'Körnung';
 
   @override
-  String get imageEditorDispersionLabel => 'Dispersion';
+  String get imageEditorDispersionLabel => 'Streuung';
 
   @override
   String get imageEditorDistortLabel =>
@@ -2215,7 +2215,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String proxyTestSuccess(Object latency, Object via) {
-    return 'OK ($latency ms, via $via)';
+    return 'OK ($latency ms, über $via)';
   }
 
   @override
@@ -2591,7 +2591,7 @@ class AppLocalizationsDe extends AppLocalizations {
       'Optional. Verwendet den Adapter-Standard, wenn nicht gesetzt.';
 
   @override
-  String get mdlEdTemperature => 'Temperature';
+  String get mdlEdTemperature => 'Temperatur';
 
   @override
   String get mdlEd0020Default0 => '0,0 ~ 2,0, Standard 0,7';
@@ -2744,19 +2744,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallEmptyContent => 'Leerer Inhalt';
 
   @override
-  String get tlCallWrite => 'Write';
+  String get tlCallWrite => 'Schreiben';
 
   @override
-  String get tlCallEdit => 'Edit';
+  String get tlCallEdit => 'Bearbeiten';
 
   @override
-  String get tlCallMultiEdit => 'Multi-edit';
+  String get tlCallMultiEdit => 'Mehrfach-Bearbeitung';
 
   @override
-  String get tlCallNotebookEdit => 'Notebook Edit';
+  String get tlCallNotebookEdit => 'Notebook-Bearbeitung';
 
   @override
-  String get tlCallBashWrite => 'Bash Write';
+  String get tlCallBashWrite => 'Bash-Schreiben';
 
   @override
   String get tlCallFileChanged => 'Datei geändert';
@@ -2768,7 +2768,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallTool => 'Werkzeug';
 
   @override
-  String get tlCallSkill => 'Skill';
+  String get tlCallSkill => 'Fähigkeit';
 
   @override
   String get tlCallStopped => 'Gestoppt';
@@ -2887,7 +2887,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sessMetaTool => 'Werkzeug';
 
   @override
-  String get sessMetaSkill => 'Skill';
+  String get sessMetaSkill => 'Fähigkeit';
 
   @override
   String get sessMetaCompression => 'Kompression';
@@ -4055,184 +4055,184 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsShowSignatureHelp => 'Signaturhilfe anzeigen';
 
   @override
-  String get settingsFind => 'Find';
+  String get settingsFind => 'Suchen';
 
   @override
-  String get settingsFindAndReplace => 'Find and Replace';
+  String get settingsFindAndReplace => 'Suchen und Ersetzen';
 
   @override
-  String get settingsGoToLine => 'Go to Line';
+  String get settingsGoToLine => 'Zur Zeile gehen';
 
   @override
-  String get settingsDocumentSymbols => 'Document Symbols';
+  String get settingsDocumentSymbols => 'Dokumentsymbole';
 
   @override
-  String get settingsWorkspaceSymbols => 'Workspace Symbols';
+  String get settingsWorkspaceSymbols => 'Arbeitsbereichssymbole';
 
   @override
-  String get settingsGoToDefinition => 'Go to Definition';
+  String get settingsGoToDefinition => 'Zur Definition gehen';
 
   @override
-  String get settingsFindReferences => 'Find References';
+  String get settingsFindReferences => 'Verweise finden';
 
   @override
-  String get settingsGoToImplementation => 'Go to Implementation';
+  String get settingsGoToImplementation => 'Zur Implementierung gehen';
 
   @override
-  String get settingsShowHoverInfo => 'Show Hover Info';
+  String get settingsShowHoverInfo => 'Hover-Info anzeigen';
 
   @override
-  String get settingsRenameSymbol => 'Rename Symbol';
+  String get settingsRenameSymbol => 'Symbol umbenennen';
 
   @override
-  String get settingsCodeActions => 'Code Actions';
+  String get settingsCodeActions => 'Code-Aktionen';
 
   @override
-  String get settingsFormatDocument => 'Format Document';
+  String get settingsFormatDocument => 'Dokument formatieren';
 
   @override
   String get settingsDefaultsToCtrlEnterAndTriggers =>
-      'Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.';
+      'Standard: Strg + Enter; löst die Senden-Schaltfläche aus, wenn das Chat-Eingabefeld bereit ist.';
 
   @override
   String get settingsDefaultsToCtrlPForQuickly =>
-      'Defaults to Ctrl + P for quickly collapsing or expanding the composer.';
+      'Standard: Strg + P, um das Eingabefeld schnell ein- oder auszuklappen.';
 
   @override
   String get settingsDefaultsToCtrlLeftAndWraps =>
-      'Defaults to Ctrl + Left and wraps around to the last model when needed.';
+      'Standard: Strg + Links; wickelt sich bei Bedarf zum letzten Modell.';
 
   @override
   String get settingsDefaultsToCtrlRightAndWraps =>
-      'Defaults to Ctrl + Right and wraps around to the first model when needed.';
+      'Standard: Strg + Rechts; wickelt sich bei Bedarf zum ersten Modell.';
 
   @override
   String get settingsDefaultsToCtrlSForToggling =>
-      'Defaults to Ctrl + S for toggling auto follow.';
+      'Standard: Strg + S zum Umschalten von Auto-Folgen.';
 
   @override
   String get settingsDefaultsToCtrlUpAndWraps =>
-      'Defaults to Ctrl + Up and wraps to the end of the session list.';
+      'Standard: Strg + Hoch; wickelt sich bis zum Ende der Sitzungsliste.';
 
   @override
   String get settingsDefaultsToCtrlDownAndWraps =>
-      'Defaults to Ctrl + Down and wraps to the start of the session list.';
+      'Standard: Strg + Runter; wickelt sich zum Anfang der Sitzungsliste.';
 
   @override
-  String get auditDeleteMessage => 'Delete Message';
+  String get auditDeleteMessage => 'Nachricht löschen';
 
   @override
   String get auditDeleteThisMessageThisCannotBe =>
-      'Delete this message? This cannot be undone.';
+      'Diese Nachricht löschen? Dies kann nicht rückgängig gemacht werden.';
 
   @override
-  String get auditCancel => 'Cancel';
+  String get auditCancel => 'Abbrechen';
 
   @override
   String get settingsManageTheBuiltInAiTools =>
-      'Manage the built-in AI tools. Adjust each tool\'s enabled state, name, description, schema, priority, sort order, load strategy, and other parameters.';
+      'Verwalten Sie die integrierten KI-Werkzeuge. Passen Sie für jedes Werkzeug Aktivierungsstatus, Name, Beschreibung, Schema, Priorität usw. an.';
 
   @override
   String get settingsManageTheLocalFilesAndDatabase =>
-      'Manage the local files and database tables OpenHand owns on disk. Every cleanup runs on background workers — the UI thread stays responsive — and requires explicit second confirmation.';
+      'Verwalten Sie die lokalen Dateien und Datenbanktabellen, die OpenHand auf der Festplatte besitzt. Jede Bereinigung läuft auf Hintergrund-Workern, um die UI nicht zu blockieren.';
 
   @override
   String get settingsThisWillRestoreAllBuiltIn =>
-      'This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.';
+      'Dies stellt alle integrierten Werkzeugkonfigurationen auf Werkseinstellungen zurück, einschließlich Name, Beschreibung, Schema usw.';
 
   @override
-  String get tlCallUnwrap => 'Unwrap';
+  String get tlCallUnwrap => 'Umbruch aufheben';
 
   @override
-  String get tlCallWrapLines => 'Wrap Lines';
+  String get tlCallWrapLines => 'Zeilen umbrechen';
 
   @override
-  String get tlCallViewCompressedContent => 'View Compressed Content';
+  String get tlCallViewCompressedContent => 'Komprimierten Inhalt anzeigen';
 
   @override
-  String get tlCallViewFullContent => 'View Full Content';
+  String get tlCallViewFullContent => 'Vollständigen Inhalt anzeigen';
 
   @override
   String tlCallMultiEditEditcount(Object editCount) {
-    return 'Multi-edit ×$editCount';
+    return 'Mehrfach-Bearbeitung ×$editCount';
   }
 
   @override
-  String get tlCallPreparing => 'Preparing';
+  String get tlCallPreparing => 'Wird vorbereitet';
 
   @override
-  String get tlCallPreparingAlt => 'Preparing';
+  String get tlCallPreparingAlt => 'Wird vorbereitet';
 
   @override
-  String get tlCallRunningAlt => 'Running';
+  String get tlCallRunningAlt => 'Läuft';
 
   @override
-  String get tlCallCompleted => 'Completed';
+  String get tlCallCompleted => 'Abgeschlossen';
 
   @override
-  String get tlCallCompletedAlt => 'Completed';
+  String get tlCallCompletedAlt => 'Abgeschlossen';
 
   @override
-  String get tlCallTimedOutAlt => 'Timed Out';
+  String get tlCallTimedOutAlt => 'Zeitüberschreitung';
 
   @override
-  String get tlCallFailedAlt => 'Failed';
+  String get tlCallFailedAlt => 'Fehlgeschlagen';
 
   @override
   String tlCallFailedToOpenFileLocationError(Object error) {
-    return 'Failed to open file location: $error';
+    return 'Dateispeicherort konnte nicht geöffnet werden: $error';
   }
 
   @override
   String tlCallMemoryitemsLengthMemoriesUpdated(Object memoryItems_length) {
-    return '$memoryItems_length memories updated';
+    return '$memoryItems_length Erinnerungen aktualisiert';
   }
 
   @override
   String tlCallProfileitemsLengthProfileChanges(Object profileItems_length) {
-    return '$profileItems_length profile changes';
+    return '$profileItems_length Profiländerungen';
   }
 
   @override
   String tlCallSkillitemsLengthSkillsUpdated(Object skillItems_length) {
-    return '$skillItems_length skills updated';
+    return '$skillItems_length Fähigkeiten aktualisiert';
   }
 
   @override
-  String get tlCallAiThinkingStreaming => 'AI Thinking (streaming)';
+  String get tlCallAiThinkingStreaming => 'KI denkt (Streaming)';
 
   @override
-  String get tlCallAiThinking => 'AI Thinking';
+  String get tlCallAiThinking => 'KI denkt';
 
   @override
-  String get tlCallAiResponseStreaming => 'AI Response (streaming)';
+  String get tlCallAiResponseStreaming => 'KI-Antwort (Streaming)';
 
   @override
-  String get tlCallAiResponse => 'AI Response';
+  String get tlCallAiResponse => 'KI-Antwort';
 
   @override
   String tlCallAndItemsLength3More(Object items_length_3, Object items_length) {
-    return ' and $items_length_3 more';
+    return ' und $items_length_3 weitere';
   }
 
   @override
   String tlCallSecondsSAgo(Object seconds) {
-    return '${seconds}s ago';
+    return 'vor ${seconds}s';
   }
 
   @override
   String tlCallMinutesMAgo(Object minutes) {
-    return '${minutes}m ago';
+    return 'vor $minutes Min';
   }
 
   @override
   String tlCallHoursHAgo(Object hours) {
-    return '${hours}h ago';
+    return 'vor $hours Std';
   }
 
   @override
   String tlCallDaysDAgo(Object days) {
-    return '${days}d ago';
+    return 'vor $days Tagen';
   }
 
   @override
@@ -4242,72 +4242,72 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String sessMetaTheCurrentSequentialToolRoundLimit(Object configuredLimit) {
-    return ' The current sequential tool round limit is $configuredLimit.';
+    return 'Das aktuelle Limit für aufeinanderfolgende Werkzeugrunden beträgt $configuredLimit.';
   }
 
   @override
   String auditInvalidJsonErrorMessage(Object error_message) {
-    return 'Invalid JSON: $error_message';
+    return 'Ungültiges JSON: $error_message';
   }
 
   @override
   String auditSaveFailedError(Object error) {
-    return 'Save failed: $error';
+    return 'Speichern fehlgeschlagen: $error';
   }
 
   @override
   String auditRecentErrorsSessionRecenterrorsLength(
     Object session_recentErrors_length,
   ) {
-    return 'Recent Errors ($session_recentErrors_length)';
+    return 'Kürzliche Fehler ($session_recentErrors_length)';
   }
 
   @override
   String auditMessagesSessionMessagesLength(Object session_messages_length) {
-    return 'Messages ($session_messages_length)';
+    return 'Nachrichten ($session_messages_length)';
   }
 
   @override
   String progExpFEAppliedEditsLengthFormattingEdits(Object edits_length) {
-    return 'Applied $edits_length formatting edits.';
+    return '$edits_length Formatierungs-Bearbeitungen angewendet.';
   }
 
   @override
   String progExpFEFormatTheCurrentFileFormatshortcut(Object formatShortcut) {
-    return 'Format the current file ($formatShortcut)';
+    return 'Aktuelle Datei formatieren ($formatShortcut)';
   }
 
   @override
   String progExpFENoCodeactionkindRefactoringIsAvailableAt(
     Object codeActionKind,
   ) {
-    return 'No \"$codeActionKind\" refactoring is available at the current position.';
+    return 'Am aktuellen Punkt ist keine „$codeActionKind“-Refaktorisierung verfügbar.';
   }
 
   @override
-  String get progExpFEHideFileBrowser => 'Hide file browser';
+  String get progExpFEHideFileBrowser => 'Dateibrowser ausblenden';
 
   @override
-  String get progExpFEShowFileBrowser => 'Show file browser';
+  String get progExpFEShowFileBrowser => 'Dateibrowser anzeigen';
 
   @override
   String settingsRetentionWindowRetentionDayS(Object retention) {
-    return 'Retention window: $retention day(s)';
+    return 'Aufbewahrungsfenster: $retention Tag(e)';
   }
 
   @override
   String settingsRangeMinrMaxrDaysDefault7(Object minR, Object maxR) {
-    return 'Range $minR–$maxR days; default 7. Takes effect on the next cold start.';
+    return 'Bereich $minR–$maxR Tage; Standard 7. Wirkt sich beim nächsten Kaltstart aus.';
   }
 
   @override
   String settingsConcurrentWorkersConcurrency(Object concurrency) {
-    return 'Concurrent workers: $concurrency';
+    return 'Gleichzeitige Worker: $concurrency';
   }
 
   @override
   String settingsCapsHowManySessionsCanBe(Object minC, Object maxC) {
-    return 'Caps how many sessions can be dispatched in parallel per tick ($minC–$maxC). Defaults to 5.';
+    return 'Begrenzt, wie viele Sitzungen pro Tick parallel verteilt werden können ($minC–$maxC). Standard 5.';
   }
 
   @override
@@ -4315,17 +4315,17 @@ class AppLocalizationsDe extends AppLocalizations {
     Object sorted_length,
     Object enabledCount,
   ) {
-    return '$sorted_length built-in tools, $enabledCount enabled. Adjust name, description, schema, priority, sort order, and load strategy for each.';
+    return '$sorted_length integrierte Werkzeuge, $enabledCount aktiviert. Name, Beschreibung, Schema, Priorität usw. anpassen.';
   }
 
   @override
   String settingsAreYouSureYouWantTo(Object config_effectiveName) {
-    return 'Are you sure you want to delete \"$config_effectiveName\"? This cannot be undone.';
+    return 'Möchten Sie „$config_effectiveName“ wirklich löschen? Dies kann nicht rückgängig gemacht werden.';
   }
 
   @override
   String settingsEnterAValueBetweenMinAnd(Object min, Object max) {
-    return 'Enter a value between $min and $max seconds.';
+    return 'Wert zwischen $min und $max Sekunden eingeben.';
   }
 
   @override
@@ -4333,7 +4333,7 @@ class AppLocalizationsDe extends AppLocalizations {
     Object AppSettingsSnapshot_minAiInputCacheUpdateInterval,
     Object AppSettingsSnapshot_maxAiInputCacheUpdateInterval,
   ) {
-    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheUpdateInterval and $AppSettingsSnapshot_maxAiInputCacheUpdateInterval';
+    return 'Bitte geben Sie eine Ganzzahl zwischen $AppSettingsSnapshot_minAiInputCacheUpdateInterval und $AppSettingsSnapshot_maxAiInputCacheUpdateInterval ein.';
   }
 
   @override
@@ -4341,95 +4341,95 @@ class AppLocalizationsDe extends AppLocalizations {
     Object AppSettingsSnapshot_minAiInputCacheBreakpointCount,
     Object AppSettingsSnapshot_maxAiInputCacheBreakpointCount,
   ) {
-    return 'Please enter an integer between $AppSettingsSnapshot_minAiInputCacheBreakpointCount and $AppSettingsSnapshot_maxAiInputCacheBreakpointCount';
+    return 'Bitte geben Sie eine Ganzzahl zwischen $AppSettingsSnapshot_minAiInputCacheBreakpointCount und $AppSettingsSnapshot_maxAiInputCacheBreakpointCount ein.';
   }
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return 'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.';
+    return 'Ziehen Sie die $thumbCount Schieberegler, um die ersten N-1 statischen Cache-Breakpoints im Nachrichtenstrom zu positionieren.';
   }
 
   @override
   String get settingsTheDenyCommandRuleHasBeen2 =>
-      'The deny command rule has been updated.';
+      'Verweigerungs-Befehlsregel aktualisiert.';
 
   @override
   String get settingsTheAllowCommandRuleHasBeen2 =>
-      'The allow command rule has been updated.';
+      'Erlaubnis-Befehlsregel aktualisiert.';
 
   @override
   String settingsDefaultsToDefaultlabelAndSavesThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and saves the current file.';
+    return 'Standard: $defaultLabel; speichert die aktuelle Datei.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndOpensThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and opens the completion popup on demand.';
+    return 'Standard: $defaultLabel; öffnet bei Bedarf das Vervollständigungs-Popup.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsMethod(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows method signatures, parameter details, and summary docs for the current call site.';
+    return 'Standard: $defaultLabel; zeigt Methodensignaturen, Parameterdetails und Zusammenfassungsdokumentation für das aktuelle Symbol.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the find panel.';
+    return 'Standard: $defaultLabel; schaltet das Suchpanel um.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe2(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the replace panel.';
+    return 'Standard: $defaultLabel; schaltet das Ersetzen-Panel um.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe3(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the go-to-line panel.';
+    return 'Standard: $defaultLabel; schaltet das Gehe-zu-Zeile-Panel um.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe4(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the symbol list for the current file.';
+    return 'Standard: $defaultLabel; schaltet die Symbolliste der aktuellen Datei um.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndTogglesThe5(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and toggles the workspace symbol search panel.';
+    return 'Standard: $defaultLabel; schaltet das Suchpanel für Arbeitsbereichssymbole um.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndJumpsTo(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and jumps to the current symbol definition.';
+    return 'Standard: $defaultLabel; springt zur aktuellen Symboldefinition.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndFindsReferences(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and finds references for the current symbol.';
+    return 'Standard: $defaultLabel; findet Verweise für das aktuelle Symbol.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndJumpsTo2(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and jumps to the current implementation.';
+    return 'Standard: $defaultLabel; springt zur aktuellen Implementierung.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsType(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows type or documentation info at the current position.';
+    return 'Standard: $defaultLabel; zeigt Typ- oder Dokumentationsinformationen an der aktuellen Position.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndStartsRename(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and starts rename for the current symbol.';
+    return 'Standard: $defaultLabel; startet die Umbenennung für das aktuelle Symbol.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndShowsAvailable(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and shows available code actions.';
+    return 'Standard: $defaultLabel; zeigt verfügbare Code-Aktionen an.';
   }
 
   @override
   String settingsDefaultsToDefaultlabelAndFormatsThe(Object defaultLabel) {
-    return 'Defaults to $defaultLabel and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.';
+    return 'Standard: $defaultLabel; formatiert die aktuelle Programmdatei; Shift+Tab führt zuerst noch ein Outdent aus.';
   }
 
   @override

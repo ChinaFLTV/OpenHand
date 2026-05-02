@@ -67,7 +67,7 @@
   "aboutSectionTitle": "À propos",
   "aboutSectionBody": "OpenHand est actuellement à l'étape de fondation, avec un accent sur une structure de bureau stable, une base visuelle et une architecture extensible.",
   "aboutVersion": "Version",
-  "aboutPackage": "Package",
+  "aboutPackage": "Paquet",
   "aboutPlatforms": "Plateformes",
   "aboutPlatformsValue": "macOS 15+ / Windows 10+",
   "aboutBuild": "Build",
@@ -243,7 +243,7 @@
   "imageEditorProcessFailed": "Impossible de traiter l’image sélectionnée.",
   "imageEditorSectionBasic": "Réglages de base",
   "imageEditorSectionColor": "Couleur (température / teinte / gamma)",
-  "imageEditorSectionSplitToning": "Split toning (HSL)",
+  "imageEditorSectionSplitToning": "Tonalité fractionnée (HSL)",
   "imageEditorSectionDetail": "Détail (clarté / netteté / réduction du bruit / grain)",
   "imageEditorSectionEffects": "Effets (dispersion / distorsion / vignette)",
   "imageEditorSectionWatermark": "Filigrane texte / marque",
@@ -686,7 +686,7 @@
   "tsmRowUpdated": "Mis à jour",
   "tsmRowSize": "Taille",
   "tsmRowMessages": "Messages",
-  "tsmRowToken": "Token",
+  "tsmRowToken": "Jeton",
   "tsmRowByKind": "Répartition",
   "proxySectionTitle": "Système",
   "proxySectionBody": "Tous les clients HTTP internes (WebSearch / WebFetch, etc.) utilisent le proxy défini ici. Les modifications sont appliquées immédiatement, sans redémarrage.",
@@ -756,7 +756,7 @@
   "tokenPopupCacheWrite": "Cache écrit",
   "tokenPopupOutputHeading": "Sortie",
   "tokenPopupCompletion": "Réponse",
-  "tokenPopupGrandTotal": "Total",
+  "tokenPopupGrandTotal": "Total général",
   "tokenPopupCacheHit": "Taux de cache",
   "tokenPopupSessionHeading": "Session",
   "tokenPopupMessages": "Messages",
@@ -852,7 +852,7 @@
   "mdlEdNonStreaming": "Sans flux",
   "mdlEdMaxOutputTokens": "Jetons de sortie max.",
   "mdlEdOptionalUsesAdapterDefaultIfUnset": "Optionnel. Utilise la valeur par défaut de l’adaptateur si non défini.",
-  "mdlEdTemperature": "Temperature",
+  "mdlEdTemperature": "Température",
   "mdlEd0020Default0": "0,0 ~ 2,0, par défaut 0,7",
   "mdlEdEnterANumberBetween00": "Saisissez un nombre entre 0,0 et 2,0",
   "mdlEdCustomHeaders": "En-têtes personnalisés",
@@ -902,11 +902,11 @@
   "tlCallThereIsNoToolOutputYet": "Aucune sortie d’outil pour l’instant.",
   "tlCallViewInDialog": "Afficher dans la boîte de dialogue",
   "tlCallEmptyContent": "Contenu vide",
-  "tlCallWrite": "Write",
-  "tlCallEdit": "Edit",
-  "tlCallMultiEdit": "Multi-edit",
-  "tlCallNotebookEdit": "Notebook Edit",
-  "tlCallBashWrite": "Bash Write",
+  "tlCallWrite": "Écrire",
+  "tlCallEdit": "Modifier",
+  "tlCallMultiEdit": "Édition multiple",
+  "tlCallNotebookEdit": "Édition de notebook",
+  "tlCallBashWrite": "Écriture Bash",
   "tlCallFileChanged": "Fichier modifié",
   "tlCallChangedFile": "Fichier modifié",
   "tlCallTool": "Outil",
@@ -1294,36 +1294,36 @@
   "settingsSaveFile": "Enregistrer le fichier",
   "settingsTriggerCompletion": "Déclencher la complétion",
   "settingsShowSignatureHelp": "Afficher l’aide à la signature",
-  "settingsFind": "Find",
-  "settingsFindAndReplace": "Find and Replace",
-  "settingsGoToLine": "Go to Line",
-  "settingsDocumentSymbols": "Document Symbols",
-  "settingsWorkspaceSymbols": "Workspace Symbols",
-  "settingsGoToDefinition": "Go to Definition",
-  "settingsFindReferences": "Find References",
-  "settingsGoToImplementation": "Go to Implementation",
-  "settingsShowHoverInfo": "Show Hover Info",
-  "settingsRenameSymbol": "Rename Symbol",
-  "settingsCodeActions": "Code Actions",
-  "settingsFormatDocument": "Format Document",
-  "settingsDefaultsToCtrlEnterAndTriggers": "Defaults to Ctrl + Enter and triggers the send button when the chat composer is ready.",
-  "settingsDefaultsToCtrlPForQuickly": "Defaults to Ctrl + P for quickly collapsing or expanding the composer.",
-  "settingsDefaultsToCtrlLeftAndWraps": "Defaults to Ctrl + Left and wraps around to the last model when needed.",
-  "settingsDefaultsToCtrlRightAndWraps": "Defaults to Ctrl + Right and wraps around to the first model when needed.",
-  "settingsDefaultsToCtrlSForToggling": "Defaults to Ctrl + S for toggling auto follow.",
-  "settingsDefaultsToCtrlUpAndWraps": "Defaults to Ctrl + Up and wraps to the end of the session list.",
-  "settingsDefaultsToCtrlDownAndWraps": "Defaults to Ctrl + Down and wraps to the start of the session list.",
-  "auditDeleteMessage": "Delete Message",
-  "auditDeleteThisMessageThisCannotBe": "Delete this message? This cannot be undone.",
-  "auditCancel": "Cancel",
-  "settingsManageTheBuiltInAiTools": "Manage the built-in AI tools. Adjust each tool's enabled state, name, description, schema, priority, sort order, load strategy, and other parameters.",
-  "settingsManageTheLocalFilesAndDatabase": "Manage the local files and database tables OpenHand owns on disk. Every cleanup runs on background workers — the UI thread stays responsive — and requires explicit second confirmation.",
-  "settingsThisWillRestoreAllBuiltIn": "This will restore all built-in tool configurations to factory defaults, including name, description, schema overrides, priority, sort order, and load strategy. This cannot be undone.",
-  "tlCallUnwrap": "Unwrap",
-  "tlCallWrapLines": "Wrap Lines",
-  "tlCallViewCompressedContent": "View Compressed Content",
-  "tlCallViewFullContent": "View Full Content",
-  "tlCallMultiEditEditcount": "Multi-edit ×{editCount}",
+  "settingsFind": "Rechercher",
+  "settingsFindAndReplace": "Rechercher et remplacer",
+  "settingsGoToLine": "Aller à la ligne",
+  "settingsDocumentSymbols": "Symboles du document",
+  "settingsWorkspaceSymbols": "Symboles de l’espace de travail",
+  "settingsGoToDefinition": "Aller à la définition",
+  "settingsFindReferences": "Trouver les références",
+  "settingsGoToImplementation": "Aller à l’implémentation",
+  "settingsShowHoverInfo": "Afficher l’info au survol",
+  "settingsRenameSymbol": "Renommer le symbole",
+  "settingsCodeActions": "Actions de code",
+  "settingsFormatDocument": "Formater le document",
+  "settingsDefaultsToCtrlEnterAndTriggers": "Par défaut Ctrl + Enter ; déclenche le bouton d’envoi lorsque la zone de saisie du chat est prête.",
+  "settingsDefaultsToCtrlPForQuickly": "Par défaut Ctrl + P pour réduire ou développer rapidement la zone de saisie.",
+  "settingsDefaultsToCtrlLeftAndWraps": "Par défaut Ctrl + Gauche et boucle au dernier modèle si nécessaire.",
+  "settingsDefaultsToCtrlRightAndWraps": "Par défaut Ctrl + Droite et boucle au premier modèle si nécessaire.",
+  "settingsDefaultsToCtrlSForToggling": "Par défaut Ctrl + S pour basculer le suivi automatique.",
+  "settingsDefaultsToCtrlUpAndWraps": "Par défaut Ctrl + Haut et boucle à la fin de la liste de sessions.",
+  "settingsDefaultsToCtrlDownAndWraps": "Par défaut Ctrl + Bas et boucle au début de la liste de sessions.",
+  "auditDeleteMessage": "Supprimer le message",
+  "auditDeleteThisMessageThisCannotBe": "Supprimer ce message ? Cette action est irréversible.",
+  "auditCancel": "Annuler",
+  "settingsManageTheBuiltInAiTools": "Gérez les outils IA intégrés. Ajustez l’état d’activation, le nom, la description, le schéma, la priorité, etc., de chaque outil.",
+  "settingsManageTheLocalFilesAndDatabase": "Gérez les fichiers locaux et les tables de base de données qu’OpenHand possède sur disque. Chaque nettoyage s’exécute sur des travailleurs en arrière-plan pour ne pas bloquer l’interface.",
+  "settingsThisWillRestoreAllBuiltIn": "Ceci restaurera toutes les configurations d’outils intégrés aux valeurs d’usine, y compris le nom, la description, le schéma, etc.",
+  "tlCallUnwrap": "Annuler le retour à la ligne",
+  "tlCallWrapLines": "Renvoyer les lignes à la ligne",
+  "tlCallViewCompressedContent": "Voir le contenu compressé",
+  "tlCallViewFullContent": "Voir le contenu complet",
+  "tlCallMultiEditEditcount": "Édition multiple ×{editCount}",
   "@tlCallMultiEditEditcount": {
     "placeholders": {
       "editCount": {
@@ -1331,14 +1331,14 @@
       }
     }
   },
-  "tlCallPreparing": "Preparing",
-  "tlCallPreparingAlt": "Preparing",
-  "tlCallRunningAlt": "Running",
-  "tlCallCompleted": "Completed",
-  "tlCallCompletedAlt": "Completed",
-  "tlCallTimedOutAlt": "Timed Out",
-  "tlCallFailedAlt": "Failed",
-  "tlCallFailedToOpenFileLocationError": "Failed to open file location: {error}",
+  "tlCallPreparing": "Préparation",
+  "tlCallPreparingAlt": "Préparation",
+  "tlCallRunningAlt": "En cours",
+  "tlCallCompleted": "Terminé",
+  "tlCallCompletedAlt": "Terminé",
+  "tlCallTimedOutAlt": "Délai dépassé",
+  "tlCallFailedAlt": "Échec",
+  "tlCallFailedToOpenFileLocationError": "Impossible d’ouvrir l’emplacement du fichier : {error}",
   "@tlCallFailedToOpenFileLocationError": {
     "placeholders": {
       "error": {
@@ -1346,7 +1346,7 @@
       }
     }
   },
-  "tlCallMemoryitemsLengthMemoriesUpdated": "{memoryItems_length} memories updated",
+  "tlCallMemoryitemsLengthMemoriesUpdated": "{memoryItems_length} mémoires mises à jour",
   "@tlCallMemoryitemsLengthMemoriesUpdated": {
     "placeholders": {
       "memoryItems_length": {
@@ -1354,7 +1354,7 @@
       }
     }
   },
-  "tlCallProfileitemsLengthProfileChanges": "{profileItems_length} profile changes",
+  "tlCallProfileitemsLengthProfileChanges": "{profileItems_length} modifications de profil",
   "@tlCallProfileitemsLengthProfileChanges": {
     "placeholders": {
       "profileItems_length": {
@@ -1362,7 +1362,7 @@
       }
     }
   },
-  "tlCallSkillitemsLengthSkillsUpdated": "{skillItems_length} skills updated",
+  "tlCallSkillitemsLengthSkillsUpdated": "{skillItems_length} compétences mises à jour",
   "@tlCallSkillitemsLengthSkillsUpdated": {
     "placeholders": {
       "skillItems_length": {
@@ -1370,11 +1370,11 @@
       }
     }
   },
-  "tlCallAiThinkingStreaming": "AI Thinking (streaming)",
-  "tlCallAiThinking": "AI Thinking",
-  "tlCallAiResponseStreaming": "AI Response (streaming)",
-  "tlCallAiResponse": "AI Response",
-  "tlCallAndItemsLength3More": " and {items_length_3} more",
+  "tlCallAiThinkingStreaming": "IA en réflexion (en flux)",
+  "tlCallAiThinking": "IA en réflexion",
+  "tlCallAiResponseStreaming": "Réponse IA (en flux)",
+  "tlCallAiResponse": "Réponse IA",
+  "tlCallAndItemsLength3More": " et {items_length_3} autres",
   "@tlCallAndItemsLength3More": {
     "placeholders": {
       "items_length_3": {
@@ -1385,7 +1385,7 @@
       }
     }
   },
-  "tlCallSecondsSAgo": "{seconds}s ago",
+  "tlCallSecondsSAgo": "il y a {seconds}s",
   "@tlCallSecondsSAgo": {
     "placeholders": {
       "seconds": {
@@ -1393,7 +1393,7 @@
       }
     }
   },
-  "tlCallMinutesMAgo": "{minutes}m ago",
+  "tlCallMinutesMAgo": "il y a {minutes} min",
   "@tlCallMinutesMAgo": {
     "placeholders": {
       "minutes": {
@@ -1401,7 +1401,7 @@
       }
     }
   },
-  "tlCallHoursHAgo": "{hours}h ago",
+  "tlCallHoursHAgo": "il y a {hours} h",
   "@tlCallHoursHAgo": {
     "placeholders": {
       "hours": {
@@ -1409,7 +1409,7 @@
       }
     }
   },
-  "tlCallDaysDAgo": "{days}d ago",
+  "tlCallDaysDAgo": "il y a {days} j",
   "@tlCallDaysDAgo": {
     "placeholders": {
       "days": {
@@ -1425,7 +1425,7 @@
       }
     }
   },
-  "sessMetaTheCurrentSequentialToolRoundLimit": " The current sequential tool round limit is {configuredLimit}.",
+  "sessMetaTheCurrentSequentialToolRoundLimit": "La limite actuelle des tours d’outils consécutifs est {configuredLimit}.",
   "@sessMetaTheCurrentSequentialToolRoundLimit": {
     "placeholders": {
       "configuredLimit": {
@@ -1433,7 +1433,7 @@
       }
     }
   },
-  "auditInvalidJsonErrorMessage": "Invalid JSON: {error_message}",
+  "auditInvalidJsonErrorMessage": "JSON invalide : {error_message}",
   "@auditInvalidJsonErrorMessage": {
     "placeholders": {
       "error_message": {
@@ -1441,7 +1441,7 @@
       }
     }
   },
-  "auditSaveFailedError": "Save failed: {error}",
+  "auditSaveFailedError": "Échec de l’enregistrement : {error}",
   "@auditSaveFailedError": {
     "placeholders": {
       "error": {
@@ -1449,7 +1449,7 @@
       }
     }
   },
-  "auditRecentErrorsSessionRecenterrorsLength": "Recent Errors ({session_recentErrors_length})",
+  "auditRecentErrorsSessionRecenterrorsLength": "Erreurs récentes ({session_recentErrors_length})",
   "@auditRecentErrorsSessionRecenterrorsLength": {
     "placeholders": {
       "session_recentErrors_length": {
@@ -1465,7 +1465,7 @@
       }
     }
   },
-  "progExpFEAppliedEditsLengthFormattingEdits": "Applied {edits_length} formatting edits.",
+  "progExpFEAppliedEditsLengthFormattingEdits": "{edits_length} modifications de formatage appliquées.",
   "@progExpFEAppliedEditsLengthFormattingEdits": {
     "placeholders": {
       "edits_length": {
@@ -1473,7 +1473,7 @@
       }
     }
   },
-  "progExpFEFormatTheCurrentFileFormatshortcut": "Format the current file ({formatShortcut})",
+  "progExpFEFormatTheCurrentFileFormatshortcut": "Formater le fichier actuel ({formatShortcut})",
   "@progExpFEFormatTheCurrentFileFormatshortcut": {
     "placeholders": {
       "formatShortcut": {
@@ -1481,7 +1481,7 @@
       }
     }
   },
-  "progExpFENoCodeactionkindRefactoringIsAvailableAt": "No \"{codeActionKind}\" refactoring is available at the current position.",
+  "progExpFENoCodeactionkindRefactoringIsAvailableAt": "Aucun refactoring « {codeActionKind} » disponible à la position actuelle.",
   "@progExpFENoCodeactionkindRefactoringIsAvailableAt": {
     "placeholders": {
       "codeActionKind": {
@@ -1489,9 +1489,9 @@
       }
     }
   },
-  "progExpFEHideFileBrowser": "Hide file browser",
-  "progExpFEShowFileBrowser": "Show file browser",
-  "settingsRetentionWindowRetentionDayS": "Retention window: {retention} day(s)",
+  "progExpFEHideFileBrowser": "Masquer l’explorateur de fichiers",
+  "progExpFEShowFileBrowser": "Afficher l’explorateur de fichiers",
+  "settingsRetentionWindowRetentionDayS": "Fenêtre de rétention : {retention} jour(s)",
   "@settingsRetentionWindowRetentionDayS": {
     "placeholders": {
       "retention": {
@@ -1499,7 +1499,7 @@
       }
     }
   },
-  "settingsRangeMinrMaxrDaysDefault7": "Range {minR}–{maxR} days; default 7. Takes effect on the next cold start.",
+  "settingsRangeMinrMaxrDaysDefault7": "Plage {minR}–{maxR} jours ; par défaut 7. Prend effet au prochain démarrage à froid.",
   "@settingsRangeMinrMaxrDaysDefault7": {
     "placeholders": {
       "minR": {
@@ -1510,7 +1510,7 @@
       }
     }
   },
-  "settingsConcurrentWorkersConcurrency": "Concurrent workers: {concurrency}",
+  "settingsConcurrentWorkersConcurrency": "Travailleurs simultanés : {concurrency}",
   "@settingsConcurrentWorkersConcurrency": {
     "placeholders": {
       "concurrency": {
@@ -1518,7 +1518,7 @@
       }
     }
   },
-  "settingsCapsHowManySessionsCanBe": "Caps how many sessions can be dispatched in parallel per tick ({minC}–{maxC}). Defaults to 5.",
+  "settingsCapsHowManySessionsCanBe": "Plafonne le nombre de sessions pouvant être réparties en parallèle par tick ({minC}–{maxC}). Par défaut 5.",
   "@settingsCapsHowManySessionsCanBe": {
     "placeholders": {
       "minC": {
@@ -1529,7 +1529,7 @@
       }
     }
   },
-  "settingsSortedLengthBuiltInToolsEnabledcount": "{sorted_length} built-in tools, {enabledCount} enabled. Adjust name, description, schema, priority, sort order, and load strategy for each.",
+  "settingsSortedLengthBuiltInToolsEnabledcount": "{sorted_length} outils intégrés, {enabledCount} activés. Ajustez le nom, la description, le schéma, la priorité, etc.",
   "@settingsSortedLengthBuiltInToolsEnabledcount": {
     "placeholders": {
       "sorted_length": {
@@ -1540,7 +1540,7 @@
       }
     }
   },
-  "settingsAreYouSureYouWantTo": "Are you sure you want to delete \"{config_effectiveName}\"? This cannot be undone.",
+  "settingsAreYouSureYouWantTo": "Voulez-vous vraiment supprimer « {config_effectiveName} » ? Cette action est irréversible.",
   "@settingsAreYouSureYouWantTo": {
     "placeholders": {
       "config_effectiveName": {
@@ -1548,7 +1548,7 @@
       }
     }
   },
-  "settingsEnterAValueBetweenMinAnd": "Enter a value between {min} and {max} seconds.",
+  "settingsEnterAValueBetweenMinAnd": "Saisissez une valeur entre {min} et {max} secondes.",
   "@settingsEnterAValueBetweenMinAnd": {
     "placeholders": {
       "min": {
@@ -1559,7 +1559,7 @@
       }
     }
   },
-  "settingsPleaseEnterAnIntegerBetweenAppsettingssn": "Please enter an integer between {AppSettingsSnapshot_minAiInputCacheUpdateInterval} and {AppSettingsSnapshot_maxAiInputCacheUpdateInterval}",
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn": "Veuillez saisir un entier entre {AppSettingsSnapshot_minAiInputCacheUpdateInterval} et {AppSettingsSnapshot_maxAiInputCacheUpdateInterval}.",
   "@settingsPleaseEnterAnIntegerBetweenAppsettingssn": {
     "placeholders": {
       "AppSettingsSnapshot_minAiInputCacheUpdateInterval": {
@@ -1570,7 +1570,7 @@
       }
     }
   },
-  "settingsPleaseEnterAnIntegerBetweenAppsettingssn2": "Please enter an integer between {AppSettingsSnapshot_minAiInputCacheBreakpointCount} and {AppSettingsSnapshot_maxAiInputCacheBreakpointCount}",
+  "settingsPleaseEnterAnIntegerBetweenAppsettingssn2": "Veuillez saisir un entier entre {AppSettingsSnapshot_minAiInputCacheBreakpointCount} et {AppSettingsSnapshot_maxAiInputCacheBreakpointCount}.",
   "@settingsPleaseEnterAnIntegerBetweenAppsettingssn2": {
     "placeholders": {
       "AppSettingsSnapshot_minAiInputCacheBreakpointCount": {
@@ -1581,7 +1581,7 @@
       }
     }
   },
-  "settingsDragTheThumbcountThumbsToPosition": "Drag the {thumbCount} thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.",
+  "settingsDragTheThumbcountThumbsToPosition": "Faites glisser les {thumbCount} curseurs pour positionner les N-1 premiers points d’arrêt de cache statiques sur le flux de messages.",
   "@settingsDragTheThumbcountThumbsToPosition": {
     "placeholders": {
       "thumbCount": {
@@ -1589,9 +1589,9 @@
       }
     }
   },
-  "settingsTheDenyCommandRuleHasBeen2": "The deny command rule has been updated.",
-  "settingsTheAllowCommandRuleHasBeen2": "The allow command rule has been updated.",
-  "settingsDefaultsToDefaultlabelAndSavesThe": "Defaults to {defaultLabel} and saves the current file.",
+  "settingsTheDenyCommandRuleHasBeen2": "Règle de commande de refus mise à jour.",
+  "settingsTheAllowCommandRuleHasBeen2": "Règle de commande d’autorisation mise à jour.",
+  "settingsDefaultsToDefaultlabelAndSavesThe": "Par défaut {defaultLabel} et enregistre le fichier actuel.",
   "@settingsDefaultsToDefaultlabelAndSavesThe": {
     "placeholders": {
       "defaultLabel": {
@@ -1599,7 +1599,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndOpensThe": "Defaults to {defaultLabel} and opens the completion popup on demand.",
+  "settingsDefaultsToDefaultlabelAndOpensThe": "Par défaut {defaultLabel} et ouvre la fenêtre de complétion à la demande.",
   "@settingsDefaultsToDefaultlabelAndOpensThe": {
     "placeholders": {
       "defaultLabel": {
@@ -1607,7 +1607,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndShowsMethod": "Defaults to {defaultLabel} and shows method signatures, parameter details, and summary docs for the current call site.",
+  "settingsDefaultsToDefaultlabelAndShowsMethod": "Par défaut {defaultLabel} et affiche les signatures de méthode, les détails des paramètres et la documentation récapitulative pour le symbole actuel.",
   "@settingsDefaultsToDefaultlabelAndShowsMethod": {
     "placeholders": {
       "defaultLabel": {
@@ -1615,7 +1615,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndTogglesThe": "Defaults to {defaultLabel} and toggles the find panel.",
+  "settingsDefaultsToDefaultlabelAndTogglesThe": "Par défaut {defaultLabel} et bascule le panneau de recherche.",
   "@settingsDefaultsToDefaultlabelAndTogglesThe": {
     "placeholders": {
       "defaultLabel": {
@@ -1623,7 +1623,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndTogglesThe2": "Defaults to {defaultLabel} and toggles the replace panel.",
+  "settingsDefaultsToDefaultlabelAndTogglesThe2": "Par défaut {defaultLabel} et bascule le panneau de remplacement.",
   "@settingsDefaultsToDefaultlabelAndTogglesThe2": {
     "placeholders": {
       "defaultLabel": {
@@ -1631,7 +1631,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndTogglesThe3": "Defaults to {defaultLabel} and toggles the go-to-line panel.",
+  "settingsDefaultsToDefaultlabelAndTogglesThe3": "Par défaut {defaultLabel} et bascule le panneau aller-à-la-ligne.",
   "@settingsDefaultsToDefaultlabelAndTogglesThe3": {
     "placeholders": {
       "defaultLabel": {
@@ -1639,7 +1639,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndTogglesThe4": "Defaults to {defaultLabel} and toggles the symbol list for the current file.",
+  "settingsDefaultsToDefaultlabelAndTogglesThe4": "Par défaut {defaultLabel} et bascule la liste des symboles du fichier actuel.",
   "@settingsDefaultsToDefaultlabelAndTogglesThe4": {
     "placeholders": {
       "defaultLabel": {
@@ -1647,7 +1647,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndTogglesThe5": "Defaults to {defaultLabel} and toggles the workspace symbol search panel.",
+  "settingsDefaultsToDefaultlabelAndTogglesThe5": "Par défaut {defaultLabel} et bascule le panneau de recherche de symboles d’espace de travail.",
   "@settingsDefaultsToDefaultlabelAndTogglesThe5": {
     "placeholders": {
       "defaultLabel": {
@@ -1655,7 +1655,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndJumpsTo": "Defaults to {defaultLabel} and jumps to the current symbol definition.",
+  "settingsDefaultsToDefaultlabelAndJumpsTo": "Par défaut {defaultLabel} et saute à la définition du symbole actuel.",
   "@settingsDefaultsToDefaultlabelAndJumpsTo": {
     "placeholders": {
       "defaultLabel": {
@@ -1663,7 +1663,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndFindsReferences": "Defaults to {defaultLabel} and finds references for the current symbol.",
+  "settingsDefaultsToDefaultlabelAndFindsReferences": "Par défaut {defaultLabel} et trouve les références pour le symbole actuel.",
   "@settingsDefaultsToDefaultlabelAndFindsReferences": {
     "placeholders": {
       "defaultLabel": {
@@ -1671,7 +1671,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndJumpsTo2": "Defaults to {defaultLabel} and jumps to the current implementation.",
+  "settingsDefaultsToDefaultlabelAndJumpsTo2": "Par défaut {defaultLabel} et saute à l’implémentation actuelle.",
   "@settingsDefaultsToDefaultlabelAndJumpsTo2": {
     "placeholders": {
       "defaultLabel": {
@@ -1679,7 +1679,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndShowsType": "Defaults to {defaultLabel} and shows type or documentation info at the current position.",
+  "settingsDefaultsToDefaultlabelAndShowsType": "Par défaut {defaultLabel} et affiche les informations de type ou de documentation à la position actuelle.",
   "@settingsDefaultsToDefaultlabelAndShowsType": {
     "placeholders": {
       "defaultLabel": {
@@ -1687,7 +1687,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndStartsRename": "Defaults to {defaultLabel} and starts rename for the current symbol.",
+  "settingsDefaultsToDefaultlabelAndStartsRename": "Par défaut {defaultLabel} et démarre le renommage pour le symbole actuel.",
   "@settingsDefaultsToDefaultlabelAndStartsRename": {
     "placeholders": {
       "defaultLabel": {
@@ -1695,7 +1695,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndShowsAvailable": "Defaults to {defaultLabel} and shows available code actions.",
+  "settingsDefaultsToDefaultlabelAndShowsAvailable": "Par défaut {defaultLabel} et affiche les actions de code disponibles.",
   "@settingsDefaultsToDefaultlabelAndShowsAvailable": {
     "placeholders": {
       "defaultLabel": {
@@ -1703,7 +1703,7 @@
       }
     }
   },
-  "settingsDefaultsToDefaultlabelAndFormatsThe": "Defaults to {defaultLabel} and formats the current programming file; Shift+Tab still outdents first when a multi-line selection is active.",
+  "settingsDefaultsToDefaultlabelAndFormatsThe": "Par défaut {defaultLabel} et formate le fichier de programmation actuel ; Shift+Tab effectue d’abord un retrait inverse.",
   "@settingsDefaultsToDefaultlabelAndFormatsThe": {
     "placeholders": {
       "defaultLabel": {
