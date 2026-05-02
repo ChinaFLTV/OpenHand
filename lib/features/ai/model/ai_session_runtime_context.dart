@@ -94,6 +94,10 @@ class AiSessionRuntimeContext {
     this.toolResultCompressionHeadTailWindowChars = 256,
     this.toolResultCompressionMaxPathHits = 12,
     this.writeToolSummaryMaxChars = 280,
+    this.aiInputCacheEnabled = false,
+    this.aiInputCacheUpdateMode = 'allMessages',
+    this.aiInputCacheUpdateInterval = 10,
+    this.aiInputCacheBreakpointCount = 4,
     required this.memoryEnabled,
     required this.memoryEntries,
     this.templateId = '',
@@ -170,6 +174,18 @@ class AiSessionRuntimeContext {
 
   /// 2026-04-27 — 写类工具摘要中保留 result_text 的字符上限。
   final int writeToolSummaryMaxChars;
+
+  /// 2026-05-01 — 是否启用输入缓存 (Anthropic prompt caching 等)。
+  final bool aiInputCacheEnabled;
+
+  /// 2026-05-01 — 缓存断点更新模式: allMessages / userMessages / tokens。
+  final String aiInputCacheUpdateMode;
+
+  /// 2026-05-01 — 缓存断点更新间隔。
+  final int aiInputCacheUpdateInterval;
+
+  /// 2026-05-01 — Anthropic cache breakpoint 最大数量 (1..4)。
+  final int aiInputCacheBreakpointCount;
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
 
@@ -318,6 +334,10 @@ class AiSessionRuntimeContext {
       'tool_result_compression_max_path_hits':
           toolResultCompressionMaxPathHits,
       'write_tool_summary_max_chars': writeToolSummaryMaxChars,
+      'ai_input_cache_enabled': aiInputCacheEnabled,
+      'ai_input_cache_update_mode': aiInputCacheUpdateMode,
+      'ai_input_cache_update_interval': aiInputCacheUpdateInterval,
+      'ai_input_cache_breakpoint_count': aiInputCacheBreakpointCount,
       'single_round_tool_call_limit': singleRoundToolCallLimit,
       'sequential_tool_round_limit': sequentialToolRoundLimit,
       'max_recent_errors': maxRecentErrors,

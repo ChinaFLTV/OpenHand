@@ -9,6 +9,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../model/ai_creation_mode.dart';
+import '../model/ai_input_cache_runtime_config.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 import 'ai_dsml_tool_call_parser.dart';
@@ -24,6 +25,7 @@ abstract class AiChatClient {
     List<String> responseModalities,
     AiCreationRequest creationRequest,
     Duration timeout,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   });
 
   Future<AiChatStreamingResponse> sendMessageStream({
@@ -35,6 +37,7 @@ abstract class AiChatClient {
     Duration timeout,
     Duration streamIdleTimeout,
     Future<void>? cancelSignal,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   });
 
   Future<String> testModel(AiModelConfig model);
@@ -343,6 +346,7 @@ class AiChatService implements AiChatClient {
     List<String> responseModalities = const <String>[],
     AiCreationRequest creationRequest = AiCreationRequest.none,
     Duration timeout = const Duration(seconds: 60),
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     if (_shouldDivertToMediaEndpoint(model, creationRequest)) {
@@ -364,6 +368,7 @@ class AiChatService implements AiChatClient {
         messages: messages,
         tools: tools,
         responseModalities: responseModalities,
+        inputCacheConfig: inputCacheConfig,
       );
       final effectiveMethod = model.requestMethod.trim().isNotEmpty
           ? model.requestMethod.trim()
@@ -465,6 +470,7 @@ class AiChatService implements AiChatClient {
     Duration timeout = const Duration(seconds: 60),
     Duration streamIdleTimeout = const Duration(seconds: 120),
     Future<void>? cancelSignal,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     // Media generation is a one-shot or bounded-poll protocol on dedicated
@@ -505,6 +511,7 @@ class AiChatService implements AiChatClient {
       tools: tools,
       responseModalities: responseModalities,
       stream: true,
+      inputCacheConfig: inputCacheConfig,
     );
     final effectiveMethod = model.requestMethod.trim().isNotEmpty
         ? model.requestMethod.trim()

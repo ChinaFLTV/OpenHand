@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../model/ai_input_cache_runtime_config.dart';
 import '../model/ai_model_config.dart';
 import '../model/ai_token_usage.dart';
 
@@ -188,6 +189,7 @@ abstract class AiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     return AiRequestBlueprint(
       url: _buildUrl(
@@ -202,6 +204,7 @@ abstract class AiProtocolAdapter {
         tools: tools,
         responseModalities: responseModalities,
         stream: stream,
+        inputCacheConfig: inputCacheConfig,
       ),
     );
   }
@@ -243,6 +246,7 @@ abstract class AiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   });
 
   bool supportsAttachmentsForModel(AiModelConfig model) {
@@ -411,6 +415,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final requestMessages = await Future.wait<Map<String, Object?>>(
       messages.map((item) => _mapOpenAiMessage(item)),
@@ -715,6 +720,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final systemContent = messages
         .where((item) => item.role == AiChatRole.system)
@@ -726,19 +732,162 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         .toList();
     final requestMessages = await _mapClaudeMessages(nonSystemMessages);
     final effectiveMaxTokens = model.maxTokens ?? 1024;
+    final cacheEnabled = inputCacheConfig?.isEffectivelyEnabled ?? false;
+    // Claude prompt caching: total cache_control markers <= 4 across system +
+    // tools + messages, otherwise the API rejects with 400. We allocate the
+    // user-configured budget greedily across (system end, tools end, static
+    // message prefix end, sliding tail per mode/interval).
+    int remainingBreakpoints = cacheEnabled
+        ? inputCacheConfig!.breakpointCount.clamp(1, 4)
+        : 0;
+
+    Object? systemPayload;
+    if (systemContent.isNotEmpty) {
+      if (cacheEnabled && remainingBreakpoints > 0) {
+        systemPayload = <Map<String, Object?>>[
+          <String, Object?>{
+            'type': 'text',
+            'text': systemContent,
+            'cache_control': <String, Object?>{'type': 'ephemeral'},
+          },
+        ];
+        remainingBreakpoints -= 1;
+      } else {
+        systemPayload = systemContent;
+      }
+    }
+
+    Object? toolsPayload;
+    if (tools.isNotEmpty) {
+      final toolJson = tools
+          .map((item) => item.toClaudeJson())
+          .toList(growable: false);
+      if (cacheEnabled && remainingBreakpoints > 0 && toolJson.isNotEmpty) {
+        // Anthropic accepts cache_control on the last tool definition; this
+        // freezes the entire tool block.
+        final mutableTools = toolJson
+            .map((e) => Map<String, Object?>.from(e as Map))
+            .toList(growable: false);
+        mutableTools.last['cache_control'] = <String, Object?>{
+          'type': 'ephemeral',
+        };
+        toolsPayload = mutableTools;
+        remainingBreakpoints -= 1;
+      } else {
+        toolsPayload = toolJson;
+      }
+    }
+
+    if (cacheEnabled && remainingBreakpoints > 0 && requestMessages.isNotEmpty) {
+      _injectMessageCacheBreakpoints(
+        requestMessages,
+        budget: remainingBreakpoints,
+        config: inputCacheConfig!,
+      );
+    }
+
     return <String, Object?>{
       'model': model.modelId,
-      if (systemContent.isNotEmpty) 'system': systemContent,
+      if (systemPayload != null) 'system': systemPayload,
       'max_tokens': effectiveMaxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
-      if (tools.isNotEmpty)
-        'tools': tools
-            .map((item) => item.toClaudeJson())
-            .toList(growable: false),
+      if (toolsPayload != null) 'tools': toolsPayload,
       if (tools.isNotEmpty) 'tool_choice': <String, Object?>{'type': 'auto'},
       'messages': requestMessages,
     };
+  }
+
+  /// 在 [requestMessages] 上按 mode/interval 注入剩余 cache_control breakpoint。
+  /// 命中点位于命中消息的最后一个 content 块上。
+  void _injectMessageCacheBreakpoints(
+    List<Map<String, Object?>> requestMessages,
+    {required int budget, required AiInputCacheRuntimeConfig config}) {
+    if (budget <= 0 || requestMessages.isEmpty) return;
+    // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
+    final candidates = <int>[];
+    final interval = config.updateInterval <= 0 ? 1 : config.updateInterval;
+    switch (config.mode) {
+      case 'userMessages':
+        var seenUsers = 0;
+        for (var i = requestMessages.length - 1; i >= 0; i--) {
+          if (requestMessages[i]['role'] == 'user') {
+            if (seenUsers % interval == 0) candidates.add(i);
+            seenUsers++;
+          }
+        }
+        break;
+      case 'tokens':
+        // 粗略以累计 char 长度模拟 token 累计，跨过 interval 即落点。
+        var charAcc = 0;
+        for (var i = requestMessages.length - 1; i >= 0; i--) {
+          charAcc += _estimateMessageChars(requestMessages[i]);
+          if (charAcc >= interval || i == requestMessages.length - 1) {
+            candidates.add(i);
+            charAcc = 0;
+          }
+        }
+        break;
+      case 'allMessages':
+      default:
+        for (var i = requestMessages.length - 1; i >= 0; i -= interval) {
+          candidates.add(i);
+        }
+        break;
+    }
+    final selected = candidates.take(budget).toList(growable: false);
+    for (final index in selected) {
+      _attachCacheControlToMessageTail(requestMessages[index]);
+    }
+  }
+
+  int _estimateMessageChars(Map<String, Object?> message) {
+    final content = message['content'];
+    if (content is String) return content.length;
+    if (content is List) {
+      var total = 0;
+      for (final block in content) {
+        if (block is Map) {
+          final t = block['text'];
+          if (t is String) total += t.length;
+          final c = block['content'];
+          if (c is String) total += c.length;
+        }
+      }
+      return total;
+    }
+    return 0;
+  }
+
+  void _attachCacheControlToMessageTail(Map<String, Object?> message) {
+    final content = message['content'];
+    if (content is String) {
+      message['content'] = <Map<String, Object?>>[
+        <String, Object?>{
+          'type': 'text',
+          'text': content,
+          'cache_control': <String, Object?>{'type': 'ephemeral'},
+        },
+      ];
+      return;
+    }
+    if (content is List<Map<String, Object?>>) {
+      if (content.isEmpty) return;
+      content.last['cache_control'] = <String, Object?>{'type': 'ephemeral'};
+      return;
+    }
+    if (content is List) {
+      // List<dynamic>; mutate the last entry if it's a Map.
+      if (content.isEmpty) return;
+      final last = content.last;
+      if (last is Map<String, Object?>) {
+        last['cache_control'] = <String, Object?>{'type': 'ephemeral'};
+      } else if (last is Map) {
+        final m = Map<String, Object?>.from(last);
+        m['cache_control'] = <String, Object?>{'type': 'ephemeral'};
+        content[content.length - 1] = m;
+      }
+    }
   }
 
   @override
@@ -1028,6 +1177,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final systemContent = messages
         .where((item) => item.role == AiChatRole.system)
@@ -1403,6 +1553,7 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     List<AiToolDefinition> tools = const <AiToolDefinition>[],
     List<String> responseModalities = const <String>[],
     bool stream = false,
+    AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
     final body = await super.buildBody(
       model,
@@ -1410,6 +1561,7 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
       tools: tools,
       responseModalities: responseModalities,
       stream: stream,
+      inputCacheConfig: inputCacheConfig,
     );
     // Older Ollama releases do not recognise `stream_options` and may
     // reject the request or ignore it silently.  Remove it to maximise

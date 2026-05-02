@@ -18,6 +18,7 @@ import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
+import 'model/ai_input_cache_runtime_config.dart';
 import 'model/ai_model_config.dart';
 import 'model/ai_session.dart';
 import 'model/ai_session_message.dart';
@@ -2211,6 +2212,12 @@ class AiSessionController extends ChangeNotifier {
             seconds: runtimeContext.streamIdleTimeoutSeconds,
           ),
           cancelSignal: _stopSignalForSession(workingSession.id),
+          inputCacheConfig: AiInputCacheRuntimeConfig(
+            enabled: runtimeContext.aiInputCacheEnabled,
+            mode: runtimeContext.aiInputCacheUpdateMode,
+            updateInterval: runtimeContext.aiInputCacheUpdateInterval,
+            breakpointCount: runtimeContext.aiInputCacheBreakpointCount,
+          ),
         );
       } catch (error) {
         if (_isStopRequestedForSession(workingSession.id)) {

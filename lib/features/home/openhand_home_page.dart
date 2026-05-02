@@ -2777,6 +2777,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       toolResultCompressionMaxPathHits:
           settingsController.aiToolResultCompressionMaxPathHits,
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
+      aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
+      aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval:
+          settingsController.aiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount:
+          settingsController.aiInputCacheBreakpointCount,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,
@@ -3010,6 +3016,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       toolResultCompressionMaxPathHits:
           settingsController.aiToolResultCompressionMaxPathHits,
       writeToolSummaryMaxChars: settingsController.aiWriteToolSummaryMaxChars,
+      aiInputCacheEnabled: settingsController.aiInputCacheEnabled,
+      aiInputCacheUpdateMode: settingsController.aiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval:
+          settingsController.aiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount:
+          settingsController.aiInputCacheBreakpointCount,
       singleRoundToolCallLimit: settingsController.aiSingleRoundToolCallLimit,
       sequentialToolRoundLimit: settingsController.aiSequentialToolRoundLimit,
       maxRecentErrors: settingsController.aiMaxRecentErrors,

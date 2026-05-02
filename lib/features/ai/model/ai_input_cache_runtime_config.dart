@@ -1,0 +1,35 @@
+/// 2026-05-01 — 输入缓存运行时配置。
+///
+/// 由 [AiSessionController] 在每轮请求开始时根据 SettingsController 与
+/// [AiSessionRuntimeContext] 装配，向下传递到 [AiChatClient.sendMessageStream]
+/// 与 [AiProtocolAdapter.buildBody]，由具体协议适配器（当前只有
+/// [ClaudeProtocolAdapter]）翻译为 `cache_control: {type: 'ephemeral'}` 标记。
+///
+/// `enabled=false` 时，所有适配器应表现为完全无行为变化（空操作）。
+class AiInputCacheRuntimeConfig {
+  const AiInputCacheRuntimeConfig({
+    required this.enabled,
+    required this.mode,
+    required this.updateInterval,
+    required this.breakpointCount,
+  });
+
+  /// 一个明确的"无缓存"哨兵；适配器收到 null 或 disabled 都走旧路径。
+  static const AiInputCacheRuntimeConfig disabled = AiInputCacheRuntimeConfig(
+    enabled: false,
+    mode: 'allMessages',
+    updateInterval: 10,
+    breakpointCount: 4,
+  );
+
+  final bool enabled;
+
+  /// 'allMessages' / 'userMessages' / 'tokens'.
+  final String mode;
+  final int updateInterval;
+
+  /// Anthropic 上限就是 4，超过会报 400。
+  final int breakpointCount;
+
+  bool get isEffectivelyEnabled => enabled && breakpointCount > 0;
+}
