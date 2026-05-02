@@ -28,6 +28,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   bool _isScanning = false;
   String? _errorMessage;
   String? _scanError;
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
   List<String> _availableModelIds = const <String>[];
   String? _activeModelId;
   late Map<String, AiModelProfile> _modelProfiles;
@@ -105,6 +106,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       entry.valueController.dispose();
     }
     _chipScrollController.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -114,6 +116,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       setState(() {
         _scanError = AppLocalizations.of(context)!.mdlEdEnterAValidBaseUrlFirst;
       });
+      _errorPulse.value++;
       return;
     }
 
@@ -170,6 +173,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           _isScanning = false;
           _scanError = result.error;
         });
+        _errorPulse.value++;
       }
     } catch (e) {
       if (!mounted) return;
@@ -177,6 +181,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _isScanning = false;
         _scanError = '$e';
       });
+      _errorPulse.value++;
     } finally {
       scanner.dispose();
     }
@@ -294,9 +299,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       child: Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760, maxHeight: 860),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -909,6 +916,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
               ],
             ),
           ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _errorPulse,
+                    color: const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -958,6 +978,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _isSaving = false;
         _errorMessage = l10n.settingsPersistenceSaveFailedBody;
       });
+      _errorPulse.value++;
       return;
     }
     if (!mounted) {
@@ -968,6 +989,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _isSaving = false;
         _errorMessage = l10n.settingsPersistenceSaveFailedBody;
       });
+      _errorPulse.value++;
       return;
     }
     Navigator.of(context).pop(true);
