@@ -571,11 +571,14 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     // OpenAI's nested `prompt_tokens_details.cached_tokens` form. Spec:
     // https://api-docs.deepseek.com/guides/kv_cache
     final deepseekCacheHit = _readInt(usageMap['prompt_cache_hit_tokens']);
+    // Some second-party gateways / self-hosted vLLM forks emit a flat
+    // `cached_tokens` (no nested wrapper). Final tier of fallback.
+    final flatCachedTokens = _readInt(usageMap['cached_tokens']);
     return AiTokenUsage(
       promptTokens: _readInt(usageMap['prompt_tokens']),
       completionTokens: _readInt(usageMap['completion_tokens']),
       totalTokens: _readInt(usageMap['total_tokens']),
-      cacheReadTokens: cachedTokens ?? deepseekCacheHit,
+      cacheReadTokens: cachedTokens ?? deepseekCacheHit ?? flatCachedTokens,
     );
   }
 
