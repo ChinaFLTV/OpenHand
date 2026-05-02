@@ -145,6 +145,14 @@ class AiPromptBuilder {
     final currentFileEditingToolNames = availableToolNames
         .where(_isFileEditingToolName)
         .toList(growable: false);
+    final postCompactRehydration = _buildPostCompactRehydrationSnapshot(
+      session: session,
+      runtimeContext: runtimeContext,
+      memoryEntries: memoryEntries,
+      repositorySnapshot: repositorySnapshot,
+      availableToolNames: availableToolNames,
+      latestCompressionPoint: latestCompressionPoint,
+    );
     final planRecoveryRequired =
         latestUserMessage != null &&
         _shouldUsePlanRecoveryReminder(
@@ -213,6 +221,7 @@ class AiPromptBuilder {
       'current_prompt_history_message_count': historyTurns.length,
       'current_prompt_memory_entry_count': memoryEntries.length,
       'current_prompt_latest_user_message_id': latestUserMessage?.id,
+      'post_compact_rehydration': postCompactRehydration,
       'environment': runtimeContext.toJson(),
     };
 
@@ -228,6 +237,7 @@ class AiPromptBuilder {
             repositorySnapshot: repositorySnapshot,
             availableToolNames: availableToolNames,
             model: model,
+            postCompactRehydration: postCompactRehydration,
             todoReminder: todoReminder,
             planModeReminder: planModeReminder,
           )
@@ -484,6 +494,64 @@ class AiPromptBuilder {
     };
   }
 
+  Map<String, Object?> _buildPostCompactRehydrationSnapshot({
+    required AiSession session,
+    required AiSessionRuntimeContext runtimeContext,
+    required List<UserMemoryEntry> memoryEntries,
+    required AiRepositorySnapshot? repositorySnapshot,
+    required List<String> availableToolNames,
+    required AiSessionMessage? latestCompressionPoint,
+  }) {
+    final skillToolCount = availableToolNames
+        .where((name) => name.startsWith('skill__'))
+        .length;
+    final mcpToolCount = availableToolNames
+        .where((name) => name.startsWith('mcp__'))
+        .length;
+    final builtinToolCount =
+        availableToolNames.length - skillToolCount - mcpToolCount;
+    final restoredChannels = <String>[
+      'system_instructions',
+      'developer_instructions',
+      'tool_catalog',
+      'session_state',
+      'conversation_checkpoint',
+      'recent_history_tail',
+      if (runtimeContext.memoryEnabled) 'user_memory',
+      if (runtimeContext.workspaceInstructionDocuments.isNotEmpty)
+        'workspace_instructions',
+      if (_renderUserInstructionsBody(
+        runtimeContext.userInstructions,
+        runtimeContext.skippedInstructionIds,
+      ).isNotEmpty)
+        'user_instructions',
+      if (repositorySnapshot != null) 'repository_snapshot',
+      if (session.todoItems.isNotEmpty) 'todos',
+      if (session.pendingPlan?.trim().isNotEmpty == true) 'pending_plan',
+      if (session.planHistory.isNotEmpty) 'plan_history',
+    ];
+    return <String, Object?>{
+      'active': latestCompressionPoint != null,
+      'checkpoint_message_id': latestCompressionPoint?.id,
+      'checkpoint_created_at': latestCompressionPoint?.createdAt
+          .toUtc()
+          .toIso8601String(),
+      'restored_channels': restoredChannels,
+      'runtime_tool_count': availableToolNames.length,
+      'builtin_tool_count': builtinToolCount,
+      'skill_tool_count': skillToolCount,
+      'mcp_tool_count': mcpToolCount,
+      'memory_enabled': runtimeContext.memoryEnabled,
+      'memory_entry_count': memoryEntries.length,
+      'workspace_instruction_document_count':
+          runtimeContext.workspaceInstructionDocuments.length,
+      'todo_count': session.todoItems.length,
+      'plan_record_count': session.planHistory.length,
+      'pending_plan_present': session.pendingPlan?.trim().isNotEmpty == true,
+      'repository_snapshot_present': repositorySnapshot != null,
+    };
+  }
+
   String _renderRuntimeEnvironmentSnapshot(
     AiSessionRuntimeContext runtimeContext,
     AiRepositorySnapshot? repositorySnapshot,
@@ -579,6 +647,7 @@ class AiPromptBuilder {
     required AiRepositorySnapshot? repositorySnapshot,
     required List<String> availableToolNames,
     required AiModelConfig model,
+    required Map<String, Object?> postCompactRehydration,
     String? todoReminder,
     String? planModeReminder,
   }) {
@@ -604,6 +673,7 @@ class AiPromptBuilder {
         'rounds': runtimeContext.sequentialToolRoundLimit,
       },
       'tools': availableToolNames,
+      'rehydration': postCompactRehydration,
       if (runtimeContext.writeCommandConfirmationEnabled)
         'write_cmd_confirm': true,
     };

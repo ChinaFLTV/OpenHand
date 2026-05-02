@@ -163,6 +163,77 @@ void main() {
     expect(result.metadata['context_budget_usage_percent'], isA<int>());
     expect(result.metadata['context_budget_percent_left'], isA<int>());
   });
+
+  test('records post-compact rehydration metadata', () {
+    const template = AiThreadTemplate(
+      id: 'default',
+      name: 'Default Assistant',
+      iconName: 'auto_awesome_rounded',
+      description: 'default',
+      internalVersion: '1.0.0',
+      promptAssetDirectory: 'assets/prompts/default',
+    );
+    const bundle = AiPromptTemplateBundle(
+      template: template,
+      systemInstructions: 'system',
+      developerInstructions: 'developer',
+      compressionSummaryInstructions: 'compression',
+    );
+    final now = DateTime.utc(2026, 5, 3);
+    final checkpoint = AiSessionMessage.compressionPoint(
+      id: 'cp1',
+      content: 'summary',
+      createdAt: now,
+      metadata: const <String, Object?>{},
+    );
+    final latest = AiSessionMessage.user(
+      id: 'latest',
+      content: 'continue',
+      createdAt: now,
+    );
+    final session = _session(
+      template: template,
+      now: now,
+      messages: <AiSessionMessage>[checkpoint, latest],
+    );
+
+    final result = const AiPromptBuilder().buildSessionPrompt(
+      templateBundle: bundle,
+      session: session,
+      model: _model(),
+      runtimeContext: _runtimeContext(),
+      memoryEntries: <UserMemoryEntry>[
+        UserMemoryEntry(
+          id: 'mem1',
+          type: UserMemoryEntry.userType,
+          createdAt: now,
+          content: 'User prefers concise Chinese summaries.',
+          tags: const <String>[],
+        ),
+      ],
+      sessionMessages: <AiSessionMessage>[checkpoint, latest],
+      latestUserMessageId: latest.id,
+    );
+
+    final rehydration = Map<String, Object?>.from(
+      result.metadata['post_compact_rehydration']! as Map,
+    );
+    expect(rehydration['active'], isTrue);
+    expect(rehydration['checkpoint_message_id'], 'cp1');
+    expect(rehydration['memory_entry_count'], 1);
+    expect(
+      rehydration['restored_channels'],
+      containsAll(<String>[
+        'system_instructions',
+        'developer_instructions',
+        'tool_catalog',
+        'session_state',
+        'conversation_checkpoint',
+        'recent_history_tail',
+        'user_memory',
+      ]),
+    );
+  });
 }
 
 AiSessionMessage _toolCall(String id, String callId, DateTime now) {
