@@ -303,8 +303,6 @@ extension on _SettingsViewState {
     SettingsController settingsController,
     String language,
   ) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final settings = settingsController.editorLspSettingsForLanguage(language);
     final effectiveBackend = settings.backendId.trim().isNotEmpty
         ? aiLspBackendById(settings.backendId.trim())
@@ -316,122 +314,15 @@ extension on _SettingsViewState {
         ? null
         : AiLspManagedInstallService.readManifest(normalizedRoot);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () => _openEditorLspConfigDialog(context, language),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: colorScheme.outlineVariant.withValues(alpha: 0.35),
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.terminal_rounded,
-                    size: 20,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _editorLspLanguageLabel(context, language),
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (managedInstallManifest != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary.withValues(
-                                  alpha: 0.12,
-                                ),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                _localizedText(
-                                  context,
-                                  zh: '托管安装',
-                                  en: 'Managed',
-                                ),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _editorLspSummary(
-                          context,
-                          settingsController,
-                          language,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      ),
-                      if (effectiveBackend != null &&
-                          AiLspManagedInstallService.supportsManagedInstall(
-                            effectiveBackend,
-                          )) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _localizedText(
-                            context,
-                            zh: '支持托管下载，路径可在弹窗中保存、重置或卸载。',
-                            en: 'Managed download is available. Save, reset, or uninstall from the dialog.',
-                          ),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return _EditorLspLanguageRow(
+      key: ValueKey<String>('editor-lsp-row-$language'),
+      language: language,
+      languageLabel: _editorLspLanguageLabel(context, language),
+      summary: _editorLspSummary(context, settingsController, language),
+      hasManagedInstallManifest: managedInstallManifest != null,
+      supportsManagedInstall: effectiveBackend != null &&
+          AiLspManagedInstallService.supportsManagedInstall(effectiveBackend),
+      onTap: () => _openEditorLspConfigDialog(context, language),
     );
   }
 
@@ -805,6 +696,172 @@ extension on _SettingsViewState {
         context,
         zh: '${_editorLspLanguageLabel(context, language)} 的托管安装已卸载并清理。',
         en: 'Removed the managed install for ${_editorLspLanguageLabel(context, language)}.',
+      ),
+    );
+  }
+}
+
+class _EditorLspLanguageRow extends StatefulWidget {
+  const _EditorLspLanguageRow({
+    super.key,
+    required this.language,
+    required this.languageLabel,
+    required this.summary,
+    required this.hasManagedInstallManifest,
+    required this.supportsManagedInstall,
+    required this.onTap,
+  });
+
+  final String language;
+  final String languageLabel;
+  final String summary;
+  final bool hasManagedInstallManifest;
+  final bool supportsManagedInstall;
+  final VoidCallback onTap;
+
+  @override
+  State<_EditorLspLanguageRow> createState() => _EditorLspLanguageRowState();
+}
+
+class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return MouseRegion(
+      onEnter: (_) {
+        if (!_hovered) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (_hovered) setState(() => _hovered = false);
+      },
+      child: MicroPressFeedback(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: widget.onTap,
+            child: Ink(
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.terminal_rounded,
+                        size: 20,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.languageLabel,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (widget.hasManagedInstallManifest)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primary.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    _localizedText(
+                                      context,
+                                      zh: '托管安装',
+                                      en: 'Managed',
+                                    ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            widget.summary,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (widget.supportsManagedInstall) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _localizedText(
+                                context,
+                                zh: '支持托管下载，路径可在弹窗中保存、重置或卸载。',
+                                en: 'Managed download is available. Save, reset, or uninstall from the dialog.',
+                              ),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    AnimatedSlide(
+                      offset: Offset(
+                        _hovered && !reduceMotion ? 0.18 : 0,
+                        0,
+                      ),
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
