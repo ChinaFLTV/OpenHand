@@ -2116,16 +2116,40 @@ class _ReorderableAttachmentWrapState
                 settings: chipAnim,
                 onRemove: () => widget.onRemove(attachment.filePath),
                 builder: (context, requestRemove) {
+                  // 2026-05 — hover 反馈从 1.05 scale 调软到 1.02，补上
+                  // primary 色调的柔和光晕 + 边框，点明“此处会被
+                  // 插入”。所有过渡走 240ms easeOutCubic，由
+                  // MediaQuery.disableAnimationsOf 控制 reduceMotion 时归零。
+                  final theme = Theme.of(context);
+                  final cs = theme.colorScheme;
                   return AnimatedContainer(
                     duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
+                        ? Duration.zero
+                        : const Duration(milliseconds: 240),
                     curve: Curves.easeOutCubic,
                     transform: isHovering
                         ? (Matrix4.identity()
-                          ..scaleByDouble(1.05, 1.05, 1.0, 1.0))
+                          ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
                         : Matrix4.identity(),
                     transformAlignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        width: isHovering ? 1.4 : 0,
+                        color: isHovering
+                            ? cs.primary.withValues(alpha: 0.55)
+                            : Colors.transparent,
+                      ),
+                      boxShadow: isHovering
+                          ? [
+                              BoxShadow(
+                                color: cs.primary.withValues(alpha: 0.18),
+                                blurRadius: 12,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : const [],
+                    ),
                     child: Opacity(
                       opacity: isDragging ? 0.3 : 1.0,
                       child: _ComposerAttachmentChip(
@@ -2387,24 +2411,46 @@ class _ReorderableProjectReferenceWrapState
                 key: ValueKey('projref:${ref.path}'),
                 settings: chipAnim,
                 onRemove: () => widget.onRemove(ref.path),
-                builder: (context, requestRemove) => AnimatedContainer(
-                  duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  transform: isHovering
-                      ? (Matrix4.identity()
-                        ..scaleByDouble(1.05, 1.05, 1.0, 1.0))
-                      : Matrix4.identity(),
-                  transformAlignment: Alignment.center,
-                  child: Opacity(
-                    opacity: isDragging ? 0.3 : 1.0,
-                    child: _ProjectReferenceChip(
-                      item: ref,
-                      onRemove: requestRemove,
+                builder: (context, requestRemove) {
+                  final theme = Theme.of(context);
+                  final cs = theme.colorScheme;
+                  return AnimatedContainer(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    transform: isHovering
+                        ? (Matrix4.identity()
+                          ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
+                        : Matrix4.identity(),
+                    transformAlignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        width: isHovering ? 1.4 : 0,
+                        color: isHovering
+                            ? cs.primary.withValues(alpha: 0.55)
+                            : Colors.transparent,
+                      ),
+                      boxShadow: isHovering
+                          ? [
+                              BoxShadow(
+                                color: cs.primary.withValues(alpha: 0.18),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : const [],
                     ),
-                  ),
-                ),
+                    child: Opacity(
+                      opacity: isDragging ? 0.3 : 1.0,
+                      child: _ProjectReferenceChip(
+                        item: ref,
+                        onRemove: requestRemove,
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
