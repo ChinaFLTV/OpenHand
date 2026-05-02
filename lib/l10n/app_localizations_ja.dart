@@ -2598,6 +2598,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallResult => '結果';
 
   @override
+  String get tlCallStdout => '標準出力';
+
+  @override
+  String get tlCallStderr => '標準エラー';
+
+  @override
+  String get tlCallArgumentsConstructing => '引数を構築中…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      '引数はモデルからストリーミング中です。構築が完了すると通常のカード表示に切り替わります。';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'まだツール出力はありません。';
 
   @override

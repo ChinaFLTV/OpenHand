@@ -4951,13 +4951,13 @@ abstract class AppLocalizations {
   /// No description provided for @tlCallCommand.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'command'**
+  /// **'命令'**
   String get tlCallCommand;
 
   /// No description provided for @tlCallArguments.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'arguments'**
+  /// **'入参'**
   String get tlCallArguments;
 
   /// No description provided for @tlCallToolOutput.
@@ -4975,8 +4975,32 @@ abstract class AppLocalizations {
   /// No description provided for @tlCallResult.
   ///
   /// In zh_Hans, this message translates to:
-  /// **'result'**
+  /// **'结果'**
   String get tlCallResult;
+
+  /// No description provided for @tlCallStdout.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标准输出'**
+  String get tlCallStdout;
+
+  /// No description provided for @tlCallStderr.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'标准错误'**
+  String get tlCallStderr;
+
+  /// No description provided for @tlCallArgumentsConstructing.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'参数构造中…'**
+  String get tlCallArgumentsConstructing;
+
+  /// No description provided for @tlCallArgumentsConstructingHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。'**
+  String get tlCallArgumentsConstructingHint;
 
   /// No description provided for @tlCallThereIsNoToolOutputYet.
   ///

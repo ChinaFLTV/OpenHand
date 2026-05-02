@@ -2583,6 +2583,7 @@ class AiSessionController extends ChangeNotifier {
                     'tool_call_id': resolvedToolCallId,
                     'tool_name': resolvedName,
                     'tool_arguments': delta.argumentsFragment,
+                    'tool_arguments_streaming': true,
                     'tool_calls': <Map<String, Object?>>[toolCalls],
                   },
                 );
@@ -2616,6 +2617,7 @@ class AiSessionController extends ChangeNotifier {
                     'tool_call_id': resolvedToolCallId,
                     'tool_name': resolvedName,
                     'tool_arguments': mergedArguments,
+                    'tool_arguments_streaming': true,
                     'tool_calls': toolCalls,
                   },
                   modelId: model.id,

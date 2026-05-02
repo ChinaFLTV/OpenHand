@@ -2704,6 +2704,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tlCallResult => 'result';
 
   @override
+  String get tlCallStdout => 'stdout';
+
+  @override
+  String get tlCallStderr => 'stderr';
+
+  @override
+  String get tlCallArgumentsConstructing => 'Constructing arguments…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      'Arguments are still streaming from the model; the card will switch to its normal state once construction completes.';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
 
   @override

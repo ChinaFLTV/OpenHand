@@ -2551,10 +2551,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallToolInput => '工具入参';
 
   @override
-  String get tlCallCommand => 'command';
+  String get tlCallCommand => '命令';
 
   @override
-  String get tlCallArguments => 'arguments';
+  String get tlCallArguments => '入参';
 
   @override
   String get tlCallToolOutput => '结果输出';
@@ -2563,7 +2563,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tlCallNoOutputYet => '暂无输出';
 
   @override
-  String get tlCallResult => 'result';
+  String get tlCallResult => '结果';
+
+  @override
+  String get tlCallStdout => '标准输出';
+
+  @override
+  String get tlCallStderr => '标准错误';
+
+  @override
+  String get tlCallArgumentsConstructing => '参数构造中…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      '正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。';
 
   @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
@@ -6859,10 +6872,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallToolInput => '工具入参';
 
   @override
-  String get tlCallCommand => 'command';
+  String get tlCallCommand => '命令';
 
   @override
-  String get tlCallArguments => 'arguments';
+  String get tlCallArguments => '入参';
 
   @override
   String get tlCallToolOutput => '结果输出';
@@ -6871,7 +6884,20 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get tlCallNoOutputYet => '暂无输出';
 
   @override
-  String get tlCallResult => 'result';
+  String get tlCallResult => '结果';
+
+  @override
+  String get tlCallStdout => '标准输出';
+
+  @override
+  String get tlCallStderr => '标准错误';
+
+  @override
+  String get tlCallArgumentsConstructing => '参数构造中…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      '正在跟随模型输出实时拼装入参，参数构造完成后会自动切回正常状态。';
 
   @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';
@@ -11166,10 +11192,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tlCallToolInput => '工具入参';
 
   @override
-  String get tlCallCommand => 'command';
+  String get tlCallCommand => '命令';
 
   @override
-  String get tlCallArguments => 'arguments';
+  String get tlCallArguments => '入參';
 
   @override
   String get tlCallToolOutput => '结果输出';
@@ -11178,7 +11204,20 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get tlCallNoOutputYet => '暂无输出';
 
   @override
-  String get tlCallResult => 'result';
+  String get tlCallResult => '結果';
+
+  @override
+  String get tlCallStdout => '標準輸出';
+
+  @override
+  String get tlCallStderr => '標準錯誤';
+
+  @override
+  String get tlCallArgumentsConstructing => '參數構造中…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      '正在跟隨模型輸出即時拼裝入參，參數構造完成後會自動切回正常狀態。';
 
   @override
   String get tlCallThereIsNoToolOutputYet => '当前还没有工具输出。';

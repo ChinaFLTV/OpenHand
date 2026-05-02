@@ -2735,6 +2735,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallResult => 'Ergebnis';
 
   @override
+  String get tlCallStdout => 'stdout';
+
+  @override
+  String get tlCallStderr => 'stderr';
+
+  @override
+  String get tlCallArgumentsConstructing => 'Argumente werden aufgebaut…';
+
+  @override
+  String get tlCallArgumentsConstructingHint =>
+      'Die Argumente werden noch vom Modell gestreamt; die Karte wechselt nach Fertigstellung in den Normalzustand.';
+
+  @override
   String get tlCallThereIsNoToolOutputYet => 'Noch keine Werkzeugausgabe.';
 
   @override

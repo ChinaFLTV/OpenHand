@@ -42,13 +42,37 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
+    // Construction state: tool call message has been created from a stream
+    // delta but the executor has not yet picked it up — `status` is empty,
+    // arguments are still streaming. Render a subtler gray-tinted card +
+    // pulsing badge so the user sees the call is forming, not stuck.
+    final isConstructing =
+        toolCall.status.isEmpty && !toolCall.hasResultContent;
+    final cs = theme.colorScheme;
+    final borderColor = isConstructing
+        ? cs.outline.withValues(alpha: 0.35)
+        : Colors.transparent;
+    final tintColor = isConstructing
+        ? cs.surfaceContainerHighest.withValues(alpha: 0.35)
+        : Colors.transparent;
     return SettingsAwareAppearOnce(
       child: ClipRect(
         child: AnimatedSize(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
-          child: Column(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 320),
+            curve: Curves.easeOutCubic,
+            padding: isConstructing
+                ? const EdgeInsets.fromLTRB(10, 8, 10, 10)
+                : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: tintColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Wrap(
@@ -59,6 +83,15 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
                     icon: toolCall.presentation.icon,
                     label: toolCall.primaryChipLabel,
                   ),
+                  if (isConstructing)
+                    _ToolConstructingBadge(
+                      label: AppLocalizations.of(
+                        context,
+                      )!.tlCallArgumentsConstructing,
+                      hint: AppLocalizations.of(
+                        context,
+                      )!.tlCallArgumentsConstructingHint,
+                    ),
             if (toolCall.workingDirectory.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.folder_outlined,
@@ -131,7 +164,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
             children: [
               if (toolCall.stdout.isNotEmpty)
                 _ToolOutputPanel(
-                  label: 'stdout',
+                  label: AppLocalizations.of(context)!.tlCallStdout,
                   content: toolCall.formattedStdout,
                   theme: theme,
                   selectable: widget.selectable,
@@ -140,14 +173,13 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
               if (toolCall.stderr.isNotEmpty) ...[
                 if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
                 _ToolOutputPanel(
-                  label: 'stderr',
+                  label: AppLocalizations.of(context)!.tlCallStderr,
                   content: toolCall.formattedStderr,
                   theme: theme,
                   isError: true,
                   selectable: widget.selectable,
                   fullContentFile: toolCall.stderrFile,
                 ),
-              ],
               if (toolCall.showResultText) ...[
                 if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
                   const SizedBox(height: 10),
@@ -178,6 +210,7 @@ class _ToolCallBodyState extends State<_ToolCallBody> {
         ],
       ],
             ),
+          ),
           ),
         ),
     );
@@ -1224,6 +1257,88 @@ class _ToolExecutionChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(label, style: theme.textTheme.labelMedium),
         ],
+      ),
+    );
+  }
+}
+
+/// Pulsing gray pill shown next to the primary chip while a tool call is
+/// still being constructed (arguments streaming in but executor not yet
+/// running it). Signals "forming, not stuck".
+class _ToolConstructingBadge extends StatefulWidget {
+  const _ToolConstructingBadge({required this.label, required this.hint});
+
+  final String label;
+  final String hint;
+
+  @override
+  State<_ToolConstructingBadge> createState() => _ToolConstructingBadgeState();
+}
+
+class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Tooltip(
+      message: widget.hint,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, _) {
+          final t = _ctrl.value;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(
+                alpha: 0.55 + 0.35 * t,
+              ),
+              borderRadius: _borderRadius999,
+              border: Border.all(
+                color: cs.outline.withValues(alpha: 0.3 + 0.25 * t),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  widget.label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
