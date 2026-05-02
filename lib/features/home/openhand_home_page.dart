@@ -576,10 +576,11 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
 
   @override
   _PaintOffsetRenderObject createRenderObject(BuildContext context) {
+    final disable = MediaQuery.disableAnimationsOf(context);
     return _PaintOffsetRenderObject(
       animation: animation,
-      maxYOffset: maxYOffset,
-      maxXOffset: maxXOffset,
+      maxYOffset: disable ? 0.0 : maxYOffset,
+      maxXOffset: disable ? 0.0 : maxXOffset,
     );
   }
 
@@ -588,10 +589,11 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
     BuildContext context,
     _PaintOffsetRenderObject renderObject,
   ) {
+    final disable = MediaQuery.disableAnimationsOf(context);
     renderObject
       ..animation = animation
-      ..maxYOffset = maxYOffset
-      ..maxXOffset = maxXOffset;
+      ..maxYOffset = disable ? 0.0 : maxYOffset
+      ..maxXOffset = disable ? 0.0 : maxXOffset;
   }
 }
 

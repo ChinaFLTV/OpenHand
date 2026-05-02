@@ -48,6 +48,14 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     final wasFresh = _lastTerminalStatus == null;
     _lastTerminalStatus = status;
     if (!wasFresh) return; // status churn (e.g. success→failure) shouldn't replay
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // Skip the 620ms glow ceremony when the user has opted in to
+      // reduce motion (or the OS-level a11y flag is on). The glow at
+      // value=1.0 evaluates to no glow (glowActive false), so this is
+      // visually identical to a finished animation.
+      _completionGlowCtrl.value = 1.0;
+      return;
+    }
     _completionGlowCtrl.forward(from: 0);
   }
 
@@ -117,7 +125,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     return SettingsAwareAppearOnce(
       child: ClipRect(
         child: AnimatedSize(
-          duration: const Duration(milliseconds: 220),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
           child: AnimatedBuilder(
@@ -145,7 +155,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               final composedFill = glowActive ? glowFill : tintColor;
               final composedBorder = glowActive ? glowBorder : borderColor;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 320),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 320),
                 curve: Curves.easeOutCubic,
                 padding: isPreExecution || glowActive
                     ? const EdgeInsets.fromLTRB(10, 8, 10, 10)

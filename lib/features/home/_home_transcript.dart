@@ -1121,6 +1121,15 @@ class _TranscriptAnimatedMessageEntryState
 
     // Exit animation takes priority.
     if (widget.exiting) {
+      if (MediaQuery.disableAnimationsOf(context)) {
+        // Reduce-motion: skip the elastic exit, fire onExitCompleted on
+        // the next microtask so the parent prunes us as if the animation
+        // had finished instantly.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onExitCompleted();
+        });
+        return const SizedBox.shrink();
+      }
       return TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 1, end: 0),
         duration: _transcriptMessageDeleteAnimationDuration,
@@ -1181,6 +1190,13 @@ class _TranscriptAnimatedMessageEntryState
 
     // Entrance animation (plays once on mount for newly added messages).
     if (_entranceCtrl != null) {
+      if (MediaQuery.disableAnimationsOf(context)) {
+        // Reduce-motion: snap to the resting state. Settling the
+        // controller to value=1.0 lets _onEntranceStatus run on the next
+        // tick which disposes it and switches us to the fast path.
+        _entranceCtrl!.value = 1.0;
+        return child;
+      }
       return FadeTransition(
         opacity: _opacity!,
         child: ScaleTransition(
