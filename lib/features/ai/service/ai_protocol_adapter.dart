@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../model/ai_input_cache_runtime_config.dart';
@@ -1073,14 +1074,25 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         : Map<String, Object?>.from(usage as Map);
     final promptTokens = _readInt(usageMap['input_tokens']);
     final completionTokens = _readInt(usageMap['output_tokens']);
+    final cacheCreation = _readInt(usageMap['cache_creation_input_tokens']);
+    final cacheRead = _readInt(usageMap['cache_read_input_tokens']);
+    if (kDebugMode) {
+      // 2026-05-04 — 缓存命中诊断：观察 cache_read 与 cache_creation 比例。
+      // 期望第二轮起 cache_read >> cache_creation。若每轮都偏向 creation，
+      // 说明前缀有漂移源（settings 改动 / catalog 重排 / 时间戳渗透）。
+      debugPrint(
+        '[claude.cache] read=$cacheRead creation=$cacheCreation '
+        'input=$promptTokens output=$completionTokens',
+      );
+    }
     return AiTokenUsage(
       promptTokens: promptTokens,
       completionTokens: completionTokens,
       totalTokens:
           _readInt(usageMap['total_tokens']) ??
           ((promptTokens ?? 0) + (completionTokens ?? 0)),
-      cacheCreationTokens: _readInt(usageMap['cache_creation_input_tokens']),
-      cacheReadTokens: _readInt(usageMap['cache_read_input_tokens']),
+      cacheCreationTokens: cacheCreation,
+      cacheReadTokens: cacheRead,
     );
   }
 
