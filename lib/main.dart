@@ -154,11 +154,11 @@ Future<void> _bootstrap() async {
   developer.Timeline.finishSync();
   // 2026-05-03 — settings 加载完成后立刻把代理偏好同步给 resolver；
   // 后续设置变更通过 listener 同步，全程不需要重启。
-  SystemProxyResolver.instance.applyManualConfig(
+  SystemProxyResolver.instance.applyConfig(
     settingsController.proxySettings,
   );
   settingsController.addListener(() {
-    SystemProxyResolver.instance.applyManualConfig(
+    SystemProxyResolver.instance.applyConfig(
       settingsController.proxySettings,
     );
   });

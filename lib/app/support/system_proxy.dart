@@ -44,13 +44,18 @@ class SystemProxyResolver {
   AppProxySettings get effectiveSettings => _settings;
 
   /// 来自设置中心的代理配置变更。立即生效——后续 `findProxyFor` 立刻
-  /// 使用新配置。
-  void applyManualConfig(AppProxySettings settings) {
+  /// 使用新配置。`settings.mode` 可能是 `manual` 或 `automatic`，本方法
+  /// 都接受；命名沿用历史 API 但日志按实际 mode 输出，避免误导。
+  void applyConfig(AppProxySettings settings) {
     _settings = settings;
     if (kDebugMode) {
-      debugPrint('[system_proxy] applyManualConfig=$settings');
+      debugPrint('[system_proxy] applyConfig mode=${settings.mode} $settings');
     }
   }
+
+  /// Backwards-compatible alias for callers still on the old name.
+  @Deprecated('Use applyConfig instead — accepts both manual & automatic')
+  void applyManualConfig(AppProxySettings settings) => applyConfig(settings);
 
   /// True once [initialize] has run at least once. Until then, callers
   /// fall back to env-only detection synchronously (good enough for
@@ -67,9 +72,16 @@ class SystemProxyResolver {
     }
     _initialized = true;
     if (kDebugMode) {
+      // For tiny lists print contents inline; for big lists fall back to
+      // count to avoid spamming a wall of host names.
+      final noProxySummary = _noProxyHosts.isEmpty
+          ? '[]'
+          : _noProxyHosts.length <= 5
+              ? _noProxyHosts.join(',')
+              : '${_noProxyHosts.length}entries';
       debugPrint(
-        '[system_proxy] http=$_httpProxy https=$_httpsProxy '
-        'socks=$_socksProxy noProxy=${_noProxyHosts.length}',
+        '[system_proxy] init http=$_httpProxy https=$_httpsProxy '
+        'socks=$_socksProxy noProxy=$noProxySummary',
       );
     }
   }
