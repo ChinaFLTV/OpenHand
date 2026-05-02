@@ -168,34 +168,47 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
 
               // ── File list ──
               Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _entries.isEmpty
-                    ? Center(
-                        child: Text(
-                          widget.isZh ? '此目录为空' : 'This directory is empty',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _loading
+                      ? const Center(
+                          key: ValueKey<String>('loading'),
+                          child: CircularProgressIndicator(),
+                        )
+                      : _entries.isEmpty
+                      ? Center(
+                          key: const ValueKey<String>('empty'),
+                          child: Text(
+                            widget.isZh ? '此目录为空' : 'This directory is empty',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
+                        )
+                      : ListView.separated(
+                          key: ValueKey<String>(
+                            'list-${_pathSegments.join('/')}',
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: _entries.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 2),
+                          itemBuilder: (ctx, i) {
+                            final entry = _entries[i];
+                            return _HeSteeringEntryTile(
+                              entry: entry,
+                              isZh: widget.isZh,
+                              description:
+                                  entry.isDirectory && _pathSegments.isEmpty
+                                  ? _directoryDescriptions[entry.name]
+                                  : null,
+                              onTap: () => _onEntryTap(entry),
+                            );
+                          },
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        itemCount: _entries.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 2),
-                        itemBuilder: (ctx, i) {
-                          final entry = _entries[i];
-                          return _HeSteeringEntryTile(
-                            entry: entry,
-                            isZh: widget.isZh,
-                            description:
-                                entry.isDirectory && _pathSegments.isEmpty
-                                ? _directoryDescriptions[entry.name]
-                                : null,
-                            onTap: () => _onEntryTap(entry),
-                          );
-                        },
-                      ),
+                ),
               ),
             ],
           ),
@@ -832,33 +845,46 @@ class _HeSteeringFileEditorDialogState
 
                 // ── Body ──
                 Expanded(
-                  child: _loading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _error != null
-                      ? Center(
-                          child: SelectableText(
-                            _error!,
-                            style: TextStyle(color: colorScheme.error),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: _loading
+                        ? const Center(
+                            key: ValueKey<String>('loading'),
+                            child: CircularProgressIndicator(),
+                          )
+                        : _error != null
+                        ? Center(
+                            key: const ValueKey<String>('error'),
+                            child: SelectableText(
+                              _error!,
+                              style: TextStyle(color: colorScheme.error),
+                            ),
+                          )
+                        : isMarkdown && _showPreview
+                        ? Row(
+                            key: const ValueKey<String>('split'),
+                            children: [
+                              Expanded(
+                                child: _buildEditorPane(theme, colorScheme),
+                              ),
+                              const SizedBox(width: 10),
+                              VerticalDivider(
+                                width: 1,
+                                color: colorScheme.outlineVariant,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildPreviewPane(theme, colorScheme),
+                              ),
+                            ],
+                          )
+                        : KeyedSubtree(
+                            key: const ValueKey<String>('editor'),
+                            child: _buildEditorPane(theme, colorScheme),
                           ),
-                        )
-                      : isMarkdown && _showPreview
-                      ? Row(
-                          children: [
-                            Expanded(
-                              child: _buildEditorPane(theme, colorScheme),
-                            ),
-                            const SizedBox(width: 10),
-                            VerticalDivider(
-                              width: 1,
-                              color: colorScheme.outlineVariant,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildPreviewPane(theme, colorScheme),
-                            ),
-                          ],
-                        )
-                      : _buildEditorPane(theme, colorScheme),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Divider(height: 1),

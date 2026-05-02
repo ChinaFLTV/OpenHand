@@ -3165,42 +3165,62 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                 child: FutureBuilder<FileStat>(
                   future: FileStat.stat(resolvedPath),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const SizedBox(
-                        height: 40,
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
-                    final stat = snapshot.data!;
                     final theme = Theme.of(context);
                     final colorScheme = theme.colorScheme;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          resolvedPath,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _StatRow(
-                          AppLocalizations.of(context)!.tlCallType,
-                          stat.type.toString(),
-                        ),
-                        _StatRow(
-                          AppLocalizations.of(context)!.tlCallSize,
-                          '${stat.size} bytes',
-                        ),
-                        _StatRow(
-                          AppLocalizations.of(context)!.tlCallModified,
-                          '${stat.modified}',
-                        ),
-                      ],
+                    final hasData = snapshot.hasData;
+                    return AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topLeft,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: !hasData
+                            ? const SizedBox(
+                                key: ValueKey<String>('loading'),
+                                height: 40,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : Column(
+                                key: const ValueKey<String>('loaded'),
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    resolvedPath,
+                                    style: theme.textTheme.bodyMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: colorScheme.onSurface,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _StatRow(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.tlCallType,
+                                    snapshot.data!.type.toString(),
+                                  ),
+                                  _StatRow(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.tlCallSize,
+                                    '${snapshot.data!.size} bytes',
+                                  ),
+                                  _StatRow(
+                                    AppLocalizations.of(
+                                      context,
+                                    )!.tlCallModified,
+                                    '${snapshot.data!.modified}',
+                                  ),
+                                ],
+                              ),
+                      ),
                     );
                   },
                 ),
