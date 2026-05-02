@@ -57,6 +57,10 @@ class SettingsController extends ChangeNotifier {
            snapshot.aiToolResultCompressionHeadTailWindowChars,
        _aiToolResultCompressionMaxPathHits =
            snapshot.aiToolResultCompressionMaxPathHits,
+       _aiInputCacheEnabled = snapshot.aiInputCacheEnabled,
+       _aiInputCacheUpdateMode = snapshot.aiInputCacheUpdateMode,
+       _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval,
+       _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount,
        _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars,
        _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit,
        _aiMaxRecentErrors = snapshot.aiMaxRecentErrors,
@@ -161,6 +165,10 @@ class SettingsController extends ChangeNotifier {
   bool _aiToolResultCompressionEnabled;
   int _aiToolResultCompressionHeadTailWindowChars;
   int _aiToolResultCompressionMaxPathHits;
+  bool _aiInputCacheEnabled;
+  String _aiInputCacheUpdateMode;
+  int _aiInputCacheUpdateInterval;
+  int _aiInputCacheBreakpointCount;
   int _aiWriteToolSummaryMaxChars;
   int _aiSingleRoundToolCallLimit;
   int _aiMaxRecentErrors;
@@ -276,6 +284,11 @@ class SettingsController extends ChangeNotifier {
       _aiToolResultCompressionHeadTailWindowChars;
   int get aiToolResultCompressionMaxPathHits =>
       _aiToolResultCompressionMaxPathHits;
+
+  bool get aiInputCacheEnabled => _aiInputCacheEnabled;
+  String get aiInputCacheUpdateMode => _aiInputCacheUpdateMode;
+  int get aiInputCacheUpdateInterval => _aiInputCacheUpdateInterval;
+  int get aiInputCacheBreakpointCount => _aiInputCacheBreakpointCount;
   int get aiWriteToolSummaryMaxChars => _aiWriteToolSummaryMaxChars;
   int get aiSingleRoundToolCallLimit => _aiSingleRoundToolCallLimit;
   int get aiMaxRecentErrors => _aiMaxRecentErrors;
@@ -628,6 +641,62 @@ class SettingsController extends ChangeNotifier {
         return _MutationDisposition.successNoChange;
       }
       _aiToolResultCompressionMaxPathHits = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiInputCacheEnabled(bool value) async {
+    return _commitMutation(() {
+      if (_aiInputCacheEnabled == value) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiInputCacheEnabled = value;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiInputCacheUpdateMode(String value) async {
+    final normalized =
+        AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(value)
+            ? value
+            : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
+    return _commitMutation(() {
+      if (_aiInputCacheUpdateMode == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiInputCacheUpdateMode = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiInputCacheUpdateInterval(int value) async {
+    final clamped = value < AppSettingsSnapshot.minAiInputCacheUpdateInterval
+        ? AppSettingsSnapshot.defaultAiInputCacheUpdateInterval
+        : value.clamp(
+            AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+            AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+          );
+    return _commitMutation(() {
+      if (_aiInputCacheUpdateInterval == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiInputCacheUpdateInterval = clamped;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiInputCacheBreakpointCount(int value) async {
+    final clamped = value < AppSettingsSnapshot.minAiInputCacheBreakpointCount
+        ? AppSettingsSnapshot.defaultAiInputCacheBreakpointCount
+        : value.clamp(
+            AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+            AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+          );
+    return _commitMutation(() {
+      if (_aiInputCacheBreakpointCount == clamped) {
+        return _MutationDisposition.successNoChange;
+      }
+      _aiInputCacheBreakpointCount = clamped;
       return _MutationDisposition.apply;
     });
   }
@@ -1774,6 +1843,10 @@ class SettingsController extends ChangeNotifier {
       aiToolResultCompressionHeadTailWindowChars:
           _aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: _aiToolResultCompressionMaxPathHits,
+      aiInputCacheEnabled: _aiInputCacheEnabled,
+      aiInputCacheUpdateMode: _aiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval: _aiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount: _aiInputCacheBreakpointCount,
       aiWriteToolSummaryMaxChars: _aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: _aiSingleRoundToolCallLimit,
       aiMaxRecentErrors: _aiMaxRecentErrors,
@@ -1862,6 +1935,10 @@ class SettingsController extends ChangeNotifier {
         snapshot.aiToolResultCompressionHeadTailWindowChars;
     _aiToolResultCompressionMaxPathHits =
         snapshot.aiToolResultCompressionMaxPathHits;
+    _aiInputCacheEnabled = snapshot.aiInputCacheEnabled;
+    _aiInputCacheUpdateMode = snapshot.aiInputCacheUpdateMode;
+    _aiInputCacheUpdateInterval = snapshot.aiInputCacheUpdateInterval;
+    _aiInputCacheBreakpointCount = snapshot.aiInputCacheBreakpointCount;
     _aiWriteToolSummaryMaxChars = snapshot.aiWriteToolSummaryMaxChars;
     _aiSingleRoundToolCallLimit = snapshot.aiSingleRoundToolCallLimit;
     _aiMaxRecentErrors = snapshot.aiMaxRecentErrors;

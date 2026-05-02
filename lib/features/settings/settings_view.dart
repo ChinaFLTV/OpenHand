@@ -1648,6 +1648,46 @@ class _SettingsViewState extends State<SettingsView> {
         ),
         const SizedBox(height: 16),
         _SettingsSubsectionCard(
+          title: _localizedText(context, zh: '成本控制', en: 'Cost Control'),
+          description: _localizedText(
+            context,
+            zh: '通过冻结 prompt 静态前缀与协议层缓存断点来降低 token 成本。开启后：新会话创建时会冻结当前的内建工具/技能/MCP/指令/记忆作为不可变前缀；用户发出首条消息后会锁定服务商与模型；Anthropic 协议会自动注入 cache_control 断点。',
+            en: 'Reduce token costs by freezing the prompt static prefix and inserting protocol-level cache breakpoints. When enabled: a new session freezes the current built-in tools / skills / MCP / instructions / memory as an immutable prefix; the provider and model are locked once the first user message is sent; the Anthropic adapter automatically injects cache_control breakpoints.',
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ResponsiveSettingRow(
+                title: _localizedText(
+                  context,
+                  zh: '启用输入缓存',
+                  en: 'Enable Input Cache',
+                ),
+                subtitle: _localizedText(
+                  context,
+                  zh: '默认关闭。开启后，对所有线程模板、所有模型，新会话创建时即冻结其 prompt 静态前缀（系统提示/工具定义/技能列表/MCP/指令/记忆）。会话创建之后再修改技能、MCP、记忆等不会影响已存在的会话——只对此后新建的会话生效，以保证最大不可变性，最大化输入缓存命中。',
+                  en: 'Disabled by default. When enabled, every newly created session — across all thread templates and models — freezes its prompt static prefix (system instructions / tool definitions / skills / MCP / instructions / memory). Subsequent edits to skills, MCP, memory, etc. do NOT affect existing sessions; they only take effect for sessions created afterward — ensuring maximum immutability and cache hit rate.',
+                ),
+                control: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Switch(
+                    key: const ValueKey<String>(
+                      'settingsAiInputCacheEnabledSwitch',
+                    ),
+                    value: settingsController.aiInputCacheEnabled,
+                    onChanged: (value) async {
+                      await settingsController
+                          .updateAiInputCacheEnabled(value);
+                    },
+                  ),
+                ),
+                controlMaxWidth: 360,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _SettingsSubsectionCard(
           title: _localizedText(context, zh: '命令安全', en: 'Command Safety'),
           description: _localizedText(
             context,

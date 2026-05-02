@@ -169,6 +169,10 @@ class SettingsStore {
           snapshot.aiToolResultCompressionHeadTailWindowChars,
       'ai_tool_result_compression_max_path_hits':
           snapshot.aiToolResultCompressionMaxPathHits,
+      'ai_input_cache_enabled': snapshot.aiInputCacheEnabled,
+      'ai_input_cache_update_mode': snapshot.aiInputCacheUpdateMode,
+      'ai_input_cache_update_interval': snapshot.aiInputCacheUpdateInterval,
+      'ai_input_cache_breakpoint_count': snapshot.aiInputCacheBreakpointCount,
       'ai_write_tool_summary_max_chars': snapshot.aiWriteToolSummaryMaxChars,
       'ai_single_round_tool_call_limit': snapshot.aiSingleRoundToolCallLimit,
       'ai_max_recent_errors': snapshot.aiMaxRecentErrors,
@@ -363,6 +367,35 @@ class SettingsStore {
             AppSettingsSnapshot.maxAiToolResultCompressionMaxPathHits,
           )
         : AppSettingsSnapshot.defaultAiToolResultCompressionMaxPathHits;
+    final aiInputCacheEnabled =
+        json['ai_input_cache_enabled'] is bool
+            ? json['ai_input_cache_enabled'] as bool
+            : AppSettingsSnapshot.defaultAiInputCacheEnabled;
+    final aiInputCacheUpdateMode =
+        json['ai_input_cache_update_mode'] is String &&
+                AppSettingsSnapshot.validAiInputCacheUpdateModes.contains(
+                  json['ai_input_cache_update_mode'] as String,
+                )
+            ? json['ai_input_cache_update_mode'] as String
+            : AppSettingsSnapshot.defaultAiInputCacheUpdateMode;
+    final aiInputCacheUpdateInterval =
+        json['ai_input_cache_update_interval'] is int &&
+                (json['ai_input_cache_update_interval'] as int) >=
+                    AppSettingsSnapshot.minAiInputCacheUpdateInterval
+            ? (json['ai_input_cache_update_interval'] as int).clamp(
+                AppSettingsSnapshot.minAiInputCacheUpdateInterval,
+                AppSettingsSnapshot.maxAiInputCacheUpdateInterval,
+              )
+            : AppSettingsSnapshot.defaultAiInputCacheUpdateInterval;
+    final aiInputCacheBreakpointCount =
+        json['ai_input_cache_breakpoint_count'] is int &&
+                (json['ai_input_cache_breakpoint_count'] as int) >=
+                    AppSettingsSnapshot.minAiInputCacheBreakpointCount
+            ? (json['ai_input_cache_breakpoint_count'] as int).clamp(
+                AppSettingsSnapshot.minAiInputCacheBreakpointCount,
+                AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
+              )
+            : AppSettingsSnapshot.defaultAiInputCacheBreakpointCount;
     final aiWriteToolSummaryMaxChars =
         json['ai_write_tool_summary_max_chars'] is int &&
             (json['ai_write_tool_summary_max_chars'] as int) >=
@@ -912,6 +945,10 @@ class SettingsStore {
       aiToolResultCompressionHeadTailWindowChars:
           aiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits: aiToolResultCompressionMaxPathHits,
+      aiInputCacheEnabled: aiInputCacheEnabled,
+      aiInputCacheUpdateMode: aiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval: aiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount: aiInputCacheBreakpointCount,
       aiWriteToolSummaryMaxChars: aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: aiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: aiSequentialToolRoundLimit,

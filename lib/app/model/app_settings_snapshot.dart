@@ -48,6 +48,10 @@ class AppSettingsSnapshot {
           defaultAiToolResultCompressionHeadTailWindowChars,
       aiToolResultCompressionMaxPathHits:
           defaultAiToolResultCompressionMaxPathHits,
+      aiInputCacheEnabled: defaultAiInputCacheEnabled,
+      aiInputCacheUpdateMode: defaultAiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval: defaultAiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount: defaultAiInputCacheBreakpointCount,
       aiWriteToolSummaryMaxChars: defaultAiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit: defaultAiSingleRoundToolCallLimit,
       aiSequentialToolRoundLimit: defaultAiSequentialToolRoundLimit,
@@ -147,6 +151,10 @@ class AppSettingsSnapshot {
     required this.aiToolResultCompressionEnabled,
     required this.aiToolResultCompressionHeadTailWindowChars,
     required this.aiToolResultCompressionMaxPathHits,
+    required this.aiInputCacheEnabled,
+    required this.aiInputCacheUpdateMode,
+    required this.aiInputCacheUpdateInterval,
+    required this.aiInputCacheBreakpointCount,
     required this.aiWriteToolSummaryMaxChars,
     required this.aiSingleRoundToolCallLimit,
     required this.aiSequentialToolRoundLimit,
@@ -256,6 +264,37 @@ class AppSettingsSnapshot {
   static const int defaultAiToolResultCompressionMaxPathHits = 12;
   static const int minAiToolResultCompressionMaxPathHits = 0;
   static const int maxAiToolResultCompressionMaxPathHits = 200;
+
+  /// 2026-05-02 — 成本控制：是否启用输入缓存优化。开启后，会话创建时
+  /// 会冻结 prompt 的静态前缀（系统指令/工具/技能/MCP/记忆/指令），并
+  /// 在 Anthropic 协议上自动注入 cache_control 断点；同时在用户首条消息
+  /// 发出后锁定服务商/模型选择，确保缓存命中。
+  static const bool defaultAiInputCacheEnabled = false;
+
+  /// 2026-05-02 — 缓存断点更新模式：allMessages | userMessages | tokens。
+  static const String aiInputCacheUpdateModeAllMessages = 'allMessages';
+  static const String aiInputCacheUpdateModeUserMessages = 'userMessages';
+  static const String aiInputCacheUpdateModeTokens = 'tokens';
+  static const String defaultAiInputCacheUpdateMode =
+      aiInputCacheUpdateModeAllMessages;
+  static const Set<String> validAiInputCacheUpdateModes = <String>{
+    aiInputCacheUpdateModeAllMessages,
+    aiInputCacheUpdateModeUserMessages,
+    aiInputCacheUpdateModeTokens,
+  };
+
+  /// 2026-05-02 — 缓存断点更新间隔。单位由 [aiInputCacheUpdateMode] 决定：
+  /// allMessages → 每 N 条用户+助手消息；userMessages → 每 N 条用户消息；
+  /// tokens → 每累计 N tokens 移动一次断点。
+  static const int defaultAiInputCacheUpdateInterval = 10;
+  static const int minAiInputCacheUpdateInterval = 1;
+  static const int maxAiInputCacheUpdateInterval = 200000;
+
+  /// 2026-05-02 — Anthropic cache_control 断点数量上限（协议侧硬上限 4）。
+  /// 第 N 个断点固定用于动态消息侧，前 N-1 个用于静态前缀切片。
+  static const int defaultAiInputCacheBreakpointCount = 4;
+  static const int minAiInputCacheBreakpointCount = 1;
+  static const int maxAiInputCacheBreakpointCount = 4;
 
   /// 2026-04-27 — 写类工具结果摘要中保留原始 summary 文本的字符上限。
   /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
@@ -414,6 +453,19 @@ class AppSettingsSnapshot {
   /// 2026-04-27 — 压缩摘要中提取的文件路径条数上限。
   final int aiToolResultCompressionMaxPathHits;
 
+  /// 2026-05-02 — 成本控制：是否启用输入缓存优化（冻结静态前缀 + 模型锁
+  /// + Anthropic cache_control 断点注入）。
+  final bool aiInputCacheEnabled;
+
+  /// 2026-05-02 — 缓存断点更新模式（allMessages / userMessages / tokens）。
+  final String aiInputCacheUpdateMode;
+
+  /// 2026-05-02 — 缓存断点更新间隔（含义由模式决定）。
+  final int aiInputCacheUpdateInterval;
+
+  /// 2026-05-02 — cache_control 断点数量（1-4）。
+  final int aiInputCacheBreakpointCount;
+
   /// 2026-04-27 — 写类工具摘要中 result_text 的字符上限。
   final int aiWriteToolSummaryMaxChars;
   final int aiSingleRoundToolCallLimit;
@@ -542,6 +594,10 @@ class AppSettingsSnapshot {
     bool? aiToolResultCompressionEnabled,
     int? aiToolResultCompressionHeadTailWindowChars,
     int? aiToolResultCompressionMaxPathHits,
+    bool? aiInputCacheEnabled,
+    String? aiInputCacheUpdateMode,
+    int? aiInputCacheUpdateInterval,
+    int? aiInputCacheBreakpointCount,
     int? aiWriteToolSummaryMaxChars,
     int? aiSingleRoundToolCallLimit,
     int? aiSequentialToolRoundLimit,
@@ -630,6 +686,14 @@ class AppSettingsSnapshot {
       aiToolResultCompressionMaxPathHits:
           aiToolResultCompressionMaxPathHits ??
           this.aiToolResultCompressionMaxPathHits,
+      aiInputCacheEnabled:
+          aiInputCacheEnabled ?? this.aiInputCacheEnabled,
+      aiInputCacheUpdateMode:
+          aiInputCacheUpdateMode ?? this.aiInputCacheUpdateMode,
+      aiInputCacheUpdateInterval:
+          aiInputCacheUpdateInterval ?? this.aiInputCacheUpdateInterval,
+      aiInputCacheBreakpointCount:
+          aiInputCacheBreakpointCount ?? this.aiInputCacheBreakpointCount,
       aiWriteToolSummaryMaxChars:
           aiWriteToolSummaryMaxChars ?? this.aiWriteToolSummaryMaxChars,
       aiSingleRoundToolCallLimit:
