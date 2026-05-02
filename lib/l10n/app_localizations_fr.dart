@@ -4042,6 +4042,78 @@ class AppLocalizationsFr extends AppLocalizations {
   String get cacheBarSectionLatestLabel => '[6] Récent';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      'Instructions système du modèle, instructions de l’espace de travail et instantané de l’environnement (OS / cwd / résumé du dépôt).';
+
+  @override
+  String get cacheBarSectionSysCacheHint =>
+      'Compatible avec le cache : très stable d’un tour à l’autre — point de rupture idéal en premier.';
+
+  @override
+  String get cacheBarSectionDevSummary =>
+      'Règles de comportement du template de prompt actif (format de sortie & garde-fous).';
+
+  @override
+  String get cacheBarSectionDevCacheHint =>
+      'Compatible avec le cache : change rarement au cours d’une session.';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      'Catalogue des outils intégrés, capacités MCP et chargeurs de skills appelables par le modèle (avec règles d’invocation DSML).';
+
+  @override
+  String get cacheBarSectionToolsCacheHint =>
+      'Plutôt stable : touche le cache sauf si le registre des outils change.';
+
+  @override
+  String get cacheBarSectionStateSummary =>
+      'Métadonnées de session JSON : compteurs, liste de tâches, indicateurs de plan, pièces jointes.';
+
+  @override
+  String get cacheBarSectionStateCacheHint =>
+      'Volatile : les compteurs avancent à chaque tour — un cache placé ici échoue souvent.';
+
+  @override
+  String get cacheBarSectionMemorySummary =>
+      'Faits de mémoire utilisateur à long terme intégrés comme connaissances tacites.';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint =>
+      'Plutôt stable : ne change que lorsque les entrées de mémoire sont modifiées.';
+
+  @override
+  String get cacheBarSectionUserInstSummary =>
+      'Fragments de prompt réutilisables rédigés par l’utilisateur (directives au niveau du projet).';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint =>
+      'Stable : rarement modifié ; on peut placer un point de rupture juste après cette bande.';
+
+  @override
+  String get cacheBarSectionSummarySummary =>
+      'Résumé compressé des conversations antérieures + extraits récents.';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint =>
+      'Évolution lente : actualisé lors de la compression.';
+
+  @override
+  String get cacheBarSectionHistorySummary =>
+      'Tours utilisateur / assistant / outil passés dans la session courante.';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint =>
+      'Append-only : un point de rupture en milieu d’historique survit aux nouveaux tours en queue.';
+
+  @override
+  String get cacheBarSectionLatestSummary =>
+      'Le message utilisateur en cours de réponse (avec métadonnées des pièces jointes).';
+
+  @override
+  String get cacheBarSectionLatestCacheHint =>
+      'Change à chaque tour : c’est la cible du point de rupture dynamique.';
+
+  @override
   String get cacheBarDynamicTooltip =>
       'Point de rupture dynamique — suit l’intervalle de mise à jour du cache.';
 

@@ -4018,6 +4018,78 @@ class AppLocalizationsDe extends AppLocalizations {
   String get cacheBarSectionLatestLabel => '[6] Neueste';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      'Vorlagen-System-Anweisungen, Arbeitsbereich-Anweisungen und Laufzeitumgebungs-Snapshot (OS / cwd / Repo-Zusammenfassung).';
+
+  @override
+  String get cacheBarSectionSysCacheHint =>
+      'Cache-freundlich: über Runden hinweg sehr stabil – idealer erster Breakpoint.';
+
+  @override
+  String get cacheBarSectionDevSummary =>
+      'Verhaltensregeln aus dem aktiven Prompt-Template (Ausgabeformat & Schutzleitplanken).';
+
+  @override
+  String get cacheBarSectionDevCacheHint =>
+      'Cache-freundlich: ändert sich innerhalb einer Sitzung selten.';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      'Eingebauter Tool-Katalog, MCP-Fähigkeiten und Skill-Lader, die das Modell aufrufen kann (mit DSML-Aufrufregeln).';
+
+  @override
+  String get cacheBarSectionToolsCacheHint =>
+      'Recht stabil: Cache-Treffer wahrscheinlich, sofern sich das Tool-Register nicht ändert.';
+
+  @override
+  String get cacheBarSectionStateSummary =>
+      'Sitzungs-Metadaten JSON: Zähler, To-do-Liste, Plan-Flags, Anhänge.';
+
+  @override
+  String get cacheBarSectionStateCacheHint =>
+      'Volatil: Zähler ticken jede Runde – hier platzierte Caches verfehlen oft.';
+
+  @override
+  String get cacheBarSectionMemorySummary =>
+      'Langzeit-Nutzergedächtnis als implizites Wissen integriert.';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint =>
+      'Meist stabil: ändert sich nur, wenn Speichereinträge bearbeitet werden.';
+
+  @override
+  String get cacheBarSectionUserInstSummary =>
+      'Wiederverwendbare Prompt-Fragmente vom Nutzer (Anleitung auf Projektebene).';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint =>
+      'Stabil: wird selten bearbeitet – ein Breakpoint dahinter ist sicher.';
+
+  @override
+  String get cacheBarSectionSummarySummary =>
+      'Komprimierte Zusammenfassung älterer Gespräche + jüngste Chat-Auszüge.';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint =>
+      'Langsam veränderlich: wird bei Komprimierungslauf aktualisiert.';
+
+  @override
+  String get cacheBarSectionHistorySummary =>
+      'Vergangene Benutzer-/Assistent-/Werkzeug-Runden in der aktuellen Sitzung.';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint =>
+      'Nur anhängend: Breakpoints in der Mitte überstehen neue Runden am Ende.';
+
+  @override
+  String get cacheBarSectionLatestSummary =>
+      'Die aktuell beantwortete Benutzernachricht (mit Anhang-Metadaten).';
+
+  @override
+  String get cacheBarSectionLatestCacheHint =>
+      'Ändert sich jede Runde: Genau darauf zielt der dynamische Breakpoint.';
+
+  @override
   String get cacheBarDynamicTooltip =>
       'Dynamischer Breakpoint — folgt dem Cache-Aktualisierungsintervall.';
 

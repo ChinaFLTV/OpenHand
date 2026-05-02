@@ -3977,6 +3977,78 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cacheBarSectionLatestLabel => '[6] Latest';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      'Template system instructions, workspace instructions and runtime environment snapshot (OS / cwd / repo digest).';
+
+  @override
+  String get cacheBarSectionSysCacheHint =>
+      'Cache-friendly: highly stable across turns — ideal first breakpoint.';
+
+  @override
+  String get cacheBarSectionDevSummary =>
+      'Behavioural rules from the active prompt template (output format & guardrails).';
+
+  @override
+  String get cacheBarSectionDevCacheHint =>
+      'Cache-friendly: rarely changes within a session.';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      'Built-in tool catalog, MCP capabilities and skill loaders the model can call (with DSML invocation rules).';
+
+  @override
+  String get cacheBarSectionToolsCacheHint =>
+      'Cache-friendly: stable unless tool registry changes.';
+
+  @override
+  String get cacheBarSectionStateSummary =>
+      'Session metadata JSON: counters, todo list, plan flags, attachments.';
+
+  @override
+  String get cacheBarSectionStateCacheHint =>
+      'Volatile: counters tick every turn — caching here often misses.';
+
+  @override
+  String get cacheBarSectionMemorySummary =>
+      'Long-term user memory facts integrated as tacit knowledge.';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint =>
+      'Mostly stable: changes only when memory entries are edited.';
+
+  @override
+  String get cacheBarSectionUserInstSummary =>
+      'Reusable prompt fragments authored by the user (project-level guidance).';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint =>
+      'Stable: edited rarely; safe to anchor a breakpoint after this band.';
+
+  @override
+  String get cacheBarSectionSummarySummary =>
+      'Compressed summary of older conversations + recent chat snippets.';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint =>
+      'Slowly evolving: refreshed when compression runs.';
+
+  @override
+  String get cacheBarSectionHistorySummary =>
+      'Past user / assistant / tool turns within the current session.';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint =>
+      'Append-only: mid-history breakpoints survive new turns at the tail.';
+
+  @override
+  String get cacheBarSectionLatestSummary =>
+      'The user message currently being answered (with attachment metadata).';
+
+  @override
+  String get cacheBarSectionLatestCacheHint =>
+      'Always changing: this is what the dynamic breakpoint targets.';
+
+  @override
   String get cacheBarDynamicTooltip =>
       'Dynamic breakpoint — follows the cache update interval.';
 

@@ -7288,6 +7288,114 @@ abstract class AppLocalizations {
   /// **'[6] 最新消息'**
   String get cacheBarSectionLatestLabel;
 
+  /// No description provided for @cacheBarSectionSysSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。'**
+  String get cacheBarSectionSysSummary;
+
+  /// No description provided for @cacheBarSectionSysCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存友好：跨轮极稳定，最适合作为第一个断点。'**
+  String get cacheBarSectionSysCacheHint;
+
+  /// No description provided for @cacheBarSectionDevSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前提示词模板的开发者指令（行为规则与输出格式约束）。'**
+  String get cacheBarSectionDevSummary;
+
+  /// No description provided for @cacheBarSectionDevCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓存友好：会话内极少变动。'**
+  String get cacheBarSectionDevCacheHint;
+
+  /// No description provided for @cacheBarSectionToolsSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。'**
+  String get cacheBarSectionToolsSummary;
+
+  /// No description provided for @cacheBarSectionToolsCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'较稳定：除非工具注册表变化，否则可放心命中缓存。'**
+  String get cacheBarSectionToolsCacheHint;
+
+  /// No description provided for @cacheBarSectionStateSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'会话元数据 JSON：计数器、Todo、计划标记、附件等。'**
+  String get cacheBarSectionStateSummary;
+
+  /// No description provided for @cacheBarSectionStateCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'易变：每轮计数器都会更新，断点放此处易失效。'**
+  String get cacheBarSectionStateCacheHint;
+
+  /// No description provided for @cacheBarSectionMemorySummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'长期用户记忆事实，作为已掌握的常识自然融入。'**
+  String get cacheBarSectionMemorySummary;
+
+  /// No description provided for @cacheBarSectionMemoryCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'相对稳定：仅在记忆条目变更时才会失效。'**
+  String get cacheBarSectionMemoryCacheHint;
+
+  /// No description provided for @cacheBarSectionUserInstSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'用户预设的可复用指令片段（项目级权威指引）。'**
+  String get cacheBarSectionUserInstSummary;
+
+  /// No description provided for @cacheBarSectionUserInstCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'稳定：极少修改，断点落在它后面较稳妥。'**
+  String get cacheBarSectionUserInstCacheHint;
+
+  /// No description provided for @cacheBarSectionSummarySummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'较早会话的压缩摘要 + 最近聊天纪要。'**
+  String get cacheBarSectionSummarySummary;
+
+  /// No description provided for @cacheBarSectionSummaryCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'缓慢演化：仅在压缩重生成时刷新。'**
+  String get cacheBarSectionSummaryCacheHint;
+
+  /// No description provided for @cacheBarSectionHistorySummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前会话中的历史消息（用户 / 助手 / 工具结果）。'**
+  String get cacheBarSectionHistorySummary;
+
+  /// No description provided for @cacheBarSectionHistoryCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。'**
+  String get cacheBarSectionHistoryCacheHint;
+
+  /// No description provided for @cacheBarSectionLatestSummary.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'当前正在回答的用户消息（含附件元数据）。'**
+  String get cacheBarSectionLatestSummary;
+
+  /// No description provided for @cacheBarSectionLatestCacheHint.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'每轮变化：动态断点正是为命中此段而设。'**
+  String get cacheBarSectionLatestCacheHint;
+
   /// No description provided for @cacheBarDynamicTooltip.
   ///
   /// In zh_Hans, this message translates to:

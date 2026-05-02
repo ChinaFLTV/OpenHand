@@ -3784,6 +3784,62 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cacheBarSectionLatestLabel => '[6] 最新消息';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。';
+
+  @override
+  String get cacheBarSectionSysCacheHint => '缓存友好：跨轮极稳定，最适合作为第一个断点。';
+
+  @override
+  String get cacheBarSectionDevSummary => '当前提示词模板的开发者指令（行为规则与输出格式约束）。';
+
+  @override
+  String get cacheBarSectionDevCacheHint => '缓存友好：会话内极少变动。';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。';
+
+  @override
+  String get cacheBarSectionToolsCacheHint => '较稳定：除非工具注册表变化，否则可放心命中缓存。';
+
+  @override
+  String get cacheBarSectionStateSummary => '会话元数据 JSON：计数器、Todo、计划标记、附件等。';
+
+  @override
+  String get cacheBarSectionStateCacheHint => '易变：每轮计数器都会更新，断点放此处易失效。';
+
+  @override
+  String get cacheBarSectionMemorySummary => '长期用户记忆事实，作为已掌握的常识自然融入。';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint => '相对稳定：仅在记忆条目变更时才会失效。';
+
+  @override
+  String get cacheBarSectionUserInstSummary => '用户预设的可复用指令片段（项目级权威指引）。';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint => '稳定：极少修改，断点落在它后面较稳妥。';
+
+  @override
+  String get cacheBarSectionSummarySummary => '较早会话的压缩摘要 + 最近聊天纪要。';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint => '缓慢演化：仅在压缩重生成时刷新。';
+
+  @override
+  String get cacheBarSectionHistorySummary => '当前会话中的历史消息（用户 / 助手 / 工具结果）。';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint => '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。';
+
+  @override
+  String get cacheBarSectionLatestSummary => '当前正在回答的用户消息（含附件元数据）。';
+
+  @override
+  String get cacheBarSectionLatestCacheHint => '每轮变化：动态断点正是为命中此段而设。';
+
+  @override
   String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
 
   @override
@@ -8036,6 +8092,62 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get cacheBarSectionLatestLabel => '[6] 最新消息';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。';
+
+  @override
+  String get cacheBarSectionSysCacheHint => '缓存友好：跨轮极稳定，最适合作为第一个断点。';
+
+  @override
+  String get cacheBarSectionDevSummary => '当前提示词模板的开发者指令（行为规则与输出格式约束）。';
+
+  @override
+  String get cacheBarSectionDevCacheHint => '缓存友好：会话内极少变动。';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。';
+
+  @override
+  String get cacheBarSectionToolsCacheHint => '较稳定：除非工具注册表变化，否则可放心命中缓存。';
+
+  @override
+  String get cacheBarSectionStateSummary => '会话元数据 JSON：计数器、Todo、计划标记、附件等。';
+
+  @override
+  String get cacheBarSectionStateCacheHint => '易变：每轮计数器都会更新，断点放此处易失效。';
+
+  @override
+  String get cacheBarSectionMemorySummary => '长期用户记忆事实，作为已掌握的常识自然融入。';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint => '相对稳定：仅在记忆条目变更时才会失效。';
+
+  @override
+  String get cacheBarSectionUserInstSummary => '用户预设的可复用指令片段（项目级权威指引）。';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint => '稳定：极少修改，断点落在它后面较稳妥。';
+
+  @override
+  String get cacheBarSectionSummarySummary => '较早会话的压缩摘要 + 最近聊天纪要。';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint => '缓慢演化：仅在压缩重生成时刷新。';
+
+  @override
+  String get cacheBarSectionHistorySummary => '当前会话中的历史消息（用户 / 助手 / 工具结果）。';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint => '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。';
+
+  @override
+  String get cacheBarSectionLatestSummary => '当前正在回答的用户消息（含附件元数据）。';
+
+  @override
+  String get cacheBarSectionLatestCacheHint => '每轮变化：动态断点正是为命中此段而设。';
+
+  @override
   String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
 
   @override
@@ -12285,6 +12397,62 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get cacheBarSectionLatestLabel => '[6] 最新訊息';
+
+  @override
+  String get cacheBarSectionSysSummary =>
+      '模板系統指令、工作區指令與執行時環境快照（OS / cwd / 倉庫摘要）。';
+
+  @override
+  String get cacheBarSectionSysCacheHint => '快取友好：跨輪極穩定，最適合作為第一個斷點。';
+
+  @override
+  String get cacheBarSectionDevSummary => '當前提示詞模板的開發者指令（行為規則與輸出格式約束）。';
+
+  @override
+  String get cacheBarSectionDevCacheHint => '快取友好：會話內極少變動。';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      '內建工具目錄、MCP 能力與 Skill 載入器（含 DSML 呼叫約束）。';
+
+  @override
+  String get cacheBarSectionToolsCacheHint => '較穩定：除非工具註冊表變化，否則可放心命中快取。';
+
+  @override
+  String get cacheBarSectionStateSummary => '會話元資料 JSON：計數器、Todo、計畫標記、附件等。';
+
+  @override
+  String get cacheBarSectionStateCacheHint => '易變：每輪計數器都會更新，斷點放此處易失效。';
+
+  @override
+  String get cacheBarSectionMemorySummary => '長期使用者記憶事實，作為已掌握的常識自然融入。';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint => '相對穩定：僅在記憶條目變更時才會失效。';
+
+  @override
+  String get cacheBarSectionUserInstSummary => '使用者預設的可複用指令片段（專案級權威指引）。';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint => '穩定：極少修改，斷點落在它後面較穩妥。';
+
+  @override
+  String get cacheBarSectionSummarySummary => '較早會話的壓縮摘要 + 最近聊天紀要。';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint => '緩慢演化：僅在壓縮重生成時刷新。';
+
+  @override
+  String get cacheBarSectionHistorySummary => '當前會話中的歷史訊息（使用者 / 助手 / 工具結果）。';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint => '僅追加：放在歷史中段的斷點能跨多輪命中尾部新增內容。';
+
+  @override
+  String get cacheBarSectionLatestSummary => '當前正在回答的使用者訊息（含附件元資料）。';
+
+  @override
+  String get cacheBarSectionLatestCacheHint => '每輪變化：動態斷點正是為命中此段而設。';
 
   @override
   String get cacheBarDynamicTooltip => '動態斷點：跟隨快取更新間隔自動落點。';

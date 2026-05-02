@@ -3842,6 +3842,71 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cacheBarSectionLatestLabel => '[6] 最新';
 
   @override
+  String get cacheBarSectionSysSummary =>
+      'テンプレートシステム指示、ワークスペース指示、ランタイム環境スナップショット（OS / cwd / リポジトリ概要）。';
+
+  @override
+  String get cacheBarSectionSysCacheHint =>
+      'キャッシュ向き：ターン間で非常に安定しており、最初のブレークポイントに最適。';
+
+  @override
+  String get cacheBarSectionDevSummary =>
+      'アクティブなプロンプトテンプレートの動作ルール（出力フォーマットとガードレール）。';
+
+  @override
+  String get cacheBarSectionDevCacheHint => 'キャッシュ向き：セッション内ではほぼ変化しない。';
+
+  @override
+  String get cacheBarSectionToolsSummary =>
+      '組み込みツールカタログ、MCP 機能、モデルが呼び出せるスキルローダー（DSML 呼び出しルール付き）。';
+
+  @override
+  String get cacheBarSectionToolsCacheHint =>
+      '比較的安定：ツールレジストリが変わらない限りキャッシュにヒットしやすい。';
+
+  @override
+  String get cacheBarSectionStateSummary =>
+      'セッションメタデータ JSON：カウンター、ToDo、計画フラグ、添付など。';
+
+  @override
+  String get cacheBarSectionStateCacheHint =>
+      '変動的：毎ターンでカウンターが更新されるため、ここに置くとキャッシュミスしやすい。';
+
+  @override
+  String get cacheBarSectionMemorySummary => '長期ユーザーメモリの事実を暗黙知として統合。';
+
+  @override
+  String get cacheBarSectionMemoryCacheHint => '概ね安定：メモリ項目が編集されたときのみ変化する。';
+
+  @override
+  String get cacheBarSectionUserInstSummary =>
+      'ユーザーが作成した再利用可能なプロンプト断片（プロジェクトレベルのガイダンス）。';
+
+  @override
+  String get cacheBarSectionUserInstCacheHint =>
+      '安定：ほとんど編集されないため、この後ろにブレークポイントを置くと安全。';
+
+  @override
+  String get cacheBarSectionSummarySummary => '以前の会話の圧縮要約 + 最近のチャット抜粋。';
+
+  @override
+  String get cacheBarSectionSummaryCacheHint => '緩やかに進化：圧縮が再生成されたときのみ更新される。';
+
+  @override
+  String get cacheBarSectionHistorySummary =>
+      '現在のセッション内の過去のユーザー / アシスタント / ツールターン。';
+
+  @override
+  String get cacheBarSectionHistoryCacheHint =>
+      '追加のみ：履歴中央のブレークポイントは末尾の新ターンでも有効。';
+
+  @override
+  String get cacheBarSectionLatestSummary => '現在回答中のユーザーメッセージ（添付メタデータを含む）。';
+
+  @override
+  String get cacheBarSectionLatestCacheHint => '毎ターン変化：動的ブレークポイントはこのために存在する。';
+
+  @override
   String get cacheBarDynamicTooltip => '動的ブレークポイント — キャッシュ更新間隔に追従します。';
 
   @override

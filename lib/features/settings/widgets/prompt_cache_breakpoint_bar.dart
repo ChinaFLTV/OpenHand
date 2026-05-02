@@ -71,113 +71,77 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
   // 真实 token 占比，仅作示意，便于一眼看清是哪一段）。配色采用低饱和
   // 调色板，深浅模式下都可读。每段附带 cacheHint，提示该段对缓存命中
   // 的稳定性影响。
-  List<_PromptStructureSegment> _segments(AppLocalizations l10n, bool isEn) {
+  List<_PromptStructureSegment> _segments(AppLocalizations l10n) {
     return [
       _PromptStructureSegment(
         id: 'sys',
         label: l10n.cacheBarSectionSysLabel,
-        summary: isEn
-            ? 'Template system instructions, workspace instructions and runtime environment snapshot (OS / cwd / repo digest).'
-            : '模板系统指令、工作区指令与运行时环境快照（OS / cwd / 仓库摘要）。',
-        cacheHint: isEn
-            ? 'Cache-friendly: highly stable across turns — ideal first breakpoint.'
-            : '缓存友好：跨轮极稳定，最适合作为第一个断点。',
+        summary: l10n.cacheBarSectionSysSummary,
+        cacheHint: l10n.cacheBarSectionSysCacheHint,
         color: const Color(0xFF6F4FB4),
         weight: 1.2,
       ),
       _PromptStructureSegment(
         id: 'dev',
         label: l10n.cacheBarSectionDevLabel,
-        summary: isEn
-            ? 'Behavioural rules from the active prompt template (output format & guardrails).'
-            : '当前提示词模板的开发者指令（行为规则与输出格式约束）。',
-        cacheHint: isEn
-            ? 'Cache-friendly: rarely changes within a session.'
-            : '缓存友好：会话内极少变动。',
+        summary: l10n.cacheBarSectionDevSummary,
+        cacheHint: l10n.cacheBarSectionDevCacheHint,
         color: const Color(0xFF4955A6),
         weight: 1.0,
       ),
       _PromptStructureSegment(
         id: 'tools',
         label: l10n.cacheBarSectionToolsLabel,
-        summary: isEn
-            ? 'Built-in tool catalog, MCP capabilities and skill loaders the model can call (with DSML invocation rules).'
-            : '内置工具目录、MCP 能力与 Skill 加载器（含 DSML 调用约束）。',
-        cacheHint: isEn
-            ? 'Cache-friendly: stable unless tool registry changes.'
-            : '较稳定：除非工具注册表变化，否则可放心命中缓存。',
+        summary: l10n.cacheBarSectionToolsSummary,
+        cacheHint: l10n.cacheBarSectionToolsCacheHint,
         color: const Color(0xFF2D6FA4),
         weight: 1.5,
       ),
       _PromptStructureSegment(
         id: 'state',
         label: l10n.cacheBarSectionStateLabel,
-        summary: isEn
-            ? 'Session metadata JSON: counters, todo list, plan flags, attachments.'
-            : '会话元数据 JSON：计数器、Todo、计划标记、附件等。',
-        cacheHint: isEn
-            ? 'Volatile: counters tick every turn — caching here often misses.'
-            : '易变：每轮计数器都会更新，断点放此处易失效。',
+        summary: l10n.cacheBarSectionStateSummary,
+        cacheHint: l10n.cacheBarSectionStateCacheHint,
         color: const Color(0xFF3E847B),
         weight: 0.6,
       ),
       _PromptStructureSegment(
         id: 'memory',
         label: l10n.cacheBarSectionMemoryLabel,
-        summary: isEn
-            ? 'Long-term user memory facts integrated as tacit knowledge.'
-            : '长期用户记忆事实，作为已掌握的常识自然融入。',
-        cacheHint: isEn
-            ? 'Mostly stable: changes only when memory entries are edited.'
-            : '相对稳定：仅在记忆条目变更时才会失效。',
+        summary: l10n.cacheBarSectionMemorySummary,
+        cacheHint: l10n.cacheBarSectionMemoryCacheHint,
         color: const Color(0xFF4F8C50),
         weight: 1.0,
       ),
       _PromptStructureSegment(
         id: 'user_inst',
         label: l10n.cacheBarSectionUserInstLabel,
-        summary: isEn
-            ? 'Reusable prompt fragments authored by the user (project-level guidance).'
-            : '用户预设的可复用指令片段（项目级权威指引）。',
-        cacheHint: isEn
-            ? 'Stable: edited rarely; safe to anchor a breakpoint after this band.'
-            : '稳定：极少修改，断点落在它后面较稳妥。',
+        summary: l10n.cacheBarSectionUserInstSummary,
+        cacheHint: l10n.cacheBarSectionUserInstCacheHint,
         color: const Color(0xFF84A03A),
         weight: 0.8,
       ),
       _PromptStructureSegment(
         id: 'summary',
         label: l10n.cacheBarSectionSummaryLabel,
-        summary: isEn
-            ? 'Compressed summary of older conversations + recent chat snippets.'
-            : '较早会话的压缩摘要 + 最近聊天纪要。',
-        cacheHint: isEn
-            ? 'Slowly evolving: refreshed when compression runs.'
-            : '缓慢演化：仅在压缩重生成时刷新。',
+        summary: l10n.cacheBarSectionSummarySummary,
+        cacheHint: l10n.cacheBarSectionSummaryCacheHint,
         color: const Color(0xFFB07B2C),
         weight: 0.6,
       ),
       _PromptStructureSegment(
         id: 'history',
         label: l10n.cacheBarSectionHistoryLabel,
-        summary: isEn
-            ? 'Past user / assistant / tool turns within the current session.'
-            : '当前会话中的历史消息（用户 / 助手 / 工具结果）。',
-        cacheHint: isEn
-            ? 'Append-only: mid-history breakpoints survive new turns at the tail.'
-            : '仅追加：放在历史中段的断点能跨多轮命中尾部新增内容。',
+        summary: l10n.cacheBarSectionHistorySummary,
+        cacheHint: l10n.cacheBarSectionHistoryCacheHint,
         color: const Color(0xFFB85549),
         weight: 2.4,
       ),
       _PromptStructureSegment(
         id: 'latest',
         label: l10n.cacheBarSectionLatestLabel,
-        summary: isEn
-            ? 'The user message currently being answered (with attachment metadata).'
-            : '当前正在回答的用户消息（含附件元数据）。',
-        cacheHint: isEn
-            ? 'Always changing: this is what the dynamic breakpoint targets.'
-            : '每轮变化：动态断点正是为命中此段而设。',
+        summary: l10n.cacheBarSectionLatestSummary,
+        cacheHint: l10n.cacheBarSectionLatestCacheHint,
         color: const Color(0xFFA04079),
         weight: 0.6,
       ),
@@ -189,8 +153,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final isEn = Localizations.localeOf(context).languageCode == 'en';
-    final segments = _segments(l10n, isEn);
+    final segments = _segments(l10n);
     final percentLabel = _draft
         .map((v) => '${(v * 100).round()}%')
         .toList(growable: false);
