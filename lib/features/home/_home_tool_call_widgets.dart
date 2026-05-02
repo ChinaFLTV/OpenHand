@@ -169,24 +169,50 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                     icon: toolCall.presentation.icon,
                     label: toolCall.primaryChipLabel,
                   ),
-                  if (isPreExecution)
-                    _ToolConstructingBadge(
-                      label: isSubmitting
-                          ? AppLocalizations.of(context)!.tlCallSubmitting
-                          : AppLocalizations.of(
-                              context,
-                            )!.tlCallArgumentsConstructing,
-                      hint: isSubmitting
-                          ? AppLocalizations.of(
-                              context,
-                            )!.tlCallSubmittingHint
-                          : AppLocalizations.of(
-                              context,
-                            )!.tlCallArgumentsConstructingHint,
-                      tone: isSubmitting
-                          ? _ToolConstructingTone.submitting
-                          : _ToolConstructingTone.constructing,
+                  // Badge cross-fades on phase boundaries instead of
+                  // popping in/out, so constructing→submitting→running
+                  // feels like a single fluid morph.
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: 0.92,
+                          end: 1.0,
+                        ).animate(animation),
+                        child: child,
+                      ),
                     ),
+                    child: isPreExecution
+                        ? _ToolConstructingBadge(
+                            key: ValueKey<String>(
+                              isSubmitting ? 'submitting' : 'constructing',
+                            ),
+                            label: isSubmitting
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.tlCallSubmitting
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.tlCallArgumentsConstructing,
+                            hint: isSubmitting
+                                ? AppLocalizations.of(
+                                    context,
+                                  )!.tlCallSubmittingHint
+                                : AppLocalizations.of(
+                                    context,
+                                  )!.tlCallArgumentsConstructingHint,
+                            tone: isSubmitting
+                                ? _ToolConstructingTone.submitting
+                                : _ToolConstructingTone.constructing,
+                          )
+                        : const SizedBox.shrink(
+                            key: ValueKey<String>('no-badge'),
+                          ),
+                  ),
             if (toolCall.workingDirectory.isNotEmpty)
               _ToolExecutionChip(
                 icon: Icons.folder_outlined,
@@ -212,103 +238,165 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               ),
           ],
         ),
-        if (isPreExecution) ...[
-          const SizedBox(height: 10),
-          _ConstructingArgumentKeysRow(
-            keys: toolCall.argumentKeys,
-            collectedLabel: AppLocalizations.of(
-              context,
-            )!.tlCallCollectedParameters,
-            emptyLabel: AppLocalizations.of(context)!.tlCallNoParametersYet,
+        // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
+        // (executed). Single AnimatedSwitcher keyed on the binary phase
+        // so toggling expand/collapse INSIDE the executed phase does NOT
+        // re-trigger the cross-fade; only the structural transition
+        // does. Slide+fade gives the swap a soft, slick feel; the outer
+        // AnimatedSize already handles overall height.
+        const SizedBox(height: 10),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topLeft,
+            children: [...previous, if (current != null) current],
           ),
-        ] else ...[
-          const SizedBox(height: 10),
-          _ExpandableToolSection(
-            title: AppLocalizations.of(context)!.tlCallToolInput,
-            preview: toolCall.argumentsPreview,
-            expanded: argumentsExpanded,
-            onToggle: () {
-              setState(() {
-                _argumentsExpandedOverride = !argumentsExpanded;
-              });
-            },
-            expandedBuilder: (context) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (toolCall.command.isNotEmpty)
-                  _ToolOutputPanel(
-                    label: AppLocalizations.of(context)!.tlCallCommand,
-                    content: toolCall.formattedCommand,
-                    theme: theme,
-                    selectable: widget.selectable,
-                  ),
-                if (toolCall.command.isNotEmpty) const SizedBox(height: 10),
-                _ToolOutputPanel(
-                  label: AppLocalizations.of(context)!.tlCallArguments,
-                  content: toolCall.formattedArguments,
-                  theme: theme,
-                  selectable: widget.selectable,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          _ExpandableToolSection(
-            title: AppLocalizations.of(context)!.tlCallToolOutput,
-            preview: toolCall.hasResultContent
-                ? toolCall.resultPreview
-                : AppLocalizations.of(context)!.tlCallNoOutputYet,
-            expanded: resultExpanded,
-            onToggle: () {
-              setState(() {
-                _resultExpandedOverride = !resultExpanded;
-              });
-            },
-            expandedBuilder: (context) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (toolCall.stdout.isNotEmpty)
-                  _ToolOutputPanel(
-                    label: AppLocalizations.of(context)!.tlCallStdout,
-                    content: toolCall.formattedStdout,
-                    theme: theme,
-                    selectable: widget.selectable,
-                    fullContentFile: toolCall.stdoutFile,
-                  ),
-                if (toolCall.stderr.isNotEmpty) ...[
-                  if (toolCall.stdout.isNotEmpty) const SizedBox(height: 10),
-                  _ToolOutputPanel(
-                    label: AppLocalizations.of(context)!.tlCallStderr,
-                    content: toolCall.formattedStderr,
-                    theme: theme,
-                    isError: true,
-                    selectable: widget.selectable,
-                    fullContentFile: toolCall.stderrFile,
-                  ),
-                ],
-                if (toolCall.showResultText) ...[
-                  if (toolCall.stdout.isNotEmpty || toolCall.stderr.isNotEmpty)
-                    const SizedBox(height: 10),
-                  _ToolOutputPanel(
-                    label: AppLocalizations.of(context)!.tlCallResult,
-                    content: toolCall.formattedResult,
-                    theme: theme,
-                    selectable: widget.selectable,
-                  ),
-                ],
-                if (toolCall.stdout.isEmpty &&
-                    toolCall.stderr.isEmpty &&
-                    !toolCall.showResultText)
-                  Text(
-                    AppLocalizations.of(context)!.tlCallThereIsNoToolOutputYet,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 0.06),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
                     ),
                   ),
-              ],
+              child: child,
             ),
           ),
-        ],
+          child: isPreExecution
+              ? KeyedSubtree(
+                  key: const ValueKey<String>('phase-pre'),
+                  child: _ConstructingArgumentKeysRow(
+                    keys: toolCall.argumentKeys,
+                    collectedLabel: AppLocalizations.of(
+                      context,
+                    )!.tlCallCollectedParameters,
+                    emptyLabel: AppLocalizations.of(
+                      context,
+                    )!.tlCallNoParametersYet,
+                  ),
+                )
+              : KeyedSubtree(
+                  key: const ValueKey<String>('phase-done'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ExpandableToolSection(
+                        title: AppLocalizations.of(
+                          context,
+                        )!.tlCallToolInput,
+                        preview: toolCall.argumentsPreview,
+                        expanded: argumentsExpanded,
+                        onToggle: () {
+                          setState(() {
+                            _argumentsExpandedOverride = !argumentsExpanded;
+                          });
+                        },
+                        expandedBuilder: (context) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (toolCall.command.isNotEmpty)
+                              _ToolOutputPanel(
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.tlCallCommand,
+                                content: toolCall.formattedCommand,
+                                theme: theme,
+                                selectable: widget.selectable,
+                              ),
+                            if (toolCall.command.isNotEmpty)
+                              const SizedBox(height: 10),
+                            _ToolOutputPanel(
+                              label: AppLocalizations.of(
+                                context,
+                              )!.tlCallArguments,
+                              content: toolCall.formattedArguments,
+                              theme: theme,
+                              selectable: widget.selectable,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _ExpandableToolSection(
+                        title: AppLocalizations.of(
+                          context,
+                        )!.tlCallToolOutput,
+                        preview: toolCall.hasResultContent
+                            ? toolCall.resultPreview
+                            : AppLocalizations.of(
+                                context,
+                              )!.tlCallNoOutputYet,
+                        expanded: resultExpanded,
+                        onToggle: () {
+                          setState(() {
+                            _resultExpandedOverride = !resultExpanded;
+                          });
+                        },
+                        expandedBuilder: (context) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (toolCall.stdout.isNotEmpty)
+                              _ToolOutputPanel(
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.tlCallStdout,
+                                content: toolCall.formattedStdout,
+                                theme: theme,
+                                selectable: widget.selectable,
+                                fullContentFile: toolCall.stdoutFile,
+                              ),
+                            if (toolCall.stderr.isNotEmpty) ...[
+                              if (toolCall.stdout.isNotEmpty)
+                                const SizedBox(height: 10),
+                              _ToolOutputPanel(
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.tlCallStderr,
+                                content: toolCall.formattedStderr,
+                                theme: theme,
+                                isError: true,
+                                selectable: widget.selectable,
+                                fullContentFile: toolCall.stderrFile,
+                              ),
+                            ],
+                            if (toolCall.showResultText) ...[
+                              if (toolCall.stdout.isNotEmpty ||
+                                  toolCall.stderr.isNotEmpty)
+                                const SizedBox(height: 10),
+                              _ToolOutputPanel(
+                                label: AppLocalizations.of(
+                                  context,
+                                )!.tlCallResult,
+                                content: toolCall.formattedResult,
+                                theme: theme,
+                                selectable: widget.selectable,
+                              ),
+                            ],
+                            if (toolCall.stdout.isEmpty &&
+                                toolCall.stderr.isEmpty &&
+                                !toolCall.showResultText)
+                              Text(
+                                AppLocalizations.of(
+                                  context,
+                                )!.tlCallThereIsNoToolOutputYet,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
         // ── File mutation indicator (mirrors HE changed-files row) ──
         if (_fileMutationPath(message).isNotEmpty &&
             _toolExecutionStatus(message) == 'success') ...[
@@ -1377,6 +1465,7 @@ enum _ToolConstructingTone { constructing, submitting }
 /// executor). Both pulse with the same 1.1s breathing rhythm.
 class _ToolConstructingBadge extends StatefulWidget {
   const _ToolConstructingBadge({
+    super.key,
     required this.label,
     required this.hint,
     this.tone = _ToolConstructingTone.constructing,
