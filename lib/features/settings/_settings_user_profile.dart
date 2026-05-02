@@ -182,6 +182,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
   late final TextEditingController _contentController;
   bool _isSaving = false;
   String? _errorMessage;
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -195,6 +196,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
   @override
   void dispose() {
     _contentController.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -215,9 +217,11 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
       child: Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720, maxHeight: 720),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -328,6 +332,19 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
               ],
             ),
           ),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: HighlightPulse(
+                    signal: _errorPulse,
+                    color: const Color(0xFFEF4444),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -343,6 +360,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
           en: 'Profile content cannot be empty. Use "Clear" to remove it.',
         );
       });
+      _errorPulse.value++;
       return;
     }
     setState(() {
@@ -359,6 +377,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
         _isSaving = false;
         _errorMessage = '$error';
       });
+      _errorPulse.value++;
       return;
     }
     if (!mounted) return;
@@ -384,6 +403,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
         _isSaving = false;
         _errorMessage = '$error';
       });
+      _errorPulse.value++;
       return;
     }
     if (!mounted) return;
