@@ -471,53 +471,102 @@ class _ExpandableToolSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasPreview = preview.trim().isNotEmpty;
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
       borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: InkWell(
         onTap: onToggle,
         borderRadius: const BorderRadius.all(Radius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    expanded
-                        ? Icons.keyboard_arrow_down_rounded
-                        : Icons.keyboard_arrow_right_rounded,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
+        // AnimatedSize wraps the *entire* card so the chevron rotation
+        // and content cross-fade ride a single height curve — feels
+        // like the card itself is breathing.
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    AnimatedRotation(
+                      turns: expanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      child: const Icon(
+                        Icons.keyboard_arrow_right_rounded,
+                        size: 18,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // Cross-fade between collapsed preview and expanded body.
+                // Keys lock so toggling the same section animates; the
+                // outer AnimatedSize handles height. SizedBox.shrink covers
+                // the empty-preview / not-expanded fallback so transitions
+                // never see a null child.
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, if (current != null) current],
                   ),
-                ],
-              ),
-              if (!expanded && preview.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  preview,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: 'monospace',
-                    height: 1.35,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.04),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            ),
+                          ),
+                      child: child,
+                    ),
                   ),
+                  child: expanded
+                      ? Padding(
+                          key: const ValueKey<String>('expanded'),
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Builder(builder: expandedBuilder),
+                        )
+                      : hasPreview
+                      ? Padding(
+                          key: const ValueKey<String>('preview'),
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            preview,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontFamily: 'monospace',
+                              height: 1.35,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey<String>('empty'),
+                        ),
                 ),
               ],
-              if (expanded) ...[
-                const SizedBox(height: 12),
-                Builder(builder: expandedBuilder),
-              ],
-            ],
+            ),
           ),
         ),
       ),

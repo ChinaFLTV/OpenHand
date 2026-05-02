@@ -16,6 +16,7 @@ import '../../app/model/openhand_shortcut.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/widgets/animated_dialog.dart';
+import '../../shared/widgets/animated_expandable.dart';
 import '../../shared/widgets/animated_menu.dart';
 import '../../shared/widgets/animated_overlay.dart';
 import '../../shared/widgets/error_snackbar.dart';
