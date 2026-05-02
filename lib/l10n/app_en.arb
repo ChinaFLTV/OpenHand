@@ -741,5 +741,11 @@
   "proxyTestConsoleRerun": "Rerun",
   "proxyTestConsoleMaximize": "Maximize",
   "proxyTestConsoleRestore": "Restore",
-  "proxyTestConsoleClear": "Clear console"
+  "proxyTestConsoleClear": "Clear console",
+  "tokenPopupCostHeading": "Cost",
+  "tokenPopupCostInput": "Input",
+  "tokenPopupCostOutput": "Output",
+  "tokenPopupCostCacheRead": "Cache read",
+  "tokenPopupCostCacheWrite": "Cache write",
+  "tokenPopupCostTotal": "Total"
 }

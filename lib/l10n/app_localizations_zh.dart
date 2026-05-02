@@ -2131,6 +2131,24 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClear => '清空终端';
+
+  @override
+  String get tokenPopupCostHeading => '成本估算';
+
+  @override
+  String get tokenPopupCostInput => '输入';
+
+  @override
+  String get tokenPopupCostOutput => '输出';
+
+  @override
+  String get tokenPopupCostCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'Cache 写入';
+
+  @override
+  String get tokenPopupCostTotal => '总计';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hans`).
@@ -4260,6 +4278,24 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get proxyTestConsoleClear => '清空终端';
+
+  @override
+  String get tokenPopupCostHeading => '成本估算';
+
+  @override
+  String get tokenPopupCostInput => '输入';
+
+  @override
+  String get tokenPopupCostOutput => '输出';
+
+  @override
+  String get tokenPopupCostCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'Cache 写入';
+
+  @override
+  String get tokenPopupCostTotal => '总计';
 }
 
 /// The translations for Chinese, using the Han script (`zh_Hant`).
@@ -6388,4 +6424,22 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get proxyTestConsoleClear => '清空終端';
+
+  @override
+  String get tokenPopupCostHeading => '成本估算';
+
+  @override
+  String get tokenPopupCostInput => '輸入';
+
+  @override
+  String get tokenPopupCostOutput => '輸出';
+
+  @override
+  String get tokenPopupCostCacheRead => 'Cache 命中';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'Cache 寫入';
+
+  @override
+  String get tokenPopupCostTotal => '總計';
 }

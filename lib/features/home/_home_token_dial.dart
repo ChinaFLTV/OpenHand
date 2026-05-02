@@ -409,6 +409,7 @@ class _TokenDialPopup extends StatelessWidget {
     if (breakdown == null || breakdown.isEmpty) return const <Widget>[];
 
     final amberStyle = valueStyle?.copyWith(color: Colors.amber.shade700);
+    final l10n = AppLocalizations.of(context)!;
 
     return <Widget>[
       Container(
@@ -417,34 +418,34 @@ class _TokenDialPopup extends StatelessWidget {
         color: colorScheme.outlineVariant.withValues(alpha: 0.4),
       ),
       Text(
-        _localizedText(context, zh: '成本估算', en: 'COST').toUpperCase(),
+        l10n.tokenPopupCostHeading.toUpperCase(),
         style: headStyle,
       ),
       const SizedBox(height: 6),
       if (breakdown.inputUsd != null)
         _CostPopupRow(
-          label: _localizedText(context, zh: 'Input', en: 'Input'),
+          label: l10n.tokenPopupCostInput,
           usd: breakdown.inputUsd!,
           keyStyle: keyStyle,
           valueStyle: valueStyle,
         ),
       if (breakdown.outputUsd != null)
         _CostPopupRow(
-          label: _localizedText(context, zh: 'Output', en: 'Output'),
+          label: l10n.tokenPopupCostOutput,
           usd: breakdown.outputUsd!,
           keyStyle: keyStyle,
           valueStyle: valueStyle,
         ),
       if (breakdown.cacheReadUsd != null)
         _CostPopupRow(
-          label: _localizedText(context, zh: 'Cache 命中', en: 'Cache Read'),
+          label: l10n.tokenPopupCostCacheRead,
           usd: breakdown.cacheReadUsd!,
           keyStyle: keyStyle,
           valueStyle: amberStyle,
         ),
       if (breakdown.cacheWriteUsd != null)
         _CostPopupRow(
-          label: _localizedText(context, zh: 'Cache 写入', en: 'Cache Write'),
+          label: l10n.tokenPopupCostCacheWrite,
           usd: breakdown.cacheWriteUsd!,
           keyStyle: keyStyle,
           valueStyle: amberStyle,
@@ -452,7 +453,7 @@ class _TokenDialPopup extends StatelessWidget {
       if (breakdown.totalUsd != null) ...[
         const SizedBox(height: 4),
         _CostPopupRow(
-          label: _localizedText(context, zh: '总计', en: 'Total'),
+          label: l10n.tokenPopupCostTotal,
           usd: breakdown.totalUsd!,
           keyStyle: keyStyle?.copyWith(fontWeight: FontWeight.w800),
           valueStyle: valueStyle?.copyWith(color: colorScheme.primary),

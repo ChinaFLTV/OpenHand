@@ -2246,4 +2246,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClear => 'Clear console';
+
+  @override
+  String get tokenPopupCostHeading => 'Cost';
+
+  @override
+  String get tokenPopupCostInput => 'Input';
+
+  @override
+  String get tokenPopupCostOutput => 'Output';
+
+  @override
+  String get tokenPopupCostCacheRead => 'Cache read';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'Cache write';
+
+  @override
+  String get tokenPopupCostTotal => 'Total';
 }

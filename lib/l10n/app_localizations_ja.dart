@@ -2227,4 +2227,22 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClear => 'コンソールをクリア';
+
+  @override
+  String get tokenPopupCostHeading => 'コスト';
+
+  @override
+  String get tokenPopupCostInput => '入力';
+
+  @override
+  String get tokenPopupCostOutput => '出力';
+
+  @override
+  String get tokenPopupCostCacheRead => 'キャッシュ読込';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'キャッシュ書込';
+
+  @override
+  String get tokenPopupCostTotal => '合計';
 }

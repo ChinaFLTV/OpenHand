@@ -741,5 +741,11 @@
   "proxyTestConsoleRerun": "Erneut ausführen",
   "proxyTestConsoleMaximize": "Maximieren",
   "proxyTestConsoleRestore": "Wiederherstellen",
-  "proxyTestConsoleClear": "Konsole leeren"
+  "proxyTestConsoleClear": "Konsole leeren",
+  "tokenPopupCostHeading": "Kosten",
+  "tokenPopupCostInput": "Eingabe",
+  "tokenPopupCostOutput": "Ausgabe",
+  "tokenPopupCostCacheRead": "Cache-Treffer",
+  "tokenPopupCostCacheWrite": "Cache-Schreiben",
+  "tokenPopupCostTotal": "Gesamt"
 }

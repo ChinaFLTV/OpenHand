@@ -4137,6 +4137,42 @@ abstract class AppLocalizations {
   /// In zh_Hans, this message translates to:
   /// **'清空终端'**
   String get proxyTestConsoleClear;
+
+  /// No description provided for @tokenPopupCostHeading.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'成本估算'**
+  String get tokenPopupCostHeading;
+
+  /// No description provided for @tokenPopupCostInput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输入'**
+  String get tokenPopupCostInput;
+
+  /// No description provided for @tokenPopupCostOutput.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'输出'**
+  String get tokenPopupCostOutput;
+
+  /// No description provided for @tokenPopupCostCacheRead.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cache 命中'**
+  String get tokenPopupCostCacheRead;
+
+  /// No description provided for @tokenPopupCostCacheWrite.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'Cache 写入'**
+  String get tokenPopupCostCacheWrite;
+
+  /// No description provided for @tokenPopupCostTotal.
+  ///
+  /// In zh_Hans, this message translates to:
+  /// **'总计'**
+  String get tokenPopupCostTotal;
 }
 
 class _AppLocalizationsDelegate

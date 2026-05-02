@@ -741,5 +741,11 @@
   "proxyTestConsoleRerun": "再実行",
   "proxyTestConsoleMaximize": "最大化",
   "proxyTestConsoleRestore": "元のサイズに戻す",
-  "proxyTestConsoleClear": "コンソールをクリア"
+  "proxyTestConsoleClear": "コンソールをクリア",
+  "tokenPopupCostHeading": "コスト",
+  "tokenPopupCostInput": "入力",
+  "tokenPopupCostOutput": "出力",
+  "tokenPopupCostCacheRead": "キャッシュ読込",
+  "tokenPopupCostCacheWrite": "キャッシュ書込",
+  "tokenPopupCostTotal": "合計"
 }

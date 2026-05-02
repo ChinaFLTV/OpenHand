@@ -2254,4 +2254,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get proxyTestConsoleClear => 'Effacer la console';
+
+  @override
+  String get tokenPopupCostHeading => 'Coût';
+
+  @override
+  String get tokenPopupCostInput => 'Entrée';
+
+  @override
+  String get tokenPopupCostOutput => 'Sortie';
+
+  @override
+  String get tokenPopupCostCacheRead => 'Cache lu';
+
+  @override
+  String get tokenPopupCostCacheWrite => 'Cache écrit';
+
+  @override
+  String get tokenPopupCostTotal => 'Total';
 }

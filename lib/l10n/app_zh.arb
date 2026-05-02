@@ -741,5 +741,11 @@
   "proxyTestConsoleRerun": "重新运行",
   "proxyTestConsoleMaximize": "最大化",
   "proxyTestConsoleRestore": "还原",
-  "proxyTestConsoleClear": "清空终端"
+  "proxyTestConsoleClear": "清空终端",
+  "tokenPopupCostHeading": "成本估算",
+  "tokenPopupCostInput": "输入",
+  "tokenPopupCostOutput": "输出",
+  "tokenPopupCostCacheRead": "Cache 命中",
+  "tokenPopupCostCacheWrite": "Cache 写入",
+  "tokenPopupCostTotal": "总计"
 }
