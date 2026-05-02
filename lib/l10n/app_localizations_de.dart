@@ -1073,111 +1073,113 @@ class AppLocalizationsDe extends AppLocalizations {
       'OpenHand hat ungültige Speicherfelder erkannt, fehlerhafte Einträge ignoriert und gültigen Inhalt neu geschrieben.';
 
   @override
-  String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
+  String get memoryPersistenceSaveFailedTitle =>
+      'Speichern der Erinnerung fehlgeschlagen';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Writing the memory file failed. The UI has been rolled back to the last valid content. Check file permissions or disk state.';
+      'Das Schreiben der Speicherdatei ist fehlgeschlagen. Die Oberfläche wurde auf den letzten gültigen Inhalt zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.';
 
   @override
   String get mcpPageTitle => 'MCP';
 
   @override
   String get mcpPageSubtitle =>
-      'Manage local MCP Server configurations with a Cursor-style layout adapted to OpenHand.';
+      'Lokale MCP-Server-Konfigurationen verwalten – im Cursor-Stil, an OpenHand angepasst.';
 
   @override
-  String get mcpRefresh => 'Refresh';
+  String get mcpRefresh => 'Aktualisieren';
 
   @override
-  String get mcpNewServer => 'New Server';
+  String get mcpNewServer => 'Neuer Server';
 
   @override
-  String get mcpEmptyTitle => 'No MCP services configured yet';
+  String get mcpEmptyTitle => 'Noch keine MCP-Dienste konfiguriert';
 
   @override
   String get mcpEmptyBody =>
-      'Add an MCP Server first. OpenHand will save it into ~/.openhand/mcp/mcp_servers.json.';
+      'Fügen Sie zuerst einen MCP-Server hinzu. OpenHand speichert ihn in ~/.openhand/mcp/mcp_servers.json.';
 
   @override
-  String get mcpLoadFailedTitle => 'Failed to load MCP config';
+  String get mcpLoadFailedTitle => 'Laden der MCP-Konfiguration fehlgeschlagen';
 
   @override
-  String get mcpOperationFailed => 'The MCP action failed. Please try again.';
+  String get mcpOperationFailed =>
+      'MCP-Aktion fehlgeschlagen. Bitte erneut versuchen.';
 
   @override
-  String get mcpDialogCreateTitle => 'Add MCP Service';
+  String get mcpDialogCreateTitle => 'MCP-Dienst hinzufügen';
 
   @override
-  String get mcpDialogEditTitle => 'Edit MCP Service';
+  String get mcpDialogEditTitle => 'MCP-Dienst bearbeiten';
 
   @override
-  String get mcpNameField => 'Service Name';
+  String get mcpNameField => 'Dienstname';
 
   @override
-  String get mcpNameRequired => 'Enter a service name.';
+  String get mcpNameRequired => 'Dienstnamen eingeben.';
 
   @override
-  String get mcpNameDuplicate => 'That service name already exists.';
+  String get mcpNameDuplicate => 'Dieser Dienstname existiert bereits.';
 
   @override
-  String get mcpTypeField => 'Service Type';
+  String get mcpTypeField => 'Diensttyp';
 
   @override
-  String get mcpUrlField => 'Service URL';
+  String get mcpUrlField => 'Dienst-URL';
 
   @override
-  String get mcpUrlRequired => 'Enter a service URL.';
+  String get mcpUrlRequired => 'Dienst-URL eingeben.';
 
   @override
-  String get mcpUrlInvalid => 'Enter a valid service URL.';
+  String get mcpUrlInvalid => 'Gültige Dienst-URL eingeben.';
 
   @override
-  String get mcpCommandField => 'Launch Command';
+  String get mcpCommandField => 'Startbefehl';
 
   @override
-  String get mcpCommandRequired => 'Enter a launch command.';
+  String get mcpCommandRequired => 'Startbefehl eingeben.';
 
   @override
-  String get mcpArgsField => 'Command Arguments';
+  String get mcpArgsField => 'Befehlsargumente';
 
   @override
-  String get mcpArgsHint => 'One argument per line';
+  String get mcpArgsHint => 'Ein Argument pro Zeile';
 
   @override
-  String get mcpServerEnabledLabel => 'Enable this service';
+  String get mcpServerEnabledLabel => 'Diesen Dienst aktivieren';
 
   @override
   String get mcpServerEnabledBody =>
-      'When disabled, the service config is kept but the server is not enabled at runtime.';
+      'Wenn deaktiviert, bleibt die Dienstkonfiguration erhalten, der Server wird zur Laufzeit jedoch nicht aktiviert.';
 
   @override
-  String get mcpServerStatusEnabled => 'Enabled';
+  String get mcpServerStatusEnabled => 'Aktiviert';
 
   @override
-  String get mcpServerStatusDisabled => 'Disabled';
+  String get mcpServerStatusDisabled => 'Deaktiviert';
 
   @override
-  String get mcpServerCreated => 'MCP service created.';
+  String get mcpServerCreated => 'MCP-Dienst erstellt.';
 
   @override
-  String get mcpServerUpdated => 'MCP service updated.';
+  String get mcpServerUpdated => 'MCP-Dienst aktualisiert.';
 
   @override
-  String get mcpServerDeleted => 'MCP service deleted.';
+  String get mcpServerDeleted => 'MCP-Dienst gelöscht.';
 
   @override
-  String get mcpDeleteConfirmTitle => 'Delete MCP Service';
+  String get mcpDeleteConfirmTitle => 'MCP-Dienst löschen';
 
   @override
-  String get mcpDeleteConfirmBody => 'Delete this MCP service configuration?';
+  String get mcpDeleteConfirmBody => 'Diese MCP-Dienstkonfiguration löschen?';
 
   @override
-  String get mcpDisabledTitle => 'MCP services are currently disabled';
+  String get mcpDisabledTitle => 'MCP-Dienste sind derzeit deaktiviert';
 
   @override
   String get mcpDisabledBody =>
-      'You can still manage service configs here. To enable them at runtime, turn the MCP switch on in Settings > MCP.';
+      'Sie können hier weiterhin Dienstkonfigurationen verwalten. Um sie zur Laufzeit zu aktivieren, schalten Sie den MCP-Schalter unter Einstellungen > MCP ein.';
 
   @override
   String get mcpTransportStreamableHttp => 'Streamable HTTP';
@@ -1189,482 +1191,492 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'MCP Config Recovered';
+  String get mcpPersistenceRecoveredTitle =>
+      'MCP-Konfiguration wiederhergestellt';
 
   @override
   String get mcpPersistenceRecoveredBody =>
-      'OpenHand detected that the MCP config file was damaged or tampered with, backed it up, and restored an empty configuration.';
+      'OpenHand hat erkannt, dass die MCP-Konfigurationsdatei beschädigt oder manipuliert wurde, ein Backup erstellt und eine leere Konfiguration wiederhergestellt.';
 
   @override
-  String get mcpPersistenceSanitizedTitle => 'MCP Config Sanitized';
+  String get mcpPersistenceSanitizedTitle => 'MCP-Konfiguration bereinigt';
 
   @override
   String get mcpPersistenceSanitizedBody =>
-      'OpenHand detected invalid MCP service fields, ignored the bad entries, and rewrote a valid configuration.';
+      'OpenHand hat ungültige MCP-Dienstfelder erkannt, fehlerhafte Einträge ignoriert und eine gültige Konfiguration neu geschrieben.';
 
   @override
-  String get mcpPersistenceSaveFailedTitle => 'MCP Config Save Failed';
+  String get mcpPersistenceSaveFailedTitle =>
+      'Speichern der MCP-Konfiguration fehlgeschlagen';
 
   @override
   String get mcpPersistenceSaveFailedBody =>
-      'Writing the MCP config file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
+      'Das Schreiben der MCP-Konfigurationsdatei ist fehlgeschlagen. Die Oberfläche wurde auf die letzte gültige Konfiguration zurückgesetzt. Dateiberechtigungen oder Festplattenzustand prüfen.';
 
   @override
   String get threadsEmptyBody =>
-      'No conversation threads yet. Create a new thread to start.';
+      'Noch keine Konversationsfäden. Erstellen Sie einen neuen Faden, um zu beginnen.';
 
   @override
-  String get threadTemplateDialogTitle => 'Choose a Thread Template';
+  String get threadTemplateDialogTitle => 'Faden-Vorlage auswählen';
 
   @override
   String get threadTemplateDialogBody =>
-      'Start a new thread by picking one of the built-in capability templates below.';
+      'Wählen Sie eine der unten stehenden integrierten Funktionsvorlagen, um einen neuen Faden zu starten.';
 
   @override
   String get threadCompressionNotice =>
-      'Older messages in this thread were compressed into a summary checkpoint to keep the active prompt focused.';
+      'Ältere Nachrichten in diesem Faden wurden in einen Zusammenfassungs-Checkpoint komprimiert, um den aktiven Prompt fokussiert zu halten.';
 
   @override
-  String get threadCompressionCheckpointLabel => 'Summary checkpoint';
+  String get threadCompressionCheckpointLabel => 'Zusammenfassungs-Checkpoint';
 
   @override
-  String get aiCompressionThresholdLabel => 'Message Compression Threshold';
+  String get aiCompressionThresholdLabel =>
+      'Schwellwert für Nachrichtenkompression';
 
   @override
   String get aiCompressionThresholdBody =>
-      'When the uncompressed historical messages in the current thread exceed this character threshold, OpenHand will summarize the older slice into a compression checkpoint and keep the most recent slice active.';
+      'Wenn die unkomprimierten Verlaufsnachrichten im aktuellen Faden diesen Zeichen-Schwellwert überschreiten, fasst OpenHand den älteren Abschnitt zu einem Kompressions-Checkpoint zusammen und hält den neuesten Abschnitt aktiv.';
 
   @override
-  String get aiCompressionThresholdSave => 'Save Threshold';
+  String get aiCompressionThresholdSave => 'Schwellwert speichern';
 
   @override
   String get aiCompressionThresholdSaved =>
-      'The AI message compression threshold has been updated.';
+      'Schwellwert für KI-Nachrichtenkompression aktualisiert.';
 
   @override
   String get aiCompressionThresholdInvalid =>
-      'Enter a valid positive integer threshold.';
+      'Gültigen positiven ganzzahligen Schwellwert eingeben.';
 
   @override
   String get aiToolResultCompressionThresholdLabel =>
-      'Tool Call Output Compression Threshold';
+      'Schwellwert für Werkzeugaufruf-Ausgabekompression';
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+      'Wenn ein Werkzeugaufruf mehr Rohzeichen zurückgibt als dieser Schwellwert, verdichtet OpenHand das Ergebnis in eine strukturierte Zusammenfassung (betroffene Pfade + Zweck + Kopf-/Endausschnitt), bevor es zum Verlauf hinzugefügt wird. Standard: 1024.';
 
   @override
-  String get aiToolResultCompressionThresholdSave => 'Save Threshold';
+  String get aiToolResultCompressionThresholdSave => 'Schwellwert speichern';
 
   @override
   String get aiToolResultCompressionThresholdSaved =>
-      'The tool call output compression threshold has been updated.';
+      'Schwellwert für Werkzeugaufruf-Ausgabekompression aktualisiert.';
 
   @override
   String get aiToolResultCompressionThresholdInvalid =>
-      'Enter a valid positive integer threshold.';
+      'Gültigen positiven ganzzahligen Schwellwert eingeben.';
 
   @override
   String get aiToolResultCompressionEnabledLabel =>
-      'Enable Tool Call Output Compression';
+      'Werkzeugaufruf-Ausgabekompression aktivieren';
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.';
+      'Hauptschalter. Wenn deaktiviert, umgeht die rohe Werkzeugausgabe unabhängig vom Schwellwert die Kompression – nützlich beim Debuggen vollständiger Werkzeugausgaben.';
 
   @override
   String get aiToolResultCompressionHeadTailWindowLabel =>
-      'Compression Head/Tail Window';
+      'Kompressions-Kopf-/Endfenster';
 
   @override
   String get aiToolResultCompressionHeadTailWindowBody =>
-      'How many head/tail characters of the raw output to retain in the condensed summary. Default 256; 0 disables head/tail snippets; range 0–8192.';
+      'Wie viele Kopf-/Endzeichen der Rohausgabe in der verdichteten Zusammenfassung erhalten bleiben. Standard 256; 0 deaktiviert Kopf-/Endausschnitte; Bereich 0–8192.';
 
   @override
-  String get aiToolResultCompressionHeadTailWindowSave => 'Save Window';
+  String get aiToolResultCompressionHeadTailWindowSave => 'Fenster speichern';
 
   @override
   String get aiToolResultCompressionHeadTailWindowSaved =>
-      'Head/tail window updated.';
+      'Kopf-/Endfenster aktualisiert.';
 
   @override
   String get aiToolResultCompressionHeadTailWindowInvalid =>
-      'Enter an integer between 0 and 8192.';
+      'Ganzzahl zwischen 0 und 8192 eingeben.';
 
   @override
   String get aiToolResultCompressionMaxPathHitsLabel =>
-      'Compression Path Extraction Cap';
+      'Kompressions-Pfad-Extraktionslimit';
 
   @override
   String get aiToolResultCompressionMaxPathHitsBody =>
-      'Maximum number of affected file paths extracted into the summary. Default 12; 0 disables extraction; range 0–200.';
+      'Maximale Anzahl betroffener Dateipfade, die in die Zusammenfassung extrahiert werden. Standard 12; 0 deaktiviert Extraktion; Bereich 0–200.';
 
   @override
-  String get aiToolResultCompressionMaxPathHitsSave => 'Save Cap';
+  String get aiToolResultCompressionMaxPathHitsSave => 'Limit speichern';
 
   @override
   String get aiToolResultCompressionMaxPathHitsSaved =>
-      'Path extraction cap updated.';
+      'Pfad-Extraktionslimit aktualisiert.';
 
   @override
   String get aiToolResultCompressionMaxPathHitsInvalid =>
-      'Enter an integer between 0 and 200.';
+      'Ganzzahl zwischen 0 und 200 eingeben.';
 
   @override
-  String get aiWriteToolSummaryMaxCharsLabel => 'Write Tool Summary Char Cap';
+  String get aiWriteToolSummaryMaxCharsLabel =>
+      'Zeichenlimit der Write-Werkzeug-Zusammenfassung';
 
   @override
   String get aiWriteToolSummaryMaxCharsBody =>
-      'Maximum characters of result_text retained in write-style tool summaries (write/edit/multiedit/notebookedit/write-like bash). Default 280; 0 omits the summary; range 0–8192.';
+      'Maximale Zeichen von result_text in Zusammenfassungen von Schreibwerkzeugen (write/edit/multiedit/notebookedit/write-ähnliche bash). Standard 280; 0 lässt die Zusammenfassung aus; Bereich 0–8192.';
 
   @override
-  String get aiWriteToolSummaryMaxCharsSave => 'Save Cap';
+  String get aiWriteToolSummaryMaxCharsSave => 'Limit speichern';
 
   @override
   String get aiWriteToolSummaryMaxCharsSaved =>
-      'Write tool summary char cap updated.';
+      'Zeichenlimit der Write-Werkzeug-Zusammenfassung aktualisiert.';
 
   @override
   String get aiWriteToolSummaryMaxCharsInvalid =>
-      'Enter an integer between 0 and 8192.';
+      'Ganzzahl zwischen 0 und 8192 eingeben.';
 
   @override
-  String get aiMaxRecentErrorsLabel => 'Session Recent Errors Retention';
+  String get aiMaxRecentErrorsLabel => 'Aufbewahrung kürzlicher Sitzungsfehler';
 
   @override
   String get aiMaxRecentErrorsBody =>
-      'Number of recent error records retained in AI session state. Default 20; range 0-1000.';
+      'Anzahl der kürzlichen Fehlerdatensätze, die im KI-Sitzungszustand gespeichert werden. Standard 20; Bereich 0–1000.';
 
   @override
-  String get aiMaxRecentErrorsSave => 'Save Limit';
+  String get aiMaxRecentErrorsSave => 'Limit speichern';
 
   @override
   String get aiMaxRecentErrorsSaved =>
-      'Session recent errors retention updated.';
+      'Aufbewahrung kürzlicher Sitzungsfehler aktualisiert.';
 
   @override
-  String get aiMaxRecentErrorsInvalid => 'Enter an integer between 0 and 1000.';
+  String get aiMaxRecentErrorsInvalid =>
+      'Ganzzahl zwischen 0 und 1000 eingeben.';
 
   @override
-  String get aiMaxPlanHistoryEntriesLabel => 'Plan History Retention';
+  String get aiMaxPlanHistoryEntriesLabel => 'Aufbewahrung des Planverlaufs';
 
   @override
   String get aiMaxPlanHistoryEntriesBody =>
-      'Max entries kept in plan_history under Plan mode. Default 20; range 0-1000.';
+      'Maximale Einträge im plan_history im Plan-Modus. Standard 20; Bereich 0–1000.';
 
   @override
-  String get aiMaxPlanHistoryEntriesSave => 'Save Limit';
+  String get aiMaxPlanHistoryEntriesSave => 'Limit speichern';
 
   @override
-  String get aiMaxPlanHistoryEntriesSaved => 'Plan history retention updated.';
+  String get aiMaxPlanHistoryEntriesSaved =>
+      'Aufbewahrung des Planverlaufs aktualisiert.';
 
   @override
   String get aiMaxPlanHistoryEntriesInvalid =>
-      'Enter an integer between 0 and 1000.';
+      'Ganzzahl zwischen 0 und 1000 eingeben.';
 
   @override
-  String get aiMaxTruncationContinuationsLabel => 'Auto-Continuation Limit';
+  String get aiMaxTruncationContinuationsLabel => 'Auto-Fortsetzungslimit';
 
   @override
   String get aiMaxTruncationContinuationsBody =>
-      'Max consecutive auto-continuations after the model output is truncated (finish_reason=length). Default 5; range 0-100.';
+      'Maximale aufeinanderfolgende automatische Fortsetzungen, nachdem die Modellausgabe abgeschnitten wurde (finish_reason=length). Standard 5; Bereich 0–100.';
 
   @override
-  String get aiMaxTruncationContinuationsSave => 'Save Limit';
+  String get aiMaxTruncationContinuationsSave => 'Limit speichern';
 
   @override
   String get aiMaxTruncationContinuationsSaved =>
-      'Auto-continuation limit updated.';
+      'Auto-Fortsetzungslimit aktualisiert.';
 
   @override
   String get aiMaxTruncationContinuationsInvalid =>
-      'Enter an integer between 0 and 100.';
+      'Ganzzahl zwischen 0 und 100 eingeben.';
 
   @override
   String get aiEstimatedCharactersPerTokenLabel =>
-      'Token Char Estimation Ratio';
+      'Geschätztes Verhältnis Zeichen pro Token';
 
   @override
   String get aiEstimatedCharactersPerTokenBody =>
-      'Approximate characters per token, used for context budget estimation. Default 4; range 1-32.';
+      'Ungefähre Zeichen pro Token, verwendet für Kontextbudget-Schätzungen. Standard 4; Bereich 1–32.';
 
   @override
-  String get aiEstimatedCharactersPerTokenSave => 'Save Ratio';
+  String get aiEstimatedCharactersPerTokenSave => 'Verhältnis speichern';
 
   @override
   String get aiEstimatedCharactersPerTokenSaved =>
-      'Token char estimation ratio updated.';
+      'Geschätztes Verhältnis Zeichen pro Token aktualisiert.';
 
   @override
   String get aiEstimatedCharactersPerTokenInvalid =>
-      'Enter an integer between 1 and 32.';
+      'Ganzzahl zwischen 1 und 32 eingeben.';
 
   @override
-  String get aiMaxToolOutputCharsLabel => 'Max Tool Output Chars';
+  String get aiMaxToolOutputCharsLabel => 'Max. Zeichen für Werkzeugausgabe';
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      'Defaults to 150000. Truncates tool results above this length so the API context never overflows.';
+      'Standard 150000. Schneidet Werkzeugergebnisse oberhalb dieser Länge ab, damit der API-Kontext niemals überläuft.';
 
   @override
-  String get aiMaxToolOutputCharsSave => 'Save Limit';
+  String get aiMaxToolOutputCharsSave => 'Limit speichern';
 
   @override
-  String get aiMaxToolOutputCharsSaved => 'Tool output character limit saved.';
+  String get aiMaxToolOutputCharsSaved =>
+      'Zeichenlimit der Werkzeugausgabe gespeichert.';
 
   @override
   String get aiMaxToolOutputCharsInvalid =>
-      'Enter an integer between 1000 and 10000000.';
+      'Ganzzahl zwischen 1000 und 10000000 eingeben.';
 
   @override
   String get aiWriteConfirmationTimeoutMsLabel =>
-      'Write Confirmation Timeout (ms)';
+      'Schreibbestätigungs-Timeout (ms)';
 
   @override
   String get aiWriteConfirmationTimeoutMsBody =>
-      'Defaults to 300000 (5 min). Maximum time spent waiting for the user to approve a write command.';
+      'Standard 300000 (5 Min). Maximale Wartezeit, bis der Nutzer einen Schreibbefehl genehmigt.';
 
   @override
-  String get aiWriteConfirmationTimeoutMsSave => 'Save Timeout';
+  String get aiWriteConfirmationTimeoutMsSave => 'Timeout speichern';
 
   @override
   String get aiWriteConfirmationTimeoutMsSaved =>
-      'Write confirmation timeout saved.';
+      'Schreibbestätigungs-Timeout gespeichert.';
 
   @override
   String get aiWriteConfirmationTimeoutMsInvalid =>
-      'Enter an integer between 1000 and 3600000.';
+      'Ganzzahl zwischen 1000 und 3600000 eingeben.';
 
   @override
   String get aiFastPathWriteAnalysisThresholdLabel =>
-      'Fast-path Write Analysis Threshold';
+      'Fast-Path-Schreibanalyse-Schwellwert';
 
   @override
   String get aiFastPathWriteAnalysisThresholdBody =>
-      'Defaults to 512 characters. Commands above this length take a coarse fast-path heuristic instead of full grammar analysis.';
+      'Standard 512 Zeichen. Befehle oberhalb dieser Länge nutzen einen groben Heuristik-Schnellpfad statt einer vollständigen Grammatikanalyse.';
 
   @override
-  String get aiFastPathWriteAnalysisThresholdSave => 'Save Threshold';
+  String get aiFastPathWriteAnalysisThresholdSave => 'Schwellwert speichern';
 
   @override
   String get aiFastPathWriteAnalysisThresholdSaved =>
-      'Fast-path threshold saved.';
+      'Fast-Path-Schwellwert gespeichert.';
 
   @override
   String get aiFastPathWriteAnalysisThresholdInvalid =>
-      'Enter an integer between 0 and 100000.';
+      'Ganzzahl zwischen 0 und 100000 eingeben.';
 
   @override
-  String get aiMaxHookTextCharactersLabel => 'Hook Text Output Limit';
+  String get aiMaxHookTextCharactersLabel => 'Limit für Hook-Textausgabe';
 
   @override
   String get aiMaxHookTextCharactersBody =>
-      'Defaults to 4000. Total character cap when Claude Hook merges stdout/stderr output.';
+      'Standard 4000. Gesamt-Zeichenlimit, wenn Claude Hook stdout-/stderr-Ausgaben zusammenführt.';
 
   @override
-  String get aiMaxHookTextCharactersSave => 'Save Limit';
+  String get aiMaxHookTextCharactersSave => 'Limit speichern';
 
   @override
-  String get aiMaxHookTextCharactersSaved => 'Hook text limit saved.';
+  String get aiMaxHookTextCharactersSaved => 'Hook-Textlimit gespeichert.';
 
   @override
   String get aiMaxHookTextCharactersInvalid =>
-      'Enter an integer between 100 and 1000000.';
+      'Ganzzahl zwischen 100 und 1000000 eingeben.';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch Max Response Bytes';
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch max. Antwort-Bytes';
 
   @override
   String get aiWebFetchMaxResponseBytesBody =>
-      'Defaults to 1048576 (1MB). Tune for your network or attachment needs.';
+      'Standard 1048576 (1MB). An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiWebFetchMaxResponseBytesSave => 'Save';
+  String get aiWebFetchMaxResponseBytesSave => 'Speichern';
 
   @override
   String get aiWebFetchMaxResponseBytesSaved =>
-      'WebFetch Max Response Bytes saved.';
+      'WebFetch max. Antwort-Bytes gespeichert.';
 
   @override
-  String get aiWebFetchMaxResponseBytesInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxResponseBytesInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch Max Redirects';
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch max. Weiterleitungen';
 
   @override
   String get aiWebFetchMaxRedirectsBody =>
-      'Defaults to 5. Tune for your network or attachment needs.';
+      'Standard 5. An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiWebFetchMaxRedirectsSave => 'Save';
+  String get aiWebFetchMaxRedirectsSave => 'Speichern';
 
   @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch Max Redirects saved.';
+  String get aiWebFetchMaxRedirectsSaved =>
+      'WebFetch max. Weiterleitungen gespeichert.';
 
   @override
-  String get aiWebFetchMaxRedirectsInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxRedirectsInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch Max Cache Entries';
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch max. Cache-Einträge';
 
   @override
   String get aiWebFetchMaxCacheEntriesBody =>
-      'Defaults to 64. Tune for your network or attachment needs.';
+      'Standard 64. An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiWebFetchMaxCacheEntriesSave => 'Save';
+  String get aiWebFetchMaxCacheEntriesSave => 'Speichern';
 
   @override
   String get aiWebFetchMaxCacheEntriesSaved =>
-      'WebFetch Max Cache Entries saved.';
+      'WebFetch max. Cache-Einträge gespeichert.';
 
   @override
-  String get aiWebFetchMaxCacheEntriesInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxCacheEntriesInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionLabel =>
-      'Attachment Max Inline Image Dimension';
+      'Anhang max. Inline-Bildmaße';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionBody =>
-      'Defaults to 1568. Tune for your network or attachment needs.';
+      'Standard 1568. An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiAttachmentMaxInlineImageDimensionSave => 'Save';
+  String get aiAttachmentMaxInlineImageDimensionSave => 'Speichern';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionSaved =>
-      'Attachment Max Inline Image Dimension saved.';
+      'Anhang max. Inline-Bildmaße gespeichert.';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionInvalid =>
-      'Enter a valid integer.';
+      'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiAttachmentMaxTextRawBytesLabel =>
-      'Attachment Max Text Raw Bytes';
+  String get aiAttachmentMaxTextRawBytesLabel => 'Anhang max. Textroh-Bytes';
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
+      'Standard 1597152 (~1,5 MB). An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiAttachmentMaxTextRawBytesSave => 'Save';
+  String get aiAttachmentMaxTextRawBytesSave => 'Speichern';
 
   @override
   String get aiAttachmentMaxTextRawBytesSaved =>
-      'Attachment Max Text Raw Bytes saved.';
+      'Anhang max. Textroh-Bytes gespeichert.';
 
   @override
-  String get aiAttachmentMaxTextRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxTextRawBytesInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesLabel => 'Attachment Max PDF Raw Bytes';
+  String get aiAttachmentMaxPdfRawBytesLabel => 'Anhang max. PDF-Roh-Bytes';
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
+      'Standard 1597152 (~1,5 MB). An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesSave => 'Save';
+  String get aiAttachmentMaxPdfRawBytesSave => 'Speichern';
 
   @override
   String get aiAttachmentMaxPdfRawBytesSaved =>
-      'Attachment Max PDF Raw Bytes saved.';
+      'Anhang max. PDF-Roh-Bytes gespeichert.';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxPdfRawBytesInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiAttachmentMaxImageRawBytesLabel =>
-      'Attachment Max Image Raw Bytes';
+  String get aiAttachmentMaxImageRawBytesLabel => 'Anhang max. Bild-Roh-Bytes';
 
   @override
   String get aiAttachmentMaxImageRawBytesBody =>
-      'Defaults to 52428800 (50MB). Tune for your network or attachment needs.';
+      'Standard 52428800 (50 MB). An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiAttachmentMaxImageRawBytesSave => 'Save';
+  String get aiAttachmentMaxImageRawBytesSave => 'Speichern';
 
   @override
   String get aiAttachmentMaxImageRawBytesSaved =>
-      'Attachment Max Image Raw Bytes saved.';
+      'Anhang max. Bild-Roh-Bytes gespeichert.';
 
   @override
-  String get aiAttachmentMaxImageRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxImageRawBytesInvalid =>
+      'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiChatMaxStreamLineBufferBytesLabel =>
-      'Chat Max Stream Line Buffer Bytes';
+      'Chat max. Stream-Zeilenpuffer-Bytes';
 
   @override
   String get aiChatMaxStreamLineBufferBytesBody =>
-      'Defaults to 4194304 (4MB). Tune for your network or attachment needs.';
+      'Standard 4194304 (4 MB). An Netzwerk- oder Anhangsbedarf anpassen.';
 
   @override
-  String get aiChatMaxStreamLineBufferBytesSave => 'Save';
+  String get aiChatMaxStreamLineBufferBytesSave => 'Speichern';
 
   @override
   String get aiChatMaxStreamLineBufferBytesSaved =>
-      'Chat Max Stream Line Buffer Bytes saved.';
+      'Chat max. Stream-Zeilenpuffer-Bytes gespeichert.';
 
   @override
-  String get aiChatMaxStreamLineBufferBytesInvalid => 'Enter a valid integer.';
+  String get aiChatMaxStreamLineBufferBytesInvalid =>
+      'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiFallbackTitleMaxCharactersLabel =>
-      'Fallback Title Max Characters';
+      'Max. Zeichen für Fallback-Titel';
 
   @override
   String get aiFallbackTitleMaxCharactersBody =>
-      'Defaults to 15. Tune session title derivation.';
+      'Standard 15. Ableitung des Sitzungstitels anpassen.';
 
   @override
-  String get aiFallbackTitleMaxCharactersSave => 'Save';
+  String get aiFallbackTitleMaxCharactersSave => 'Speichern';
 
   @override
   String get aiFallbackTitleMaxCharactersSaved =>
-      'Fallback Title Max Characters saved.';
+      'Max. Zeichen für Fallback-Titel gespeichert.';
 
   @override
-  String get aiFallbackTitleMaxCharactersInvalid => 'Enter a valid integer.';
+  String get aiFallbackTitleMaxCharactersInvalid =>
+      'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiGeneratedTitleMaxCharactersLabel =>
-      'Generated Title Max Characters';
+      'Max. Zeichen für generierten Titel';
 
   @override
   String get aiGeneratedTitleMaxCharactersBody =>
-      'Defaults to 15. Tune session title derivation.';
+      'Standard 15. Ableitung des Sitzungstitels anpassen.';
 
   @override
-  String get aiGeneratedTitleMaxCharactersSave => 'Save';
+  String get aiGeneratedTitleMaxCharactersSave => 'Speichern';
 
   @override
   String get aiGeneratedTitleMaxCharactersSaved =>
-      'Generated Title Max Characters saved.';
+      'Max. Zeichen für generierten Titel gespeichert.';
 
   @override
-  String get aiGeneratedTitleMaxCharactersInvalid => 'Enter a valid integer.';
+  String get aiGeneratedTitleMaxCharactersInvalid =>
+      'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersLabel =>
-      'Minimum Meaningful Title Characters';
+      'Mindestzeichen für sinnvollen Titel';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersBody =>
-      'Defaults to 4. Tune session title derivation.';
+      'Standard 4. Ableitung des Sitzungstitels anpassen.';
 
   @override
-  String get aiMinimumMeaningfulTitleCharactersSave => 'Save';
+  String get aiMinimumMeaningfulTitleCharactersSave => 'Speichern';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersSaved =>
-      'Minimum Meaningful Title Characters saved.';
+      'Mindestzeichen für sinnvollen Titel gespeichert.';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersInvalid =>
-      'Enter a valid integer.';
+      'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsLabel =>

@@ -1031,111 +1031,110 @@ class AppLocalizationsJa extends AppLocalizations {
       '無効なメモリ項目を検出したため、不正なエントリを無視し、有効な内容を書き直しました。';
 
   @override
-  String get memoryPersistenceSaveFailedTitle => 'Memory Save Failed';
+  String get memoryPersistenceSaveFailedTitle => 'メモリの保存に失敗';
 
   @override
   String get memoryPersistenceSaveFailedBody =>
-      'Writing the memory file failed. The UI has been rolled back to the last valid content. Check file permissions or disk state.';
+      'メモリファイルの書き込みに失敗しました。UI は最後の有効な内容にロールバックされています。ファイルの権限やディスクの状態を確認してください。';
 
   @override
   String get mcpPageTitle => 'MCP';
 
   @override
   String get mcpPageSubtitle =>
-      'Manage local MCP Server configurations with a Cursor-style layout adapted to OpenHand.';
+      'Cursor 風レイアウトを OpenHand 向けに調整したローカル MCP サーバー設定の管理画面です。';
 
   @override
-  String get mcpRefresh => 'Refresh';
+  String get mcpRefresh => '更新';
 
   @override
-  String get mcpNewServer => 'New Server';
+  String get mcpNewServer => '新規サーバー';
 
   @override
-  String get mcpEmptyTitle => 'No MCP services configured yet';
+  String get mcpEmptyTitle => 'まだ MCP サービスが構成されていません';
 
   @override
   String get mcpEmptyBody =>
-      'Add an MCP Server first. OpenHand will save it into ~/.openhand/mcp/mcp_servers.json.';
+      'まず MCP サーバーを追加してください。OpenHand は ~/.openhand/mcp/mcp_servers.json に保存します。';
 
   @override
-  String get mcpLoadFailedTitle => 'Failed to load MCP config';
+  String get mcpLoadFailedTitle => 'MCP 設定の読み込みに失敗';
 
   @override
-  String get mcpOperationFailed => 'The MCP action failed. Please try again.';
+  String get mcpOperationFailed => 'MCP 操作に失敗しました。もう一度お試しください。';
 
   @override
-  String get mcpDialogCreateTitle => 'Add MCP Service';
+  String get mcpDialogCreateTitle => 'MCP サービスを追加';
 
   @override
-  String get mcpDialogEditTitle => 'Edit MCP Service';
+  String get mcpDialogEditTitle => 'MCP サービスを編集';
 
   @override
-  String get mcpNameField => 'Service Name';
+  String get mcpNameField => 'サービス名';
 
   @override
-  String get mcpNameRequired => 'Enter a service name.';
+  String get mcpNameRequired => 'サービス名を入力してください。';
 
   @override
-  String get mcpNameDuplicate => 'That service name already exists.';
+  String get mcpNameDuplicate => 'そのサービス名は既に存在します。';
 
   @override
-  String get mcpTypeField => 'Service Type';
+  String get mcpTypeField => 'サービスタイプ';
 
   @override
-  String get mcpUrlField => 'Service URL';
+  String get mcpUrlField => 'サービス URL';
 
   @override
-  String get mcpUrlRequired => 'Enter a service URL.';
+  String get mcpUrlRequired => 'サービス URL を入力してください。';
 
   @override
-  String get mcpUrlInvalid => 'Enter a valid service URL.';
+  String get mcpUrlInvalid => '有効なサービス URL を入力してください。';
 
   @override
-  String get mcpCommandField => 'Launch Command';
+  String get mcpCommandField => '起動コマンド';
 
   @override
-  String get mcpCommandRequired => 'Enter a launch command.';
+  String get mcpCommandRequired => '起動コマンドを入力してください。';
 
   @override
-  String get mcpArgsField => 'Command Arguments';
+  String get mcpArgsField => 'コマンド引数';
 
   @override
-  String get mcpArgsHint => 'One argument per line';
+  String get mcpArgsHint => '1 行に 1 つの引数を入力します';
 
   @override
-  String get mcpServerEnabledLabel => 'Enable this service';
+  String get mcpServerEnabledLabel => 'このサービスを有効化';
 
   @override
-  String get mcpServerEnabledBody =>
-      'When disabled, the service config is kept but the server is not enabled at runtime.';
+  String get mcpServerEnabledBody => '無効にするとサービス設定は保持されますが、実行時にはサーバーは有効化されません。';
 
   @override
-  String get mcpServerStatusEnabled => 'Enabled';
+  String get mcpServerStatusEnabled => '有効';
 
   @override
-  String get mcpServerStatusDisabled => 'Disabled';
+  String get mcpServerStatusDisabled => '無効';
 
   @override
-  String get mcpServerCreated => 'MCP service created.';
+  String get mcpServerCreated => 'MCP サービスを作成しました。';
 
   @override
-  String get mcpServerUpdated => 'MCP service updated.';
+  String get mcpServerUpdated => 'MCP サービスを更新しました。';
 
   @override
-  String get mcpServerDeleted => 'MCP service deleted.';
+  String get mcpServerDeleted => 'MCP サービスを削除しました。';
 
   @override
-  String get mcpDeleteConfirmTitle => 'Delete MCP Service';
+  String get mcpDeleteConfirmTitle => 'MCP サービスを削除';
 
   @override
-  String get mcpDeleteConfirmBody => 'Delete this MCP service configuration?';
+  String get mcpDeleteConfirmBody => 'この MCP サービス設定を削除しますか？';
 
   @override
-  String get mcpDisabledTitle => 'MCP services are currently disabled';
+  String get mcpDisabledTitle => 'MCP サービスは現在無効です';
 
   @override
   String get mcpDisabledBody =>
-      'You can still manage service configs here. To enable them at runtime, turn the MCP switch on in Settings > MCP.';
+      'ここでサービス設定の管理は引き続き可能です。実行時に有効化するには、設定 > MCP のスイッチをオンにしてください。';
 
   @override
   String get mcpTransportStreamableHttp => 'Streamable HTTP';
@@ -1147,482 +1146,437 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mcpTransportStdio => 'STDIO';
 
   @override
-  String get mcpPersistenceRecoveredTitle => 'MCP Config Recovered';
+  String get mcpPersistenceRecoveredTitle => 'MCP 設定を復旧しました';
 
   @override
   String get mcpPersistenceRecoveredBody =>
-      'OpenHand detected that the MCP config file was damaged or tampered with, backed it up, and restored an empty configuration.';
+      'MCP 設定ファイルの破損または改ざんを検出したため、バックアップを作成し、空の構成に復元しました。';
 
   @override
-  String get mcpPersistenceSanitizedTitle => 'MCP Config Sanitized';
+  String get mcpPersistenceSanitizedTitle => 'MCP 設定をサニタイズしました';
 
   @override
   String get mcpPersistenceSanitizedBody =>
-      'OpenHand detected invalid MCP service fields, ignored the bad entries, and rewrote a valid configuration.';
+      '無効な MCP サービス項目を検出したため、不正なエントリを無視し、有効な構成を書き直しました。';
 
   @override
-  String get mcpPersistenceSaveFailedTitle => 'MCP Config Save Failed';
+  String get mcpPersistenceSaveFailedTitle => 'MCP 設定の保存に失敗';
 
   @override
   String get mcpPersistenceSaveFailedBody =>
-      'Writing the MCP config file failed. The UI has been rolled back to the last valid configuration. Check file permissions or disk state.';
+      'MCP 設定ファイルの書き込みに失敗しました。UI は最後の有効な構成にロールバックされています。ファイルの権限やディスクの状態を確認してください。';
 
   @override
-  String get threadsEmptyBody =>
-      'No conversation threads yet. Create a new thread to start.';
+  String get threadsEmptyBody => 'まだスレッドがありません。新規スレッドを作成して開始してください。';
 
   @override
-  String get threadTemplateDialogTitle => 'Choose a Thread Template';
+  String get threadTemplateDialogTitle => 'スレッドテンプレートを選択';
 
   @override
   String get threadTemplateDialogBody =>
-      'Start a new thread by picking one of the built-in capability templates below.';
+      '以下の組み込み機能テンプレートからひとつ選んで新しいスレッドを開始します。';
 
   @override
   String get threadCompressionNotice =>
-      'Older messages in this thread were compressed into a summary checkpoint to keep the active prompt focused.';
+      'このスレッドの古いメッセージは要約チェックポイントに圧縮され、アクティブなプロンプトを集中した状態に保ちます。';
 
   @override
-  String get threadCompressionCheckpointLabel => 'Summary checkpoint';
+  String get threadCompressionCheckpointLabel => '要約チェックポイント';
 
   @override
-  String get aiCompressionThresholdLabel => 'Message Compression Threshold';
+  String get aiCompressionThresholdLabel => 'メッセージ圧縮の閾値';
 
   @override
   String get aiCompressionThresholdBody =>
-      'When the uncompressed historical messages in the current thread exceed this character threshold, OpenHand will summarize the older slice into a compression checkpoint and keep the most recent slice active.';
+      '現在のスレッドの未圧縮履歴メッセージがこの文字数閾値を超えると、OpenHand は古い区間を要約して圧縮チェックポイントを作成し、最新の区間をアクティブのまま保持します。';
 
   @override
-  String get aiCompressionThresholdSave => 'Save Threshold';
+  String get aiCompressionThresholdSave => '閾値を保存';
 
   @override
-  String get aiCompressionThresholdSaved =>
-      'The AI message compression threshold has been updated.';
+  String get aiCompressionThresholdSaved => 'AI メッセージ圧縮の閾値を更新しました。';
 
   @override
-  String get aiCompressionThresholdInvalid =>
-      'Enter a valid positive integer threshold.';
+  String get aiCompressionThresholdInvalid => '有効な正の整数の閾値を入力してください。';
 
   @override
-  String get aiToolResultCompressionThresholdLabel =>
-      'Tool Call Output Compression Threshold';
+  String get aiToolResultCompressionThresholdLabel => 'ツール呼び出し出力の圧縮閾値';
 
   @override
   String get aiToolResultCompressionThresholdBody =>
-      'When a tool call returns more raw characters than this threshold, OpenHand condenses it into a structured summary (affected paths + purpose + head/tail snippet) before adding it to the conversation history. Defaults to 1024.';
+      'ツール呼び出しの戻り文字数がこの閾値を超えると、OpenHand は構造化サマリ（影響パス＋目的＋先頭/末尾スニペット）に圧縮してから会話履歴に追加します。既定値は 1024 です。';
 
   @override
-  String get aiToolResultCompressionThresholdSave => 'Save Threshold';
+  String get aiToolResultCompressionThresholdSave => '閾値を保存';
 
   @override
-  String get aiToolResultCompressionThresholdSaved =>
-      'The tool call output compression threshold has been updated.';
+  String get aiToolResultCompressionThresholdSaved => 'ツール呼び出し出力の圧縮閾値を更新しました。';
 
   @override
-  String get aiToolResultCompressionThresholdInvalid =>
-      'Enter a valid positive integer threshold.';
+  String get aiToolResultCompressionThresholdInvalid => '有効な正の整数の閾値を入力してください。';
 
   @override
-  String get aiToolResultCompressionEnabledLabel =>
-      'Enable Tool Call Output Compression';
+  String get aiToolResultCompressionEnabledLabel => 'ツール呼び出し出力の圧縮を有効化';
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Master switch. When disabled, raw tool output bypasses compression regardless of the threshold — useful when debugging full tool output.';
+      'マスタースイッチ。無効にすると、閾値に関わらず生のツール出力は圧縮されません。完全なツール出力をデバッグするときに便利です。';
 
   @override
-  String get aiToolResultCompressionHeadTailWindowLabel =>
-      'Compression Head/Tail Window';
+  String get aiToolResultCompressionHeadTailWindowLabel => '圧縮の先頭/末尾ウィンドウ';
 
   @override
   String get aiToolResultCompressionHeadTailWindowBody =>
-      'How many head/tail characters of the raw output to retain in the condensed summary. Default 256; 0 disables head/tail snippets; range 0–8192.';
+      '圧縮サマリに保持する生出力の先頭/末尾文字数。既定値 256、0 で先頭/末尾スニペットを無効化、範囲は 0–8192。';
 
   @override
-  String get aiToolResultCompressionHeadTailWindowSave => 'Save Window';
+  String get aiToolResultCompressionHeadTailWindowSave => 'ウィンドウを保存';
 
   @override
-  String get aiToolResultCompressionHeadTailWindowSaved =>
-      'Head/tail window updated.';
+  String get aiToolResultCompressionHeadTailWindowSaved => '先頭/末尾ウィンドウを更新しました。';
 
   @override
   String get aiToolResultCompressionHeadTailWindowInvalid =>
-      'Enter an integer between 0 and 8192.';
+      '0 から 8192 までの整数を入力してください。';
 
   @override
-  String get aiToolResultCompressionMaxPathHitsLabel =>
-      'Compression Path Extraction Cap';
+  String get aiToolResultCompressionMaxPathHitsLabel => '圧縮のパス抽出上限';
 
   @override
   String get aiToolResultCompressionMaxPathHitsBody =>
-      'Maximum number of affected file paths extracted into the summary. Default 12; 0 disables extraction; range 0–200.';
+      'サマリに抽出する影響ファイルパスの最大数。既定値 12、0 で抽出を無効化、範囲は 0–200。';
 
   @override
-  String get aiToolResultCompressionMaxPathHitsSave => 'Save Cap';
+  String get aiToolResultCompressionMaxPathHitsSave => '上限を保存';
 
   @override
-  String get aiToolResultCompressionMaxPathHitsSaved =>
-      'Path extraction cap updated.';
+  String get aiToolResultCompressionMaxPathHitsSaved => 'パス抽出上限を更新しました。';
 
   @override
   String get aiToolResultCompressionMaxPathHitsInvalid =>
-      'Enter an integer between 0 and 200.';
+      '0 から 200 までの整数を入力してください。';
 
   @override
-  String get aiWriteToolSummaryMaxCharsLabel => 'Write Tool Summary Char Cap';
+  String get aiWriteToolSummaryMaxCharsLabel => 'Write 系ツールのサマリ文字数上限';
 
   @override
   String get aiWriteToolSummaryMaxCharsBody =>
-      'Maximum characters of result_text retained in write-style tool summaries (write/edit/multiedit/notebookedit/write-like bash). Default 280; 0 omits the summary; range 0–8192.';
+      'write/edit/multiedit/notebookedit などの書き込み系ツールサマリで保持する result_text の最大文字数。既定値 280、0 でサマリを省略、範囲は 0–8192。';
 
   @override
-  String get aiWriteToolSummaryMaxCharsSave => 'Save Cap';
+  String get aiWriteToolSummaryMaxCharsSave => '上限を保存';
 
   @override
-  String get aiWriteToolSummaryMaxCharsSaved =>
-      'Write tool summary char cap updated.';
+  String get aiWriteToolSummaryMaxCharsSaved => 'Write 系ツールのサマリ文字数上限を更新しました。';
 
   @override
-  String get aiWriteToolSummaryMaxCharsInvalid =>
-      'Enter an integer between 0 and 8192.';
+  String get aiWriteToolSummaryMaxCharsInvalid => '0 から 8192 までの整数を入力してください。';
 
   @override
-  String get aiMaxRecentErrorsLabel => 'Session Recent Errors Retention';
+  String get aiMaxRecentErrorsLabel => 'セッションの最近エラー保持数';
 
   @override
   String get aiMaxRecentErrorsBody =>
-      'Number of recent error records retained in AI session state. Default 20; range 0-1000.';
+      'AI セッション状態に保持する最近のエラー記録数。既定値 20、範囲は 0-1000。';
 
   @override
-  String get aiMaxRecentErrorsSave => 'Save Limit';
+  String get aiMaxRecentErrorsSave => '上限を保存';
 
   @override
-  String get aiMaxRecentErrorsSaved =>
-      'Session recent errors retention updated.';
+  String get aiMaxRecentErrorsSaved => 'セッションの最近エラー保持数を更新しました。';
 
   @override
-  String get aiMaxRecentErrorsInvalid => 'Enter an integer between 0 and 1000.';
+  String get aiMaxRecentErrorsInvalid => '0 から 1000 までの整数を入力してください。';
 
   @override
-  String get aiMaxPlanHistoryEntriesLabel => 'Plan History Retention';
+  String get aiMaxPlanHistoryEntriesLabel => 'プラン履歴の保持件数';
 
   @override
   String get aiMaxPlanHistoryEntriesBody =>
-      'Max entries kept in plan_history under Plan mode. Default 20; range 0-1000.';
+      'プランモードで plan_history に保持する最大エントリ数。既定値 20、範囲は 0-1000。';
 
   @override
-  String get aiMaxPlanHistoryEntriesSave => 'Save Limit';
+  String get aiMaxPlanHistoryEntriesSave => '上限を保存';
 
   @override
-  String get aiMaxPlanHistoryEntriesSaved => 'Plan history retention updated.';
+  String get aiMaxPlanHistoryEntriesSaved => 'プラン履歴の保持件数を更新しました。';
 
   @override
-  String get aiMaxPlanHistoryEntriesInvalid =>
-      'Enter an integer between 0 and 1000.';
+  String get aiMaxPlanHistoryEntriesInvalid => '0 から 1000 までの整数を入力してください。';
 
   @override
-  String get aiMaxTruncationContinuationsLabel => 'Auto-Continuation Limit';
+  String get aiMaxTruncationContinuationsLabel => '自動継続上限';
 
   @override
   String get aiMaxTruncationContinuationsBody =>
-      'Max consecutive auto-continuations after the model output is truncated (finish_reason=length). Default 5; range 0-100.';
+      'モデル出力が打ち切られた (finish_reason=length) 後の連続自動継続の最大回数。既定値 5、範囲は 0-100。';
 
   @override
-  String get aiMaxTruncationContinuationsSave => 'Save Limit';
+  String get aiMaxTruncationContinuationsSave => '上限を保存';
 
   @override
-  String get aiMaxTruncationContinuationsSaved =>
-      'Auto-continuation limit updated.';
+  String get aiMaxTruncationContinuationsSaved => '自動継続上限を更新しました。';
 
   @override
-  String get aiMaxTruncationContinuationsInvalid =>
-      'Enter an integer between 0 and 100.';
+  String get aiMaxTruncationContinuationsInvalid => '0 から 100 までの整数を入力してください。';
 
   @override
-  String get aiEstimatedCharactersPerTokenLabel =>
-      'Token Char Estimation Ratio';
+  String get aiEstimatedCharactersPerTokenLabel => 'トークン文字数推定比';
 
   @override
   String get aiEstimatedCharactersPerTokenBody =>
-      'Approximate characters per token, used for context budget estimation. Default 4; range 1-32.';
+      '1 トークンあたりのおおよその文字数。コンテキスト予算の見積もりに使用します。既定値 4、範囲は 1-32。';
 
   @override
-  String get aiEstimatedCharactersPerTokenSave => 'Save Ratio';
+  String get aiEstimatedCharactersPerTokenSave => '比率を保存';
 
   @override
-  String get aiEstimatedCharactersPerTokenSaved =>
-      'Token char estimation ratio updated.';
+  String get aiEstimatedCharactersPerTokenSaved => 'トークン文字数推定比を更新しました。';
 
   @override
-  String get aiEstimatedCharactersPerTokenInvalid =>
-      'Enter an integer between 1 and 32.';
+  String get aiEstimatedCharactersPerTokenInvalid => '1 から 32 までの整数を入力してください。';
 
   @override
-  String get aiMaxToolOutputCharsLabel => 'Max Tool Output Chars';
+  String get aiMaxToolOutputCharsLabel => 'ツール出力の最大文字数';
 
   @override
   String get aiMaxToolOutputCharsBody =>
-      'Defaults to 150000. Truncates tool results above this length so the API context never overflows.';
+      '既定値 150000。この長さを超えるツール結果を切り詰めて、API コンテキストがオーバーフローしないようにします。';
 
   @override
-  String get aiMaxToolOutputCharsSave => 'Save Limit';
+  String get aiMaxToolOutputCharsSave => '上限を保存';
 
   @override
-  String get aiMaxToolOutputCharsSaved => 'Tool output character limit saved.';
+  String get aiMaxToolOutputCharsSaved => 'ツール出力の文字数上限を保存しました。';
 
   @override
-  String get aiMaxToolOutputCharsInvalid =>
-      'Enter an integer between 1000 and 10000000.';
+  String get aiMaxToolOutputCharsInvalid => '1000 から 10000000 までの整数を入力してください。';
 
   @override
-  String get aiWriteConfirmationTimeoutMsLabel =>
-      'Write Confirmation Timeout (ms)';
+  String get aiWriteConfirmationTimeoutMsLabel => '書き込み承認タイムアウト (ms)';
 
   @override
   String get aiWriteConfirmationTimeoutMsBody =>
-      'Defaults to 300000 (5 min). Maximum time spent waiting for the user to approve a write command.';
+      '既定値 300000 (5 分)。書き込みコマンドの承認をユーザーに求める最大待機時間。';
 
   @override
-  String get aiWriteConfirmationTimeoutMsSave => 'Save Timeout';
+  String get aiWriteConfirmationTimeoutMsSave => 'タイムアウトを保存';
 
   @override
-  String get aiWriteConfirmationTimeoutMsSaved =>
-      'Write confirmation timeout saved.';
+  String get aiWriteConfirmationTimeoutMsSaved => '書き込み承認タイムアウトを保存しました。';
 
   @override
   String get aiWriteConfirmationTimeoutMsInvalid =>
-      'Enter an integer between 1000 and 3600000.';
+      '1000 から 3600000 までの整数を入力してください。';
 
   @override
-  String get aiFastPathWriteAnalysisThresholdLabel =>
-      'Fast-path Write Analysis Threshold';
+  String get aiFastPathWriteAnalysisThresholdLabel => '高速パス書き込み解析閾値';
 
   @override
   String get aiFastPathWriteAnalysisThresholdBody =>
-      'Defaults to 512 characters. Commands above this length take a coarse fast-path heuristic instead of full grammar analysis.';
+      '既定値 512 文字。この長さを超えるコマンドは、完全な文法解析の代わりに粗いヒューリスティックの高速パスを取ります。';
 
   @override
-  String get aiFastPathWriteAnalysisThresholdSave => 'Save Threshold';
+  String get aiFastPathWriteAnalysisThresholdSave => '閾値を保存';
 
   @override
-  String get aiFastPathWriteAnalysisThresholdSaved =>
-      'Fast-path threshold saved.';
+  String get aiFastPathWriteAnalysisThresholdSaved => '高速パス閾値を保存しました。';
 
   @override
   String get aiFastPathWriteAnalysisThresholdInvalid =>
-      'Enter an integer between 0 and 100000.';
+      '0 から 100000 までの整数を入力してください。';
 
   @override
-  String get aiMaxHookTextCharactersLabel => 'Hook Text Output Limit';
+  String get aiMaxHookTextCharactersLabel => 'Hook テキスト出力の上限';
 
   @override
   String get aiMaxHookTextCharactersBody =>
-      'Defaults to 4000. Total character cap when Claude Hook merges stdout/stderr output.';
+      '既定値 4000。Claude Hook が stdout/stderr 出力をマージする際の合計文字数上限。';
 
   @override
-  String get aiMaxHookTextCharactersSave => 'Save Limit';
+  String get aiMaxHookTextCharactersSave => '上限を保存';
 
   @override
-  String get aiMaxHookTextCharactersSaved => 'Hook text limit saved.';
+  String get aiMaxHookTextCharactersSaved => 'Hook テキスト上限を保存しました。';
 
   @override
-  String get aiMaxHookTextCharactersInvalid =>
-      'Enter an integer between 100 and 1000000.';
+  String get aiMaxHookTextCharactersInvalid => '100 から 1000000 までの整数を入力してください。';
 
   @override
-  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch Max Response Bytes';
+  String get aiWebFetchMaxResponseBytesLabel => 'WebFetch 最大レスポンスバイト数';
 
   @override
   String get aiWebFetchMaxResponseBytesBody =>
-      'Defaults to 1048576 (1MB). Tune for your network or attachment needs.';
+      '既定値 1048576 (1MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiWebFetchMaxResponseBytesSave => 'Save';
+  String get aiWebFetchMaxResponseBytesSave => '保存';
 
   @override
-  String get aiWebFetchMaxResponseBytesSaved =>
-      'WebFetch Max Response Bytes saved.';
+  String get aiWebFetchMaxResponseBytesSaved => 'WebFetch 最大レスポンスバイト数を保存しました。';
 
   @override
-  String get aiWebFetchMaxResponseBytesInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxResponseBytesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiWebFetchMaxRedirectsLabel => 'WebFetch Max Redirects';
+  String get aiWebFetchMaxRedirectsLabel => 'WebFetch 最大リダイレクト数';
 
   @override
-  String get aiWebFetchMaxRedirectsBody =>
-      'Defaults to 5. Tune for your network or attachment needs.';
+  String get aiWebFetchMaxRedirectsBody => '既定値 5。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiWebFetchMaxRedirectsSave => 'Save';
+  String get aiWebFetchMaxRedirectsSave => '保存';
 
   @override
-  String get aiWebFetchMaxRedirectsSaved => 'WebFetch Max Redirects saved.';
+  String get aiWebFetchMaxRedirectsSaved => 'WebFetch 最大リダイレクト数を保存しました。';
 
   @override
-  String get aiWebFetchMaxRedirectsInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxRedirectsInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch Max Cache Entries';
+  String get aiWebFetchMaxCacheEntriesLabel => 'WebFetch 最大キャッシュエントリ数';
 
   @override
   String get aiWebFetchMaxCacheEntriesBody =>
-      'Defaults to 64. Tune for your network or attachment needs.';
+      '既定値 64。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiWebFetchMaxCacheEntriesSave => 'Save';
+  String get aiWebFetchMaxCacheEntriesSave => '保存';
 
   @override
-  String get aiWebFetchMaxCacheEntriesSaved =>
-      'WebFetch Max Cache Entries saved.';
+  String get aiWebFetchMaxCacheEntriesSaved => 'WebFetch 最大キャッシュエントリ数を保存しました。';
 
   @override
-  String get aiWebFetchMaxCacheEntriesInvalid => 'Enter a valid integer.';
+  String get aiWebFetchMaxCacheEntriesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiAttachmentMaxInlineImageDimensionLabel =>
-      'Attachment Max Inline Image Dimension';
+  String get aiAttachmentMaxInlineImageDimensionLabel => '添付ファイル インライン画像の最大寸法';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionBody =>
-      'Defaults to 1568. Tune for your network or attachment needs.';
+      '既定値 1568。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiAttachmentMaxInlineImageDimensionSave => 'Save';
+  String get aiAttachmentMaxInlineImageDimensionSave => '保存';
 
   @override
   String get aiAttachmentMaxInlineImageDimensionSaved =>
-      'Attachment Max Inline Image Dimension saved.';
+      '添付ファイル インライン画像の最大寸法を保存しました。';
 
   @override
-  String get aiAttachmentMaxInlineImageDimensionInvalid =>
-      'Enter a valid integer.';
+  String get aiAttachmentMaxInlineImageDimensionInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiAttachmentMaxTextRawBytesLabel =>
-      'Attachment Max Text Raw Bytes';
+  String get aiAttachmentMaxTextRawBytesLabel => '添付ファイル テキストの生バイト数上限';
 
   @override
   String get aiAttachmentMaxTextRawBytesBody =>
-      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
+      '既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiAttachmentMaxTextRawBytesSave => 'Save';
+  String get aiAttachmentMaxTextRawBytesSave => '保存';
 
   @override
-  String get aiAttachmentMaxTextRawBytesSaved =>
-      'Attachment Max Text Raw Bytes saved.';
+  String get aiAttachmentMaxTextRawBytesSaved => '添付ファイル テキストの生バイト数上限を保存しました。';
 
   @override
-  String get aiAttachmentMaxTextRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxTextRawBytesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesLabel => 'Attachment Max PDF Raw Bytes';
+  String get aiAttachmentMaxPdfRawBytesLabel => '添付ファイル PDF の生バイト数上限';
 
   @override
   String get aiAttachmentMaxPdfRawBytesBody =>
-      'Defaults to 1597152 (2MB). Tune for your network or attachment needs.';
+      '既定値 1597152 (約 1.5MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesSave => 'Save';
+  String get aiAttachmentMaxPdfRawBytesSave => '保存';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesSaved =>
-      'Attachment Max PDF Raw Bytes saved.';
+  String get aiAttachmentMaxPdfRawBytesSaved => '添付ファイル PDF の生バイト数上限を保存しました。';
 
   @override
-  String get aiAttachmentMaxPdfRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxPdfRawBytesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiAttachmentMaxImageRawBytesLabel =>
-      'Attachment Max Image Raw Bytes';
+  String get aiAttachmentMaxImageRawBytesLabel => '添付ファイル 画像の生バイト数上限';
 
   @override
   String get aiAttachmentMaxImageRawBytesBody =>
-      'Defaults to 52428800 (50MB). Tune for your network or attachment needs.';
+      '既定値 52428800 (50MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiAttachmentMaxImageRawBytesSave => 'Save';
+  String get aiAttachmentMaxImageRawBytesSave => '保存';
 
   @override
-  String get aiAttachmentMaxImageRawBytesSaved =>
-      'Attachment Max Image Raw Bytes saved.';
+  String get aiAttachmentMaxImageRawBytesSaved => '添付ファイル 画像の生バイト数上限を保存しました。';
 
   @override
-  String get aiAttachmentMaxImageRawBytesInvalid => 'Enter a valid integer.';
+  String get aiAttachmentMaxImageRawBytesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiChatMaxStreamLineBufferBytesLabel =>
-      'Chat Max Stream Line Buffer Bytes';
+  String get aiChatMaxStreamLineBufferBytesLabel => 'チャット ストリーム行バッファの最大バイト数';
 
   @override
   String get aiChatMaxStreamLineBufferBytesBody =>
-      'Defaults to 4194304 (4MB). Tune for your network or attachment needs.';
+      '既定値 4194304 (4MB)。ネットワークや添付ファイルのニーズに合わせて調整します。';
 
   @override
-  String get aiChatMaxStreamLineBufferBytesSave => 'Save';
+  String get aiChatMaxStreamLineBufferBytesSave => '保存';
 
   @override
   String get aiChatMaxStreamLineBufferBytesSaved =>
-      'Chat Max Stream Line Buffer Bytes saved.';
+      'チャット ストリーム行バッファの最大バイト数を保存しました。';
 
   @override
-  String get aiChatMaxStreamLineBufferBytesInvalid => 'Enter a valid integer.';
+  String get aiChatMaxStreamLineBufferBytesInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiFallbackTitleMaxCharactersLabel =>
-      'Fallback Title Max Characters';
+  String get aiFallbackTitleMaxCharactersLabel => 'フォールバックタイトル最大文字数';
 
   @override
-  String get aiFallbackTitleMaxCharactersBody =>
-      'Defaults to 15. Tune session title derivation.';
+  String get aiFallbackTitleMaxCharactersBody => '既定値 15。セッションタイトルの導出を調整します。';
 
   @override
-  String get aiFallbackTitleMaxCharactersSave => 'Save';
+  String get aiFallbackTitleMaxCharactersSave => '保存';
 
   @override
-  String get aiFallbackTitleMaxCharactersSaved =>
-      'Fallback Title Max Characters saved.';
+  String get aiFallbackTitleMaxCharactersSaved => 'フォールバックタイトル最大文字数を保存しました。';
 
   @override
-  String get aiFallbackTitleMaxCharactersInvalid => 'Enter a valid integer.';
+  String get aiFallbackTitleMaxCharactersInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiGeneratedTitleMaxCharactersLabel =>
-      'Generated Title Max Characters';
+  String get aiGeneratedTitleMaxCharactersLabel => '生成タイトル最大文字数';
 
   @override
-  String get aiGeneratedTitleMaxCharactersBody =>
-      'Defaults to 15. Tune session title derivation.';
+  String get aiGeneratedTitleMaxCharactersBody => '既定値 15。セッションタイトルの導出を調整します。';
 
   @override
-  String get aiGeneratedTitleMaxCharactersSave => 'Save';
+  String get aiGeneratedTitleMaxCharactersSave => '保存';
 
   @override
-  String get aiGeneratedTitleMaxCharactersSaved =>
-      'Generated Title Max Characters saved.';
+  String get aiGeneratedTitleMaxCharactersSaved => '生成タイトル最大文字数を保存しました。';
 
   @override
-  String get aiGeneratedTitleMaxCharactersInvalid => 'Enter a valid integer.';
+  String get aiGeneratedTitleMaxCharactersInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiMinimumMeaningfulTitleCharactersLabel =>
-      'Minimum Meaningful Title Characters';
+  String get aiMinimumMeaningfulTitleCharactersLabel => '意味のあるタイトルの最小文字数';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersBody =>
-      'Defaults to 4. Tune session title derivation.';
+      '既定値 4。セッションタイトルの導出を調整します。';
 
   @override
-  String get aiMinimumMeaningfulTitleCharactersSave => 'Save';
+  String get aiMinimumMeaningfulTitleCharactersSave => '保存';
 
   @override
   String get aiMinimumMeaningfulTitleCharactersSaved =>
-      'Minimum Meaningful Title Characters saved.';
+      '意味のあるタイトルの最小文字数を保存しました。';
 
   @override
-  String get aiMinimumMeaningfulTitleCharactersInvalid =>
-      'Enter a valid integer.';
+  String get aiMinimumMeaningfulTitleCharactersInvalid => '有効な整数を入力してください。';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsLabel =>
