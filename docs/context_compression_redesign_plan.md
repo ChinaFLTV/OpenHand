@@ -205,6 +205,7 @@ Hardness API phase runner 有独立交接压缩：
 | Phase 4 | `hardness_api_phase_runner.dart` | handoff system prompt 对齐会话摘要结构，校验关键章节正文，保存同名 JSON sidecar 元数据 |
 | Phase 4 测试 | `test/features/hardness/hardness_handoff_validation_test.dart` | 覆盖新旧 handoff 标题兼容、缺章节与空正文拒绝 |
 | Phase 5 | `test/features/ai/service/ai_prompt_template_repository_test.dart` | 守护 5 个线程模板三件套真实资产加载、压缩说明结构、共享注入块去重 |
+| Claude 对齐增强 | `ai_prompt_builder.dart` / `ai_session_controller.dart` | 上下文预算改为 summary reserve + auto-compact/warning/blocking buffer 语义；自动压缩连续失败 3 次后熔断 |
 
 ## 5. OpenHand 目标架构
 
@@ -313,6 +314,8 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 
 状态：已在 2026-05-03 落地第一版；当前使用字符 / 4 的轻量估算，只在会话元数据弹窗展示，不主动打断发送流程。
 
+补充：后续已将预算状态改为更接近 Claude Code 的阈值语义：summary reserve、auto-compact buffer、warning/error buffer、manual blocking buffer 分开记录。
+
 1. 新增 `AiContextBudgetSnapshot`：当前估算 tokens、剩余百分比、warning/error/autocompact 状态。
 2. 在 session metadata dialog 与 top bar 显示上下文剩余状态。
 3. 将 compression threshold 设置从“字符”逐步迁移为“自动 / 字符 / token”三种模式。
@@ -339,6 +342,13 @@ Claude Code 在压缩后重注入多类附件。OpenHand 已有 Focus Context，
 2. 验证每个 compression summary 至少包含 preserve/remove/output_format/rules 或模板等价结构。
 3. 验证每个 system instructions 不重复注入 Memory Tone Policy 与 v4 discipline。
 4. 将 `scripts/preview_prompts.dart` 输出纳入人工审阅流程。
+
+### 后续 Claude Code 对齐增强
+
+已补充两项更接近 Claude Code 原生行为的保护：
+
+1. **上下文预算阈值拆分**：预算元数据不再只按固定百分比标记 warning / critical，而是记录 `summary_reserve_tokens`、`effective_window_tokens`、`auto_compact_threshold_tokens`、`warning_threshold_tokens`、`error_threshold_tokens`、`blocking_limit_tokens` 与 `percent_left`。
+2. **自动压缩熔断**：同一会话自动压缩连续失败 3 次后跳过后续自动压缩尝试，避免 prompt-too-long 或服务端异常导致每轮都重复发起必失败的压缩请求；下一次成功压缩会清除该计数。
 
 ## 7. Prompt 维护准则
 

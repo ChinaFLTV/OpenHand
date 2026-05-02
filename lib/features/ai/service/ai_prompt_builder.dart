@@ -40,10 +40,11 @@ class AiPromptBuilder {
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const int _microCompactKeepRecentToolResults = 5;
   static const int _contextBudgetEstimatedCharsPerToken = 4;
-  static const int _contextBudgetWarningBufferTokens = 13000;
-  static const int _contextBudgetCriticalBufferTokens = 3000;
-  static const double _contextBudgetWarningRatio = 0.85;
-  static const double _contextBudgetCriticalRatio = 0.95;
+  static const int _contextBudgetSummaryReserveTokens = 20000;
+  static const int _contextBudgetAutoCompactBufferTokens = 13000;
+  static const int _contextBudgetWarningBufferTokens = 20000;
+  static const int _contextBudgetErrorBufferTokens = 20000;
+  static const int _contextBudgetManualCompactBufferTokens = 3000;
 
   AiPromptBuildResult buildConversationPrompt({
     required AiPromptTemplateBundle templateBundle,
@@ -385,29 +386,74 @@ class AiPromptBuilder {
         'context_budget_estimated_chars_per_token':
             _contextBudgetEstimatedCharsPerToken,
         'context_budget_model_max_tokens': null,
+        'context_budget_effective_window_tokens': null,
+        'context_budget_auto_compact_threshold_tokens': null,
+        'context_budget_blocking_limit_tokens': null,
         'context_budget_remaining_tokens': null,
         'context_budget_usage_percent': null,
+        'context_budget_percent_left': null,
       };
     }
-    final remainingTokens = maxContextTokens - estimatedPromptTokens;
-    final usageRatio = estimatedPromptTokens / maxContextTokens;
+    final summaryReserveTokens = math.min(
+      _contextBudgetSummaryReserveTokens,
+      math.max(1, maxContextTokens ~/ 2),
+    );
+    final effectiveWindowTokens = math.max(
+      1,
+      maxContextTokens - summaryReserveTokens,
+    );
+    final autoCompactBufferTokens = math.min(
+      _contextBudgetAutoCompactBufferTokens,
+      math.max(1, effectiveWindowTokens ~/ 10),
+    );
     final warningBufferTokens = math.min(
       _contextBudgetWarningBufferTokens,
-      math.max(1, (maxContextTokens * (1 - _contextBudgetWarningRatio)).ceil()),
+      math.max(1, effectiveWindowTokens ~/ 10),
     );
-    final criticalBufferTokens = math.min(
-      _contextBudgetCriticalBufferTokens,
-      math.max(
-        1,
-        (maxContextTokens * (1 - _contextBudgetCriticalRatio)).ceil(),
-      ),
+    final errorBufferTokens = math.min(
+      _contextBudgetErrorBufferTokens,
+      math.max(1, effectiveWindowTokens ~/ 10),
     );
-    final status =
-        remainingTokens <= criticalBufferTokens ||
-            usageRatio >= _contextBudgetCriticalRatio
+    final manualCompactBufferTokens = math.min(
+      _contextBudgetManualCompactBufferTokens,
+      math.max(1, effectiveWindowTokens ~/ 50),
+    );
+    final autoCompactThresholdTokens = math.max(
+      1,
+      effectiveWindowTokens - autoCompactBufferTokens,
+    );
+    final warningThresholdTokens = math.max(
+      1,
+      autoCompactThresholdTokens - warningBufferTokens,
+    );
+    final errorThresholdTokens = math.max(
+      1,
+      autoCompactThresholdTokens - errorBufferTokens,
+    );
+    final blockingLimitTokens = math.max(
+      1,
+      effectiveWindowTokens - manualCompactBufferTokens,
+    );
+    final remainingTokens = effectiveWindowTokens - estimatedPromptTokens;
+    final usageRatio = estimatedPromptTokens / effectiveWindowTokens;
+    final percentLeft = math.max(
+      0,
+      (((autoCompactThresholdTokens - estimatedPromptTokens) /
+                  autoCompactThresholdTokens) *
+              100)
+          .round(),
+    );
+    final isAtBlockingLimit = estimatedPromptTokens >= blockingLimitTokens;
+    final isAboveAutoCompactThreshold =
+        estimatedPromptTokens >= autoCompactThresholdTokens;
+    final isAboveWarningThreshold =
+        estimatedPromptTokens >= warningThresholdTokens;
+    final isAboveErrorThreshold = estimatedPromptTokens >= errorThresholdTokens;
+    final status = isAtBlockingLimit
         ? 'critical'
-        : remainingTokens <= warningBufferTokens ||
-              usageRatio >= _contextBudgetWarningRatio
+        : isAboveAutoCompactThreshold
+        ? 'auto_compact'
+        : isAboveErrorThreshold || isAboveWarningThreshold
         ? 'warning'
         : 'ok';
     return <String, Object?>{
@@ -416,10 +462,25 @@ class AiPromptBuilder {
       'context_budget_estimated_chars_per_token':
           _contextBudgetEstimatedCharsPerToken,
       'context_budget_model_max_tokens': maxContextTokens,
+      'context_budget_summary_reserve_tokens': summaryReserveTokens,
+      'context_budget_effective_window_tokens': effectiveWindowTokens,
+      'context_budget_auto_compact_threshold_tokens':
+          autoCompactThresholdTokens,
+      'context_budget_warning_threshold_tokens': warningThresholdTokens,
+      'context_budget_error_threshold_tokens': errorThresholdTokens,
+      'context_budget_blocking_limit_tokens': blockingLimitTokens,
       'context_budget_remaining_tokens': remainingTokens,
       'context_budget_usage_percent': (usageRatio * 100).round(),
+      'context_budget_percent_left': percentLeft,
       'context_budget_warning_buffer_tokens': warningBufferTokens,
-      'context_budget_critical_buffer_tokens': criticalBufferTokens,
+      'context_budget_error_buffer_tokens': errorBufferTokens,
+      'context_budget_manual_compact_buffer_tokens': manualCompactBufferTokens,
+      'context_budget_auto_compact_buffer_tokens': autoCompactBufferTokens,
+      'context_budget_is_above_warning_threshold': isAboveWarningThreshold,
+      'context_budget_is_above_error_threshold': isAboveErrorThreshold,
+      'context_budget_is_above_auto_compact_threshold':
+          isAboveAutoCompactThreshold,
+      'context_budget_is_at_blocking_limit': isAtBlockingLimit,
     };
   }
 

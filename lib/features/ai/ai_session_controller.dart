@@ -311,6 +311,7 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _imageGenerationTimeout = Duration(minutes: 5);
   static const Duration _videoGenerationTimeout = Duration(minutes: 15);
   static const Duration _audioGenerationTimeout = Duration(minutes: 5);
+  static const int _maxConsecutiveCompressionFailures = 3;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -489,6 +490,7 @@ class AiSessionController extends ChangeNotifier {
   final Map<String, AiSendPhase> _approvalPreviousPhases =
       <String, AiSendPhase>{};
   final Map<String, bool> _didCompressInLastSendBySession = <String, bool>{};
+  final Map<String, int> _compressionFailureCountsBySession = <String, int>{};
   String? _currentSessionId;
   String? _editingMessageId;
   String? _lastErrorMessage;
@@ -646,6 +648,7 @@ class AiSessionController extends ChangeNotifier {
 
   void _markDidCompressInLastSend(String sessionId) {
     _didCompressInLastSendBySession[sessionId] = true;
+    _compressionFailureCountsBySession.remove(sessionId);
   }
 
   void _setLastSendErrorMessage(String sessionId, String? message) {
@@ -659,12 +662,16 @@ class AiSessionController extends ChangeNotifier {
 
   void _clearSessionScopedSendState(String sessionId) {
     _didCompressInLastSendBySession.remove(sessionId);
+    _compressionFailureCountsBySession.remove(sessionId);
     _lastErrorMessagesBySession.remove(sessionId);
   }
 
   void _pruneSessionScopedSendState() {
     final liveSessionIds = _sessions.map((session) => session.id).toSet();
     _didCompressInLastSendBySession.removeWhere(
+      (sessionId, _) => !liveSessionIds.contains(sessionId),
+    );
+    _compressionFailureCountsBySession.removeWhere(
       (sessionId, _) => !liveSessionIds.contains(sessionId),
     );
     _lastErrorMessagesBySession.removeWhere(
@@ -4983,6 +4990,15 @@ class AiSessionController extends ChangeNotifier {
     if (!_shouldCompressSessionHistory(session, runtimeContext, model)) {
       return session;
     }
+    final consecutiveFailures =
+        _compressionFailureCountsBySession[session.id] ?? 0;
+    if (consecutiveFailures >= _maxConsecutiveCompressionFailures) {
+      _debugSessionLog(
+        session.id,
+        'compression_circuit_breaker_skip consecutive_failures=$consecutiveFailures',
+      );
+      return session;
+    }
     final activeConversationMessages = session.activeConversationMessages
         .where(
           (message) => message.kind != AiSessionMessageKind.compressionPoint,
@@ -5194,16 +5210,24 @@ class AiSessionController extends ChangeNotifier {
       }
       return committed ? compressedSession : session;
     } catch (error) {
+      final nextFailureCount =
+          (_compressionFailureCountsBySession[session.id] ?? 0) + 1;
+      _compressionFailureCountsBySession[session.id] = nextFailureCount;
       await _emitStopFailureHook(
         sessionId: session.id,
         stage: 'history_compression',
         detail: '$error',
       );
+      final circuitBreakerDetail =
+          nextFailureCount >= _maxConsecutiveCompressionFailures
+          ? ' Auto-compression will be skipped for this session until a successful manual/new compression path resets it.'
+          : '';
       final erroredSession = _appendError(
         session,
         stage: 'history_compression',
         message: '$error',
-        detail: '$error',
+        detail:
+            '$error\nconsecutive_failures=$nextFailureCount/$_maxConsecutiveCompressionFailures.$circuitBreakerDetail',
       );
       await _commitSessionLocked(erroredSession);
       return erroredSession;

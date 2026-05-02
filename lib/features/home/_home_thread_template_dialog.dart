@@ -428,10 +428,25 @@ String _localizedMetadataField(BuildContext context, String field) {
       zh: '模型上下文窗口',
       en: 'Model Context Window',
     ),
+    'context_budget_effective_window_tokens' => _localizedText(
+      context,
+      zh: '有效上下文窗口',
+      en: 'Effective Context Window',
+    ),
+    'context_budget_auto_compact_threshold_tokens' => _localizedText(
+      context,
+      zh: '自动压缩阈值',
+      en: 'Auto-Compact Threshold',
+    ),
     'context_budget_remaining_tokens' => _localizedText(
       context,
       zh: '估算剩余 Token',
       en: 'Estimated Remaining Tokens',
+    ),
+    'context_budget_percent_left' => _localizedText(
+      context,
+      zh: '距自动压缩剩余',
+      en: 'Left Until Auto-Compact',
     ),
     'context_budget_usage_percent' => _localizedText(
       context,

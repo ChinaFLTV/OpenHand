@@ -153,8 +153,15 @@ void main() {
       isA<int>().having((value) => value, 'value', greaterThan(0)),
     );
     expect(result.metadata['context_budget_model_max_tokens'], 1000);
+    expect(result.metadata['context_budget_summary_reserve_tokens'], 500);
+    expect(result.metadata['context_budget_effective_window_tokens'], 500);
+    expect(
+      result.metadata['context_budget_auto_compact_threshold_tokens'],
+      450,
+    );
     expect(result.metadata['context_budget_status'], isNot('unknown'));
     expect(result.metadata['context_budget_usage_percent'], isA<int>());
+    expect(result.metadata['context_budget_percent_left'], isA<int>());
   });
 }
 

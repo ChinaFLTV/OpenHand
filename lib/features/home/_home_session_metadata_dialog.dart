@@ -886,16 +886,25 @@ class _SessionMetadataDialog extends StatelessWidget {
     final remainingTokens = _metadataInt(
       metadata['context_budget_remaining_tokens'],
     );
+    final effectiveWindowTokens = _metadataInt(
+      metadata['context_budget_effective_window_tokens'],
+    );
+    final autoCompactThresholdTokens = _metadataInt(
+      metadata['context_budget_auto_compact_threshold_tokens'],
+    );
     final usagePercent = _metadataInt(metadata['context_budget_usage_percent']);
+    final percentLeft = _metadataInt(metadata['context_budget_percent_left']);
     final status = '${metadata['context_budget_status'] ?? 'unknown'}'.trim();
     final statusColor = switch (status) {
       'critical' => colorScheme.error,
+      'auto_compact' => colorScheme.tertiary,
       'warning' => Colors.amber.shade700,
       'ok' => colorScheme.primary,
       _ => colorScheme.outline,
     };
     final statusLabel = switch (status) {
       'critical' => _localizedText(context, zh: '危险', en: 'Critical'),
+      'auto_compact' => _localizedText(context, zh: '需压缩', en: 'Compact'),
       'warning' => _localizedText(context, zh: '偏高', en: 'High'),
       'ok' => _localizedText(context, zh: '正常', en: 'OK'),
       _ => _localizedText(context, zh: '未知', en: 'Unknown'),
@@ -942,9 +951,32 @@ class _SessionMetadataDialog extends StatelessWidget {
           _MetadataEntryRow(
             label: _localizedMetadataField(
               context,
+              'context_budget_effective_window_tokens',
+            ),
+            value: effectiveWindowTokens > 0 ? '$effectiveWindowTokens' : '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_auto_compact_threshold_tokens',
+            ),
+            value: autoCompactThresholdTokens > 0
+                ? '$autoCompactThresholdTokens'
+                : '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
               'context_budget_remaining_tokens',
             ),
             value: maxTokens > 0 ? '$remainingTokens' : '-',
+          ),
+          _MetadataEntryRow(
+            label: _localizedMetadataField(
+              context,
+              'context_budget_percent_left',
+            ),
+            value: maxTokens > 0 ? '$percentLeft%' : '-',
           ),
           _MetadataEntryRow(
             label: _localizedMetadataField(
