@@ -183,6 +183,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
   late final TextEditingController _patternController;
   late final TextEditingController _noteController;
   late AiDenyCommandMatchMode _matchMode;
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -200,6 +201,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
   void dispose() {
     _patternController.dispose();
     _noteController.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -219,7 +221,9 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
       ),
       content: SizedBox(
         width: 560,
-        child: Form(
+        child: Stack(
+          children: [
+            Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -281,6 +285,19 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
             ],
           ),
         ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -290,6 +307,7 @@ class _DenyCommandRuleDialogState extends State<_DenyCommandRuleDialog> {
         OpenHandDialogActionButton.primary(
           onPressed: () {
             if (!_formKey.currentState!.validate()) {
+              _errorPulse.value++;
               return;
             }
             Navigator.of(context).pop(
@@ -324,6 +342,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
   late final TextEditingController _patternController;
   late final TextEditingController _noteController;
   late AiDenyCommandMatchMode _matchMode;
+  final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -341,6 +360,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
   void dispose() {
     _patternController.dispose();
     _noteController.dispose();
+    _errorPulse.dispose();
     super.dispose();
   }
 
@@ -360,7 +380,9 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
       ),
       content: SizedBox(
         width: 560,
-        child: Form(
+        child: Stack(
+          children: [
+            Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -422,6 +444,19 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
             ],
           ),
         ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: HighlightPulse(
+                  signal: _errorPulse,
+                  color: const Color(0xFFEF4444),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -431,6 +466,7 @@ class _AllowCommandRuleDialogState extends State<_AllowCommandRuleDialog> {
         OpenHandDialogActionButton.primary(
           onPressed: () {
             if (!_formKey.currentState!.validate()) {
+              _errorPulse.value++;
               return;
             }
             Navigator.of(context).pop(
