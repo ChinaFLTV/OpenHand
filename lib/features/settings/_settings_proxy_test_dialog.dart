@@ -64,6 +64,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   bool _running = true;
   bool _finishedSucceeded = false;
   String? _finalSummary;
+  final ValueNotifier<int> _completionPulse = ValueNotifier<int>(0);
 
   // 2026-05-04 (UI 调优 v2):
   // - _hiddenLevels：底部 mini 过滤器开关，被点选的 level 会从
@@ -99,6 +100,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   void dispose() {
     _cursorBlinkController.dispose();
     _scrollController.dispose();
+    _completionPulse.dispose();
     super.dispose();
   }
 
@@ -434,6 +436,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       _finishedSucceeded = ok;
       _finalSummary = summary;
     });
+    _completionPulse.value = _completionPulse.value + 1;
     _cursorBlinkController.stop();
   }
 
@@ -505,20 +508,37 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               minHeight: h,
               maxHeight: h,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Stack(
               children: <Widget>[
-                _buildHeader(context),
-                if (_running)
-                  const SizedBox(
-                    height: 2,
-                    child: LinearProgressIndicator(minHeight: 2),
-                  )
-                else
-                  const Divider(height: 1),
-                Expanded(child: _buildConsole(context)),
-                const Divider(height: 1),
-                _buildFooter(context, l10n),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    _buildHeader(context),
+                    if (_running)
+                      const SizedBox(
+                        height: 2,
+                        child: LinearProgressIndicator(minHeight: 2),
+                      )
+                    else
+                      const Divider(height: 1),
+                    Expanded(child: _buildConsole(context)),
+                    const Divider(height: 1),
+                    _buildFooter(context, l10n),
+                  ],
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: IgnorePointer(
+                    child: HighlightPulse(
+                      signal: _completionPulse,
+                      color: _finishedSucceeded
+                          ? const Color(0xFF22C55E)
+                          : const Color(0xFFEF4444),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
