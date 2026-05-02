@@ -355,33 +355,52 @@ class _ThreadTile extends StatelessWidget {
         }
         _scheduleOverlayActionAfterMenuDismissal(context, action);
       },
-      child: Material(
-        color: backgroundColor,
-        borderRadius: _borderRadius18,
-        child: InkWell(
+      child: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: backgroundColor,
           borderRadius: _borderRadius18,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _AnimatedSessionTitleText(
-                    text: session.title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: titleColor,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: _borderRadius18,
+          child: InkWell(
+            borderRadius: _borderRadius18,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(end: titleColor),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, animatedColor, _) {
+                        return _AnimatedSessionTitleText(
+                          text: session.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: animatedColor ?? titleColor,
+                          ),
+                        );
+                      },
                     ),
                   ),
-                ),
-                if (isActive) ...[
-                  const SizedBox(width: 12),
-                  _ActiveThreadBadge(
-                    key: ValueKey<String>('thread-active-${session.id}'),
-                    sendPhase: sendPhase,
-                    isSelected: isSelected,
-                  ),
+                  if (isActive) ...[
+                    const SizedBox(width: 12),
+                    _ActiveThreadBadge(
+                      key: ValueKey<String>('thread-active-${session.id}'),
+                      sendPhase: sendPhase,
+                      isSelected: isSelected,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
