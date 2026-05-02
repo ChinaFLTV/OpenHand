@@ -2532,9 +2532,33 @@ class _AtMentionOverlayPanel extends StatelessWidget {
           link: link,
           followerAnchor: Alignment.bottomLeft,
           offset: const Offset(0, -6),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
-            child: Material(
+          // 2026-05 — soften the @-mention popup entrance: 160ms
+          // easeOutCubic fade + slight upward translate + scale-up from
+          // 0.97 anchored at bottom-left so the chip feels like it's
+          // sprouting from the cursor. Honors MediaQuery.disableAnimations
+          // (user reduceMotion or OS a11y) by using Duration.zero.
+          child: TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0.0, end: 1.0),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            builder: (context, t, child) {
+              return Opacity(
+                opacity: t,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - t) * 6),
+                  child: Transform.scale(
+                    scale: 0.97 + 0.03 * t,
+                    alignment: Alignment.bottomLeft,
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460, maxHeight: 340),
+              child: Material(
               elevation: 8,
               shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
               borderRadius: BorderRadius.circular(16),
@@ -2704,6 +2728,7 @@ class _AtMentionOverlayPanel extends StatelessWidget {
                 ],
               ),
             ),
+          ),
           ),
         ),
       ],
@@ -3095,6 +3120,11 @@ class _SkillPickerTransition extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Honor reduceMotion / OS disableAnimations: skip the transition
+    // entirely so the picker pops to its resting state immediately.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return child;
+    }
     // Pick entrance vs exit style based on direction so reverse animations
     // can differ from entrance when the user configured them separately.
     final forward =
