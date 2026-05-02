@@ -1579,85 +1579,78 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiMinimumMeaningfulTitleCharactersInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiMinimumMeaningfulLatinTitleWordsLabel =>
-      'Minimum Meaningful Latin Title Words';
+  String get aiMinimumMeaningfulLatinTitleWordsLabel => '意味のあるラテン文字タイトルの最小単語数';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsBody =>
-      'Defaults to 2. Tune session title derivation.';
+      '既定値 2。セッションタイトルの導出を調整します。';
 
   @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => 'Save';
+  String get aiMinimumMeaningfulLatinTitleWordsSave => '保存';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsSaved =>
-      'Minimum Meaningful Latin Title Words saved.';
+      '意味のあるラテン文字タイトルの最小単語数を保存しました。';
 
   @override
-  String get aiMinimumMeaningfulLatinTitleWordsInvalid =>
-      'Enter a valid integer.';
+  String get aiMinimumMeaningfulLatinTitleWordsInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiMaxSkillContentLengthLabel => 'Skill File Max Content Length';
+  String get aiMaxSkillContentLengthLabel => 'スキルファイルの最大文字数';
 
   @override
   String get aiMaxSkillContentLengthBody =>
-      'Defaults to 100000. Tune skill / workspace document size.';
+      '既定値 100000。スキル / ワークスペース文書のサイズを調整します。';
 
   @override
-  String get aiMaxSkillContentLengthSave => 'Save';
+  String get aiMaxSkillContentLengthSave => '保存';
 
   @override
-  String get aiMaxSkillContentLengthSaved =>
-      'Skill File Max Content Length saved.';
+  String get aiMaxSkillContentLengthSaved => 'スキルファイルの最大文字数を保存しました。';
 
   @override
-  String get aiMaxSkillContentLengthInvalid => 'Enter a valid integer.';
+  String get aiMaxSkillContentLengthInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiMaxWorkspaceDocumentCharactersLabel =>
-      'Workspace Document Max Characters';
+  String get aiMaxWorkspaceDocumentCharactersLabel => 'ワークスペース文書の最大文字数';
 
   @override
   String get aiMaxWorkspaceDocumentCharactersBody =>
-      'Defaults to 16000. Tune skill / workspace document size.';
+      '既定値 16000。スキル / ワークスペース文書のサイズを調整します。';
 
   @override
-  String get aiMaxWorkspaceDocumentCharactersSave => 'Save';
+  String get aiMaxWorkspaceDocumentCharactersSave => '保存';
 
   @override
-  String get aiMaxWorkspaceDocumentCharactersSaved =>
-      'Workspace Document Max Characters saved.';
+  String get aiMaxWorkspaceDocumentCharactersSaved => 'ワークスペース文書の最大文字数を保存しました。';
 
   @override
-  String get aiMaxWorkspaceDocumentCharactersInvalid =>
-      'Enter a valid integer.';
+  String get aiMaxWorkspaceDocumentCharactersInvalid => '有効な整数を入力してください。';
 
   @override
-  String get aiImageSizeLimitLabel => 'Image Size Limit';
+  String get aiImageSizeLimitLabel => '画像サイズの上限';
 
   @override
   String get aiImageSizeLimitBody =>
-      'When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.';
+      'ユーザーがこの上限を超える画像を添付すると、OpenHand は自動的に圧縮（品質＋解像度）して送信します。MB 単位の小数値を受け付け、範囲は 0.0625 MB (64 KB) から 64 MB です。';
 
   @override
-  String get aiImageSizeLimitFieldLabel => 'Limit (MB)';
+  String get aiImageSizeLimitFieldLabel => '上限 (MB)';
 
   @override
-  String get aiImageSizeLimitSave => 'Save Limit';
+  String get aiImageSizeLimitSave => '上限を保存';
 
   @override
-  String get aiImageSizeLimitSaved =>
-      'The image attachment size limit has been updated.';
+  String get aiImageSizeLimitSaved => '画像添付サイズの上限を更新しました。';
 
   @override
-  String get aiImageSizeLimitInvalid => 'Enter a valid positive number of MB.';
+  String get aiImageSizeLimitInvalid => '有効な正の MB 数を入力してください。';
 
   @override
-  String get imageEditorAspectFree => 'Free';
+  String get imageEditorAspectFree => '自由';
 
   @override
-  String get imageEditorAspectOriginal => 'Original';
+  String get imageEditorAspectOriginal => '元のサイズ';
 
   @override
   String get imageEditorAspectSquare => '1:1';
@@ -1675,146 +1668,146 @@ class AppLocalizationsJa extends AppLocalizations {
   String get imageEditorAspect9x16 => '9:16';
 
   @override
-  String get imageEditorAspectCircle => 'Circle';
+  String get imageEditorAspectCircle => '円形';
 
   @override
-  String get imageEditorFlipHorizontal => 'Flip Horizontal';
+  String get imageEditorFlipHorizontal => '左右反転';
 
   @override
-  String get imageEditorFlipVertical => 'Flip Vertical';
+  String get imageEditorFlipVertical => '上下反転';
 
   @override
-  String get imageEditorSaturationLabel => 'Saturation';
+  String get imageEditorSaturationLabel => '彩度';
 
   @override
-  String get imageEditorExposureLabel => 'Exposure';
+  String get imageEditorExposureLabel => '露出';
 
   @override
-  String get imageEditorHueLabel => 'Hue';
+  String get imageEditorHueLabel => '色相';
 
   @override
-  String get imageEditorVignetteLabel => 'Vignette';
+  String get imageEditorVignetteLabel => '周辺減光';
 
   @override
-  String get imageEditorFineRotationLabel => 'Fine Rotation (°)';
+  String get imageEditorFineRotationLabel => '微調整 (°)';
 
   @override
-  String get imageEditorSaveToFile => 'Save To File';
+  String get imageEditorSaveToFile => 'ファイルに保存';
 
   @override
-  String get imageEditorCopyToClipboard => 'Copy To Clipboard';
+  String get imageEditorCopyToClipboard => 'クリップボードにコピー';
 
   @override
   String imageEditorSavedTo(String path) {
-    return 'Saved: $path';
+    return '保存しました：$path';
   }
 
   @override
   String imageEditorSaveFailed(String error) {
-    return 'Save failed: $error';
+    return '保存に失敗しました：$error';
   }
 
   @override
   String get imageEditorClipboardCopiedBitmap =>
-      'Image copied to the clipboard. The file path was also copied as text.';
+      '画像をクリップボードにコピーしました。ファイルパスもテキストとしてコピーされました。';
 
   @override
   String imageEditorClipboardCopiedPath(String path) {
-    return 'Image file path copied to the clipboard: $path';
+    return '画像ファイルパスをクリップボードにコピーしました：$path';
   }
 
   @override
   String imageEditorClipboardFailed(String error) {
-    return 'Copy failed: $error';
+    return 'コピーに失敗しました：$error';
   }
 
   @override
-  String get imageEditorApplyButton => 'Apply';
+  String get imageEditorApplyButton => '適用';
 
   @override
-  String get imageEditorUndoButton => 'Undo';
+  String get imageEditorUndoButton => '元に戻す';
 
   @override
-  String get imageEditorResetAllButton => 'Reset All';
+  String get imageEditorResetAllButton => 'すべてリセット';
 
   @override
-  String get imageEditorCompareHold => 'Hold To Compare';
+  String get imageEditorCompareHold => '長押しで比較';
 
   @override
-  String get imageEditorCompareRelease => 'Release';
+  String get imageEditorCompareRelease => '離す';
 
   @override
-  String get imageEditorCompareOriginal => 'Original';
+  String get imageEditorCompareOriginal => 'オリジナル';
 
   @override
-  String get imageEditorWatermarkColorLabel => 'Text Color';
+  String get imageEditorWatermarkColorLabel => 'テキストの色';
 
   @override
-  String get imageEditorWatermarkColorHue => 'Hue';
+  String get imageEditorWatermarkColorHue => '色相';
 
   @override
-  String get imageEditorWatermarkColorSaturation => 'Saturation';
+  String get imageEditorWatermarkColorSaturation => '彩度';
 
   @override
-  String get imageEditorWatermarkColorLightness => 'Lightness';
+  String get imageEditorWatermarkColorLightness => '明度';
 
   @override
-  String get imageEditorApplySuccess => 'Adjustments applied';
+  String get imageEditorApplySuccess => '調整を適用しました';
 
   @override
-  String get imageEditorProcessing => 'Processing...';
+  String get imageEditorProcessing => '処理中...';
 
   @override
-  String get builtinToolTimeoutLabel => 'Timeout (seconds)';
+  String get builtinToolTimeoutLabel => 'タイムアウト (秒)';
 
   @override
   String builtinToolTimeoutHint(int seconds) {
-    return 'Default ${seconds}s';
+    return '既定 $seconds 秒';
   }
 
   @override
   String builtinToolTimeoutHelper(int seconds) {
-    return 'Blank = default ${seconds}s';
+    return '空欄＝既定 $seconds 秒';
   }
 
   @override
-  String get builtinToolRetryLabel => 'Retry on failure / timeout';
+  String get builtinToolRetryLabel => '失敗 / タイムアウト時に再試行';
 
   @override
   String get builtinToolRetryBody =>
-      'Off by default. Only triggers on real failed/timed_out outcomes; will not retry invalid arguments or denied calls.';
+      '既定はオフ。実際の failed/timed_out のみ再試行されます。引数不正や拒否された呼び出しは再試行しません。';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {
-    return 'Max Retries (0–$max)';
+    return '最大再試行回数 (0–$max)';
   }
 
   @override
   String builtinToolMaxRetriesHelper(int max) {
-    return 'Excluding first attempt; capped at $max';
+    return '初回試行を除く。$max で上限';
   }
 
   @override
-  String get builtinToolBackoffLabel => 'Retry backoff base (ms)';
+  String get builtinToolBackoffLabel => '再試行バックオフのベース (ms)';
 
   @override
   String builtinToolBackoffHint(int ms) {
-    return 'Default ${ms}ms';
+    return '既定 ${ms}ms';
   }
 
   @override
   String builtinToolBackoffHelper(int max) {
-    return 'Exponential: nth retry waits base × 2^(N-1) ms, capped at ${max}ms';
+    return '指数：N 回目はベース × 2^(N-1) ms 待機、${max}ms で上限';
   }
 
   @override
   String selfLearningFlushIntervalLabel(int ms) {
-    return 'Stream flush interval: ${ms}ms';
+    return 'ストリームフラッシュ間隔: ${ms}ms';
   }
 
   @override
   String selfLearningFlushIntervalHelper(int min, int max) {
-    return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
+    return '自己学習カードのストリーミング出力の永続化間隔 ($min–${max}ms)。小さいほどリアルタイム性が高いがレイアウトのジッターが増えます。大きいほどスムーズですがチャンクごとのレイテンシが増えます。既定値は 600ms。';
   }
 
   @override
@@ -2187,7 +2180,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupCostTotal => '合計';
 
   @override
-  String get tokenDialUnit => 'Token';
+  String get tokenDialUnit => 'トークン';
 
   @override
   String get tokenDialTotal => '合計';
@@ -2196,7 +2189,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupInputHeading => '入力';
 
   @override
-  String get tokenPopupPrompt => 'Prompt';
+  String get tokenPopupPrompt => 'プロンプト';
 
   @override
   String get tokenPopupCacheRead => 'キャッシュ読込';
@@ -2208,7 +2201,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tokenPopupOutputHeading => '出力';
 
   @override
-  String get tokenPopupCompletion => 'Completion';
+  String get tokenPopupCompletion => '応答';
 
   @override
   String get tokenPopupGrandTotal => '合計';
@@ -2404,135 +2397,132 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get mdlEdEnterAValidBaseUrlFirst => 'Enter a valid Base URL first';
+  String get mdlEdEnterAValidBaseUrlFirst => '有効な Base URL を先に入力してください';
 
   @override
-  String get mdlEdNoModelsFoundFromThisProvider =>
-      'No models found from this provider.';
+  String get mdlEdNoModelsFoundFromThisProvider => 'このプロバイダーからはモデルが見つかりませんでした。';
 
   @override
-  String get mdlEdProviderName => 'Provider Name';
+  String get mdlEdProviderName => 'プロバイダー名';
 
   @override
-  String get mdlEdOptionalEGDeepseekLocalOllama =>
-      'Optional, e.g. DeepSeek, Local Ollama';
+  String get mdlEdOptionalEGDeepseekLocalOllama => '任意。例：DeepSeek、ローカル Ollama';
 
   @override
-  String get mdlEdCurrentlyActiveModel => 'Currently active model';
+  String get mdlEdCurrentlyActiveModel => '現在アクティブなモデル';
 
   @override
-  String get mdlEdClickToSetAsActiveModel => 'Click to set as active model';
+  String get mdlEdClickToSetAsActiveModel => 'クリックでアクティブモデルに設定';
 
   @override
   String get mdlEdTapScanModelsToDiscoverModels =>
-      'Tap \"Scan Models\" to discover models automatically, or add manually below.';
+      '「モデルをスキャン」をタップして自動検出するか、下のフォームから手動で追加します。';
 
   @override
-  String get mdlEdActiveModelId => 'Active Model ID';
+  String get mdlEdActiveModelId => 'アクティブモデル ID';
 
   @override
   String get mdlEdTheModelUsedForConversationsSelect =>
-      'The model used for conversations. Select from the list above or type directly.';
+      '会話に使用するモデル。上のリストから選択するか、直接入力します。';
 
   @override
-  String get mdlEdMaxContextTokens => 'Max Context Tokens';
+  String get mdlEdMaxContextTokens => '最大コンテキストトークン数';
 
   @override
   String get mdlEdOptionalLimitsTheHistorySliceUsed =>
-      'Optional. Limits the history slice used during compression.';
+      '任意。圧縮時に使用する履歴区間サイズを制限します。';
 
   @override
-  String get mdlEdEnterAWholeNumberGreaterThan =>
-      'Enter a whole number greater than 0';
+  String get mdlEdEnterAWholeNumberGreaterThan => '0 より大きい整数を入力してください';
 
   @override
-  String get mdlEdRequestMethod => 'Request Method';
+  String get mdlEdRequestMethod => 'リクエスト方式';
 
   @override
-  String get mdlEdOutputMode => 'Output Mode';
+  String get mdlEdOutputMode => '出力モード';
 
   @override
-  String get mdlEdStreaming => 'Streaming';
+  String get mdlEdStreaming => 'ストリーミング';
 
   @override
-  String get mdlEdNonStreaming => 'Non-streaming';
+  String get mdlEdNonStreaming => '非ストリーミング';
 
   @override
-  String get mdlEdMaxOutputTokens => 'Max Output Tokens';
+  String get mdlEdMaxOutputTokens => '最大出力トークン数';
 
   @override
   String get mdlEdOptionalUsesAdapterDefaultIfUnset =>
-      'Optional. Uses adapter default if unset.';
+      '任意。未設定の場合はアダプターの既定値を使用します。';
 
   @override
   String get mdlEdTemperature => 'Temperature';
 
   @override
-  String get mdlEd0020Default0 => '0.0 ~ 2.0, default 0.7';
+  String get mdlEd0020Default0 => '0.0 ～ 2.0、既定値 0.7';
 
   @override
-  String get mdlEdEnterANumberBetween00 => 'Enter a number between 0.0 and 2.0';
+  String get mdlEdEnterANumberBetween00 => '0.0 から 2.0 までの数値を入力してください';
 
   @override
-  String get mdlEdCustomHeaders => 'Custom Headers';
+  String get mdlEdCustomHeaders => 'カスタムヘッダー';
 
   @override
-  String get mdlEdAdd => 'Add';
+  String get mdlEdAdd => '追加';
 
   @override
   String get mdlEdNoCustomHeadersTapAddTo =>
-      'No custom headers. Tap \"Add\" to create one.';
+      'カスタムヘッダーはありません。「追加」をタップして作成してください。';
 
   @override
-  String get mdlEdHeaderName => 'Header Name';
+  String get mdlEdHeaderName => 'ヘッダー名';
 
   @override
-  String get mdlEdHeaderValue => 'Header Value';
+  String get mdlEdHeaderValue => 'ヘッダー値';
 
   @override
-  String get mdlEdEditModelProfile => 'Edit Model Profile';
+  String get mdlEdEditModelProfile => 'モデルプロファイルを編集';
 
   @override
-  String get mdlEdDisplayName => 'Display Name';
+  String get mdlEdDisplayName => '表示名';
 
   @override
-  String get mdlEdOptionalShownInTheUi => 'Optional, shown in the UI';
+  String get mdlEdOptionalShownInTheUi => '任意。UI に表示されます';
 
   @override
-  String get mdlEdDescription => 'Description';
+  String get mdlEdDescription => '説明';
 
   @override
-  String get mdlEdMultimodalSupport => 'Multimodal Support';
+  String get mdlEdMultimodalSupport => 'マルチモーダル対応';
 
   @override
-  String get mdlEdAutoDetect => 'Auto-detect';
+  String get mdlEdAutoDetect => '自動検出';
 
   @override
-  String get mdlEdYes => 'Yes';
+  String get mdlEdYes => 'はい';
 
   @override
-  String get mdlEdNo => 'No';
+  String get mdlEdNo => 'いいえ';
 
   @override
-  String get mdlEdSupportsAttachments => 'Supports Attachments';
+  String get mdlEdSupportsAttachments => '添付ファイル対応';
 
   @override
-  String get mdlEdSupportedModalities => 'Supported Modalities';
+  String get mdlEdSupportedModalities => '対応モダリティ';
 
   @override
-  String get mdlEdText => 'Text';
+  String get mdlEdText => 'テキスト';
 
   @override
-  String get mdlEdImage => 'Image';
+  String get mdlEdImage => '画像';
 
   @override
-  String get mdlEdVideo => 'Video';
+  String get mdlEdVideo => '動画';
 
   @override
-  String get mdlEdAudio => 'Audio';
+  String get mdlEdAudio => '音声';
 
   @override
-  String get mdlEdGenerationCapabilities => 'Generation Capabilities';
+  String get mdlEdGenerationCapabilities => '生成機能';
 
   @override
   String get mdlEdPdf => 'PDF';
@@ -2541,80 +2531,80 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mdlEdPpt => 'PPT';
 
   @override
-  String get mdlEdTokenLimits => 'Token Limits';
+  String get mdlEdTokenLimits => 'トークン上限';
 
   @override
-  String get mdlEdContextLength => 'Context Length';
+  String get mdlEdContextLength => 'コンテキスト長';
 
   @override
-  String get mdlEdSummaryLength => 'Summary Length';
+  String get mdlEdSummaryLength => 'サマリ長';
 
   @override
-  String get mdlEdOutputLength => 'Output Length';
+  String get mdlEdOutputLength => '出力長';
 
   @override
-  String get mdlEdThinkingLength => 'Thinking Length';
+  String get mdlEdThinkingLength => '思考長';
 
   @override
   String get mdlEdTokenPricingUsd1mTokensLeave =>
-      'Token pricing (USD / 1M tokens, leave blank if unset)';
+      'トークン料金 (USD / 100 万トークン、未設定の場合は空欄)';
 
   @override
-  String get mdlEdInput => 'Input';
+  String get mdlEdInput => '入力';
 
   @override
-  String get mdlEdOutput => 'Output';
+  String get mdlEdOutput => '出力';
 
   @override
-  String get mdlEdCacheRead => 'Cache Read';
+  String get mdlEdCacheRead => 'キャッシュ読み込み';
 
   @override
-  String get mdlEdCacheWrite => 'Cache Write';
+  String get mdlEdCacheWrite => 'キャッシュ書き込み';
 
   @override
-  String get mdlEdReset => 'Reset';
+  String get mdlEdReset => 'リセット';
 
   @override
-  String get mdlEdCancel => 'Cancel';
+  String get mdlEdCancel => 'キャンセル';
 
   @override
   String get mdlEdOk => 'OK';
 
   @override
-  String get tlCallDir => 'Dir';
+  String get tlCallDir => 'ディレクトリ';
 
   @override
-  String get tlCallElapsed => 'Elapsed';
+  String get tlCallElapsed => '経過時間';
 
   @override
-  String get tlCallExit => 'Exit';
+  String get tlCallExit => '終了';
 
   @override
-  String get tlCallToolInput => 'Tool Input';
+  String get tlCallToolInput => 'ツール入力';
 
   @override
-  String get tlCallCommand => 'command';
+  String get tlCallCommand => 'コマンド';
 
   @override
-  String get tlCallArguments => 'arguments';
+  String get tlCallArguments => '引数';
 
   @override
-  String get tlCallToolOutput => 'Tool Output';
+  String get tlCallToolOutput => 'ツール出力';
 
   @override
-  String get tlCallNoOutputYet => 'No output yet';
+  String get tlCallNoOutputYet => '出力なし';
 
   @override
-  String get tlCallResult => 'result';
+  String get tlCallResult => '結果';
 
   @override
-  String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
+  String get tlCallThereIsNoToolOutputYet => 'まだツール出力はありません。';
 
   @override
-  String get tlCallViewInDialog => 'View in Dialog';
+  String get tlCallViewInDialog => 'ダイアログで表示';
 
   @override
-  String get tlCallEmptyContent => 'Empty content';
+  String get tlCallEmptyContent => '内容なし';
 
   @override
   String get tlCallWrite => 'Write';
@@ -2632,86 +2622,85 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tlCallBashWrite => 'Bash Write';
 
   @override
-  String get tlCallFileChanged => 'File Changed';
+  String get tlCallFileChanged => 'ファイル変更あり';
 
   @override
-  String get tlCallChangedFile => 'Changed File';
+  String get tlCallChangedFile => '変更されたファイル';
 
   @override
-  String get tlCallTool => 'Tool';
+  String get tlCallTool => 'ツール';
 
   @override
-  String get tlCallSkill => 'Skill';
+  String get tlCallSkill => 'スキル';
 
   @override
-  String get tlCallStopped => 'Stopped';
+  String get tlCallStopped => '停止';
 
   @override
-  String get tlCallBlocked => 'Blocked';
+  String get tlCallBlocked => 'ブロック';
 
   @override
-  String get tlCallRejected => 'Rejected';
+  String get tlCallRejected => '却下';
 
   @override
-  String get tlCallInvalid => 'Invalid';
+  String get tlCallInvalid => '無効';
 
   @override
-  String get tlCallToolCall => 'Tool Call';
+  String get tlCallToolCall => 'ツール呼び出し';
 
   @override
-  String get tlCallRunning => 'Running';
+  String get tlCallRunning => '実行中';
 
   @override
-  String get tlCallSucceeded => 'Succeeded';
+  String get tlCallSucceeded => '成功';
 
   @override
-  String get tlCallDenied => 'Denied';
+  String get tlCallDenied => '拒否';
 
   @override
-  String get tlCallTimedOut => 'Timed Out';
+  String get tlCallTimedOut => 'タイムアウト';
 
   @override
-  String get tlCallFailed => 'Failed';
+  String get tlCallFailed => '失敗';
 
   @override
-  String get tlCallToolIsRunningWaitingForOutput =>
-      'Tool is running. Waiting for output...';
+  String get tlCallToolIsRunningWaitingForOutput => 'ツール実行中。出力を待機中...';
 
   @override
-  String get tlCallExpandToInspectToolOutput => 'Expand to inspect tool output';
+  String get tlCallExpandToInspectToolOutput => '展開してツール出力を確認';
 
   @override
-  String get tlCallType => 'Type';
+  String get tlCallType => '種別';
 
   @override
-  String get tlCallSize => 'Size';
+  String get tlCallSize => 'サイズ';
 
   @override
-  String get tlCallModified => 'Modified';
+  String get tlCallModified => '更新日時';
 
   @override
-  String get tlCallSelfLearning => 'Self-Learning';
+  String get tlCallSelfLearning => '自己学習';
 
   @override
-  String get tlCallNudgeRecovered => 'Nudge recovered';
+  String get tlCallNudgeRecovered => 'ナッジで復旧';
 
   @override
-  String get tlCallProfileChanges => 'Profile Changes';
+  String get tlCallProfileChanges => 'プロファイル変更';
 
   @override
-  String get tlCallMemoryChanges => 'Memory Changes';
+  String get tlCallMemoryChanges => 'メモリ変更';
 
   @override
-  String get tlCallSkillChanges => 'Skill Changes';
+  String get tlCallSkillChanges => 'スキル変更';
 
   @override
-  String get tlCallProfileDiff => 'Profile Diff';
+  String get tlCallProfileDiff => 'プロファイル差分';
 
   @override
-  String get tlCallNoChanges => 'No changes';
+  String get tlCallNoChanges => '変更なし';
 
   @override
-  String get tlCallUnnamed => '(unnamed)';
+  String get tlCallUnnamed => '（名称未設定）';
 
   @override
   String get tlCallJustNow => 'just now';

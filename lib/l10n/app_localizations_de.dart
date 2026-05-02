@@ -1680,81 +1680,81 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsLabel =>
-      'Minimum Meaningful Latin Title Words';
+      'Mindestwörter für sinnvollen lateinischen Titel';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsBody =>
-      'Defaults to 2. Tune session title derivation.';
+      'Standard 2. Ableitung des Sitzungstitels anpassen.';
 
   @override
-  String get aiMinimumMeaningfulLatinTitleWordsSave => 'Save';
+  String get aiMinimumMeaningfulLatinTitleWordsSave => 'Speichern';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsSaved =>
-      'Minimum Meaningful Latin Title Words saved.';
+      'Mindestwörter für sinnvollen lateinischen Titel gespeichert.';
 
   @override
   String get aiMinimumMeaningfulLatinTitleWordsInvalid =>
-      'Enter a valid integer.';
+      'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiMaxSkillContentLengthLabel => 'Skill File Max Content Length';
+  String get aiMaxSkillContentLengthLabel =>
+      'Max. Inhaltslänge der Skill-Datei';
 
   @override
   String get aiMaxSkillContentLengthBody =>
-      'Defaults to 100000. Tune skill / workspace document size.';
+      'Standard 100000. Größe von Skill-/Arbeitsbereichsdokumenten anpassen.';
 
   @override
-  String get aiMaxSkillContentLengthSave => 'Save';
+  String get aiMaxSkillContentLengthSave => 'Speichern';
 
   @override
   String get aiMaxSkillContentLengthSaved =>
-      'Skill File Max Content Length saved.';
+      'Max. Inhaltslänge der Skill-Datei gespeichert.';
 
   @override
-  String get aiMaxSkillContentLengthInvalid => 'Enter a valid integer.';
+  String get aiMaxSkillContentLengthInvalid => 'Gültige Ganzzahl eingeben.';
 
   @override
   String get aiMaxWorkspaceDocumentCharactersLabel =>
-      'Workspace Document Max Characters';
+      'Max. Zeichen für Arbeitsbereichsdokument';
 
   @override
   String get aiMaxWorkspaceDocumentCharactersBody =>
-      'Defaults to 16000. Tune skill / workspace document size.';
+      'Standard 16000. Größe von Skill-/Arbeitsbereichsdokumenten anpassen.';
 
   @override
-  String get aiMaxWorkspaceDocumentCharactersSave => 'Save';
+  String get aiMaxWorkspaceDocumentCharactersSave => 'Speichern';
 
   @override
   String get aiMaxWorkspaceDocumentCharactersSaved =>
-      'Workspace Document Max Characters saved.';
+      'Max. Zeichen für Arbeitsbereichsdokument gespeichert.';
 
   @override
   String get aiMaxWorkspaceDocumentCharactersInvalid =>
-      'Enter a valid integer.';
+      'Gültige Ganzzahl eingeben.';
 
   @override
-  String get aiImageSizeLimitLabel => 'Image Size Limit';
+  String get aiImageSizeLimitLabel => 'Bildgrößen-Limit';
 
   @override
   String get aiImageSizeLimitBody =>
-      'When the user attaches an image larger than this cap, OpenHand automatically compresses it (quality + resolution) before sending. Accepts decimal MB values; range 0.0625 MB (64 KB) to 64 MB.';
+      'Wenn der Nutzer ein Bild größer als dieses Limit anhängt, komprimiert OpenHand es automatisch (Qualität + Auflösung) vor dem Senden. Akzeptiert MB-Dezimalwerte; Bereich 0,0625 MB (64 KB) bis 64 MB.';
 
   @override
   String get aiImageSizeLimitFieldLabel => 'Limit (MB)';
 
   @override
-  String get aiImageSizeLimitSave => 'Save Limit';
+  String get aiImageSizeLimitSave => 'Limit speichern';
 
   @override
-  String get aiImageSizeLimitSaved =>
-      'The image attachment size limit has been updated.';
+  String get aiImageSizeLimitSaved => 'Bildanhang-Größenlimit aktualisiert.';
 
   @override
-  String get aiImageSizeLimitInvalid => 'Enter a valid positive number of MB.';
+  String get aiImageSizeLimitInvalid => 'Gültige positive MB-Zahl eingeben.';
 
   @override
-  String get imageEditorAspectFree => 'Free';
+  String get imageEditorAspectFree => 'Frei';
 
   @override
   String get imageEditorAspectOriginal => 'Original';
@@ -1775,146 +1775,147 @@ class AppLocalizationsDe extends AppLocalizations {
   String get imageEditorAspect9x16 => '9:16';
 
   @override
-  String get imageEditorAspectCircle => 'Circle';
+  String get imageEditorAspectCircle => 'Kreis';
 
   @override
-  String get imageEditorFlipHorizontal => 'Flip Horizontal';
+  String get imageEditorFlipHorizontal => 'Horizontal spiegeln';
 
   @override
-  String get imageEditorFlipVertical => 'Flip Vertical';
+  String get imageEditorFlipVertical => 'Vertikal spiegeln';
 
   @override
-  String get imageEditorSaturationLabel => 'Saturation';
+  String get imageEditorSaturationLabel => 'Sättigung';
 
   @override
-  String get imageEditorExposureLabel => 'Exposure';
+  String get imageEditorExposureLabel => 'Belichtung';
 
   @override
-  String get imageEditorHueLabel => 'Hue';
+  String get imageEditorHueLabel => 'Farbton';
 
   @override
   String get imageEditorVignetteLabel => 'Vignette';
 
   @override
-  String get imageEditorFineRotationLabel => 'Fine Rotation (°)';
+  String get imageEditorFineRotationLabel => 'Feinrotation (°)';
 
   @override
-  String get imageEditorSaveToFile => 'Save To File';
+  String get imageEditorSaveToFile => 'In Datei speichern';
 
   @override
-  String get imageEditorCopyToClipboard => 'Copy To Clipboard';
+  String get imageEditorCopyToClipboard => 'In Zwischenablage kopieren';
 
   @override
   String imageEditorSavedTo(String path) {
-    return 'Saved: $path';
+    return 'Gespeichert: $path';
   }
 
   @override
   String imageEditorSaveFailed(String error) {
-    return 'Save failed: $error';
+    return 'Speichern fehlgeschlagen: $error';
   }
 
   @override
   String get imageEditorClipboardCopiedBitmap =>
-      'Image copied to the clipboard. The file path was also copied as text.';
+      'Bild in die Zwischenablage kopiert. Der Dateipfad wurde ebenfalls als Text kopiert.';
 
   @override
   String imageEditorClipboardCopiedPath(String path) {
-    return 'Image file path copied to the clipboard: $path';
+    return 'Bilddateipfad in die Zwischenablage kopiert: $path';
   }
 
   @override
   String imageEditorClipboardFailed(String error) {
-    return 'Copy failed: $error';
+    return 'Kopieren fehlgeschlagen: $error';
   }
 
   @override
-  String get imageEditorApplyButton => 'Apply';
+  String get imageEditorApplyButton => 'Anwenden';
 
   @override
-  String get imageEditorUndoButton => 'Undo';
+  String get imageEditorUndoButton => 'Rückgängig';
 
   @override
-  String get imageEditorResetAllButton => 'Reset All';
+  String get imageEditorResetAllButton => 'Alles zurücksetzen';
 
   @override
-  String get imageEditorCompareHold => 'Hold To Compare';
+  String get imageEditorCompareHold => 'Halten zum Vergleichen';
 
   @override
-  String get imageEditorCompareRelease => 'Release';
+  String get imageEditorCompareRelease => 'Loslassen';
 
   @override
   String get imageEditorCompareOriginal => 'Original';
 
   @override
-  String get imageEditorWatermarkColorLabel => 'Text Color';
+  String get imageEditorWatermarkColorLabel => 'Textfarbe';
 
   @override
-  String get imageEditorWatermarkColorHue => 'Hue';
+  String get imageEditorWatermarkColorHue => 'Farbton';
 
   @override
-  String get imageEditorWatermarkColorSaturation => 'Saturation';
+  String get imageEditorWatermarkColorSaturation => 'Sättigung';
 
   @override
-  String get imageEditorWatermarkColorLightness => 'Lightness';
+  String get imageEditorWatermarkColorLightness => 'Helligkeit';
 
   @override
-  String get imageEditorApplySuccess => 'Adjustments applied';
+  String get imageEditorApplySuccess => 'Anpassungen angewendet';
 
   @override
-  String get imageEditorProcessing => 'Processing...';
+  String get imageEditorProcessing => 'Verarbeitung …';
 
   @override
-  String get builtinToolTimeoutLabel => 'Timeout (seconds)';
+  String get builtinToolTimeoutLabel => 'Timeout (Sekunden)';
 
   @override
   String builtinToolTimeoutHint(int seconds) {
-    return 'Default ${seconds}s';
+    return 'Standard ${seconds}s';
   }
 
   @override
   String builtinToolTimeoutHelper(int seconds) {
-    return 'Blank = default ${seconds}s';
+    return 'Leer = Standard ${seconds}s';
   }
 
   @override
-  String get builtinToolRetryLabel => 'Retry on failure / timeout';
+  String get builtinToolRetryLabel =>
+      'Bei Fehlschlag / Timeout erneut versuchen';
 
   @override
   String get builtinToolRetryBody =>
-      'Off by default. Only triggers on real failed/timed_out outcomes; will not retry invalid arguments or denied calls.';
+      'Standardmäßig aus. Wird nur bei echten failed/timed_out-Ergebnissen ausgelöst; ungültige Argumente oder abgelehnte Aufrufe werden nicht erneut versucht.';
 
   @override
   String builtinToolMaxRetriesLabel(int max) {
-    return 'Max Retries (0–$max)';
+    return 'Max. Wiederholungen (0–$max)';
   }
 
   @override
   String builtinToolMaxRetriesHelper(int max) {
-    return 'Excluding first attempt; capped at $max';
+    return 'Erstversuch ausgenommen; bei $max begrenzt';
   }
 
   @override
-  String get builtinToolBackoffLabel => 'Retry backoff base (ms)';
+  String get builtinToolBackoffLabel => 'Wiederholungs-Backoff-Basis (ms)';
 
   @override
   String builtinToolBackoffHint(int ms) {
-    return 'Default ${ms}ms';
+    return 'Standard ${ms}ms';
   }
 
   @override
   String builtinToolBackoffHelper(int max) {
-    return 'Exponential: nth retry waits base × 2^(N-1) ms, capped at ${max}ms';
+    return 'Exponentiell: n-te Wiederholung wartet Basis × 2^(N-1) ms, begrenzt auf ${max}ms';
   }
 
   @override
   String selfLearningFlushIntervalLabel(int ms) {
-    return 'Stream flush interval: ${ms}ms';
+    return 'Stream-Flush-Intervall: ${ms}ms';
   }
 
   @override
   String selfLearningFlushIntervalHelper(int min, int max) {
-    return 'Persistence interval for self-learning card streaming output ($min–${max}ms). Smaller=more real-time but more layout jitter; larger=smoother but higher per-chunk latency. Defaults to 600ms.';
+    return 'Persistenzintervall für die Streaming-Ausgabe der Selbstlernkarte ($min–${max}ms). Kleiner = mehr Echtzeit, aber mehr Layout-Jitter; größer = glatter, aber höhere Latenz pro Chunk. Standard 600ms.';
   }
 
   @override
@@ -2314,7 +2315,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tokenPopupOutputHeading => 'Ausgabe';
 
   @override
-  String get tokenPopupCompletion => 'Completion';
+  String get tokenPopupCompletion => 'Antwort';
 
   @override
   String get tokenPopupGrandTotal => 'Gesamt';
@@ -2528,126 +2529,128 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get mdlEdEnterAValidBaseUrlFirst => 'Enter a valid Base URL first';
+  String get mdlEdEnterAValidBaseUrlFirst =>
+      'Zuerst gültige Basis-URL eingeben';
 
   @override
   String get mdlEdNoModelsFoundFromThisProvider =>
-      'No models found from this provider.';
+      'Bei diesem Anbieter wurden keine Modelle gefunden.';
 
   @override
-  String get mdlEdProviderName => 'Provider Name';
+  String get mdlEdProviderName => 'Anbietername';
 
   @override
   String get mdlEdOptionalEGDeepseekLocalOllama =>
-      'Optional, e.g. DeepSeek, Local Ollama';
+      'Optional, z. B. DeepSeek, lokales Ollama';
 
   @override
-  String get mdlEdCurrentlyActiveModel => 'Currently active model';
+  String get mdlEdCurrentlyActiveModel => 'Derzeit aktives Modell';
 
   @override
-  String get mdlEdClickToSetAsActiveModel => 'Click to set as active model';
+  String get mdlEdClickToSetAsActiveModel =>
+      'Anklicken, um als aktives Modell festzulegen';
 
   @override
   String get mdlEdTapScanModelsToDiscoverModels =>
-      'Tap \"Scan Models\" to discover models automatically, or add manually below.';
+      'Tippen Sie auf „Modelle scannen“, um Modelle automatisch zu entdecken, oder fügen Sie sie unten manuell hinzu.';
 
   @override
-  String get mdlEdActiveModelId => 'Active Model ID';
+  String get mdlEdActiveModelId => 'Aktive Modell-ID';
 
   @override
   String get mdlEdTheModelUsedForConversationsSelect =>
-      'The model used for conversations. Select from the list above or type directly.';
+      'Das Modell, das für Konversationen verwendet wird. Aus der obigen Liste auswählen oder direkt eingeben.';
 
   @override
-  String get mdlEdMaxContextTokens => 'Max Context Tokens';
+  String get mdlEdMaxContextTokens => 'Max. Kontext-Token';
 
   @override
   String get mdlEdOptionalLimitsTheHistorySliceUsed =>
-      'Optional. Limits the history slice used during compression.';
+      'Optional. Begrenzt den Verlaufsabschnitt, der bei der Kompression verwendet wird.';
 
   @override
-  String get mdlEdEnterAWholeNumberGreaterThan =>
-      'Enter a whole number greater than 0';
+  String get mdlEdEnterAWholeNumberGreaterThan => 'Ganzzahl größer 0 eingeben';
 
   @override
-  String get mdlEdRequestMethod => 'Request Method';
+  String get mdlEdRequestMethod => 'Anfragemethode';
 
   @override
-  String get mdlEdOutputMode => 'Output Mode';
+  String get mdlEdOutputMode => 'Ausgabemodus';
 
   @override
   String get mdlEdStreaming => 'Streaming';
 
   @override
-  String get mdlEdNonStreaming => 'Non-streaming';
+  String get mdlEdNonStreaming => 'Nicht-Streaming';
 
   @override
-  String get mdlEdMaxOutputTokens => 'Max Output Tokens';
+  String get mdlEdMaxOutputTokens => 'Max. Ausgabe-Token';
 
   @override
   String get mdlEdOptionalUsesAdapterDefaultIfUnset =>
-      'Optional. Uses adapter default if unset.';
+      'Optional. Verwendet den Adapter-Standard, wenn nicht gesetzt.';
 
   @override
   String get mdlEdTemperature => 'Temperature';
 
   @override
-  String get mdlEd0020Default0 => '0.0 ~ 2.0, default 0.7';
+  String get mdlEd0020Default0 => '0,0 ~ 2,0, Standard 0,7';
 
   @override
-  String get mdlEdEnterANumberBetween00 => 'Enter a number between 0.0 and 2.0';
+  String get mdlEdEnterANumberBetween00 => 'Zahl zwischen 0,0 und 2,0 eingeben';
 
   @override
-  String get mdlEdCustomHeaders => 'Custom Headers';
+  String get mdlEdCustomHeaders => 'Benutzerdefinierte Header';
 
   @override
-  String get mdlEdAdd => 'Add';
+  String get mdlEdAdd => 'Hinzufügen';
 
   @override
   String get mdlEdNoCustomHeadersTapAddTo =>
-      'No custom headers. Tap \"Add\" to create one.';
+      'Keine benutzerdefinierten Header. Tippen Sie auf „Hinzufügen“, um einen zu erstellen.';
 
   @override
-  String get mdlEdHeaderName => 'Header Name';
+  String get mdlEdHeaderName => 'Header-Name';
 
   @override
-  String get mdlEdHeaderValue => 'Header Value';
+  String get mdlEdHeaderValue => 'Header-Wert';
 
   @override
-  String get mdlEdEditModelProfile => 'Edit Model Profile';
+  String get mdlEdEditModelProfile => 'Modellprofil bearbeiten';
 
   @override
-  String get mdlEdDisplayName => 'Display Name';
+  String get mdlEdDisplayName => 'Anzeigename';
 
   @override
-  String get mdlEdOptionalShownInTheUi => 'Optional, shown in the UI';
+  String get mdlEdOptionalShownInTheUi =>
+      'Optional, in der Oberfläche angezeigt';
 
   @override
-  String get mdlEdDescription => 'Description';
+  String get mdlEdDescription => 'Beschreibung';
 
   @override
-  String get mdlEdMultimodalSupport => 'Multimodal Support';
+  String get mdlEdMultimodalSupport => 'Multimodal-Unterstützung';
 
   @override
-  String get mdlEdAutoDetect => 'Auto-detect';
+  String get mdlEdAutoDetect => 'Auto erkennen';
 
   @override
-  String get mdlEdYes => 'Yes';
+  String get mdlEdYes => 'Ja';
 
   @override
-  String get mdlEdNo => 'No';
+  String get mdlEdNo => 'Nein';
 
   @override
-  String get mdlEdSupportsAttachments => 'Supports Attachments';
+  String get mdlEdSupportsAttachments => 'Unterstützt Anhänge';
 
   @override
-  String get mdlEdSupportedModalities => 'Supported Modalities';
+  String get mdlEdSupportedModalities => 'Unterstützte Modalitäten';
 
   @override
   String get mdlEdText => 'Text';
 
   @override
-  String get mdlEdImage => 'Image';
+  String get mdlEdImage => 'Bild';
 
   @override
   String get mdlEdVideo => 'Video';
@@ -2656,7 +2659,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mdlEdAudio => 'Audio';
 
   @override
-  String get mdlEdGenerationCapabilities => 'Generation Capabilities';
+  String get mdlEdGenerationCapabilities => 'Generierungsfähigkeiten';
 
   @override
   String get mdlEdPdf => 'PDF';
@@ -2665,80 +2668,80 @@ class AppLocalizationsDe extends AppLocalizations {
   String get mdlEdPpt => 'PPT';
 
   @override
-  String get mdlEdTokenLimits => 'Token Limits';
+  String get mdlEdTokenLimits => 'Token-Limits';
 
   @override
-  String get mdlEdContextLength => 'Context Length';
+  String get mdlEdContextLength => 'Kontextlänge';
 
   @override
-  String get mdlEdSummaryLength => 'Summary Length';
+  String get mdlEdSummaryLength => 'Zusammenfassungslänge';
 
   @override
-  String get mdlEdOutputLength => 'Output Length';
+  String get mdlEdOutputLength => 'Ausgabelänge';
 
   @override
-  String get mdlEdThinkingLength => 'Thinking Length';
+  String get mdlEdThinkingLength => 'Denklänge';
 
   @override
   String get mdlEdTokenPricingUsd1mTokensLeave =>
-      'Token pricing (USD / 1M tokens, leave blank if unset)';
+      'Token-Preise (USD / 1 Mio. Token, leer lassen, wenn nicht festgelegt)';
 
   @override
-  String get mdlEdInput => 'Input';
+  String get mdlEdInput => 'Eingabe';
 
   @override
-  String get mdlEdOutput => 'Output';
+  String get mdlEdOutput => 'Ausgabe';
 
   @override
-  String get mdlEdCacheRead => 'Cache Read';
+  String get mdlEdCacheRead => 'Cache-Lesen';
 
   @override
-  String get mdlEdCacheWrite => 'Cache Write';
+  String get mdlEdCacheWrite => 'Cache-Schreiben';
 
   @override
-  String get mdlEdReset => 'Reset';
+  String get mdlEdReset => 'Zurücksetzen';
 
   @override
-  String get mdlEdCancel => 'Cancel';
+  String get mdlEdCancel => 'Abbrechen';
 
   @override
   String get mdlEdOk => 'OK';
 
   @override
-  String get tlCallDir => 'Dir';
+  String get tlCallDir => 'Verzeichnis';
 
   @override
-  String get tlCallElapsed => 'Elapsed';
+  String get tlCallElapsed => 'Verstrichen';
 
   @override
-  String get tlCallExit => 'Exit';
+  String get tlCallExit => 'Beenden';
 
   @override
-  String get tlCallToolInput => 'Tool Input';
+  String get tlCallToolInput => 'Werkzeugeingabe';
 
   @override
-  String get tlCallCommand => 'command';
+  String get tlCallCommand => 'Befehl';
 
   @override
-  String get tlCallArguments => 'arguments';
+  String get tlCallArguments => 'Argumente';
 
   @override
-  String get tlCallToolOutput => 'Tool Output';
+  String get tlCallToolOutput => 'Werkzeugausgabe';
 
   @override
-  String get tlCallNoOutputYet => 'No output yet';
+  String get tlCallNoOutputYet => 'Noch keine Ausgabe';
 
   @override
-  String get tlCallResult => 'result';
+  String get tlCallResult => 'Ergebnis';
 
   @override
-  String get tlCallThereIsNoToolOutputYet => 'There is no tool output yet.';
+  String get tlCallThereIsNoToolOutputYet => 'Noch keine Werkzeugausgabe.';
 
   @override
-  String get tlCallViewInDialog => 'View in Dialog';
+  String get tlCallViewInDialog => 'Im Dialog anzeigen';
 
   @override
-  String get tlCallEmptyContent => 'Empty content';
+  String get tlCallEmptyContent => 'Leerer Inhalt';
 
   @override
   String get tlCallWrite => 'Write';
@@ -2756,86 +2759,87 @@ class AppLocalizationsDe extends AppLocalizations {
   String get tlCallBashWrite => 'Bash Write';
 
   @override
-  String get tlCallFileChanged => 'File Changed';
+  String get tlCallFileChanged => 'Datei geändert';
 
   @override
-  String get tlCallChangedFile => 'Changed File';
+  String get tlCallChangedFile => 'Geänderte Datei';
 
   @override
-  String get tlCallTool => 'Tool';
+  String get tlCallTool => 'Werkzeug';
 
   @override
   String get tlCallSkill => 'Skill';
 
   @override
-  String get tlCallStopped => 'Stopped';
+  String get tlCallStopped => 'Gestoppt';
 
   @override
-  String get tlCallBlocked => 'Blocked';
+  String get tlCallBlocked => 'Blockiert';
 
   @override
-  String get tlCallRejected => 'Rejected';
+  String get tlCallRejected => 'Abgelehnt';
 
   @override
-  String get tlCallInvalid => 'Invalid';
+  String get tlCallInvalid => 'Ungültig';
 
   @override
-  String get tlCallToolCall => 'Tool Call';
+  String get tlCallToolCall => 'Werkzeugaufruf';
 
   @override
-  String get tlCallRunning => 'Running';
+  String get tlCallRunning => 'Läuft';
 
   @override
-  String get tlCallSucceeded => 'Succeeded';
+  String get tlCallSucceeded => 'Erfolgreich';
 
   @override
-  String get tlCallDenied => 'Denied';
+  String get tlCallDenied => 'Verweigert';
 
   @override
-  String get tlCallTimedOut => 'Timed Out';
+  String get tlCallTimedOut => 'Zeitüberschreitung';
 
   @override
-  String get tlCallFailed => 'Failed';
+  String get tlCallFailed => 'Fehlgeschlagen';
 
   @override
   String get tlCallToolIsRunningWaitingForOutput =>
-      'Tool is running. Waiting for output...';
+      'Werkzeug läuft. Warten auf Ausgabe …';
 
   @override
-  String get tlCallExpandToInspectToolOutput => 'Expand to inspect tool output';
+  String get tlCallExpandToInspectToolOutput =>
+      'Erweitern, um die Werkzeugausgabe zu prüfen';
 
   @override
-  String get tlCallType => 'Type';
+  String get tlCallType => 'Typ';
 
   @override
-  String get tlCallSize => 'Size';
+  String get tlCallSize => 'Größe';
 
   @override
-  String get tlCallModified => 'Modified';
+  String get tlCallModified => 'Geändert';
 
   @override
-  String get tlCallSelfLearning => 'Self-Learning';
+  String get tlCallSelfLearning => 'Selbstlernen';
 
   @override
-  String get tlCallNudgeRecovered => 'Nudge recovered';
+  String get tlCallNudgeRecovered => 'Nudge wiederhergestellt';
 
   @override
-  String get tlCallProfileChanges => 'Profile Changes';
+  String get tlCallProfileChanges => 'Profiländerungen';
 
   @override
-  String get tlCallMemoryChanges => 'Memory Changes';
+  String get tlCallMemoryChanges => 'Speicheränderungen';
 
   @override
-  String get tlCallSkillChanges => 'Skill Changes';
+  String get tlCallSkillChanges => 'Skill-Änderungen';
 
   @override
-  String get tlCallProfileDiff => 'Profile Diff';
+  String get tlCallProfileDiff => 'Profilunterschied';
 
   @override
-  String get tlCallNoChanges => 'No changes';
+  String get tlCallNoChanges => 'Keine Änderungen';
 
   @override
-  String get tlCallUnnamed => '(unnamed)';
+  String get tlCallUnnamed => '(unbenannt)';
 
   @override
   String get tlCallJustNow => 'just now';
