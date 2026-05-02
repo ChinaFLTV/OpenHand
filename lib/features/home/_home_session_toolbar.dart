@@ -163,7 +163,9 @@ class _SessionToolbar extends StatelessWidget {
               if (showPlanTimelineToggle && planTimelineCollapsed) ...[
                 const SizedBox(width: 10),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _ToolbarPill(
@@ -610,7 +612,9 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                 const SizedBox(width: 12),
               ],
               AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
+                duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
                 child: Text(
                   data.awaitingApproval
                       ? AppLocalizations.of(context)!.toolbarPlanPending

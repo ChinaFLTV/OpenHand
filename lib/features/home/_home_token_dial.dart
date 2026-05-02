@@ -569,7 +569,9 @@ class _RollingDigit extends StatelessWidget {
     // Reserve a fixed cell width using a tabular '0' to prevent layout
     // jitter as the digit changes (some font glyphs are slightly narrower).
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 360),
+      duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 360),
       switchInCurve: Curves.easeOutBack,
       switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {

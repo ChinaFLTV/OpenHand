@@ -130,7 +130,9 @@ class _HePaneHeader extends StatelessWidget {
               children: [
                 Expanded(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 380),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 380),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     layoutBuilder: (currentChild, previousChildren) {

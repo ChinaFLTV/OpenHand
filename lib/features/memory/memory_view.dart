@@ -146,7 +146,9 @@ class MemoryView extends StatelessWidget {
         ],
         Expanded(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
             child: _buildBody(
               context,
               isLoading: memorySnapshot.isLoading,

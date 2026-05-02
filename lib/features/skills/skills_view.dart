@@ -219,7 +219,9 @@ class _SkillsViewState extends State<SkillsView> {
         const SizedBox(height: 20),
         Expanded(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
             child: _buildBody(
               context,
               filteredSkills: filteredSkills,

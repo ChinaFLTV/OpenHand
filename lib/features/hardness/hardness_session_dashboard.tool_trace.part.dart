@@ -644,7 +644,9 @@ class _HeStructuredToolSection extends StatelessWidget {
                   ],
                 ),
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(

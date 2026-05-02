@@ -1440,7 +1440,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         // SingleChildRenderObjectWidget that drives opacity via
         // RenderAnimatedOpacity.markNeedsPaint and never calls setState.
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 240),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 240),
           child:
               widget.creationMode != _CreationMode.none &&
                   widget.onEditOptionsRequested != null
@@ -1767,7 +1769,9 @@ class _ComposerModeButton extends StatelessWidget {
             // FadeTransition-only: ScaleTransition is unsafe inside
             // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
+              duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
               child: Icon(
                 modeIcon,
                 key: ValueKey<String>('${mode.storageValue}-$modeIcon'),
@@ -1780,7 +1784,9 @@ class _ComposerModeButton extends StatelessWidget {
           // FadeTransition-only: SlideTransition is unsafe inside
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
             child: Text(
               modeLabel,
               key: ValueKey<String>('${mode.storageValue}-$modeLabel'),
@@ -1901,7 +1907,9 @@ class _ComposerCreationModeButtonState
             // handleBeginFrame trigger scheduleLayoutCallback assertions.
             // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
+              duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
               child: Icon(
                 _iconForMode(widget.creationMode),
                 key: ValueKey<_CreationMode>(widget.creationMode),
@@ -3419,7 +3427,9 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
             // FadeTransition is safe (it is a SingleChildRenderObjectWidget
             // that drives opacity at the render level via markNeedsPaint).
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+              duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 200),
               child: Text(
                 label,
                 key: ValueKey<String>('creation-options-label-$label'),

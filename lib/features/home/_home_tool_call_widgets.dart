@@ -185,7 +185,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   // popping in/out, so constructing→submitting→running
                   // feels like a single fluid morph.
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -258,7 +260,9 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         // AnimatedSize already handles overall height.
         const SizedBox(height: 10),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 320),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           layoutBuilder: (current, previous) => Stack(
@@ -532,7 +536,9 @@ class _ExpandableToolSection extends StatelessWidget {
                 // the empty-preview / not-expanded fallback so transitions
                 // never see a null child.
                 AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   layoutBuilder: (current, previous) => Stack(
@@ -3187,7 +3193,9 @@ class _FileHoverPopupState extends State<_FileHoverPopup> {
                       curve: Curves.easeOutCubic,
                       alignment: Alignment.topLeft,
                       child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
+                        duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
                         child: !hasData

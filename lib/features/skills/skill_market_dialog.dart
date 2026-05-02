@@ -226,7 +226,9 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         if (_isSearching && result != null) const SizedBox(height: 10),
         Expanded(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 180),
             child: _searchError != null
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-error'),

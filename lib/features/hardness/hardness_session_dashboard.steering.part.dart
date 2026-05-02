@@ -169,7 +169,9 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
               // ── File list ──
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
+                  duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _loading
@@ -846,7 +848,9 @@ class _HeSteeringFileEditorDialogState
                 // ── Body ──
                 Expanded(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
+                    duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
                     switchInCurve: Curves.easeOutCubic,
                     switchOutCurve: Curves.easeInCubic,
                     child: _loading

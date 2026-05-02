@@ -60,7 +60,9 @@ class HooksView extends StatelessWidget {
         // Content — empty ↔ list cross-fade; entries fade in on insert.
         Expanded(
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
+            duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: entries.isEmpty

@@ -647,7 +647,9 @@ class _HePhaseMetaRow extends StatelessWidget {
     // While running the icon position is kept empty; the sweep animation on
     // the pill itself already signals activity.
     final statusIndicator = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
+      duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
       transitionBuilder: (child, animation) {
         return FadeTransition(
           opacity: animation,
