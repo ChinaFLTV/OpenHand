@@ -10,6 +10,7 @@ import '../../shared/widgets/animated_dialog.dart';
 import '../../shared/widgets/export_config_dialog.dart';
 import '../../shared/widgets/export_progress_dialog.dart';
 import '../../shared/widgets/highlight_pulse.dart';
+import '../../shared/widgets/hover_lift.dart';
 import '../../shared/widgets/openhand_dialog_action_button.dart';
 import '../../shared/widgets/openhand_snack_bar.dart';
 import '../ai/ai_session_controller.dart';
@@ -1627,7 +1628,7 @@ class _SessionRow extends StatelessWidget {
       ),
         ),
     );
-    return card;
+    return HoverLift(child: card);
   }
 }
 
